@@ -246,6 +246,9 @@ internal static partial class RegisterHost
         {
             services.AddSingleton<IImportJobTracker>(s => throw new InvalidOperationException("Npgsql is not enabled"));
         }
+#if LOCALTEST
+        Altinn.Register.Localtest.LocaltestRegisterExtensions.AddLocaltestRegister(builder);
+#endif
 
         var initOnly = config.GetValue<bool>("Altinn:RunInitOnly");
         var isTest = config.GetValue<bool>("Altinn:IsTest");
