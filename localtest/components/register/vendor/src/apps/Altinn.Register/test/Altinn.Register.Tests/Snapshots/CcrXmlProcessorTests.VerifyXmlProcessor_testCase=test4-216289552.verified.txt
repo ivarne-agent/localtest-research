@@ -1,0 +1,57 @@
+﻿[
+  {
+    organizationIdentifier: 216289552,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AS,
+    unitStatus: E,
+    datoSistEndret: 2026-04-28,
+    roleUpdates: {
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: signerer-fellesskap,
+          rolePersonalIdentifier: 17811298492,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: signerer-fellesskap,
+          rolePersonalIdentifier: 29842699892,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ],
+      bulkRemoveRoleAssignments: [
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: signerer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: signerer-fellesskap,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: signerer-hver-for-seg,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

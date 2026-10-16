@@ -1,0 +1,95 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2024-01-24T12:30:54.299406+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-22T00:00:00+01:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "41919701143",
+      "identifikatortype": "dNummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2026-02-11T00:08:41.835693505+01:00",
+      "erGjeldende": true,
+      "kilde": "folkeregisteret",
+      "aarsak": "Person med d-nummer",
+      "gyldighetstidspunkt": "2026-02-11T00:08:41.833785212+01:00",
+      "status": "inaktiv"
+    },
+    {
+      "ajourholdstidspunkt": "2021-03-09T12:29:47.434+01:00",
+      "erGjeldende": false,
+      "kilde": "DP065_dnummer_midlertidig",
+      "gyldighetstidspunkt": "2020-12-22T17:07:21.437+01:00",
+      "status": "midlertidig"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2022-04-04T16:55:01.201524+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "gyldighetstidspunkt": "1997-11-01T16:55:01.201521+02:00",
+      "foedselsdato": "1997-11-01",
+      "foedselsaar": "1997",
+      "foedeland": "NIU"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2022-04-04T16:55:01.611358+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2022-04-04T16:55:01.611355+02:00",
+      "sivilstand": "uoppgitt",
+      "sivilstandsdato": "1997-11-01"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-04-04T16:55:01.31113+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-04-04T16:55:01.311128+02:00",
+      "fornavn": "FRUKTBAR",
+      "etternavn": "LUNSJ"
+    }
+  ],
+  "oppholdsadresse": [
+    {
+      "ajourholdstidspunkt": "2022-04-04T16:55:01.699504+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-04-04T16:55:01.201497+02:00",
+      "vegadresse": {
+        "kommunenummer": "4202",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Jorvardeveien",
+        "adressenummer": { "husnummer": "7" },
+        "adressekode": "1380",
+        "poststed": { "poststedsnavn": "HOMBORSUND", "postnummer": "4888" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "269219256",
+      "adressegradering": "ugradert",
+      "oppholdsadressedato": "2022-04-04"
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2022-04-04T16:55:01.400612+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "1997-11-01T16:55:01.400601+02:00",
+      "statsborgerskap": "NIU",
+      "ervervsdato": "1997-11-01"
+    }
+  ]
+}

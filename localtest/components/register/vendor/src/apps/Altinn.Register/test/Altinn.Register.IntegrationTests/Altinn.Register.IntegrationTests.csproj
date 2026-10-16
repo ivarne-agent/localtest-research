@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <XUnitVersion>v3</XUnitVersion>
+	  <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+		<PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
+  </ItemGroup>
+
+  <ItemGroup>
+		<EmbeddedResource Include="Testdata/**/*.json" />
+		<EmbeddedResource Include="Testdata/**/*.txt" />
+		<EmbeddedResource Include="Testdata/**/*.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Altinn.Register\Altinn.Register.csproj" />
+    <ProjectReference Include="..\Altinn.Register.TestUtils.V3\Altinn.Register.TestUtils.V3.csproj" />
+  </ItemGroup>
+
+</Project>

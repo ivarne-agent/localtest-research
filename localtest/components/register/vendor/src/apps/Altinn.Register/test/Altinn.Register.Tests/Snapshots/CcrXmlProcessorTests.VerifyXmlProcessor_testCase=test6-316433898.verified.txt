@@ -1,0 +1,45 @@
+﻿[
+  {
+    organizationIdentifier: 316433898,
+    isFirstRegistration: true,
+    displayName: JANNES SAMEIE TIL BRUK TIL PAYLOADTESTER AV REGLER I BVR-INN,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: SAM,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: {
+      address: Finn-Zarisvegen 1 7970 NÆRØYSUND,
+      postalCode: 7970,
+      city: NÆRØYSUND
+    },
+    businessAddress: null,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 13928299931,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Inkluderende Undulat,
+            firstName: Inkluderende,
+            middleName: null,
+            lastName: Undulat,
+            shortName: Undulat Inkluderende
+          },
+          mailingAddress: {
+            address: Lyngåsveien 9 0491,
+            postalCode: 0491,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

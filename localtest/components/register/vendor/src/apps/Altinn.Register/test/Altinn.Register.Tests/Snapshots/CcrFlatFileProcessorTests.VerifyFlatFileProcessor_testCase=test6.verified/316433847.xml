@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433847" organisasjonsform="FLI" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>5745</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>4641</kommunenr>
+      <adresse1>Dalen 1</adresse1>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>skal brukes av BVR-INN</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>7000</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>18916099696</rolleFoedselsnr>
+      <fornavn>Tøff</fornavn>
+      <slektsnavn>Aldersforskjell</slektsnavn>
+      <postnr>3090</postnr>
+      <adresse1>Frøyas Vei 16</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>18906698222</rolleFoedselsnr>
+      <fornavn>Pompøs</fornavn>
+      <slektsnavn>Make</slektsnavn>
+      <postnr>1348</postnr>
+      <adresse1>Belsetgrenda 5</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES FORENING TIL BRUK FOR</navn1>
+      <navn2>PAYLOADTESTING AV REGLER</navn2>
+      <rednavn>JANNES FORENING TIL BRUK FOR</rednavn>
+    </infotype>
+    <infotype felttype="NYFR" endringstype="N">
+      <opplysning>20260820</opplysning>
+    </infotype>
+    <infotype felttype="R-FR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20260801</opplysning>
+    </infotype>
+    <infotype felttype="VEDT" endringstype="N">
+      <opplysning>20260801</opplysning>
+    </infotype>
+    <infotype felttype="VFOR" endringstype="N">
+      <opplysning>Skal benyttes av BVR-INN for testing av regler, payloadtester.</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

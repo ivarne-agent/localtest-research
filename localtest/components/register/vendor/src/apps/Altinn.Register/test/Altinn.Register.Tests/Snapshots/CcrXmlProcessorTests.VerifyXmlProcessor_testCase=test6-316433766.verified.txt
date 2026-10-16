@@ -1,0 +1,81 @@
+﻿[
+  {
+    organizationIdentifier: 316433766,
+    isFirstRegistration: true,
+    displayName: ANTILOPE VIE PRE ANS,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: PRE,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Ansgar Sørlies vei 1A 0576 OSLO,
+      postalCode: 0576,
+      city: OSLO
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: bestyrende-reder,
+          rolePersonalIdentifier: 04857795623,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Gjestfri Naturstridig Medisterdeig,
+            firstName: Gjestfri Naturstridig,
+            middleName: null,
+            lastName: Medisterdeig,
+            shortName: Medisterdeig Gjestfri Naturstridig
+          },
+          mailingAddress: {
+            address: Guddalsvegen 1772 6966,
+            postalCode: 6966,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 02849195959,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Blomstrete Uklar Sjakal Antilope,
+            firstName: Blomstrete Uklar,
+            middleName: Sjakal,
+            lastName: Antilope,
+            shortName: Antilope Blomstrete Uklar Sjakal
+          },
+          mailingAddress: {
+            address: Nerengvegen 32 2820,
+            postalCode: 2820,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 21886099190,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tilbakeholden Gåte,
+            firstName: Tilbakeholden,
+            middleName: null,
+            lastName: Gåte,
+            shortName: Gåte Tilbakeholden
+          },
+          mailingAddress: {
+            address: Ryland 39 5917,
+            postalCode: 5917,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

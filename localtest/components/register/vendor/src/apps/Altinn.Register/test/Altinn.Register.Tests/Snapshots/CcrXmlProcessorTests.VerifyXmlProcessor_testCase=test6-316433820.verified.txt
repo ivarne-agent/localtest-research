@@ -1,0 +1,63 @@
+﻿[
+  {
+    organizationIdentifier: 316433820,
+    isFirstRegistration: true,
+    displayName: JANNES FORENING TIL BRUK AV PAYLOADTESTER AV REGLER I BVR-INN,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: FLI,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Vik Eidsfjordveien 2408 8450 HADSEL,
+      postalCode: 8450,
+      city: HADSEL
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 23827696358,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Åpen Porto,
+            firstName: Åpen,
+            middleName: null,
+            lastName: Porto,
+            shortName: Porto Åpen
+          },
+          mailingAddress: {
+            address: Valvikvegen 358 6919,
+            postalCode: 6919,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 21819499885,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Sliten Autoritet,
+            firstName: Sliten,
+            middleName: null,
+            lastName: Autoritet,
+            shortName: Autoritet Sliten
+          },
+          mailingAddress: {
+            address: Vikveien 64 8253,
+            postalCode: 8253,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "identifikator": "090090003",
+  "selskapetsNavn": "Test AS",
+  "organisasjonsform": "kommandittselskap",
+  "stiftelsesdato": "2020-01-01",
+  "virksomhetsrelasjon": [
+    {
+      "relasjonstype": "dagligLederAdministrerendeDirektoer",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "25871999336",
+        "landkode": "NO"
+      },
+      "gyldighetstidspunkt": "2020-01-01T00:00:00+01:00",
+      "ajourholdstidspunkt": "2020-01-01T00:00:00+01:00"
+    }
+  ],
+  "postadresse": {
+    "ajourholdstidspunkt": "2024-06-01T12:00:00+02:00",
+    "norskAdresse": {
+      "adressetekst": ["Storgata 1"],
+      "postnummer": "0155",
+      "poststedsnavn": "OSLO"
+    }
+  }
+}

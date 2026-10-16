@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.ModelUtils" />
+    <PackageReference Include="Altinn.Authorization.ProblemDetails.Abstractions" />
+    <PackageReference Include="Altinn.Authorization.ProblemDetails.Validation" />
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Telemetry" />
+    <PackageReference Include="Altinn.Swashbuckle.Abstractions" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="Nerdbank.Streams" />
+    <PackageReference Include="Polly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\pkgs\Altinn.Register.Contracts\src\Altinn.Register.Contracts\Altinn.Register.Contracts.csproj" />
+    <ProjectReference Include="..\Altinn.Register.Contracts.MassTransit\Altinn.Register.Contracts.MassTransit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+		<InternalsVisibleTo Include="Altinn.Register.Tests" />
+		<InternalsVisibleTo Include="Altinn.Register.IntegrationTests" />
+		<InternalsVisibleTo Include="Altinn.Register.Persistence.Tests" />
+  </ItemGroup>
+
+</Project>

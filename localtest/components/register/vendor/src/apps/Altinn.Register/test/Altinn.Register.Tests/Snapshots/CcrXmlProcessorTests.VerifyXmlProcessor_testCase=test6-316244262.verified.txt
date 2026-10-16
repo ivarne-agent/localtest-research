@@ -1,0 +1,23 @@
+﻿[
+  {
+    organizationIdentifier: 316244262,
+    isFirstRegistration: false,
+    displayName: RÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AAFY,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    mailingAddress: {
+      address: Hánnoluohkká 45 9520 KAUTOKEINO,
+      postalCode: 9520,
+      city: KAUTOKEINO
+    },
+    businessAddress: {
+      address: Ávžžiluodda 28 9520 KAUTOKEINO,
+      postalCode: 9520,
+      city: KAUTOKEINO
+    },
+    roleUpdates: null
+  }
+]

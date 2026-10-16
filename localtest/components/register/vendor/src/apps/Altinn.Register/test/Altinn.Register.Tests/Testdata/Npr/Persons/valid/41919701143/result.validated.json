@@ -1,0 +1,17 @@
+{
+  "personIdentifier": "41919701143",
+  "displayName": "FRUKTBAR LUNSJ",
+  "firstName": "FRUKTBAR",
+  "middleName": null,
+  "lastName": "LUNSJ",
+  "shortName": "LUNSJ FRUKTBAR",
+  "address": null,
+  "mailingAddress": {
+    "address": "Jorvardeveien 7 4888 HOMBORSUND",
+    "postalCode": "4888",
+    "city": "HOMBORSUND"
+  },
+  "dateOfBirth": "1997-11-01",
+  "dateOfDeath": null,
+  "guardians": []
+}

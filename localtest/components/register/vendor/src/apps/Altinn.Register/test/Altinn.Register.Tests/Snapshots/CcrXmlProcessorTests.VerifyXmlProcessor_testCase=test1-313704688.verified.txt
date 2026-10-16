@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 313704688,
+    isFirstRegistration: false,
+    displayName: FANTASILØS FLYKTIG KATT PÅPAKNING RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ENK,
+    unitStatus: E,
+    datoSistEndret: 2021-03-16,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

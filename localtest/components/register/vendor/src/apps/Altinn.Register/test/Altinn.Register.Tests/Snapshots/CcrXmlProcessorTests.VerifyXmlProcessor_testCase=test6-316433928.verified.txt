@@ -1,0 +1,123 @@
+﻿[
+  {
+    organizationIdentifier: 316433928,
+    isFirstRegistration: true,
+    displayName: JANNES SELSKAP TIL BRUK AV PAYLOADTESTER AV REGLER I BVR-INN IKS,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: IKS,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Fjellandsbyvegen 13 3540 NESBYEN,
+      postalCode: 3540,
+      city: NESBYEN
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 13886797294,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Optimistisk Harpe,
+            firstName: Optimistisk,
+            middleName: null,
+            lastName: Harpe,
+            shortName: Harpe Optimistisk
+          },
+          mailingAddress: {
+            address: Asperholen 80 4329,
+            postalCode: 4329,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 313140938,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 313606600,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 18916099696,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tøff Aldersforskjell,
+            firstName: Tøff,
+            middleName: null,
+            lastName: Aldersforskjell,
+            shortName: Aldersforskjell Tøff
+          },
+          mailingAddress: {
+            address: Frøyas Vei 16 3090,
+            postalCode: 3090,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 13928299931,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Inkluderende Undulat,
+            firstName: Inkluderende,
+            middleName: null,
+            lastName: Undulat,
+            shortName: Undulat Inkluderende
+          },
+          mailingAddress: {
+            address: Lyngåsveien 9 0491,
+            postalCode: 0491,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: nestleder,
+          rolePersonalIdentifier: 18906698222,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Pompøs Make,
+            firstName: Pompøs,
+            middleName: null,
+            lastName: Make,
+            shortName: Make Pompøs
+          },
+          mailingAddress: {
+            address: Belsetgrenda 5 1348,
+            postalCode: 1348,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 310267511,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

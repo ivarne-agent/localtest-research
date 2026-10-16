@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 315268729,
+    isFirstRegistration: false,
+    displayName: SAMEIET ORDENTLIG STØYFRI LØVE RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AAFY,
+    unitStatus: E,
+    datoSistEndret: 2025-02-20,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Altinn.Register.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\pkgs\Altinn.Register.Contracts\src\Altinn.Register.Contracts\Altinn.Register.Contracts.csproj" />
+    <ProjectReference Include="..\ServiceDefaults.MassTransit.Abstractions\Altinn.Authorization.ServiceDefaults.MassTransit.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,32 @@
+{
+  "PartyId": 50012345,
+  "PartyTypeName": 1,
+  "OrgNumber": null,
+  "SSN": "25871999336",
+  "UnitType": null,
+  "Name": "Ola Bla Nordmann",
+  "IsDeleted": false,
+  "PartyUuid": "195BD1DC-F136-48FE-9BA4-959949A1B067",
+  "OnlyHierarchyElementWithNoAccess": false,
+  "Person": {
+    "SSN": "25871999336",
+    "Name": "Ola Bla Nordmann",
+    "FirstName": "Ola",
+    "MiddleName": "Bla",
+    "LastName": "Nordmann",
+    "TelephoneNumber": "12345678",
+    "MobileNumber": "87654321",
+    "MailingAddress": "Blåbæreveien 7 8450 Stokmarknes",
+    "MailingPostalCode": "8450",
+    "MailingPostalCity": "Stokmarknes",
+    "AddressMunicipalNumber": "1866",
+    "AddressMunicipalName": "Hadsel",
+    "AddressStreetName": "Blåbærveien",
+    "AddressHouseNumber": "7",
+    "AddressHouseLetter": "G",
+    "AddressPostalCode": "8450",
+    "AddressCity": "Stokarknes"
+  },
+  "Organization": null,
+  "ChildParties": null
+}

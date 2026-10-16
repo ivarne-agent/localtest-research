@@ -1,0 +1,17 @@
+{
+  "personIdentifier": "02851798067",
+  "displayName": "AKTPÅGIVENDE OLJE",
+  "firstName": "AKTPÅGIVENDE",
+  "middleName": null,
+  "lastName": "OLJE",
+  "shortName": "OLJE AKTPÅGIVENDE",
+  "address": null,
+  "mailingAddress": {
+    "address": "Testadressenavn 281 Testpostkode utland 283 Viktig testby- eller stedsnavn URUGUAY",
+    "postalCode": "Testpostkode utland 283",
+    "city": "Viktig testby- eller stedsnavn"
+  },
+  "dateOfBirth": "2017-05-02",
+  "dateOfDeath": null,
+  "guardians": []
+}

@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289010" organisasjonsform="ENK" hovedsakstype="E" undersakstype="EBTC" foersteOverfoering="N" datoFoedt="20130815" datoSistEndret="20260502">
+    <infotype felttype="FMVA" endringstype="N">
+      <opplysning>BFLA</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260311" kjoerenr="05749" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="311258524" organisasjonsform="BEDR" hovedsakstype="E" undersakstype="NY" foersteOverfoering="N" datoFoedt="20210318" datoSistEndret="20210318">
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>KUL BRA TIGER AS RESERVERT AMBITA</navn1>
+      <rednavn>KUL BRA TIGER AS RESERVERT A</rednavn>
+    </infotype>
+    <samendringer data="D" felttype="DAGL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleFoedselsnr>12838999466</rolleFoedselsnr>
+      <fornavn>ØDE FOLE</fornavn>
+    </samendringer>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

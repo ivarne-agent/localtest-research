@@ -1,0 +1,117 @@
+﻿[
+  {
+    organizationIdentifier: 316289657,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: NUF,
+    unitStatus: E,
+    datoSistEndret: 2026-04-28,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: HÅNDLAGET LAGIDRETT,
+            firstName: HÅNDLAGET,
+            middleName: null,
+            lastName: LAGIDRETT,
+            shortName: LAGIDRETT HÅNDLAGET
+          },
+          mailingAddress: {
+            address: null,
+            postalCode: 0000,
+            city: null
+          }
+        }
+      ],
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: kontaktperson,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: kontaktperson-revisor,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: kontaktperson-kommune,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: kontaktperson-nuf,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: kontaktperson-ados,
+          rolePersonalIdentifier: 08828296508,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ],
+      bulkRemoveRoleAssignments: [
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: kontaktperson-revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: kontaktperson-kommune,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: kontaktperson-nuf,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: kontaktperson-ados,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: kontaktperson,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

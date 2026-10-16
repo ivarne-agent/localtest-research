@@ -1,0 +1,178 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:08:14.003+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "04834598502",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:08:14.004+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-22T17:08:14.004+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2022-03-02T10:42:10.05501+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "gyldighetstidspunkt": "1945-03-04T10:42:10.055007+01:00",
+      "foedselsdato": "1945-03-04",
+      "foedselsaar": "1945",
+      "foedekommuneINorge": "5028",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2022-03-02T10:42:10.100151+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1945-03-04T10:42:10.100152+01:00",
+      "foedselsinstitusjonsnavn": "Nødvendig Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T15:03:08.047361+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1988-03-18T15:03:07.671801+01:00",
+      "relatertPerson": "28894498287",
+      "relatertPersonsRolle": "ektefelleEllerPartner",
+      "minRolleForPerson": "ektefelleEllerPartner"
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-02T10:42:09.667383+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1979-10-01T00:00:00+01:00",
+      "relatertPerson": "01907999587",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "far"
+    },
+    {
+      "ajourholdstidspunkt": "2022-04-07T14:52:02.274843+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1974-05-15T00:00:00+02:00",
+      "relatertPerson": "15857499864",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "far"
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-10T08:20:44.051428+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1968-05-04T00:00:00+01:00",
+      "relatertPerson": "04856898844",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "far"
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-23T15:03:08.428536+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1945-03-04T00:00:00+01:00",
+      "relatertPerson": "26810749937",
+      "relatertPersonsRolle": "far",
+      "minRolleForPerson": "barn"
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-23T15:03:08.266978+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1945-03-04T00:00:00+01:00",
+      "relatertPerson": "06840949816",
+      "relatertPersonsRolle": "mor",
+      "minRolleForPerson": "barn"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T15:03:07.671802+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1988-03-18T15:03:07.671801+01:00",
+      "sivilstand": "gift",
+      "sivilstandsdato": "1988-03-18",
+      "myndighet": "DEN_NORSKE_KIRKE",
+      "kommune": "1103",
+      "sted": "Urolig Testkirke",
+      "relatertVedSivilstand": "28894498287"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-03-02T10:42:10.14063+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-03-02T10:42:10.140627+01:00",
+      "fornavn": "SPENNENDE",
+      "etternavn": "ASSOSIASJON"
+    }
+  ],
+  "adressebeskyttelse": [
+    {
+      "ajourholdstidspunkt": "2023-04-09T08:04:02.756718894+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Adressebeskyttelse",
+      "gyldighetstidspunkt": "2023-04-09T00:00:00+02:00",
+      "graderingsnivaa": "fortrolig"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2023-04-09T08:04:03.236006787+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2023-04-09T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "1511",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Syltedalsvegen",
+        "adressenummer": { "husnummer": "32" },
+        "adressekode": "11072",
+        "poststed": { "poststedsnavn": "SYLTE", "postnummer": "6144" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "129808880",
+      "adressegradering": "fortrolig",
+      "flyttedato": "2023-04-09",
+      "grunnkrets": 105,
+      "stemmekrets": 5,
+      "skolekrets": 5,
+      "kirkekrets": 1
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2022-03-02T10:42:10.183215+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1945-03-04T10:42:10.183237+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1945-03-04"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "23904597538",
+  "displayName": "FLAT SVAMP",
+  "firstName": "FLAT",
+  "middleName": null,
+  "lastName": "SVAMP",
+  "shortName": "SVAMP FLAT",
+  "address": {
+    "municipalNumber": "5534",
+    "municipalName": "KARLSØY",
+    "streetName": "Nord-Fugløyveien",
+    "houseNumber": "2108",
+    "houseLetter": null,
+    "postalCode": "9135",
+    "city": "VANNVÅG"
+  },
+  "mailingAddress": {
+    "address": "c/o Empirisk Ungdom Postboks Test 165 5473 SNILSTVEITØY",
+    "postalCode": "5473",
+    "city": "SNILSTVEITØY"
+  },
+  "dateOfBirth": "1945-10-23",
+  "dateOfDeath": null,
+  "guardians": []
+}

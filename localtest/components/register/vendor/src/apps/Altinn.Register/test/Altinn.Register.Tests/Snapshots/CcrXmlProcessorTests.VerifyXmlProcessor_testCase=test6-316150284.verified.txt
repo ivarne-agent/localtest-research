@@ -1,0 +1,23 @@
+﻿[
+  {
+    organizationIdentifier: 316150284,
+    isFirstRegistration: false,
+    displayName: EXTKAU TESTER SAMISK ORIDÉ ÁVŽŽILUODDA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ENK,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    mailingAddress: {
+      address: Doaktárluohkká 13 9520 KAUTOKEINO,
+      postalCode: 9520,
+      city: KAUTOKEINO
+    },
+    businessAddress: {
+      address: Olmmáiváhbálggis 131 9144 KÅFJORD,
+      postalCode: 9144,
+      city: KÅFJORD
+    },
+    roleUpdates: null
+  }
+]

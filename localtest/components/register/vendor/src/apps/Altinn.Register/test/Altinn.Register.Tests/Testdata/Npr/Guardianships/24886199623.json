@@ -1,0 +1,40 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:36.294+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "24886199623",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "vergemaalEllerFremtidsfullmakt": [
+    {
+      "ajourholdstidspunkt": "2023-11-20T14:00:18.540646+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2021-11-28T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvaltarenIMoereOgRomsdal",
+      "verge": {
+        "foedselsEllerDNummer": "19906199303",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+          }
+        ]
+      }
+    }
+  ]
+}

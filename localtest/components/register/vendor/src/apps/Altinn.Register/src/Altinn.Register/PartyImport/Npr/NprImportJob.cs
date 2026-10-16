@@ -1,0 +1,160 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Metrics;
+using Altinn.Authorization.ServiceDefaults.Jobs;
+using Altinn.Authorization.ServiceDefaults.MassTransit;
+using Altinn.Authorization.ServiceDefaults.Telemetry;
+using Altinn.Register.Core;
+using Altinn.Register.Core.ImportJobs;
+using Altinn.Register.Core.Npr;
+using Altinn.Register.PartyImport.A2;
+
+namespace Altinn.Register.PartyImport.Npr;
+
+/// <summary>
+/// A job that imports NPR data.
+/// </summary>
+[ExcludeFromCodeCoverage]
+internal sealed partial class NprImportJob
+    : Job
+    , IHasJobName<NprImportJob>
+{
+    /// <inheritdoc/>
+    public static string JobName => JobNames.NprImport;
+
+    private readonly ILogger<NprImportJob> _logger;
+    private readonly IImportJobTracker _tracker;
+    private readonly ICommandSender _sender;
+    private readonly INprClient _client;
+    private readonly JobCleanupHelper _cleanupHelper;
+    private readonly TimeProvider _timeProvider;
+    private readonly ImportMeters _meters;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NprImportJob"/> class.
+    /// </summary>
+    public NprImportJob(
+        ILogger<NprImportJob> logger,
+        IImportJobTracker tracker,
+        ICommandSender sender,
+        INprClient client,
+        JobCleanupHelper cleanupHelper,
+        TimeProvider timeProvider,
+        IMetricsProvider metricsProvider)
+    {
+        _logger = logger;
+        _tracker = tracker;
+        _sender = sender;
+        _client = client;
+        _cleanupHelper = cleanupHelper;
+        _timeProvider = timeProvider;
+        _meters = metricsProvider.Get<ImportMeters>();
+    }
+
+    /// <inheritdoc/>
+    protected override async Task RunAsync(CancellationToken cancellationToken = default)
+    {
+        var start = _timeProvider.GetTimestamp();
+        Log.StartingPartyImport(_logger);
+
+        using var activity = RegisterTelemetry.StartActivity("import npr parties", ActivityKind.Internal);
+        var progress = await _tracker.GetStatus(JobName, cancellationToken);
+        Log.PartyImportInitialProgress(_logger, in progress);
+        var startEnqueuedMax = progress.EnqueuedMax;
+
+        var updates = _client.GetUpdates(checked(((uint)progress.EnqueuedMax) + 1U), cancellationToken);
+        await foreach (var page in updates.WithCancellation(cancellationToken))
+        {
+            if (page.Count == 0)
+            {
+                // Skip empty pages.
+                continue;
+            }
+
+            var cmds = page.Select(static update => new ImportNprPartyCommand
+            {
+                PersonIdentifier = update.PersonIdentifier,
+                ChangedTime = update.UpdateTime,
+                ChangeId = update.SequenceNumber,
+                Tracking = new(JobName, update.SequenceNumber),
+            });
+
+            await _sender.Send(cmds, cancellationToken);
+            Log.EnqueuedPartiesForImport(_logger, page.Count);
+
+            var enqueuedMax = page[^1].SequenceNumber;
+            progress = await TrackQueueStatus(JobName, progress, new() { EnqueuedMax = enqueuedMax, SourceMax = null }, cancellationToken);
+            _meters.PartiesEnqueued.Add(page.Count);
+
+            if (enqueuedMax - progress.ProcessedMax > 50_000)
+            {
+                Log.PausingEnqueueingParties(_logger, enqueuedMax, progress.ProcessedMax);
+                break;
+            }
+        }
+
+        var duration = _timeProvider.GetElapsedTime(start);
+        Log.FinishedPartyImport(_logger, duration);
+
+        await _cleanupHelper.MaybeRunCleanup(JobName, startEnqueuedMax, in progress, cancellationToken);
+    }
+
+    private async Task<ImportJobStatus> TrackQueueStatus(string name, ImportJobStatus current, ImportJobQueueStatus newStatus, CancellationToken cancellationToken)
+    {
+        var (newProgress, _) = await _tracker.TrackQueueStatus(name, newStatus, cancellationToken);
+
+        // TODO: this is working around a bug that currently exists in the tracker where the status returned is for whatever reason lower than the current status.
+        // This should be removed once the bug is fixed.
+        var sourceMax = NullMax(current.SourceMax, newProgress.SourceMax);
+        var enqueuedMax = Math.Max(current.EnqueuedMax, newProgress.EnqueuedMax);
+        var processedMax = Math.Max(current.ProcessedMax, newProgress.ProcessedMax);
+        return new() { SourceMax = sourceMax, EnqueuedMax = enqueuedMax, ProcessedMax = processedMax };
+
+        static ulong? NullMax(ulong? val1, ulong? val2)
+            => (val1, val2) switch
+            {
+                (null, null) => null,
+                (null, ulong u) => u,
+                (ulong u, null) => u,
+                (ulong u1, ulong u2) => Math.Max(u1, u2),
+            };
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(0, LogLevel.Information, "Enqueued {Count} parties for import.")]
+        public static partial void EnqueuedPartiesForImport(ILogger logger, int count);
+
+        [LoggerMessage(1, LogLevel.Information, "More than 50'000 parties in queue since last measurement. Pausing enqueueing. EnqueuedMax = {EnqueuedMax}, ProcessedMax = {ProcessedMax}.")]
+        public static partial void PausingEnqueueingParties(ILogger logger, ulong enqueuedMax, ulong processedMax);
+
+        [LoggerMessage(3, LogLevel.Information, "Starting party import.")]
+        public static partial void StartingPartyImport(ILogger logger);
+
+        [LoggerMessage(4, LogLevel.Information, "Finished party import in {Duration}.")]
+        public static partial void FinishedPartyImport(ILogger logger, TimeSpan duration);
+
+        [LoggerMessage(8, LogLevel.Information, "Party import initial progress: EnqueuedMax = {EnqueuedMax}, SourceMax = {SourceMax}, ProcessedMax = {ProcessedMax}.")]
+        private static partial void PartyImportInitialProgress(ILogger logger, ulong enqueuedMax, ulong? sourceMax, ulong processedMax);
+
+        public static void PartyImportInitialProgress(ILogger logger, in ImportJobStatus status)
+            => PartyImportInitialProgress(logger, status.EnqueuedMax, status.SourceMax, status.ProcessedMax);
+    }
+
+    /// <summary>
+    /// Meters for <see cref="NprImportJob"/>.
+    /// </summary>
+    private sealed class ImportMeters(Meter meter)
+        : IMetrics<ImportMeters>
+    {
+        /// <summary>
+        /// Gets a counter for the number of parties imported from NPR.
+        /// </summary>
+        public Counter<int> PartiesEnqueued { get; }
+            = meter.CreateCounter<int>("altinn.register.party-import.npr.parties.enqueued", "The number of parties enqueued to be imported from NPR.");
+
+        /// <inheritdoc/>
+        public static ImportMeters Create(Meter meter)
+            => new ImportMeters(meter);
+    }
+}

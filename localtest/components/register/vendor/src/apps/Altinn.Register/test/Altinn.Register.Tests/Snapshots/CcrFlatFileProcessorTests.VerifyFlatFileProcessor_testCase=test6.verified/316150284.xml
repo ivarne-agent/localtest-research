@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316150284" organisasjonsform="ENK" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20241204" datoSistEndret="20260820">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>9144</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5540</kommunenr>
+      <adresse1>Olmmáiváhbálggis 131</adresse1>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Á&amp;#268;Á&amp;#268;&amp;#272;&amp;#272;&amp;#330;&amp;#330;ŠŠ&amp;#358;&amp;#358;ŽŽ MÁ&amp;#272;EADJI</opplysning>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>men også annen lignende aktivitet hvis det skulle passe seg..</opplysning>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N" />
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>EXTKAU TESTER SAMISK ORIDÉ</navn1>
+      <navn2>ÁVŽŽILUODDA</navn2>
+      <rednavn>EXTKAU TESTER SAMISK ORIDÉ</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>9520</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5612</kommunenr>
+      <adresse1>Doaktárluohkká 13</adresse1>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

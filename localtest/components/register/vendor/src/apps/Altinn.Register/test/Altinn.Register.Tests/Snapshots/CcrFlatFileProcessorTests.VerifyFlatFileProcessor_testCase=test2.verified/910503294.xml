@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20191118" kjoerenr="04155" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="910503294" organisasjonsform="FLI" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20130325" datoSistEndret="20191118">
+    <infotype felttype="EPOS" endringstype="N">
+      <opplysning>testemail@gmail.com</opplysning>
+    </infotype>
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>4816</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>0906</kommunenr>
+      <adresse1>Test addresse eee</adresse1>
+      <adresse2>Sandvigheia 1</adresse2>
+    </infotype>
+    <infotype felttype="IADR" endringstype="N">
+      <opplysning>test.altinn.no</opplysning>
+    </infotype>
+    <infotype felttype="MTLF" endringstype="N">
+      <opplysning>123 12 123</opplysning>
+    </infotype>
+    <infotype felttype="PADR" endringstype="U" />
+    <samendringer data="1" felttype="BEDR" endringstype="N" type="9" />
+    <status felttype="AKKO" endringstype="N" />
+    <samendringer data="1" felttype="DAGL" endringstype="N" type="0" />
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Utleie av forretnigseiendommer</opplysning>
+    </infotype>
+    <status felttype="KONK" endringstype="N" />
+    <infotype felttype="NDAT" endringstype="N">
+      <opplysning>20191031</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

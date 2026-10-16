@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20180723" kjoerenr="00001" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289169" organisasjonsform="BEDR" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20180630" datoSistEndret="20180630">
+    <infotype felttype="FMVA" endringstype="N">
+      <opplysning>OFVA</opplysning>
+    </infotype>
+    <infotype felttype="FMVA" endringstype="N">
+      <opplysning>ULBA</opplysning>
+    </infotype>
+    <infotype felttype="FMVA" endringstype="N">
+      <opplysning>BFLA</opplysning>
+    </infotype>
+    <infotype felttype="FMVA" endringstype="N">
+      <opplysning>BVSK</opplysning>
+    </infotype>
+    <infotype felttype="FMVA" endringstype="U" />
+    <infotype felttype="TFON" endringstype="N">
+      <opplysning>12345678</opplysning>
+    </infotype>
+    <infotype felttype="TFAX" endringstype="N">
+      <opplysning>12345678</opplysning>
+    </infotype>
+    <infotype felttype="paategning" endringstype="N">
+      <infotype>FADR</infotype>
+      <register>FR</register>
+      <tekstlinje>Foretaksregisteret har grunn til å anta at forretningsadressen er feil</tekstlinje>
+      <tekstlinje>. Foretaket har fått pålegg om å melde endring.</tekstlinje>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>1258</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>0301</kommunenr>
+      <adresse2>Storgata 88</adresse2>
+    </infotype>
+    <infotype felttype="paategning" endringstype="U" />
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

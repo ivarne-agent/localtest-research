@@ -1,0 +1,106 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:50.966+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "28857197102",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:50.966+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-22T17:09:50.966+01:00",
+      "status": "doed"
+    }
+  ],
+  "foedsel": [
+    {
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "foedselsdato": "1971-05-28",
+      "foedselsaar": "1971",
+      "foedekommuneINorge": "5427",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2021-12-15T11:05:23.197951+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1971-05-28T11:05:23.197951+01:00",
+      "foedselsinstitusjonsnavn": "Redd Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2021-12-15T11:05:23.262399+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1971-05-28T00:00:00+01:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1971-05-28"
+    }
+  ],
+  "doedsfall": {
+    "ajourholdstidspunkt": "2021-12-15T11:05:23.316149+01:00",
+    "erGjeldende": true,
+    "kilde": "Synutopia",
+    "aarsak": "Dødsfall",
+    "gyldighetstidspunkt": "2020-12-22T11:05:23.316152+01:00",
+    "doedsdato": "2020-12-22"
+  },
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2021-12-15T11:05:23.234581+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Første gangs navnevalg",
+      "gyldighetstidspunkt": "2019-01-01T00:00:00+01:00",
+      "fornavn": "NYSGJERRIG",
+      "etternavn": "LISTE"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2021-12-15T11:05:23.286009+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Årsakskode fra DSF: ",
+      "gyldighetstidspunkt": "1971-05-28T11:05:23.286012+01:00",
+      "opphoerstidspunkt": "2020-12-22T11:05:23.286011+01:00",
+      "vegadresse": {
+        "kommunenummer": "5427",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Kågsundveien",
+        "adressekode": "00001",
+        "poststed": { "poststedsnavn": "ARNØYHAMN", "postnummer": "9192" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "74895232",
+      "adressegradering": "ugradert",
+      "flyttedato": "2020-12-15",
+      "grunnkrets": 203,
+      "stemmekrets": 14,
+      "skolekrets": 10,
+      "kirkekrets": 1
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-16T00:00:00+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "2020-12-16"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+﻿[
+  {
+    organizationIdentifier: 316433537,
+    isFirstRegistration: true,
+    displayName: MIDLERTIDIG ORGNR I ER,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: BEDR,
+    unitStatus: N,
+    datoSistEndret: 2026-08-19,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: {
+      address: Salhusoddan 9A 8907 BRØNNØY,
+      postalCode: 8907,
+      city: BRØNNØY
+    },
+    businessAddress: null,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: hovedenhet,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 315944724,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

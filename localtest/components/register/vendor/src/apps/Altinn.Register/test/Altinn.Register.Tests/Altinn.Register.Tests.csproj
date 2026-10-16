@@ -1,0 +1,70 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <XUnitVersion>v3</XUnitVersion>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="appsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="Verify.XunitV3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Altinn.Register.Persistence\Altinn.Register.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Altinn.Register\Altinn.Register.csproj" />
+    <ProjectReference Include="..\Altinn.Register.TestUtils.V3\Altinn.Register.TestUtils.V3.csproj" />
+    <ProjectReference Include="..\..\src\Altinn.Register.Integrations.Ccr.Xml\Altinn.Register.Integrations.Ccr.Xml.csproj" />
+    <ProjectReference Include="..\..\src\Altinn.Register.Integrations.Ccr.FileImport\Altinn.Register.Integrations.Ccr.FileImport.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="jwtselfsignedcert.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="JWTValidationCert.cer">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="skd-org.pem">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="skd-org.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ttd-org.pem">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ttd-org.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Testdata\**">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Testdata/**/*.json" />
+    <EmbeddedResource Include="Testdata/**/*.txt" />
+    <EmbeddedResource Include="Testdata/**/*.xml" />
+    <EmbeddedResource Include="Snapshots/**/*.xml" />
+  </ItemGroup>
+
+</Project>

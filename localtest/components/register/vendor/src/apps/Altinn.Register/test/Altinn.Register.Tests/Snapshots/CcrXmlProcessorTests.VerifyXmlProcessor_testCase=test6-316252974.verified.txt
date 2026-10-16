@@ -1,0 +1,12 @@
+﻿[
+  {
+    organizationIdentifier: 316252974,
+    isFirstRegistration: false,
+    isDeleted: true,
+    deletedAt: 2026-08-20,
+    unitType: AAFY,
+    unitStatus: S,
+    datoSistEndret: 2026-08-20,
+    roleUpdates: null
+  }
+]

@@ -1,0 +1,227 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "27862199486",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "foedselsdato": "2021-06-27",
+      "foedselsaar": "2021",
+      "foedested": "Alver",
+      "foedekommuneINorge": "4631",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "foedselsinstitusjonsnavn": "alsver testsykehus",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:26:49.311004+02:00",
+      "erGjeldende": true,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Farskap",
+      "gyldighetstidspunkt": "2021-06-29T13:26:49.240286+02:00",
+      "relatertPersonUtenFolkeregisteridentifikator": {
+        "navn": { "fornavn": "GLAD", "etternavn": "FISK" },
+        "foedselsdato": "1990-04-17"
+      },
+      "relatertPersonsRolle": "far",
+      "minRolleForPerson": "barn"
+    },
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "relatertPerson": "30839498094",
+      "relatertPersonsRolle": "mor",
+      "minRolleForPerson": "barn"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "sivilstand": "ugift"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-11-30T10:31:45.189432+01:00",
+      "erGjeldende": true,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Navn",
+      "gyldighetstidspunkt": "2022-11-30T10:31:45.173127+01:00",
+      "fornavn": "GULAKTIG",
+      "etternavn": "ABBOR"
+    },
+    {
+      "ajourholdstidspunkt": "2021-12-29T00:31:37.454503+01:00",
+      "erGjeldende": false,
+      "kilde": "FREG automatisk",
+      "aarsak": "Navn på barn",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "fornavn": "VASSEN*PIKE",
+      "etternavn": "ABBOR"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2025-08-14T20:27:40.101171342+02:00",
+      "erGjeldende": true,
+      "kilde": "Matrikkelen",
+      "aarsak": "Adresseoppdatering",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "3418",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Granittvegen",
+        "adressenummer": { "husnummer": "9" },
+        "adressekode": "01083",
+        "poststed": { "poststedsnavn": "FLISA", "postnummer": "2270" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "224390853",
+      "adressegradering": "ugradert",
+      "flyttedato": "2021-06-27",
+      "grunnkrets": 207,
+      "stemmekrets": 1,
+      "skolekrets": 2,
+      "kirkekrets": 1
+    },
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.398223+02:00",
+      "erGjeldende": false,
+      "kilde": "DP055_veinummer",
+      "aarsak": "Årsakskode fra DSF: ",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "3418",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Granittvegen",
+        "adressenummer": { "husnummer": "9" },
+        "adressekode": "1083",
+        "poststed": { "poststedsnavn": "FLISA", "postnummer": "2270" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "224390853",
+      "adressegradering": "ugradert",
+      "flyttedato": "2021-06-27",
+      "grunnkrets": 207,
+      "stemmekrets": 2,
+      "skolekrets": 2,
+      "kirkekrets": 1
+    }
+  ],
+  "postadresse": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "adressegradering": "ugradert",
+      "postadresseIFrittFormat": {
+        "adresselinje": ["Granittvegen", "2270 FLISA", "Norge"]
+      }
+    }
+  ],
+  "foreldreansvar": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:35:07.937611+02:00",
+      "erGjeldende": false,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Farskap",
+      "gyldighetstidspunkt": "2021-06-29T13:26:49.240286+02:00",
+      "opphoerstidspunkt": "2021-06-29T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "27862199486",
+      "ansvarligUtenIdentifikator": {
+        "navn": { "fornavn": "GLAD", "etternavn": "FISK" },
+        "foedselsdato": "1990-04-17"
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:35:07.937611+02:00",
+      "erGjeldende": false,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Farskap",
+      "gyldighetstidspunkt": "2021-06-29T13:26:49.240286+02:00",
+      "opphoerstidspunkt": "2021-06-29T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "27862199486",
+      "ansvarlig": "30839498094"
+    },
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:35:07.937611+02:00",
+      "erGjeldende": true,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Foreldreansvar",
+      "gyldighetstidspunkt": "2021-06-29T00:00:00+02:00",
+      "ansvar": "far",
+      "ansvarssubjekt": "27862199486",
+      "ansvarligUtenIdentifikator": {
+        "navn": { "fornavn": "GLAD", "etternavn": "FISK" },
+        "foedselsdato": "1990-04-17"
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:26:49.310286+02:00",
+      "erGjeldende": false,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "opphoerstidspunkt": "2021-06-29T13:26:49.240286+02:00",
+      "ansvar": "mor",
+      "ansvarssubjekt": "27862199486",
+      "ansvarlig": "30839498094"
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2021-06-29T13:25:14.397673+02:00",
+      "erGjeldende": true,
+      "kilde": "forelder",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2021-06-27T00:00:00+02:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "2021-06-27"
+    }
+  ]
+}

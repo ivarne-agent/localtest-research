@@ -1,0 +1,218 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081643792+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "05839297221",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.153907712+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Utflytting",
+      "gyldighetstidspunkt": "2025-04-27T00:00:00+02:00",
+      "status": "utflyttet"
+    },
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081643792+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081874398+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "foedselsdato": "1992-03-05",
+      "foedselsaar": "1992",
+      "foedested": "VAKSDAL",
+      "foedekommuneINorge": "4628",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081892546+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "foedselsinstitusjonsnavn": "Håndlaget Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2022-08-28T14:08:13.081964424+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2017-03-19T14:08:13.081963368+01:00",
+      "opphoerstidspunkt": "2022-06-24T14:08:13.081964642+02:00",
+      "relatertPerson": "18929396576",
+      "relatertPersonsRolle": "ektefelleEllerPartner",
+      "minRolleForPerson": "ektefelleEllerPartner"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.082012112+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2022-06-24T00:00:00+02:00",
+      "sivilstand": "skilt",
+      "sivilstandsdato": "2022-06-24",
+      "relatertVedSivilstand": "18929396576"
+    },
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.082003642+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2021-01-04T00:00:00+01:00",
+      "sivilstand": "separert",
+      "sivilstandsdato": "2021-01-04",
+      "myndighet": "STATSFORVALTEREN",
+      "relatertVedSivilstand": "18929396576"
+    },
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.08198595+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2017-03-19T00:00:00+01:00",
+      "sivilstand": "gift",
+      "sivilstandsdato": "2017-03-19",
+      "myndighet": "ANSATT_I_KOMMUNE",
+      "kommune": "4612",
+      "sted": "Matt Testrådhus",
+      "relatertVedSivilstand": "18929396576"
+    },
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081945745+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1992-03-05"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081760873+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2017-03-19T14:08:13.081760523+01:00",
+      "fornavn": "UAVHENGIG",
+      "mellomnavn": "HYPPIG",
+      "etternavn": "DREGG"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.153907712+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2017-03-19T00:00:00+01:00",
+      "opphoerstidspunkt": "2025-04-27T14:08:13.153908+02:00",
+      "vegadresse": {
+        "kommunenummer": "4612",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Nyland",
+        "adressenummer": { "husnummer": "5" },
+        "adressekode": "1098",
+        "poststed": { "poststedsnavn": "AUKLANDSHAMN", "postnummer": "5551" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "313327987",
+      "adressegradering": "ugradert",
+      "flyttedato": "2017-03-19",
+      "grunnkrets": 205,
+      "stemmekrets": 1,
+      "skolekrets": 3,
+      "kirkekrets": 4
+    },
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081820514+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "4628",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Jamne",
+        "adressenummer": { "husnummer": "30" },
+        "adressekode": "1076",
+        "poststed": { "poststedsnavn": "VAKSDAL", "postnummer": "5725" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "152914506",
+      "adressegradering": "ugradert",
+      "flyttedato": "1992-03-05",
+      "grunnkrets": 104,
+      "stemmekrets": 2,
+      "skolekrets": 4,
+      "kirkekrets": 1
+    }
+  ],
+  "utflytting": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.153907712+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Utflytting",
+      "gyldighetstidspunkt": "2025-04-27T00:00:00+02:00",
+      "tilflyttingsland": "SLV",
+      "utflyttingsdato": "2025-04-27"
+    }
+  ],
+  "postadresseIUtlandet": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.153907712+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Utflytting",
+      "gyldighetstidspunkt": "2025-04-27T00:00:00+02:00",
+      "adressegradering": "ugradert",
+      "utenlandskAdresse": {
+        "adressenavn": "Testadressenavn 275",
+        "bygning": "Testbygning 65",
+        "etasjenummer": "169",
+        "boenhet": "Testboenhet 39",
+        "postboks": "33",
+        "postkode": "Testpostkode utland 86",
+        "byEllerStedsnavn": "Smigrende testby- eller stedsnavn",
+        "landkode": "SV"
+      }
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2025-08-28T14:08:13.081936267+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1992-03-05T00:00:00+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1992-03-05"
+    }
+  ]
+}

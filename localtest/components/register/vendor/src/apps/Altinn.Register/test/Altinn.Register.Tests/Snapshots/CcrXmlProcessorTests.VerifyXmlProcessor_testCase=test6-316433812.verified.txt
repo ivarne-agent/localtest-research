@@ -1,0 +1,81 @@
+﻿[
+  {
+    organizationIdentifier: 316433812,
+    isFirstRegistration: true,
+    displayName: JANNES SELSKAP TIL BRUK I PAYLOADTESTER 5 DA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: DA,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Selsbakk øvre 1 7027 TRONDHEIM,
+      postalCode: 7027,
+      city: TRONDHEIM
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 13886797294,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Optimistisk Harpe,
+            firstName: Optimistisk,
+            middleName: null,
+            lastName: Harpe,
+            shortName: Harpe Optimistisk
+          },
+          mailingAddress: {
+            address: Asperholen 80 4329,
+            postalCode: 4329,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: 21819499885,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Sliten Autoritet,
+            firstName: Sliten,
+            middleName: null,
+            lastName: Autoritet,
+            shortName: Autoritet Sliten
+          },
+          mailingAddress: {
+            address: Vikveien 64 8253,
+            postalCode: 8253,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: 23827696358,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Åpen Porto,
+            firstName: Åpen,
+            middleName: null,
+            lastName: Porto,
+            shortName: Porto Åpen
+          },
+          mailingAddress: {
+            address: Valvikvegen 358 6919,
+            postalCode: 6919,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

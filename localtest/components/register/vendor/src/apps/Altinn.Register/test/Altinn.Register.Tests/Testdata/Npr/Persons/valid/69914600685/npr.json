@@ -1,0 +1,145 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "69914600685",
+      "identifikatortype": "dNummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "status": "midlertidig"
+    }
+  ],
+  "utenlandskPersonidentifikasjon": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219260093+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219258951+02:00",
+      "identifikasjonsnummer": "1750070838983-3",
+      "identifikasjonsnummertype": "utenlandskIdentifikasjonsnummer",
+      "utstederland": "MLI"
+    },
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219260093+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219258951+02:00",
+      "identifikasjonsnummer": "1750070838983-2",
+      "identifikasjonsnummertype": "taxIdentificationNumber",
+      "utstederland": "MLI"
+    },
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219260093+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219258951+02:00",
+      "identifikasjonsnummer": "1750070838983-1",
+      "identifikasjonsnummertype": "socialSecurityNumber",
+      "utstederland": "MLI"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "foedselsdato": "1946-11-29",
+      "foedselsaar": "1946",
+      "foedeland": "MLI"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "sivilstand": "uoppgitt"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "fornavn": "BESKJEDEN-UROMANTISK",
+      "mellomnavn": "FIOLETT",
+      "etternavn": "BAUG",
+      "forkortetNavn": "BESKJEDEN-UROMANTISK BAUG"
+    }
+  ],
+  "oppholdsadresse": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "matrikkeladresse": {
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "matrikkelnummer": {
+          "kommunenummer": "5058",
+          "gaardsnummer": 149,
+          "bruksnummer": 1,
+          "festenummer": 0
+        },
+        "undernummer": 2,
+        "poststed": { "poststedsnavn": "BRANDSFJORD", "postnummer": "7194" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "30634188",
+      "adressegradering": "ugradert",
+      "oppholdsadressedato": "2025-06-16"
+    }
+  ],
+  "postadresseIUtlandet": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "adressegradering": "ugradert",
+      "utenlandskAdresse": {
+        "coAdressenavn": "Misfornøyd August",
+        "adressenavn": "Testadressenavn 143",
+        "postkode": "Testpostkode utland 97",
+        "byEllerStedsnavn": "Gnien testby- eller stedsnavn",
+        "distriktsnavn": "Testdistrikt 294",
+        "region": "Testregion 80",
+        "landkode": "ML"
+      }
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2025-06-16T12:47:19.219253643+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2025-06-16T12:47:19.219250272+02:00",
+      "statsborgerskap": "MLI",
+      "ervervsdato": "1946-11-29"
+    }
+  ]
+}

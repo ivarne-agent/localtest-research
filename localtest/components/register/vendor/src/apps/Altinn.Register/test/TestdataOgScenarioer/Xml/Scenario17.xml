@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289444" organisasjonsform="AS" hovedsakstype="E" undersakstype="OPPL" foersteOverfoering="N" datoFoedt="20170201" datoSistEndret="20260504">
+    <samendringer data="D" felttype="DAGL" endringstype="U" type="R">
+      <rolleFoedselsnr>02845328733</rolleFoedselsnr>
+    </samendringer>
+    <samendringUtgaar felttype="SAMU">
+      <samendringstype>DAGL</samendringstype>
+    </samendringUtgaar>
+    <status felttype="OPPL" endringstype="N" />
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

@@ -1,0 +1,178 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.316272+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "60900070260",
+      "identifikatortype": "dNummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.316337+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "status": "midlertidig"
+    }
+  ],
+  "utenlandskPersonidentifikasjon": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:36.722835+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:35.670408+02:00",
+      "identifikasjonsnummer": "1634736550381-1",
+      "identifikasjonsnummertype": "taxIdentificationNumber",
+      "utstederland": "IOT"
+    },
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:36.722755+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:35.670408+02:00",
+      "identifikasjonsnummer": "1634736550381-3",
+      "identifikasjonsnummertype": "utenlandskIdentifikasjonsnummer",
+      "utstederland": "IOT"
+    },
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:36.722747+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "besluttetTildelingAvDNummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:35.670408+02:00",
+      "identifikasjonsnummer": "1634736550381-4",
+      "identifikasjonsnummertype": "socialSecurityNumber",
+      "utstederland": "IOT"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.316385+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "foedselsdato": "2000-01-01",
+      "foedselsaar": "2000",
+      "foedeland": "IOT"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.316357+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "sivilstand": "uoppgitt",
+      "sivilstandsdato": "2021-10-20"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2021-12-20T14:38:17.281001+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "fornavn": "SKY",
+      "etternavn": "MAI"
+    }
+  ],
+  "oppholdsadresse": [
+    {
+      "ajourholdstidspunkt": "2024-01-16T12:40:02.04397839+01:00",
+      "erGjeldende": true,
+      "kilde": "Matrikkelen",
+      "aarsak": "Kommuneregulering",
+      "gyldighetstidspunkt": "2022-04-05T10:44:29.604562+02:00",
+      "vegadresse": {
+        "kommunenummer": "3301",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Øvre Eikervei",
+        "adressenummer": { "husnummer": "36" },
+        "adressekode": "1758",
+        "poststed": { "poststedsnavn": "DRAMMEN", "postnummer": "3048" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "133209141",
+      "adressegradering": "ugradert",
+      "oppholdsadressedato": "2022-04-05"
+    },
+    {
+      "ajourholdstidspunkt": "2022-04-05T10:44:29.628416+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-04-05T10:44:29.604562+02:00",
+      "vegadresse": {
+        "kommunenummer": "3005",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Øvre Eikervei",
+        "adressenummer": { "husnummer": "36" },
+        "adressekode": "1758",
+        "poststed": { "poststedsnavn": "DRAMMEN", "postnummer": "3048" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "133209141",
+      "adressegradering": "ugradert",
+      "oppholdsadressedato": "2022-04-05"
+    }
+  ],
+  "postadresse": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.31653+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "adressegradering": "ugradert",
+      "postboksadresse": {
+        "postboks": "PostBoks",
+        "poststed": { "poststedsnavn": "Oslo", "postnummer": "0134" }
+      },
+      "postadresseIFrittFormat": {
+        "adresselinje": ["POSTBOKS"],
+        "poststed": { "poststedsnavn": "Oslo", "postnummer": "0134" }
+      }
+    }
+  ],
+  "postadresseIUtlandet": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.31661+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "adressegradering": "ugradert",
+      "utenlandskAdresse": {
+        "adressenavn": "Einimel 80",
+        "postkode": "IS-107",
+        "byEllerStedsnavn": "Reykjavik",
+        "landkode": "IS"
+      },
+      "utenlandskAdresseIFrittFormat": {
+        "adresselinje": ["EINIMEL 80", "IS-107 REYKJAVIK", "UOPPGITT/UKJENT"],
+        "landkode": "YY"
+      }
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2021-10-20T15:37:33.31649+02:00",
+      "erGjeldende": true,
+      "kilde": "skatteetaten",
+      "aarsak": "Tildele d-nummer",
+      "gyldighetstidspunkt": "2021-10-20T15:37:33.299345+02:00",
+      "statsborgerskap": "GBR"
+    }
+  ]
+}

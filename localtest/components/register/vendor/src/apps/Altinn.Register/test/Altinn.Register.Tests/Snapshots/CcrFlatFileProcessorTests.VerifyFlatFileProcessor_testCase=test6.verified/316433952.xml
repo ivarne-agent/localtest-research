@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433952" organisasjonsform="ESEK" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>7011</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5001</kommunenr>
+      <adresse1>c/o TOBB</adresse1>
+      <adresse2>Krambugata 7</adresse2>
+    </infotype>
+    <samendringer data="D" felttype="FFØR" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>210360492</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>1</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Eierseksjonssameie.</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>25890298063</rolleFoedselsnr>
+      <fornavn>Dedikert Akrobatisk</fornavn>
+      <mellomnavn>Oridé</mellomnavn>
+      <slektsnavn>Corner</slektsnavn>
+      <postnr>7130</postnr>
+      <adresse1>Ellingveien 5</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>3</rolleRekkefoelge>
+      <rolleFoedselsnr>08816799784</rolleFoedselsnr>
+      <fornavn>Lidenskapelig</fornavn>
+      <slektsnavn>Kollega</slektsnavn>
+      <postnr>5398</postnr>
+      <adresse1>Hevrøya 68</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>26846598498</rolleFoedselsnr>
+      <fornavn>Varm</fornavn>
+      <slektsnavn>Buk</slektsnavn>
+      <postnr>2443</postnr>
+      <adresse1>Grubbveien 25</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>SAMEIET TEST REGISTRERING I FR MED</navn1>
+      <navn2>ENDRING AV REVI</navn2>
+      <rednavn>SAMEIET TEST REGISTRERING I FR MED</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>7005</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5001</kommunenr>
+      <adresse1>c/o TOBB</adresse1>
+      <adresse2>Postboks 2424 Torgarden</adresse2>
+    </infotype>
+    <samendringer data="D" felttype="REGN" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>210408932</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>1</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <samendringer data="D" felttype="REVI" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>210707832</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>1</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <infotype felttype="naeringskode" endringstype="N">
+      <naeringskode>97.001</naeringskode>
+      <hjelpeenhet>N</hjelpeenhet>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20171215</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

@@ -1,0 +1,89 @@
+﻿[
+  {
+    organizationIdentifier: 316432050,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: PRE,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    roleUpdates: {
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: forretningsforer,
+          rolePersonalIdentifier: 19909498719,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: forretningsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 310267511,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: regnskapsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 314240782,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 310267511,
+          personName: null,
+          mailingAddress: null
+        }
+      ],
+      bulkRemoveRoleAssignments: [
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: forretningsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: regnskapsforeradressat,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: regnskapsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: revisoradressat,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

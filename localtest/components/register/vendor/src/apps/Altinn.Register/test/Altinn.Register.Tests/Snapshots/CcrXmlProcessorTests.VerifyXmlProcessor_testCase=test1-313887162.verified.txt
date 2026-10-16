@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 313887162,
+    isFirstRegistration: false,
+    displayName: AKADEMISK DEILIG KATT MÅNEFERD RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ENK,
+    unitStatus: E,
+    datoSistEndret: 2021-03-14,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

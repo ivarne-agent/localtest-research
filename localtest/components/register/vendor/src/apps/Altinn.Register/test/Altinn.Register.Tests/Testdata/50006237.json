@@ -1,0 +1,16 @@
+{
+  "PartyTypeName": 3,
+  "SSN": "",
+  "OrgNumber": "",
+  "Person": null,
+  "Organization": null,
+  "PartyId": 50006237,
+  "PartyUUID": "4fe860c4-bc65-4d2f-a288-f825b460f26b",
+  "UnitType": null,
+  "LastChangedInAltinn": "2010-03-02T01:53:44.87+01:00",
+  "LastChangedInExternalRegister": null,
+  "Name": "TestSelfIdentifiedUser",
+  "IsDeleted": false,
+  "OnlyHierarchyElementWithNoAccess": false,
+  "ChildParties": null
+}

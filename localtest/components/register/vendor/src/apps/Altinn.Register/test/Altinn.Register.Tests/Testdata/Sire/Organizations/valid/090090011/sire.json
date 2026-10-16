@@ -1,0 +1,39 @@
+{
+  "identifikator": "090090011",
+  "selskapetsNavn": "Somatisk Deltagende Får ",
+  "organisasjonsform": "indreSelskap",
+  "virksomhetsrelasjon": [
+    {
+      "ajourholdstidspunkt": "2024-09-17T12:01:18.221642734+02:00",
+      "gyldighetstidspunkt": "2024-09-17T12:01:18.221642734+02:00",
+      "relasjonstype": "styremedlem",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "03815698966",
+        "landkode": "NO"
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2024-09-17T12:01:18.221642734+02:00",
+      "gyldighetstidspunkt": "2024-09-17T12:01:18.221642734+02:00",
+      "relasjonstype": "varamedlem",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "22874897462",
+        "landkode": "NO"
+      }
+    }
+  ],
+  "stiftelsesdato": "2024-09-09",
+  "slettetdato": "2025-09-09",
+  "postadresse": {
+    "ajourholdstidspunkt": "2024-09-17T12:01:18.221642734+02:00",
+    "norskAdresse": {
+      "adressetekst": [
+        "Sverrestien 1"
+      ],
+      "postnummer": "1365",
+      "poststedsnavn": "BLOMMENHOLM"
+    }
+  }
+}

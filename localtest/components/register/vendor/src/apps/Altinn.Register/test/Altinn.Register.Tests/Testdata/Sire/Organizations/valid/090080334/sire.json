@@ -1,0 +1,28 @@
+{
+  "identifikator": "090080334",
+  "selskapetsNavn": "Knut-Olavs Synkroniseringstest IS",
+  "organisasjonsform": "indreSelskap",
+  "virksomhetsrelasjon": [
+    {
+      "ajourholdstidspunkt": "2026-05-18T12:37:57.172991276+02:00",
+      "gyldighetstidspunkt": "2026-05-18T12:37:57.172991276+02:00",
+      "relasjonstype": "dagligLederAdministrerendeDirektoer",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "19865997747",
+        "landkode": "NO"
+      }
+    }
+  ],
+  "stiftelsesdato": "2024-09-27",
+  "postadresse": {
+    "ajourholdstidspunkt": "2026-05-12T09:09:54.350534078+02:00",
+    "norskAdresse": {
+      "adressetekst": [
+        "Smågehaugen 14"
+      ],
+      "postnummer": "6480",
+      "poststedsnavn": "AUKRA"
+    }
+  }
+}

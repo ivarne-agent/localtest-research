@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316183042" organisasjonsform="FLI" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20250918" datoSistEndret="20260820">
+    <samendringer data="D" felttype="DAGL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>18897498452</rolleFoedselsnr>
+      <fornavn>Kritisk</fornavn>
+      <slektsnavn>Bakgrunnslitteratur</slektsnavn>
+      <postnr>4318</postnr>
+      <adresse1>Sandvedbøen 146</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="DAGL" endringstype="U" type="R">
+      <rolleFoedselsnr>30878498026</rolleFoedselsnr>
+    </samendringer>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>30878498026</rolleFoedselsnr>
+      <fornavn>Vakker</fornavn>
+      <slektsnavn>Ballongbukse</slektsnavn>
+      <postnr>5089</postnr>
+      <adresse1>Nordrehaug 11</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>30876299921</rolleFoedselsnr>
+      <fornavn>Komplett</fornavn>
+      <slektsnavn>Akeleie</slektsnavn>
+      <postnr>1164</postnr>
+      <adresse1>Postdamveien 2 D</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="VARA" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>3</rolleRekkefoelge>
+      <rolleFoedselsnr>52900375026</rolleFoedselsnr>
+      <fornavn>Unyttig</fornavn>
+      <slektsnavn>Bris</slektsnavn>
+      <postnr>3882</postnr>
+      <adresse1>Skafsåvegen 1712 A</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

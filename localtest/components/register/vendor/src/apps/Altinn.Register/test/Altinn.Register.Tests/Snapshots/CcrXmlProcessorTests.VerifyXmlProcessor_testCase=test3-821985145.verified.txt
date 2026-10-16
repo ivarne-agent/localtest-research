@@ -1,0 +1,20 @@
+﻿[
+  {
+    organizationIdentifier: 821985145,
+    isFirstRegistration: true,
+    displayName: Donald Duck INC,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: BEDR,
+    unitStatus: N,
+    datoSistEndret: 2018-06-30,
+    emailAddress: donald.duck@duck.no,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: null,
+    roleUpdates: null
+  }
+]

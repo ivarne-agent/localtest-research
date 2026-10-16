@@ -1,0 +1,205 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "20821098387",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "foedselsdato": "2010-02-20",
+      "foedselsaar": "2010",
+      "foedested": "Interessant Teststed",
+      "foedeland": "ITA"
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "relatertPerson": "09828496155",
+      "relatertPersonsRolle": "far",
+      "minRolleForPerson": "barn"
+    },
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "relatertPerson": "07818194638",
+      "relatertPersonsRolle": "mor",
+      "minRolleForPerson": "barn"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "sivilstand": "ugift"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "fornavn": "ERFAREN",
+      "etternavn": "SJAKAL"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:35.471631472+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2026-01-29T00:00:00+01:00",
+      "ukjentBosted": { "bostedskommune": "3112" },
+      "adressegradering": "ugradert",
+      "flyttedato": "2026-01-29"
+    },
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "3112",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Lyngmoveien",
+        "adressenummer": { "husnummer": "12" },
+        "adressekode": "1160",
+        "poststed": { "poststedsnavn": "SALTNES", "postnummer": "1642" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "55327304",
+      "adressegradering": "ugradert",
+      "flyttedato": "2010-02-20",
+      "grunnkrets": 101,
+      "stemmekrets": 2,
+      "skolekrets": 6,
+      "kirkekrets": 1
+    }
+  ],
+  "innflytting": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "fraflyttingsland": "ITA",
+      "fraflyttingsstedIUtlandet": "Grå Teststed"
+    }
+  ],
+  "postadresse": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:35.471631472+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2026-01-29T00:00:00+01:00",
+      "adressegradering": "ugradert",
+      "postboksadresse": {
+        "postboks": "95",
+        "poststed": { "poststedsnavn": "LEIRFJORD", "postnummer": "8890" }
+      }
+    }
+  ],
+  "foreldreansvar": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:35.387637534+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2025-06-21T00:00:00+02:00",
+      "ansvar": "mor",
+      "ansvarssubjekt": "20821098387",
+      "ansvarlig": "07818194638"
+    },
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:35.387637534+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "opphoerstidspunkt": "2023-02-24T09:46:35.387638369+01:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "20821098387",
+      "ansvarlig": "09828496155"
+    },
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:35.387637534+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "opphoerstidspunkt": "2023-02-24T09:46:35.387638369+01:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "20821098387",
+      "ansvarlig": "07818194638"
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2026-04-17T10:45:05.507680395+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Statsborgerskap",
+      "gyldighetstidspunkt": "2026-04-17T00:00:00+02:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "2026-04-17"
+    },
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "statsborgerskap": "ITA",
+      "ervervsdato": "2010-02-20"
+    }
+  ],
+  "opphold": [
+    {
+      "ajourholdstidspunkt": "2026-02-24T09:46:34.982112068+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Historisk",
+      "gyldighetstidspunkt": "2023-02-24T00:00:00+01:00",
+      "oppholdstillatelse": "permanent",
+      "oppholdFra": "2023-02-24"
+    }
+  ]
+}

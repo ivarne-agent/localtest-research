@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "12889197496",
+  "displayName": "REALISTISK DIAKRITISK GOLBMA\u010CIEHKA",
+  "firstName": "REALISTISK",
+  "middleName": "DIAKRITISK",
+  "lastName": "GOLBMA\u010CIEHKA",
+  "shortName": "R. DIAKRITISK GOLBMA\u010CIEHKA",
+  "address": {
+    "municipalNumber": "4617",
+    "municipalName": "KVINNHERAD",
+    "streetName": "Snilstveitvegen",
+    "houseNumber": "41",
+    "houseLetter": null,
+    "postalCode": "5473",
+    "city": "SNILSTVEITØY"
+  },
+  "mailingAddress": {
+    "address": "Snilstveitvegen 41 5473 SNILSTVEITØY",
+    "postalCode": "5473",
+    "city": "SNILSTVEITØY"
+  },
+  "dateOfBirth": "1991-08-12",
+  "dateOfDeath": null,
+  "guardians": []
+}

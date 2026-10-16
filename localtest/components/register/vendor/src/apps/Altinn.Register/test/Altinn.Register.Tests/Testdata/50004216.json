@@ -1,0 +1,30 @@
+{
+  "PartyTypeName": 2,
+  "SSN": "",
+  "OrgNumber": "311654306",
+  "Person": null,
+  "Organization": {
+    "OrgNumber": "311654306",
+    "Name": "TYNSET OG OPPDAL",
+    "UnitType": "ANS",
+    "UnitStatus": "N",
+    "TelephoneNumber": "22077000",
+    "MobileNumber": "99000000",
+    "FaxNumber": "22077108",
+    "EMailAddress": "tynset_og_oppdal@example.com",
+    "InternetAddress": "tynset-og-oppdal.example.com",
+    "MailingAddress": "Postboks 6662 St. Bergens plass",
+    "MailingPostalCode": "1666",
+    "MailingPostalCity": "Bergen",
+    "BusinessAddress": "Postboks 6662 St. Olavs plass",
+    "BusinessPostalCode": "0555",
+    "BusinessPostalCity": "Oslo"
+  },
+  "PartyId": 50004216,
+  "PartyUuid": "7aa53da8-836c-4812-afcb-76d39f5ebb0e",
+  "UnitType": "ANS",
+  "Name": "TYNSET OG OPPDAL",
+  "IsDeleted": false,
+  "OnlyHierarchyElementWithNoAccess": false,
+  "ChildParties": null
+}

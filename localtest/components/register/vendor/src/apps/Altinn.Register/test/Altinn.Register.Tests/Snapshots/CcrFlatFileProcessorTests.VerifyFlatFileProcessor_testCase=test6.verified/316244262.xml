@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316244262" organisasjonsform="AAFY" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20260209" datoSistEndret="20260820">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>9520</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5612</kommunenr>
+      <adresse1>Ávžžiluodda 28</adresse1>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>RÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA</navn1>
+      <rednavn>RÁCCAS SAMISK ÁVDU</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>9520</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5612</kommunenr>
+      <adresse1>Hánnoluohkká 45</adresse1>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

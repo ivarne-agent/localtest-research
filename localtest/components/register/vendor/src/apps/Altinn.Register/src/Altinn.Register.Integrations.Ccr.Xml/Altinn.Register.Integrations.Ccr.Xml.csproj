@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.ProblemDetails.Abstractions" />
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Telemetry" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Nerdbank.Streams" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Altinn.Register.Tests" />
+    <InternalsVisibleTo Include="Altinn.Register.IntegrationTests" />
+    <InternalsVisibleTo Include="Altinn.Register.Persistence.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Altinn.Register.Core\Altinn.Register.Core.csproj" />
+  </ItemGroup>
+
+</Project>

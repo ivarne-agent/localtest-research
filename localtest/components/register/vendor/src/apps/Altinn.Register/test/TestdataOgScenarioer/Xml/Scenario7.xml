@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289479" organisasjonsform="ENK" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20230627" datoSistEndret="20260502">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>5678</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>4601</kommunenr>
+      <adresse1>Testgata 2</adresse1>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

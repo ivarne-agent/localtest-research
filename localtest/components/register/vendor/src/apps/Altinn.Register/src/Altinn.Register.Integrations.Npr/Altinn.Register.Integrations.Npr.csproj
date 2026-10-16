@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.ModelUtils" />
+    <PackageReference Include="Altinn.Authorization.ProblemDetails.Abstractions" />
+    <PackageReference Include="Altinn.Authorization.ProblemDetails.Validation" />
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Telemetry" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+		<InternalsVisibleTo Include="Altinn.Register.Tests" />
+		<InternalsVisibleTo Include="Altinn.Register.IntegrationTests" />
+		<InternalsVisibleTo Include="Altinn.Register.Persistence.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Altinn.Register.Core\Altinn.Register.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,44 @@
+﻿[
+  {
+    organizationIdentifier: 316244246,
+    isFirstRegistration: false,
+    displayName: RÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: FLI,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    mailingAddress: {
+      address: Hánnoluohkká 45 9520 KAUTOKEINO,
+      postalCode: 9520,
+      city: KAUTOKEINO
+    },
+    businessAddress: {
+      address: Ávžžiluodda 28 9520 KAUTOKEINO,
+      postalCode: 9520,
+      city: KAUTOKEINO
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 27839895831,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Ráccas Samisk Ávdu,
+            firstName: Ráccas,
+            middleName: Samisk,
+            lastName: Ávdu,
+            shortName: Ávdu Ráccas Samisk
+          },
+          mailingAddress: {
+            address: Vassbekkvegen 40 8683,
+            postalCode: 8683,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

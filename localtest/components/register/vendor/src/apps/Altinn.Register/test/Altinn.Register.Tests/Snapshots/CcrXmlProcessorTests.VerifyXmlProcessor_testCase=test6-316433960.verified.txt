@@ -1,0 +1,39 @@
+﻿[
+  {
+    organizationIdentifier: 316433960,
+    isFirstRegistration: true,
+    displayName: SAMEIET TEST REGISTRERING I FR MED ENDRING AV REVI,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AAFY,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: {
+      address: c/o TOBB Postboks 2424 Torgarden 7005 TRONDHEIM,
+      postalCode: 7005,
+      city: TRONDHEIM
+    },
+    businessAddress: {
+      address: c/o TOBB Krambugata 7 7011 TRONDHEIM,
+      postalCode: 7011,
+      city: TRONDHEIM
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: ikke-naeringsdrivende-hovedenhet,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 316433952,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

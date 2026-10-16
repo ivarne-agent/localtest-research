@@ -1,0 +1,119 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:27.139+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "22835095049",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:27.139+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-22T17:09:27.139+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:42.891816+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "gyldighetstidspunkt": "1950-03-22T12:50:42.891813+01:00",
+      "foedselsdato": "1950-03-22",
+      "foedselsaar": "1950",
+      "foedekommuneINorge": "1119",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:42.961376+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1950-03-22T12:50:42.961376+01:00",
+      "foedselsinstitusjonsnavn": "Grå Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:43.059771+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1950-03-22T12:50:43.059794+01:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1950-03-22"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:43.014303+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-03-21T12:50:43.014299+01:00",
+      "fornavn": "KNUSLETE",
+      "etternavn": "GAUPE"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:43.210156+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2022-03-21T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "4638",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Kråkevika",
+        "adressenummer": { "husnummer": "15" },
+        "adressekode": "1438",
+        "poststed": { "poststedsnavn": "VADHEIM", "postnummer": "6996" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "64321178",
+      "adressegradering": "ugradert",
+      "flyttedato": "2022-03-21",
+      "grunnkrets": 301,
+      "stemmekrets": 3,
+      "skolekrets": 6,
+      "kirkekrets": 2
+    }
+  ],
+  "postadresse": [
+    {
+      "ajourholdstidspunkt": "2021-10-19T12:05:51.832548+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Postadresse",
+      "gyldighetstidspunkt": "2021-10-19T12:05:51.832537+02:00",
+      "adressegradering": "ugradert",
+      "vegadresse": {
+        "adressenavn": "Nedre Tolgenslivei",
+        "adressenummer": { "husnummer": "22" },
+        "poststed": { "poststedsnavn": "TOLGA", "postnummer": "2540" },
+        "adressekode": "3130",
+        "bruksenhetsnummer": "H0101"
+      }
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2022-03-21T12:50:43.103015+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1950-03-22T12:50:43.103035+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1950-03-22"
+    }
+  ]
+}

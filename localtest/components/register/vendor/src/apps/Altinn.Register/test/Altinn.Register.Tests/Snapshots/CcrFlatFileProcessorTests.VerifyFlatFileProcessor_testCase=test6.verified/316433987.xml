@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433987" organisasjonsform="PRE" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <samendringer data="D" felttype="BEST" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>216433912</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>1</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <samendringer data="D" felttype="DTPR" endringstype="N" type="R">
+      <rolleAnsvarsandel>50.0%</rolleAnsvarsandel>
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>04811649681</rolleFoedselsnr>
+      <fornavn>Solid</fornavn>
+      <slektsnavn>Dato</slektsnavn>
+      <postnr>6414</postnr>
+      <adresse1>Peter Solemdals Veg 34</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="DTPR" endringstype="N" type="R">
+      <rolleAnsvarsandel>50.0%</rolleAnsvarsandel>
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>13901949543</rolleFoedselsnr>
+      <fornavn>Korrekt</fornavn>
+      <slektsnavn>Banjo</slektsnavn>
+      <postnr>8643</postnr>
+      <adresse1>Lundliveien 6</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>8643</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>1832</kommunenr>
+      <adresse1>Lundliveien 6</adresse1>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Aktivitet.</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>2300</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>05816697745</rolleFoedselsnr>
+      <fornavn>Empirisk</fornavn>
+      <slektsnavn>Fyrstikk</slektsnavn>
+      <postnr>7042</postnr>
+      <adresse1>Innherredsveien 16 A</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>BANJO KINE DA</navn1>
+      <rednavn>BANJO KINE DA</rednavn>
+    </infotype>
+    <infotype felttype="NYFR" endringstype="N">
+      <opplysning>20260820</opplysning>
+    </infotype>
+    <infotype felttype="R-FR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20260820</opplysning>
+    </infotype>
+    <infotype felttype="VFOR" endringstype="N">
+      <opplysning>Formål.</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

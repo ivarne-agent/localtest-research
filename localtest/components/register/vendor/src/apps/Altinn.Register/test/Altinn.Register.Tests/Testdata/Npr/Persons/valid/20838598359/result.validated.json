@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "20838598359",
+  "displayName": "UNG STOLT-DEMOKRATISK FØYKE",
+  "firstName": "UNG",
+  "middleName": "STOLT-DEMOKRATISK",
+  "lastName": "FØYKE",
+  "shortName": "UNG FØYKE",
+  "address": {
+    "municipalNumber": "4628",
+    "municipalName": "VAKSDAL",
+    "streetName": "Elvik",
+    "houseNumber": "17",
+    "houseLetter": null,
+    "postalCode": "5727",
+    "city": "STAMNES"
+  },
+  "mailingAddress": {
+    "address": "Elvik 17 5727 STAMNES",
+    "postalCode": "5727",
+    "city": "STAMNES"
+  },
+  "dateOfBirth": "1985-03-20",
+  "dateOfDeath": null,
+  "guardians": []
+}

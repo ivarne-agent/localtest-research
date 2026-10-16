@@ -1,0 +1,24 @@
+﻿[
+  {
+    organizationIdentifier: 316289169,
+    isFirstRegistration: true,
+    displayName: null,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: BEDR,
+    unitStatus: N,
+    datoSistEndret: 2018-06-30,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: 12345678,
+    mobileNumber: null,
+    faxNumber: 12345678,
+    mailingAddress: {
+      address: Storgata 88 1258 OSLO,
+      postalCode: 1258,
+      city: OSLO
+    },
+    businessAddress: null,
+    roleUpdates: null
+  }
+]

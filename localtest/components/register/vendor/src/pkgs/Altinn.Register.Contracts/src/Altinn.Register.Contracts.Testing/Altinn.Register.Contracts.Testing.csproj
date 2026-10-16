@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<IsPackable>true</IsPackable>
+		<PackageId>Altinn.Register.Contracts.Testing</PackageId>
+		<PackageTags>Altinn;Models;Contracts;Register;Authorization;Testing</PackageTags>
+		<Description>
+			Altinn.Register.Contracts.Testing is a package with utilities for tests involving models from Altinn.Register.Contracts. It contains helper methods for creating test data and comparing objects of the models. The package is intended to be used in unit tests and integration tests for components that depend on Altinn.Register.Contracts.
+		</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Altinn.Register.Contracts\Altinn.Register.Contracts.csproj" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,24 @@
+﻿{
+  $type: patch,
+  absentByIdentifier: [
+    obsolete-role
+  ],
+  absent: [
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_1
+      },
+      externalRoleIdentifier: styremedlem
+    }
+  ],
+  present: [
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_2
+      },
+      externalRoleIdentifier: daglig-leder
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+HEADER 2026042805780ALTA
+ENH 316289576ENK ENY  2021031220210312N
+DAGLU   RD                                      60833200189
+SAMUDAGL
+FADRNSSY0662     NO 0301                                                                           Storgata 88
+KJRPNSSYN
+LEDEU   RD                                      29842699620
+LEDENSSYRD                              N    00346836800303VÅRLIG                                                                                              ARTIKKEL                                          0301     Storgata 88                                                                                              NO L
+MEDLNSSYRD                              N    00121834995635ROBUST                                                                                              SEKRETÆR                                          0301     Storgata 88                                                                                              NO L
+MEDLNSSYRD                              N    00245811675095ORDNÆR                                                                                              LAGIDRETT                                         0301     Storgata 88                                                                                              NO L
+MTLFUSSY
+ENH 316289460AS  EEN  2023010220260428N
+SAMUREGN
+REGNU   KD                               316289436
+ENH 316289657NUF EEN  2020011520260428N
+DAGLNSSYRD                              N    00008828296508HÅNDLAGET                                                                                           LAGIDRETT                                         0000                                                                                                              NO L
+SAMUKONT
+KONTU   RD                                      08828296508
+ENH 316289614NUF EEN  2024103120260428N
+SAMUFFØR
+FFØRU   RD                                      29842699892
+ENH 316289622NUF EEN  2025052420260428N
+SAMUREVI
+REVIU   KD                               316289584
+ENH 216289552AS  EEN  2017081820260428N
+SIFEU   RD                                      17811298492
+SIFEU   RD                                      29842699892
+SIGNU   ST
+SAMUSIGN
+SN25NSSY00.00020260401
+TRAIER 0014798000042357

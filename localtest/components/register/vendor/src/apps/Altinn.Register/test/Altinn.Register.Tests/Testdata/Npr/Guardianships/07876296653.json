@@ -1,0 +1,100 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:08:27.478+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "07876296653",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "vergemaalEllerFremtidsfullmakt": [
+    {
+      "ajourholdstidspunkt": "2023-11-20T14:08:44.853907+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2022-01-28T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvalterenITromsOgFinnmark",
+      "verge": {
+        "foedselsEllerDNummer": "13926596971",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+          }
+        ]
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2023-11-20T14:08:44.853907+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2022-01-28T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvalterenITromsOgFinnmark",
+      "verge": {
+        "foedselsEllerDNummer": "13926596971",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+          }
+        ]
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2023-11-20T14:08:44.853907+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2022-01-28T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvalterenITromsOgFinnmark",
+      "verge": {
+        "foedselsEllerDNummer": "06876393326",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+          },
+          {
+            "vergeTjenestevirksomhet": "bank",
+            "vergeTjenesteoppgave": "selgeAksjerOgVerdipapirer"
+          }
+        ]
+      }
+    }
+  ]
+}

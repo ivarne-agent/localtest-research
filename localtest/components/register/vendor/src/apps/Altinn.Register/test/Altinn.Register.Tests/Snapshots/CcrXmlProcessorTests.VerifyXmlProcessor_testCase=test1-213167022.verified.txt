@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 213167022,
+    isFirstRegistration: false,
+    displayName: KRY FASCINERENDE APE RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: FLI,
+    unitStatus: E,
+    datoSistEndret: 2025-02-19,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

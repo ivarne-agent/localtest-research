@@ -1,0 +1,6 @@
+root = false
+
+# CCR flat-file fixtures use Windows-1252. EditorConfig does not define a
+# Windows-1252 charset value; .gitattributes documents the byte encoding.
+[*.txt]
+charset = unset

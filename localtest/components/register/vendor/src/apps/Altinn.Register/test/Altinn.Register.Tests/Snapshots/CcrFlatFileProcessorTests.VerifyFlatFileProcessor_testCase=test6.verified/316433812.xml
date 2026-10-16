@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433812" organisasjonsform="DA" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <samendringer data="D" felttype="DAGL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>13886797294</rolleFoedselsnr>
+      <fornavn>Optimistisk</fornavn>
+      <slektsnavn>Harpe</slektsnavn>
+      <postnr>4329</postnr>
+      <adresse1>Asperholen 80</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="DTPR" endringstype="N" type="R">
+      <rolleAnsvarsandel>1/2</rolleAnsvarsandel>
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>21819499885</rolleFoedselsnr>
+      <fornavn>Sliten</fornavn>
+      <slektsnavn>Autoritet</slektsnavn>
+      <postnr>8253</postnr>
+      <adresse1>Vikveien 64</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="DTPR" endringstype="N" type="R">
+      <rolleAnsvarsandel>1/2</rolleAnsvarsandel>
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>23827696358</rolleFoedselsnr>
+      <fornavn>Åpen</fornavn>
+      <slektsnavn>Porto</slektsnavn>
+      <postnr>6919</postnr>
+      <adresse1>Valvikvegen 358</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>7027</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5001</kommunenr>
+      <adresse1>Selsbakk øvre 1</adresse1>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Testing i BVr-INN.</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>2300</opplysning>
+    </infotype>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES SELSKAP TIL BRUK I</navn1>
+      <navn2>PAYLOADTESTER 5 DA</navn2>
+      <rednavn>JANNES SELSKAP TIL BRUK I</rednavn>
+    </infotype>
+    <infotype felttype="NYFR" endringstype="N">
+      <opplysning>20260820</opplysning>
+    </infotype>
+    <infotype felttype="R-FR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20260622</opplysning>
+    </infotype>
+    <infotype felttype="VFOR" endringstype="N">
+      <opplysning>Selskapet skal kun benyttes i forbindelse med payloadtester av regler</opplysning>
+    </infotype>
+    <infotype felttype="VFOR" endringstype="N">
+      <opplysning>i BVR-INN.</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

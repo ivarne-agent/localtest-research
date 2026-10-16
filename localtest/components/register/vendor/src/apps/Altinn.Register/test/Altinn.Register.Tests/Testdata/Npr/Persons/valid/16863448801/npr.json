@@ -1,0 +1,555 @@
+{
+    "identifikasjonsnummer": [
+        {
+            "ajourholdstidspunkt": "2020-12-22T17:09:03.66+01:00",
+            "erGjeldende": true,
+            "kilde": "KILDE_DSF",
+            "status": "iBruk",
+            "foedselsEllerDNummer": "16863448801",
+            "identifikatortype": "foedselsnummer"
+        }
+    ],
+    "status": [
+        {
+            "ajourholdstidspunkt": "2020-12-22T17:09:03.66+01:00",
+            "erGjeldende": true,
+            "kilde": "KILDE_DSF",
+            "gyldighetstidspunkt": "2020-12-22T17:09:03.66+01:00",
+            "status": "bosatt"
+        }
+    ],
+    "foedsel": [
+        {
+            "ajourholdstidspunkt": "2022-03-08T14:44:37.80128+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "gyldighetstidspunkt": "1934-06-16T14:44:37.801277+01:00",
+            "foedselsdato": "1934-06-16",
+            "foedselsaar": "1934",
+            "foedekommuneINorge": "3802",
+            "foedeland": "NOR"
+        }
+    ],
+    "foedselINorge": [
+        {
+            "ajourholdstidspunkt": "2022-03-08T14:44:37.831815+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Fødsel",
+            "gyldighetstidspunkt": "1934-06-16T14:44:37.831815+01:00",
+            "foedselsinstitusjonsnavn": "Flott Testinstitusjon",
+            "rekkefoelgenummer": 11
+        }
+    ],
+    "familierelasjon": [
+        {
+            "ajourholdstidspunkt": "2022-03-08T14:44:37.546354+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1970-12-17T00:00:00+01:00",
+            "relatertPerson": "17927096528",
+            "relatertPersonsRolle": "barn",
+            "minRolleForPerson": "mor"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-10T07:52:19.001817+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1966-06-05T00:00:00+01:00",
+            "relatertPerson": "05866697967",
+            "relatertPersonsRolle": "barn",
+            "minRolleForPerson": "mor"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-11T09:16:12.410489+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1965-07-28T00:00:00+01:00",
+            "relatertPerson": "28876597480",
+            "relatertPersonsRolle": "barn",
+            "minRolleForPerson": "mor"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-25T12:41:15.829279+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1963-06-08T12:41:15.679875+01:00",
+            "relatertPerson": "11833547579",
+            "relatertPersonsRolle": "ektefelleEllerPartner",
+            "minRolleForPerson": "ektefelleEllerPartner"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-16T08:05:57.519554+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1959-11-24T00:00:00+01:00",
+            "relatertPerson": "24915994926",
+            "relatertPersonsRolle": "barn",
+            "minRolleForPerson": "mor"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-25T14:32:15.709916+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1934-06-16T00:00:00+01:00",
+            "relatertPerson": "19920048172",
+            "relatertPersonsRolle": "far",
+            "minRolleForPerson": "barn"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-25T14:32:15.470625+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1934-06-16T00:00:00+01:00",
+            "relatertPerson": "16910048256",
+            "relatertPersonsRolle": "mor",
+            "minRolleForPerson": "barn"
+        }
+    ],
+    "sivilstand": [
+        {
+            "ajourholdstidspunkt": "2022-03-25T12:41:15.679877+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1963-06-08T12:41:15.679875+01:00",
+            "sivilstand": "gift",
+            "sivilstandsdato": "1963-06-08",
+            "myndighet": "DEN_NORSKE_KIRKE",
+            "kommune": "5402",
+            "sted": "Aktpågivende Testkirke",
+            "relatertVedSivilstand": "11833547579"
+        }
+    ],
+    "navn": [
+        {
+            "ajourholdstidspunkt": "2022-03-08T14:44:37.863277+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "2022-03-08T14:44:37.863275+01:00",
+            "fornavn": "LETT",
+            "etternavn": "JUBILANT"
+        }
+    ],
+    "bostedsadresse": [
+        {
+            "ajourholdstidspunkt": "2025-02-18T10:01:45.129821871+01:00",
+            "erGjeldende": true,
+            "kilde": "Matrikkelen",
+            "aarsak": "Adresseoppdatering",
+            "gyldighetstidspunkt": "2022-03-25T00:00:00+01:00",
+            "vegadresse": {
+                "kommunenummer": "3416",
+                "bruksenhetsnummer": "H0101",
+                "bruksenhetstype": "bolig",
+                "adressenavn": "Malmervegen",
+                "adressenummer": {
+                    "husnummer": "113"
+                },
+                "adressekode": "06001",
+                "poststed": {
+                    "poststedsnavn": "ÅBOGEN",
+                    "postnummer": "2220"
+                }
+            },
+            "adresseIdentifikatorFraMatrikkelen": "401529519",
+            "adressegradering": "ugradert",
+            "flyttedato": "2022-03-25",
+            "grunnkrets": 307,
+            "stemmekrets": 1,
+            "skolekrets": 1,
+            "kirkekrets": 1
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-25T12:41:16.42144+01:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Flytting innenlands",
+            "gyldighetstidspunkt": "2022-03-25T00:00:00+01:00",
+            "vegadresse": {
+                "kommunenummer": "3416",
+                "bruksenhetsnummer": "H0101",
+                "bruksenhetstype": "bolig",
+                "adressenavn": "Malmervegen",
+                "adressenummer": {
+                    "husnummer": "113"
+                },
+                "adressekode": "6001",
+                "poststed": {
+                    "poststedsnavn": "ÅBOGEN",
+                    "postnummer": "2220"
+                }
+            },
+            "adresseIdentifikatorFraMatrikkelen": "401529519",
+            "adressegradering": "ugradert",
+            "flyttedato": "2022-03-25",
+            "grunnkrets": 307,
+            "stemmekrets": 10,
+            "skolekrets": 1,
+            "kirkekrets": 1
+        }
+    ],
+    "statsborgerskap": [
+        {
+            "ajourholdstidspunkt": "2022-03-08T14:44:37.89796+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Fødsel",
+            "gyldighetstidspunkt": "1934-06-16T14:44:37.897975+01:00",
+            "statsborgerskap": "NOR",
+            "ervervsdato": "1934-06-16"
+        }
+    ],
+    "vergemaalEllerFremtidsfullmakt": [
+        {
+            "ajourholdstidspunkt": "2023-11-20T13:56:45.876468+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Vergemål",
+            "gyldighetstidspunkt": "2023-08-22T00:00:00+02:00",
+            "vergemaaltype": "voksen",
+            "embete": "statsforvalterenIAgder",
+            "verge": {
+                "foedselsEllerDNummer": "17927096528",
+                "tjenesteomraade": [
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "arbeid"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "avtalerOgRettigheter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereSkifteAvUskiftebo"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "husbanken",
+                        "vergeTjenesteoppgave": "bostoette"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "byggOgEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "disponereInntekterTilAaDekkeUtgifter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "endrePostadresse"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "endringAvEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "familie"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "helfo",
+                        "vergeTjenesteoppgave": "fastlege"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "inkassoselskap",
+                        "vergeTjenesteoppgave": "forhandleOgInngaaInkassoavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "forsikringsselskap",
+                        "vergeTjenesteoppgave": "forvalteForsikringsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "namsmannen",
+                        "vergeTjenesteoppgave": "gjeldsordning"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "statensInnkrevingssentral",
+                        "vergeTjenesteoppgave": "gjeldsordningOgBetalingsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "helseOgOmsorg"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "hjelpemidler"
+                    }
+                ]
+            }
+        },
+        {
+            "ajourholdstidspunkt": "2023-08-23T07:18:13.109613088+02:00",
+            "erGjeldende": false,
+            "kilde": "Statens Sivilrettsforvaltning",
+            "gyldighetstidspunkt": "2023-08-22T00:00:00+02:00",
+            "vergemaaltype": "voksen",
+            "embete": "statsforvalterenIAgder",
+            "verge": {
+                "foedselsEllerDNummer": "17927096528",
+                "omfang": "personligeOgOekonomiskeInteresser",
+                "omfangetErInnenPersonligOmraade": true
+            }
+        },
+        {
+            "ajourholdstidspunkt": "2023-11-20T13:56:46.184588+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Vergemål",
+            "gyldighetstidspunkt": "2023-08-21T00:00:00+02:00",
+            "vergemaaltype": "voksen",
+            "embete": "statsforvaltarenIVestfoldOgTelemark",
+            "verge": {
+                "foedselsEllerDNummer": "17927096528",
+                "tjenesteomraade": [
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "arbeid"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "avtalerOgRettigheter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereSkifteAvUskiftebo"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "husbanken",
+                        "vergeTjenesteoppgave": "bostoette"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "byggOgEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "disponereInntekterTilAaDekkeUtgifter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "endrePostadresse"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "endringAvEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "familie"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "helfo",
+                        "vergeTjenesteoppgave": "fastlege"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "inkassoselskap",
+                        "vergeTjenesteoppgave": "forhandleOgInngaaInkassoavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "forsikringsselskap",
+                        "vergeTjenesteoppgave": "forvalteForsikringsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "namsmannen",
+                        "vergeTjenesteoppgave": "gjeldsordning"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "statensInnkrevingssentral",
+                        "vergeTjenesteoppgave": "gjeldsordningOgBetalingsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "helseOgOmsorg"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "hjelpemidler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "arbeid"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "avtalerOgRettigheter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereSkifteAvUskiftebo"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "begjaereUskifte"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "husbanken",
+                        "vergeTjenesteoppgave": "bostoette"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "byggOgEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "disponereInntekterTilAaDekkeUtgifter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "endrePostadresse"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "endringAvEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "familie"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "helfo",
+                        "vergeTjenesteoppgave": "fastlege"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "inkassoselskap",
+                        "vergeTjenesteoppgave": "forhandleOgInngaaInkassoavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "forsikringsselskap",
+                        "vergeTjenesteoppgave": "forvalteForsikringsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "namsmannen",
+                        "vergeTjenesteoppgave": "gjeldsordning"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "statensInnkrevingssentral",
+                        "vergeTjenesteoppgave": "gjeldsordningOgBetalingsavtaler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kommune",
+                        "vergeTjenesteoppgave": "helseOgOmsorg"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "hjelpemidler"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "inngaaelseAvHusleiekontrakter"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "innkreving"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "kjoepAvEiendom"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "kjoepLeieAvVarerOgTjenester"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kredittvurderingsselskap",
+                        "vergeTjenesteoppgave": "kredittsperre"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "laaneopptak"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "meldeFlytting"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "nav",
+                        "vergeTjenesteoppgave": "pensjon"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "tingretten",
+                        "vergeTjenesteoppgave": "privatSkifteAvDoedsbo"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "pasientreiser",
+                        "vergeTjenesteoppgave": "refusjonAvPasientreiser"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "helfo",
+                        "vergeTjenesteoppgave": "refusjonForPrivatpersoner"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "bank",
+                        "vergeTjenesteoppgave": "representasjonDagligbank"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "kartverket",
+                        "vergeTjenesteoppgave": "salgAvFastEiendomBorettslagsandel"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "oevrige",
+                        "vergeTjenesteoppgave": "salgAvLoesoereAvStoerreVerdi"
+                    },
+                    {
+                        "vergeTjenestevirksomhet": "skatteetaten",
+                        "vergeTjenesteoppgave": "skatt"
+                    }
+                ]
+            }
+        },
+        {
+            "ajourholdstidspunkt": "2023-08-22T12:36:29.386435512+02:00",
+            "erGjeldende": false,
+            "kilde": "Statens Sivilrettsforvaltning",
+            "gyldighetstidspunkt": "2023-08-21T00:00:00+02:00",
+            "vergemaaltype": "voksen",
+            "embete": "statsforvaltarenIVestfoldOgTelemark",
+            "verge": {
+                "foedselsEllerDNummer": "17927096528",
+                "omfang": "personligeOgOekonomiskeInteresser",
+                "omfangetErInnenPersonligOmraade": true
+            }
+        }
+    ]
+}

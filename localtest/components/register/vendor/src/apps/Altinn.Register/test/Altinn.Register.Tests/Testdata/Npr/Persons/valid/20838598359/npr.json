@@ -1,0 +1,156 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572000171+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "20838598359",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572000171+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572167533+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "foedselsdato": "1985-03-20",
+      "foedselsaar": "1985",
+      "foedested": "Ås",
+      "foedekommuneINorge": "3218",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572183599+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "foedselsinstitusjonsnavn": "Håndfast Testinstitusjon"
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2024-05-21T14:24:51.829527234+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vigsel",
+      "gyldighetstidspunkt": "2024-05-21T00:00:00+02:00",
+      "relatertPerson": "19898497030",
+      "relatertPersonsRolle": "ektefelleEllerPartner",
+      "minRolleForPerson": "ektefelleEllerPartner"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2024-05-21T14:24:51.829527234+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vigsel",
+      "gyldighetstidspunkt": "2024-05-21T00:00:00+02:00",
+      "sivilstand": "gift",
+      "sivilstandsdato": "2024-05-21",
+      "myndighet": "ANSATT_I_KOMMUNE",
+      "kommune": "5542",
+      "sted": "Kort Testrådhus",
+      "relatertVedSivilstand": "19898497030"
+    },
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572279857+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1985-03-20"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572092389+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T14:24:51.572091831+01:00",
+      "fornavn": "UNG",
+      "mellomnavn": "STOLT-DEMOKRATISK",
+      "etternavn": "FØYKE",
+      "forkortetNavn": "UNG FØYKE"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2024-02-24T14:24:51.62917677+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2024-02-24T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "4628",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Elvik",
+        "adressenummer": { "husnummer": "17" },
+        "adressekode": "1111",
+        "poststed": { "poststedsnavn": "STAMNES", "postnummer": "5727" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "152914902",
+      "adressegradering": "ugradert",
+      "flyttedato": "2024-02-24",
+      "grunnkrets": 304,
+      "stemmekrets": 3,
+      "skolekrets": 12,
+      "kirkekrets": 3
+    },
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.572130541+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2003-03-20T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "3218",
+        "bruksenhetsnummer": "U0102",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Landåskollen",
+        "adressenummer": { "husnummer": "11" },
+        "adressekode": "3050",
+        "poststed": { "poststedsnavn": "ÅS", "postnummer": "1430" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "125002930",
+      "adressegradering": "ugradert",
+      "flyttedato": "2003-03-20",
+      "grunnkrets": 217,
+      "stemmekrets": 1,
+      "skolekrets": 2,
+      "kirkekrets": 1
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2021-11-17T14:24:51.57225018+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-03-20T00:00:00+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1985-03-20"
+    }
+  ]
+}

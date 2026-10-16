@@ -1,0 +1,9 @@
+<Project>
+
+  <PropertyGroup Condition=" '$(IsTestProject)' == 'true' ">
+    <XUnitVersion Condition=" '$(XUnitVersion)' == '' ">v2</XUnitVersion>
+  </PropertyGroup>
+
+  <Import
+    Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)..\'))" />
+</Project>

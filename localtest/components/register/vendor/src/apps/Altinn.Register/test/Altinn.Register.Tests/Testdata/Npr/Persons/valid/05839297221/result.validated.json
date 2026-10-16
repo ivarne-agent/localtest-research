@@ -1,0 +1,17 @@
+{
+  "personIdentifier": "05839297221",
+  "displayName": "UAVHENGIG HYPPIG DREGG",
+  "firstName": "UAVHENGIG",
+  "middleName": "HYPPIG",
+  "lastName": "DREGG",
+  "shortName": "DREGG UAVHENGIG HYPPIG",
+  "address": null,
+  "mailingAddress": {
+    "address": "Postbox 33 Testpostkode utland 86 Smigrende testby- eller stedsnavn EL SALVADOR",
+    "postalCode": "Testpostkode utland 86",
+    "city": "Smigrende testby- eller stedsnavn"
+  },
+  "dateOfBirth": "1992-03-05",
+  "dateOfDeath": null,
+  "guardians": []
+}

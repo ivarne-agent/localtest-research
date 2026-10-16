@@ -1,0 +1,15 @@
+﻿{
+  "role": {
+    "source": "new-source",
+    "identifier": "daglig-leder",
+    "urn": "urn:altinn:external-role:new-source:daglig-leder"
+  },
+  "to": {
+    "partyUuid": "00000000-0000-0000-0000-000000000002",
+    "urn": "urn:altinn:party:uuid:00000000-0000-0000-0000-000000000002"
+  },
+  "from": {
+    "partyUuid": "00000000-0000-0000-0000-000000000001",
+    "urn": "urn:altinn:party:uuid:00000000-0000-0000-0000-000000000001"
+  }
+}

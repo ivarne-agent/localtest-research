@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433820" organisasjonsform="FLI" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>8450</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>1866</kommunenr>
+      <adresse1>Vik</adresse1>
+      <adresse2>Eidsfjordveien 2408</adresse2>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>skal brukes for testing i BVR-INN</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>7000</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>23827696358</rolleFoedselsnr>
+      <fornavn>Åpen</fornavn>
+      <slektsnavn>Porto</slektsnavn>
+      <postnr>6919</postnr>
+      <adresse1>Valvikvegen 358</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>21819499885</rolleFoedselsnr>
+      <fornavn>Sliten</fornavn>
+      <slektsnavn>Autoritet</slektsnavn>
+      <postnr>8253</postnr>
+      <adresse1>Vikveien 64</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES FORENING TIL BRUK AV</navn1>
+      <navn2>PAYLOADTESTER AV REGLER I BVR-INN</navn2>
+      <rednavn>JANNES FORENING TIL BRUK AV</rednavn>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20260801</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

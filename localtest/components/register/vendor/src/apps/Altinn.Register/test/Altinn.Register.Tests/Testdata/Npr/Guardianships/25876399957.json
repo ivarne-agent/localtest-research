@@ -1,0 +1,45 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:40.619+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "25876399957",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "vergemaalEllerFremtidsfullmakt": [
+    {
+      "ajourholdstidspunkt": "2023-11-20T13:58:10.561935+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2023-03-16T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvalterenITroendelag",
+      "verge": {
+        "foedselsEllerDNummer": "27816499491",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "skatteetaten",
+            "vergeTjenesteoppgave": "endrePostadresse"
+          }
+        ]
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2023-03-16T10:03:09.96846+01:00",
+      "embete": "statsforvalterenITroendelag",
+      "erGjeldende": false,
+      "gyldighetstidspunkt": "2023-03-16T00:00:00+01:00",
+      "kilde": "Synutopia",
+      "verge": {
+        "foedselsEllerDNummer": "27816499491",
+        "omfang": "personligeInteresser",
+        "omfangetErInnenPersonligOmraade": true
+      },
+      "vergemaaltype": "voksen"
+    }
+  ]
+}

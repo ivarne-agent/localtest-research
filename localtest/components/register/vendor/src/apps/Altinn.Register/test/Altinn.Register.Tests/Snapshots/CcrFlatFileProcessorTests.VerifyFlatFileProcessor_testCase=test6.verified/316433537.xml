@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433537" organisasjonsform="BEDR" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260819" datoSistEndret="20260819">
+    <infotype felttype="BDAT" endringstype="N">
+      <opplysning>20260819</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="BEDR" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>315944724</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>10</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>MIDLERTIDIG ORGNR I ER</navn1>
+      <rednavn>MIDLERTIDIG ORGNR I ER</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>8907</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>1813</kommunenr>
+      <adresse1>Salhusoddan 9A</adresse1>
+    </infotype>
+    <infotype felttype="PLFR" endringstype="N">
+      <opplysning>N</opplysning>
+    </infotype>
+    <infotype felttype="naeringskode" endringstype="N">
+      <naeringskode>94.110</naeringskode>
+      <hjelpeenhet>N</hjelpeenhet>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

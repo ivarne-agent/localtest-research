@@ -1,0 +1,178 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:33.048+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "23904597538",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:33.048+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2020-12-22T17:09:33.048+01:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:55.767814+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "gyldighetstidspunkt": "1945-10-23T12:28:55.767812+01:00",
+      "foedselsdato": "1945-10-23",
+      "foedselsaar": "1945",
+      "foedekommuneINorge": "0301",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:55.837469+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1945-10-23T12:28:55.837469+01:00",
+      "foedselsinstitusjonsnavn": "Selvtilfreds Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:55.514664+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1945-10-23T00:00:00+01:00",
+      "relatertPerson": "04921048578",
+      "relatertPersonsRolle": "far",
+      "minRolleForPerson": "barn"
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:55.282992+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "1945-10-23T00:00:00+01:00",
+      "relatertPerson": "04811049404",
+      "relatertPersonsRolle": "mor",
+      "minRolleForPerson": "barn"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:56.026065+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1945-10-23T12:28:56.026083+01:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1945-10-23"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:55.922014+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Patch",
+      "gyldighetstidspunkt": "2022-03-23T12:28:55.922011+01:00",
+      "fornavn": "FLAT",
+      "etternavn": "SVAMP"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2024-01-16T12:19:12.41548984+01:00",
+      "erGjeldende": true,
+      "kilde": "Matrikkelen",
+      "aarsak": "Kommuneregulering",
+      "gyldighetstidspunkt": "2022-03-23T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "5534",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Nord-Fugløyveien",
+        "adressenummer": { "husnummer": "2108" },
+        "adressekode": "1060",
+        "poststed": { "poststedsnavn": "VANNVÅG", "postnummer": "9135" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "272881295",
+      "adressegradering": "ugradert",
+      "flyttedato": "2022-03-23",
+      "grunnkrets": 208,
+      "stemmekrets": 2,
+      "skolekrets": 2,
+      "kirkekrets": 1
+    },
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:57.523674+01:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2022-03-23T00:00:00+01:00",
+      "vegadresse": {
+        "kommunenummer": "5423",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Nord-Fugløyveien",
+        "adressenummer": { "husnummer": "2108" },
+        "adressekode": "1060",
+        "poststed": { "poststedsnavn": "VANNVÅG", "postnummer": "9135" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "272881295",
+      "adressegradering": "ugradert",
+      "flyttedato": "2022-03-23",
+      "grunnkrets": 208,
+      "stemmekrets": 2,
+      "skolekrets": 2,
+      "kirkekrets": 1
+    }
+  ],
+  "postadresse": [
+    {
+      "ajourholdstidspunkt": "2021-10-26T10:51:59.834342+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Postadresse",
+      "gyldighetstidspunkt": "2021-10-26T10:51:59.834329+02:00",
+      "adressegradering": "ugradert",
+      "postboksadresse": {
+        "postbokseier": "Empirisk Ungdom",
+        "postboks": "Test 165",
+        "poststed": { "poststedsnavn": "SNILSTVEITØY", "postnummer": "5473" }
+      }
+    }
+  ],
+  "postadresseIUtlandet": [
+    {
+      "ajourholdstidspunkt": "2021-10-26T10:51:59.834342+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Postadresse",
+      "gyldighetstidspunkt": "2021-10-26T10:51:59.834329+02:00",
+      "adressegradering": "ugradert",
+      "utenlandskAdresseIFrittFormat": {
+        "adresselinje": ["Testadresselinje 1"],
+        "postkode": "Testpostkode utland 80",
+        "byEllerStedsnavn": "Lys testby- eller stedsnavn",
+        "landkode": "BV"
+      }
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2022-03-23T12:28:56.109505+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "1945-10-23T12:28:56.109521+01:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1945-10-23"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+<Project>
+
+  <Choose>
+    <When Condition=" '$(IsTestProject)' == 'true' ">
+
+      <PropertyGroup>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);SA0001;SA1600</NoWarn>
+        <XUnitVersion Condition=" '$(XUnitVersion)' == '' ">v3</XUnitVersion>
+      </PropertyGroup>
+
+      <PropertyGroup>
+        <DefineConstants Condition=" '$(XUnitVersion)' == 'v3' ">$(DefineConstants);XUNIT3</DefineConstants>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <DocFileItem Remove="@(DocFileItem)" />
+      </ItemGroup>
+
+      <ItemGroup>
+        <PackageReference Include="coverlet.MTP">
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Shouldly" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="Xunit.Combinatorial" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="xunit.v3.mtp-v2" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="xunit.runner.visualstudio">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+      </ItemGroup>
+
+      <ItemGroup>
+        <Using Include="Shouldly" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <Using Include="Xunit" />
+      </ItemGroup>
+
+    </When>
+
+    <When Condition=" '$(IsTestLibrary)' == 'true' ">
+
+      <PropertyGroup>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);SA0001</NoWarn>
+      </PropertyGroup>
+
+      <PropertyGroup>
+        <DefineConstants Condition=" '$(XUnitVersion)' == 'v3' ">$(DefineConstants);XUNIT3</DefineConstants>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <DocFileItem Remove="@(DocFileItem)" />
+      </ItemGroup>
+
+      <ItemGroup>
+        <PackageReference Include="Shouldly" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="Xunit.Combinatorial" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="xunit.v3.assert" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <PackageReference Include="xunit.v3.extensibility.core"
+          Condition=" '$(XUnitVersion)' == 'v3' " />
+      </ItemGroup>
+
+      <ItemGroup>
+        <Using Include="Shouldly" Condition=" '$(XUnitVersion)' == 'v3' " />
+        <Using Include="Xunit" />
+      </ItemGroup>
+
+    </When>
+
+    <Otherwise>
+      <!-- not test project -->
+
+      <ItemGroup>
+        <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+      </ItemGroup>
+
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup Condition=" '$(EnableStyleCop)' == 'true' ">
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all"
+      IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json">
+      <Link>stylecop.json</Link>
+    </AdditionalFiles>
+  </ItemGroup>
+
+  <Choose>
+    <When Condition=" '$(IsPackable)' == 'true' ">
+
+      <PropertyGroup>
+        <ArtifactsPath Condition=" '$(ArtifactsPath)' == '' ">$(BaseArtifactsPath)$(MSBuildProjectName)\</ArtifactsPath>
+        <CoreBuildDependsOn>$(CoreBuildDependsOn);_CheckVersion</CoreBuildDependsOn>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <PackageReference Include="Microsoft.Build.Artifacts" PrivateAssets="all"
+          IncludeAssets="build; buildtransitive; buildMultiTargeting" />
+      </ItemGroup>
+
+      <PropertyGroup Condition=" '$(ReadmePath)' == '' ">
+        <ReadmePath>$([MSBuild]::GetPathOfFileAbove('README.md', '$(MSBuildProjectDirectory)'))</ReadmePath>
+      </PropertyGroup>
+
+      <PropertyGroup Condition=" '$(ChangelogPath)' == '' ">
+        <ChangelogPath>$([MSBuild]::GetPathOfFileAbove('CHANGELOG.md',
+          '$(MSBuildProjectDirectory)'))</ChangelogPath>
+      </PropertyGroup>
+
+      <ItemGroup Condition=" Exists('$(ReadmePath)') ">
+        <None Include="$(ReadmePath)" Pack="true" PackagePath="readme.md" />
+      </ItemGroup>
+
+      <ItemGroup Condition=" Exists('$(ChangelogPath)') ">
+        <None Include="$(ChangelogPath)" Pack="true" PackagePath="changelog.md" />
+      </ItemGroup>
+
+      <PropertyGroup Condition=" Exists('$(ReadmePath)') ">
+        <PackageReadmeFile>readme.md</PackageReadmeFile>
+      </PropertyGroup>
+
+      <PropertyGroup Condition=" Exists('$(ChangelogPath)') ">
+        <PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(ChangelogPath)"))</PackageReleaseNotes>
+      </PropertyGroup>
+
+      <PropertyGroup Condition=" '$(VersionFilePath)' == '' ">
+        <VersionFilePath>$([MSBuild]::GetPathOfFileAbove('Version.props', '$(MSBuildProjectDirectory)'))</VersionFilePath>
+      </PropertyGroup>
+
+    </When>
+  </Choose>
+
+  <Import Project="$(VersionFilePath)" Condition="Exists('$(VersionFilePath)')" />
+
+  <Target Name="_CheckVersion">
+    <Error Condition="!Exists('$(VersionFilePath)')"
+      Text="Version file not found at '$(VersionFilePath)'" />
+    <Error Condition="'$(Version)' == ''" Text="Version not defined in '$(VersionFilePath)'" />
+  </Target>
+
+  <Target Name="_PatchTestAppHostForDevenvDotNet"
+    AfterTargets="_CreateAppHost"
+    Condition="
+      '$(IsTestProject)' == 'true'
+      And '$(UseAppHost)' == 'true'
+      And '$(TargetFrameworkIdentifier)' == '.NETCoreApp'
+      And Exists('$(MSBuildThisFileDirectory).devenv/profile/share/dotnet')
+      And Exists('@(IntermediateAssembly)')
+      And Exists('$(AppHostSourcePath)')
+    ">
+    <PropertyGroup>
+      <_DevenvDotNetRoot>$(MSBuildThisFileDirectory).devenv/profile/share/dotnet</_DevenvDotNetRoot>
+      <_DevenvDotNetRootRelativeToTargetDir>$([MSBuild]::MakeRelative('$(TargetDir)',
+        '$(_DevenvDotNetRoot)'))</_DevenvDotNetRootRelativeToTargetDir>
+    </PropertyGroup>
+
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+      AppHostDestinationPath="$(AppHostIntermediatePath)"
+      AppBinaryName="$(AssemblyName)$(TargetExt)"
+      IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+      WindowsGraphicalUserInterface="$(_UseWindowsGraphicalUserInterface)"
+      Retries="$(CopyRetryCount)"
+      RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
+      EnableMacOSCodeSign="$(_EnableMacOSCodeSign)"
+      DisableCetCompat="$(_DisableCetCompat)"
+      DotNetSearchLocations="AppRelative"
+      AppRelativeDotNet="$(_DevenvDotNetRootRelativeToTargetDir)" />
+  </Target>
+
+</Project>

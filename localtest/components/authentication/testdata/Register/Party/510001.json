@@ -1,0 +1,15 @@
+{
+  "partyId": "510001",
+  "partyUuid": "00000000-0000-0000-0000-000000510001",
+  "externalUrn": "urn:altinn:person:identifier-no:01899699552",
+  "partyTypeName": 1,
+  "orgNumber": "",
+  "ssn": "01899699552",
+  "unitType": null,
+  "name": "Pengelens Partner",
+  "isDeleted": false,
+  "onlyHierarchyElementWithNoAccess": false,
+  "person": null,
+  "organisation": null,
+  "childParties": null
+}

@@ -1,0 +1,20 @@
+{
+  "organizationIdentifier": "090090054",
+  "name": "Test International AS",
+  "unitType": "UTLANS",
+  "unitStatus": "E",
+  "deletedAt": null,
+  "mailingAddress": {
+    "address": "3 Jervois Quay, Wellington Central NEW ZEALAND",
+    "postalCode": "NZ-6011",
+    "city": "Wellington"
+  },
+  "lastUpdated": "2024-01-15T10:00:00\u002B01:00",
+  "businessRelationships": [
+    {
+      "roleIdentifier": "norsk-representant",
+      "relatedPersonIdentifier": "25871999336",
+      "relatedOrganizationIdentifier": null
+    }
+  ]
+}

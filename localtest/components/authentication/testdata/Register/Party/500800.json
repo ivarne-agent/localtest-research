@@ -1,0 +1,15 @@
+{
+  "partyId": "500800",
+  "partyUuid": "00000000-0000-0000-0000-000000500800",
+  "externalUrn": "urn:altinn:organization:identifier-no:910457292",
+  "partyTypeName": 2,
+  "orgNumber": "910457292",
+  "ssn": "",
+  "unitType": "AS",
+  "name": "EAS Health Consulting Sortland",
+  "isDeleted": false,
+  "onlyHierarchyElementWithNoAccess": false,
+  "person": null,
+  "organisation": null,
+  "childParties": null
+}

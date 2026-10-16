@@ -1,0 +1,12 @@
+﻿[
+  {
+    organizationIdentifier: 216431022,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ANS,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    roleUpdates: null
+  }
+]

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Altinn.Register.Contracts</PackageId>
+    <PackageTags>Altinn;Models;Contracts;Register;Authorization</PackageTags>
+    <Description>
+      Altinn.Register.Contracts is a package for models used by platform register and profile.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.ModelUtils" />
+    <PackageReference Include="Altinn.Swashbuckle.Abstractions" />
+    <PackageReference Include="Altinn.Urn" />
+    <PackageReference Include="System.ComponentModel.Annotations" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Text.Json.Serialization" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433839" organisasjonsform="AAFY" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <samendringer data="D" felttype="AAFY" endringstype="N" type="K">
+      <knytningFratraadt>N</knytningFratraadt>
+      <knytningOrganisasjonsnummer>316433820</knytningOrganisasjonsnummer>
+      <knytningRekkefoelge>10</knytningRekkefoelge>
+      <korrektOrganisasjonsnummer>000000000</korrektOrganisasjonsnummer>
+    </samendringer>
+    <infotype felttype="BDAT" endringstype="N">
+      <opplysning>20260820</opplysning>
+    </infotype>
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>8450</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>1866</kommunenr>
+      <adresse1>Vik</adresse1>
+      <adresse2>Eidsfjordveien 2408</adresse2>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES FORENING TIL BRUK AV</navn1>
+      <navn2>PAYLOADTESTER AV REGLER I BVR-INN</navn2>
+      <rednavn>JANNES FORENING TIL BRUK AV</rednavn>
+    </infotype>
+    <infotype felttype="PLFR" endringstype="N">
+      <opplysning>N</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

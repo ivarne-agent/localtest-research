@@ -1,0 +1,12 @@
+﻿[
+  {
+    organizationIdentifier: 316251463,
+    isFirstRegistration: false,
+    isDeleted: true,
+    deletedAt: 2026-08-19,
+    unitType: KBO,
+    unitStatus: S,
+    datoSistEndret: 2026-08-19,
+    roleUpdates: null
+  }
+]

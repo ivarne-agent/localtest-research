@@ -1,0 +1,19 @@
+{
+  "UserId": 1002,
+  "UserUuid": "00000000-0000-0000-0000-000000510002",
+  "UserName": "GjentagendeForelder",
+  "PhoneNumber": "12345678",
+  "Email": "test@test.com",
+  "PartyId": 510002,
+  "Party": {
+    "partyId": "510002",
+    "partyUuid": "00000000-0000-0000-0000-000000510002",
+    "externalUrn": "urn:altinn:person:identifier-no:17858296439",
+    "ssn": "17858296439"
+  },
+  "UserType": 0,
+  "ProfileSettingPreference": {
+    "Language": "nb",
+    "doNotPromptForParty": true
+  }
+}

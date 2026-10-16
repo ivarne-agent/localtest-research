@@ -1,0 +1,99 @@
+﻿[
+  {
+    organizationIdentifier: 216433912,
+    isFirstRegistration: true,
+    displayName: IMPLUSIVT KINE ANS,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: PRE,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Nedre Skøyen vei 8 0276 OSLO,
+      postalCode: 0276,
+      city: OSLO
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: bestyrende-reder,
+          rolePersonalIdentifier: 17830197397,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Impulsiv Bie,
+            firstName: Impulsiv,
+            middleName: null,
+            lastName: Bie,
+            shortName: Bie Impulsiv
+          },
+          mailingAddress: {
+            address: Nedre Skøyen Vei 8 0276,
+            postalCode: 0276,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: bestyrende-reder,
+          rolePersonalIdentifier: 20865899948,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tydelig Kelner,
+            firstName: Tydelig,
+            middleName: null,
+            lastName: Kelner,
+            shortName: Kelner Tydelig
+          },
+          mailingAddress: {
+            address: Politim Bendixens Gate 41 F 6508,
+            postalCode: 6508,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 17830197397,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Impulsiv Bie,
+            firstName: Impulsiv,
+            middleName: null,
+            lastName: Bie,
+            shortName: Bie Impulsiv
+          },
+          mailingAddress: {
+            address: Nedre Skøyen Vei 8 0276,
+            postalCode: 0276,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 20865899948,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tydelig Kelner,
+            firstName: Tydelig,
+            middleName: null,
+            lastName: Kelner,
+            shortName: Kelner Tydelig
+          },
+          mailingAddress: {
+            address: Politim Bendixens Gate 41 F 6508,
+            postalCode: 6508,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

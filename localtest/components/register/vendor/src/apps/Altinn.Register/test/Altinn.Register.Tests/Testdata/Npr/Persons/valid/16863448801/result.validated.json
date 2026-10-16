@@ -1,0 +1,63 @@
+{
+  "personIdentifier": "16863448801",
+  "displayName": "LETT JUBILANT",
+  "firstName": "LETT",
+  "middleName": null,
+  "lastName": "JUBILANT",
+  "shortName": "JUBILANT LETT",
+  "address": {
+    "municipalNumber": "3416",
+    "municipalName": "EIDSKOG",
+    "streetName": "Malmervegen",
+    "houseNumber": "113",
+    "houseLetter": null,
+    "postalCode": "2220",
+    "city": "ÅBOGEN"
+  },
+  "mailingAddress": {
+    "address": "Malmervegen 113 2220 ÅBOGEN",
+    "postalCode": "2220",
+    "city": "ÅBOGEN"
+  },
+  "dateOfBirth": "1934-06-16",
+  "dateOfDeath": null,
+  "guardians": [
+    {
+      "guardian": "17927096528",
+      "roles": [
+        "bank-representasjon-dagligbank",
+        "forsikringsselskap-forvalte-forsikringsavtaler",
+        "helfo-fastlege",
+        "helfo-refusjon-privatpersoner",
+        "husbanken-bostotte",
+        "inkassoselskap-inkassoavtaler",
+        "kartverket-arv-privat-skifte-uskifte",
+        "kartverket-avtaler-rettigheter",
+        "kartverket-endring-eiendom",
+        "kartverket-kjop-eiendom",
+        "kartverket-laneopptak",
+        "kartverket-salg-fast-eiendom-borettslagsandel",
+        "kommune-bygg-eiendom",
+        "kommune-helse-omsorg",
+        "kredittvurderingsselskap-kredittsperre",
+        "namsmannen-gjeldsordning",
+        "nav-arbeid",
+        "nav-familie",
+        "nav-hjelpemidler",
+        "nav-pensjon",
+        "ovrige-avslutning-husleiekontrakter",
+        "ovrige-disponere-inntekter-dekke-utgifter",
+        "ovrige-inngaelse-husleiekontrakter",
+        "ovrige-kjop-leie-varer-tjenester",
+        "ovrige-salg-losore-storre-verdi",
+        "pasientreiser-refusjon-pasientreiser",
+        "skatteetaten-endre-postadresse",
+        "skatteetaten-melde-flytting",
+        "skatteetaten-skatt",
+        "tingretten-begjaere-skifte-uskiftebo",
+        "tingretten-begjaere-uskifte",
+        "tingretten-privat-skifte-dodsbo"
+      ]
+    }
+  ]
+}

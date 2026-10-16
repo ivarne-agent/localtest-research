@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260428" kjoerenr="05780" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289460" organisasjonsform="AS" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20230102" datoSistEndret="20260428">
+    <samendringUtgaar felttype="SAMU">
+      <samendringstype>REGN</samendringstype>
+    </samendringUtgaar>
+    <samendringer data="D" felttype="REGN" endringstype="U" type="K">
+      <knytningOrganisasjonsnummer>316289436</knytningOrganisasjonsnummer>
+    </samendringer>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

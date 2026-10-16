@@ -1,0 +1,15 @@
+{
+  "partyId": "512001",
+  "partyUuid": "00000000-0000-0000-0000-000000512001",
+  "externalUrn": "urn:altinn:person:identifier-no:01899699001",
+  "partyTypeName": 1,
+  "orgNumber": "",
+  "ssn": "01899699001",
+  "unitType": null,
+  "name": "MultiParty Prompt",
+  "isDeleted": false,
+  "onlyHierarchyElementWithNoAccess": false,
+  "person": null,
+  "organisation": null,
+  "childParties": null
+}

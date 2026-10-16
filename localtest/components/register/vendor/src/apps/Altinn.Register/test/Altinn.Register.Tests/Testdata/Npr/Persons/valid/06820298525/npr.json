@@ -1,0 +1,33 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "gyldighetstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "status": "opphoert",
+      "foedselsEllerDNummer": "06820298525",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "erGjeldende": true,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Opphøre person",
+      "gyldighetstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "status": "opphoert"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "erGjeldende": true,
+      "kilde": "folkeregistermyndigheten",
+      "aarsak": "Opphøre person",
+      "gyldighetstidspunkt": "2025-05-26T15:11:22.888+02:00",
+      "sivilstand": "uoppgitt"
+    }
+  ]
+}

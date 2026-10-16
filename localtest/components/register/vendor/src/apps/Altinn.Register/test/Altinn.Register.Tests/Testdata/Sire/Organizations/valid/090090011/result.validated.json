@@ -1,0 +1,25 @@
+{
+  "organizationIdentifier": "090090011",
+  "name": "Somatisk Deltagende Får ",
+  "unitType": "IS",
+  "unitStatus": "S",
+  "deletedAt": "2025-09-09T00:00:00+00:00",
+  "mailingAddress": {
+    "address": "Sverrestien 1 1365 BLOMMENHOLM",
+    "postalCode": "1365",
+    "city": "BLOMMENHOLM"
+  },
+  "lastUpdated": "2024-09-17T12:01:18.2216427\u002B02:00",
+  "businessRelationships": [
+    {
+      "roleIdentifier": "styremedlem",
+      "relatedPersonIdentifier": "03815698966",
+      "relatedOrganizationIdentifier": null
+    },
+    {
+      "roleIdentifier": "varamedlem",
+      "relatedPersonIdentifier": "22874897462",
+      "relatedOrganizationIdentifier": null
+    }
+  ]
+}

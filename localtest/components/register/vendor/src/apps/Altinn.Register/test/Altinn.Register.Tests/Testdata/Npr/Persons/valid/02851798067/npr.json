@@ -1,0 +1,205 @@
+{
+    "identifikasjonsnummer": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711214642+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "status": "iBruk",
+            "foedselsEllerDNummer": "02851798067",
+            "identifikatortype": "foedselsnummer"
+        }
+    ],
+    "status": [
+        {
+            "ajourholdstidspunkt": "2025-01-14T14:41:30.481248105+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2025-01-14T00:00:00+01:00",
+            "status": "utflyttet"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711214642+01:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "status": "bosatt"
+        }
+    ],
+    "foedsel": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711423713+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "foedselsdato": "2017-05-02",
+            "foedselsaar": "2017",
+            "foedested": "KARASJOK",
+            "foedekommuneINorge": "5610",
+            "foedeland": "NOR"
+        }
+    ],
+    "foedselINorge": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711441305+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "foedselsinstitusjonsnavn": "Gåen Testinstitusjon",
+            "rekkefoelgenummer": 11
+        }
+    ],
+    "familierelasjon": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711551476+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "relatertPerson": "24828996106",
+            "relatertPersonsRolle": "far",
+            "minRolleForPerson": "barn"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711517731+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "relatertPerson": "23878597885",
+            "relatertPersonsRolle": "mor",
+            "minRolleForPerson": "barn"
+        }
+    ],
+    "sivilstand": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711500998+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "sivilstand": "ugift",
+            "sivilstandsdato": "2017-05-02"
+        }
+    ],
+    "navn": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711343877+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T14:41:28.711343447+02:00",
+            "fornavn": "AKTPÅGIVENDE",
+            "etternavn": "OLJE"
+        }
+    ],
+    "bostedsadresse": [
+        {
+            "ajourholdstidspunkt": "2025-01-14T14:41:30.481248105+01:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "opphoerstidspunkt": "2025-01-14T14:41:30.481249198+01:00",
+            "vegadresse": {
+                "kommunenummer": "5610",
+                "bruksenhetsnummer": "H0101",
+                "bruksenhetstype": "bolig",
+                "adressenavn": "Leavnnjageaidnu",
+                "adressenummer": {
+                    "husnummer": "1440"
+                },
+                "adressekode": "1320",
+                "poststed": {
+                    "poststedsnavn": "KARASJOK",
+                    "postnummer": "9733"
+                }
+            },
+            "adresseIdentifikatorFraMatrikkelen": "128067011",
+            "adressegradering": "ugradert",
+            "flyttedato": "2017-05-02",
+            "grunnkrets": 111,
+            "stemmekrets": 1,
+            "skolekrets": 1,
+            "kirkekrets": 1
+        }
+    ],
+    "utflytting": [
+        {
+            "ajourholdstidspunkt": "2025-01-14T14:41:30.481248105+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2025-01-14T00:00:00+01:00",
+            "tilflyttingsland": "URY",
+            "utflyttingsdato": "2025-01-14"
+        }
+    ],
+    "postadresseIUtlandet": [
+        {
+            "ajourholdstidspunkt": "2025-01-14T14:41:30.481248105+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2025-01-14T00:00:00+01:00",
+            "adressegradering": "ugradert",
+            "utenlandskAdresse": {
+                "adressenavn": "Testadressenavn 281",
+                "postkode": "Testpostkode utland 283",
+                "byEllerStedsnavn": "Viktig testby- eller stedsnavn",
+                "distriktsnavn": "Testdistrikt 173",
+                "landkode": "UY"
+            }
+        }
+    ],
+    "foreldreansvar": [
+        {
+            "ajourholdstidspunkt": "2024-05-16T14:41:29.811969162+02:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Dødsfall",
+            "gyldighetstidspunkt": "2024-05-16T00:00:00+02:00",
+            "ansvar": "mor",
+            "ansvarssubjekt": "02851798067",
+            "ansvarlig": "23878597885"
+        },
+        {
+            "ajourholdstidspunkt": "2024-05-16T14:41:29.811969162+02:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "opphoerstidspunkt": "2024-05-16T14:41:29.811970475+02:00",
+            "ansvar": "felles",
+            "ansvarssubjekt": "02851798067",
+            "ansvarlig": "24828996106"
+        },
+        {
+            "ajourholdstidspunkt": "2024-05-16T14:41:29.811969162+02:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "opphoerstidspunkt": "2024-05-16T14:41:29.811970475+02:00",
+            "ansvar": "felles",
+            "ansvarssubjekt": "02851798067",
+            "ansvarlig": "23878597885"
+        }
+    ],
+    "statsborgerskap": [
+        {
+            "ajourholdstidspunkt": "2022-03-14T14:41:28.711487027+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Grunnbefolkning",
+            "gyldighetstidspunkt": "2017-05-02T00:00:00+02:00",
+            "statsborgerskap": "NOR",
+            "ervervsdato": "2017-05-02"
+        }
+    ]
+}

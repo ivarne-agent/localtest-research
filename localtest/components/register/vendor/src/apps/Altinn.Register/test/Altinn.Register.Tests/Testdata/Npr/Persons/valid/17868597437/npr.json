@@ -1,0 +1,236 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868041024+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "17868597437",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868041024+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868494841+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "foedselsdato": "1985-06-17",
+      "foedselsaar": "1985",
+      "foedested": "DOVRE",
+      "foedekommuneINorge": "3431",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868520631+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "foedselsinstitusjonsnavn": "Mett Testinstitusjon"
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868694124+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2019-04-19T00:00:00+02:00",
+      "relatertPerson": "19841996618",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "mor"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868740431+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2013-04-26T00:00:00+02:00",
+      "relatertPerson": "26841397702",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "mor"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868647586+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2004-07-22T00:00:00+02:00",
+      "relatertPerson": "29928596913",
+      "relatertPersonsRolle": "ektefelleEllerPartner",
+      "minRolleForPerson": "ektefelleEllerPartner"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2023-05-15T14:24:32.168292858+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Separasjon",
+      "gyldighetstidspunkt": "2023-05-15T00:00:00+02:00",
+      "sivilstand": "separert",
+      "sivilstandsdato": "2023-05-15",
+      "myndighet": "STATSFORVALTEREN",
+      "relatertVedSivilstand": "29928596913"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868675343+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2004-07-22T00:00:00+02:00",
+      "sivilstand": "gift",
+      "sivilstandsdato": "2004-07-22",
+      "myndighet": "ANSATT_I_KOMMUNE",
+      "kommune": "4625",
+      "sted": "Vennlig Testrådhus",
+      "relatertVedSivilstand": "29928596913"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868623065+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1985-06-17"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868271949+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2004-07-22T14:24:31.868270654+02:00",
+      "fornavn": "LYS",
+      "etternavn": "BIT"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2023-05-19T14:24:32.358436417+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2023-05-19T00:00:00+02:00",
+      "matrikkeladresse": {
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "matrikkelnummer": {
+          "kommunenummer": "5630",
+          "gaardsnummer": 11,
+          "bruksnummer": 4,
+          "festenummer": 0
+        },
+        "undernummer": 0,
+        "poststed": { "poststedsnavn": "BERLEVÅG", "postnummer": "9980" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "236801215",
+      "adressegradering": "ugradert",
+      "flyttedato": "2023-05-19",
+      "grunnkrets": 102,
+      "stemmekrets": 1,
+      "skolekrets": 1,
+      "kirkekrets": 1
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868461639+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2004-07-22T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "4625",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Uglenesvegen",
+        "adressenummer": { "husnummer": "5" },
+        "adressekode": "1055",
+        "poststed": {
+          "poststedsnavn": "VESTRE VINNESVÅG",
+          "postnummer": "5396"
+        }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "152496815",
+      "adressegradering": "ugradert",
+      "flyttedato": "2004-07-22",
+      "grunnkrets": 201,
+      "stemmekrets": 8,
+      "skolekrets": 14,
+      "kirkekrets": 1
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868362506+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "3431",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Kvitdalsvegen",
+        "adressenummer": { "husnummer": "10" },
+        "adressekode": "1077",
+        "poststed": { "poststedsnavn": "HJERKINN", "postnummer": "2661" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "456218242",
+      "adressegradering": "ugradert",
+      "flyttedato": "1985-06-17",
+      "grunnkrets": 212,
+      "stemmekrets": 1,
+      "skolekrets": 1,
+      "kirkekrets": 2
+    }
+  ],
+  "foreldreansvar": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868717639+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2019-04-19T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "19841996618",
+      "ansvarlig": "17868597437"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868755239+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2013-04-26T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "26841397702",
+      "ansvarlig": "17868597437"
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2022-05-28T14:24:31.868599959+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1985-06-17T00:00:00+02:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1985-06-17"
+    }
+  ]
+}

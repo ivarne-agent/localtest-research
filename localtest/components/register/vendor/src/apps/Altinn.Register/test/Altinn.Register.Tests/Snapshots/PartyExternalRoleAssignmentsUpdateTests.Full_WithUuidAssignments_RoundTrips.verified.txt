@@ -1,0 +1,19 @@
+﻿{
+  $type: full,
+  assignments: [
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_1
+      },
+      externalRoleIdentifier: daglig-leder
+    },
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_2
+      },
+      externalRoleIdentifier: styremedlem
+    }
+  ]
+}

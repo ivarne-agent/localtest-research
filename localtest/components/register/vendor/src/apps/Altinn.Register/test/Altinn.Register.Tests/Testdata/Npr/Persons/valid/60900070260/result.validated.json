@@ -1,0 +1,17 @@
+{
+  "personIdentifier": "60900070260",
+  "displayName": "SKY MAI",
+  "firstName": "SKY",
+  "middleName": null,
+  "lastName": "MAI",
+  "shortName": "MAI SKY",
+  "address": null,
+  "mailingAddress": {
+    "address": "POSTBOKS 0134 Oslo",
+    "postalCode": "0134",
+    "city": "Oslo"
+  },
+  "dateOfBirth": "2000-01-01",
+  "dateOfDeath": null,
+  "guardians": []
+}

@@ -1,0 +1,41 @@
+﻿[
+  {
+    organizationIdentifier: 316289622,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: NUF,
+    unitStatus: E,
+    datoSistEndret: 2026-04-28,
+    roleUpdates: {
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 316289584,
+          personName: null,
+          mailingAddress: null
+        }
+      ],
+      bulkRemoveRoleAssignments: [
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: revisoradressat,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

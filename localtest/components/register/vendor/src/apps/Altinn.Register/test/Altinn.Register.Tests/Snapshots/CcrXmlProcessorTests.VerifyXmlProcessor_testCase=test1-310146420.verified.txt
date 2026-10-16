@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 310146420,
+    isFirstRegistration: false,
+    displayName: GENIERKLÆRT MATEMATISK KATT SURE RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ENK,
+    unitStatus: E,
+    datoSistEndret: 2021-03-18,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

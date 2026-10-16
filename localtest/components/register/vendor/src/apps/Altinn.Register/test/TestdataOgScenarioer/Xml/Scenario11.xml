@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289371" organisasjonsform="FLI" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260504" datoSistEndret="20260504">
+    <infotype felttype="FADR" endringstype="N">
+      <postnr>1234</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5001</kommunenr>
+      <adresse1>c/o Berit Testperson</adresse1>
+      <adresse2>Testveien 97</adresse2>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Bevare og bruke Testfyrstasjon som offentlig tilgjengelig</opplysning>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>kulturminne gjennom frivillig drift, overnatting, kafé, omvisning og</opplysning>
+    </infotype>
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>formidling av kystkultur.</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>7000</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>4</rolleRekkefoelge>
+      <rolleFoedselsnr>22837242561</rolleFoedselsnr>
+      <fornavn>Berit</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testveien 97</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>3</rolleRekkefoelge>
+      <rolleFoedselsnr>03850672341</rolleFoedselsnr>
+      <fornavn>Bjørn</fornavn>
+      <mellomnavn>Test</mellomnavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testgata 55</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>15837924771</rolleFoedselsnr>
+      <fornavn>Geir</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>5678</postnr>
+      <adresse1>Testbergvegen 11</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>22880761599</rolleFoedselsnr>
+      <fornavn>Birk</fornavn>
+      <mellomnavn>Test</mellomnavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testgata 55</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>TESTBY FYRFORENING</navn1>
+      <rednavn>TESTBY FYRFORENING</rednavn>
+    </infotype>
+    <samendringer data="T" felttype="SIGN" endringstype="N" type="S">
+      <plassering>H</plassering>
+      <samendringfritTekstlinje>Styrets leder alene eller to styremedlemmer i fellesskap.</samendringfritTekstlinje>
+    </samendringer>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20251118</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

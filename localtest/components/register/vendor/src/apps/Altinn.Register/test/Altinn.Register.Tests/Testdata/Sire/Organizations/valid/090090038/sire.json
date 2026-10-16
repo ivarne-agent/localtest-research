@@ -1,0 +1,39 @@
+{
+  "identifikator": "090090038",
+  "selskapetsNavn": "Test Expired AS",
+  "organisasjonsform": "kommandittselskap",
+  "stiftelsesdato": "2020-01-01",
+  "virksomhetsrelasjon": [
+    {
+      "ajourholdstidspunkt": "2020-01-01T00:00:00+01:00",
+      "gyldighetstidspunkt": "2020-01-01T00:00:00+01:00",
+      "opphoerstidspunkt": "2021-01-01T00:00:00+01:00",
+      "relasjonstype": "styremedlem",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "03815698966",
+        "landkode": "NO"
+      }
+    },
+    {
+      "ajourholdstidspunkt": "2024-09-17T12:01:18+02:00",
+      "gyldighetstidspunkt": "2024-09-17T12:01:18+02:00",
+      "relasjonstype": "komplementar",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "22874897462",
+        "landkode": "NO"
+      }
+    }
+  ],
+  "postadresse": {
+    "ajourholdstidspunkt": "2020-01-01T00:00:00+01:00",
+    "gyldighetstidspunkt": "2020-01-01T00:00:00+01:00",
+    "opphoerstidspunkt": "2021-01-01T00:00:00+01:00",
+    "norskAdresse": {
+      "adressetekst": ["Sverrestien 1"],
+      "postnummer": "1365",
+      "poststedsnavn": "BLOMMENHOLM"
+    }
+  }
+}

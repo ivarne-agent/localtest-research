@@ -1,0 +1,28 @@
+{
+  "identifikator": "090090054",
+  "selskapetsNavn": "Test International AS",
+  "organisasjonsform": "utenlandskAnsvarligSelskap",
+  "stiftelsesdato": "2024-01-01",
+  "virksomhetsrelasjon": [
+    {
+      "ajourholdstidspunkt": "2024-01-15T10:00:00+01:00",
+      "gyldighetstidspunkt": "2024-01-15T10:00:00+01:00",
+      "relasjonstype": "norskRepresentantForUtenlandskEnhet",
+      "relatertIdentifikator": {
+        "identifikatortype": "taxIdentificationNumber",
+        "verdi": "25871999336",
+        "landkode": "NO"
+      }
+    }
+  ],
+  "postadresse": {
+    "ajourholdstidspunkt": "2024-01-15T10:00:00+01:00",
+    "gyldighetstidspunkt": "2024-01-15T10:00:00+01:00",
+    "utenlandskAdresse": {
+      "adressetekst": ["3 Jervois Quay, Wellington Central"],
+      "postkode": "6011",
+      "byEllerStedsnavn": "Wellington",
+      "landkode": "NZ"
+    }
+  }
+}

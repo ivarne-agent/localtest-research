@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Altinn.Register.Core\Altinn.Register.Core.csproj" />
+    <ProjectReference Include="..\ServiceDefaults.Jobs\Altinn.Authorization.ServiceDefaults.Jobs.csproj" />
+    <ProjectReference Include="..\ServiceDefaults.Leases\Altinn.Authorization.ServiceDefaults.Leases.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Npgsql" />
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Npgsql.TestSeed" />
+    <PackageReference Include="Altinn.Authorization.ServiceDefaults.Npgsql.Yuniql" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
+    <PackageReference Include="Nerdbank.Streams" />
+    <PackageReference Include="Polly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Migration/**/*.sql" />
+    <EmbeddedResource Include="TestData/**/*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+		<InternalsVisibleTo Include="Altinn.Register.Tests" />
+		<InternalsVisibleTo Include="Altinn.Register.TestUtils.V2" />
+		<InternalsVisibleTo Include="Altinn.Register.TestUtils.V3" />
+	</ItemGroup>
+
+</Project>

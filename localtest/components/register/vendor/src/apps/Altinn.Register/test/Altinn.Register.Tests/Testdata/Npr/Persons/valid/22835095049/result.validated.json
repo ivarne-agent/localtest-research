@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "22835095049",
+  "displayName": "KNUSLETE GAUPE",
+  "firstName": "KNUSLETE",
+  "middleName": null,
+  "lastName": "GAUPE",
+  "shortName": "GAUPE KNUSLETE",
+  "address": {
+    "municipalNumber": "4638",
+    "municipalName": "HØYANGER",
+    "streetName": "Kråkevika",
+    "houseNumber": "15",
+    "houseLetter": null,
+    "postalCode": "6996",
+    "city": "VADHEIM"
+  },
+  "mailingAddress": {
+    "address": "Nedre Tolgenslivei 22 2540 TOLGA",
+    "postalCode": "2540",
+    "city": "TOLGA"
+  },
+  "dateOfBirth": "1950-03-22",
+  "dateOfDeath": null,
+  "guardians": []
+}

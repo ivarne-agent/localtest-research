@@ -1,0 +1,109 @@
+﻿[
+  {
+    organizationIdentifier: 316433952,
+    isFirstRegistration: true,
+    displayName: SAMEIET TEST REGISTRERING I FR MED ENDRING AV REVI,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ESEK,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: {
+      address: c/o TOBB Postboks 2424 Torgarden 7005 TRONDHEIM,
+      postalCode: 7005,
+      city: TRONDHEIM
+    },
+    businessAddress: {
+      address: c/o TOBB Krambugata 7 7011 TRONDHEIM,
+      postalCode: 7011,
+      city: TRONDHEIM
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: forretningsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 210360492,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 25890298063,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Dedikert Akrobatisk Oridé Corner,
+            firstName: Dedikert Akrobatisk,
+            middleName: Oridé,
+            lastName: Corner,
+            shortName: Corner Dedikert Akrobatisk Oridé
+          },
+          mailingAddress: {
+            address: Ellingveien 5 7130,
+            postalCode: 7130,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 08816799784,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Lidenskapelig Kollega,
+            firstName: Lidenskapelig,
+            middleName: null,
+            lastName: Kollega,
+            shortName: Kollega Lidenskapelig
+          },
+          mailingAddress: {
+            address: Hevrøya 68 5398,
+            postalCode: 5398,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 26846598498,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Varm Buk,
+            firstName: Varm,
+            middleName: null,
+            lastName: Buk,
+            shortName: Buk Varm
+          },
+          mailingAddress: {
+            address: Grubbveien 25 2443,
+            postalCode: 2443,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: regnskapsforer,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 210408932,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 210707832,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

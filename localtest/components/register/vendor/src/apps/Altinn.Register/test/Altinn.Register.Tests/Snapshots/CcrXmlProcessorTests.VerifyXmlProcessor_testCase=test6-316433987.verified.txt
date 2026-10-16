@@ -1,0 +1,89 @@
+﻿[
+  {
+    organizationIdentifier: 316433987,
+    isFirstRegistration: true,
+    displayName: BANJO KINE DA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: PRE,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Lundliveien 6 8643 HEMNES,
+      postalCode: 8643,
+      city: HEMNES
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: bestyrende-reder,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 216433912,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: 04811649681,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Solid Dato,
+            firstName: Solid,
+            middleName: null,
+            lastName: Dato,
+            shortName: Dato Solid
+          },
+          mailingAddress: {
+            address: Peter Solemdals Veg 34 6414,
+            postalCode: 6414,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-delt-ansvar,
+          rolePersonalIdentifier: 13901949543,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Korrekt Banjo,
+            firstName: Korrekt,
+            middleName: null,
+            lastName: Banjo,
+            shortName: Banjo Korrekt
+          },
+          mailingAddress: {
+            address: Lundliveien 6 8643,
+            postalCode: 8643,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 05816697745,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Empirisk Fyrstikk,
+            firstName: Empirisk,
+            middleName: null,
+            lastName: Fyrstikk,
+            shortName: Fyrstikk Empirisk
+          },
+          mailingAddress: {
+            address: Innherredsveien 16 A 7042,
+            postalCode: 7042,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

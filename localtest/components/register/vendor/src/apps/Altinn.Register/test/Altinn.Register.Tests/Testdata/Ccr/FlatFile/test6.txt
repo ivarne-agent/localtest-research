@@ -1,0 +1,298 @@
+HEADER 2026082005071ALTA
+ENH 216188942FLI EEN  2025100220260820N          
+DAGLNSSYRD                              N    00118897498452Kritisk                                                                                             Bakgrunnslitteratur                               4318     Sandvedbøen 146                                                                                          NO L
+LEDENSSYRD                              N    00130878498026Vakker                                                                                              Ballongbukse                                      5089     Nordrehaug 11                                                                                            NO L
+MEDLU   RD                                      04920299712
+MEDLNSSYRD                              N    00230876299921Komplett                                                                                            Akeleie                                           1164     Postdamveien 2 D                                                                                         NO L
+VARANSSYRD                              N    00352900375026Unyttig                                                                                             Bris                                              3882     Skafsåvegen 1712 A                                                                                       NO L
+ENH 216431022ANS EEN  2026080420260820N          
+PAATNSSYDAGLFRPåtegning på DAGL
+PAATNSSYREGNFRPåtegning på REGN
+PAATNSSYREVIFRPåtegning på REVI
+PAATNSSYFFØREREkstern påtegning på FFØR
+ENH 216433882AAFYNNY  2026082020260820J          
+AAFYNSSYKD                              N316433871    010000000000
+BDATNSSY20260820
+FADRNSSY8450     NO 1866                                        Vik                                Eidsfjordveien 2414
+NAVNNSSYJANNES ESEK TIL BRUK AV            PAYLOADTESTER AV REGLER I BVR-INN 5                                                                                                         JANNES ESEK TIL BRUK AV
+PLFRNSSYN
+SN25NSSY97.001        N
+ENH 216433912PRE NNY  2026082020260820J          
+BESTNSSYRD                              N    00117830197397Impulsiv                                                                                            Bie                                               0276     Nedre Skøyen Vei 8                                                                                       NO L
+BESTNSSYRD                              N    00220865899948Tydelig                                                                                             Kelner                                            6508     Politim Bendixens Gate 41 F                                                                              NO L
+DTSONSSYRD                              N    00117830197397Impulsiv                                                                                            Bie                                               0276     Nedre Skøyen Vei 8                                                                                       NO L
+DTSONSSYRD                              N    00220865899948Tydelig                                                                                             Kelner                                            6508     Politim Bendixens Gate 41 F                                                                              NO L
+FADRNSSY0276     NO 0301                                        Nedre Skøyen vei 8
+FORMNSSYAktivitet.
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYIMPLUSIVT KINE ANS                                                                                                                                                             IMPLUSIVT KINE ANS
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260820
+VFORNSSYFormål.
+ENH 316150284ENK EEN  2024120420260820N          
+FADRNSSY9144     NO 5540                                        Olmmáiváhbálggis 131
+FORMNSSYÁ&#268;Á&#268;&#272;&#272;&#330;&#330;ŠŠ&#358;&#358;ŽŽ MÁ&#272;EADJI
+FORMNSSYmen også annen lignende aktivitet hvis det skulle passe seg..
+FORMNSSY 
+NAVNNSSYEXTKAU TESTER SAMISK ORIDÉ         ÁVŽŽILUODDA                                                                                                                                 EXTKAU TESTER SAMISK ORIDÉ
+PADRNSSY9520     NO 5612                                        Doaktárluohkká 13
+ENH 316183042FLI EEN  2025091820260820N          
+DAGLNSSYRD                              N    00118897498452Kritisk                                                                                             Bakgrunnslitteratur                               4318     Sandvedbøen 146                                                                                          NO L
+DAGLU   RD                                      30878498026
+LEDENSSYRD                              N    00130878498026Vakker                                                                                              Ballongbukse                                      5089     Nordrehaug 11                                                                                            NO L
+MEDLNSSYRD                              N    00230876299921Komplett                                                                                            Akeleie                                           1164     Postdamveien 2 D                                                                                         NO L
+VARANSSYRD                              N    00352900375026Unyttig                                                                                             Bris                                              3882     Skafsåvegen 1712 A                                                                                       NO L
+ENH 316188915FLI EEN  2025100220260820N          
+DAGLNSSYRD                              N    00118897498452Kritisk                                                                                             Bakgrunnslitteratur                               4318     Sandvedbøen 146                                                                                          NO L
+LEDENSSYRD                              N    00130878498026Vakker                                                                                              Ballongbukse                                      5089     Nordrehaug 11                                                                                            NO L
+MEDLNSSYRD                              N    00230876299921Komplett                                                                                            Akeleie                                           1164     Postdamveien 2 D                                                                                         NO L
+VARANSSYRD                              N    00352900375026Unyttig                                                                                             Bris                                              3882     Skafsåvegen 1712 A                                                                                       NO L
+ENH 316244246FLI EEN  2026020920260820N          
+DAGLNSSYRD                              N    00127839895831Ráccas                                            Samisk                                            Ávdu                                              8683     Vassbekkvegen 40                                                                                         NO L
+FADRNSSY9520     NO 5612                                        Ávžžiluodda 28
+FORMNSSYIdrettslag - valáštallansearvi.
+FORMNSSY 
+NAVNNSSYRÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA                                                                                                                                                 RÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA
+PADRNSSY9520     NO 5612                                        Hánnoluohkká 45
+ENH 316244262AAFYEEN  2026020920260820N          
+FADRNSSY9520     NO 5612                                        Ávžžiluodda 28
+NAVNNSSYRÁCCAS SAMISK ÁVDU ÁVŽŽILUODDA                                                                                                                                                 RÁCCAS SAMISK ÁVDU
+PADRNSSY9520     NO 5612                                        Hánnoluohkká 45
+ENH 316432050PRE EEN  2026081820260820N          
+SAMUFFØR   
+FFØRU   RD                                      19909498719
+FFØRU   KD                               310267511
+SAMUREGN   
+REGNU   KD                               314240782
+SAMUREVI   
+REVIU   KD                               310267511
+ENH 316433537BEDRNNY  2026081920260819J          
+BDATNSSY20260819
+BEDRNSSYKD                              N315944724    010000000000
+NAVNNSSYMIDLERTIDIG ORGNR I ER                                                                                                                                                         MIDLERTIDIG ORGNR I ER
+PADRNSSY8907     NO 1813                                        Salhusoddan 9A
+PLFRNSSYN
+SN25NSSY94.110        N
+ENH 316433766PRE NNY  2026082020260820J          
+BESTNSSYRD                              N    00104857795623Gjestfri Naturstridig                                                                               Medisterdeig                                      6966     Guddalsvegen 1772                                                                                        NO L
+DTSONSSYRD                              N    00202849195959Blomstrete Uklar                                  Sjakal                                            Antilope                                          2820     Nerengvegen 32                                                                                           NO L
+DTSONSSYRD                              N    00121886099190Tilbakeholden                                                                                       Gåte                                              5917     Ryland 39                                                                                                NO L
+FADRNSSY0576     NO 0301                                        Ansgar Sørlies vei 1A
+FORMNSSYTest
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYANTILOPE VIE PRE ANS                                                                                                                                                           ANTILOPE VIE PRE ANS
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260801
+VFORNSSYTest
+ENH 316433782PRE NNY  2026082020260820J          
+BESTNSSYRD                              N    00123827696358Åpen                                                                                                Porto                                             6919     Valvikvegen 358                                                                                          NO L
+DTSONSSYRD                              N    00213886797294Optimistisk                                                                                         Harpe                                             4329     Asperholen 80                                                                                            NO L
+DTSONSSYRD                              N    00121819499885Sliten                                                                                              Autoritet                                         8253     Vikveien 64                                                                                              NO L
+FADRNSSY4815     NO 4203                                        Dalenveien 26A
+FORMNSSYTesting av regler.
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYJANNES PRE TIL BRUK I PAYLOAD      REGELTESTER ANS                                                                                                                             JANNES PRE TIL BRUK I PAYLOAD
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260601
+VFORNSSYSkal benyttes kun av de som jobber med payloadtester.
+ENH 316433790PRE NNY  2026082020260820J          
+BESTNSSYRD                              N    00123827696358Åpen                                                                                                Porto                                             6919     Valvikvegen 358                                                                                          NO L
+DTPRNSSYRD50.0%                         N    00213886797294Optimistisk                                                                                         Harpe                                             4329     Asperholen 80                                                                                            NO L
+DTPRNSSYRD50.0%                         N    00121819499885Sliten                                                                                              Autoritet                                         8253     Vikveien 64                                                                                              NO L
+FADRNSSY4849     NO 4203                                        Dalenveien 418
+FORMNSSYTesting i BVR-INN.
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYJANNES PRE TIL BRUK I PAYLOAD      REGELTESTER 2 DA                                                                                                                            JANNES PRE TIL BRUK I PAYLOAD
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260505
+VFORNSSYSkal kun benyttes for payloadtesting av regler i BVR-INN.
+ENH 316433804ANS NNY  2026082020260820J          
+DAGLNSSYRD                              N    00113886797294Optimistisk                                                                                         Harpe                                             4329     Asperholen 80                                                                                            NO L
+DTSONSSYRD                              N    00221819499885Sliten                                                                                              Autoritet                                         8253     Vikveien 64                                                                                              NO L
+DTSONSSYRD                              N    00123827696358Åpen                                                                                                Porto                                             6919     Valvikvegen 358                                                                                          NO L
+FADRNSSY7014     NO 5001                                        Port Arthur 9A
+FORMNSSYSkal kun benyttes av BVR-INN.
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYJANNES SELSKAP TIL BRUK I PAYLOAD  REGELTESTER ANS                                                                                                                             JANNES SELSKAP TIL BRUK I PAYLOAD
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260609
+VFORNSSYSkal kun benyttes i forbindelse med payloadtester av regler i BVR-INN.
+ENH 316433812DA  NNY  2026082020260820J          
+DAGLNSSYRD                              N    00113886797294Optimistisk                                                                                         Harpe                                             4329     Asperholen 80                                                                                            NO L
+DTPRNSSYRD1/2                           N    00221819499885Sliten                                                                                              Autoritet                                         8253     Vikveien 64                                                                                              NO L
+DTPRNSSYRD1/2                           N    00123827696358Åpen                                                                                                Porto                                             6919     Valvikvegen 358                                                                                          NO L
+FADRNSSY7027     NO 5001                                        Selsbakk øvre 1
+FORMNSSYTesting i BVr-INN.
+ISEKNSSY2300
+MÅL NSSYB
+NAVNNSSYJANNES SELSKAP TIL BRUK I          PAYLOADTESTER 5 DA                                                                                                                          JANNES SELSKAP TIL BRUK I
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260622
+VFORNSSYSelskapet skal kun benyttes i forbindelse med payloadtester av regler
+VFORNSSYi BVR-INN.
+ENH 316433820FLI NNY  2026082020260820J          
+FADRNSSY8450     NO 1866                                        Vik                                Eidsfjordveien 2408
+FORMNSSYskal brukes for testing i BVR-INN
+ISEKNSSY7000
+LEDENSSYRD                              N    00123827696358Åpen                                                                                                Porto                                             6919     Valvikvegen 358                                                                                          NO L
+MEDLNSSYRD                              N    00221819499885Sliten                                                                                              Autoritet                                         8253     Vikveien 64                                                                                              NO L
+MÅL NSSYB
+NAVNNSSYJANNES FORENING TIL BRUK AV        PAYLOADTESTER AV REGLER I BVR-INN                                                                                                           JANNES FORENING TIL BRUK AV
+STIDNSSY20260801
+ENH 316433839AAFYNNY  2026082020260820J          
+AAFYNSSYKD                              N316433820    010000000000
+BDATNSSY20260820
+FADRNSSY8450     NO 1866                                        Vik                                Eidsfjordveien 2408
+NAVNNSSYJANNES FORENING TIL BRUK AV        PAYLOADTESTER AV REGLER I BVR-INN                                                                                                           JANNES FORENING TIL BRUK AV
+PLFRNSSYN
+ENH 316433847FLI NNY  2026082020260820J          
+FADRNSSY5745     NO 4641                                        Dalen 1
+FORMNSSYskal brukes av BVR-INN
+ISEKNSSY7000
+LEDENSSYRD                              N    00118916099696Tøff                                                                                                Aldersforskjell                                   3090     Frøyas Vei 16                                                                                            NO L
+MEDLNSSYRD                              N    00218906698222Pompøs                                                                                              Make                                              1348     Belsetgrenda 5                                                                                           NO L
+MÅL NSSYB
+NAVNNSSYJANNES FORENING TIL BRUK FOR       PAYLOADTESTING AV REGLER                                                                                                                    JANNES FORENING TIL BRUK FOR
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260801
+VEDTNSSY20260801
+VFORNSSYSkal benyttes av BVR-INN for testing av regler, payloadtester.
+ENH 316433855ESEKNNY  2026082020260820J          
+FORMNSSYEierseksjonssameie.
+LEDENSSYRD                              N    00119909498719Kvart                                                                                               Vogge                                             8252     Brenne                             Brenneveien 14                                                        NO L
+MANRNSSY1108     00621761    000162471296001
+MEDLNSSYRD                              N    00318906698222Pompøs                                                                                              Make                                              1348     Belsetgrenda 5                                                                                           NO L
+MEDLNSSYRD                              N    00218916099696Tøff                                                                                                Aldersforskjell                                   3090     Frøyas Vei 16                                                                                            NO L
+MÅL NSSYB
+NAVNNSSYJANNES ESEK SOM SKAL BENYTTES FOR  PAYLOADTESTING AV REGLER I BVR-INN                                                                                                          JANNES ESEK SOM SKAL BENYTTES FOR
+PADRNSSY6293     NO 1580                                        Fjelly 14
+SN25NSSY97.001        N
+STIDNSSY20130410
+ENH 316433863AAFYNNY  2026082020260820J          
+AAFYNSSYKD                              N316433855    010000000000
+BDATNSSY20260820
+NAVNNSSYJANNES ESEK SOM SKAL BENYTTES FOR  PAYLOADTESTING AV REGLER I BVR-INN                                                                                                          JANNES ESEK SOM SKAL BENYTTES FOR
+PADRNSSY6293     NO 1580                                        Fjelly 14
+PLFRNSSYN
+SN25NSSY97.001        N
+ENH 316433871ESEKNNY  2026082020260820J          
+FADRNSSY8450     NO 1866                                        Vik                                Eidsfjordveien 2414
+FORMNSSYEierseksjonssameie.
+LEDENSSYRD                              N    00118916099696Tøff                                                                                                Aldersforskjell                                   3090     Frøyas Vei 16                                                                                            NO L
+MANRNSSY1108     00450613    000605729881001
+MEDLNSSYRD                              N    00213928299931Inkluderende                                                                                        Undulat                                           0491     Lyngåsveien 9                                                                                            NO L
+MEDLNSSYRD                              N    00318906698222Pompøs                                                                                              Make                                              1348     Belsetgrenda 5                                                                                           NO L
+MÅL NSSYB
+NAVNNSSYJANNES ESEK TIL BRUK AV            PAYLOADTESTER AV REGLER I BVR-INN 5                                                                                                         JANNES ESEK TIL BRUK AV
+NYFRNSSY20260820
+R-FRNSSYJ
+SN25NSSY97.001        N
+STIDNSSY20200918
+VEDTNSSY20260801
+VFORNSSYEierseksjonssameie.
+ENH 316433898SAM NNY  2026082020260820J          
+FORMNSSYBrukes i testing i BVR-INN.
+LEDENSSYRD                              N    00113928299931Inkluderende                                                                                        Undulat                                           0491     Lyngåsveien 9                                                                                            NO L
+MÅL NSSYB
+NAVNNSSYJANNES SAMEIE TIL BRUK TIL         PAYLOADTESTER AV REGLER I BVR-INN                                                                                                           JANNES SAMEIE TIL BRUK TIL
+PADRNSSY7970     NO 5060                                        Finn-Zarisvegen 1
+STIDNSSY20260708
+ENH 316433901AAFYNNY  2026082020260820J          
+AAFYNSSYKD                              N316433898    010000000000
+BDATNSSY20260820
+NAVNNSSYJANNES SAMEIE TIL BRUK TIL         PAYLOADTESTER AV REGLER I BVR-INN                                                                                                           JANNES SAMEIE TIL BRUK TIL
+PADRNSSY7970     NO 5060                                        Finn-Zarisvegen 1
+PLFRNSSYN
+ENH 316433928IKS NNY  2026082020260820J          
+DAGLNSSYRD                              N    00113886797294Optimistisk                                                                                         Harpe                                             4329     Asperholen 80                                                                                            NO L
+DTPRNSSYKD50.0%                         N313140938    001000000000
+DTPRNSSYKD50.0%                         N313606600    002000000000
+FADRNSSY3540     NO 3322                                        Fjellandsbyvegen 13
+FORMNSSYSkal brukes av BVR-INN til payloadtester av regler.
+ISEKNSSY6500
+LEDENSSYRD                              N    00218916099696Tøff                                                                                                Aldersforskjell                                   3090     Frøyas Vei 16                                                                                            NO L
+MEDLNSSYRD                              N    00313928299931Inkluderende                                                                                        Undulat                                           0491     Lyngåsveien 9                                                                                            NO L
+MÅL NSSYB
+NAVNNSSYJANNES SELSKAP TIL BRUK AV         PAYLOADTESTER AV REGLER I BVR-INN  IKS                                                                                                      JANNES SELSKAP TIL BRUK AV
+NESTNSSYRD                              N    00118906698222Pompøs                                                                                              Make                                              1348     Belsetgrenda 5                                                                                           NO L
+NYFRNSSY20260820
+R-FRNSSYJ
+REVINSSYKD                              N310267511    001000000000
+STIDNSSY20260714
+VFORNSSYSkal brukes av BVR-INN til payloadtester av regler.
+ENH 316433952ESEKNNY  2026082020260820J          
+FADRNSSY7011     NO 5001                                        c/o TOBB                           Krambugata 7
+FFØRNSSYKD                              N210360492    001000000000
+FORMNSSYEierseksjonssameie.
+LEDENSSYRD                              N    00125890298063Dedikert Akrobatisk                               Oridé                                             Corner                                            7130     Ellingveien 5                                                                                            NO L
+MANRNSSY4223     00230870    000584175818001
+MEDLNSSYRD                              N    00308816799784Lidenskapelig                                                                                       Kollega                                           5398     Hevrøya 68                                                                                               NO L
+MEDLNSSYRD                              N    00226846598498Varm                                                                                                Buk                                               2443     Grubbveien 25                                                                                            NO L
+MÅL NSSYB
+NAVNNSSYSAMEIET TEST REGISTRERING I FR MED ENDRING AV REVI                                                                                                                             SAMEIET TEST REGISTRERING I FR MED
+PADRNSSY7005     NO 5001                                        c/o TOBB                           Postboks 2424 Torgarden
+REGNNSSYKD                              N210408932    001000000000
+REVINSSYKD                              N210707832    001000000000
+SN25NSSY97.001        N
+STIDNSSY20171215
+ENH 316433960AAFYNNY  2026082020260820J          
+AAFYNSSYKD                              N316433952    010000000000
+BDATNSSY20260820
+FADRNSSY7011     NO 5001                                        c/o TOBB                           Krambugata 7
+NAVNNSSYSAMEIET TEST REGISTRERING I FR MED ENDRING AV REVI                                                                                                                             SAMEIET TEST REGISTRERING I FR MED
+PADRNSSY7005     NO 5001                                        c/o TOBB                           Postboks 2424 Torgarden
+PLFRNSSYN
+SN25NSSY97.001        N
+ENH 316433987PRE NNY  2026082020260820J          
+BESTNSSYKD                              N216433912    001000000000
+DTPRNSSYRD50.0%                         N    00204811649681Solid                                                                                               Dato                                              6414     Peter Solemdals Veg 34                                                                                   NO L
+DTPRNSSYRD50.0%                         N    00113901949543Korrekt                                                                                             Banjo                                             8643     Lundliveien 6                                                                                            NO L
+FADRNSSY8643     NO 1832                                        Lundliveien 6
+FORMNSSYAktivitet.
+ISEKNSSY2300
+LEDENSSYRD                              N    00105816697745Empirisk                                                                                            Fyrstikk                                          7042     Innherredsveien 16 A                                                                                     NO L
+MÅL NSSYB
+NAVNNSSYBANJO KINE DA                                                                                                                                                                  BANJO KINE DA
+NYFRNSSY20260820
+R-FRNSSYJ
+STIDNSSY20260820
+VFORNSSYFormål.
+ENH 316433995ANS NNY  2026082020260820J          
+DTSONSSYRD                              N    00123819699380Sunn                                                                                                Havhest                                           7098     Kolstadtunet 8 B                                                                                         NO L
+DTSONSSYRD                              N    00227815899003Materialistisk                                                                                      Lue                                               8615     Røssvollveien 56                                                                                         NO L
+FADRNSSY0686     NO 0301                                        Haakon Tveters vei 61
+FORMNSSYTest
+ISEKNSSY2300
+LEDENSSYRD                              N    00127815899003Materialistisk                                                                                      Lue                                               8615     Røssvollveien 56                                                                                         NO L
+MÅL NSSYB
+NAVNNSSYHAVHEST VIE ANS                                                                                                                                                                HAVHEST VIE ANS
+NYFRNSSY20260820
+R-FRNSSYJ
+REVINSSYKD                              N312963345    001000000000
+STIDNSSY20260801
+VFORNSSYTest
+ENH 316251358KBO SSBTC2026021820260819N          
+ENH 316251374KBO SSBTC2026021920260819N          
+ENH 316251463KBO SSBTC2026021920260819N          
+ENH 316251099KBO SSBTC2026021820260819N          
+ENH 216251962KBO SSBTC2026021920260819N          
+ENH 316251366AAFYSSBTC2026021820260819N          
+ENH 316251382AAFYSSBTC2026021920260819N          
+ENH 316251471AAFYSSBTC2026021920260819N          
+ENH 316251102AAFYSSBTC2026021820260819N          
+ENH 316251978AAFYSSBTC2026021920260819N          
+ENH 316252966KBO SSBTC2026022020260820N          
+ENH 316252974AAFYSSBTC2026022020260820N          
+TRAIER 0000041000000298

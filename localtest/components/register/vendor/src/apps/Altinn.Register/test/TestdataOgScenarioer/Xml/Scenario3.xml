@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289118" organisasjonsform="ESEK" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20130413" datoSistEndret="20260504">
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>02895823468</rolleFoedselsnr>
+      <fornavn>Anne</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testveien 1</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="LEDE" endringstype="U" type="R">
+      <rolleFoedselsnr>28825934504</rolleFoedselsnr>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="U" type="R">
+      <rolleFoedselsnr>02895823468</rolleFoedselsnr>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>3</rolleRekkefoelge>
+      <rolleFoedselsnr>07855812899</rolleFoedselsnr>
+      <fornavn>Ola Test</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testveien 1</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="U" type="R">
+      <rolleFoedselsnr>10877345640</rolleFoedselsnr>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleFoedselsnr>10886039447</rolleFoedselsnr>
+      <fornavn>Kari Marit</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>5678</postnr>
+      <adresse1>Testgata 14</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>15817928703</rolleFoedselsnr>
+      <fornavn>Per</fornavn>
+      <slektsnavn>Testperson</slektsnavn>
+      <postnr>1234</postnr>
+      <adresse1>Testveien 1</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="VARA" endringstype="U" type="R">
+      <rolleFoedselsnr>15817928703</rolleFoedselsnr>
+    </samendringer>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

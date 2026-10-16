@@ -1,0 +1,164 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:10:00.511+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "30926299758",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "vergemaalEllerFremtidsfullmakt": [
+    {
+      "ajourholdstidspunkt": "2023-11-20T14:00:09.541885+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2022-01-25T00:00:00+01:00",
+      "vergemaaltype": "voksen",
+      "embete": "statsforvalterenITroendelag",
+      "verge": {
+        "foedselsEllerDNummer": "31886599660",
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "arbeid"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "arvPrivatSkifteOgUskifte"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "avslutningAvHusleiekontrakter"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "avtalerOgRettigheter"
+          },
+          {
+            "vergeTjenestevirksomhet": "tingretten",
+            "vergeTjenesteoppgave": "begjaereSkifteAvUskiftebo"
+          },
+          {
+            "vergeTjenestevirksomhet": "tingretten",
+            "vergeTjenesteoppgave": "begjaereUskifte"
+          },
+          {
+            "vergeTjenestevirksomhet": "husbanken",
+            "vergeTjenesteoppgave": "bostoette"
+          },
+          {
+            "vergeTjenestevirksomhet": "kommune",
+            "vergeTjenesteoppgave": "byggOgEiendom"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "disponereInntekterTilAaDekkeUtgifter"
+          },
+          {
+            "vergeTjenestevirksomhet": "skatteetaten",
+            "vergeTjenesteoppgave": "endrePostadresse"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "endringAvEiendom"
+          },
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "familie"
+          },
+          {
+            "vergeTjenestevirksomhet": "helfo",
+            "vergeTjenesteoppgave": "fastlege"
+          },
+          {
+            "vergeTjenestevirksomhet": "inkassoselskap",
+            "vergeTjenesteoppgave": "forhandleOgInngaaInkassoavtaler"
+          },
+          {
+            "vergeTjenestevirksomhet": "forsikringsselskap",
+            "vergeTjenesteoppgave": "forvalteForsikringsavtaler"
+          },
+          {
+            "vergeTjenestevirksomhet": "namsmannen",
+            "vergeTjenesteoppgave": "gjeldsordning"
+          },
+          {
+            "vergeTjenestevirksomhet": "kommune",
+            "vergeTjenesteoppgave": "helseOgOmsorg"
+          },
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "hjelpemidler"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "inngaaelseAvHusleiekontrakter"
+          },
+          {
+            "vergeTjenestevirksomhet": "skatteetaten",
+            "vergeTjenesteoppgave": "innkrevingOgTvangsfullbyrdelse"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "kjoepAvEiendom"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "kjoepLeieAvVarerOgTjenester"
+          },
+          {
+            "vergeTjenestevirksomhet": "kredittvurderingsselskap",
+            "vergeTjenesteoppgave": "kredittsperre"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "laaneopptak"
+          },
+          {
+            "vergeTjenestevirksomhet": "skatteetaten",
+            "vergeTjenesteoppgave": "meldeFlytting"
+          },
+          {
+            "vergeTjenestevirksomhet": "nav",
+            "vergeTjenesteoppgave": "pensjon"
+          },
+          {
+            "vergeTjenestevirksomhet": "tingretten",
+            "vergeTjenesteoppgave": "privatSkifteAvDoedsbo"
+          },
+          {
+            "vergeTjenestevirksomhet": "pasientreiser",
+            "vergeTjenesteoppgave": "refusjonAvPasientreiser"
+          },
+          {
+            "vergeTjenestevirksomhet": "helfo",
+            "vergeTjenesteoppgave": "refusjonForPrivatpersoner"
+          },
+          {
+            "vergeTjenestevirksomhet": "bank",
+            "vergeTjenesteoppgave": "representasjonDagligbank"
+          },
+          {
+            "vergeTjenestevirksomhet": "kartverket",
+            "vergeTjenesteoppgave": "salgAvFastEiendomBorettslagsandel"
+          },
+          {
+            "vergeTjenestevirksomhet": "oevrige",
+            "vergeTjenesteoppgave": "salgAvLoesoereAvStoerreVerdi"
+          },
+          {
+            "vergeTjenestevirksomhet": "skatteetaten",
+            "vergeTjenesteoppgave": "skatt"
+          },
+          {
+            "vergeTjenestevirksomhet": "kommune",
+            "vergeTjenesteoppgave": "skattOgAvgift"
+          }
+        ]
+      }
+    }
+  ]
+}

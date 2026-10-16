@@ -1,0 +1,63 @@
+﻿[
+  {
+    organizationIdentifier: 316433847,
+    isFirstRegistration: true,
+    displayName: JANNES FORENING TIL BRUK FOR PAYLOADTESTING AV REGLER,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: FLI,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Dalen 1 5745 AURLAND,
+      postalCode: 5745,
+      city: AURLAND
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 18916099696,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tøff Aldersforskjell,
+            firstName: Tøff,
+            middleName: null,
+            lastName: Aldersforskjell,
+            shortName: Aldersforskjell Tøff
+          },
+          mailingAddress: {
+            address: Frøyas Vei 16 3090,
+            postalCode: 3090,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 18906698222,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Pompøs Make,
+            firstName: Pompøs,
+            middleName: null,
+            lastName: Make,
+            shortName: Make Pompøs
+          },
+          mailingAddress: {
+            address: Belsetgrenda 5 1348,
+            postalCode: 1348,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

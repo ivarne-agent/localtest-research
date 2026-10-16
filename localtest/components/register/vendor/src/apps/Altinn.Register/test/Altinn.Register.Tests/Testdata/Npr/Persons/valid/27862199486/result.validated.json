@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "27862199486",
+  "displayName": "GULAKTIG ABBOR",
+  "firstName": "GULAKTIG",
+  "middleName": null,
+  "lastName": "ABBOR",
+  "shortName": "ABBOR GULAKTIG",
+  "address": {
+    "municipalNumber": "3418",
+    "municipalName": "ÅSNES",
+    "streetName": "Granittvegen",
+    "houseNumber": "9",
+    "houseLetter": null,
+    "postalCode": "2270",
+    "city": "FLISA"
+  },
+  "mailingAddress": {
+    "address": "Granittvegen 2270 FLISA Norge",
+    "postalCode": null,
+    "city": null
+  },
+  "dateOfBirth": "2021-06-27",
+  "dateOfDeath": null,
+  "guardians": []
+}

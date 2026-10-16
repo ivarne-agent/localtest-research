@@ -1,0 +1,2 @@
+# Byte-exact CCR flat-file fixtures encoded as Windows-1252.
+*.txt -text -eol encoding=WINDOWS-1252

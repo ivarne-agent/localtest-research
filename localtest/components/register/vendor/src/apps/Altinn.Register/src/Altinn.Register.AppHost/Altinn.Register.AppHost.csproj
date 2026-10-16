@@ -1,0 +1,20 @@
+﻿<Project Sdk="Aspire.AppHost.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <UserSecretsId>3f04644d-2f40-42f9-b0d7-1e5696018795</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Altinn.Register\Altinn.Register.csproj" />
+    <ProjectReference Include="..\Aspire.Npgsql\Altinn.Authorization.Aspire.Npgsql.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+</Project>

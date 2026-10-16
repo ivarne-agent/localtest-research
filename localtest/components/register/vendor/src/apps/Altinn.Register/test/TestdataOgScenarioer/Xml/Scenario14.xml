@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260504" kjoerenr="05783" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316289827" organisasjonsform="BEDR" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20130916" datoSistEndret="20260504">
+    <infotype felttype="EPOS" endringstype="N">
+      <opplysning>test.testperson@example.com</opplysning>
+    </infotype>
+    <infotype felttype="IADR" endringstype="N">
+      <opplysning>example.com/consultant/test-testperson</opplysning>
+    </infotype>
+    <infotype felttype="MTLF" endringstype="U" />
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

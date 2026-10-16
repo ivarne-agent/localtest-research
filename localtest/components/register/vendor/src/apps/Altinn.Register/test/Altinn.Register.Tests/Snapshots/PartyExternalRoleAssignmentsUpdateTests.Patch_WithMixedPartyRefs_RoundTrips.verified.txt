@@ -1,0 +1,40 @@
+﻿{
+  $type: patch,
+  absentByIdentifier: [
+    legacy-role
+  ],
+  absent: [
+    {
+      toParty: {
+        $type: pers,
+        personIdentifier: 01056261032,
+        name: null,
+        mailingAddress: null
+      },
+      externalRoleIdentifier: guardian
+    },
+    {
+      toParty: {
+        $type: org,
+        organizationIdentifier: 311654306
+      },
+      externalRoleIdentifier: accountant
+    }
+  ],
+  present: [
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_1
+      },
+      externalRoleIdentifier: contact
+    },
+    {
+      toParty: {
+        $type: org,
+        organizationIdentifier: 987654325
+      },
+      externalRoleIdentifier: successor
+    }
+  ]
+}

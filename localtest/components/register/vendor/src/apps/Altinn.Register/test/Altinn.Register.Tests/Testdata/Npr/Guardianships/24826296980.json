@@ -1,0 +1,43 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-12-22T17:09:34.124+01:00",
+      "erGjeldende": true,
+      "kilde": "KILDE_DSF",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "24826296980",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "vergemaalEllerFremtidsfullmakt": [
+    {
+      "ajourholdstidspunkt": "2024-02-14T09:45:41.90919295+01:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Vergemål",
+      "gyldighetstidspunkt": "2024-02-14T00:00:00+01:00",
+      "vergemaaltype": "stadfestetFremtidsfullmakt",
+      "embete": "statsforvalterenINordland",
+      "verge": {
+        "navnFoedselsdato": {
+          "personnavn": {
+            "fornavn": "fantasiløs",
+            "etternavn": "fiken"
+          },
+          "foedselsdato": "1949-12-01",
+          "statsborgerskap": ["AIA"]
+        },
+        "tjenesteomraade": [
+          {
+            "vergeTjenestevirksomhet": "bank",
+            "vergeTjenesteoppgave": "representasjonDagligbank"
+          },
+          {
+            "vergeTjenestevirksomhet": "bank",
+            "vergeTjenesteoppgave": "taOppLaanKreditter"
+          }
+        ]
+      }
+    }
+  ]
+}

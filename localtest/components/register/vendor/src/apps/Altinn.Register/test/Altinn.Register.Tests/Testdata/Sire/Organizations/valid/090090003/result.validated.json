@@ -1,0 +1,20 @@
+{
+  "organizationIdentifier": "090090003",
+  "name": "Test AS",
+  "unitType": "KS",
+  "unitStatus": "E",
+  "deletedAt": null,
+  "mailingAddress": {
+    "address": "Storgata 1 0155 OSLO",
+    "postalCode": "0155",
+    "city": "OSLO"
+  },
+  "lastUpdated": "2024-06-01T12:00:00\u002B02:00",
+  "businessRelationships": [
+    {
+      "roleIdentifier": "daglig-leder",
+      "relatedPersonIdentifier": "25871999336",
+      "relatedOrganizationIdentifier": null
+    }
+  ]
+}

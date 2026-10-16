@@ -1,0 +1,89 @@
+﻿[
+  {
+    organizationIdentifier: 316433995,
+    isFirstRegistration: true,
+    displayName: HAVHEST VIE ANS,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ANS,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Haakon Tveters vei 61 0686 OSLO,
+      postalCode: 0686,
+      city: OSLO
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 23819699380,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Sunn Havhest,
+            firstName: Sunn,
+            middleName: null,
+            lastName: Havhest,
+            shortName: Havhest Sunn
+          },
+          mailingAddress: {
+            address: Kolstadtunet 8 B 7098,
+            postalCode: 7098,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 27815899003,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Materialistisk Lue,
+            firstName: Materialistisk,
+            middleName: null,
+            lastName: Lue,
+            shortName: Lue Materialistisk
+          },
+          mailingAddress: {
+            address: Røssvollveien 56 8615,
+            postalCode: 8615,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 27815899003,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Materialistisk Lue,
+            firstName: Materialistisk,
+            middleName: null,
+            lastName: Lue,
+            shortName: Lue Materialistisk
+          },
+          mailingAddress: {
+            address: Røssvollveien 56 8615,
+            postalCode: 8615,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: connection,
+          roleCode: revisor,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 312963345,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

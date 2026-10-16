@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Azure.Storage.Queues" />
+    <PackageReference Include="CommunityToolkit.Diagnostics" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ServiceDefaults.AzureIdentity/Altinn.Authorization.ServiceDefaults.AzureIdentity.csproj" />
+    <ProjectReference Include="../ServiceDefaults.Jobs/Altinn.Authorization.ServiceDefaults.Jobs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Altinn.Authorization.ServiceDefaults.StorageQueues.Tests" />
+  </ItemGroup>
+
+</Project>

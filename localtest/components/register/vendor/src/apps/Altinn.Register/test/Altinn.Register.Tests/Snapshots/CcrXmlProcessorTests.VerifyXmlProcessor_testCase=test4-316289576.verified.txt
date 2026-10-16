@@ -1,0 +1,103 @@
+﻿[
+  {
+    organizationIdentifier: 316289576,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ENK,
+    unitStatus: E,
+    datoSistEndret: 2021-03-12,
+    mobileNumber: null,
+    businessAddress: {
+      address: Storgata 88 0662 OSLO,
+      postalCode: 0662,
+      city: OSLO
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 46836800303,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: VÅRLIG ARTIKKEL,
+            firstName: VÅRLIG,
+            middleName: null,
+            lastName: ARTIKKEL,
+            shortName: ARTIKKEL VÅRLIG
+          },
+          mailingAddress: {
+            address: Storgata 88 0301,
+            postalCode: 0301,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 21834995635,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ROBUST SEKRETÆR,
+            firstName: ROBUST,
+            middleName: null,
+            lastName: SEKRETÆR,
+            shortName: SEKRETÆR ROBUST
+          },
+          mailingAddress: {
+            address: Storgata 88 0301,
+            postalCode: 0301,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 45811675095,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ORDNÆR LAGIDRETT,
+            firstName: ORDNÆR,
+            middleName: null,
+            lastName: LAGIDRETT,
+            shortName: LAGIDRETT ORDNÆR
+          },
+          mailingAddress: {
+            address: Storgata 88 0301,
+            postalCode: 0301,
+            city: null
+          }
+        }
+      ],
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 60833200189,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 29842699620,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ],
+      bulkRemoveRoleAssignments: [
+        {
+          roleAssignmentType: bulk-role-assignment-removal,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

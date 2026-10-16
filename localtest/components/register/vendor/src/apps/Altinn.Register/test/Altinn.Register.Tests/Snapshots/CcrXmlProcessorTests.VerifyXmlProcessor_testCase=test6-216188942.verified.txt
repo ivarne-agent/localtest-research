@@ -1,0 +1,97 @@
+﻿[
+  {
+    organizationIdentifier: 216188942,
+    isFirstRegistration: false,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: FLI,
+    unitStatus: E,
+    datoSistEndret: 2026-08-20,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 18897498452,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Kritisk Bakgrunnslitteratur,
+            firstName: Kritisk,
+            middleName: null,
+            lastName: Bakgrunnslitteratur,
+            shortName: Bakgrunnslitteratur Kritisk
+          },
+          mailingAddress: {
+            address: Sandvedbøen 146 4318,
+            postalCode: 4318,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 30878498026,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Vakker Ballongbukse,
+            firstName: Vakker,
+            middleName: null,
+            lastName: Ballongbukse,
+            shortName: Ballongbukse Vakker
+          },
+          mailingAddress: {
+            address: Nordrehaug 11 5089,
+            postalCode: 5089,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 30876299921,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Komplett Akeleie,
+            firstName: Komplett,
+            middleName: null,
+            lastName: Akeleie,
+            shortName: Akeleie Komplett
+          },
+          mailingAddress: {
+            address: Postdamveien 2 D 1164,
+            postalCode: 1164,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: varamedlem,
+          rolePersonalIdentifier: 52900375026,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Unyttig Bris,
+            firstName: Unyttig,
+            middleName: null,
+            lastName: Bris,
+            shortName: Bris Unyttig
+          },
+          mailingAddress: {
+            address: Skafsåvegen 1712 A 3882,
+            postalCode: 3882,
+            city: null
+          }
+        }
+      ],
+      removeRoleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 04920299712,
+          roleOrganizationNumber: null,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

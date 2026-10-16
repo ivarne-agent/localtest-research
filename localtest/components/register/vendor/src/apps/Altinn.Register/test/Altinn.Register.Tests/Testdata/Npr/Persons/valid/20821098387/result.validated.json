@@ -1,0 +1,17 @@
+{
+  "personIdentifier": "20821098387",
+  "displayName": "ERFAREN SJAKAL",
+  "firstName": "ERFAREN",
+  "middleName": null,
+  "lastName": "SJAKAL",
+  "shortName": "SJAKAL ERFAREN",
+  "address": null,
+  "mailingAddress": {
+    "address": "Postboks 95 8890 LEIRFJORD",
+    "postalCode": "8890",
+    "city": "LEIRFJORD"
+  },
+  "dateOfBirth": "2010-02-20",
+  "dateOfDeath": null,
+  "guardians": []
+}

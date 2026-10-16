@@ -1,0 +1,81 @@
+﻿[
+  {
+    organizationIdentifier: 316433782,
+    isFirstRegistration: true,
+    displayName: JANNES PRE TIL BRUK I PAYLOAD REGELTESTER ANS,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: PRE,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Dalenveien 26A 4815 ARENDAL,
+      postalCode: 4815,
+      city: ARENDAL
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: bestyrende-reder,
+          rolePersonalIdentifier: 23827696358,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Åpen Porto,
+            firstName: Åpen,
+            middleName: null,
+            lastName: Porto,
+            shortName: Porto Åpen
+          },
+          mailingAddress: {
+            address: Valvikvegen 358 6919,
+            postalCode: 6919,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 13886797294,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Optimistisk Harpe,
+            firstName: Optimistisk,
+            middleName: null,
+            lastName: Harpe,
+            shortName: Harpe Optimistisk
+          },
+          mailingAddress: {
+            address: Asperholen 80 4329,
+            postalCode: 4329,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: deltaker-fullt-ansvar,
+          rolePersonalIdentifier: 21819499885,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Sliten Autoritet,
+            firstName: Sliten,
+            middleName: null,
+            lastName: Autoritet,
+            shortName: Autoritet Sliten
+          },
+          mailingAddress: {
+            address: Vikveien 64 8253,
+            postalCode: 8253,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

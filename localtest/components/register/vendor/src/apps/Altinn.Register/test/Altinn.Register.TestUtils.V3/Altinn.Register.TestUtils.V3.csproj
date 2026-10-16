@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Altinn.Register.TestUtils</RootNamespace>
+    <IsTestProject>false</IsTestProject>
+    <IsTestLibrary>true</IsTestLibrary>
+    <XUnitVersion>v3</XUnitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.Authorization.TestUtils.Http" />
+    <PackageReference Include="CommunityToolkit.Diagnostics" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Nerdbank.Streams" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="SSH.NET" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Sftp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Altinn.Register.Persistence\Altinn.Register.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Altinn.Register\Altinn.Register.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Altinn.Register.Tests" />
+    <InternalsVisibleTo Include="Altinn.Register.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

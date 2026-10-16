@@ -1,0 +1,29 @@
+{
+  "PartyTypeName": 2,
+  "SSN": "",
+  "OrgNumber": "810418192",
+  "Person": null,
+  "Organization": {
+    "OrgNumber": "810418192",
+    "Name": "KOLSAAS OG FLAAM",
+    "UnitType": "AS",
+    "TelephoneNumber": null,
+    "MobileNumber": null,
+    "FaxNumber": null,
+    "EMailAddress": "test@test.test",
+    "InternetAddress": null,
+    "MailingAddress": null,
+    "MailingPostalCode": null,
+    "MailingPostalCity": null,
+    "BusinessAddress": null,
+    "BusinessPostalCode": null,
+    "BusinessPostalCity": null
+  },
+  "PartyId": 50004219,
+  "PartyUuid": "d0c063a2-9cb3-4724-9d47-e44cec590d2c",
+  "UnitType": "AS",
+  "Name": "KOLSAAS OG FLAAM",
+  "IsDeleted": true,
+  "OnlyHierarchyElementWithNoAccess": false,
+  "ChildParties": null
+}

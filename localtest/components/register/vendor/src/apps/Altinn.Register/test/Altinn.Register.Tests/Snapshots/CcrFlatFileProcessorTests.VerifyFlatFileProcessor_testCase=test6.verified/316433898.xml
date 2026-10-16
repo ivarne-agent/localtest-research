@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433898" organisasjonsform="SAM" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Brukes i testing i BVR-INN.</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>13928299931</rolleFoedselsnr>
+      <fornavn>Inkluderende</fornavn>
+      <slektsnavn>Undulat</slektsnavn>
+      <postnr>0491</postnr>
+      <adresse1>Lyngåsveien 9</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES SAMEIE TIL BRUK TIL</navn1>
+      <navn2>PAYLOADTESTER AV REGLER I BVR-INN</navn2>
+      <rednavn>JANNES SAMEIE TIL BRUK TIL</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>7970</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>5060</kommunenr>
+      <adresse1>Finn-Zarisvegen 1</adresse1>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20260708</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

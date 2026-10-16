@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260428" kjoerenr="05780" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="216289552" organisasjonsform="AS" hovedsakstype="E" undersakstype="EN" foersteOverfoering="N" datoFoedt="20170818" datoSistEndret="20260428">
+    <samendringer data="D" felttype="SIFE" endringstype="U" type="R">
+      <rolleFoedselsnr>17811298492</rolleFoedselsnr>
+    </samendringer>
+    <samendringer data="D" felttype="SIFE" endringstype="U" type="R">
+      <rolleFoedselsnr>29842699892</rolleFoedselsnr>
+    </samendringer>
+    <samendringUtgaar felttype="SAMU">
+      <samendringstype>SIGN</samendringstype>
+    </samendringUtgaar>
+    <infotype felttype="naeringskode" endringstype="N">
+      <naeringskode>00.000</naeringskode>
+      <gyldighetsdato>20260401</gyldighetsdato>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

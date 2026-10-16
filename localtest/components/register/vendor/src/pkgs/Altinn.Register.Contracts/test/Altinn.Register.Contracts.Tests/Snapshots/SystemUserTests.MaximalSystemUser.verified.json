@@ -1,0 +1,19 @@
+﻿{
+  "partyType": "system-user",
+  "owner": {
+    "partyUuid": "00000000-0000-0000-0000-000000000002",
+    "urn": "urn:altinn:party:uuid:00000000-0000-0000-0000-000000000002"
+  },
+  "systemUserType": "first-party-system-user",
+  "partyUuid": "00000000-0000-0000-0000-000000000001",
+  "versionId": 1,
+  "urn": "urn:altinn:party:uuid:00000000-0000-0000-0000-000000000001",
+  "externalUrn": "urn:altinn:systemuser:uuid:00000000-0000-0000-0000-000000000001",
+  "partyId": 12345678,
+  "displayName": "Display Name",
+  "createdAt": "2020-01-02T03:04:05+00:00",
+  "modifiedAt": "2022-05-06T07:08:09+00:00",
+  "isDeleted": false,
+  "deletedAt": null,
+  "user": null
+}

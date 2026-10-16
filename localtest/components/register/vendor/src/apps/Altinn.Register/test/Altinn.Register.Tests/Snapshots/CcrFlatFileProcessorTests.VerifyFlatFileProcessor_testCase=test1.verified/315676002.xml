@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260311" kjoerenr="05749" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="315676002" organisasjonsform="BEDR" hovedsakstype="E" undersakstype="NY" foersteOverfoering="N" datoFoedt="20210320" datoSistEndret="20210320">
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>ALVORLIG FORNEM KATT TRE RESERVERT</navn1>
+      <navn2>AMBITA</navn2>
+      <rednavn>ALVORLIG FORNEM KATT TRE RES</rednavn>
+    </infotype>
+    <samendringer data="D" felttype="DAGL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleFoedselsnr>12838999466</rolleFoedselsnr>
+      <fornavn>ØDE FOLE</fornavn>
+    </samendringer>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

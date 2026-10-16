@@ -1,0 +1,288 @@
+{
+  "identifikasjonsnummer": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.929902062+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "status": "iBruk",
+      "foedselsEllerDNummer": "12889197496",
+      "identifikatortype": "foedselsnummer"
+    }
+  ],
+  "status": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.929902062+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "status": "bosatt"
+    }
+  ],
+  "foedsel": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930171023+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "foedselsdato": "1991-08-12",
+      "foedselsaar": "1991",
+      "foedested": "Åfjord",
+      "foedekommuneINorge": "5058",
+      "foedeland": "NOR"
+    }
+  ],
+  "foedselINorge": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930189714+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "foedselsinstitusjonsnavn": "Sigen Testinstitusjon",
+      "rekkefoelgenummer": 11
+    }
+  ],
+  "familierelasjon": [
+    {
+      "ajourholdstidspunkt": "2023-03-18T12:33:50.36006775+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2023-03-18T00:00:00+02:00",
+      "relatertPerson": "18832397314",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "mor"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930364906+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2012-09-19T00:00:00+02:00",
+      "relatertPerson": "19891298067",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "mor"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930341399+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2011-08-15T00:00:00+02:00",
+      "relatertPerson": "15881198271",
+      "relatertPersonsRolle": "barn",
+      "minRolleForPerson": "mor"
+    },
+    {
+      "ajourholdstidspunkt": "2022-05-11T12:33:49.174878983+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2009-08-23T00:00:00+02:00",
+      "opphoerstidspunkt": "2022-05-11T12:33:49.174879272+02:00",
+      "relatertPerson": "23868798378",
+      "relatertPersonsRolle": "ektefelleEllerPartner",
+      "minRolleForPerson": "ektefelleEllerPartner"
+    }
+  ],
+  "sivilstand": [
+    {
+      "ajourholdstidspunkt": "2022-05-11T12:33:49.174878983+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Skilsmisse",
+      "gyldighetstidspunkt": "2022-05-11T12:33:49.174877272+02:00",
+      "sivilstand": "skilt",
+      "sivilstandsdato": "2022-05-11",
+      "myndighet": "STATSFORVALTEREN",
+      "relatertVedSivilstand": "23868798378"
+    },
+    {
+      "ajourholdstidspunkt": "2021-04-30T12:33:48.348976433+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Separasjon",
+      "gyldighetstidspunkt": "2021-04-30T00:00:00+02:00",
+      "sivilstand": "separert",
+      "sivilstandsdato": "2021-04-30",
+      "myndighet": "STATSFORVALTEREN",
+      "relatertVedSivilstand": "23868798378"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930327318+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2009-08-23T00:00:00+02:00",
+      "sivilstand": "gift",
+      "sivilstandsdato": "2009-08-23",
+      "myndighet": "ANSATT_I_KOMMUNE",
+      "kommune": "3041",
+      "sted": "Overfølsom Testrådhus",
+      "relatertVedSivilstand": "23868798378"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930247065+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "sivilstand": "ugift",
+      "sivilstandsdato": "1991-08-12"
+    }
+  ],
+  "navn": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930032389+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2009-08-23T12:33:47.930032087+02:00",
+      "fornavn": "REALISTISK",
+      "mellomnavn": "DIAKRITISK",
+      "etternavn": "GOLBMAČIEHKA",
+      "forkortetNavn": "R. DIAKRITISK GOLBMAČIEHKA"
+    }
+  ],
+  "bostedsadresse": [
+    {
+      "ajourholdstidspunkt": "2022-09-08T12:33:49.95062311+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2022-09-08T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "4617",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Snilstveitvegen",
+        "adressenummer": { "husnummer": "41" },
+        "adressekode": "1292",
+        "poststed": { "poststedsnavn": "SNILSTVEITØY", "postnummer": "5473" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "136256249",
+      "adressegradering": "ugradert",
+      "flyttedato": "2022-09-08",
+      "grunnkrets": 412,
+      "stemmekrets": 2,
+      "skolekrets": 6,
+      "kirkekrets": 1
+    },
+    {
+      "ajourholdstidspunkt": "2021-05-13T12:33:48.646717267+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Flytting innenlands",
+      "gyldighetstidspunkt": "2021-05-13T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "4621",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Huldravegen",
+        "adressenummer": { "husnummer": "26" },
+        "adressekode": "2073",
+        "poststed": { "poststedsnavn": "GRANVIN", "postnummer": "5736" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "569846015",
+      "adressegradering": "ugradert",
+      "flyttedato": "2021-05-13",
+      "grunnkrets": 1004,
+      "stemmekrets": 8,
+      "skolekrets": 10,
+      "kirkekrets": 2
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930152147+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2009-08-23T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "3041",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Golbergsgutu",
+        "adressenummer": { "husnummer": "15" },
+        "adressekode": "1340",
+        "poststed": { "poststedsnavn": "GOL", "postnummer": "3550" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "305703326",
+      "adressegradering": "ugradert",
+      "flyttedato": "2009-08-23",
+      "grunnkrets": 202,
+      "stemmekrets": 4,
+      "skolekrets": 4,
+      "kirkekrets": 4
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930114042+02:00",
+      "erGjeldende": false,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "vegadresse": {
+        "kommunenummer": "5058",
+        "bruksenhetsnummer": "H0101",
+        "bruksenhetstype": "bolig",
+        "adressenavn": "Linesveien",
+        "adressenummer": { "husnummer": "583" },
+        "adressekode": "2007",
+        "poststed": { "poststedsnavn": "LINESØYA", "postnummer": "7176" }
+      },
+      "adresseIdentifikatorFraMatrikkelen": "484102309",
+      "adressegradering": "ugradert",
+      "flyttedato": "1991-08-12",
+      "grunnkrets": 201,
+      "stemmekrets": 2,
+      "skolekrets": 4,
+      "kirkekrets": 3
+    }
+  ],
+  "foreldreansvar": [
+    {
+      "ajourholdstidspunkt": "2023-03-18T12:33:50.36006775+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Fødsel",
+      "gyldighetstidspunkt": "2023-03-18T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "18832397314",
+      "ansvarlig": "12889197496"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930369821+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2012-09-19T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "19891298067",
+      "ansvarlig": "12889197496"
+    },
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.93034988+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "2011-08-15T00:00:00+02:00",
+      "ansvar": "felles",
+      "ansvarssubjekt": "15881198271",
+      "ansvarlig": "12889197496"
+    }
+  ],
+  "statsborgerskap": [
+    {
+      "ajourholdstidspunkt": "2020-05-19T12:33:47.930232133+02:00",
+      "erGjeldende": true,
+      "kilde": "Synutopia",
+      "aarsak": "Grunnbefolkning",
+      "gyldighetstidspunkt": "1991-08-12T00:00:00+02:00",
+      "statsborgerskap": "NOR",
+      "ervervsdato": "1991-08-12"
+    }
+  ]
+}

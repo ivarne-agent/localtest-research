@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20260820" kjoerenr="05071" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="316433855" organisasjonsform="ESEK" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20260820" datoSistEndret="20260820">
+    <infotype felttype="FORM" endringstype="N">
+      <opplysning>Eierseksjonssameie.</opplysning>
+    </infotype>
+    <samendringer data="D" felttype="LEDE" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>1</rolleRekkefoelge>
+      <rolleFoedselsnr>19909498719</rolleFoedselsnr>
+      <fornavn>Kvart</fornavn>
+      <slektsnavn>Vogge</slektsnavn>
+      <postnr>8252</postnr>
+      <adresse1>Brenne</adresse1>
+      <adresse2>Brenneveien 14</adresse2>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>3</rolleRekkefoelge>
+      <rolleFoedselsnr>18906698222</rolleFoedselsnr>
+      <fornavn>Pompøs</fornavn>
+      <slektsnavn>Make</slektsnavn>
+      <postnr>1348</postnr>
+      <adresse1>Belsetgrenda 5</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <samendringer data="D" felttype="MEDL" endringstype="N" type="R">
+      <rolleFratraadt>N</rolleFratraadt>
+      <rolleRekkefoelge>2</rolleRekkefoelge>
+      <rolleFoedselsnr>18916099696</rolleFoedselsnr>
+      <fornavn>Tøff</fornavn>
+      <slektsnavn>Aldersforskjell</slektsnavn>
+      <postnr>3090</postnr>
+      <adresse1>Frøyas Vei 16</adresse1>
+      <adresseLandkode>NO</adresseLandkode>
+      <personstatus>L</personstatus>
+    </samendringer>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>B</opplysning>
+    </infotype>
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>JANNES ESEK SOM SKAL BENYTTES FOR</navn1>
+      <navn2>PAYLOADTESTING AV REGLER I BVR-INN</navn2>
+      <rednavn>JANNES ESEK SOM SKAL BENYTTES FOR</rednavn>
+    </infotype>
+    <infotype felttype="PADR" endringstype="N">
+      <postnr>6293</postnr>
+      <landkode>NO</landkode>
+      <kommunenr>1580</kommunenr>
+      <adresse1>Fjelly 14</adresse1>
+    </infotype>
+    <infotype felttype="naeringskode" endringstype="N">
+      <naeringskode>97.001</naeringskode>
+      <hjelpeenhet>N</hjelpeenhet>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>20130410</opplysning>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

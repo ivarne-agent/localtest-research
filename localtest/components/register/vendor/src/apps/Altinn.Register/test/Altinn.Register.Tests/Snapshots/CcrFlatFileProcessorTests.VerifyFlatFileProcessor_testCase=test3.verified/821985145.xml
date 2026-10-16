@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<batchAjourholdXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="batchAjourholdXML_versjon2_1.xsd">
+  <head avsender="ER" dato="20180723" kjoerenr="00001" mottaker="ALT" type="A" />
+  <enhet organisasjonsnummer="821985145" organisasjonsform="BEDR" hovedsakstype="N" undersakstype="NY" foersteOverfoering="J" datoFoedt="20180630" datoSistEndret="20180630">
+    <infotype felttype="NAVN" endringstype="N">
+      <navn1>Donald Duck INC</navn1>
+      <rednavn>Donald Duck INC</rednavn>
+    </infotype>
+    <infotype felttype="EPOS" endringstype="N">
+      <opplysning>donald.duck@duck.no</opplysning>
+    </infotype>
+    <infotype felttype="MÅL" endringstype="N">
+      <opplysning>N</opplysning>
+    </infotype>
+    <infotype felttype="ARBG" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="ISEK" endringstype="N">
+      <opplysning>3300</opplysning>
+    </infotype>
+    <infotype felttype="STID" endringstype="N">
+      <opplysning>19200203</opplysning>
+    </infotype>
+    <infotype felttype="R-FR" endringstype="N" />
+    <infotype felttype="R-MV" endringstype="N" />
+    <infotype felttype="R-SR" endringstype="N" />
+    <infotype felttype="R-FV" endringstype="N" />
+    <infotype felttype="BDAT" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="NDAT" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="EDAT" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="KJRP" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="UVNO" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="UENO" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="RVFG" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="RSKP" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="BFOR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="VEDT" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="PLFR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="SLFR" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="NYFR" endringstype="N">
+      <opplysning>20170103</opplysning>
+    </infotype>
+    <infotype felttype="EVDT" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="FVRP" endringstype="N">
+      <opplysning>0102</opplysning>
+    </infotype>
+    <infotype felttype="FVRR" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="GRDT" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="GRUN" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="KTO" endringstype="N">
+      <opplysning>123456789012345678901234567890</opplysning>
+    </infotype>
+    <infotype felttype="MPVT" endringstype="N">
+      <opplysning>J</opplysning>
+    </infotype>
+    <infotype felttype="underlagtHjemlandetsLovgivning" endringstype="N">
+      <foretaksform>FTAKFORM</foretaksform>
+      <beskrivelseForetaksformHjemland>DESCRHOMELAND123456712345678901234567890123456789012345678901DESCFOFIN</beskrivelseForetaksformHjemland>
+      <beskrivelseForetaksformNorsk>DESCNORWEGIAN123456712345678901234567890123456789012345678901DESCNOFIN</beskrivelseForetaksformNorsk>
+      <landkode>101</landkode>
+    </infotype>
+    <infotype felttype="registrertHjemlandetsRegister" endringstype="N">
+      <registernr>123456789012345678901234567REGNRFIN</registernr>
+      <registerNavn1>REGNAVN1FF12345678901234567RNAVNFIN</registerNavn1>
+      <registerNavn2>REGNAVN2FF12345678901234567RNAVNFIN</registerNavn2>
+      <registerNavn3>REGNAVN3FF12345678901234567RNAVNFIN</registerNavn3>
+      <landkode>101</landkode>
+      <utenlandskPoststed>POSTSTEDFF12345678901234567PSTEDFIN</utenlandskPoststed>
+      <postadresse1>POSTADR1FF123456789012345679PADRFIN</postadresse1>
+      <postadresse2>POSTADR2FF123456789012345679PADRFIN</postadresse2>
+      <postadresse3>POSTADR3FF123456789012345679PADRFIN</postadresse3>
+    </infotype>
+    <infotype felttype="naeringskode" endringstype="N">
+      <naeringskode>25.110</naeringskode>
+      <gyldighetsdato>19960101</gyldighetsdato>
+      <hjelpeenhet>N</hjelpeenhet>
+    </infotype>
+  </enhet>
+  <trai antallEnheter="1" avsender="ER" />
+</batchAjourholdXML>

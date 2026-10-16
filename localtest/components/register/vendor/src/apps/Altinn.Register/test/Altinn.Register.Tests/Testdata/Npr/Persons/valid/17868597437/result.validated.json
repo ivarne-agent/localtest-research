@@ -1,0 +1,25 @@
+{
+  "personIdentifier": "17868597437",
+  "displayName": "LYS BIT",
+  "firstName": "LYS",
+  "middleName": null,
+  "lastName": "BIT",
+  "shortName": "BIT LYS",
+  "address": {
+    "municipalNumber": "5630",
+    "municipalName": "BERLEVÅG",
+    "streetName": null,
+    "houseNumber": null,
+    "houseLetter": null,
+    "postalCode": "9980",
+    "city": "BERLEVÅG"
+  },
+  "mailingAddress": {
+    "address": "5630-11/4/0/0 9980 BERLEVÅG",
+    "postalCode": "9980",
+    "city": "BERLEVÅG"
+  },
+  "dateOfBirth": "1985-06-17",
+  "dateOfDeath": null,
+  "guardians": []
+}

@@ -1,0 +1,30 @@
+﻿[
+  {
+    organizationIdentifier: 313993108,
+    isFirstRegistration: false,
+    displayName: KOMPETENT GRETTEN TIGER AS RESERVERT AMBITA,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AS,
+    unitStatus: E,
+    datoSistEndret: 2021-03-15,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: daglig-leder,
+          rolePersonalIdentifier: 12838999466,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: ØDE FOLE Navn,
+            firstName: ØDE FOLE,
+            middleName: null,
+            lastName: Navn,
+            shortName: Navn ØDE FOLE
+          },
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]

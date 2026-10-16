@@ -1,0 +1,38 @@
+﻿{
+  $type: full,
+  assignments: [
+    {
+      toParty: {
+        $type: pers,
+        personIdentifier: 25871999336,
+        name: {
+          displayName: Ada Lovelace,
+          firstName: Ada,
+          middleName: null,
+          lastName: Lovelace,
+          shortName: Lovelace Ada
+        },
+        mailingAddress: {
+          address: Example Street 1,
+          postalCode: 0150,
+          city: Oslo
+        }
+      },
+      externalRoleIdentifier: guardian
+    },
+    {
+      toParty: {
+        $type: org,
+        organizationIdentifier: 123456785
+      },
+      externalRoleIdentifier: accountant
+    },
+    {
+      toParty: {
+        $type: uuid,
+        uuid: Guid_1
+      },
+      externalRoleIdentifier: contact
+    }
+  ]
+}

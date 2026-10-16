@@ -1,0 +1,81 @@
+﻿[
+  {
+    organizationIdentifier: 316433855,
+    isFirstRegistration: true,
+    displayName: JANNES ESEK SOM SKAL BENYTTES FOR PAYLOADTESTING AV REGLER I BVR-INN,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: ESEK,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: {
+      address: Fjelly 14 6293 HARAM,
+      postalCode: 6293,
+      city: HARAM
+    },
+    businessAddress: null,
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styreleder,
+          rolePersonalIdentifier: 19909498719,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Kvart Vogge,
+            firstName: Kvart,
+            middleName: null,
+            lastName: Vogge,
+            shortName: Vogge Kvart
+          },
+          mailingAddress: {
+            address: Brenne Brenneveien 14 8252,
+            postalCode: 8252,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 18906698222,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Pompøs Make,
+            firstName: Pompøs,
+            middleName: null,
+            lastName: Make,
+            shortName: Make Pompøs
+          },
+          mailingAddress: {
+            address: Belsetgrenda 5 1348,
+            postalCode: 1348,
+            city: null
+          }
+        },
+        {
+          roleAssignmentType: role-assignment,
+          roleCode: styremedlem,
+          rolePersonalIdentifier: 18916099696,
+          roleOrganizationNumber: null,
+          personName: {
+            displayName: Tøff Aldersforskjell,
+            firstName: Tøff,
+            middleName: null,
+            lastName: Aldersforskjell,
+            shortName: Aldersforskjell Tøff
+          },
+          mailingAddress: {
+            address: Frøyas Vei 16 3090,
+            postalCode: 3090,
+            city: null
+          }
+        }
+      ]
+    }
+  }
+]

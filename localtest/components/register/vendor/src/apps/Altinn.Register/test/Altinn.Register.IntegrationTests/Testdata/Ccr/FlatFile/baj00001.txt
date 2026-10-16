@@ -1,0 +1,47 @@
+HEADER 2026031105749ALTA
+ENH 210690182ENK ENY  2021031220210312N
+NAVNNSSYDYNAMISK BRA KATT HOFTE RESERVERT  AMBITA                                                                                                                                              DYNAMISK BRA KATT HOFTE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 213167022FLI EMASK2021031520250219N
+NAVNNSSYKRY FASCINERENDE APE RESERVERT     AMBITA                                                                                                                                              KRY FASCINERENDE APE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 310146420ENK EEN  2021031520210318N
+NAVNNSSYGENIERKLÆRT MATEMATISK KATT SURE   RESERVERT AMBITA                                                                                                                                    GENIERKLÆRT MATEMATISK KATT SURE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 311196073BEDRENY  2021031820210318N
+NAVNNSSYMEMORERENDE SOSIAL KATT KAIE       RESERVERT AMBITA                                                                                                                                    MEMORERENDE SOSIAL KATT KAIE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 311258524BEDRENY  2021031820210318N
+NAVNNSSYKUL BRA TIGER AS RESERVERT AMBITA                                                                                                                                                      KUL BRA TIGER AS RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 311952153BEDRENY  2021031820210318N
+NAVNNSSYKLAR SPESIFIKK TIGER AS RESERVERT  AMBITA                                                                                                                                              KLAR SPESIFIKK TIGER AS RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 312105802BEDRENY  2021031820210318N
+NAVNNSSYPROAKTIV MORALSK TIGER AS          RESERVERT AMBITA                                                                                                                                    PROAKTIV MORALSK TIGER AS RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 312955385ENK EEN  2021031320210320N
+NAVNNSSYSIVILISERT EVIG KATT MELDING       RESERVERT AMBITA                                                                                                                                    SIVILISERT EVIG KATT MELDING RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 313316661BRL EEN  2021031520210320N
+NAVNNSSYAUTORISERT GLAD HEST BORETTSLAG    RESERVERT AMBITA                                                                                                                                    AUTORISERT GLAD HEST BORETTSLAG RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 313351033ENK EEN  2021031620210319N
+NAVNNSSYDYREBAR SOFISTIKERT KATT JANTELOV  RESERVERT AMBITA                                                                                                                                    DYREBAR SOFISTIKERT KATT JANTELOV RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 313704688ENK ENY  2021031620210316N
+NAVNNSSYFANTASILØS FLYKTIG KATT PÅPAKNING  RESERVERT AMBITA                                                                                                                                    FANTASILØS FLYKTIG KATT PÅPAKNING RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 313887162ENK ENY  2021031420210314N
+NAVNNSSYAKADEMISK DEILIG KATT MÅNEFERD     RESERVERT AMBITA                                                                                                                                    AKADEMISK DEILIG KATT MÅNEFERD RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 313993108AS  ENY  2021031520210315N
+NAVNNSSYKOMPETENT GRETTEN TIGER AS         RESERVERT AMBITA                                                                                                                                    KOMPETENT GRETTEN TIGER AS RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 315268729AAFYEEN  2021031920250220N
+NAVNNSSYSAMEIET ORDENTLIG STØYFRI LØVE     RESERVERT AMBITA                                                                                                                                    SAMEIET ORDENTLIG STØYFRI LØVE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+ENH 315676002BEDRENY  2021032020210320N
+NAVNNSSYALVORLIG FORNEM KATT TRE RESERVERT AMBITA                                                                                                                                              ALVORLIG FORNEM KATT TRE RESERVERT AMBITA
+DAGLNSSYRD                              N    00012838999466ØDE FOLE
+TRAIER 0003855000018386

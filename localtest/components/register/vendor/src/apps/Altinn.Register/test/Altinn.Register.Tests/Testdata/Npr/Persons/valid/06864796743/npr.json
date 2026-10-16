@@ -1,0 +1,183 @@
+{
+    "identifikasjonsnummer": [
+        {
+            "ajourholdstidspunkt": "2020-12-22T17:08:23.074+01:00",
+            "erGjeldende": true,
+            "kilde": "KILDE_DSF",
+            "status": "iBruk",
+            "foedselsEllerDNummer": "06864796743",
+            "identifikatortype": "foedselsnummer"
+        }
+    ],
+    "status": [
+        {
+            "ajourholdstidspunkt": "2023-01-21T13:03:15.245758+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2023-01-21T00:00:00+01:00",
+            "status": "utflyttet"
+        },
+        {
+            "ajourholdstidspunkt": "2020-12-22T17:08:23.074+01:00",
+            "erGjeldende": false,
+            "kilde": "KILDE_DSF",
+            "gyldighetstidspunkt": "2020-12-22T17:08:23.074+01:00",
+            "status": "bosatt"
+        }
+    ],
+    "foedsel": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:09.225724+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "gyldighetstidspunkt": "1947-06-06T07:23:09.225719+01:00",
+            "foedselsdato": "1947-06-06",
+            "foedselsaar": "1947",
+            "foedekommuneINorge": "5001",
+            "foedeland": "NOR"
+        }
+    ],
+    "foedselINorge": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:09.277661+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Fødsel",
+            "gyldighetstidspunkt": "1947-06-06T07:23:09.277661+01:00",
+            "foedselsinstitusjonsnavn": "Horisontal Testinstitusjon",
+            "rekkefoelgenummer": 11
+        }
+    ],
+    "familierelasjon": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:08.748546+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1967-08-15T07:23:08.62754+01:00",
+            "relatertPerson": "29834898088",
+            "relatertPersonsRolle": "ektefelleEllerPartner",
+            "minRolleForPerson": "ektefelleEllerPartner"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:08.973245+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1947-06-06T00:00:00+01:00",
+            "relatertPerson": "19922548970",
+            "relatertPersonsRolle": "far",
+            "minRolleForPerson": "barn"
+        },
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:08.869365+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1947-06-06T00:00:00+01:00",
+            "relatertPerson": "23902149252",
+            "relatertPersonsRolle": "mor",
+            "minRolleForPerson": "barn"
+        }
+    ],
+    "sivilstand": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:08.627542+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "1967-08-15T07:23:08.62754+01:00",
+            "sivilstand": "gift",
+            "sivilstandsdato": "1967-08-15",
+            "myndighet": "DEN_NORSKE_KIRKE",
+            "kommune": "1103",
+            "sted": "Berømt Testkirke",
+            "relatertVedSivilstand": "29834898088"
+        }
+    ],
+    "navn": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:09.39805+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Patch",
+            "gyldighetstidspunkt": "2022-03-22T07:23:09.398047+01:00",
+            "fornavn": "INTRIKAT",
+            "etternavn": "INDREFILET"
+        }
+    ],
+    "bostedsadresse": [
+        {
+            "ajourholdstidspunkt": "2023-01-21T13:03:15.245758+01:00",
+            "erGjeldende": false,
+            "kilde": "Synutopia",
+            "aarsak": "Flytting innenlands",
+            "gyldighetstidspunkt": "2022-03-22T00:00:00+01:00",
+            "opphoerstidspunkt": "2023-01-21T00:00:00+01:00",
+            "vegadresse": {
+                "kommunenummer": "3403",
+                "bruksenhetsnummer": "H0201",
+                "bruksenhetstype": "bolig",
+                "adressenavn": "St. Olavs gate",
+                "adressenummer": {
+                    "husnummer": "71",
+                    "husbokstav": "A"
+                },
+                "adressekode": "3960",
+                "poststed": {
+                    "poststedsnavn": "HAMAR",
+                    "postnummer": "2317"
+                }
+            },
+            "adresseIdentifikatorFraMatrikkelen": "31103517",
+            "adressegradering": "ugradert",
+            "flyttedato": "2022-03-22",
+            "grunnkrets": 409,
+            "stemmekrets": 4,
+            "skolekrets": 2,
+            "kirkekrets": 1
+        }
+    ],
+    "utflytting": [
+        {
+            "ajourholdstidspunkt": "2023-01-21T13:03:15.245758+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2023-01-21T00:00:00+01:00",
+            "tilflyttingsland": "GNB",
+            "utflyttingsdato": "2023-01-21"
+        }
+    ],
+    "postadresseIUtlandet": [
+        {
+            "ajourholdstidspunkt": "2023-01-21T13:03:15.245758+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Utflytting",
+            "gyldighetstidspunkt": "2023-01-21T00:00:00+01:00",
+            "adressegradering": "ugradert",
+            "utenlandskAdresseIFrittFormat": {
+                "adresselinje": [
+                    "Testadresselinje 1",
+                    "Testadresselinje 2"
+                ],
+                "postkode": "Testpostkode utland 285",
+                "byEllerStedsnavn": "Moderne testby- eller stedsnavn",
+                "landkode": "ET"
+            }
+        }
+    ],
+    "statsborgerskap": [
+        {
+            "ajourholdstidspunkt": "2022-03-22T07:23:09.515072+01:00",
+            "erGjeldende": true,
+            "kilde": "Synutopia",
+            "aarsak": "Fødsel",
+            "gyldighetstidspunkt": "1947-06-06T07:23:09.51509+01:00",
+            "statsborgerskap": "NOR",
+            "ervervsdato": "1947-06-06"
+        }
+    ]
+}

@@ -1,0 +1,35 @@
+﻿[
+  {
+    organizationIdentifier: 316433839,
+    isFirstRegistration: true,
+    displayName: JANNES FORENING TIL BRUK AV PAYLOADTESTER AV REGLER I BVR-INN,
+    isDeleted: false,
+    deletedAt: null,
+    unitType: AAFY,
+    unitStatus: N,
+    datoSistEndret: 2026-08-20,
+    emailAddress: null,
+    internetAddress: null,
+    telephoneNumber: null,
+    mobileNumber: null,
+    faxNumber: null,
+    mailingAddress: null,
+    businessAddress: {
+      address: Vik Eidsfjordveien 2408 8450 HADSEL,
+      postalCode: 8450,
+      city: HADSEL
+    },
+    roleUpdates: {
+      roleAssignments: [
+        {
+          roleAssignmentType: connection,
+          roleCode: ikke-naeringsdrivende-hovedenhet,
+          rolePersonalIdentifier: null,
+          roleOrganizationNumber: 316433820,
+          personName: null,
+          mailingAddress: null
+        }
+      ]
+    }
+  }
+]
