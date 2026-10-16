@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn.Register source.
+    Selected through the DirectoryBuildPropsPath environment variable (see Dockerfile), so no vendored
+    csproj is edited. The vendored chain is imported first; everything below layers on top of it.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+  </PropertyGroup>
+
+  <!--
+    Only vendored projects get the vendored build chain; the fakes project next door is a plain project.
+    DirectoryBuildPropsPath replaces MSBuild's own lookup, so import the nearest vendored props above the
+    project (which chains to the vendored root itself), exactly what MSBuild would have found.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

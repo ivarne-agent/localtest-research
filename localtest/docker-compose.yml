@@ -1,0 +1,15 @@
+name: localtest
+
+services:
+  register:
+    build: ./components/register
+    environment:
+      # Production Register settings, pointed at the other localtest components (through the ingress once it exists).
+      GeneralSettings__OpenIdWellKnownEndpoint: http://local.altinn.cloud:8000/authentication/api/v1/openid/
+      PlatformSettings__ApiAuthorizationEndpoint: http://local.altinn.cloud:8000/authorization/api/v1/
+      # Localtest fakes
+      Localtest__Register__RequirePlatformAccessTokenHeader: "true"
+    volumes:
+      - ./components/register/testdata:/testdata:ro
+    ports:
+      - "5020:5020"

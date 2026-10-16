@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Localtest build overrides evaluated after each vendored project file (DirectoryBuildTargetsPath).
+    Item removals and additions belong here, because default items are only known at this point.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Register'">
+    <!-- Localtest fakes: in-memory persistence over testData.json, lenient platform-token handler, picker controller. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj" />
+  </ItemGroup>
+</Project>
