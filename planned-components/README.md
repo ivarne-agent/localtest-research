@@ -6,6 +6,7 @@ the rollout order. Background research is in [`../localtest-components/`](../loc
 
 | Component | Status | Plan |
 | --- | --- | --- |
+| All (MVP model) | sketch | [`mvp-vendoring-model.md`](mvp-vendoring-model.md): compose root, one folder per component with Dockerfile + vendored subtree + build props/targets + adjacent fakes |
 | Register | planned | [`register/README.md`](register/README.md) (plan), [`register/production-register-analysis.md`](register/production-register-analysis.md) (analysis with scratch build) |
 
 ## Conventions for vendored production code
