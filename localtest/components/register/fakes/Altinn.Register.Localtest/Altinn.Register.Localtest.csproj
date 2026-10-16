@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>Altinn.Register.Localtest</RootNamespace>
+    <!-- This project sits outside vendor/, so the vendored Directory.Packages.props does not apply. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Versions follow vendor/Directory.Packages.props. -->
+    <PackageReference Include="Altinn.Common.AccessToken" Version="5.1.11" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../vendor/src/apps/Altinn.Register/src/Altinn.Register.Core/Altinn.Register.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data/external-role-definitions.json" LogicalName="external-role-definitions.json" />
+  </ItemGroup>
+
+</Project>

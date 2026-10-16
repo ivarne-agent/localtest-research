@@ -1,0 +1,182 @@
+{
+  "$schema": "https://altinncdn.no/schemas/json/test-users/test-users.schema.v1.json",
+  "persons": [
+    {
+      "userId": 1337,
+      "partyId": 501337,
+      "ssn": "01817510120",
+      "firstName": "Ola",
+      "lastName": "Nordmann",
+      "email": "ola.nordmann@example.com",
+      "mobileNumber": "99999999",
+      "language": "nb",
+      "addressStreetName": "Testveien",
+      "addressHouseNumber": "38",
+      "addressPostalCode": "0150",
+      "addressCity": "OSLO",
+      "addressMunicipalNumber": "0301",
+      "addressMunicipalName": "OSLO",
+      "partyRoles": {
+        "500000": [
+          {
+            "type": "Altinn",
+            "value": "DAGL"
+          }
+        ],
+        "500002": [
+          {
+            "type": "Altinn",
+            "value": "INNH"
+          }
+        ]
+      }
+    },
+    {
+      "userId": 1338,
+      "partyId": 501338,
+      "ssn": "12858010053",
+      "firstName": "Kari",
+      "lastName": "Nordmann",
+      "email": "kari.nordmann@example.com",
+      "mobileNumber": "99999999",
+      "language": "nb",
+      "addressStreetName": "Testveien",
+      "addressHouseNumber": "39",
+      "addressPostalCode": "0150",
+      "addressCity": "OSLO",
+      "addressMunicipalNumber": "0301",
+      "addressMunicipalName": "OSLO",
+      "partyRoles": {
+        "500000": [
+          {
+            "type": "Altinn",
+            "value": "LEDE"
+          },
+          {
+            "type": "Altinn",
+            "value": "MEDL"
+          }
+        ],
+        "500003": [
+          {
+            "type": "Altinn",
+            "value": "DAGL"
+          }
+        ]
+      }
+    },
+    {
+      "userId": 1339,
+      "partyId": 501339,
+      "ssn": "02829010030",
+      "firstName": "Sofie",
+      "lastName": "Salt",
+      "email": "sofie.salt@example.com",
+      "mobileNumber": "99999999",
+      "language": "nb",
+      "addressStreetName": "Testveien",
+      "addressHouseNumber": "40",
+      "addressPostalCode": "0150",
+      "addressCity": "OSLO",
+      "addressMunicipalNumber": "0301",
+      "addressMunicipalName": "OSLO",
+      "partyRoles": {
+        "500002": [
+          {
+            "type": "Altinn",
+            "value": "REGN"
+          }
+        ]
+      }
+    },
+    {
+      "userId": 1340,
+      "partyId": 501340,
+      "ssn": "30916510043",
+      "firstName": "Per",
+      "middleName": "Anders",
+      "lastName": "Hansen",
+      "email": "per.hansen@example.com",
+      "mobileNumber": "99999999",
+      "language": "nb",
+      "addressStreetName": "Testveien",
+      "addressHouseNumber": "41",
+      "addressPostalCode": "0150",
+      "addressCity": "OSLO",
+      "addressMunicipalNumber": "0301",
+      "addressMunicipalName": "OSLO",
+      "partyRoles": {
+        "500000": [
+          {
+            "type": "Altinn",
+            "value": "REVI"
+          }
+        ]
+      }
+    },
+    {
+      "userId": 1341,
+      "partyId": 501341,
+      "ssn": "15870110046",
+      "firstName": "Anne",
+      "lastName": "Lund",
+      "email": "anne.lund@example.com",
+      "mobileNumber": "99999999",
+      "language": "nb",
+      "addressStreetName": "Testveien",
+      "addressHouseNumber": "42",
+      "addressPostalCode": "0150",
+      "addressCity": "OSLO",
+      "addressMunicipalNumber": "0301",
+      "addressMunicipalName": "OSLO",
+      "partyRoles": {}
+    }
+  ],
+  "orgs": [
+    {
+      "partyId": 500000,
+      "orgNumber": "910000012",
+      "name": "DDG Fitness AS",
+      "unitType": "AS",
+      "unitStatus": "N",
+      "businessAddress": "Næringsveien 1",
+      "businessPostalCode": "5003",
+      "businessPostalCity": "BERGEN",
+      "eMailAddress": "post@example.com"
+    },
+    {
+      "partyId": 500001,
+      "orgNumber": "910000020",
+      "name": "DDG Fitness Bergen",
+      "unitType": "BEDR",
+      "unitStatus": "N",
+      "businessAddress": "Næringsveien 1",
+      "businessPostalCode": "5003",
+      "businessPostalCity": "BERGEN",
+      "eMailAddress": "post@example.com",
+      "parentPartyId": 500000
+    },
+    {
+      "partyId": 500002,
+      "orgNumber": "910000039",
+      "name": "Nordmann Bakeri ENK",
+      "unitType": "ENK",
+      "unitStatus": "N",
+      "businessAddress": "Næringsveien 1",
+      "businessPostalCode": "5003",
+      "businessPostalCity": "BERGEN",
+      "eMailAddress": "post@example.com"
+    },
+    {
+      "partyId": 500003,
+      "orgNumber": "991060324",
+      "name": "Digitaliseringsdirektoratet",
+      "unitType": "ORGL",
+      "unitStatus": "N",
+      "businessAddress": "Næringsveien 1",
+      "businessPostalCode": "5003",
+      "businessPostalCity": "BERGEN",
+      "eMailAddress": "post@example.com"
+    }
+  ]
+}
