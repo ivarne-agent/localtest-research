@@ -6,7 +6,9 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | Folder | What |
 | --- | --- |
 | `components/register/vendor/` | Unmodified copy of Altinn/altinn-register (see `UPSTREAM.md`); later changed only inside `#if !LOCALTEST` blocks |
-| `components/authentication/` | Fake-only component, starting from an unmodified copy of today's localtest (see `ORIGIN.md`) |
-| `components/common/` | Shared sources today's localtest compiles by relative path; goes away with the proxy |
 
-Status: baseline copies only. No `#if LOCALTEST` blocks, no compose file yet.
+Fake-only components (authentication, later profile, events, notifications) are written fresh for this layout.
+Today's localtest in `altinn-studio/src/Runtime/localtest` is not a basis for anything here, only a reference for
+which behaviours the fakes must provide.
+
+Status: baseline copy of Register only. No `#if LOCALTEST` blocks, no compose file yet.

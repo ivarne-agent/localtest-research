@@ -36,6 +36,7 @@ Rules:
   `LocaltestOverrides.Apply(IServiceCollection, IConfiguration)` entry point that `Replace()`s registrations.
 - Components without a production counterpart worth vendoring (authentication, events, notifications, profile for
   now) are fake-only folders with their own small project and Dockerfile, in the same layout minus `vendor/`.
+  They are written fresh; the current localtest source is not copied, only consulted for the behaviours apps rely on.
 - Upstream csproj files are never edited. The props and targets files do the overriding (next section).
 
 ## Build mechanics (verified in a scratch project today)
@@ -147,7 +148,7 @@ NuGet, if one is published; not confirmed).
 
 | Component | Why fake-only | Contents |
 | --- | --- | --- |
-| authentication | production is tied to ID-porten/Maskinporten; the user picker has no production analogue | today's `HomeController`, `TestAuthenticationController`, `OpenIdController`, token issuing, `testData.json` merge, `DebugUsers`, Tenor import; also serves `/Home/Localtest/Version` for the app's `LocaltestValidation` probe |
+| authentication | production is tied to ID-porten/Maskinporten; the user picker has no production analogue | written fresh (today's localtest is reference only, not a code base): login page and user picker, token issuing, openid/jwks, `testData.json` loading, debug-user listing; also serves `/Home/Localtest/Version` for the app's `LocaltestValidation` probe |
 | profile | production needs Postgres, Register v2 for every lookup and KRR | thin fake over the Register fake's store: `users/{id}`, `users/current`, `users/byuuid`, `POST users`; vendor later if Profile grows endpoints apps need |
 | events, notifications | write-only locally; real services need Service Bus and providers | contract-shaped stubs incl. `future/orders` and `orders/{id}/cancel`, optional "sent" page |
 
@@ -168,8 +169,8 @@ NuGet, if one is published; not confirmed).
 
 ## MVP order
 
-1. Root, compose, ingress, `authentication` fake extracted from today's localtest, `pdf`. Apps log in and get
-   tokens; platform calls still 404.
+1. Root, compose, ingress, `authentication` fake written fresh (today's localtest as reference only), `pdf`. Apps
+   log in and get tokens; platform calls still 404.
 2. `register` vendored with in-memory persistence. Validates the props/targets mechanism on a real upstream
    repo (CPM, analyzers, ServiceDefaults bootstrap).
 3. `authorization` vendored with fakes over the register store. First real PDP decisions locally.
