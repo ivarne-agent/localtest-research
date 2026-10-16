@@ -16,14 +16,14 @@ Constraints from the product owner (2026-10-16):
 | `summary.md` | Conclusions and recommendation (read this first) |
 | `inventory.md` | Component inventory: what localtest contains, size, production home, drift |
 | `images-and-repos.md` | Where each service's code lives now and which container images are publicly pullable |
-| `storage.md` | Storage strand (localtest copy vs `Altinn/altinn-storage`) |
-| `authorization.md` | Authorization, Access Management, Resource Registry strand (`Altinn/altinn-auth`) |
+| `storage.md` | Storage strand (localtest copy vs [`Altinn/altinn-storage`](https://github.com/Altinn/altinn-storage)) |
+| `authorization.md` | Authorization, Access Management, Resource Registry strand ([`Altinn/altinn-auth`](https://github.com/Altinn/altinn-auth)) |
 | `authn-profile-register.md` | Authentication, Profile, Register and the test-user data model |
 | `events-notifications.md` | Events and Notifications strand |
 | `studioctl-and-app-contract.md` | How studioctl composes containers, the app ↔ platform contract, subtree practice |
 
 ## Sources
 
-- Localtest: `altinn-studio/src/Runtime/localtest` (monorepo `main` at 447e53eb97, 2026-10-16)
-- studioctl: `altinn-studio/src/cli`
-- Production repos, shallow clones under `/home/agent/code/.reference/` (plus `/home/agent/code/altinn-storage`)
+- Localtest: [`altinn-studio/src/Runtime/localtest`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest) (monorepo `main` at 447e53eb97, 2026-10-16)
+- studioctl: [`altinn-studio/src/cli`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli)
+- Production repos, shallow clones under `/home/agent/code/.reference/` (plus [`/home/agent/code/altinn-storage`](https://github.com/Altinn/altinn-storage))

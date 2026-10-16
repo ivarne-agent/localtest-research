@@ -1,7 +1,7 @@
 # Localtest components: Events and Notifications
 
 Research date: 2026-10-16. Sources: `altinn-studio` monorepo (main), `app-lib-dotnet` (main, 4740bb28),
-`.reference/altinn-events` (41297b5, 2026-10-16), `.reference/altinn-notifications` (c9e1d23, 2026-10-16).
+[`.reference/altinn-events`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273) (41297b5, 2026-10-16), [`.reference/altinn-notifications`](https://github.com/Altinn/altinn-notifications/tree/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a) (c9e1d23, 2026-10-16).
 Read-only research; nothing was built or run. Statements about runtime behaviour of the real services are
 from code reading only and are marked "not confirmed" where relevant.
 
@@ -12,12 +12,12 @@ from code reading only and are marked "not confirmed" where relevant.
   `POST notifications/api/v1/orders/email|sms` run copied validation + contact-point lookup and write the order as JSON to
   disk. Nothing is ever sent, delivered, or shown in a UI.
 - **Drift is large but mostly irrelevant.** The Notifications copy was last synced with production 2024-06-18
-  (app-localtest#107); production `OrderRequestService`/`ContactPointService` are 4-5x larger now. The Events copy is a
+  ([app-localtest#107](https://github.com/Altinn/app-localtest/issues/107)); production `OrderRequestService`/`ContactPointService` are 4-5x larger now. The Events copy is a
   2020-2023 shape (custom CloudEvent model; production now uses CloudNative SDK, Postgres, Wolverine/ASB).
 - **Version gap that matters:** current app libraries (v8 `app-lib-dotnet` and v9 monorepo) call
   `notifications/api/v1/future/orders` (instantiation notification) and `.../orders/{id}/cancel`
   (v9 cancel on process end). **Localtest implements neither** (404). v9 retired the Events receive stack
-  (`IEventHandler`, `EventsReceiverController`, subscriptions) in altinn-studio#19859, so only v8 still calls
+  (`IEventHandler`, `EventsReceiverController`, subscriptions) in [altinn-studio#19859](https://github.com/Altinn/altinn-studio/issues/19859), so only v8 still calls
   `events/api/v1/subscriptions`.
 - **Running the real services is heavy and has hard blockers.** Both need Postgres + Azure Service Bus (the ASB emulator,
   which itself needs an MS SQL Server 2022 container), Key Vault-backed platform access token validation, and register /
@@ -37,15 +37,15 @@ from code reading only and are marked "not confirmed" where relevant.
 
 | Area | Files | Lines |
 |---|---|---|
-| Events controllers | `src/Controllers/Events/{AppController,EventsController,SubscriptionController}.cs` | 83 / 95 / 65 |
-| Events services | `src/Services/Events/Implementation/{EventsRepository,SubscriptionService}.cs`, `Interface/*` | 132 / 70 / ~90 |
-| Events models | `src/Models/Events/{CloudEvent,Subscription,SubscriptionRequestModel,ServiceError}.cs` | ~225 |
-| Notifications | `src/Notifications/{API,Core,LocalTestNotifications}` | ~4100 (whole set incl. events: 4893) |
+| Events controllers | [`src/Controllers/Events/{AppController,EventsController,SubscriptionController}.cs`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/Events) | 83 / 95 / 65 |
+| Events services | [`src/Services/Events/Implementation/{EventsRepository,SubscriptionService}.cs`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Services/Events/Implementation), [`Interface/*`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Services/Events/Interface) | 132 / 70 / ~90 |
+| Events models | [`src/Models/Events/{CloudEvent,Subscription,SubscriptionRequestModel,ServiceError}.cs`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Models/Events) | ~225 |
+| Notifications | [`src/Notifications/{API,Core,LocalTestNotifications}`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications) | ~4100 (whole set incl. events: 4893) |
 
-(All paths relative to `altinn-studio/src/Runtime/localtest/`.)
+(All paths relative to [`altinn-studio/src/Runtime/localtest/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest).)
 
-`src/Notifications/README.md` documents the copy policy: Core "can be copied directly", controllers copied with auth
-changes, persistence re-implemented on disk. `src/LocalTest.csproj` defines `LOCALTEST` so copied files can carry
+[`src/Notifications/README.md`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/README.md) documents the copy policy: Core "can be copied directly", controllers copied with auth
+changes, persistence re-implemented on disk. [`src/LocalTest.csproj`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/LocalTest.csproj) defines `LOCALTEST` so copied files can carry
 `#if !LOCALTEST` guards; only the two Notifications controllers (6 guards each) and Storage `DataController` use it.
 
 ### History
@@ -75,28 +75,28 @@ be9992676f 2023-11-20 notifications funcitonality added (#62)
 dfc2bebd1f 2020-10-02 Client code for the events component in app template (#4861)
 ```
 
-The only recent functional change (idempotency key, #20584) was written by hand in localtest to mirror production; it
+The only recent functional change (idempotency key, [#20584](https://github.com/Altinn/altinn-studio/issues/20584)) was written by hand in localtest to mirror production; it
 was not copied.
 
-### Notifications drift (localtest `src/Notifications/{API,Core}` vs `components/api/src/Altinn.Notifications{,.Core}`)
+### Notifications drift (localtest [`src/Notifications/{API,Core}`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications) vs [`components/api/src/Altinn.Notifications{,.Core}`](https://github.com/Altinn/altinn-notifications/tree/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/api/src))
 
 Diff of 86 files, ignoring `using`/`namespace`/whitespace (changed lines, localtest/prod line count):
 
 - ~19 files identical, ~25 files trivially different (<= 6 lines, mostly nullable/style).
-- 6 localtest files no longer exist in production: `IBaseNotificationOrderExt`, `OrderIdExt`, `ValidationConstants`,
-  `NotificationOrderConfig`, `IResultType`, `GenericServiceUpdate`.
+- 6 localtest files no longer exist in production: [`IBaseNotificationOrderExt`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Models/IBaseNotificationOrderExt.cs), [`OrderIdExt`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Models/OrderIdExt.cs), [`ValidationConstants`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Validators/ValidationConstants.cs),
+  [`NotificationOrderConfig`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Configuration/NotificationOrderConfig.cs), [`IResultType`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Enums/IResultType.cs), [`GenericServiceUpdate`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Models/AltinnServiceUpdate/GenericServiceUpdate.cs).
 - Heavy divergence in the parts that carry behaviour:
 
 | File | Changed lines | Localtest / prod lines |
 |---|---|---|
-| `Core/Services/ContactPointService.cs` | 794 | 212 / 791 |
-| `Core/Services/OrderRequestService.cs` | 619 | 148 / 690 |
-| `Core/Persistence/IOrderRepository.cs` | 243 | 54 / 290 |
-| `API/Mappers/OrderMapper.cs` | 219 | 247 / 364 |
-| `Core/Models/Orders/NotificationOrder.cs` | 63 | 127 / 163 |
-| `API/Validators/EmailNotificationOrderRequestValidator.cs` | 62 | 78 / 27 (prod moved logic) |
-| `Core/Enums/OrderProcessingStatus.cs` | 43 | 15 / 47 |
-| `API/Controllers/{Email,Sms}NotificationOrdersController.cs` | 39 each | ~91 / 79 |
+| [`Core/Services/ContactPointService.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Services/ContactPointService.cs) | 794 | 212 / 791 |
+| [`Core/Services/OrderRequestService.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Services/OrderRequestService.cs) | 619 | 148 / 690 |
+| [`Core/Persistence/IOrderRepository.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Persistence/IOrderRepository.cs) | 243 | 54 / 290 |
+| [`API/Mappers/OrderMapper.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Mappers/OrderMapper.cs) | 219 | 247 / 364 |
+| [`Core/Models/Orders/NotificationOrder.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Models/Orders/NotificationOrder.cs) | 63 | 127 / 163 |
+| [`API/Validators/EmailNotificationOrderRequestValidator.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Validators/EmailNotificationOrderRequestValidator.cs) | 62 | 78 / 27 (prod moved logic) |
+| [`Core/Enums/OrderProcessingStatus.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/Core/Enums/OrderProcessingStatus.cs) | 43 | 15 / 47 |
+| [`API/Controllers/{Email,Sms}NotificationOrdersController.cs`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API/Controllers) | 39 each | ~91 / 79 |
 
 Production Notifications API today: 28.7k C# lines + 214 SQL migration files (API), plus shared (0.7k), email-service
 (3.1k), sms-service (1.9k). Production has 15 controllers (`orders`, `orders/{id}`, `orders/{id}/status`,
@@ -104,20 +104,20 @@ Production Notifications API today: 28.7k C# lines + 214 SQL migration files (AP
 `future/orders/composed-email`, `future/shipment/{id}`, `future/shipment/feed`, `future/dashboard`, metrics, trigger,
 tests/sendcondition). Localtest has 2 (`orders/email`, `orders/sms`).
 
-### Events drift (localtest vs `src/Events` in altinn-events)
+### Events drift (localtest vs [`src/Events`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/Events) in altinn-events)
 
 | Localtest | Production | Changed lines / sizes |
 |---|---|---|
-| `Controllers/Events/AppController.cs` | `src/Events/Controllers/AppController.cs` | 292; 83 / 309 |
-| `Controllers/Events/EventsController.cs` | `src/Events/Controllers/EventsController.cs` | 191; 95 / 210 |
-| `Controllers/Events/SubscriptionController.cs` | `src/Events/Controllers/SubscriptionController.cs` | 188; 65 / 217 |
-| `Services/Events/Implementation/SubscriptionService.cs` | `src/Events/Services/SubscriptionService.cs` | 204; 70 / 220 (localtest is all `NotImplementedException` except Create) |
-| `Models/Events/Subscription.cs` | `src/Events/Models/Subscription.cs` | 32; 77 / 93 |
-| `Models/Events/SubscriptionRequestModel.cs` | `src/Events/Models/SubscriptionRequestModel.cs` | 16 |
-| `Models/Events/CloudEvent.cs` | none (prod uses `CloudNative.CloudEvents`) | n/a |
+| [`Controllers/Events/AppController.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/Events/AppController.cs) | [`src/Events/Controllers/AppController.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Controllers/AppController.cs) | 292; 83 / 309 |
+| [`Controllers/Events/EventsController.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/Events/EventsController.cs) | [`src/Events/Controllers/EventsController.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Controllers/EventsController.cs) | 191; 95 / 210 |
+| [`Controllers/Events/SubscriptionController.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/Events/SubscriptionController.cs) | [`src/Events/Controllers/SubscriptionController.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Controllers/SubscriptionController.cs) | 188; 65 / 217 |
+| [`Services/Events/Implementation/SubscriptionService.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Services/Events/Implementation/SubscriptionService.cs) | [`src/Events/Services/SubscriptionService.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Services/SubscriptionService.cs) | 204; 70 / 220 (localtest is all `NotImplementedException` except Create) |
+| [`Models/Events/Subscription.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Models/Events/Subscription.cs) | [`src/Events/Models/Subscription.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Models/Subscription.cs) | 32; 77 / 93 |
+| [`Models/Events/SubscriptionRequestModel.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Models/Events/SubscriptionRequestModel.cs) | [`src/Events/Models/SubscriptionRequestModel.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Models/SubscriptionRequestModel.cs) | 16 |
+| [`Models/Events/CloudEvent.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Models/Events/CloudEvent.cs) | none (prod uses `CloudNative.CloudEvents`) | n/a |
 
 Only controller routes, class names and model shapes survive; logic is localtest-specific. Production Events is 9.5k
-lines (+ 2.2k `Events.Functions`), with Postgres repository, Wolverine handlers (registration/inbound/outbound/
+lines (+ 2.2k [`Events.Functions`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/Events.Functions)), with Postgres repository, Wolverine handlers (registration/inbound/outbound/
 validation), PDP authorization, register lookups, webhook delivery and log endpoints.
 
 ## 2. What apps actually call
@@ -126,32 +126,32 @@ validation), PDP authorization, register lookups, webhook delivery and log endpo
 
 | Caller | Endpoint | Localtest |
 |---|---|---|
-| v9 `src/App/backend/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs` (`AddEvent`, POST `"app"` with JWT + platform access token + optional `Idempotency-Key`) | `events/api/v1/app` | Implemented (writes `events/` JSON + idempotency claim file) |
-| v8 `app-lib-dotnet/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs` | `events/api/v1/app` | Implemented |
-| v8 `.../Clients/Events/EventsSubscriptionClient.cs` (`AddSubscription`, endpoint `{appBaseUrl}api/v1/eventsreceiver?code=...`, sourceFilter app URL) | `events/api/v1/subscriptions` | Echo only; no id, no validation event, no delivery |
-| v8 `Altinn.App.Api/Controllers/EventsReceiverController.cs` + `IEventHandler` | (inbound webhook from Events) | Never called by localtest |
+| v9 [`src/App/backend/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs) (`AddEvent`, POST `"app"` with JWT + platform access token + optional `Idempotency-Key`) | `events/api/v1/app` | Implemented (writes `events/` JSON + idempotency claim file) |
+| v8 [`app-lib-dotnet/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs`](https://github.com/Altinn/app-lib-dotnet/blob/4740bb28ea13e775c13ca2a2a19942877acf2be1/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsClient.cs) | `events/api/v1/app` | Implemented |
+| v8 [`.../Clients/Events/EventsSubscriptionClient.cs`](https://github.com/Altinn/app-lib-dotnet/blob/4740bb28ea13e775c13ca2a2a19942877acf2be1/src/Altinn.App.Core/Infrastructure/Clients/Events/EventsSubscriptionClient.cs) (`AddSubscription`, endpoint `{appBaseUrl}api/v1/eventsreceiver?code=...`, sourceFilter app URL) | `events/api/v1/subscriptions` | Echo only; no id, no validation event, no delivery |
+| v8 [`Altinn.App.Api/Controllers/EventsReceiverController.cs`](https://github.com/Altinn/app-lib-dotnet/blob/4740bb28ea13e775c13ca2a2a19942877acf2be1/src/Altinn.App.Api/Controllers/EventsReceiverController.cs) + `IEventHandler` | (inbound webhook from Events) | Never called by localtest |
 | none in app libs | `events/api/v1/events` (generic) | Implemented (disk) |
 
 Event publishing in v9 is triggered from workflow-engine commands `InstanceCreatedAltinnEvent`,
-`MovedToAltinnEvent`, `CompletedAltinnEvent` (`Altinn.App.Core/Internal/WorkflowEngine/Commands/AltinnEvents/`), gated by
-`AppSettings.RegisterEventsWithEventsComponent` (`ProcessNextRequestFactory.cs:540,550`). v9 removed the receive stack in
-altinn-studio#19859 (commit 357bf53456, 2026-08-10; studioctl upgrade has `RemovedEventsReceiveStackDetector`). The docs
+`MovedToAltinnEvent`, `CompletedAltinnEvent` ([`Altinn.App.Core/Internal/WorkflowEngine/Commands/AltinnEvents/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Internal/WorkflowEngine/Commands/AltinnEvents)), gated by
+`AppSettings.RegisterEventsWithEventsComponent` ([`ProcessNextRequestFactory.cs:540,550`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Internal/WorkflowEngine/ProcessNextRequestFactory.cs#L540)). v9 removed the receive stack in
+[altinn-studio#19859](https://github.com/Altinn/altinn-studio/issues/19859) (commit 357bf53456, 2026-08-10; studioctl upgrade has `RemovedEventsReceiveStackDetector`). The docs
 already say localtest cannot deliver inbound events
-(`altinn-studio-docs/content/altinn-studio/v8/reference/logic/events/subscribing/_index.en.md:15`).
+([`altinn-studio-docs/content/altinn-studio/v8/reference/logic/events/subscribing/_index.en.md:15`](https://github.com/Altinn/altinn-studio-docs/blob/2f116827710a5d062b5c8d725bd723b69e253ab2/content/altinn-studio/v8/reference/logic/events/subscribing/_index.en.md#L15)).
 
 App integration tests do not use localtest Events; `workflow-engine-side-effects` uses a `ControlledEventsClient` stub
-(`src/App/backend/test/Altinn.App.Integration.Tests/_testapps/basic/_scenarios/workflow-engine-side-effects/services/SideEffectsScenario.cs`).
+([`src/App/backend/test/Altinn.App.Integration.Tests/_testapps/basic/_scenarios/workflow-engine-side-effects/services/SideEffectsScenario.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/test/Altinn.App.Integration.Tests/_testapps/basic/_scenarios/workflow-engine-side-effects/services/SideEffectsScenario.cs)).
 
 ### Notifications
 
-Same four clients in v9 (`src/App/backend/src/Altinn.App.Core/Features/Notifications/`) and v8 (`app-lib-dotnet`):
+Same four clients in v9 ([`src/App/backend/src/Altinn.App.Core/Features/Notifications/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications)) and v8 (`app-lib-dotnet`):
 
 | Client | Endpoint | Used by | Localtest |
 |---|---|---|---|
-| `Email/EmailNotificationClient.cs` (`IEmailNotificationClient`, public) | `POST orders/email` | Custom app code | Implemented |
-| `Sms/SmsNotificationClient.cs` (`ISmsNotificationClient`, public) | `POST orders/sms` | Custom app code | Implemented |
-| `Future/NotificationOrderClient.cs` | `POST future/orders` | `NotificationService.NotifyInstanceOwnerOnInstantiation` via workflow command `NotifyInstanceOwnerOnInstantiation` (v9) / `InstancesController.cs:440,770` (v8); sets `ConditionEndpoint` back to app `NotificationCallbackController` (`{org}/{app}/api/v1/notification-webhook-listener/...`) | **Missing (404)** |
-| `Order/NotificationCancelClient.cs` | `POST orders/{id}/cancel` | v9 `Cancellation/CancelOnProcessEnd.cs` (v8 registers `SendOnProcessNotEnded` instead, i.e. relies on the condition endpoint) | **Missing (404)** |
+| [`Email/EmailNotificationClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications/Email/EmailNotificationClient.cs) (`IEmailNotificationClient`, public) | `POST orders/email` | Custom app code | Implemented |
+| [`Sms/SmsNotificationClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications/Sms/SmsNotificationClient.cs) (`ISmsNotificationClient`, public) | `POST orders/sms` | Custom app code | Implemented |
+| [`Future/NotificationOrderClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications/Future/NotificationOrderClient.cs) | `POST future/orders` | `NotificationService.NotifyInstanceOwnerOnInstantiation` via workflow command `NotifyInstanceOwnerOnInstantiation` (v9) / [`InstancesController.cs:440,770`](https://github.com/Altinn/app-lib-dotnet/blob/4740bb28ea13e775c13ca2a2a19942877acf2be1/src/Altinn.App.Api/Controllers/InstancesController.cs#L440) (v8); sets `ConditionEndpoint` back to app `NotificationCallbackController` (`{org}/{app}/api/v1/notification-webhook-listener/...`) | **Missing (404)** |
+| [`Order/NotificationCancelClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications/Order/NotificationCancelClient.cs) | `POST orders/{id}/cancel` | v9 [`Cancellation/CancelOnProcessEnd.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Features/Notifications/Cancellation/CancelOnProcessEnd.cs) (v8 registers `SendOnProcessNotEnded` instead, i.e. relies on the condition endpoint) | **Missing (404)** |
 
 Signing call-to-action notifications go via Correspondence (`SigningCallToActionService.WithNotificationIfConfigured`),
 not the Notifications API (Correspondence strand). Shipment/status-feed endpoints are not called by the app libraries.
@@ -160,22 +160,22 @@ not the Notifications API (Correspondence strand). Shipment/status-feed endpoint
 
 ### Events (`altinn-events`)
 
-- **Image:** `Dockerfile` (root) builds `src/Events` + `DbTools`, port 5080, runs Yuniql migrations from `Migration/` at
-  startup when `PostgreSQLSettings:EnableDBConnection`. `docker-compose.yml` only builds/runs that one container
+- **Image:** [`Dockerfile`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/Dockerfile) (root) builds [`src/Events`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/Events) + [`DbTools`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/DbTools), port 5080, runs Yuniql migrations from [`Migration/`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Migration) at
+  startup when `PostgreSQLSettings:EnableDBConnection`. [`docker-compose.yml`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/docker-compose.yml) only builds/runs that one container
   (no DB, no queues). No published image used by others is referenced (not confirmed whether one exists in a public registry).
 - **Postgres:** db `eventsdb`, roles `platform_events_admin` (superuser) / `platform_events`, manual setup per README.
   Migrations use `CREATE EXTENSION pg_trgm` (contrib, in the stock postgres image). Could share the workflow-engine
-  Postgres container with an init script, like `components/workflow_engine.go` does with `postgres-init.sql`.
-- **Messaging:** Wolverine (`Extensions/WolverineServiceCollectionExtensions.cs`). If any `WolverineSettings:Enable*` is
-  true, Azure Service Bus is used (dev: `emulator/docker-compose.yaml` = `mcr.microsoft.com/azure-messaging/servicebus-emulator`
+  Postgres container with an init script, like [`components/workflow_engine.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/workflow_engine.go) does with [`postgres-init.sql`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/infra/workflow-engine/postgres-init.sql).
+- **Messaging:** Wolverine ([`Extensions/WolverineServiceCollectionExtensions.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Extensions/WolverineServiceCollectionExtensions.cs)). If any `WolverineSettings:Enable*` is
+  true, Azure Service Bus is used (dev: [`emulator/docker-compose.yaml`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/emulator/docker-compose.yaml) = `mcr.microsoft.com/azure-messaging/servicebus-emulator`
   + `mcr.microsoft.com/mssql/server:2022-latest`, `ACCEPT_EULA`, SA password). If all false, the legacy path publishes to
-  Azure Storage Queues (Azurite) and delivery is done by `src/Events.Functions` (Azure Functions isolated worker, queue
-  triggers; no Dockerfile). Default `appsettings.json` has `EnableOutboundListener=false` (outbound handled by Functions),
-  but `Wolverine/Handlers/OutboundEventHandler.cs` and `ValidationEventHandler.cs` live in the API, so enabling all
+  Azure Storage Queues (Azurite) and delivery is done by [`src/Events.Functions`](https://github.com/Altinn/altinn-events/tree/41297b521b983f8624a847f286ee70f93f3ad273/src/Events.Functions) (Azure Functions isolated worker, queue
+  triggers; no Dockerfile). Default [`appsettings.json`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/appsettings.json) has `EnableOutboundListener=false` (outbound handled by Functions),
+  but [`Wolverine/Handlers/OutboundEventHandler.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Wolverine/Handlers/OutboundEventHandler.cs) and [`ValidationEventHandler.cs`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Wolverine/Handlers/ValidationEventHandler.cs) live in the API, so enabling all
   listeners in one container + ASB emulator is plausibly enough (not confirmed). `RegisteredEventsBackgroundService` polls
   Postgres for registered events.
-- **Key Vault / telemetry:** `Program.cs:107-111` adds Key Vault if `kvSetting:SecretUri` set; App Insights exporters
-  only if connection string set (`Program.cs:323`). OTel otherwise.
+- **Key Vault / telemetry:** [`Program.cs:107-111`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Program.cs#L107-L111) adds Key Vault if `kvSetting:SecretUri` set; App Insights exporters
+  only if connection string set ([`Program.cs:323`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Program.cs#L323)). OTel otherwise.
 - **Inbound auth:** `AddJwtCookie` against `GeneralSettings:OpenIdWellKnownEndpoint` (localtest serves
   `authentication/api/v1/openid/.well-known/openid-configuration`, so app tokens should validate; issuer/audience not
   validated). `events/api/v1/app` requires policy `PlatformAccess` (platform access token) and checks the token issuer
@@ -198,23 +198,23 @@ not the Notifications API (Correspondence strand). Shipment/status-feed endpoint
 
 ### Notifications (`altinn-notifications`)
 
-- **Images:** `components/api/Dockerfile` (port 5090, copies migrations and Views), `components/email-service/Dockerfile`,
-  `components/sms-service/Dockerfile`. No compose file for the app itself; `tools/asb-emulator/docker-compose.yaml`
-  (same ASB emulator + MSSQL pair), `tools/dev-setup/dbsetup.sh` for roles. `getting-started.md` describes running with
+- **Images:** [`components/api/Dockerfile`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/api/Dockerfile) (port 5090, copies migrations and Views), [`components/email-service/Dockerfile`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/email-service/Dockerfile),
+  [`components/sms-service/Dockerfile`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/sms-service/Dockerfile). No compose file for the app itself; [`tools/asb-emulator/docker-compose.yaml`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/tools/asb-emulator/docker-compose.yaml)
+  (same ASB emulator + MSSQL pair), [`tools/dev-setup/dbsetup.sh`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/tools/dev-setup/dbsetup.sh) for roles. [`getting-started.md`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/getting-started.md) describes running with
   `dotnet run`.
 - **Postgres:** `notificationsdb`, roles `platform_notifications_admin` / `platform_notifications`, migrations in
-  `Altinn.Notifications.Persistence/Migration` (214 SQL files, no `CREATE EXTENSION`).
+  [`Altinn.Notifications.Persistence/Migration`](https://github.com/Altinn/altinn-notifications/tree/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/api/src/Altinn.Notifications.Persistence/Migration) (214 SQL files, no `CREATE EXTENSION`).
 - **Messaging:** Azure Service Bus via Wolverine is unconditional in the API
-  (`Altinn.Notifications.Integrations/Extensions/WolverineServiceCollectionExtensions.cs` - listeners for email/SMS send
+  ([`Altinn.Notifications.Integrations/Extensions/WolverineServiceCollectionExtensions.cs`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/api/src/Altinn.Notifications.Integrations/Extensions/WolverineServiceCollectionExtensions.cs) - listeners for email/SMS send
   results, delivery reports, rate limit; publishers for send queues). Kafka is gone (no references). Order processing is
   an in-process `ProcessItemsBackgroundService` (`SELECT ... FOR UPDATE SKIP LOCKED`); sending is triggered by cron
-  jobs calling `TriggerController` (`docs/architecture/notifications.md` "Cron jobs": `send-email-trigger` every minute,
+  jobs calling `TriggerController` ([`docs/architecture/notifications.md`](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/docs/architecture/notifications.md) "Cron jobs": `send-email-trigger` every minute,
   etc., defined in the private altinn-studio-ops repo).
 - **Providers:** email-service uses Azure Communication Services (`CommunicationServicesSettings:ConnectionString`),
   sms-service uses Link Mobility (`SmsGatewaySettings`). **No dev sink/fake** exists in any component (grep for
   fake/stub/sink/smtp found nothing). Without the email/sms services, orders and notifications sit in Postgres
   unsent, and their result listeners never fire.
-- **Key Vault:** `AddSecretsFromKeyVault` (Program.cs:238-257); dev settings use a placeholder vault URI.
+- **Key Vault:** `AddSecretsFromKeyVault` ([Program.cs:238-257](https://github.com/Altinn/altinn-notifications/blob/c9e1d233ec4c45f29928bbf00dc2df0dac1bd81a/components/api/src/Altinn.Notifications/Program.cs#L238-L257)); dev settings use a placeholder vault URI.
   App Insights optional.
 - **Inbound auth:** JWT cookie against OpenID metadata (default points at AT23); policies
   `POLICY_CREATE_SCOPE_OR_PLATFORM_ACCESS` (`altinn:serviceowner/notifications.create` or platform access token),
@@ -227,7 +227,7 @@ not the Notifications API (Correspondence strand). Shipment/status-feed endpoint
 
 ### Effort to add to studioctl
 
-Pattern exists (`src/cli/internal/cmd/env/localtest/components/workflow_engine.go`: pulled/dev-built image, Postgres
+Pattern exists ([`src/cli/internal/cmd/env/localtest/components/workflow_engine.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/workflow_engine.go): pulled/dev-built image, Postgres
 container with init SQL + healthcheck, env vars, bound-topology destination). Per service you would add: service
 container, DB init, ASB emulator + MSSQL (shared between both, ~2 GB RAM; MSSQL 2022 image is amd64-only, arm64 Macs need
 emulation or Azure SQL Edge - not verified here), Key Vault bypass, and new localtest endpoints (register v2 internal,
@@ -238,8 +238,8 @@ and cron triggers. The images would also need to be published somewhere studioct
 
 None beyond "the call succeeds":
 
-- `LocalTestNotifications/LocalOrderRepository.cs` writes `{LocalTestingStorageBasePath}notifications/orders/{id}.json`;
-  every read method throws `NotImplementedException`. No controller or view lists orders (`src/Views` has FrontendVersion,
+- [`LocalTestNotifications/LocalOrderRepository.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/LocalTestNotifications/LocalOrderRepository.cs) writes `{LocalTestingStorageBasePath}notifications/orders/{id}.json`;
+  every read method throws `NotImplementedException`. No controller or view lists orders ([`src/Views`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Views) has FrontendVersion,
   Home, Shared, StorageExplorer, TenorUsers; grep for notif/cloudevent finds nothing).
 - `LocalProfileClient`/`LocalRegisterClient` resolve recipients from localtest test data, so an app gets a realistic
   "recipient lookup" response (missing contact point -> failure), which is the one behaviour developers can observe.
@@ -254,7 +254,7 @@ None beyond "the call succeeds":
 | **Notifications** | Poor. 31k+ lines plus workers; the copied Core already drifted 2+ years because syncing is manual. | Heavy: API + Postgres + ASB emulator (MSSQL) + email/SMS workers with **no dev sink** + cron triggers + Maskinporten for condition checks + profile/register contact-point endpoints + Key Vault bypass. **Blockers:** no fake provider upstream, Key Vault-based token validation, missing localtest endpoints. | **Recommended.** Replace the ~4k-line copy with a contract-level fake: `orders/email`, `orders/sms`, **add `future/orders` (404 today for v8 and v9 instantiation notifications) and `orders/{id}/cancel` (v9)**, keep recipient resolution from test data, store orders, and optionally a localtest UI "sent notifications" (rendered email/SMS) and calling the app's `ConditionEndpoint`. |
 
 Hard blockers for (b), summarised:
-1. Events subscription endpoint and source filter must be `https` (`SubscriptionController.cs:191-194`).
+1. Events subscription endpoint and source filter must be `https` ([`SubscriptionController.cs:191-194`](https://github.com/Altinn/altinn-events/blob/41297b521b983f8624a847f286ee70f93f3ad273/src/Events/Controllers/SubscriptionController.cs#L191-L194)).
 2. Platform access token validation fetches certs from Azure Key Vault (`PublicSigningKeyProvider`); must be disabled via
    `AccessTokenSettings:DisableAccessTokenVerification` (works for the handler; KV client construction not confirmed).
 3. Both require Azure Service Bus; locally only via the ASB emulator, which requires an MSSQL Server container.

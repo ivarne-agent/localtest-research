@@ -3,16 +3,16 @@
 Strand: how `studioctl env up` composes containers, how localtest routes to them, what apps expect from
 "the platform", and how external code has been vendored into the monorepo so far.
 
-Evidence base: `Altinn/altinn-studio` at `447e53eb97` (2026-10-16), `Altinn/app-lib-dotnet` at `4740bb28`
-(2026-10-16). Paths are relative to `/home/agent/code/altinn-studio` unless prefixed.
+Evidence base: `Altinn/altinn-studio` at [`447e53eb97`](https://github.com/Altinn/altinn-studio/commit/447e53eb9797d4fffe63d0c61d05a1f692b4ec48) (2026-10-16), `Altinn/app-lib-dotnet` at [`4740bb28`](https://github.com/Altinn/app-lib-dotnet/commit/4740bb28ea13e775c13ca2a2a19942877acf2be1)
+(2026-10-16). Paths are relative to [`/home/agent/code/altinn-studio`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48) unless prefixed.
 
 ## Executive summary
 
 - **Adding a container is cheap and well-trodden.** pdf3 and workflow-engine are the templates. A new
-  component means: an `ImageSpec` in `src/cli/internal/config/images.go`, a `register*Components` file in
-  `src/cli/internal/cmd/env/localtest/components/` (image + `ContainerSpec` + optional health check/named
+  component means: an `ImageSpec` in [`src/cli/internal/config/images.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/config/images.go), a `register*Components` file in
+  [`src/cli/internal/cmd/env/localtest/components/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components) (image + `ContainerSpec` + optional health check/named
   volume + `RuntimeBinding`), a new `ComponentID` wired into **four closed Go switch/struct sites** in
-  `src/cli/internal/envtopology/`, a `topology.yaml` entry, reset handling for any volume, and the CI
+  [`src/cli/internal/envtopology/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology), a [`topology.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.yaml) entry, reset handling for any volume, and the CI
   image cache list. No localtest code change is needed for routing: localtest's `ProxyMiddleware` is
   generic and driven by the generated `result.json`.
 - **Apps always go through localtest.** `studioctl run`/`app run` point every `PlatformSettings__Api*Endpoint`
@@ -38,9 +38,9 @@ Evidence base: `Altinn/altinn-studio` at `447e53eb97` (2026-10-16), `Altinn/app-
   therefore must keep pointing at localtest, which another argument for proxying through localtest rather
   than pointing apps straight at a real service. Localtest's storage, authorization (PRP) and texts read
   from the running app (`LocalAppHttp`), and studioctl-server's readiness probe depends on that.
-- **Vendoring practice is non-squashed `git subtree`.** The root `Makefile` drives it for
+- **Vendoring practice is non-squashed `git subtree`.** The root [`Makefile`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/Makefile) drives it for
   app-localtest, app-frontend-react, app-lib-dotnet, fileanalyzers, codelists and the test apps; the
-  2026-06-04 merge `1166612623` is one `git subtree pull --prefix=src/Runtime/localtest`. Platform service
+  2026-06-04 merge [`1166612623`](https://github.com/Altinn/altinn-studio/commit/11666126237708ad71147a255592b57c9f780aa0) is one `git subtree pull --prefix=src/Runtime/localtest`. Platform service
   code has never been subtree'd. It is consumed only as NuGet contracts (`Altinn.Platform.Storage.Interface`,
   `Altinn.Platform.Models`, `Altinn.Common.PEP`, `Altinn.Authorization.ABAC`), and localtest has *manually
   ported* altinn-storage PRs (e.g. "Sync altinn-storage PR 995 (#211)").
@@ -57,64 +57,64 @@ Evidence base: `Altinn/altinn-studio` at `447e53eb97` (2026-10-16), `Altinn/app-
 
 ### 1.1 Composition pipeline
 
-`Env.Up` (`src/cli/internal/cmd/env/localtest/env.go:103-149`):
+`Env.Up` ([`src/cli/internal/cmd/env/localtest/env.go:103-149`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/env.go#L103-L149)):
 
-1. `envtopology.NewLocal("8000")` loads the **embedded** `topology.yaml` (`src/cli/internal/envtopology/load.go`,
+1. `envtopology.NewLocal("8000")` loads the **embedded** [`topology.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.yaml) ([`src/cli/internal/envtopology/load.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/load.go),
    `//go:embed`, `decoder.KnownFields(true)`). It is compiled into studioctl, not shipped in the image.
-2. `components.NewManifest(opts)` (`components/manifest.go:25-40`) calls the `register*Components` functions
+2. `components.NewManifest(opts)` ([`components/manifest.go:25-40`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/manifest.go#L25-L40)) calls the `register*Components` functions
    in order: network → topology bindings → core (localtest) → pdf → workflow-engine → pgadmin → monitoring.
    Each adds `resource.Resource`s (image + container) and `envtopology.RuntimeBinding`s.
-3. `envtypes.EnsureBoundTopology` (`src/cli/internal/cmd/env/preconditions.go:13-28`) writes
+3. `envtypes.EnsureBoundTopology` ([`src/cli/internal/cmd/env/preconditions.go:13-28`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/preconditions.go#L13-L28)) writes
    `~/.altinn-studio/.../generated/topology/env.json` from the bindings and starts studioctl-server. The
-   server's `BoundTopologyConfigReconciler` (`src/cli/studioctl-server/Topology/BoundTopologyConfigReconciler.cs`)
+   server's `BoundTopologyConfigReconciler` ([`src/cli/studioctl-server/Topology/BoundTopologyConfigReconciler.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/studioctl-server/Topology/BoundTopologyConfigReconciler.cs))
    merges `env.json` with discovered apps (process/container discovery) into `result.json`. Localtest
    reads that file from the read-only bind mount `/studioctl/topology/result.json`
    (`BoundTopologyOptions__ConfigPath`).
 4. `manifest.Prepare` runs host-side preparations (create dirs, pgpass), then the devenv executor applies the
-   resource graph (`src/Runtime/devenv/pkg/resource`). Containers have `DependsOn` refs and
+   resource graph ([`src/Runtime/devenv/pkg/resource`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/devenv/pkg/resource)). Containers have `DependsOn` refs and
    `WaitForReady: true`, so the executor waits until a container with a `HealthCheck` reports healthy
-   (`devenv/pkg/resource/executor/container/runtime.go:228`, `helpers.go:53`). Podman ignores health status
-   when no healthcheck is configured (`devenv/pkg/container/podman/podman.go:553`).
+   ([`devenv/pkg/resource/executor/container/runtime.go:228`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/devenv/pkg/resource/executor/container/runtime.go#L228), [`helpers.go:53`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/devenv/pkg/resource/executor/container/helpers.go#L53)). Podman ignores health status
+   when no healthcheck is configured ([`devenv/pkg/container/podman/podman.go:553`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/devenv/pkg/container/podman/podman.go#L553)).
 
 ### 1.2 Checklist for a new component (pdf3/workflow-engine as templates)
 
 | Piece | Where | Notes / evidence |
 |---|---|---|
-| Image reference | `src/cli/internal/config/images.go` | Add a field to `CoreImages`, a default `ImageSpec` (`Floating: true` re-pulls on every `env up` via `PullAlwaysAllowStale`; pinned images use `PullIfNotPresent`, see `components/image_mode.go:47-53`) and an override in `imageOverrides()` (`STUDIOCTL_IMAGE_*`). The AGENTS.md rule: "Image references live in the CLI, not in a config file". localtest follows `:latest` (main); pdf3/workflow-engine follow `:tt02`, moved by `.github/workflows/deploy-runtime-{pdf3,workflow-engine-app}.yaml` ring-tag jobs; postgres/pgadmin/monitoring are pinned. |
-| Dev build | same component file | `if ctx.ImageMode == DevMode && ctx.DevConfig != nil` → `localDevImage(ctx.PrebuiltDevImages, &resource.BuiltImage{ContextPath, Dockerfile, Tag: "<name>:dev"})` (`core.go:25-41`, `pdf.go:29-46`). DevMode = `STUDIOCTL_INTERNAL_DEV=true` inside a monorepo with `src/Runtime/localtest/Dockerfile` (`env.go:906-931`). A service whose source is *not* in the monorepo has no dev build, so it would be pulled in both modes (like postgres). |
-| Container name | `components/containers.go` | Constant, e.g. `ContainerPDF3 = "localtest-pdf3"`. The name is also the DNS name on `altinntestlocal_network` (`network.go`). |
-| `ContainerSpec` | `components/resources.go:20-32`, `newContainerSpec(...)` | Fields: `Name, Ports, Environment, Volumes, NetworkAliases, Dependencies, Command, HealthCheck, ExtraHosts, UseDefaultUser`. Set `UseDefaultUser = true` when there are no host-writable bind mounts (pdf3, workflow-engine). |
-| Dependencies | `Dependencies: []string{ContainerLocaltest, ...}` | Becomes `DependsOn` refs (`resources.go:258-268`). workflow-engine depends on its DB and localtest. |
-| Health check | `spec.HealthCheck = &types.HealthCheck{Test, Interval, Timeout, Retries, StartPeriod}` | Workflow-engine uses a bash `/dev/tcp` probe because the aspnet base image ships no curl/wget (`workflow_engine.go:33-38`); postgres uses `pg_isready`. |
+| Image reference | [`src/cli/internal/config/images.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/config/images.go) | Add a field to `CoreImages`, a default `ImageSpec` (`Floating: true` re-pulls on every `env up` via `PullAlwaysAllowStale`; pinned images use `PullIfNotPresent`, see [`components/image_mode.go:47-53`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/image_mode.go#L47-L53)) and an override in `imageOverrides()` (`STUDIOCTL_IMAGE_*`). The AGENTS.md rule: "Image references live in the CLI, not in a config file". localtest follows `:latest` (main); pdf3/workflow-engine follow `:tt02`, moved by [`.github/workflows/deploy-runtime-{pdf3,`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/.github/workflows/deploy-runtime-pdf3.yaml)[`workflow-engine-app}.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/.github/workflows/deploy-runtime-workflow-engine-app.yaml) ring-tag jobs; postgres/pgadmin/monitoring are pinned. |
+| Dev build | same component file | `if ctx.ImageMode == DevMode && ctx.DevConfig != nil` → `localDevImage(ctx.PrebuiltDevImages, &resource.BuiltImage{ContextPath, Dockerfile, Tag: "<name>:dev"})` ([`core.go:25-41`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/core.go#L25-L41), [`pdf.go:29-46`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/pdf.go#L29-L46)). DevMode = `STUDIOCTL_INTERNAL_DEV=true` inside a monorepo with [`src/Runtime/localtest/Dockerfile`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/Dockerfile) ([`env.go:906-931`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/env.go#L906-L931)). A service whose source is *not* in the monorepo has no dev build, so it would be pulled in both modes (like postgres). |
+| Container name | [`components/containers.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/containers.go) | Constant, e.g. `ContainerPDF3 = "localtest-pdf3"`. The name is also the DNS name on `altinntestlocal_network` ([`network.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/network.go)). |
+| `ContainerSpec` | [`components/resources.go:20-32`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/resources.go#L20-L32), `newContainerSpec(...)` | Fields: `Name, Ports, Environment, Volumes, NetworkAliases, Dependencies, Command, HealthCheck, ExtraHosts, UseDefaultUser`. Set `UseDefaultUser = true` when there are no host-writable bind mounts (pdf3, workflow-engine). |
+| Dependencies | `Dependencies: []string{ContainerLocaltest, ...}` | Becomes `DependsOn` refs ([`resources.go:258-268`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/resources.go#L258-L268)). workflow-engine depends on its DB and localtest. |
+| Health check | `spec.HealthCheck = &types.HealthCheck{Test, Interval, Timeout, Retries, StartPeriod}` | Workflow-engine uses a bash `/dev/tcp` probe because the aspnet base image ships no curl/wget ([`workflow_engine.go:33-38`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/workflow_engine.go#L33-L38)); postgres uses `pg_isready`. |
 | Named volume | `newNamedVolume(name, path)` | `WorkflowEngineDbVolume = "localtest-workflow-engine-db-data"`. Bind mounts go under the studioctl data dir (`Paths.DataDir`/`InfraDir`). |
-| Reset | `env.go:685-720` `deletePersistedData` + `removeWorkflowEngineDbVolume` | `env reset` explicitly deletes `AltinnPlatformLocal` and the workflow-engine volume. A new volume must be added here, and a forced wipe on upgrade needs a migration like `src/cli/internal/migrations/003_reset_localtest_data.go` (calls every `Resetter` in `registry.Envs`) or `007_reset_workflow_engine_data.go`. |
-| Topology component | `src/cli/internal/envtopology/topology.yaml` + **4 Go sites** | `components.go` (`ComponentID` const + `switch` in `Component()`), `model.go` (`componentsDefinition` struct field with yaml tag), `validate.go` (map in `validateDefinition`). The list is closed: unknown yaml keys fail because of `KnownFields(true)`. Kinds: `app, platform, telemetry, runtime-service, monitoring, tool, frontend-dev`; `platform`/`runtime-service` accept `host` + optional `pathPrefix`, no `port`. |
-| RuntimeBinding | `manifest.addBinding(envtopology.RuntimeBinding{ComponentID, Destination{Location: "env", Kind: "http", URL: "http://<container>:<port>"}, Enabled})` | `pdf.go:16-27`. `Location: "host"` sends the request to a host port through the host bridge (frontend dev server, `--dev-workflow-engine`). |
-| Hostnames | `envtopology/topology.go` `LocaltestIngressHosts()` (network aliases on the localtest container, `core.go:73`) and `HostFileHostnames()` (`studioctl env hosts add`, `cmd/env.go:876-891`) | Both are hard-coded lists. **`env up` does not edit the hosts file**, so a new *hostname* (e.g. `storage.local.altinn.cloud`) needs every developer to rerun `env hosts add`. A **path prefix on `local.altinn.cloud` needs no hosts change.** |
-| Status/logs | `EnabledContainerNames`, `log_streamer.go`, `status.go` | Derived from the manifest, so no extra work. |
-| CI | `.github/actions/setup-localtest-images/action.yml` | The cache key hashes a fixed list of source dirs, and `docker image save` names the images explicitly (`localtest:dev localtest-pdf3:dev localtest-workflow-engine:dev <db image>`). A new image must be added, or CI jobs that require a cache hit will pull it every run. |
-| Bundled skill/docs | `src/cli/resources/agent/skills/app-development/SKILL.md`, `src/cli/README.md` | AGENTS.md requires keeping these current. |
+| Reset | [`env.go:685-720`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/env.go#L685-L720) `deletePersistedData` + `removeWorkflowEngineDbVolume` | `env reset` explicitly deletes `AltinnPlatformLocal` and the workflow-engine volume. A new volume must be added here, and a forced wipe on upgrade needs a migration like [`src/cli/internal/migrations/003_reset_localtest_data.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/migrations/003_reset_localtest_data.go) (calls every `Resetter` in `registry.Envs`) or [`007_reset_workflow_engine_data.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/migrations/007_reset_workflow_engine_data.go). |
+| Topology component | [`src/cli/internal/envtopology/topology.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.yaml) + **4 Go sites** | [`components.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/components.go) (`ComponentID` const + `switch` in `Component()`), [`model.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/model.go) (`componentsDefinition` struct field with yaml tag), [`validate.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/validate.go) (map in `validateDefinition`). The list is closed: unknown yaml keys fail because of `KnownFields(true)`. Kinds: `app, platform, telemetry, runtime-service, monitoring, tool, frontend-dev`; `platform`/`runtime-service` accept `host` + optional `pathPrefix`, no `port`. |
+| RuntimeBinding | `manifest.addBinding(envtopology.RuntimeBinding{ComponentID, Destination{Location: "env", Kind: "http", URL: "http://<container>:<port>"}, Enabled})` | [`pdf.go:16-27`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/pdf.go#L16-L27). `Location: "host"` sends the request to a host port through the host bridge (frontend dev server, `--dev-workflow-engine`). |
+| Hostnames | [`envtopology/topology.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.go) `LocaltestIngressHosts()` (network aliases on the localtest container, [`core.go:73`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/core.go#L73)) and `HostFileHostnames()` (`studioctl env hosts add`, [`cmd/env.go:876-891`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env.go#L876-L891)) | Both are hard-coded lists. **`env up` does not edit the hosts file**, so a new *hostname* (e.g. `storage.local.altinn.cloud`) needs every developer to rerun `env hosts add`. A **path prefix on `local.altinn.cloud` needs no hosts change.** |
+| Status/logs | `EnabledContainerNames`, [`log_streamer.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/log_streamer.go), [`status.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/status.go) | Derived from the manifest, so no extra work. |
+| CI | [`.github/actions/setup-localtest-images/action.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/.github/actions/setup-localtest-images/action.yaml) | The cache key hashes a fixed list of source dirs, and `docker image save` names the images explicitly (`localtest:dev localtest-pdf3:dev localtest-workflow-engine:dev <db image>`). A new image must be added, or CI jobs that require a cache hit will pull it every run. |
+| Bundled skill/docs | [`src/cli/resources/agent/skills/app-development/SKILL.md`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/resources/agent/skills/app-development/SKILL.md), [`src/cli/README.md`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/README.md) | AGENTS.md requires keeping these current. |
 
 ### 1.3 How localtest proxies
 
-- `ProxyMiddleware` is the **first** middleware (`src/Runtime/localtest/src/Startup.cs`, before `/health`, static files,
+- `ProxyMiddleware` is the **first** middleware ([`src/Runtime/localtest/src/Startup.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Startup.cs), before `/health`, static files,
   routing, auth). It calls `BoundTopologyIndex.MatchRequest(Request.Host.Host, path)`
-  (`src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common/EnvTopology/BoundTopologyIndex.cs`).
+  ([`src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common/EnvTopology/BoundTopologyIndex.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common/EnvTopology/BoundTopologyIndex.cs)).
 - Match result:
   - no match → `_nextMiddleware` (localtest's own controllers);
   - route `Enabled == false` → **404, no fallthrough**;
   - `Destination.Kind != "http"` → fall through;
   - `Location == "env"` → `EnvRouteProxy.Proxy(context, url)`;
   - `Location == "host"` → `HostRouteProxy`, which goes over the host bridge.
-- `EnvRouteProxy` (`src/Filters/EnvRouteProxy.cs`) is a YARP `IHttpForwarder` with a static
+- `EnvRouteProxy` ([`src/Filters/EnvRouteProxy.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Filters/EnvRouteProxy.cs)) is a YARP `IHttpForwarder` with a static
   `SocketsHttpHandler` (5 s connect timeout, no redirects). `HttpTransformer.Default` forwards the **full
   original path and query**, with no prefix stripping. It forces `Host` to the browser-visible host, rewrites
   cookie domains (`CookieDomainRewriter`) and applies `FrontendVersionOverride` to HTML responses. Errors
   return a 502 HTML page.
-- Host bridge: studioctl-server (`src/cli/studioctl-server/HostBridge/HostBridgeConnector.cs`) opens a
+- Host bridge: studioctl-server ([`src/cli/studioctl-server/HostBridge/HostBridgeConnector.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/studioctl-server/HostBridge/HostBridgeConnector.cs)) opens a
   websocket to localtest's `/internal/host-bridge` (`HostBridgeDefaults.EndpointPath`). Localtest's
-  `src/HostBridge/HostBridgeClient.cs` multiplexes proxied requests as frames
-  (`Altinn.Studio.Runtime.Common/HostBridge/HostBridgeProtocol.cs`) to host-side targets: apps run as
+  [`src/HostBridge/HostBridgeClient.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/HostBridge/HostBridgeClient.cs) multiplexes proxied requests as frames
+  ([`Altinn.Studio.Runtime.Common/HostBridge/HostBridgeProtocol.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common/HostBridge/HostBridgeProtocol.cs)) to host-side targets: apps run as
   processes, the Vite dev server and a host workflow engine. **Env containers never use it**; they are
   reached directly on the docker network.
 
@@ -126,12 +126,12 @@ Evidence base: `Altinn/altinn-studio` at `447e53eb97` (2026-10-16), `Altinn/app-
   plain `StartsWith`. Matching is case-insensitive.
 - Several routes with the same host+prefix are round-robined (`RouteGroup.Next`), which is used for app replicas.
 - App routes are generated by studioctl-server from `appRouteTemplate` `/{org}/{app}` on `local.altinn.cloud`.
-- Go side: `Local.BoundTopologyConfig` (`bound_topology.go:157-180`) **skips bindings whose
+- Go side: `Local.BoundTopologyConfig` ([`bound_topology.go:157-180`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/bound_topology.go#L157-L180)) **skips bindings whose
   `Destination.Kind == ""`** (`HasRoute()`) and skips `app`. Each component has a single `pathPrefix`.
 
 ### 1.5 The `platform` component
 
-`registerTopologyComponents` (`components/topology.go:23-31`) binds `ComponentPlatform` with an empty
+`registerTopologyComponents` ([`components/topology.go:23-31`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/topology.go#L23-L31)) binds `ComponentPlatform` with an empty
 destination, so it is **not emitted into `result.json`**. Requests to `local.altinn.cloud/<anything not
 claimed by /grafana or /{org}/{app}>` match no route and fall through to localtest's MVC controllers
 (`storage/api/v1/...`, `register/api/v1/...` and so on). The component exists only so that
@@ -140,16 +140,16 @@ for the app environment.
 
 ### 1.6 How the app reaches the platform
 
-- `src/cli/internal/cmd/app/env.go:82-96` (`addRunDefaults`, using `setDefault`, so the caller's env wins).
+- [`src/cli/internal/cmd/app/env.go:82-96`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/app/env.go#L82-L96) (`addRunDefaults`, using `setDefault`, so the caller's env wins).
   `endpoints.platform = topology.PublicBaseURL(platform)` = `http://local.altinn.cloud:8000`
-  (`config.go:15-21`). PDF = `http://pdf.local.altinn.cloud:8000/pdf`, workflow engine =
+  ([`config.go:15-21`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/app/config.go#L15-L21)). PDF = `http://pdf.local.altinn.cloud:8000/pdf`, workflow engine =
   `http://workflow-engine.local.altinn.cloud:8000/api/v1/`. Both are also proxied by localtest, through
   host-only routes on their own hostnames.
-- Process mode (`run.go:143`): the hosts file maps `local.altinn.cloud` to 127.0.0.1, and host port 8000 is
+- Process mode ([`run.go:143`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/app/run.go#L143)): the hosts file maps `local.altinn.cloud` to 127.0.0.1, and host port 8000 is
   published to localtest:5101.
-- Container mode (`run.go:213-286`): the app joins `altinntestlocal_network`, where `local.altinn.cloud`,
+- Container mode ([`run.go:213-286`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/app/run.go#L213-L286)): the app joins `altinntestlocal_network`, where `local.altinn.cloud`,
   `pdf.local...` and the other ingress hostnames are **network aliases of the localtest container**, and
-  localtest also listens on 8000 inside the container (`localtestListenURLs`, `core.go:43-48`).
+  localtest also listens on 8000 inside the container (`localtestListenURLs`, [`core.go:43-48`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/core.go#L43-L48)).
 - **Conclusion:** with `studioctl run`, every platform call goes through localtest. A real service
   container is reached only via a localtest route. Real service containers can call back to
   localtest-retained services (register, authentication/OIDC, authorization) at
@@ -157,14 +157,14 @@ for the app environment.
 
 ### 1.7 Compatibility constraints
 
-- `TODO` in `core.go:61-67`: localtest also publishes host `5101:5101` because the `PlatformSettings`
+- `TODO` in [`core.go:61-67`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/core.go#L61-L67): localtest also publishes host `5101:5101` because the `PlatformSettings`
   defaults (`http://localhost:5101/...`) are what plain `dotnet run --project App` uses. pdf3 publishes
-  `5300:5031` for the same reason (`pdf.go:52`). Requests with `Host: localhost` **do not match any
+  `5300:5031` for the same reason ([`pdf.go:52`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/env/localtest/components/pdf.go#L52)). Requests with `Host: localhost` **do not match any
   `local.altinn.cloud` route**, so in a split they would keep hitting localtest's built-in copies. The
   split would be inconsistent for `dotnet run` users unless routes are added for the `localhost` host too.
   The v9 default `ApiWorkflowEngineEndpoint = http://localhost:9090/api/v1/` has no host port mapping
   except in `--dev-workflow-engine` mode. I could not confirm whether that is intentional.
-- `src/cli/AGENTS.md` ("Container images") and `src/Runtime/localtest/AGENTS.md`: the localtest image
+- [`src/cli/AGENTS.md`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/AGENTS.md) ("Container images") and [`src/Runtime/localtest/AGENTS.md`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/AGENTS.md): the localtest image
   follows `latest` from main with no ring, while a developer's studioctl is older than the image it pulls.
   "Keep the previous spelling working for at least one studioctl release, and change studioctl in the
   same pull request." For a split this means a staged rollout:
@@ -180,8 +180,8 @@ for the app environment.
 
 ### 2.1 `PlatformSettings` defaults
 
-`src/App/backend/src/Altinn.App.Core/Configuration/PlatformSettings.cs` (v9) and
-`/home/agent/code/app-lib-dotnet/src/Altinn.App.Core/Configuration/PlatformSettings.cs` (v8) are identical
+[`src/App/backend/src/Altinn.App.Core/Configuration/PlatformSettings.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Configuration/PlatformSettings.cs) (v9) and
+[`/home/agent/code/app-lib-dotnet/src/Altinn.App.Core/Configuration/PlatformSettings.cs`](https://github.com/Altinn/app-lib-dotnet/blob/4740bb28ea13e775c13ca2a2a19942877acf2be1/src/Altinn.App.Core/Configuration/PlatformSettings.cs) (v8) are identical
 except that v9 adds `ApiWorkflowEngineEndpoint`.
 
 | Property | Default | studioctl `run` override |
@@ -215,7 +215,7 @@ inside localtest (by its PDP/authorization). There is no Maskinporten endpoint o
 | Authorization | `/authorization/api/v1/` | `AuthorizationClient` (+ `Altinn.Common.PEP`) | **Yes**: `decision`, `parties`, `parties/{id}/validate`, `roles` |
 | Access management | `/accessmanagement/api/v1/` | `AuthorizationClient` (`enduser/authorizedparties`), `UrlHelper` (`app/delegations/...`) | **Yes**: `enduser/authorizedparties`, `v1/app/delegations/...`, `v1/app/delegationrevoke/...` |
 | Events | `/events/api/v1/` | `EventsClient`; v8 also `EventsSubscriptionClient`† | **Yes**: `app`, `events`, `subscriptions` (POST) |
-| Notifications | `/notifications/api/v1/` | `EmailNotificationClient` (`orders/email`), `SmsNotificationClient` (`orders/sms`), `NotificationOrderClient` (`future/orders`), `NotificationCancelClient` (`orders/{id}/cancel`) | **Partly**: `orders/email`, `orders/sms` only (`src/Notifications/API`). **Missing:** `future/orders`, cancel |
+| Notifications | `/notifications/api/v1/` | `EmailNotificationClient` (`orders/email`), `SmsNotificationClient` (`orders/sms`), `NotificationOrderClient` (`future/orders`), `NotificationCancelClient` (`orders/{id}/cancel`) | **Partly**: `orders/email`, `orders/sms` only ([`src/Notifications/API`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Notifications/API)). **Missing:** `future/orders`, cancel |
 | Correspondence | `/correspondence/api/v1/` | `CorrespondenceClient` | **No** |
 | Resource registry | `/resourceregistry/api/v1/` | none (not in `PlatformSettings`) | Yes (`resource`, `resource/{id}/policy`, `Search`); used internally |
 | PDF | `pdf.local.altinn.cloud/pdf` | `PdfGeneratorClient` | Separate container (`localtest-pdf3`) |
@@ -231,46 +231,46 @@ whether those code paths run in typical local flows is not confirmed.
 
 | Feature | Evidence | Implication for a split |
 |---|---|---|
-| **Version probe** | `Altinn.App.Core/Internal/LocaltestValidation.cs`. Active when `GeneralSettings.HostName` is `local.altinn.cloud` or `altinn3local.no` and `DisableLocaltestValidation` is false. GETs `{GetPlatformBaseUrl()}/Home/Localtest/Version`, where `GetPlatformBaseUrl()` is **the authority of `ApiStorageEndpoint`** (`RuntimeEnvironment.cs:38-39`). Requires version ≥ 6 (v9) / ≥ 5 (v8); localtest returns `LocalTestApi.Version = 6` (`src/Constants/LocalTestApi.cs`, `HomeController.cs:124`). 404 → "Shutting down..". | Pointing `ApiStorageEndpoint` straight at a real Storage container would kill the app. Keep storage behind localtest's ingress, or bump/redirect the probe. |
-| **App-sourced metadata** | `Services/LocalApp/Implementation/LocalAppHttp.cs` fetches `/{org}/{app}/api/v1/applicationmetadata?checkOrgApp=false`, `/api/v1/meta/authorizationpolicy`, `/api/v1/texts/{lang}` and `testData.json` from the running app. These feed `ApplicationRepository`, `TextRepository`, `PolicyRetrievalPoint`, `TestDataService`. | Real Storage/Authorization read applications and policies from their own stores. A replacement needs a seeding step (on app discovery) or a shim. |
-| **studioctl-server readiness probe** | `src/cli/studioctl-server/Discovery/LocaltestStorageProbe.cs` GETs `http://127.0.0.1:8000/storage/api/v1/applications/{org}/{app}` and requires `id == appId` before `studioctl run` reports the app ready (`AppRegistry.cs:~350`). | The `127.0.0.1` host does not match `local.altinn.cloud` routes, so this probe keeps hitting localtest's own storage. It also depends on the app-sourced metadata above. |
+| **Version probe** | [`Altinn.App.Core/Internal/LocaltestValidation.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Internal/LocaltestValidation.cs). Active when `GeneralSettings.HostName` is `local.altinn.cloud` or `altinn3local.no` and `DisableLocaltestValidation` is false. GETs `{GetPlatformBaseUrl()}/Home/Localtest/Version`, where `GetPlatformBaseUrl()` is **the authority of `ApiStorageEndpoint`** ([`RuntimeEnvironment.cs:38-39`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Internal/RuntimeEnvironment.cs#L38-L39)). Requires version ≥ 6 (v9) / ≥ 5 (v8); localtest returns `LocalTestApi.Version = 6` ([`src/Constants/LocalTestApi.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Constants/LocalTestApi.cs), [`HomeController.cs:124`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/HomeController.cs#L124)). 404 → "Shutting down..". | Pointing `ApiStorageEndpoint` straight at a real Storage container would kill the app. Keep storage behind localtest's ingress, or bump/redirect the probe. |
+| **App-sourced metadata** | [`Services/LocalApp/Implementation/LocalAppHttp.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Services/LocalApp/Implementation/LocalAppHttp.cs) fetches `/{org}/{app}/api/v1/applicationmetadata?checkOrgApp=false`, `/api/v1/meta/authorizationpolicy`, `/api/v1/texts/{lang}` and `testData.json` from the running app. These feed `ApplicationRepository`, `TextRepository`, `PolicyRetrievalPoint`, `TestDataService`. | Real Storage/Authorization read applications and policies from their own stores. A replacement needs a seeding step (on app discovery) or a shim. |
+| **studioctl-server readiness probe** | [`src/cli/studioctl-server/Discovery/LocaltestStorageProbe.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/studioctl-server/Discovery/LocaltestStorageProbe.cs) GETs `http://127.0.0.1:8000/storage/api/v1/applications/{org}/{app}` and requires `id == appId` before `studioctl run` reports the app ready ([`AppRegistry.cs:~350`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/studioctl-server/Discovery/AppRegistry.cs#L350)). | The `127.0.0.1` host does not match `local.altinn.cloud` routes, so this probe keeps hitting localtest's own storage. It also depends on the app-sourced metadata above. |
 | **testData.json** | `LocalAppHttp.GetTestDataWithMetadata` merges `/{appId}/testData.json` from every reachable app with the baked-in `/testdata`. | Stays with register/login (which stay in localtest). |
-| **Frontend version override** | `Controllers/FrontendVersionController.cs` (`/Home/FrontendVersion/Index`, sets the `frontendVersion` cookie). `Filters/FrontendVersionOverride.cs` rewrites `altinn-app-frontend.(js\|css)` URLs in proxied HTML (`EnvRouteProxy`/`HostRouteProxy` transformers). | Localtest-only; unaffected by a split (applies to app HTML). |
-| **Home pages / fake login** | `HomeController` (`/`, `/Home/Index`, `/Home/LogInTestUser` used by Cypress `support/auth.ts:206`, `/Home/GetTest*Token`, `/Home/Tokens`), `TestAuthenticationController` (`/Home/auth/*`), `TenorUsersController`, `DebugUsersController` (`/Home/DebugUsers/LocalTestUsers{,Raw,RoundTrip}`, `ShowTenorUsers`), `InfraController` (grafana link via `TryGetComponentRoute("grafana")`). | Stays in localtest. Instantiation from the home page goes through `ILocalApp.Instantiate` → the app → storage, so it works with whichever storage the app talks to. |
-| **StorageExplorer / LocalPlatformStorage** | `StorageExplorerController` → view with an iframe on `/LocalPlatformStorage/`; `Startup.cs` serves `LocalTestingStorageBasePath` (`/AltinnPlatformLocal`, bind-mounted from the studioctl data dir) with `UseStaticFiles` + `UseDirectoryBrowser`. | Lost or needs replacing if storage moves to a DB-backed container (e.g. pgAdmin, which is already in the stack). `env reset` deletes this directory. |
-| **Integration tests** | `src/App/backend/test/Altinn.App.Integration.Tests/_fixture/StudioctlEnvironment.cs` always runs `studioctl env up --detach` with `STUDIOCTL_INTERNAL_DEV=true` (dev images from the checkout), apps via `studioctl run --mode process --detach --random-host-port --json`. `BasicAppTests.AppConnectivity_Localtest` calls `/{org}/{app}/api/testing/connectivity/localtest` (`_testapps/_shared/TestingApis.cs:96`), which GETs `<authority of ApiStorageEndpoint>/health`. Snapshot: `Url: http://local.altinn.cloud:8000/health, ResponseContent: Healthy`. 58 snapshot files contain storage self-links `https://platform.local.altinn.cloud/storage/api/v1/instances/...` (localtest builds them as `https://platform.{GeneralSettings.Hostname}` in `Controllers/Storage/InstancesController.cs:1215`). | A real Storage must be configured to produce identical self-links and response shapes, or ~60 snapshots change. `/health` must stay on localtest. |
-| **App-frontend e2e** | `src/App/frontend/test/e2e/config/localtest.json`: `baseUrl http://local.altinn.cloud:8000`, fixed users/partyIds (`12345.512345`, `1337.500000`, …) from the baked-in testdata. CI: `.github/workflows/app-frontend-cypress.yml:447` (`--env environment=localtest`). | Stays valid as long as register, authentication and login stay in localtest and party IDs are stable. |
+| **Frontend version override** | [`Controllers/FrontendVersionController.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/FrontendVersionController.cs) (`/Home/FrontendVersion/Index`, sets the `frontendVersion` cookie). [`Filters/FrontendVersionOverride.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Filters/FrontendVersionOverride.cs) rewrites `altinn-app-frontend.(js\|css)` URLs in proxied HTML (`EnvRouteProxy`/`HostRouteProxy` transformers). | Localtest-only; unaffected by a split (applies to app HTML). |
+| **Home pages / fake login** | `HomeController` (`/`, `/Home/Index`, `/Home/LogInTestUser` used by Cypress [`support/auth.ts:206`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/frontend/test/e2e/support/auth.ts#L206), `/Home/GetTest*Token`, `/Home/Tokens`), `TestAuthenticationController` (`/Home/auth/*`), `TenorUsersController`, `DebugUsersController` (`/Home/DebugUsers/LocalTestUsers{,Raw,RoundTrip}`, `ShowTenorUsers`), `InfraController` (grafana link via `TryGetComponentRoute("grafana")`). | Stays in localtest. Instantiation from the home page goes through `ILocalApp.Instantiate` → the app → storage, so it works with whichever storage the app talks to. |
+| **StorageExplorer / LocalPlatformStorage** | `StorageExplorerController` → view with an iframe on `/LocalPlatformStorage/`; [`Startup.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Startup.cs) serves `LocalTestingStorageBasePath` (`/AltinnPlatformLocal`, bind-mounted from the studioctl data dir) with `UseStaticFiles` + `UseDirectoryBrowser`. | Lost or needs replacing if storage moves to a DB-backed container (e.g. pgAdmin, which is already in the stack). `env reset` deletes this directory. |
+| **Integration tests** | [`src/App/backend/test/Altinn.App.Integration.Tests/_fixture/StudioctlEnvironment.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/test/Altinn.App.Integration.Tests/_fixture/StudioctlEnvironment.cs) always runs `studioctl env up --detach` with `STUDIOCTL_INTERNAL_DEV=true` (dev images from the checkout), apps via `studioctl run --mode process --detach --random-host-port --json`. `BasicAppTests.AppConnectivity_Localtest` calls `/{org}/{app}/api/testing/connectivity/localtest` ([`_testapps/_shared/TestingApis.cs:96`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/test/Altinn.App.Integration.Tests/_testapps/_shared/TestingApis.cs#L96)), which GETs `<authority of ApiStorageEndpoint>/health`. Snapshot: `Url: http://local.altinn.cloud:8000/health, ResponseContent: Healthy`. 58 snapshot files contain storage self-links `https://platform.local.altinn.cloud/storage/api/v1/instances/...` (localtest builds them as `https://platform.{GeneralSettings.Hostname}` in [`Controllers/Storage/InstancesController.cs:1215`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Controllers/Storage/InstancesController.cs#L1215)). | A real Storage must be configured to produce identical self-links and response shapes, or ~60 snapshots change. `/health` must stay on localtest. |
+| **App-frontend e2e** | [`src/App/frontend/test/e2e/config/localtest.json`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/frontend/test/e2e/config/localtest.json): `baseUrl http://local.altinn.cloud:8000`, fixed users/partyIds (`12345.512345`, `1337.500000`, …) from the baked-in testdata. CI: [`.github/workflows/app-frontend-cypress.yml:447`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/.github/workflows/app-frontend-cypress.yml#L447) (`--env environment=localtest`). | Stays valid as long as register, authentication and login stay in localtest and party IDs are stable. |
 
 ---
 
 ## 4. Vendoring and subtree practice in the monorepo
 
-- **Mechanism:** root `Makefile` (`SUBTREES := localtest|src/Runtime/localtest|https://github.com/Altinn/app-localtest.git|main`,
-  plus frontend, backend, fileanalyzers, codelists, and `TEST_APPS` under `src/test/apps`). `pull-subtree`
+- **Mechanism:** root [`Makefile`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/Makefile) (`SUBTREES := localtest|src/Runtime/localtest|https://github.com/Altinn/app-localtest.git|main`,
+  plus frontend, backend, fileanalyzers, codelists, and `TEST_APPS` under [`src/test/apps`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/test/apps)). `pull-subtree`
   runs `git subtree pull --prefix=<prefix> <url> <branch>`, **without `--squash`**, on a
   `chore/subtree-sync-<x>` branch; `sync-all` creates a single PR.
-- **Initial adds** (`git log --grep=git-subtree-dir`): `src/Runtime/localtest/` (e7f38bd6a7, 2025-09-23,
-  `git-subtree-split: d9c4e618…`), `src/App/frontend/` (2062d9d2ca), `src/App/backend/` (46aae14363),
-  `src/App/fileanalyzers/` (d5b1e819af), `src/App/codelists/` (98d81e1070), `src/AI/mcp/` (568ec2e2c6, 2025-11-18).
-- **`1166612623` (2026-06-04, Ivar Nesje, "Merge commit '49e2ba8e…'")** has parents `3ee2766153` (monorepo main)
-  and `49e2ba8e6e` ("Flip default nullable behaviour (#212)"). `git ls-tree 49e2ba8e6e` shows the
-  **app-localtest root layout** (`Dockerfile`, `LocalTest.sln`, `docker-compose.yml`, `.github`, …), while the
-  merge diff lands in `src/Runtime/localtest/**` (281 files). That is the signature of a plain `git subtree pull
+- **Initial adds** (`git log --grep=git-subtree-dir`): [`src/Runtime/localtest/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest) (e7f38bd6a7, 2025-09-23,
+  [`git-subtree-split: d9c4e618…`](https://github.com/Altinn/altinn-studio/commit/d9c4e618176389141b1c8daa9765be707050f959)), [`src/App/frontend/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/frontend) (2062d9d2ca), [`src/App/backend/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend) (46aae14363),
+  [`src/App/fileanalyzers/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/fileanalyzers) (d5b1e819af), [`src/App/codelists/`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/codelists) (98d81e1070), [`src/AI/mcp/`](https://github.com/Altinn/altinn-studio/tree/568ec2e2c674bafce16c172e367fc65c51aa7c8f/src/AI/mcp) (568ec2e2c6, 2025-11-18).
+- **[`1166612623`](https://github.com/Altinn/altinn-studio/commit/11666126237708ad71147a255592b57c9f780aa0) (2026-06-04, Ivar Nesje, "Merge commit '49e2ba8e…'")** has parents [`3ee2766153`](https://github.com/Altinn/altinn-studio/commit/3ee276615355989106193f8e60f42b5370f03110) (monorepo main)
+  and [`49e2ba8e6e`](https://github.com/Altinn/altinn-studio/commit/49e2ba8e6eb6dc5fa58c14f7d3fdb80ea8cc1d71) ("Flip default nullable behaviour (#212)"). `git ls-tree 49e2ba8e6e` shows the
+  **app-localtest root layout** ([`Dockerfile`](https://github.com/Altinn/altinn-studio/blob/49e2ba8e6eb6dc5fa58c14f7d3fdb80ea8cc1d71/Dockerfile), [`LocalTest.sln`](https://github.com/Altinn/altinn-studio/blob/49e2ba8e6eb6dc5fa58c14f7d3fdb80ea8cc1d71/LocalTest.sln), [`docker-compose.yml`](https://github.com/Altinn/altinn-studio/blob/49e2ba8e6eb6dc5fa58c14f7d3fdb80ea8cc1d71/docker-compose.yml), [`.github`](https://github.com/Altinn/altinn-studio/tree/49e2ba8e6eb6dc5fa58c14f7d3fdb80ea8cc1d71/.github), …), while the
+  merge diff lands in [`src/Runtime/localtest/**`](https://github.com/Altinn/altinn-studio/tree/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest) (281 files). That is the signature of a plain `git subtree pull
   --prefix=src/Runtime/localtest`; no filter-repo is involved, and the full upstream history is in the monorepo.
-  Later syncs: `76e6b98fef` (2026-07-24) and `78a465ed05` "chore(localtest) subtree sync localtest (#20203)".
-  App-lib-dotnet is still synced the same way (`573e2c71d9`, `2da4d0983d` "record the app-lib-dotnet sync up to #1873").
-  `/home/agent/code/.reference/app-localtest` is a shallow clone (1 commit), so I could not cross-check the
+  Later syncs: [`76e6b98fef`](https://github.com/Altinn/altinn-studio/commit/76e6b98fef8239efa370bea8bb027b19440342e5) (2026-07-24) and [`78a465ed05`](https://github.com/Altinn/altinn-studio/commit/78a465ed05fb182c466367cc5a1edd3d89962bfa) "chore(localtest) subtree sync localtest (#20203)".
+  App-lib-dotnet is still synced the same way ([`573e2c71d9`](https://github.com/Altinn/altinn-studio/commit/573e2c71d92d61ed5aa7160df6c0d64f6d58d6d9), [`2da4d0983d`](https://github.com/Altinn/altinn-studio/commit/2da4d0983d9631ab06cf9a1f83222c22aacf9823) "record the app-lib-dotnet sync up to #1873").
+  [`/home/agent/code/.reference/app-localtest`](https://github.com/Altinn/app-localtest/tree/998561eebee2a3cdaafe1ee09376deba4c13d426) is a shallow clone (1 commit), so I could not cross-check the
   upstream SHAs there.
 - **Platform service code has never been subtree'd.** Copies were **hand-ported**, as the app-localtest
-  history (now in the monorepo) shows: `dea3e4e1fb` "Sync altinn-storage PR 995 (#211)" (refactor of
-  `ProcessAuthorizer`), `055f3c9b8e` "Ports ProcessDataCleanupService from Storage", `c792d8fbde`
+  history (now in the monorepo) shows: [`dea3e4e1fb`](https://github.com/Altinn/altinn-studio/commit/dea3e4e1fbc17ab0f38dbb47b4ec90ba8e85e239) "Sync altinn-storage PR 995 (#211)" (refactor of
+  `ProcessAuthorizer`), [`055f3c9b8e`](https://github.com/Altinn/altinn-studio/commit/055f3c9b8eea1b29ad6dc47ab715137eb67173fd) "Ports ProcessDataCleanupService from Storage", [`c792d8fbde`](https://github.com/Altinn/altinn-studio/commit/c792d8fbde99d31d07927b2303102b96e76d663c)
   "Support excludeConfirmedBy in Instances query API in Storage".
 - **NuGet contracts** (no central pin for localtest):
-  - `src/App/backend/Directory.Packages.props`: `Altinn.Common.AccessTokenClient 1.1.5`, `Altinn.Common.PEP 4.2.3`,
+  - [`src/App/backend/Directory.Packages.props`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/Directory.Packages.props): `Altinn.Common.AccessTokenClient 1.1.5`, `Altinn.Common.PEP 4.2.3`,
     `Altinn.Platform.Models 1.6.1`, `Altinn.Platform.Storage.Interface 5.0.0-rc.2`.
-  - `src/Designer/backend/Directory.Packages.props`: `Altinn.Common.AccessToken 5.1.13`, `AccessTokenClient 3.2.12`,
+  - [`src/Designer/backend/Directory.Packages.props`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Designer/backend/Directory.Packages.props): `Altinn.Common.AccessToken 5.1.13`, `AccessTokenClient 3.2.12`,
     `Altinn.Platform.Storage.Interface 5.0.0-rc.1`, `Altinn.Authorization.ABAC 0.1.1`.
-  - `src/Runtime/localtest/src/LocalTest.csproj` (inline `Version=`, not central): `Altinn.Authorization.ABAC 0.1.1`,
+  - [`src/Runtime/localtest/src/LocalTest.csproj`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/LocalTest.csproj) (inline `Version=`, not central): `Altinn.Authorization.ABAC 0.1.1`,
     `Altinn.Common.PEP 4.2.3`, `Altinn.Platform.Models 1.6.1`, `Altinn.Platform.Storage.Interface 5.0.0-rc.1`
     (**one RC behind app-lib v9's rc.2**).
   - No repo-root `Directory.Packages.props`; each area pins on its own.
@@ -289,9 +289,9 @@ Every path-prefix component costs about the same in studioctl (§1.2). The diffe
 | **Correspondence** | None to remove (localtest has no implementation). The app calls only `ApiCorrespondenceEndpoint`. Adds capability instead of replacing it. | Cheapest (additive) |
 | **Notifications** | Localtest has a small stub (`orders/email`, `orders/sms`) and nothing else in localtest calls it. A real container would also cover `future/orders` and cancel. | Cheapest replacement |
 | **Events** | Leaf for the app (`EventsClient`). No other localtest component reads it (not confirmed exhaustively). | Cheap |
-| Resource registry | Not called by apps. Consumed in-process by localtest authorization (`IResourceRegistry` in `Startup.cs:128`), so it only helps if authorization moves too. | Low value alone |
+| Resource registry | Not called by apps. Consumed in-process by localtest authorization (`IResourceRegistry` in [`Startup.cs:128`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Startup.cs#L128)), so it only helps if authorization moves too. | Low value alone |
 | Profile | Localtest test users are joined across register, profile and testData. The fake login and DebugUsers depend on them. | Coupled to register (stays) |
-| Authorization / access management | Localtest storage authorizes in-process (`StorageAccessHandler`, `Services/Storage/Implementation/AuthorizationService.cs`, `PolicyRetrievalPoint` pulling the policy from the app). Needs a policy-seeding path. | Expensive |
+| Authorization / access management | Localtest storage authorizes in-process (`StorageAccessHandler`, [`Services/Storage/Implementation/AuthorizationService.cs`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Services/Storage/Implementation/AuthorizationService.cs), `PolicyRetrievalPoint` pulling the policy from the app). Needs a policy-seeding path. | Expensive |
 | **Storage** | Version probe authority, `/health` connectivity test, studioctl-server readiness probe at `127.0.0.1`, StorageExplorer / `LocalPlatformStorage`, app-sourced `applications`/`texts`, ~60 self-link snapshots, in-process PDP. | Most expensive |
 
 ### 5.2 What a "platform split" would look like
@@ -326,7 +326,7 @@ service prefix. (I believe they do, for example `storage/api/v1`, but I did not 
 
 Required changes and caveats:
 
-1. **Closed component set.** Each new ID touches `components.go`, `model.go`, `validate.go` and `topology.yaml`.
+1. **Closed component set.** Each new ID touches [`components.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/components.go), [`model.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/model.go), [`validate.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/validate.go) and [`topology.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.yaml).
    If several services move, refactor `componentsDefinition` into a map, or allow `pathPrefixes: []` on one
    component, instead of growing four switch statements.
 2. **Disabled ≠ absent.** For an optional component (behind a flag), emit `Destination.Kind == ""` when it
@@ -347,7 +347,7 @@ Required changes and caveats:
    `/authentication/api/v1/openid/...`, authorization) via the `local.altinn.cloud` network alias to localtest.
    No new networking is needed.
 8. A per-service **hostname** (e.g. `storage.local.altinn.cloud`) is possible (kind `runtime-service`, like
-   pdf), but it requires an app `PlatformSettings` change in `cmd/app/env.go`, additions to
+   pdf), but it requires an app `PlatformSettings` change in [`cmd/app/env.go`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/cmd/app/env.go), additions to
    `LocaltestIngressHosts`/`HostFileHostnames`, and every developer rerunning `studioctl env hosts add`.
    The path prefix avoids all three.
 

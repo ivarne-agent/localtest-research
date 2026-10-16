@@ -69,19 +69,19 @@ localtest. Per-strand reports hold the evidence.
 - Ask the altinn-storage team for a supported local configuration that skips Key Vault and file scan, and for
   a published image (or vendor the source so studioctl dev mode can build it).
 - studioctl: `storage` component with `pathPrefix: /storage`, Postgres (shared with workflow-engine or
-  separate), Azurite blob + queue, init step for `postgres_init.sql` and the blob container, reset handling.
+  separate), Azurite blob + queue, init step for [`postgres_init.sql`](https://github.com/Altinn/altinn-storage/blob/1c594731249c9efb8ef41fab037780e47f659049/infra/postgres_init.sql) and the blob container, reset handling.
 - studioctl-server or localtest: push application metadata and texts into Storage on app start and change,
   mint the `studio.designer` token, add a fake scanner that marks uploads clean.
 - localtest: PDP and Storage Explorer must read instances over HTTP or be dropped (pgAdmin exists already).
-- Keep the storage URL authority on localtest because the app's `LocaltestValidation` probes
+- Keep the storage URL authority on localtest because the app's [`LocaltestValidation`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/App/backend/src/Altinn.App.Core/Internal/LocaltestValidation.cs) probes
   `/Home/Localtest/Version` there and shuts the app down on 404.
 
 ## Mechanism facts that make this feasible
 
 - `studioctl env up` already composes localtest, pdf3, workflow-engine, its Postgres, Grafana and pgAdmin
   through one manifest; adding a component is an image entry, a component file, a `ComponentID` in four Go
-  sites, a `topology.yaml` entry, reset handling and the CI image cache list.
-- Localtest's `ProxyMiddleware` is generic: host + longest path prefix, forwarded verbatim, fall-through to
+  sites, a [`topology.yaml`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/envtopology/topology.yaml) entry, reset handling and the CI image cache list.
+- Localtest's [`ProxyMiddleware`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/localtest/src/Filters/ProxyMiddleware.cs) is generic: host + longest path prefix, forwarded verbatim, fall-through to
   localtest's own controllers when nothing matches. No app or app-lib configuration changes.
 - Caveats: routes match the exact host, so `localhost:5101` (plain `dotnet run`) and `127.0.0.1:8000`
   (studioctl-server probe) bypass the split; a *disabled* route returns 404 instead of falling through, so
