@@ -169,7 +169,9 @@ NuGet, if one is published; not confirmed).
   API, login resolves the chosen person to party id, party UUID and user id through Register, and only
   authentication-specific extras (custom claims, authentication level, system users) come from a small file the
   authentication fake owns. Profile and the PDP fakes read Register the same way. This keeps one source of truth
-  and exercises the vendored Register API on every login.
+  and exercises the vendored Register API on every login. The picker itself does not need the production
+  `internal/parties` endpoints (and their platform-token policy): the register component's `fakes/` project adds
+  one localtest-only, anonymous controller that lists the seeded persons and parties with user ids for the picker.
 - **Hot reload** of policies and app metadata is lost compared with today's in-process reads unless the fakes
   poll the app; acceptable for an MVP, worth a setting.
 
