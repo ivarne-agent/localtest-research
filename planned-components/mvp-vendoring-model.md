@@ -1,6 +1,6 @@
 # MVP sketch: one compose file, one folder per component, vendored source changed only by directives
 
-Status: sketch for review (2026-10-16). Refines the vendoring model from [`register/README.md`](register/README.md).
+Status: sketch reviewed 2026-10-17; decisions recorded at the end. Refines the vendoring model from [`register/README.md`](register/README.md).
 No Aspire anywhere: docker compose is the orchestrator, and vendored hosts that bootstrap through Aspire-style
 service defaults get a plain bootstrap under `#else`.
 
@@ -76,9 +76,11 @@ RUN dotnet publish /src/vendor/src/Storage/Altinn.Platform.Storage.csproj -c Rel
 Checked: `LOCALTEST` is defined while the SDK's `NET10_0_OR_GREATER` and the csproj's own constants stay intact
 (passing `-p:DefineConstants` on the command line would have clobbered them); a vendored root
 `Directory.Build.props` value still flows through; `Compile Remove`, `PackageReference Remove` and the added
-`ProjectReference` all take effect from the targets file. Not yet checked: interplay with central package
-management (`Directory.Packages.props` in altinn-auth and altinn-register), which the fakes project must either opt
-into or sit outside of, and analyzers pulled in by the vendored chain.
+`ProjectReference` all take effect from the targets file. Also checked (2026-10-17): central package management in
+the vendored tree does not reach a `fakes/` project that sits outside `vendor/`, because NuGet locates
+`Directory.Packages.props` by walking up from the project directory; a fakes project with ordinary versioned
+package references builds unchanged, and a conditional `ManagePackageVersionsCentrally=false` in the props file
+works if it ever has to live inside. Not yet checked: analyzers pulled in by the vendored chain.
 
 ## Where the directives go
 
@@ -114,7 +116,7 @@ environment switch; **directive** = `#if !LOCALTEST` site.
 | App Insights / OTel | Azure Monitor | **off** | Console exporter only. |
 | SBL bridge (A2) | parties-with-instances, correspondence | **off** (`DisableA2Endpoints=true`) | Clients become no-ops. |
 | Authorization PDP, Register, openid metadata | HTTP | **container** (the other components, via ingress or compose DNS) | Config keys only. |
-| Application metadata and texts | in Postgres, pushed by Designer | **new**: the authentication/testdata component or a tiny "app registrar" pushes them with a `studio.designer` token when an app comes up | The one piece with no production analogue locally. |
+| Application metadata and texts | in Postgres, pushed by Designer | **deferred** to the storage step | No discovery of running apps in the MVP; test users come from a static `testData.json` in the repo. How app metadata gets into Storage (static seed, manual post, or push by the core component) is decided when the storage component is implemented. |
 
 ### Authorization PDP ([`Program.cs`](https://github.com/Altinn/altinn-auth/blob/392f9578d925b947331a1e90fb609c031654d3d2/src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs), 413 lines, plain `WebApplication` builder, no Aspire)
 
@@ -136,7 +138,7 @@ NuGet, if one is published; not confirmed).
 
 | Dependency | Production | MVP |
 | --- | --- | --- |
-| Host bootstrap | [`AltinnHost.CreateWebApplicationBuilder`](https://github.com/Altinn/altinn-register/blob/f6b5c6034609da6b69a1ffdf8ef3b5265768f0f0/src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs#L68) from the `Altinn.Authorization.ServiceDefaults` package (Key Vault, App Configuration, OTel, Azure Monitor, service discovery) | **directive**: plain `WebApplication.CreateBuilder` under `#else` unless the package proves harmless without Azure config (not confirmed) |
+| Host bootstrap | [`AltinnHost.CreateWebApplicationBuilder`](https://github.com/Altinn/altinn-register/blob/f6b5c6034609da6b69a1ffdf8ef3b5265768f0f0/src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs#L68) from the `Altinn.Authorization.ServiceDefaults` package | **off**: verified in the package source ([`AltinnHost.cs`](https://github.com/Altinn/altinn-authorization-utils/blob/98291827769327482cb72536049e060775116fb3/src/pkgs/Altinn.Authorization.ServiceDefaults/src/ServiceDefaults/AltinnHost.cs) is a thin wrapper over `WebApplication.CreateBuilder`; Key Vault loads only with `kvSetting:SecretUri`, App Configuration only with `Altinn:AppConfiguration:Endpoint`, Azure Monitor only with an Application Insights connection string; `Altinn:LocalDev=true` in Development marks the service LOCAL). No directive. The package is on NuGet (6.0.0). |
 | Postgres persistence | `Altinn.Register.Persistence` | **mock**: in-memory `IPartyPersistence`, `IPartyExternalRolePersistence`, `IExternalRoleDefinitionPersistence` over testdata (1 200 to 1 500 lines, see the Register plan); persistence project removed from compilation |
 | MassTransit, imports, jobs, leases | A2/NPR/CCR import sagas | **off** by not compiling them (targets file) plus throwing stubs for the 8 public A2/CCR interfaces |
 | Aspire AppHost | `Altinn.Register.AppHost` | not built |
@@ -151,11 +153,11 @@ NuGet, if one is published; not confirmed).
 
 ### Cross-cutting
 
-- **Ingress.** One reverse proxy on `local.altinn.cloud:8000` with path-prefix rules (`/storage/` → storage,
+- **Ingress.** Plain nginx on `local.altinn.cloud:8000` with path-prefix rules (`/storage/` → storage,
   `/authorization/` → authorization, `/register/` → register, `/profile/`, `/events/`, `/notifications/`,
-  `/authentication/` and `/Home/` → authentication, `/{org}/{app}/` → the app on the developer host). The app keeps
-  today's `PlatformSettings` defaults. Reaching the host app from containers needs `host.docker.internal` or the
-  studioctl host bridge; the MVP can start with `extra_hosts`.
+  `/authentication/` and `/Home/` → authentication, `/{org}/{app}/` → the app on the developer host via
+  `host.docker.internal`). The app keeps today's `PlatformSettings` defaults. Today's cookie-domain rewrite and
+  frontend version override are dropped for the MVP (decision 2026-10-17).
 - **One signing certificate** mounted into authentication (issuer), storage and authorization (verifiers via the
   fake `IPublicSigningKeyProvider`), so platform access tokens and user tokens validate everywhere.
 - **One Postgres** container with per-component databases created by an init script; only Storage uses it in the
@@ -175,16 +177,17 @@ NuGet, if one is published; not confirmed).
    instance lifecycle on production Storage SQL.
 5. `profile`, `events`, `notifications` stubs; retire the old localtest Storage and authorization copies.
 
-## Open questions
+## Decisions (2026-10-17)
 
-1. Repository home: a new top-level folder in the monorepo (`src/Runtime/localtest-next/`?) or a separate repo
-   first; studioctl's manifest model should eventually generate what the compose file expresses.
-2. Subtree granularity for `altinn-auth` (one split per app plus `src/libs`), and whether `Api.Contracts` and
-   `ServiceDefaults` are available as NuGet so fewer trees are needed.
-3. Central package management: does a vendored `Directory.Packages.props` make the fakes project's package
-   references fail without versions, and does `PackageReference Remove` interact cleanly with CPM pins.
-4. Whether `Altinn.Authorization.ServiceDefaults` starts without Azure configuration, which decides the size of
-   the Register host directive.
-5. Storage app-metadata push: who owns it (authentication component, a registrar sidecar, or studioctl).
-6. Image publishing: the compose file builds locally; CI should publish per-component images so developers pull
-   instead of compiling five services.
+| Question | Decision |
+| --- | --- |
+| Repository home | Separate repo for steps 1 and 2 (authentication fake, vendored Register). Move into `altinn-studio` once the props/targets mechanism has survived one real upstream subtree pull. |
+| altinn-auth subtree granularity | Two splits for the authorization component: `src/apps/Altinn.Authorization` and `src/libs/Altinn.Authorization.Api.Contracts` (not on NuGet), relative layout preserved. Ask the auth team to publish `Api.Contracts` in parallel so the lib tree can be dropped later. |
+| Central package management | Non-issue: `fakes/` sits outside `vendor/` and never sees the vendored `Directory.Packages.props` (verified). |
+| Service defaults without Azure | Configuration only, no directive (verified in the package source, see the Register table). |
+| App metadata into Storage | Deferred to the storage step. The MVP has no discovery of running apps; test users come from a static `testData.json` in the repo. |
+| Ingress | Plain nginx with path-prefix routing. Cookie rewrite and frontend version override are out of scope. |
+| Images | Local `docker compose build` only during the MVP. Registry and pin policy are decided at the move into the monorepo. |
+
+Still open: analyzers pulled in by the vendored build chains, and how the compose file later maps onto studioctl's
+manifest model.
