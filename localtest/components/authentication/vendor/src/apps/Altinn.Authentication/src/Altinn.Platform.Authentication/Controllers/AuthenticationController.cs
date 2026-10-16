@@ -1054,11 +1054,20 @@ namespace Altinn.Platform.Authentication.Controllers
                 return false;
             }
 
+#if !LOCALTEST
             // 1) Must be HTTPS
             if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
+#else
+            // 1) Must be HTTPS, or plain HTTP: localtest serves local.altinn.cloud without TLS
+            if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(target.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+#endif
 
             // 2) No embedded credentials
             if (!string.IsNullOrEmpty(target.UserInfo))

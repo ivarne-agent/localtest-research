@@ -290,6 +290,9 @@ internal static class AuthenticationHost
         services.AddFeatureManagement();
         services.AddScoped<TrimStringsActionFilter>();
 
+#if LOCALTEST
+        Altinn.Platform.Authentication.Localtest.LocaltestAuthenticationExtensions.AddLocaltestAuthentication(builder);
+#endif
         builder.AddPersistanceLayer();
 
         return builder.Build();
