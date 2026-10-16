@@ -7,7 +7,9 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | --- | --- |
 | `components/register/vendor/` | Unmodified copy of Altinn/altinn-register (see `UPSTREAM.md`); later changed only inside `#if !LOCALTEST` blocks |
 
-Fake-only components (authentication, later profile, events, notifications) are written fresh for this layout.
+Fake-only components (authentication, later profile, events, notifications) are written fresh for this layout and
+consume the vendored services the way their production counterparts do: the authentication fake resolves users and
+parties through the Register API, and `testData.json` is the Register seed, not a shared file.
 Today's localtest in `altinn-studio/src/Runtime/localtest` is not a basis for anything here, only a reference for
 which behaviours the fakes must provide.
 

@@ -163,7 +163,13 @@ NuGet, if one is published; not confirmed).
   fake `IPublicSigningKeyProvider`), so platform access tokens and user tokens validate everywhere.
 - **One Postgres** container with per-component databases created by an init script; only Storage uses it in the
   MVP.
-- **Test data** mounted into authentication and register; everything else reads it through those two.
+- **Test data** is the Register seed. The static `testData.json` is mounted into the register component only; its
+  in-memory persistence is built from it (persons, organisations, party users, external roles). The authentication
+  fake is a Register client, as production Authentication is: the user picker lists parties through the Register
+  API, login resolves the chosen person to party id, party UUID and user id through Register, and only
+  authentication-specific extras (custom claims, authentication level, system users) come from a small file the
+  authentication fake owns. Profile and the PDP fakes read Register the same way. This keeps one source of truth
+  and exercises the vendored Register API on every login.
 - **Hot reload** of policies and app metadata is lost compared with today's in-process reads unless the fakes
   poll the app; acceptable for an MVP, worth a setting.
 
