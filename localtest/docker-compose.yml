@@ -13,3 +13,13 @@ services:
       - ./components/register/testdata:/testdata:ro
     ports:
       - "5020:5020"
+
+  authentication:
+    build: ./components/authentication
+    environment:
+      GeneralSettings__PlatformEndpoint: http://local.altinn.cloud:8000/
+      Localtest__Authentication__RegisterLocaltestEndpoint: http://register:5020/register/api/localtest/
+    depends_on:
+      - register
+    ports:
+      - "5101:5101"

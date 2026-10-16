@@ -1,0 +1,13 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <!--
+    The localtest fakes implement interfaces that live in the host assembly itself (IOidcProvider, IProfile,
+    ISigningKeysRetriever, ...), so unlike the register component they cannot be a separate project the host
+    references. They are compiled into the host from the adjacent fakes/ folder instead.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Platform.Authentication'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>

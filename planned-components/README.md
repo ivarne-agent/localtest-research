@@ -7,7 +7,7 @@ the rollout order. Background research is in [`../localtest-components/`](../loc
 | Component | Status | Plan |
 | --- | --- | --- |
 | All (MVP model) | sketch | [`mvp-vendoring-model.md`](mvp-vendoring-model.md): compose root, one folder per component with Dockerfile + vendored subtree + build props/targets + adjacent fakes |
-| Register | planned | [`register/README.md`](register/README.md) (plan), [`register/production-register-analysis.md`](register/production-register-analysis.md) (analysis with scratch build) |
+| Register | MVP implemented in [`../localtest/components/register/`](../localtest/components/register/) | [`register/README.md`](register/README.md) (plan), [`register/production-register-analysis.md`](register/production-register-analysis.md) (analysis with scratch build) |
 
 ## Conventions for vendored production code
 
@@ -36,3 +36,4 @@ the rollout order. Background research is in [`../localtest-components/`](../loc
 - Localtest-only implementations (in-memory persistence over the test-data model, auth policies) live
   outside the vendored directory, under `src/Runtime/localtest/src/<Component>/`, and are wired in from the
   `#else` branches or from localtest's own `Startup.cs`.
+| Authentication | MVP implemented in [`../localtest/components/authentication/`](../localtest/components/authentication/) | [`authentication/production-authentication-analysis.md`](authentication/production-authentication-analysis.md) (analysis with verified run) |
