@@ -6,6 +6,7 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Platform.Authentication.Core.RepositoryInterfaces;
 using Altinn.Platform.Authentication.Localtest.Identity;
 using Altinn.Platform.Authentication.Localtest.Keys;
+using Altinn.Platform.Authentication.Localtest.Login;
 using Altinn.Platform.Authentication.Localtest.Persistence;
 using Altinn.Platform.Authentication.Services.Interfaces;
 using Microsoft.AspNetCore.Builder;
@@ -44,7 +45,8 @@ public static class LocaltestAuthenticationExtensions
         // lazily through options, so adding them here, after the production registrations, is in time.
         builder.Configuration.Sources.Insert(0, new MemoryConfigurationSource
         {
-            InitialData = new Dictionary<string, string?>
+            // The level table covers the old localtest's levels 0-4 (LocaltestAuthLevels).
+            InitialData = LocaltestAuthLevels.ConfigurationDefaults("OidcProviders:idporten:AuthLevels").Concat(new Dictionary<string, string?>
             {
                 ["Altinn:LocalDev"] = "true",
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
@@ -60,15 +62,7 @@ public static class LocaltestAuthenticationExtensions
                 ["OidcProviders:idporten:Scope"] = "openid",
                 ["OidcProviders:idporten:DefaultAuthenticationMethod"] = "NotDefined",
                 ["OidcProviders:idporten:ProviderClaims:0"] = "actual_iss",
-                ["OidcProviders:idporten:AuthLevels:0:Acr"] = "idporten-loa-substantial",
-                ["OidcProviders:idporten:AuthLevels:0:Level"] = "Sensitive",
-                ["OidcProviders:idporten:AuthLevels:0:ClaimValues:0"] = "idporten-loa-substantial",
-                ["OidcProviders:idporten:AuthLevels:0:ClaimValues:1"] = "Level3",
-                ["OidcProviders:idporten:AuthLevels:1:Acr"] = "idporten-loa-high",
-                ["OidcProviders:idporten:AuthLevels:1:Level"] = "VerySensitive",
-                ["OidcProviders:idporten:AuthLevels:1:ClaimValues:0"] = "idporten-loa-high",
-                ["OidcProviders:idporten:AuthLevels:1:ClaimValues:1"] = "Level4",
-            },
+            }),
         });
 
         // Settings that follow from PlatformEndpoint or cannot be anything else without a database or Azure: forced over
@@ -102,6 +96,7 @@ public static class LocaltestAuthenticationExtensions
 
         // Upstream identity: the picker instead of ID-porten.
         services.AddSingleton<LocaltestTicketStore>();
+        services.AddScoped<LocaltestSignIn>();
         Replace<IOidcProvider, LocaltestOidcProvider>(services);
         Replace<IUpstreamTokenValidator, LocaltestUpstreamTokenValidator>(services);
 

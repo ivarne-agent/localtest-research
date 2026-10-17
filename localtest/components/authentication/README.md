@@ -7,7 +7,7 @@ test-user picker, Profile replaced by the register seed, Postgres replaced by me
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): picker, fake upstream provider and validator, Profile over the register seed, in-memory repositories, local signing key, token endpoints, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): picker and start page, headless sign-in, fake upstream provider and validator, Profile over the register seed, in-memory repositories, local signing key, token endpoints, DI composition |
 | `Dockerfile` | Publishes the vendored host with the overrides |
 
 Directive sites in `vendor/`:
@@ -21,12 +21,38 @@ How a login works: production `authentication?goTo=` redirects to the configured
 which is the picker page in this host (`authentication/api/v1/localtest/login`). Submitting it issues a one-time code
 and sends the browser to the production `upstream/callback`; the fake `IOidcProvider` turns the code into an id_token
 for the picked user, the fake `IUpstreamTokenValidator` reads it, and production `GetUserFromToken`, Profile lookup
-(fake, from the register seed), session creation, cookie JWT and cookies run unchanged.
+(fake, from the register seed), session creation, cookie JWT and cookies run unchanged. The picker offers each user's
+own party only, because the production callback sets the party cookies; the app's party selection does the rest.
 
-Token endpoints kept from the old localtest contract: `GET /Home/GetTestOrgToken?org&orgNumber&authenticationLevel&scopes`
-(mints a Maskinporten-shaped token with a local key and runs it through the production `exchange/maskinporten`) and
-`GET /Home/GetTestUserToken?userId&authenticationLevel` (runs the production sign-in headlessly, so the token has a real
-session and `refresh` works). Both are anonymous.
+The old localtest's login contract (what the app-frontend Cypress suite, app-lib and developers use), in
+`fakes/Controllers/LocaltestHomeController.cs` and `LocaltestTokenController.cs`, all anonymous:
+
+| Endpoint | Behaviour |
+| --- | --- |
+| `GET /`, `/Home`, `/Home/Index` | Start page: `<select id="UserSelect">` with `userId.partyId` options (`Name`, and `Name for Org` for each party in the user's register `parties`), `AuthenticationLevel` 0-4 (default 2), optional `AppPathSelection`; `?goto=` becomes `RedirectUrl` |
+| `POST /Home/LogInTestUser` | Form or JSON: `UserSelect`, `AuthenticationLevel` (-1 skips the login), `action`, `RedirectUrl`, `AppPathSelection`. Runs the production sign-in headlessly, appends its cookies with `AltinnPartyId`/`AltinnPartyUuid` replaced by the selected party (the JWT keeps the user's own party, as in production). `action=reauthenticate` answers 204; otherwise redirects to `RedirectUrl` (same origin only), else `/{AppPathSelection}/`, else `/` |
+| `GET /Home/Localtest/Version` | `8` (`application/json`), the version `LocaltestValidation` in app-lib probes |
+| `GET /Home/GetTestUserToken[/{userId}]?userId&partyId&authenticationLevel` | Same headless sign-in; returns the JWT and sets the cookies (party cookies on `partyId` when given). Default level 2 |
+| `GET /Home/GetTestOrgToken[/{org}]?org&orgNumber&authenticationLevel&scopes` | Mints a Maskinporten-shaped token with a local key and runs it through the production `exchange/maskinporten` (level 3 from the exchange; default service-owner scopes) |
+
+Authentication levels map to acr values from production's built-in ID-porten table (`OidcAuthLevelDefaults.IdPorten`),
+set as the `OidcProviders:idporten:AuthLevels` default from `fakes/Login/LocaltestAuthLevels.cs`; production claim
+shaping turns the acr into `urn:altinn:authlevel`:
+
+| Level | acr | `SecurityLevel` |
+| --- | --- | --- |
+| 0 | `level0` | `SelfIdentifed` |
+| 1 | `level1` | `NotSensitive` |
+| 2 | `level2` | `QuiteSensitive` |
+| 3 | `idporten-loa-substantial` | `Sensitive` |
+| 4 | `idporten-loa-high` | `VerySensitive` |
+
+Persons sign in by pid (Profile lookup by ssn). A test user with an empty `ssn` is self-identified: the fake id_token
+carries `urn:altinn:userid`, which takes production's Profile-by-userId branch. Test users are read from the register
+component's `test-users`; unknown fields are ignored.
+
+The ingress routes `/` (exact), `/Home` (exact) and `/Home/` to this service. `smoke-test.sh` checks the contract
+(`BASE` = the ingress or the service itself).
 
 Localtest defaults are set in `fakes/LocaltestAuthenticationExtensions.cs`: everything derived from
 `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22 values), and
@@ -41,6 +67,7 @@ export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsP
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:8000 \
   GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/ \
   Localtest__Authentication__RegisterLocaltestEndpoint=http://127.0.0.1:5020/register/api/localtest/ \
-  dotnet run --project vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication
+  dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication
 open 'http://local.altinn.cloud:8000/authentication/api/v1/authentication?goTo=http://local.altinn.cloud:8000/ttd/app/'
+BASE=http://local.altinn.cloud:8000 ./smoke-test.sh
 ```

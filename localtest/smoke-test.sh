@@ -13,7 +13,7 @@ for i in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /de
 J=$(mktemp); LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/ttd/testapp/")
 check "authentication redirects to the picker" "localtest/login" "$(python3 -c "import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).path.split('/v1/')[-1])" "$LOC")"
 q() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$LOC" "$1"; }
-CB=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" -X POST "$BASE/authentication/api/v1/localtest/login" --data-urlencode "state=$(q state)" --data-urlencode "nonce=$(q nonce)" --data-urlencode "redirect_uri=$(q redirect_uri)" --data-urlencode "ssn=01817510120" --data-urlencode "userId=1337" --data-urlencode "acr=idporten-loa-substantial")
+CB=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" -X POST "$BASE/authentication/api/v1/localtest/login" --data-urlencode "state=$(q state)" --data-urlencode "nonce=$(q nonce)" --data-urlencode "redirect_uri=$(q redirect_uri)" --data-urlencode "UserSelect=1337.501337" --data-urlencode "AuthenticationLevel=3")
 H=$(mktemp); curl -s -b "$J" -c "$J" -D "$H" -o /dev/null "$CB"
 check "callback redirects to goTo" "$BASE/ttd/testapp/" "$(grep -i '^Location:' "$H" | tr -d '\r' | awk '{print $2}')"
 check "cookie JWT set without Secure" "yes" "$(grep -i '^Set-Cookie: AltinnStudioRuntime=' "$H" | grep -qi 'secure' && echo no || echo yes)"
