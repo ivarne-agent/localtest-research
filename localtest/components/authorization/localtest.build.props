@@ -1,0 +1,20 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn Authorization (PDP) source, selected through the
+    DirectoryBuildPropsPath environment variable (see Dockerfile). The nearest vendored props above the project
+    is imported first (what MSBuild itself would have found), then LOCALTEST is layered on top. This applies to the
+    host and to the vendored project references (Api.Contracts, ABAC, PEP) alike.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- The vendored ruleset raises documentation and header rules; the localtest sources compiled into the host are not documented that way. -->
+    <NoWarn>$(NoWarn);SA1600;SA1601;SA1602;SA1633;CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

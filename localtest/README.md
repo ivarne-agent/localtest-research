@@ -7,6 +7,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | --- | --- |
 | `components/register/` | Production Register on an in-memory register seeded from `testdata/testData.json` (see its README) |
 | `components/authentication/` | Production Authentication with the upstream provider replaced by a test-user picker (see its README) |
+| `components/authorization/` | Production Authorization (PDP) with policies from a folder or the running app and PIPs over the register seed (see its README) |
 | `docker-compose.yml` | `register` and `authentication` services; no ingress yet, so the authentication service is reached on its own port |
 
 Fake-only components (authentication, later profile, events, notifications) are written fresh for this layout and
