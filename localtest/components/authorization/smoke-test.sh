@@ -12,7 +12,17 @@ REG_PORT=${REG_PORT:-5021}; AUTHN_PORT=${AUTHN_PORT:-8001}; PDP_PORT=${PDP_PORT:
 PLATFORM=http://local.altinn.cloud:$AUTHN_PORT/   # what authentication issues tokens and openid metadata for
 PDP=http://127.0.0.1:$PDP_PORT; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
 POLICIES=$(mktemp -d); cp -r "$Z/policies/." "$POLICIES/"   # a copy, edited by the hot-reload check below
-PIDS=(); trap 'kill "${PIDS[@]}" 2>/dev/null; rm -rf "$POLICIES"' EXIT
+SEED=$(mktemp); PIDS=(); trap 'kill "${PIDS[@]}" 2>/dev/null; rm -rf "$POLICIES" "$SEED"' EXIT
+# The register seed plus the Cypress default user (12345, Ola Nordmann, party 512345, no roles for anyone), unless the
+# register's own seed already has him.
+python3 -I - "$R/testdata/testData.json" "$SEED" <<'PY'
+import sys, json
+d = json.load(open(sys.argv[1]))
+if not any(p.get("userId") == 12345 for p in d["persons"]):
+    d["persons"].append({"userId": 12345, "partyId": 512345, "ssn": "01017510084", "firstName": "Ola", "lastName": "Nordmann",
+                         "userName": "OlaNordmann", "email": "test@test.com", "language": "nb", "partyRoles": {}})
+json.dump(d, open(sys.argv[2], "w"))
+PY
 
 start() { # name dir dll env...
   local name=$1 dir=$2 dll=$3; shift 3
@@ -20,7 +30,7 @@ start() { # name dir dll env...
 }
 start register "$R/vendor/src/apps/Altinn.Register/src/Altinn.Register/bin/Release/net10.0" Altinn.Register.dll \
   ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:$REG_PORT \
-  Localtest__Register__TestDataPath="$R/testdata/testData.json" \
+  Localtest__Register__TestDataPath="$SEED" \
   GeneralSettings__OpenIdWellKnownEndpoint=${PLATFORM}authentication/api/v1/openid/
 start authentication "$A/vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/bin/Release/net10.0" Altinn.Platform.Authentication.dll \
   ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:$AUTHN_PORT GeneralSettings__PlatformEndpoint=$PLATFORM \
@@ -89,10 +99,52 @@ sed -i 's/>DAGL</>NOTDAGL</g' "$POLICIES/ttd/testapp/policy.xml"; sleep 6
 decide NotApplicable  "Ola (DAGL) read on 500000 after removing DAGL"      "$OLA" read ttd testapp 500000
 cp "$Z/policies/ttd/testapp/policy.xml" "$POLICIES/ttd/testapp/policy.xml"; sleep 6
 decide Permit         "Ola (DAGL) read on 500000 after restoring"          "$OLA" read ttd testapp 500000
+echo "== ttd/frontend-test (policies/ttd/frontend-test/policy.xml: lower-case dagl/regna/seln; org ttd may write/complete)"
+helper() { # expected label userId partyId action [task]
+  local expected=$1 label=$2 q="userId=$3&partyId=$4&org=ttd&app=frontend-test&action=$5${6:+&task=$6}"
+  local decision; decision=$(curl -s "$PDP/authorization/api/localtest/decision?$q" | python3 -I -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])' 2>/dev/null || echo error)
+  local mark=ok; [[ "$decision" == "$expected" ]] || { mark=FAIL; FAIL=1; }
+  printf '%-4s %-62s -> %s (expected %s)\n' "$mark" "$label" "$decision" "$expected"
+}
+helper Permit        "Ola 1337 (DAGL->dagl) instantiate on 500000"           1337 500000 instantiate
+helper Permit        "Ola 1337 read on 500000"                                1337 500000 read
+helper Permit        "Ola 1337 write on 500000 in Task_1"                     1337 500000 write Task_1
+helper Permit        "Ola 1337 confirm on 500000 in Task_Custom_Confirm"      1337 500000 confirm Task_Custom_Confirm
+helper NotApplicable "Ola 1337 write on 500000 without a task (rule 4: org only)" 1337 500000 write
+helper NotApplicable "Ola 1337 complete on 500000 (org only)"                 1337 500000 complete
+helper Permit        "Ola 1337 instantiate on sub-unit 500001 (main unit DAGL)" 1337 500001 instantiate
+helper NotApplicable "Ola 1337 (INNH) instantiate on 500002"                  1337 500002 instantiate
+helper Permit        "Kari 1338 (DAGL) instantiate on 500003"                 1338 500003 instantiate
+helper NotApplicable "Ola 12345 instantiate for himself 512345 (PRIV/priv only)" 12345 512345 instantiate
+echo "== Access Management authorized parties (what app-lib's GetPartyList reads)"
+AP=accessmanagement/api/v1/enduser/authorizedparties
+cat >"$LOGS/summary.py" <<'PY'
+import sys, json
+s = sys.stdin.read(); body, code = s.rsplit(" HTTP ", 1)
+if code != "200": print("HTTP", code, body[:200]); sys.exit()
+d = json.loads(body)
+def f(p):
+    out = f"{p['partyId']} {p['type']} {p['name']!r} roles={p['authorizedRoles']} packages={p['authorizedAccessPackages']}"
+    if p["onlyHierarchyElementWithNoAccess"]: out += " hierarchy-only"
+    if p["subunits"]: out += " subunits=[" + "; ".join(f(c) for c in p["subunits"]) + "]"
+    return out
+print("HTTP 200, top-level keys", sorted(d)); print("\n".join("  " + f(p) for p in d["data"]))
+PY
+summary() { python3 -I "$LOGS/summary.py"; }
+echo "GET $AP (Ola's token) ->"; curl -s -H "Authorization: Bearer $OLA" "$PDP/$AP?includeRoles=true&includeAccessPackages=true&includeResources=true&includeInstances=true&includePartiesViaKeyRoles=true&includeSubParties=true&includeInactiveParties=true" -w ' HTTP %{http_code}' | summary
+check() { local mark=ok; [[ "$2" == "$3" ]] || { mark=FAIL; FAIL=1; }; printf '%-4s %-62s -> %s (expected %s)\n' "$mark" "$1" "$2" "$3"; }
+check "$AP for Ola: party ids incl. sub-units" "$(curl -s -H "Authorization: Bearer $OLA" "$PDP/$AP" | python3 -I -c 'import sys,json; print(" ".join(str(p["partyId"]) + "".join("/" + str(c["partyId"]) for c in p["subunits"]) for p in json.load(sys.stdin)["data"]))')" "501337 500000/500001 500002"
+check "$AP for Ola: 500000 roles; sub-unit 500001 roles" "$(curl -s -H "Authorization: Bearer $OLA" "$PDP/$AP" | python3 -I -c 'import sys,json; p=[p for p in json.load(sys.stdin)["data"] if p["partyId"]==500000][0]; print(p["type"], p["organizationNumber"], p["authorizedRoles"], p["subunits"][0]["authorizedRoles"], p["onlyHierarchyElementWithNoAccess"])')" "Organization 910000012 ['dagl'] ['dagl'] False"
+check "$AP?includeRoles=false for Ola: 500000 roles" "$(curl -s -H "Authorization: Bearer $OLA" "$PDP/$AP?includeRoles=false" | python3 -I -c 'import sys,json; print([p["authorizedRoles"] for p in json.load(sys.stdin)["data"] if p["partyId"]==500000][0])')" "[]"
+check "$AP?userId=12345 without a token (tools)" "$(curl -s "$PDP/$AP?userId=12345" | python3 -I -c 'import sys,json; print([(p["partyId"], p["type"], p["authorizedRoles"]) for p in json.load(sys.stdin)["data"]])')" "[(512345, 'Person', ['priv'])]"
+check "$AP without a token or userId" "$(curl -s -o /dev/null -w '%{http_code}' "$PDP/$AP")" "401"
+check "$AP?userId=1338 with Ola's token" "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $OLA" "$PDP/$AP?userId=1338")" "403"
+check "POST authorization/api/localtest/refresh" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$PDP/authorization/api/localtest/refresh")" "204"
 echo "== localtest helper endpoint"
 echo "GET authorization/api/localtest/decision?userId=1337&partyId=500000&org=ttd&app=testapp&action=read ->" \
   "$(curl -s "$PDP/authorization/api/localtest/decision?userId=1337&partyId=500000&org=ttd&app=testapp&action=read" | head -c 300)"
 echo "== parties endpoint (JWT cookie validated against authentication's openid metadata)"
+check "GET authorization/api/v1/parties?userid=1337: ids incl. sub-units" "$(curl -s -H "Authorization: Bearer $OLA" "$PDP/authorization/api/v1/parties?userid=1337" | python3 -I -c 'import sys,json; print(" ".join(str(p["partyId"]) + "".join("/" + str(c["partyId"]) for c in (p.get("childParties") or [])) for p in json.load(sys.stdin)))')" "501337 500000/500001 500002"
 echo "GET authorization/api/v1/parties?userid=1337 -> $(curl -s -H "Authorization: Bearer $OLA" "$PDP/authorization/api/v1/parties?userid=1337" -w ' HTTP %{http_code}' | python3 -I -c 'import sys,json; s=sys.stdin.read(); b,c=s.rsplit(" HTTP ",1); print("HTTP",c, [(p["partyId"],p["name"],[x["partyId"] for x in (p.get("childParties") or [])]) for p in json.loads(b)] if c=="200" else b[:200])')"
 echo "GET authorization/api/v1/parties/500000/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $OLA" "$PDP/authorization/api/v1/parties/500000/validate?userid=1337" -w ' HTTP %{http_code}')"
 echo "GET authorization/api/v1/parties/500003/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $OLA" "$PDP/authorization/api/v1/parties/500003/validate?userid=1337" -w ' HTTP %{http_code}')"

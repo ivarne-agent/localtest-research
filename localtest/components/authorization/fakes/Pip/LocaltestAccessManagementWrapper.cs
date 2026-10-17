@@ -78,47 +78,9 @@ public sealed class LocaltestAccessManagementWrapper(
     public async Task<IEnumerable<AuthorizedPartyDto>> GetAuthorizedParties(CancellationToken cancellationToken = default)
     {
         var snapshot = await register.Get(cancellationToken);
-        if (CurrentUser(snapshot) is not { } user)
-        {
-            return [];
-        }
-
-        var parties = new List<AuthorizedPartyDto>
-        {
-            new()
-            {
-                PartyUuid = user.PartyUuid,
-                PartyId = user.PartyId,
-                Name = user.DisplayName,
-                PersonId = user.Ssn,
-                Type = AuthorizedPartyType.Person,
-                AuthorizedRoles = [LocaltestRoleMapping.SelfRoleCode],
-            },
-        };
-
-        foreach (var party in user.Parties)
-        {
-            parties.Add(new AuthorizedPartyDto
-            {
-                PartyUuid = party.PartyUuid,
-                PartyId = party.PartyId,
-                Name = party.DisplayName,
-                OrganizationNumber = party.OrgNumber,
-                Type = party.OrgNumber is null ? AuthorizedPartyType.Person : AuthorizedPartyType.Organization,
-                AuthorizedRoles = [.. party.RoleCodes ?? []],
-                Subunits = snapshot.SubUnitsOf(party.PartyId).Select(o => new AuthorizedPartyDto
-                {
-                    PartyUuid = o.PartyUuid,
-                    PartyId = o.PartyId,
-                    Name = o.DisplayName,
-                    OrganizationNumber = o.OrgNumber,
-                    Type = AuthorizedPartyType.Organization,
-                    UnitType = "BEDR",
-                }).ToList(),
-            });
-        }
-
-        return parties;
+        return CurrentUser(snapshot) is { } user
+            ? LocaltestAuthorizedParties.For(snapshot, user).Select(ToHostModel).ToList()
+            : [];
     }
 
     public async Task<AuthorizedPartyDto?> GetAuthorizedParty(int partyId, CancellationToken cancellationToken = default)
@@ -126,6 +88,22 @@ public sealed class LocaltestAccessManagementWrapper(
         var parties = await GetAuthorizedParties(cancellationToken);
         return parties.Concat(parties.SelectMany(p => p.Subunits)).FirstOrDefault(p => p.PartyId == partyId);
     }
+
+    private static AuthorizedPartyDto ToHostModel(Altinn.Authorization.Api.Contracts.AccessManagement.AuthorizedPartyDto party)
+        => new()
+        {
+            PartyUuid = party.PartyUuid,
+            PartyId = party.PartyId,
+            Name = party.Name,
+            OrganizationNumber = party.OrganizationNumber,
+            PersonId = party.PersonId,
+            Type = (AuthorizedPartyType)(int)party.Type,
+            UnitType = party.UnitType,
+            IsDeleted = party.IsDeleted,
+            OnlyHierarchyElementWithNoAccess = party.OnlyHierarchyElementWithNoAccess,
+            AuthorizedRoles = party.AuthorizedRoles,
+            Subunits = party.Subunits.Select(ToHostModel).ToList(),
+        };
 
     private RegisterLocaltestClient.TestUser? CurrentUser(RegisterLocaltestClient.Snapshot snapshot)
     {
