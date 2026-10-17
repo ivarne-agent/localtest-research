@@ -20,13 +20,13 @@ check "cookie JWT set without Secure" "yes" "$(grep -i '^Set-Cookie: AltinnStudi
 TOKEN=$(grep -i '^Set-Cookie: AltinnStudioRuntime=' "$H" | sed -E 's/^Set-Cookie: AltinnStudioRuntime=([^;]*).*/\1/')
 check "refresh with the cookie JWT" "200" "$(code -H "Authorization: Bearer $TOKEN" "$BASE/authentication/api/v1/refresh")"
 
-USR=$(curl -s "$BASE/Home/GetTestUserToken?userId=1337" | tr -d '"'); U2=$(curl -s "$BASE/Home/GetTestUserToken?userId=1340" | tr -d '"')
+USR=$(curl -s "$BASE/Home/GetTestUserToken?userId=1337" | tr -d '"'); U2=$(curl -s "$BASE/Home/GetTestUserToken?userId=1003" | tr -d '"')
 ORG=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&authenticationLevel=3&scopes=altinn:serviceowner/instances.read%20altinn:serviceowner/instances.write" | tr -d '"')
 check "org token through exchange/maskinporten" "ttd" "$(python3 -c "import sys,base64,json; p=sys.argv[1].split('.')[1]; p+='='*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p)).get('urn:altinn:org'))" "$ORG")"
 
 dec() { curl -s "$BASE/authorization/api/localtest/decision?userId=$1&partyId=$2&org=ttd&app=testapp&action=$3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])'; }
-check "PDP: Ola (DAGL) may read ttd/testapp for 500000" "Permit" "$(dec 1337 500000 read)"
-check "PDP: Ola has nothing on 500003" "NotApplicable" "$(dec 1337 500003 read)"
+check "PDP: Sophie (DAGL) may read ttd/testapp for 500000" "Permit" "$(dec 1337 500000 read)"
+check "PDP: Sophie has nothing on 500005" "NotApplicable" "$(dec 1337 500005 read)"
 
 R=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $USR" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/instances?appId=ttd/testapp" -d '{"instanceOwner":{"partyId":"500000"},"appId":"ttd/testapp","org":"ttd"}')
 check "storage: user creates an instance for 500000" "201" "$(echo "$R" | tail -1)"

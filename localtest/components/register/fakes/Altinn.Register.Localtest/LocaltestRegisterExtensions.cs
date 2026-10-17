@@ -38,11 +38,14 @@ public static class LocaltestRegisterExtensions
         var services = builder.Services;
         services.AddOptions<LocaltestRegisterOptions>().BindConfiguration("Localtest:Register");
 
-        // Persistence: in-memory, seeded from testData.json, reached through Core's own unit-of-work manager.
+        // Persistence: in-memory snapshots built from testData.json plus registered apps' test data, reached
+        // through Core's own unit-of-work manager. Everything reads RegisterStoreProvider.Current.
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<StaticExternalRoleDefinitionPersistence>();
         services.AddSingleton<IExternalRoleDefinitionPersistence>(sp => sp.GetRequiredService<StaticExternalRoleDefinitionPersistence>());
-        services.AddSingleton<RegisterStore>();
+        services.AddSingleton<RegisterStoreProvider>();
+        services.AddHttpClient(RegisterStoreProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddHostedService<HostedAppRegistration>();
         services.AddSingleton<InMemoryPartyPersistence>();
         services.AddSingleton<InMemoryPartyExternalRolePersistence>();
         services.AddUnitOfWorkService<IPartyPersistence>(sp => sp.GetRequiredService<InMemoryPartyPersistence>());
@@ -70,6 +73,8 @@ public static class LocaltestRegisterExtensions
         // Localtest-only controllers. The host uses AddControllersAsServices, so they must be in DI too.
         services.AddControllers().AddApplicationPart(typeof(LocaltestTestUsersController).Assembly);
         services.AddTransient<LocaltestTestUsersController>();
+        services.AddTransient<LocaltestAppsController>();
+        services.AddTransient<LocaltestProfileController>();
 
         return builder;
     }

@@ -10,10 +10,12 @@ namespace Altinn.Register.Localtest.Persistence;
 /// Read-only <see cref="IPartyPersistence"/> over the <see cref="RegisterStore"/>.
 /// Writes (imports, self-identified users, set-username) are not supported: edit <c>testData.json</c> instead.
 /// </summary>
-public sealed class InMemoryPartyPersistence(RegisterStore store)
+public sealed class InMemoryPartyPersistence(RegisterStoreProvider provider)
     : IPartyPersistence
 {
-    private const string ReadOnlyMessage = "The localtest register is read-only; change testData.json and restart.";
+    private RegisterStore store => provider.Current;
+
+    private const string ReadOnlyMessage = "The localtest register is read-only; change testData.json and POST register/api/localtest/apps/refresh.";
 
     public IAsyncEnumerable<PartyRecord> GetPartyById(Guid partyUuid, PartyFieldIncludes include = PartyFieldIncludes.Party, CancellationToken cancellationToken = default)
         => Single(store.ByUuid.GetValueOrDefault(partyUuid), include);
@@ -43,6 +45,7 @@ public sealed class InMemoryPartyPersistence(RegisterStore store)
         PartyListTransforms transforms = PartyListTransforms.None,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var store = provider.Current; // one snapshot for the whole lookup
         var matched = new HashSet<Guid>();
 
         void Add(PartyRecord? record)
@@ -86,7 +89,8 @@ public sealed class InMemoryPartyPersistence(RegisterStore store)
         foreach (var username in usernames ?? [])
         {
             Add(store.Parties.FirstOrDefault(p => p.Usernames.HasValue && p.Usernames.Value.HasCurrentValue
-                && string.Equals(p.Usernames.Value.CurrentValue.Value, username, StringComparison.OrdinalIgnoreCase)));
+                && string.Equals(p.Usernames.Value.CurrentValue.Value, username, StringComparison.OrdinalIgnoreCase))
+                ?? store.UsersByUsername.GetValueOrDefault(username)?.Party); // self-identified users keep the username out of the record
         }
 
         foreach (var email in selfIdentifiedEmails ?? [])
@@ -122,7 +126,7 @@ public sealed class InMemoryPartyPersistence(RegisterStore store)
     }
 
     public IAsyncEnumerable<PartyRecord> GetPartyStream(ulong fromExclusive, ushort limit, PartyFieldIncludes include = PartyFieldIncludes.Party, IReadOnlySet<PartyRecordType>? filterByPartyType = null, CancellationToken cancellationToken = default)
-        => store.Parties
+        => provider.Current.Parties
             .Where(p => p.VersionId.Value > fromExclusive)
             .Where(p => filterByPartyType is null || filterByPartyType.Contains(p.PartyType.Value))
             .Take(limit)

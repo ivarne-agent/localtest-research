@@ -4,14 +4,16 @@ using Altinn.Authorization.ModelUtils;
 using Altinn.Register.Contracts;
 using Altinn.Register.Core.Parties.Records;
 using Altinn.Register.Localtest.TestData;
+using Altinn.Register.Core.ExternalRoles;
+using Altinn.Urn;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Altinn.Register.Localtest.Persistence;
 
 /// <summary>
-/// The in-memory register built from <c>testData.json</c>: party records, external role assignments and the
-/// synthesized event streams. Immutable after construction; edit the file and restart to change it.
+/// One immutable snapshot of the in-memory register built from test data: party records, external role
+/// assignments, the synthesized event streams and the per-user grants. <see cref="RegisterStoreProvider"/> swaps
+/// whole snapshots when the seed is reloaded or an app's test data is registered.
 /// </summary>
 public sealed class RegisterStore
 {
@@ -20,16 +22,20 @@ public sealed class RegisterStore
 
     private const uint SystemUserPartyIdBase = 900_000_000;
 
-    public RegisterStore(IOptions<LocaltestRegisterOptions> options, StaticExternalRoleDefinitionPersistence roleDefinitions, ILogger<RegisterStore> logger)
+    public RegisterStore(TestDataFile data, StaticExternalRoleDefinitionPersistence roleDefinitions, ILogger logger)
     {
-        var path = options.Value.TestDataPath;
-        logger.LogInformation("Loading localtest register data from {Path}", path);
-        var data = TestDataFile.Load(path);
         RoleDefinitions = roleDefinitions;
 
         var parties = new List<PartyRecord>();
         var assignments = new List<RoleAssignment>();
+        var warnings = new List<string>();
         ulong version = 0;
+
+        void Warn(string message)
+        {
+            warnings.Add(message);
+            logger.LogWarning("{Message}", message);
+        }
 
         var orgByPartyId = new Dictionary<int, (TestOrg Org, Guid Uuid)>();
         foreach (var org in data.Orgs.OrderBy(o => o.PartyId))
@@ -38,23 +44,49 @@ public sealed class RegisterStore
             orgByPartyId[org.PartyId] = (org, uuid);
         }
 
+        var loadedPersons = new List<(TestPerson Person, PartyRecord Party)>();
         foreach (var person in data.Persons.OrderBy(p => p.PartyId))
         {
+            var uuid = person.PartyUuid ?? UuidFromPartyId(person.PartyId);
+            var displayName = string.Join(' ', new[] { person.FirstName, person.MiddleName, person.LastName }.Where(static s => !string.IsNullOrWhiteSpace(s)));
+
             if (string.IsNullOrEmpty(person.Ssn))
             {
-                logger.LogWarning("Skipping person with partyId {PartyId}: self-identified users are not supported yet", person.PartyId);
+                // Self-identified user (legacy username/password user). The username goes in the external URN only:
+                // the v1 mapping names a self-identified party after its username, and apps show the display name.
+                var siUsername = string.IsNullOrEmpty(person.UserName) ? $"si-{person.PartyId}" : person.UserName;
+                var si = new SelfIdentifiedUserRecord
+                {
+                    PartyUuid = uuid,
+                    OwnerUuid = FieldValue.Null,
+                    PartyId = checked((uint)person.PartyId),
+                    ExternalUrn = PartyExternalRefUrn.LegacySelfIdentifiedUsername.Create(UrnEncoded.Create(siUsername)),
+                    DisplayName = displayName,
+                    PersonIdentifier = FieldValue.Null,
+                    OrganizationIdentifier = FieldValue.Null,
+                    CreatedAt = LoadedAt,
+                    ModifiedAt = LoadedAt,
+                    UserIds = PartyHistoricalAggregate<uint>.CreateCurrent(checked((uint)person.UserId)),
+                    Usernames = PartyHistoricalAggregate<string>.Empty,
+                    IsDeleted = false,
+                    DeletedAt = FieldValue.Null,
+                    VersionId = ++version,
+                    SelfIdentifiedUserType = SelfIdentifiedUserType.Legacy,
+                    Email = Text(person.Email),
+                    ExtRef = FieldValue.Null,
+                };
+                parties.Add(si);
+                loadedPersons.Add((person, si));
                 continue;
             }
 
             if (!PersonIdentifier.TryParse(person.Ssn, null, out var identifier))
             {
-                logger.LogWarning("Skipping person with partyId {PartyId}: '{Ssn}' is not a valid national identity number (mod-11 check)", person.PartyId, person.Ssn);
+                Warn($"Skipping person with partyId {person.PartyId}: '{person.Ssn}' is not a valid national identity number (mod-11 check)");
                 continue;
             }
 
-            var uuid = person.PartyUuid ?? UuidFromPartyId(person.PartyId);
-            var displayName = string.Join(' ', new[] { person.FirstName, person.MiddleName, person.LastName }.Where(static s => !string.IsNullOrWhiteSpace(s)));
-            parties.Add(new PersonRecord
+            var record = new PersonRecord
             {
                 PartyUuid = uuid,
                 OwnerUuid = FieldValue.Null,
@@ -81,35 +113,16 @@ public sealed class RegisterStore
                 MailingAddress = MailingAddress(person.MailingAddress, person.MailingPostalCode, person.MailingPostalCity),
                 DateOfBirth = DateOfBirth(person.Ssn),
                 DateOfDeath = FieldValue.Null,
-            });
-
-            foreach (var (forPartyId, roles) in person.PartyRoles)
-            {
-                if (!int.TryParse(forPartyId, CultureInfo.InvariantCulture, out var forId) || !orgByPartyId.TryGetValue(forId, out var forOrg))
-                {
-                    logger.LogWarning("Person {PartyId} has roles for unknown party '{ForPartyId}'", person.PartyId, forPartyId);
-                    continue;
-                }
-
-                foreach (var role in roles)
-                {
-                    if (!roleDefinitions.TryGetRoleDefinitionByRoleCode(role.Value, out var definition)
-                        && !roleDefinitions.TryGetRoleDefinition(ExternalRoleSource.CentralCoordinatingRegister, role.Value.ToLowerInvariant(), out definition))
-                    {
-                        logger.LogWarning("Person {PartyId} has unknown role '{Role}' for party {ForPartyId}; it is not a CCR role code or identifier", person.PartyId, role.Value, forPartyId);
-                        continue;
-                    }
-
-                    assignments.Add(new RoleAssignment(definition.Source, definition.Identifier, FromParty: forOrg.Uuid, ToParty: uuid));
-                }
-            }
+            };
+            parties.Add(record);
+            loadedPersons.Add((person, record));
         }
 
         foreach (var (org, uuid) in orgByPartyId.Values.OrderBy(o => o.Org.PartyId))
         {
             if (!OrganizationIdentifier.TryParse(org.OrgNumber, null, out var identifier))
             {
-                logger.LogWarning("Skipping organisation with partyId {PartyId}: '{OrgNumber}' is not a valid organisation number (mod-11 check)", org.PartyId, org.OrgNumber);
+                Warn($"Skipping organisation with partyId {org.PartyId}: '{org.OrgNumber}' is not a valid organisation number (mod-11 check)");
                 continue;
             }
 
@@ -151,9 +164,83 @@ public sealed class RegisterStore
                 }
                 else
                 {
-                    logger.LogWarning("Organisation {PartyId} has unknown parentPartyId {ParentPartyId}", org.PartyId, parentId);
+                    Warn($"Organisation {org.PartyId} has unknown parentPartyId {parentId}");
                 }
             }
+        }
+
+        var byPartyId = parties.ToDictionary(p => p.PartyId.Value);
+
+        // Roles and access packages, after all parties exist so roles may point at any party.
+        var users = new List<TestUser>();
+        foreach (var (person, party) in loadedPersons)
+        {
+            var selfRoleCodes = new List<string>();
+            var grants = new SortedDictionary<uint, PartyGrant>();
+
+            PartyGrant? GrantFor(string forPartyId, string what)
+            {
+                if (!uint.TryParse(forPartyId, CultureInfo.InvariantCulture, out var forId) || !byPartyId.TryGetValue(forId, out var forParty))
+                {
+                    Warn($"Person {person.PartyId} has {what} for unknown party '{forPartyId}'");
+                    return null;
+                }
+
+                if (!grants.TryGetValue(forId, out var grant))
+                {
+                    grants[forId] = grant = new PartyGrant(forParty, [], [], []);
+                }
+
+                return grant;
+            }
+
+            foreach (var (forPartyId, roles) in person.PartyRoles)
+            {
+                if (forPartyId == person.PartyId.ToString(CultureInfo.InvariantCulture))
+                {
+                    selfRoleCodes.AddRange(roles.Select(r => r.Value).Where(v => !selfRoleCodes.Contains(v)));
+                    continue;
+                }
+
+                if (GrantFor(forPartyId, "roles") is not { } grant)
+                {
+                    continue;
+                }
+
+                foreach (var role in roles)
+                {
+                    ExternalRoleDefinition? definition = null;
+                    var byCode = grant.Party is OrganizationRecord && roleDefinitions.TryGetRoleDefinitionByRoleCode(role.Value, out definition);
+                    var byIdentifier = !byCode && grant.Party is OrganizationRecord
+                        && roleDefinitions.TryGetRoleDefinition(ExternalRoleSource.CentralCoordinatingRegister, role.Value.ToLowerInvariant(), out definition);
+
+                    if (definition is not null && (byCode || byIdentifier))
+                    {
+                        assignments.Add(new RoleAssignment(definition.Source, definition.Identifier, FromParty: grant.Party.PartyUuid.Value, ToParty: party.PartyUuid.Value));
+                        AddDistinct(grant.CcrRoles, definition.Identifier);
+                    }
+
+                    // Every code is kept verbatim for urn:altinn:rolecode; a CCR identifier is given as its code.
+                    var code = byIdentifier ? definition!.Code : role.Value;
+                    if (!string.IsNullOrEmpty(code))
+                    {
+                        AddDistinct(grant.RoleCodes, code);
+                    }
+                }
+            }
+
+            foreach (var (forPartyId, packages) in person.AccessPackages)
+            {
+                if (GrantFor(forPartyId, "access packages") is { } grant)
+                {
+                    foreach (var package in packages)
+                    {
+                        AddDistinct(grant.AccessPackages, package);
+                    }
+                }
+            }
+
+            users.Add(new TestUser(person, party, selfRoleCodes, [.. grants.Values]));
         }
 
         uint nextSystemUserPartyId = SystemUserPartyIdBase;
@@ -162,9 +249,9 @@ public sealed class RegisterStore
             foreach (var systemUser in system.SystemUsers)
             {
                 var owner = orgByPartyId.Values.FirstOrDefault(o => o.Org.OrgNumber == systemUser.OrgNumber);
-                if (owner.Org is null)
+                if (owner.Org is null || !byPartyId.ContainsKey(checked((uint)owner.Org.PartyId)))
                 {
-                    logger.LogWarning("System user {Id} belongs to unknown organisation '{OrgNumber}'", systemUser.Id, systemUser.OrgNumber);
+                    Warn($"System user {systemUser.Id} belongs to unknown organisation '{systemUser.OrgNumber}'");
                     continue;
                 }
 
@@ -195,6 +282,11 @@ public sealed class RegisterStore
         ByPersonIdentifier = Parties.Where(p => p.PersonIdentifier.HasValue).ToDictionary(p => p.PersonIdentifier.Value.ToString());
         ByOrganizationIdentifier = Parties.Where(p => p.OrganizationIdentifier.HasValue).ToDictionary(p => p.OrganizationIdentifier.Value.ToString());
         ByUserId = Parties.Where(p => p.UserIds.Value.HasCurrentValue).ToDictionary(p => p.UserIds.Value.CurrentValue.Value);
+        Users = [.. users];
+        UsersByUserId = Users.ToDictionary(u => u.Person.UserId);
+        UsersByUsername = Users.Where(u => !string.IsNullOrEmpty(u.Person.UserName))
+            .GroupBy(u => u.Person.UserName!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         Assignments = [.. assignments];
         RoleEvents = [.. assignments.Select((a, i) => new ExternalRoleAssignmentEvent
         {
@@ -207,8 +299,9 @@ public sealed class RegisterStore
         })];
         MaxPartyVersionId = version;
         TestData = data;
+        Warnings = [.. warnings];
 
-        logger.LogInformation("Localtest register loaded: {Parties} parties, {Assignments} external role assignments", Parties.Length, Assignments.Length);
+        logger.LogInformation("Localtest register loaded: {Parties} parties, {Users} users, {Assignments} external role assignments", Parties.Length, Users.Length, Assignments.Length);
     }
 
     public StaticExternalRoleDefinitionPersistence RoleDefinitions { get; }
@@ -234,6 +327,26 @@ public sealed class RegisterStore
 
     public ulong MaxPartyVersionId { get; }
 
+    /// <summary>The persons that loaded (including self-identified users), with what they hold for other parties.</summary>
+    public ImmutableArray<TestUser> Users { get; }
+
+    public IReadOnlyDictionary<int, TestUser> UsersByUserId { get; }
+
+    public IReadOnlyDictionary<string, TestUser> UsersByUsername { get; }
+
+    /// <summary>Problems found while building this snapshot (skipped persons, unknown parties, ...).</summary>
+    public ImmutableArray<string> Warnings { get; }
+
+    public TestUser? UserByPartyUuid(Guid partyUuid)
+        => ByUuid.TryGetValue(partyUuid, out var party) && party.UserIds.HasValue && party.UserIds.Value.HasCurrentValue
+            ? UsersByUserId.GetValueOrDefault(checked((int)party.UserIds.Value.CurrentValue.Value))
+            : null;
+
+    public TestUser? UserBySsn(string ssn)
+        => ByPersonIdentifier.TryGetValue(ssn, out var party) && party.UserIds.HasValue && party.UserIds.Value.HasCurrentValue
+            ? UsersByUserId.GetValueOrDefault(checked((int)party.UserIds.Value.CurrentValue.Value))
+            : null;
+
     public bool IsMainUnitRole(RoleAssignment assignment)
         => RoleDefinitions.IsMainUnitRole(assignment.Source, assignment.Identifier);
 
@@ -248,6 +361,14 @@ public sealed class RegisterStore
     /// <summary>The party UUID used when test data has none: the party id, zero-padded into a GUID.</summary>
     public static Guid UuidFromPartyId(int partyId)
         => Guid.ParseExact(partyId.ToString("D32", CultureInfo.InvariantCulture), "N");
+
+    private static void AddDistinct(List<string> list, string value)
+    {
+        if (!list.Contains(value, StringComparer.Ordinal))
+        {
+            list.Add(value);
+        }
+    }
 
     private static FieldValue<string> Text(string? value)
         => string.IsNullOrEmpty(value) ? FieldValue.Null : value;
@@ -329,6 +450,12 @@ public sealed class RegisterStore
         }
     }
 }
+
+/// <summary>What a test user holds for one other party: CCR role identifiers, Altinn role codes (verbatim) and access packages.</summary>
+public sealed record PartyGrant(PartyRecord Party, List<string> CcrRoles, List<string> RoleCodes, List<string> AccessPackages);
+
+/// <summary>A loaded test person or self-identified user, with the role codes for their own party and grants for others.</summary>
+public sealed record TestUser(TestPerson Person, PartyRecord Party, IReadOnlyList<string> SelfRoleCodes, IReadOnlyList<PartyGrant> Grants);
 
 /// <summary>An external role assignment: <paramref name="FromParty"/> has the role <paramref name="Identifier"/> held by <paramref name="ToParty"/>.</summary>
 public sealed record RoleAssignment(ExternalRoleSource Source, string Identifier, Guid FromParty, Guid ToParty);
