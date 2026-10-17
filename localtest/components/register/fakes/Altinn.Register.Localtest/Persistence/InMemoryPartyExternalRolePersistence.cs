@@ -8,7 +8,7 @@ using Altinn.Register.Core.Utils;
 namespace Altinn.Register.Localtest.Persistence;
 
 /// <summary>Read-only <see cref="IPartyExternalRolePersistence"/> over the <see cref="RegisterStore"/>.</summary>
-public sealed class InMemoryPartyExternalRolePersistence(RegisterStore store)
+public sealed class InMemoryPartyExternalRolePersistence(RegisterStoreProvider provider)
     : IPartyExternalRolePersistence
 {
     public IAsyncEnumerable<PartyExternalRoleAssignmentRecord> GetExternalRoleAssignmentsFromParty(Guid partyUuid, PartyExternalRoleAssignmentFieldIncludes include = PartyExternalRoleAssignmentFieldIncludes.RoleAssignment, CancellationToken cancellationToken = default)
@@ -27,15 +27,18 @@ public sealed class InMemoryPartyExternalRolePersistence(RegisterStore store)
         => Query(a => a.ToParty == partyUuid && Matches(a, role), include);
 
     public IAsyncSideEffectEnumerable<ExternalRoleAssignmentEvent> UpsertExternalRolesFromPartyBySource(Guid commandId, Guid partyUuid, ExternalRoleSource roleSource, PartyExternalRoleAssignmentsUpdate update, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("The localtest register is read-only; change testData.json and restart.");
+        => throw new NotSupportedException("The localtest register is read-only; change testData.json and POST register/api/localtest/apps/refresh.");
 
     private static bool Matches(RoleAssignment assignment, ExternalRoleReference role)
         => assignment.Source == role.Source && string.Equals(assignment.Identifier, role.Identifier, StringComparison.Ordinal);
 
     private IAsyncEnumerable<PartyExternalRoleAssignmentRecord> Query(Func<RoleAssignment, bool> predicate, PartyExternalRoleAssignmentFieldIncludes include)
-        => store.Assignments.Where(predicate).Select(a => ToRecord(a, include)).ToAsyncEnumerable();
+    {
+        var store = provider.Current;
+        return store.Assignments.Where(predicate).Select(a => ToRecord(store, a, include)).ToAsyncEnumerable();
+    }
 
-    private PartyExternalRoleAssignmentRecord ToRecord(RoleAssignment a, PartyExternalRoleAssignmentFieldIncludes include)
+    private static PartyExternalRoleAssignmentRecord ToRecord(RegisterStore store, RoleAssignment a, PartyExternalRoleAssignmentFieldIncludes include)
     {
         store.RoleDefinitions.TryGetRoleDefinition(a.Source, a.Identifier, out var definition);
         return new PartyExternalRoleAssignmentRecord
