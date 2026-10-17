@@ -44,8 +44,6 @@ public static class LocaltestRegisterExtensions
         services.AddSingleton<StaticExternalRoleDefinitionPersistence>();
         services.AddSingleton<IExternalRoleDefinitionPersistence>(sp => sp.GetRequiredService<StaticExternalRoleDefinitionPersistence>());
         services.AddSingleton<RegisterStoreProvider>();
-        services.AddHttpClient(RegisterStoreProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
-        services.AddHostedService<HostedAppRegistration>();
         services.AddSingleton<InMemoryPartyPersistence>();
         services.AddSingleton<InMemoryPartyExternalRolePersistence>();
         services.AddUnitOfWorkService<IPartyPersistence>(sp => sp.GetRequiredService<InMemoryPartyPersistence>());

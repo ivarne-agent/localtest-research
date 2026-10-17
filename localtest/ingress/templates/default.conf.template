@@ -45,7 +45,6 @@ server {
     set $authorization  ${AUTHORIZATION_UPSTREAM};
     set $access_management ${ACCESS_MANAGEMENT_UPSTREAM};
     set $storage        ${STORAGE_UPSTREAM};
-    set $app            ${APP_UPSTREAM};
 
     location /register/         { proxy_pass $register; }
     location /profile/          { proxy_pass $register; }
@@ -70,8 +69,12 @@ server {
 
     location = /health { return 200 'ok'; add_header Content-Type text/plain; }
 
-    # Apps on the developer machine: run-app.sh drops one file per app into ingress/app-routes/ (mounted at
-    # /etc/nginx/app-routes) and reloads nginx; anything not matched goes to APP_UPSTREAM.
+    # Apps on the developer machine: the app runner (run-app.sh) drops one location per app into ingress/app-routes/
+    # (mounted at /etc/nginx/app-routes) and reloads nginx. Nothing else is guessed: an app path without a route is
+    # a 404, never another app's answer.
     include /etc/nginx/app-routes/*.conf;
-    location / { proxy_pass $app; }
+    location / {
+        default_type text/plain;
+        return 404 'No app is registered for this path. Start it with run-app.sh <app-dir> <port>.\n';
+    }
 }

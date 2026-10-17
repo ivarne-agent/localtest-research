@@ -24,6 +24,18 @@ USR=$(curl -s "$BASE/Home/GetTestUserToken?userId=1337" | tr -d '"'); U2=$(curl 
 ORG=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&authenticationLevel=3&scopes=altinn:serviceowner/instances.read%20altinn:serviceowner/instances.write" | tr -d '"')
 check "org token through exchange/maskinporten" "ttd" "$(python3 -c "import sys,base64,json; p=sys.argv[1].split('.')[1]; p+='='*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p)).get('urn:altinn:org'))" "$ORG")"
 
+# What the app runner pushes before an app is used (see README.md): metadata and texts through production Storage.
+FX=$(dirname "$0")/components/storage/smoke/apps/ttd/testapp
+DES=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd" | tr -d '"')
+MC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/applications?appId=ttd/testapp" --data-binary @"$FX/applicationmetadata.json")
+[[ "$MC" == "201" ]] || MC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp" --data-binary @"$FX/applicationmetadata.json")
+check "storage: runner pushes application metadata (POST or PUT)" "yes" "$([[ "$MC" == 20? ]] && echo yes || echo "$MC")"
+TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/applications/ttd/testapp/texts" --data-binary @"$FX/texts/resource.nb.json")
+[[ "$TC" == "201" ]] || TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp/texts/nb" --data-binary @"$FX/texts/resource.nb.json")
+check "storage: runner pushes texts (POST or PUT)" "yes" "$([[ "$TC" == 20? ]] && echo yes || echo "$TC")"
+check "storage: pushed metadata is served" "attachment" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/applications/ttd/testapp" | python3 -c 'import sys,json; print("attachment" if any(d["id"] == "attachment" for d in json.load(sys.stdin)["dataTypes"]) else "missing")')"
+check "ingress: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-running/api/v1/applicationmetadata")"
+
 dec() { curl -s "$BASE/authorization/api/localtest/decision?userId=$1&partyId=$2&org=ttd&app=testapp&action=$3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])'; }
 check "PDP: Sophie (DAGL) may read ttd/testapp for 500000" "Permit" "$(dec 1337 500000 read)"
 check "PDP: Sophie has nothing on 500005" "NotApplicable" "$(dec 1337 500005 read)"

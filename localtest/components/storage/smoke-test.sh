@@ -1,7 +1,8 @@
 #!/bin/bash
 # Standalone smoke test of the storage component: a fresh Postgres container (podman or docker), the register and
-# authentication components, a stub on PDP_PORT that permits every PDP decision and plays a running app (ttd/liveapp),
-# and Storage on STORAGE_PORT. No ingress: Storage's PDP, Register and app URLs point at the processes directly.
+# authentication components, a stub on PDP_PORT that permits every PDP decision, and Storage on STORAGE_PORT. No ingress:
+# Storage's PDP and Register URLs point at the processes directly. Application metadata and texts are pushed through
+# the production endpoints (smoke/apps/ttd/testapp), as the app runner does.
 # Usage: ./smoke-test.sh   (builds the three hosts first if they are not built; needs ports 5020, 8000, PG_PORT,
 # PDP_PORT and STORAGE_PORT free, and local.altinn.cloud resolving to 127.0.0.1)
 set -u
@@ -49,7 +50,7 @@ cd $S/vendor/src/Storage && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=h
   PostgreSqlSettings__ConnectionString="Host=127.0.0.1;Port=$PG_PORT;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True" \
   PlatformSettings__ApiAuthorizationEndpoint=http://127.0.0.1:$PDP_PORT/authorization/api/v1/ \
   RegisterServiceSettings__ApiRegisterEndpoint=http://127.0.0.1:5020/register/api/v1/ \
-  Localtest__Storage__AppBaseUrl=http://127.0.0.1:$PDP_PORT/ Localtest__Storage__AppsPath=$S/smoke/apps Localtest__Storage__BlobRootPath=$WORK/blobs \
+  Localtest__Storage__BlobRootPath=$WORK/blobs \
   exec dotnet bin/Release/net10.0/Altinn.Platform.Storage.dll > $WORK/storage.log 2>&1 & PIDS+=($!)
 for i in $(seq 1 90); do
   curl -sf -o /dev/null http://127.0.0.1:$STORAGE_PORT/health && curl -sf -o /dev/null $BASE/health && curl -sf -o /dev/null http://127.0.0.1:5020/health && break
@@ -65,20 +66,19 @@ ORG=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&authentica
 USR=$(curl -s "$BASE/Home/GetTestUserToken?userId=1337")
 check "service-owner and user tokens from the authentication component" $([ ${#ORG} -gt 100 ] && [ ${#USR} -gt 100 ]; echo $?)
 
+CODE=$(curl -s -o /dev/null -w '%{http_code}' $ST/applications/ttd/testapp)
+check "GET applications/ttd/testapp is 404 before the push" $([ "$CODE" = 404 ]; echo $?) "($CODE)"
+FX=$S/smoke/apps/ttd/testapp
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X POST "$ST/applications?appId=ttd/testapp" --data-binary @$FX/applicationmetadata.json)
 T=$(curl -s $ST/applications/ttd/testapp | json "d['title']['nb']")
-check "GET applications/ttd/testapp from the mounted folder" $([ "$T" = "Testapp (mounted folder)" ]; echo $?)
-T=$(curl -s $ST/applications/ttd/liveapp | json "d['title']['nb']")
-check "GET applications/ttd/liveapp from the running app" $([ "$T" = "Live app" ]; echo $?)
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X POST "$ST/applications?appId=ttd/postedapp" \
-  -d '{"id":"ttd/postedapp","org":"ttd","title":{"nb":"Posted"},"dataTypes":[{"id":"default","allowedContentTypes":["text/plain"]}],"partyTypesAllowed":{}}')
-T=$(curl -s $ST/applications/ttd/postedapp | json "d['title']['nb']")
-check "POST applications (service-owner token as studio.designer), GET it from Postgres" $([ "$CODE" = 201 ] && [ "$T" = Posted ]; echo $?) "($CODE)"
-L=$(curl -s $ST/applications/ttd | json "sorted(a['id'] for a in d['applications'])")
-check "GET applications/ttd lists posted and folder apps" $([[ "$L" == *postedapp* && "$L" == *testapp* ]]; echo $?) "$L"
+check "POST applications?appId=ttd/testapp (service-owner token as studio.designer), GET it from Postgres" $([ "$CODE" = 201 ] && [ "$T" = "Testapp (pushed)" ]; echo $?) "($CODE)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$ST/applications/ttd/testapp" --data-binary @$FX/applicationmetadata.json)
+check "PUT applications/ttd/testapp (second push) is 200" $([ "$CODE" = 200 ]; echo $?) "($CODE)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X POST "$ST/applications/ttd/testapp/texts" --data-binary @$FX/texts/resource.nb.json)
 T=$(curl -s -H "Authorization: Bearer $USR" $ST/applications/ttd/testapp/texts/nb | json "d['resources'][0]['value']")
-check "GET applications/ttd/testapp/texts/nb from the mounted folder" $([ "$T" = "Testapp (mounted folder)" ]; echo $?)
-T=$(curl -s -H "Authorization: Bearer $USR" $ST/applications/ttd/liveapp/texts/nb | json "d['resources'][0]['value']")
-check "GET applications/ttd/liveapp/texts/nb from the running app" $([ "$T" = "Live app (from the running app)" ]; echo $?)
+check "POST applications/ttd/testapp/texts (200, production returns Ok), GET texts/nb back" $([ "$CODE" = 200 ] && [ "$T" = "Testapp (pushed)" ]; echo $?) "($CODE)"
+L=$(curl -s $ST/applications/ttd | json "sorted(a['id'] for a in d['applications'])")
+check "GET applications/ttd lists the pushed app" $([[ "$L" == *testapp* ]]; echo $?) "$L"
 
 R=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $USR" -H 'Content-Type: application/json' -X POST "$ST/instances?appId=ttd/testapp" \
   -d '{"instanceOwner":{"partyId":"500000"},"process":{"currentTask":{"elementId":"Task_1","altinnTaskType":"data"}}}')

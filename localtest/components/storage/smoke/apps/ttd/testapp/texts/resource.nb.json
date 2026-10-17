@@ -1,4 +1,4 @@
 {
   "language": "nb",
-  "resources": [{ "id": "appName", "value": "Testapp (mounted folder)" }]
+  "resources": [{ "id": "appName", "value": "Testapp (pushed)" }]
 }

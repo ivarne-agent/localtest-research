@@ -25,10 +25,10 @@ Localtest-only (anonymous), under `register/api/localtest/`:
 | --- | --- |
 | `GET test-users` | Every user: ids, `ssn` (`""` for self-identified), `displayName`, `userUuid`, `partyType`, `profile` (`language`, `preSelectedPartyId`, `doNotPromptForParty`, `userType`, `userTypeName`), `customClaims`, `selfRoleCodes`, `parties` and `actingFor` (below) |
 | `GET organizations` | Every organisation with `parentPartyId` and `unitType` |
-| `GET apps` | Registered apps, their test-data status (`TestData`, `NoTestData`, `Unreachable`, `Stale`, `Pending`), merge conflicts and load warnings |
-| `POST apps` `{ "org": "ttd", "app": "frontend-test" }` | Register an app (idempotent), re-fetch all apps' test data and rebuild |
+| `GET apps` | Registered apps, their test-data status (`TestData`, `NoTestData`), merge conflicts and load warnings |
+| `PUT apps/{org}/{app}` with the app's `testData.json` as the body (empty body: no test data) | Register an app with the posted test data (replaces earlier data) and rebuild; a body that does not parse is a 400 and changes nothing |
 | `DELETE apps/{org}/{app}` | Unregister and rebuild |
-| `POST apps/refresh` | Re-read the seed, re-fetch all apps' test data and rebuild |
+| `POST apps/refresh` | Re-read the seed and rebuild with the posted app data |
 
 Per user in `test-users`:
 
@@ -58,19 +58,17 @@ Profile (`profile/api/v1/`, route the `/profile` prefix to this container). Resp
 
 ## App test data
 
-`POST register/api/localtest/apps` registers an app; the register then fetches
-`{Localtest:Register:AppsBaseUrl}{org}/{app}/testData.json` (the app's `App/wwwroot/testData.json`; 404 means the
-app has none) for every registered app and builds a new `RegisterStore`, which replaces the current one atomically.
-Merge rule, as the old localtest: if every registered app serves test data, only the apps' users exist; otherwise the
-apps' users are added to the seed. Identical duplicates (same JSON) are fine; an entry that reuses a user id, party
-id, fødselsnummer or organisation number with a different definition is skipped (first definition wins) and listed
-under `conflicts`. An app that cannot be reached keeps the data from its last successful fetch (`Stale`).
+The app runner (`../../run-app.sh`) registers an app with `PUT register/api/localtest/apps/{org}/{app}` and the app's
+`App/wwwroot/testData.json` as the body, as is (an empty body registers an app without test data). The register
+fetches nothing from apps. On every registration, unregistration and refresh it builds a new `RegisterStore` from the
+built-in seed and the posted data, which replaces the current one atomically. Merge rule, as the old localtest: if
+every registered app posted test data, only the apps' users exist; otherwise the apps' users are added to the seed.
+Identical duplicates (same JSON) are fine; an entry that reuses a user id, party id, fødselsnummer or organisation
+number with a different definition is skipped (first definition wins) and listed under `conflicts`.
 
 | Setting | Default | |
 | --- | --- | --- |
 | `Localtest:Register:TestDataPath` | `/testdata/testData.json` | Seed file |
-| `Localtest:Register:AppsBaseUrl` | `http://local.altinn.cloud:8000/` | Where apps are reached |
-| `Localtest:Register:Apps` | (none) | Comma list `org/app,...` registered in the background at startup |
 
 ## Self-identified users
 
@@ -87,9 +85,8 @@ export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsP
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5020 \
   AccessTokenSettings__AccessTokenSigningCertificateFullPath=$PWD/../../certs/localtest-accesstoken.pfx \
   Localtest__Register__TestDataPath=$PWD/testdata/testData.json \
-  Localtest__Register__AppsBaseUrl=http://127.0.0.1:18093/ \
   dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Register/src/Altinn.Register
-./smoke-test.sh http://127.0.0.1:5020 18093
+./smoke-test.sh http://127.0.0.1:5020
 # InternalOrPlatformAccess: either a platform access token signed with ../../certs/localtest-accesstoken.pfx
 # (set AccessTokenSettings__AccessTokenSigningCertificateFullPath on the register too), or a bearer token with the
 # scope altinn:register/partylookup.admin, e.g. from the authentication component's /Home/GetTestOrgToken?scopes=...

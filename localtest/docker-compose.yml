@@ -4,7 +4,7 @@ name: localtest
 # The ingress has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
 # use the same public URLs the browser and the app use. (podman copies the host's /etc/hosts into containers, where
 # local.altinn.cloud would otherwise point at the container itself; an added host entry wins.)
-# Apps run on the developer machine (port 5005) and are reached through host.docker.internal.
+# Apps run on the developer machine and are reached through host.docker.internal on the port run-app.sh registered.
 
 x-platform-host: &platform-host
   extra_hosts:
@@ -139,7 +139,6 @@ services:
     volumes:
       - ./certs:/certs:ro
       - storage-blobs:/data/blobs
-      - ./apps:/apps:ro
     depends_on:
       postgres:
         condition: service_healthy

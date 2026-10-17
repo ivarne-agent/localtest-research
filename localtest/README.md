@@ -8,8 +8,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/register/` | Production Register on an in-memory register seeded from `testdata/testData.json` (see its README) |
 | `components/authentication/` | Production Authentication with the upstream provider replaced by a test-user picker (see its README) |
 | `components/authorization/` | Production Authorization (PDP) with policies from a folder or the running app and PIPs over the register seed (see its README) |
-| `components/storage/` | Production Storage on Postgres, file-backed blobs, scan marked clean, app metadata from the app or `apps/` (see its README) |
-| `apps/` | Fallback application metadata and texts per `{org}/{app}` for Storage when the app is not running (sample `ttd/testapp`) |
+| `components/storage/` | Production Storage on Postgres, file-backed blobs, scan marked clean; application metadata and texts pushed by the app runner (see its README) |
 | `smoke-test.sh` | End-to-end check of the running stack through the ingress |
 | `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, one drop-in file per app started with `run-app.sh` (`ingress/app-routes/`, graceful reload), `/` to the app on the developer machine, Secure cookie flag removed |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate against it with the production token handlers (see its README) |
@@ -28,12 +27,13 @@ job (`run-app.sh` today, studioctl later). No component watches another. For one
 
 | Step | Endpoint | What it does |
 | --- | --- | --- |
-| 1 | `POST register/api/localtest/apps` `{org, app}` | Register fetches the app's `App/wwwroot/testData.json`, rebuilds its store (built-in seed plus every registered app) and serves the result on v1, v2 and the streams |
-| 2 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (full re-poll, production code), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
+| 1 | `PUT register/api/localtest/apps/{org}/{app}` with the app's `App/wwwroot/testData.json` as the body (empty body: no test data) | Register stores the test data as posted and rebuilds its store (built-in seed plus every registered app); it fetches nothing |
+| 2 | `POST storage/api/v1/applications?appId={org}/{app}` (or `PUT storage/api/v1/applications/{org}/{app}` when it exists) with `App/config/applicationmetadata.json`, and `POST`/`PUT storage/api/v1/applications/{org}/{app}/texts[/{lang}]` with each `App/config/texts/resource.{lang}.json` | Production Storage endpoints, with a service-owner token standing in for Designer's `studio.designer` claim |
+| 3 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (full re-poll, production code), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
 
-Still fetched by the component itself from the running app, to be turned into pushes later: application metadata and
-texts (Storage), the authorization policy (PDP). The Register's store is rebuilt only by these calls, not on a timer,
-so an edited `testData.json` becomes visible after the next registration or refresh.
+Still fetched by the component itself from the running app, to be turned into a push later: the authorization policy
+(PDP). The Register's store is rebuilt only by these calls, not on a timer, so an edited `testData.json` becomes
+visible after the next registration or refresh. An app path the runner has not registered is a 404 at the ingress.
 
 Run it:
 

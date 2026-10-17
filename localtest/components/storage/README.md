@@ -1,14 +1,14 @@
 # storage
 
 Production Altinn Storage (`vendor/`, see `UPSTREAM.md`) on a real Postgres, with Azure Blob replaced by files on a
-volume, the file-scan queue replaced by an immediate "clean" verdict, Key Vault switched off, and application
-metadata and texts read from the running app.
+volume, the file-scan queue replaced by an immediate "clean" verdict, Key Vault switched off. Application metadata
+and texts arrive through the production endpoints, pushed by the app runner.
 
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites in `Program.cs` (`git diff` against the baseline commit shows them) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, bypass CSharpier, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, app metadata/text source, Key Vault and token stand-ins, DI and configuration composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, Key Vault and token stand-ins, DI and configuration composition |
 | `postgres-init/10-storage.sh` | Postgres init script: creates `platform_storage_admin`, runs the vendored `infra/postgres_init.sql` unchanged, hands the database and schema to the admin role |
 | `Dockerfile` | Publishes the vendored host with the overrides; copies `Migration/` next to it as upstream does |
 | `smoke-test.sh`, `smoke/` | Standalone smoke test (fresh Postgres container, register, authentication, a PDP/app stub, Storage) |
@@ -37,25 +37,20 @@ queues in `Development`, Application Insights is only wired when Key Vault yield
 | --- | --- |
 | `IBlobRepository` (Azure Blob) | `FileBlobRepository`: `{BlobRootPath}/{org}/{blobStoragePath}`, the Azure container layout. Retained blob versions (altinn-storage#1125) are already distinct paths (`…/data-elements/{blobVersionId}` vs legacy `…/data/{dataGuid}`), so no suffix scheme is needed |
 | `IFileScanQueueClient` (Azure Queue) | `LocaltestFileScanQueueClient`: runs the production `IDataRepository.UpdateFileScanStatus(…, Clean)` at once. Upload responses still say `Pending` (as in production); every later read says `Clean`. The update does not bump the instance version |
-| `IApplicationRepository` | `LocaltestApplicationRepository`: running app → mounted folder → Postgres (`PgApplicationRepository`, which keeps what was POSTed). Writes go to Postgres |
-| `ITextRepository` | `LocaltestTextRepository`: same order; `Create` inserts the application row from the app source first when Postgres does not have it (the production insert needs the foreign key) |
 | `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | `LocaltestPublicSigningKeyProvider`: returns the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer, so the production `AccessTokenHandler` validates incoming platform access tokens for real. The production `AccessTokenGenerator` signs outgoing ones (to Register) with the same certificate |
 | PEP `ClaimAccessHandler` | same rule, plus a service-owner token (`urn:altinn:org`, e.g. `/Home/GetTestOrgToken`) satisfies `urn:altinn:app=studio.designer`, the policy on POST/PUT/DELETE of applications and texts. Replaced, not complemented, because the production handler calls `Fail()` |
 
 ### Application metadata and texts
 
-The app source (`LocaltestAppSource`) asks the running app through the platform base URL, the same app-lib endpoints
-today's localtest uses: `{AppBaseUrl}{org}/{app}/api/v1/applicationmetadata?checkOrgApp=false` and
-`{AppBaseUrl}{org}/{app}/api/v1/texts/{lang}` (5 s timeout). If the app does not answer it reads
-`{AppsPath}/{org}/{app}/applicationmetadata.json` and `{AppsPath}/{org}/{app}/texts/resource.{lang}.json`. Hits are
-cached 30 s (`Localtest:Storage:AppCacheSeconds`), misses 2 s, so a starting app is picked up quickly. If neither
-knows the app, Postgres answers (metadata pushed with `POST storage/api/v1/applications`, as Designer does).
+Production repositories on Postgres, nothing else. The app runner (`../../run-app.sh`) pushes
+`App/config/applicationmetadata.json` with `POST storage/api/v1/applications?appId={org}/{app}` (`PUT
+applications/{org}/{app}` when it exists) and each `App/config/texts/resource.{lang}.json` with
+`POST applications/{org}/{app}/texts` (`PUT …/texts/{lang}`), exactly what Designer does on deploy. A service-owner
+token (`/Home/GetTestOrgToken?org={org}`) satisfies the `studio.designer` policy (see the PEP row above). Storage never
+asks the app for anything, and an app that was not pushed is unknown to it (`404` on `GET applications/{org}/{app}`).
 
 No seeding of `storage.applications` is needed for instances: no instance or data SQL joins that table (checked
-`Repository/Pg*.cs` and `Migration/FunctionsAndProcedures`; only `texts` and `a2xsls` reference it). Listing
-(`GET applications`, `GET applications/{org}`) returns Postgres rows plus folder apps, each answered from the app
-source when it can. Running apps are not discovered: an app that is neither in the folder nor in Postgres appears in
-`GET applications/{org}/{app}` but not in the lists. `GetAllAppTitles` (messagebox) reads Postgres only.
+`Repository/Pg*.cs` and `Migration/FunctionsAndProcedures`; only `texts` and `a2xsls` reference it).
 
 ## Configuration
 
@@ -71,8 +66,7 @@ They are inserted just below the environment variables, so they override the ven
 | `GeneralSettings:Hostname` | host of the platform URL (self links become `https://platform.{host}/…`, unchanged production format) |
 | `GeneralSettings:OndemandEndpoint`, `PdfGeneratorEndpoint` | `{platform}storage/api/v1/`, `{platform}pdf/` (A2 only) |
 | `GeneralSettings:AppMetadata/TextResource/AppTitleCacheLifeTimeInSeconds` | 30 (production 300/3600/3600) |
-| `Localtest:Storage:AppBaseUrl` | `{platform}` |
-| `Localtest:Storage:AppsPath`, `BlobRootPath` | `/apps`, `/data/blobs` |
+| `Localtest:Storage:BlobRootPath` | `/data/blobs` |
 
 Forced (cannot differ without Azure): `kvSetting:SecretUri` empty, `WolverineSettings:EnableSending=false`,
 `GeneralSettings:DisableA2Endpoints=true` (SBL bridge clients are no-ops). Platform access tokens are verified against the
@@ -138,12 +132,12 @@ not strip the prefix).
 ## Verified
 
 `./smoke-test.sh` (fresh `postgres:16-alpine` via podman, register on 5020, authentication on 8000, a Python stub on
-5050 that permits every PDP decision and serves `ttd/liveapp` as a running app, Storage on 5010), all passing:
+5050 that permits every PDP decision, Storage on 5010), as of the fetch-based version; the metadata rows below now
+describe the pushed flow verified by the root `../../smoke-test.sh`:
 
 - migrations to `v0.38` run on the fresh database at startup (16 tables);
-- `GET applications/ttd/testapp` from the mounted folder, `GET applications/ttd/liveapp` from the "running app";
-- `POST applications` with a service-owner token, then `GET` it back from Postgres, `GET applications/ttd` lists both;
-- `GET applications/{org}/{app}/texts/nb` from the folder and from the running app;
+- `POST applications?appId=ttd/testapp` and `POST applications/ttd/testapp/texts` with a service-owner token
+  (`smoke/apps/ttd/testapp`), then `GET` them back from Postgres;
 - `POST instances?appId=ttd/testapp` for party 500000 as user 1337 (Register lookup through the register component);
 - `GET instances/{partyId}/{guid}`; `POST …/data?dataType=attachment` writes `{org}/{org}/{app}/{instanceGuid}/data-elements/{blobVersionId}`
   in the blob folder and `GET …/data/{id}` returns the bytes; the element's `fileScanResult` is `Clean`;
@@ -164,6 +158,6 @@ cd vendor/src/Storage   # Yuniql reads ./Migration relative to the working direc
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5010 \
   PostgreSqlSettings__AdminConnectionString='Host=127.0.0.1;Port=5433;Username=platform_storage_admin;Password={0};Database=storagedb' \
   PostgreSqlSettings__ConnectionString='Host=127.0.0.1;Port=5433;Username=platform_storage;Password={0};Database=storagedb' \
-  Localtest__Storage__BlobRootPath=/tmp/storage-blobs Localtest__Storage__AppsPath=$HOME/apps \
+  Localtest__Storage__BlobRootPath=/tmp/storage-blobs \
   dotnet bin/Release/net10.0/Altinn.Platform.Storage.dll
 ```

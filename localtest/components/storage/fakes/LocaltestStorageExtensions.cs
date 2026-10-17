@@ -6,7 +6,6 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Common.AccessTokenClient.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Platform.Storage.Clients;
-using Altinn.Platform.Storage.Localtest.Apps;
 using Altinn.Platform.Storage.Localtest.Auth;
 using Altinn.Platform.Storage.Localtest.Blobs;
 using Altinn.Platform.Storage.Localtest.FileScan;
@@ -54,7 +53,6 @@ public static class LocaltestStorageExtensions
                 ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
                 ["PlatformSettings:SubscriptionKey"] = "localtest",
                 ["RegisterServiceSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-                ["Localtest:Storage:AppBaseUrl"] = platform,
             },
         };
         var lastEnvironmentSource = config.Sources.Select((source, index) => (source, index))
@@ -98,13 +96,8 @@ public static class LocaltestStorageExtensions
         services.Remove(claimHandler);
         services.AddTransient<IAuthorizationHandler, LocaltestClaimAccessHandler>();
 
-        // Application metadata and texts: the running app first, then the mounted folder, then what was posted to Postgres.
-        services.AddHttpClient(LocaltestAppSource.HttpClientName);
-        services.AddSingleton<LocaltestAppSource>();
-        services.AddSingleton<PgApplicationRepository>();
-        services.AddSingleton<PgTextRepository>();
-        Replace<IApplicationRepository, LocaltestApplicationRepository>(services);
-        Replace<ITextRepository, LocaltestTextRepository>(services);
+        // Application metadata and texts: production repositories on Postgres only. The app runner pushes them through
+        // the production endpoints (POST/PUT applications, POST/PUT applications/{org}/{app}/texts), as Designer does.
 
         return builder;
     }

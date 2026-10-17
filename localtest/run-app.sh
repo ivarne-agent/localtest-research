@@ -56,7 +56,27 @@ INGRESS=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E '^localtest[_-]i
 ( podman exec "$INGRESS" nginx -s reload 2>/dev/null || docker exec "$INGRESS" nginx -s reload )
 for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "ingress routes $PLATFORM/$ORG/$APP/ -> host port $PORT (after ${i}s)"
-# Register the app with the platform (test data from the app, metadata fetched on demand).
-curl -s -o /dev/null -w "register: HTTP %{http_code}\n" -H 'Content-Type: application/json' -X POST "$PLATFORM/register/api/localtest/apps" -d "{\"org\":\"$ORG\",\"app\":\"$APP\"}" || true
-# Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
+# Push the app's artefacts to the platform, as Studio does on deploy (see README.md, "What the app runner pushes").
+ORGTOKEN=$(curl -s "$PLATFORM/Home/GetTestOrgToken?org=$ORG" | tr -d '"')
+push() { # method url file
+  local code; code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORGTOKEN" -H 'Content-Type: application/json' -X "$1" "$2" --data-binary @"$3"); echo "$code"
+}
+# 1. Register: the test users the app defines (testData.json as is), or none.
+if [[ -f "$APP_DIR/App/wwwroot/testData.json" ]]; then
+  curl -s -o /dev/null -w "register testData.json: HTTP %{http_code}\n" -H 'Content-Type: application/json' -X PUT "$PLATFORM/register/api/localtest/apps/$ORG/$APP" --data-binary @"$APP_DIR/App/wwwroot/testData.json" || true
+else
+  curl -s -o /dev/null -w "register (no testData.json): HTTP %{http_code}\n" -X PUT "$PLATFORM/register/api/localtest/apps/$ORG/$APP" || true
+fi
+# 2. Storage: application metadata and texts through the production endpoints (POST, or PUT when it already exists).
+code=$(push POST "$PLATFORM/storage/api/v1/applications?appId=$ORG/$APP" "$META")
+[[ "$code" == "201" || "$code" == "200" ]] || code=$(push PUT "$PLATFORM/storage/api/v1/applications/$ORG/$APP" "$META")
+echo "storage application metadata: HTTP $code"
+for f in "$APP_DIR"/App/config/texts/resource.*.json; do
+  [[ -f "$f" ]] || continue
+  lang=$(basename "$f" .json); lang=${lang#resource.}
+  code=$(push POST "$PLATFORM/storage/api/v1/applications/$ORG/$APP/texts" "$f")
+  [[ "$code" == "201" || "$code" == "200" ]] || code=$(push PUT "$PLATFORM/storage/api/v1/applications/$ORG/$APP/texts/$lang" "$f")
+  echo "storage texts $lang: HTTP $code"
+done
+# 3. Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
 curl -s -o /dev/null -w "access-management refresh: HTTP %{http_code}\n" -X POST "$PLATFORM/accessmanagement/api/localtest/refresh" || true

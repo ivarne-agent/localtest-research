@@ -1,14 +1,7 @@
-"""Smoke-test stub on one port: a PDP that permits everything, and a 'running app' (ttd/liveapp) serving metadata and texts."""
+"""Smoke-test stub on one port: a PDP that permits every decision."""
 import json
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
-
-LIVE_APP = {
-    "id": "ttd/liveapp", "org": "ttd", "title": {"nb": "Live app"},
-    "dataTypes": [{"id": "ref-data-as-pdf", "allowedContentTypes": ["application/pdf"], "minCount": 0}],
-    "partyTypesAllowed": {"bankruptcyEstate": False, "organisation": True, "person": True, "subUnit": False},
-}
-LIVE_TEXTS = {"language": "nb", "resources": [{"id": "appName", "value": "Live app (from the running app)"}]}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,13 +23,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {})
 
     def do_GET(self):
-        path = self.path.split("?")[0]
-        if path == "/ttd/liveapp/api/v1/applicationmetadata":
-            self._json(200, LIVE_APP)
-        elif path == "/ttd/liveapp/api/v1/texts/nb":
-            self._json(200, LIVE_TEXTS)
-        else:
-            self._json(404, {})
+        self._json(404, {})
 
     def log_message(self, fmt, *args):
         sys.stderr.write("stub: " + (fmt % args) + "\n")

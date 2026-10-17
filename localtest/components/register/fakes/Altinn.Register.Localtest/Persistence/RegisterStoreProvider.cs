@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Net;
 using Altinn.Register.Localtest.TestData;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,11 +16,9 @@ namespace Altinn.Register.Localtest.Persistence;
 /// </remarks>
 public sealed class RegisterStoreProvider
 {
-    public const string HttpClientName = "localtest-register-apps";
 
     private readonly IOptions<LocaltestRegisterOptions> _options;
     private readonly StaticExternalRoleDefinitionPersistence _roleDefinitions;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<RegisterStore> _storeLogger;
     private readonly ILogger<RegisterStoreProvider> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -32,13 +29,11 @@ public sealed class RegisterStoreProvider
     public RegisterStoreProvider(
         IOptions<LocaltestRegisterOptions> options,
         StaticExternalRoleDefinitionPersistence roleDefinitions,
-        IHttpClientFactory httpClientFactory,
         ILogger<RegisterStore> storeLogger,
         ILogger<RegisterStoreProvider> logger)
     {
         _options = options;
         _roleDefinitions = roleDefinitions;
-        _httpClientFactory = httpClientFactory;
         _storeLogger = storeLogger;
         _logger = logger;
         _current = Build([("seed", LoadSeed())], out _conflicts);
@@ -48,17 +43,19 @@ public sealed class RegisterStoreProvider
 
     public RegistrationState State => new(_apps, _conflicts, _current.Warnings, _current.Users.Length, _current.Parties.Length);
 
-    public async Task<RegistrationState> Register(string org, string app, CancellationToken cancellationToken)
+    /// <summary>
+    /// Registers an app with the test data the app runner posted (the app's <c>App/wwwroot/testData.json</c> as is),
+    /// or with none. The Register fetches nothing itself. Posting again replaces the earlier data.
+    /// </summary>
+    public async Task<RegistrationState> Register(string org, string app, TestDataFile? data, CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            if (!_apps.Any(a => a.Matches(org, app)))
-            {
-                _apps = _apps.Add(new RegisteredApp(org, app, AppTestDataStatus.Pending, null, null, null));
-            }
-
-            return await RefreshLocked(cancellationToken);
+            var registered = new RegisteredApp(org, app, data is null ? AppTestDataStatus.NoTestData : AppTestDataStatus.TestData, data, DateTimeOffset.UtcNow);
+            var existing = _apps.FirstOrDefault(a => a.Matches(org, app));
+            _apps = existing is null ? _apps.Add(registered) : _apps.Replace(existing, registered);
+            return RefreshLocked();
         }
         finally
         {
@@ -78,7 +75,7 @@ public sealed class RegisterStoreProvider
             }
 
             _apps = _apps.Remove(existing);
-            return await RefreshLocked(cancellationToken);
+            return RefreshLocked();
         }
         finally
         {
@@ -91,7 +88,7 @@ public sealed class RegisterStoreProvider
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            return await RefreshLocked(cancellationToken);
+            return RefreshLocked();
         }
         finally
         {
@@ -99,16 +96,8 @@ public sealed class RegisterStoreProvider
         }
     }
 
-    private async Task<RegistrationState> RefreshLocked(CancellationToken cancellationToken)
+    private RegistrationState RefreshLocked()
     {
-        var fetched = new List<RegisteredApp>();
-        foreach (var app in _apps)
-        {
-            fetched.Add(await Fetch(app, cancellationToken));
-        }
-
-        _apps = [.. fetched];
-
         // The seed is re-read too, so edits to testData.json apply on refresh. A broken seed keeps the current store.
         var seed = LoadSeed();
         var withData = _apps.Where(a => a.Data is not null).ToList();
@@ -125,33 +114,7 @@ public sealed class RegisterStoreProvider
             appsOnly ? "registered apps only" : "seed and registered apps",
             _current.Users.Length,
             _conflicts.Length);
-
         return State;
-    }
-
-    private async Task<RegisteredApp> Fetch(RegisteredApp app, CancellationToken cancellationToken)
-    {
-        var url = new Uri(new Uri(_options.Value.AppsBaseUrl.TrimEnd('/') + "/"), $"{Uri.EscapeDataString(app.Org)}/{Uri.EscapeDataString(app.App)}/testData.json");
-        try
-        {
-            using var client = _httpClientFactory.CreateClient(HttpClientName);
-            using var response = await client.GetAsync(url, cancellationToken);
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return app with { Status = AppTestDataStatus.NoTestData, Data = null, Error = null, FetchedAt = DateTimeOffset.UtcNow };
-            }
-
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var data = TestDataFile.Parse(json, url.ToString());
-            return app with { Status = AppTestDataStatus.TestData, Data = data, Error = null, FetchedAt = DateTimeOffset.UtcNow };
-        }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
-        {
-            // Keep the last good data: an app that is restarting should not take its users away.
-            _logger.LogWarning(e, "Fetching test data for {Org}/{App} from {Url} failed", app.Org, app.App, url);
-            return app with { Status = app.Data is null ? AppTestDataStatus.Unreachable : AppTestDataStatus.Stale, Error = $"{url}: {e.Message}" };
-        }
     }
 
     private TestDataFile LoadSeed()
@@ -177,23 +140,14 @@ public sealed class RegisterStoreProvider
 
 public enum AppTestDataStatus
 {
-    /// <summary>Registered, not fetched yet.</summary>
-    Pending,
-
-    /// <summary>The app serves a <c>testData.json</c>.</summary>
+    /// <summary>The runner posted a testData.json for the app.</summary>
     TestData,
 
-    /// <summary>The app answered 404: it has no test data.</summary>
+    /// <summary>The app was registered without test data.</summary>
     NoTestData,
-
-    /// <summary>The app could not be reached and nothing was fetched before.</summary>
-    Unreachable,
-
-    /// <summary>The last fetch failed; the data from an earlier fetch is still used.</summary>
-    Stale,
 }
 
-public sealed record RegisteredApp(string Org, string App, AppTestDataStatus Status, TestDataFile? Data, string? Error, DateTimeOffset? FetchedAt)
+public sealed record RegisteredApp(string Org, string App, AppTestDataStatus Status, TestDataFile? Data, DateTimeOffset ReceivedAt)
 {
     public bool Matches(string org, string app)
         => string.Equals(Org, org, StringComparison.OrdinalIgnoreCase) && string.Equals(App, app, StringComparison.OrdinalIgnoreCase);

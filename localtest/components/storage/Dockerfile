@@ -16,12 +16,11 @@ WORKDIR /app
 COPY --from=build /app .
 # Yuniql runs the production migrations from ./Migration at startup (upstream copies the folder the same way).
 COPY vendor/src/Storage/Migration ./Migration
-RUN mkdir -p /data/blobs /apps
+RUN mkdir -p /data/blobs
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5010 \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
-    Localtest__Storage__BlobRootPath=/data/blobs \
-    Localtest__Storage__AppsPath=/apps
+    Localtest__Storage__BlobRootPath=/data/blobs
 VOLUME /data/blobs
 EXPOSE 5010
 HEALTHCHECK --interval=5s --timeout=3s --retries=30 CMD wget -q -O /dev/null http://localhost:5010/health || exit 1

@@ -1,30 +1,15 @@
 #!/usr/bin/env bash
 # Smoke test for the localtest register: seeded users, party list with sub-units, profile endpoints and app
-# registration against a stub app. Start the register with
-#   Localtest__Register__AppsBaseUrl=http://127.0.0.1:$STUB_PORT/
-# (for the container: podman run --network host -e ASPNETCORE_URLS=http://127.0.0.1:$PORT ...), then run
-#   ./smoke-test.sh [REGISTER_URL] [STUB_PORT]
+# registration with posted test data (the register fetches nothing). Start the register, then run
+#   ./smoke-test.sh [REGISTER_URL]
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REGISTER=${1:-http://127.0.0.1:5020}
-STUB_PORT=${2:-18093}
 OLA_SSN=01817512212   # Ola Nordmann (12345), see testdata/README.md
 
-stub=$(mktemp -d)
-trap 'kill "${stub_pid:-}" 2>/dev/null || true; rm -rf "$stub"' EXIT
-mkdir -p "$stub/ttd/smoke-app" "$stub/ttd/smoke-nodata"
-cat > "$stub/ttd/smoke-app/testData.json" <<'JSON'
-{ "persons": [ { "userId": 3001, "partyId": 513001, "ssn": "24917440014", "firstName": "Stub", "lastName": "Appbruker",
-                 "partyRoles": { "513001": [ { "type": "altinn", "value": "regna" } ] } } ] }
-JSON
-cat > "$stub/serve.py" <<'PY'
-import functools, http.server, sys
-http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])),
-    functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[1])).serve_forever()
-PY
-python3 -I "$stub/serve.py" "$stub" "$STUB_PORT" >/dev/null 2>&1 &
-stub_pid=$!
+APP_DATA='{ "persons": [ { "userId": 3001, "partyId": 513001, "ssn": "24917440014", "firstName": "Stub", "lastName": "Appbruker",
+                 "partyRoles": { "513001": [ { "type": "altinn", "value": "regna" } ] } } ] }'
 
 fail=0
 check() { # name, python expression over d (parsed JSON)
@@ -41,7 +26,6 @@ PAT=$("$HERE/../../certs/mint-platform-access-token.sh" platform localtest)
 post() { curl -sS -H Content-Type:application/json -X POST "$@"; }
 
 for _ in $(seq 1 30); do curl -sf "$REGISTER/health" >/dev/null && break; sleep 1; done
-for _ in $(seq 1 20); do curl -sf "http://127.0.0.1:$STUB_PORT/ttd/smoke-app/testData.json" >/dev/null && break; sleep 0.2; done
 
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "seeded Cypress users" \
   '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "selvregistrert.bruker@example.com"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
@@ -60,12 +44,15 @@ curl -sS "$REGISTER/profile/api/v1/users/byuuid/00000000-0000-0000-0000-00000051
 code=$(curl -sS -o /dev/null -w '%{http_code}' "$REGISTER/profile/api/v1/users/current")
 echo "$code" | check "users/current needs a token" 'd == 401'
 
-post "$REGISTER/register/api/localtest/apps" -d '{"org":"ttd","app":"smoke-app"}' | check "register app with test data (apps only)" \
+put() { curl -sS -H Content-Type:application/json -X PUT "$@"; }
+put "$REGISTER/register/api/localtest/apps/ttd/smoke-app" -d "$APP_DATA" | check "register app with posted test data (apps only)" \
   'd["source"] == "apps" and d["users"] == 1 and d["apps"][0]["status"] == "TestData"'
 curl -sS "$REGISTER/profile/api/v1/users/3001" | check "app user has a profile" 'd["party"]["name"] == "Stub Appbruker"'
-post "$REGISTER/register/api/localtest/apps" -d '{"org":"ttd","app":"smoke-nodata"}' | check "app without test data brings back the seed" \
+put "$REGISTER/register/api/localtest/apps/ttd/smoke-nodata" | check "app without test data brings back the seed" \
   'd["source"] == "seed+apps" and d["users"] == 9 and {a["status"] for a in d["apps"]} == {"TestData", "NoTestData"}'
 post "$REGISTER/register/api/localtest/apps/refresh" | check "refresh" 'd["users"] == 9 and not d["conflicts"]'
+code=$(curl -sS -o /dev/null -w '%{http_code}' -H Content-Type:application/json -X PUT "$REGISTER/register/api/localtest/apps/ttd/smoke-app" -d '{"persons": [')
+echo "$code" | check "broken testData.json is a 400" 'd == 400'
 curl -sS -X DELETE "$REGISTER/register/api/localtest/apps/ttd/smoke-nodata" >/dev/null
 curl -sS -X DELETE "$REGISTER/register/api/localtest/apps/ttd/smoke-app" | check "unregister restores the seed" 'd["apps"] == [] and d["users"] == 8'
 
