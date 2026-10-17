@@ -1462,7 +1462,13 @@ public class InstancesController : ControllerBase
     {
         string url = Request.Path;
         string queryString = Request.QueryString.Value;
+#if !LOCALTEST
         string host = $"https://platform.{_generalSettings.Hostname}";
+#else
+        // No platform.* host locally: the caller must be able to follow the link back through the same
+        // ingress it came in on, so use the request's own scheme and host (local.altinn.cloud:8000).
+        string host = $"{Request.Scheme}://{Request.Host}";
+#endif
 
         if (string.IsNullOrEmpty(continuationToken))
         {

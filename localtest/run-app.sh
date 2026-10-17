@@ -24,7 +24,11 @@ if [[ -z "$DLL" ]]; then echo "building $APP_DIR/App ..."; dotnet build "$APP_DI
 
 export ASPNETCORE_ENVIRONMENT=Development
 # The app signs platform access tokens with the shared test certificate (certs/README.md).
+# Altinn.Common.AccessTokenClient 3.x reads the full path; 1.x (the v9 app backend today) concatenates
+# <parent of cwd> + KeysFolder + FileName with no separators, so give it a relative traversal from the app folder.
 export AccessTokenSettings__AccessTokenSigningCertificateFullPath="$HERE/certs/localtest-accesstoken.pfx"
+export AccessTokenSettings__AccessTokenSigningKeysFolder="/$(realpath --relative-to="$APP_DIR" "$HERE/certs")/"
+export AccessTokenSettings__AccessTokenSigningCertificateFileName="localtest-accesstoken.pfx"
 export Kestrel__EndPoints__Http__Url="http://0.0.0.0:$PORT"
 export AppSettings__OpenIdWellKnownEndpoint="$PLATFORM/authentication/api/v1/openid/"
 export AppSettings__AppFrontendAssetBaseUrl="${APP_FRONTEND_ASSET_BASE_URL:-$PLATFORM/app-frontend}"

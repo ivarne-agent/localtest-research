@@ -15,13 +15,18 @@ metadata and texts read from the running app.
 
 ## Directive sites in `vendor/`
 
-Both in `src/Storage/Program.cs`:
+Two in `src/Storage/Program.cs`, one in `src/Storage/Controllers/InstancesController.cs`:
 
 1. `SetConfigurationProviders`: `#if !LOCALTEST` around `await ConnectToKeyVaultAndSetApplicationInsights(config)`,
    `#else LocaltestStorageExtensions.AddLocaltestConfiguration(config)`. Runs before any setting is read, so the
    localtest defaults reach the eager reads in `ConfigureServices` (JWT metadata address, connection strings).
 2. After `ConfigureWolverine(...)`: `#if LOCALTEST LocaltestStorageExtensions.AddLocaltestStorage(builder) #endif`,
    which replaces registrations after the production ones.
+3. `InstancesController.BuildRequestLink`: `#if !LOCALTEST` keeps `https://platform.{Hostname}` as the host of the
+   `next` link in paged instance queries; `#else` uses the request's own scheme and host. Apps follow `next` when a
+   party has more than one page of instances, and there is no `platform.*` host locally. The `selfLinks.platform`
+   values still say `https://platform.local.altinn.cloud/...`: that prefix is hard-coded in the
+   `Altinn.Platform.Storage.Interface` package and nothing follows those links.
 
 Nothing else in the host is hard-wired to Azure: Postgres and Yuniql run as in production, Wolverine uses local
 queues in `Development`, Application Insights is only wired when Key Vault yields a connection string.
