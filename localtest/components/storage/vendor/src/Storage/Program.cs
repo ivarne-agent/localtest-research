@@ -68,6 +68,10 @@ ConfigureServices(builder.Services, builder.Configuration);
 
 ConfigureWolverine(builder.Services, builder.Configuration);
 
+#if LOCALTEST
+Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestStorage(builder);
+#endif
+
 logger.LogInformation("// Checking Azure Storage connection.");
 
 var app = builder.Build();
@@ -130,7 +134,11 @@ async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelop
         config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
     }
 
+#if !LOCALTEST
     await ConnectToKeyVaultAndSetApplicationInsights(config);
+#else
+    Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestConfiguration(config);
+#endif
 
     config.AddCommandLine(args);
 }
