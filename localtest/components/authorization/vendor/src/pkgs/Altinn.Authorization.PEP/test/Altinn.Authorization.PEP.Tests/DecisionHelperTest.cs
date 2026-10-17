@@ -1,0 +1,1063 @@
+﻿using System.Security.Claims;
+
+using Altinn.Authorization.ABAC.Xacml;
+using Altinn.Authorization.ABAC.Xacml.JsonProfile;
+using Altinn.Common.PEP.Constants;
+using Altinn.Common.PEP.Helpers;
+using Altinn.Common.PEP.Models;
+
+namespace Altinn.Authorization.PEP.Tests
+{
+    [UnitTest]
+    public class DecisionHelperTest
+    {
+        private const string Org = "Altinn";
+        private const string App = "App";
+        private const string ActionType = "read";
+        private const int PartyId = 1000;
+        private const string PolicyObligationMinAuthnLevel = "urn:altinn:minimum-authenticationlevel";
+        private const string PolicyObligationMinAuthnLevelSystemUser = "urn:altinn:minimum-authenticationlevel-systemuser";
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: All values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_UserClaimsWithPartyId_ReturnsRequestWithSubjectActionAndPartyResourceAttributes()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateUserClaims(false), ActionType, PartyId, null, null);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(2, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(3, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: Only valid urn values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_UserClaimsWithExtraInvalidClaimAndPartyId_IgnoresInvalidClaimAndReturnsExpectedAttributeCounts()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateUserClaims(true), ActionType, PartyId, null, null);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(2, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(3, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: Only valid urn, scope and orgnumber with correct values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_MaskinportenClaimsWithoutPartyId_ReturnsRequestWithOrgScopeSubjectAndResourceAttributes()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateMaskinportenClaims("12313", "altinn.master"), ActionType);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(4, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(2, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: All values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_UserClaimsWithoutPartyId_ReturnsRequestWithSubjectActionAndResourceAttributes()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateUserClaims(false), ActionType);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(2, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(2, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: Only valid urn values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_UserClaimsWithExtraInvalidClaimWithoutPartyId_IgnoresInvalidClaimAndReturnsExpectedAttributeCounts()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateUserClaims(true), ActionType);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(2, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(2, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Send attributes and creates request out of it 
+        /// Expected: Only valid urn, scope and orgnumber with correct values sent in will be created to attributes
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonRequest_MaskinportenClaimsWithPartyId_ReturnsRequestWithOrgScopeSubjectAndPartyResourceAttributes()
+        {
+            // Arrange & Act
+            XacmlJsonRequestRoot requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, CreateMaskinportenClaims("12313", "altinn.master"), ActionType, PartyId, null, null);
+            XacmlJsonRequest request = requestRoot.Request;
+
+            // Assert
+            Assert.Equal(4, request.AccessSubject[0].Attribute.Count);
+            Assert.Single(request.Action[0].Attribute);
+            Assert.Equal(3, request.Resource[0].Attribute.Count);
+        }
+
+        /// <summary>
+        /// Test case: Response with result permit
+        /// Expected: Returns true
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_PermitDecision_ReturnsTrue()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.True(result);
+        }
+
+        /// <summary>
+        /// Test case: Respons contains obligation with min authentication level that the user meets
+        /// Expected: Returns true
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_PermitWithAuthLevelObligationUserMeets_ReturnsTrue()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = "2"
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+            xacmlJsonResult.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            xacmlJsonResult.Obligations.Add(obligation);
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.True(result);
+        }
+
+        /// <summary>
+        /// Test case: Respons contains obligation with min authentication level that the user do not meet
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_PermitWithAuthLevelObligationUserDoesNotMeet_ReturnsFalse()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = "3"
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+            xacmlJsonResult.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            xacmlJsonResult.Obligations.Add(obligation);
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result);
+        }
+
+        /// <summary>
+        /// Test case: Respons with result deny
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_DenyDecision_ReturnsFalse()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Deny.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result);
+        }
+
+        /// <summary>
+        /// Test case: Respons with two results
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_MultipleResults_ReturnsFalse()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+            response.Response.Add(new XacmlJsonResult());
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result);
+        }
+
+        /// <summary>
+        /// Test case: Result list is null
+        /// Expected: Throws ArgumentNullException
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_NullResultList_ThrowsArgumentNullException()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = null;
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => DecisionHelper.ValidatePdpDecision(response.Response, CreateUserClaims(false)));
+        }
+
+        /// <summary>
+        /// Test case: User is null
+        /// Expected: Throws ArgumentNullException
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecision_NullUser_ThrowsArgumentNullException()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => DecisionHelper.ValidatePdpDecision(response.Response, null));
+        }
+
+        /// <summary>
+        /// Test case: Response contains obligation with min authentication level that the user do not meet, get detailed response
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecisionDetailed_AuthLevelObligationUserDoesNotMeet_ReturnsNotAuthorizedWithFailedAuthLevelObligation()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            string minAuthLevel = "3";
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = minAuthLevel
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+            xacmlJsonResult.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            xacmlJsonResult.Obligations.Add(obligation);
+
+            // Act
+            EnforcementResult result = DecisionHelper.ValidatePdpDecisionDetailed(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result.Authorized);
+            Assert.Contains(AltinnObligations.RequiredAuthenticationLevel, result.FailedObligations.Keys);
+            Assert.Equal(minAuthLevel, result.FailedObligations[AltinnObligations.RequiredAuthenticationLevel]);
+        }
+
+        /// <summary>
+        /// Test case: Response contains obligation with min authentication level that the user do not meet, get detailed response
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecisionDetailed_MultipleAuthLevelObligationsUserDoesNotMeet_ReturnsNotAuthorizedWithFailedAuthLevelObligation()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            string minAuthLevel = "4";
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = minAuthLevel
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+
+            XacmlJsonObligationOrAdvice obligationOrg = new XacmlJsonObligationOrAdvice();
+            obligationOrg.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            string minAuthLevelOrg = "2";
+            XacmlJsonAttributeAssignment authenticationAttributeOrg = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = minAuthLevelOrg
+            };
+            obligationOrg.AttributeAssignment.Add(authenticationAttributeOrg);
+
+            xacmlJsonResult.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            xacmlJsonResult.Obligations.Add(obligation);
+            xacmlJsonResult.Obligations.Add(obligationOrg);
+
+            // Act
+            EnforcementResult result = DecisionHelper.ValidatePdpDecisionDetailed(response.Response, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result.Authorized);
+            Assert.Contains(AltinnObligations.RequiredAuthenticationLevel, result.FailedObligations.Keys);
+            Assert.Equal(minAuthLevel, result.FailedObligations[AltinnObligations.RequiredAuthenticationLevel]);
+        }
+
+        /// <summary>
+        /// Test case: Response contains obligation with min authentication level that the user do not meet, get detailed response
+        /// Expected: Returns false
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecisionDetailed_OrgUserMeetsOrgAuthLevelObligation_ReturnsAuthorized()
+        {
+            // Arrange
+            XacmlJsonResponse response = new XacmlJsonResponse();
+            response.Response = new List<XacmlJsonResult>();
+            XacmlJsonResult xacmlJsonResult = new XacmlJsonResult();
+            xacmlJsonResult.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(xacmlJsonResult);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            string minAuthLevel = "4";
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = minAuthLevel
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+
+            XacmlJsonObligationOrAdvice obligationOrg = new XacmlJsonObligationOrAdvice();
+            obligationOrg.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            string minAuthLevelOrg = "2";
+            XacmlJsonAttributeAssignment authenticationAttributeOrg = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel-org",
+                Value = minAuthLevelOrg
+            };
+            obligationOrg.AttributeAssignment.Add(authenticationAttributeOrg);
+
+            xacmlJsonResult.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            xacmlJsonResult.Obligations.Add(obligationOrg);
+            xacmlJsonResult.Obligations.Add(obligation);
+
+            // Act
+            EnforcementResult result = DecisionHelper.ValidatePdpDecisionDetailed(response.Response, CreateUserClaims(false, "ttd"));
+
+            // Assert
+            Assert.True(result.Authorized);
+            Assert.Null(result.FailedObligations);
+        }
+
+        [Fact]
+        public void ValidateDecisionResult_UserHasNoClaims_ReturnsFalse()
+        {
+            // Arrange: Create a result with "Permit" decision and a minimum auth level obligation
+            var response = new XacmlJsonResult
+            {
+                Decision = "Permit",
+                Obligations = new List<XacmlJsonObligationOrAdvice>
+            {
+                new XacmlJsonObligationOrAdvice
+                {
+                    Id = "obligation1",
+                    AttributeAssignment = new List<XacmlJsonAttributeAssignment>
+                    {
+                        new XacmlJsonAttributeAssignment
+                        {
+                            Category = "urn:altinn:minimum-authenticationlevel",
+                            Value = "2"
+                        }
+                    }
+                }
+            }
+            };
+
+            // User with no claims
+            var user = new ClaimsPrincipal(new ClaimsIdentity());
+
+            // Act & Assert
+            var result = DecisionHelper.ValidateDecisionResult(response, user);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        private ClaimsPrincipal CreateUserClaims(bool addExtraClaim, string org = null)
+        {
+            // Create the user
+            List<Claim> claims = new List<Claim>();
+
+            // type, value, valuetype, issuer
+            claims.Add(new Claim("urn:altinn:authlevel", "2", "string", "org"));
+            if (org != null)
+            {
+                claims.Add(new Claim("urn:altinn:org", org, "string", "org"));
+            }
+            else
+            {
+                claims.Add(new Claim("urn:name", "Ola", "string", "org"));
+            }
+
+            if (addExtraClaim)
+            {
+                claims.Add(new Claim("a", "a", "string", "a"));
+            }
+
+            ClaimsPrincipal user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+            return user;
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionWithoutObligationCheck_Permit_ReturnsTrue()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Permit.ToString() }
+            };
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecisionWithoutObligationCheck(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionWithoutObligationCheck_Deny_ReturnsFalse()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Deny.ToString() }
+            };
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecisionWithoutObligationCheck(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionWithoutObligationCheck_MultipleResults_ReturnsFalse()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Permit.ToString() },
+                new XacmlJsonResult { Decision = XacmlContextDecision.Permit.ToString() }
+            };
+
+            // Act
+            bool result = DecisionHelper.ValidatePdpDecisionWithoutObligationCheck(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionWithoutObligationCheck_NullResults_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => DecisionHelper.ValidatePdpDecisionWithoutObligationCheck(null, CreateUserClaims(false)));
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionDetailed_Permit_NoObligations_ReturnsAuthorized()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Permit.ToString() }
+            };
+
+            // Act
+            var result = DecisionHelper.ValidatePdpDecisionDetailed(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.True(result.Authorized);
+            Assert.Null(result.FailedObligations);
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionDetailed_Deny_ReturnsNotAuthorized()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Deny.ToString() }
+            };
+
+            // Act
+            var result = DecisionHelper.ValidatePdpDecisionDetailed(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result.Authorized);
+        }
+
+        [Fact]
+        public void ValidatePdpDecisionDetailed_MultipleResults_ReturnsNotAuthorized()
+        {
+            // Arrange
+            var results = new List<XacmlJsonResult>
+            {
+                new XacmlJsonResult { Decision = XacmlContextDecision.Permit.ToString() },
+                new XacmlJsonResult()
+            };
+
+            // Act
+            var result = DecisionHelper.ValidatePdpDecisionDetailed(results, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(result.Authorized);
+        }
+
+        [Fact]
+        public void ValidateDecisionResult_OrgUser_MeetsOrgMinAuthLevel_ReturnsTrue()
+        {
+            // Arrange: org user with auth level 2, min auth level 3 but org min auth level 2
+            var result = new XacmlJsonResult
+            {
+                Decision = XacmlContextDecision.Permit.ToString(),
+                Obligations = new List<XacmlJsonObligationOrAdvice>
+                {
+                    new XacmlJsonObligationOrAdvice
+                    {
+                        AttributeAssignment = new List<XacmlJsonAttributeAssignment>
+                        {
+                            new XacmlJsonAttributeAssignment { Category = "urn:altinn:minimum-authenticationlevel", Value = "3" }
+                        }
+                    },
+                    new XacmlJsonObligationOrAdvice
+                    {
+                        AttributeAssignment = new List<XacmlJsonAttributeAssignment>
+                        {
+                            new XacmlJsonAttributeAssignment { Category = "urn:altinn:minimum-authenticationlevel-org", Value = "2" }
+                        }
+                    }
+                }
+            };
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateUserClaims(false, "ttd"));
+
+            // Assert
+            Assert.True(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user without an authlevel claim authorizes against a policy requiring level 4 in
+        /// general, but level 3 for system users.
+        /// Expected: The system user is treated as authentication level 3 and is authorized.
+        /// </summary>
+        [Fact]
+        public void ValidateDecisionResult_SystemUser_MeetsSystemUserMinAuthLevel_ReturnsTrue()
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "3");
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateSystemUserClaims());
+
+            // Assert
+            Assert.True(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user whose token carries an authlevel claim below 3 authorizes against a policy requiring
+        /// level 4 in general, but level 3 for system users.
+        /// Expected: The authlevel claim is not consulted for the system user requirement. A logged in system user is
+        /// level 3, so the system user is authorized.
+        /// </summary>
+        [Theory]
+        [InlineData("0")]
+        [InlineData("2")]
+        public void ValidateDecisionResult_SystemUser_AuthLevelClaimBelowThree_MeetsSystemUserMinAuthLevel(string authLevel)
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "3");
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateSystemUserClaims(authLevel));
+
+            // Assert
+            Assert.True(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user on authentication level 3, with or without an authlevel claim, authorizes against a
+        /// policy requiring level 2 in general, but level 4 for system users.
+        /// Expected: The system user obligation only relaxes the general requirement, so the system user is authorized.
+        /// </summary>
+        [Theory]
+        [InlineData(null)]
+        [InlineData("3")]
+        public void ValidateDecisionResult_SystemUser_MeetsGeneralMinAuthLevel_StricterSystemUserObligationIgnored(string authLevel)
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("2", PolicyObligationMinAuthnLevelSystemUser, "4");
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateSystemUserClaims(authLevel));
+
+            // Assert
+            Assert.True(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user authorizes against a policy requiring level 4 for system users.
+        /// Expected: The system user is not authorized, as a system user never exceeds authentication level 3.
+        /// </summary>
+        [Fact]
+        public void ValidateDecisionResult_SystemUser_DoesNotMeetSystemUserMinAuthLevel_ReturnsFalse()
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "4");
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateSystemUserClaims());
+
+            // Assert
+            Assert.False(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user authorizes against a policy without the system user obligation.
+        /// Expected: The general requirement applies, unchanged from before the system user obligation existed.
+        /// </summary>
+        [Theory]
+        [InlineData("3", true)]
+        [InlineData("4", false)]
+        public void ValidateDecisionResult_SystemUser_NoSystemUserObligation_EnforcesGeneralMinAuthLevel(string minAuthLevel, bool expected)
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations(minAuthLevel);
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateSystemUserClaims("3"));
+
+            // Assert
+            Assert.Equal(expected, valid);
+        }
+
+        /// <summary>
+        /// Test case: End user on authentication level 2 authorizes against a policy requiring level 4 in general,
+        /// but level 2 for system users.
+        /// Expected: The system user obligation is ignored for anyone but a system user.
+        /// </summary>
+        [Fact]
+        public void ValidateDecisionResult_EndUser_SystemUserMinAuthLevelNotApplied_ReturnsFalse()
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "2");
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, CreateUserClaims(false));
+
+            // Assert
+            Assert.False(valid);
+        }
+
+        /// <summary>
+        /// Test case: System user meets neither the general nor the system user requirement, validated with the
+        /// detailed result.
+        /// Expected: The system user is not authorized, and the failed obligation reports the required level.
+        /// </summary>
+        [Fact]
+        public void ValidatePdpDecisionDetailed_SystemUserDoesNotMeetSystemUserMinAuthLevel_ReturnsSystemUserObligation()
+        {
+            // Arrange
+            List<XacmlJsonResult> results = new List<XacmlJsonResult>
+            {
+                CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "4")
+            };
+
+            // Act
+            EnforcementResult result = DecisionHelper.ValidatePdpDecisionDetailed(results, CreateSystemUserClaims());
+
+            // Assert
+            Assert.False(result.Authorized);
+            Assert.Contains(AltinnObligations.RequiredAuthenticationLevel, result.FailedObligations.Keys);
+            Assert.Equal("4", result.FailedObligations[AltinnObligations.RequiredAuthenticationLevel]);
+        }
+
+        /// <summary>
+        /// Test case: A principal carrying an authorization_details claim that is not valid system user json.
+        /// Expected: The claim is ignored and the general requirement applies.
+        /// </summary>
+        [Fact]
+        public void ValidateDecisionResult_InvalidAuthorizationDetailsClaim_EnforcesGeneralMinAuthLevel()
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "3");
+
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("authorization_details", "not json", "string", "maskinporten")
+            };
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, new ClaimsPrincipal(new ClaimsIdentity(claims)));
+
+            // Assert
+            Assert.False(valid);
+        }
+
+        /// <summary>
+        /// Test case: A principal carrying an authorization_details claim with a system user id, but without the
+        /// system user type.
+        /// Expected: The principal is not a system user, and the general requirement applies.
+        /// </summary>
+        [Theory]
+        [InlineData("{\"systemuser_id\":[\"f58fe166-bc22-4899-beb7-c3e8e3332f43\"]}")]
+        [InlineData("{\"type\":\"urn:altinn:other\",\"systemuser_id\":[\"f58fe166-bc22-4899-beb7-c3e8e3332f43\"]}")]
+        [InlineData("[{\"type\":\"urn:altinn:systemuser\",\"systemuser_id\":[\"f58fe166-bc22-4899-beb7-c3e8e3332f43\"]}]")]
+        public void ValidateDecisionResult_AuthorizationDetailsWithoutSystemUserType_EnforcesGeneralMinAuthLevel(string authorizationDetails)
+        {
+            // Arrange
+            XacmlJsonResult result = CreateResultWithAuthLevelObligations("4", PolicyObligationMinAuthnLevelSystemUser, "3");
+
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("authorization_details", authorizationDetails, "string", "maskinporten")
+            };
+
+            // Act
+            bool valid = DecisionHelper.ValidateDecisionResult(result, new ClaimsPrincipal(new ClaimsIdentity(claims)));
+
+            // Assert
+            Assert.False(valid);
+        }
+
+        private static XacmlJsonResult CreateResultWithAuthLevelObligations(string minAuthLevel, string additionalObligationCategory = null, string additionalObligationValue = null)
+        {
+            XacmlJsonResult result = new XacmlJsonResult
+            {
+                Decision = XacmlContextDecision.Permit.ToString(),
+                Obligations = new List<XacmlJsonObligationOrAdvice>
+                {
+                    new XacmlJsonObligationOrAdvice
+                    {
+                        AttributeAssignment = new List<XacmlJsonAttributeAssignment>
+                        {
+                            new XacmlJsonAttributeAssignment { Category = PolicyObligationMinAuthnLevel, Value = minAuthLevel }
+                        }
+                    }
+                }
+            };
+
+            if (additionalObligationCategory != null)
+            {
+                result.Obligations.Add(new XacmlJsonObligationOrAdvice
+                {
+                    AttributeAssignment = new List<XacmlJsonAttributeAssignment>
+                    {
+                        new XacmlJsonAttributeAssignment { Category = additionalObligationCategory, Value = additionalObligationValue }
+                    }
+                });
+            }
+
+            return result;
+        }
+
+        private static ClaimsPrincipal CreateSystemUserClaims(string authLevel = null)
+        {
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim("authorization_details", "{\"type\":\"urn:altinn:systemuser\",\"systemuser_id\":[\"f58fe166-bc22-4899-beb7-c3e8e3332f43\"]}", "string", "maskinporten")
+            };
+
+            if (authLevel != null)
+            {
+                claims.Add(new Claim("urn:altinn:authlevel", authLevel, "string", "maskinporten"));
+            }
+
+            return new ClaimsPrincipal(new ClaimsIdentity(claims));
+        }
+
+        [Fact]
+        public void CreateDecisionRequestForResourceRegistryResource_CreatesCorrectRequest()
+        {
+            // Arrange
+            var partyUuid = Guid.NewGuid();
+            var user = CreateUserClaims(false);
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequestForResourceRegistryResource("res1", partyUuid, user, "read");
+
+            // Assert
+            Assert.NotNull(requestRoot);
+            Assert.Single(requestRoot.Request.AccessSubject);
+            Assert.Single(requestRoot.Request.Action);
+            Assert.Single(requestRoot.Request.Resource);
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithConsumerClaim_AddsOrganizationNumberAttribute()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("consumer", "{\"authority\":\"iso6523-actorid-upis\",\"ID\":\"0192:991825827\"}", "string", "maskinporten")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            Assert.NotNull(requestRoot);
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:organization:identifier-no" && a.Value == "991825827");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithSystemUserClaim_AddsSystemUserUuidAttribute()
+        {
+            // Arrange
+            var systemUserJson = "{\"type\":\"urn:altinn:systemuser\",\"systemuser_id\":[\"some-uuid-value\"]}";
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("authorization_details", systemUserJson, "string", "maskinporten")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            Assert.NotNull(requestRoot);
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:systemuser:uuid" && a.Value == "some-uuid-value");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithAuthorizationDetailsWithoutSystemUserType_DoesNotAddSystemUserUuidAttribute()
+        {
+            // Arrange
+            var authorizationDetailsJson = "{\"type\":\"urn:altinn:other\",\"systemuser_id\":[\"some-uuid-value\"]}";
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("authorization_details", authorizationDetailsJson, "string", "maskinporten")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            Assert.NotNull(requestRoot);
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.DoesNotContain(subjectAttrs, a => a.AttributeId == "urn:altinn:systemuser:uuid");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithSidClaim_AddsSessionIdAttribute()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("urn:name", "Test", "string", "org"),
+                new Claim("sid", "session-123", "string", "org")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:sessionid" && a.Value == "session-123");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithJtiClaim_AddsSessionIdAttribute()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("urn:name", "Test", "string", "org"),
+                new Claim("jti", "token-456", "string", "org")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:sessionid" && a.Value == "token-456");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithPersonUuidClaim_AddsPersonUuidAttribute()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("urn:altinn:person:uuid", "person-uuid-123", "string", "org")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:person:uuid" && a.Value == "person-uuid-123");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithPartyIdClaim_AddsPartyIdAttribute()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("urn:altinn:partyid", "50001234", "string", "org")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:partyid" && a.Value == "50001234");
+        }
+
+        [Fact]
+        public void CreateDecisionRequest_WithOrganizationNumberAttributeClaim_OverridesLegacy()
+        {
+            // Arrange: both old orgNumber and new organization:identifier-no claims
+            var claims = new List<Claim>
+            {
+                new Claim("urn:altinn:authlevel", "2", "string", "org"),
+                new Claim("urn:altinn:orgNumber", "111111111", "string", "org"),
+                new Claim("urn:altinn:organization:identifier-no", "222222222", "string", "org")
+            };
+            var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            // Act
+            var requestRoot = DecisionHelper.CreateDecisionRequest(Org, App, user, ActionType);
+
+            // Assert
+            var subjectAttrs = requestRoot.Request.AccessSubject[0].Attribute;
+            Assert.Contains(subjectAttrs, a => a.AttributeId == "urn:altinn:organization:identifier-no" && a.Value == "222222222");
+            Assert.DoesNotContain(subjectAttrs, a => a.AttributeId == "urn:altinn:organizationnumber");
+        }
+
+        [Fact]
+        public void CreateActionCategory_WithIncludeResult_SetsIncludeInResult()
+        {
+            // Act
+            var category = DecisionHelper.CreateActionCategory("write", true);
+
+            // Assert
+            Assert.Single(category.Attribute);
+            Assert.True(category.Attribute[0].IncludeInResult);
+        }
+
+        [Fact]
+        public void CreateXacmlJsonAttribute_SetsAllProperties()
+        {
+            // Act
+            var attr = DecisionHelper.CreateXacmlJsonAttribute("urn:test:id", "value1", "string", "issuer1", true);
+
+            // Assert
+            Assert.Equal("urn:test:id", attr.AttributeId);
+            Assert.Equal("value1", attr.Value);
+            Assert.Equal("string", attr.DataType);
+            Assert.Equal("issuer1", attr.Issuer);
+            Assert.True(attr.IncludeInResult);
+        }
+
+        private ClaimsPrincipal CreateMaskinportenClaims(string org, string scope)
+        {
+            // Create the user
+            List<Claim> claims = new List<Claim>();
+
+            // type, value, valuetype, issuer
+            claims.Add(new Claim("urn:altinn:authlevel", "2", "string", "org"));
+            claims.Add(new Claim("urn:altinn:orgNumber", org, "string", "org"));
+            if (scope != null)
+            {
+                claims.Add(new Claim("scope", scope, "string", "org"));
+            }
+
+            ClaimsPrincipal user = new ClaimsPrincipal(new ClaimsIdentity(claims));
+            return user;
+        }
+    }
+}
