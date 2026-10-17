@@ -43,6 +43,7 @@ server {
     set $register       ${REGISTER_UPSTREAM};
     set $authentication ${AUTHENTICATION_UPSTREAM};
     set $authorization  ${AUTHORIZATION_UPSTREAM};
+    set $access_management ${ACCESS_MANAGEMENT_UPSTREAM};
     set $storage        ${STORAGE_UPSTREAM};
     set $app            ${APP_UPSTREAM};
 
@@ -54,6 +55,9 @@ server {
     location = /                { proxy_pass $authentication; }
     location = /Home            { proxy_pass $authentication; }
     location /authorization/    { proxy_pass $authorization; }
+    # Access Management's localtest endpoints (the app runner's refresh) go to the real service; the rest of
+    # /accessmanagement/ stays on the PDP's fakes until the Access Management component takes it over.
+    location /accessmanagement/api/localtest/ { proxy_pass $access_management; }
     location /accessmanagement/ { proxy_pass $authorization; }
     location /storage/          { proxy_pass $storage; }
 

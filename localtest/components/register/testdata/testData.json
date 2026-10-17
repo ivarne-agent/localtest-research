@@ -53,6 +53,12 @@
             "value": "priv"
           }
         ]
+      },
+      "accessPackages": {
+        "500000": [
+          "regnskapsforer-med-signeringsrettighet",
+          "lonn"
+        ]
       }
     },
     {

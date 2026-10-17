@@ -31,6 +31,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       AUTHORIZATION_UPSTREAM: http://authorization:5070
+      ACCESS_MANAGEMENT_UPSTREAM: http://access-management:5080
       STORAGE_UPSTREAM: http://storage:5010
       WORKFLOW_ENGINE_UPSTREAM: http://workflow-engine:9090
     volumes:

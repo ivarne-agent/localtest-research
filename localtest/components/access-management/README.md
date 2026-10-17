@@ -40,5 +40,5 @@ their step in the plan.
 
 ## Status
 
-Steps 1 to 3 of the plan: boots, migrates, seeds and imports parties and external roles from the vendored Register at start (the startup log lists the effective feature flags with their providers). Not yet routed through the ingress (`/accessmanagement/` still goes
+Steps 1 to 4 of the plan: boots, migrates, seeds, imports parties and external roles from the vendored Register, and applies the seed's own roles, Altinn 2 codes and access packages (`LocaltestRefreshService`, run at start and on `POST accessmanagement/api/localtest/refresh`, the app runner's hook; the ingress routes that path here). The startup log lists the effective feature flags with their providers. Not yet routed through the ingress (`/accessmanagement/` still goes
 to the PDP's fakes); port 5080 is published on the host for verification.

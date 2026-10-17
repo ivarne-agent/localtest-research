@@ -58,3 +58,5 @@ for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/appli
 echo "ingress routes $PLATFORM/$ORG/$APP/ -> host port $PORT (after ${i}s)"
 # Register the app with the platform (test data from the app, metadata fetched on demand).
 curl -s -o /dev/null -w "register: HTTP %{http_code}\n" -H 'Content-Type: application/json' -X POST "$PLATFORM/register/api/localtest/apps" -d "{\"org\":\"$ORG\",\"app\":\"$APP\"}" || true
+# Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
+curl -s -o /dev/null -w "access-management refresh: HTTP %{http_code}\n" -X POST "$PLATFORM/accessmanagement/api/localtest/refresh" || true

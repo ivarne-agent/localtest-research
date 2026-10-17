@@ -118,6 +118,7 @@ public static class LocaltestAccessManagementExtensions
         Replace<IPolicyFactory, LocaltestPolicyFactory>(services);
 
         services.AddHostedService<LocaltestStartupLogger>();
+        services.AddScoped<Sync.LocaltestRefreshService>();
 
         return builder;
     }

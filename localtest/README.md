@@ -21,6 +21,20 @@ parties through the Register API, and `testData.json` is the Register seed, not 
 Today's localtest in `altinn-studio/src/Runtime/localtest` is not a basis for anything here, only a reference for
 which behaviours the fakes must provide.
 
+## What the app runner pushes
+
+In production Altinn Studio pushes an app's artefacts to the platform at deploy time; locally that is the app runner's
+job (`run-app.sh` today, studioctl later). No component watches another. For one app the runner calls, in order:
+
+| Step | Endpoint | What it does |
+| --- | --- | --- |
+| 1 | `POST register/api/localtest/apps` `{org, app}` | Register fetches the app's `App/wwwroot/testData.json`, rebuilds its store (built-in seed plus every registered app) and serves the result on v1, v2 and the streams |
+| 2 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (full re-poll, production code), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
+
+Still fetched by the component itself from the running app, to be turned into pushes later: application metadata and
+texts (Storage), the authorization policy (PDP). The Register's store is rebuilt only by these calls, not on a timer,
+so an edited `testData.json` becomes visible after the next registration or refresh.
+
 Run it:
 
 ```sh

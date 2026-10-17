@@ -31,6 +31,7 @@ else if (appsettings.RunIntegrationTests)
 // then run the production init (migrations, static data, Register import) on every start before serving.
 await Altinn.AccessManagement.Localtest.Database.LocaltestDatabase.EnsureAsync(app.Services);
 await Init();
+await Altinn.AccessManagement.Localtest.Sync.LocaltestRefreshService.RunAtStartup(app.Services);
 #endif
 
 app.AddDefaultAltinnMiddleware(errorHandlingPath: "/accessmanagement/api/v1/error");
