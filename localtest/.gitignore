@@ -3,3 +3,7 @@ obj/
 *.user
 .vs/
 AltinnPlatformLocal/
+.env
+.run/
+frontend-dist/*
+!frontend-dist/.gitkeep

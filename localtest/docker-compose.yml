@@ -27,6 +27,12 @@ services:
     environment:
       AUTHORIZATION_UPSTREAM: http://authorization:5070
       STORAGE_UPSTREAM: http://storage:5010
+      # Apps running on the developer machine: "org/app=http://host.docker.internal:port,...". run-app.sh maintains .env.
+      APP_ROUTES: ${APP_ROUTES:-}
+    volumes:
+      # The built app-frontend (src/App/frontend/dist) served at /app-frontend/; apps run with
+      # AppSettings__AppFrontendAssetBaseUrl=http://local.altinn.cloud:8000/app-frontend
+      - ${FRONTEND_DIST:-./frontend-dist}:/frontend:ro
     networks:
       default:
         ipv4_address: 10.200.0.10
@@ -37,6 +43,7 @@ services:
       - authentication
       - authorization
       - storage
+      - pdf3
 
   register:
     <<: *platform-host
@@ -98,6 +105,18 @@ services:
       postgres:
         condition: service_healthy
 
+  # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), image built by studioctl dev mode as
+  # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the ingress.
+  pdf3:
+    <<: *platform-host
+    image: localhost/localtest-pdf3:dev
+    environment:
+      TZ: Europe/Oslo
+      PDF3_ENVIRONMENT: localtest
+      PDF3_QUEUE_SIZE: "3"
+      PDF3_LOCALTEST_PUBLIC_BASE_URL: http://local.altinn.cloud:8000
+
 volumes:
   postgres-data:
   storage-blobs:
+
