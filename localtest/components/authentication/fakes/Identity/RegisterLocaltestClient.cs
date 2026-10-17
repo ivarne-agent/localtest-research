@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
@@ -45,7 +46,22 @@ public sealed class RegisterLocaltestClient(HttpClient httpClient, IOptions<Loca
         }
     }
 
-    public sealed record TestUser(int UserId, int PartyId, Guid PartyUuid, string Ssn, string DisplayName, string? UserName, string? Email, string? Language, IReadOnlyList<TestUserParty> Parties);
+    /// <summary>
+    /// A seeded test user. Read defensively: unknown fields are ignored and missing lists are empty, because the
+    /// register component's DTO grows (profile preferences, a full party list).
+    /// Persons sign in by <c>Ssn</c>; self-identified users have none and sign in by <c>UserId</c>. <c>Parties</c> are the
+    /// other parties the user may act for (organisations, and persons through delegations).
+    /// </summary>
+    public sealed record TestUser(int UserId, int PartyId, Guid PartyUuid, string? Ssn, string DisplayName, string? UserName, string? Email, string? Language, IReadOnlyList<TestUserParty>? Parties)
+    {
+        public IReadOnlyList<TestUserParty> OtherParties => Parties?.Where(p => p.PartyId != PartyId).ToList() ?? [];
 
-    public sealed record TestUserParty(int PartyId, Guid PartyUuid, string? OrgNumber, string DisplayName, IReadOnlyList<string> Roles, IReadOnlyList<string> AccessPackages);
+        /// <summary>The selected party's id and uuid: the user's own party or one of <see cref="Parties"/>.</summary>
+        public (int PartyId, Guid PartyUuid)? FindParty(int partyId)
+            => partyId == PartyId
+                ? (PartyId, PartyUuid)
+                : OtherParties.FirstOrDefault(p => p.PartyId == partyId) is { } party ? (party.PartyId, party.PartyUuid) : null;
+    }
+
+    public sealed record TestUserParty(int PartyId, Guid PartyUuid, string? OrgNumber, string DisplayName, IReadOnlyList<string>? Roles, IReadOnlyList<string>? AccessPackages);
 }

@@ -33,6 +33,9 @@ server {
     location /register/       { proxy_pass $register; }
     location /authentication/ { proxy_pass $authentication; }
     location /Home/           { proxy_pass $authentication; }
+    # The old localtest start page (test-user select) lives at the root, and /Home without a slash is one of its routes.
+    location = /              { proxy_pass $authentication; }
+    location = /Home          { proxy_pass $authentication; }
     location /authorization/  { proxy_pass $authorization; }
     location /storage/        { proxy_pass $storage; }
 

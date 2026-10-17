@@ -31,6 +31,7 @@ public sealed class LocaltestProfile(RegisterLocaltestClient register) : IProfil
             return null!;
         }
 
+        var selfIdentified = string.IsNullOrEmpty(user.Ssn);
         return new UserProfile
         {
             UserId = user.UserId,
@@ -38,15 +39,15 @@ public sealed class LocaltestProfile(RegisterLocaltestClient register) : IProfil
             UserName = user.UserName,
             Email = user.Email,
             PartyId = user.PartyId,
-            UserType = UserType.SSNIdentified,
+            UserType = selfIdentified ? UserType.SelfIdentified : UserType.SSNIdentified,
             Party = new Party
             {
                 PartyId = user.PartyId,
                 PartyUuid = user.PartyUuid,
-                PartyTypeName = PartyType.Person,
+                PartyTypeName = selfIdentified ? PartyType.SelfIdentified : PartyType.Person,
                 SSN = user.Ssn,
                 Name = user.DisplayName,
-                Person = new Person { SSN = user.Ssn, Name = user.DisplayName },
+                Person = selfIdentified ? null : new Person { SSN = user.Ssn, Name = user.DisplayName },
             },
             ProfileSettingPreference = new ProfileSettingPreference { Language = user.Language ?? "nb" },
         };

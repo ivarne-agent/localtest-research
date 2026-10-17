@@ -5,9 +5,6 @@ using System.Security.Cryptography;
 
 namespace Altinn.Platform.Authentication.Localtest.Identity;
 
-/// <summary>The identity a developer picked on the login page, handed from the picker to the fake upstream provider by a one-time code.</summary>
-public sealed record PickedIdentity(string? Ssn, int? UserId, string Acr, string? Nonce, DateTimeOffset IssuedAt);
-
 /// <summary>One-time codes for picked identities, standing in for the upstream provider's authorization codes.</summary>
 public sealed class LocaltestTicketStore(TimeProvider timeProvider)
 {
@@ -31,3 +28,6 @@ public sealed class LocaltestTicketStore(TimeProvider timeProvider)
         return timeProvider.GetUtcNow() - ticket.IssuedAt > _lifetime ? null : ticket;
     }
 }
+
+/// <summary>The identity a developer picked on the login page, handed from the picker to the fake upstream provider by a one-time code.</summary>
+public sealed record PickedIdentity(string? Ssn, int? UserId, string Acr, string? Nonce, DateTimeOffset IssuedAt);

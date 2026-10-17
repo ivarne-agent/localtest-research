@@ -10,17 +10,14 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Authentication.Configuration;
-using Altinn.Platform.Authentication.Core.Models.Oidc;
-using Altinn.Platform.Authentication.Core.Services.Interfaces;
 using Altinn.Platform.Authentication.Localtest.Identity;
 using Altinn.Platform.Authentication.Localtest.Keys;
+using Altinn.Platform.Authentication.Localtest.Login;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Authentication.Localtest.Controllers;
@@ -36,20 +33,25 @@ namespace Altinn.Platform.Authentication.Localtest.Controllers;
 [Route("Home")]
 public sealed class LocaltestTokenController(
     LocaltestSigningKeys keys,
-    LocaltestTicketStore tickets,
-    IOidcServerService oidcServer,
+    RegisterLocaltestClient register,
+    LocaltestSignIn signIn,
     IServer server,
     IHttpClientFactory httpClientFactory,
     IOptions<GeneralSettings> generalSettings,
-    IOptions<LocaltestAuthenticationOptions> options,
     TimeProvider timeProvider) : ControllerBase
 {
     private const string DefaultServiceOwnerScopes = "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
 
     /// <summary>Org token for an app running locally: the app backend calls this instead of Maskinporten.</summary>
+    /// <remarks>
+    /// The production exchange decides the authentication level of the result (3 for Maskinporten); <paramref name="authenticationLevel"/>
+    /// and the org code (query or last path segment) are accepted for compatibility with the old localtest; the exchange derives the org from <paramref name="orgNumber"/>.
+    /// </remarks>
     [HttpGet("GetTestOrgToken")]
+    [HttpGet("GetTestOrgToken/{org}")]
     public async Task<IActionResult> GetTestOrgToken(
-        [FromQuery] string org,
+        [FromRoute(Name = "org")] string? routeOrg,
+        [FromQuery] string? org,
         [FromQuery] string orgNumber = "991825827",
         [FromQuery] int authenticationLevel = 3,
         [FromQuery] string? scopes = null,
@@ -60,48 +62,51 @@ public sealed class LocaltestTokenController(
         return exchanged is null ? StatusCode(502, "The production exchange/maskinporten endpoint rejected the locally minted token.") : Ok(exchanged);
     }
 
-    /// <summary>User token without a browser: runs the production sign-in with the picked identity and returns the cookie JWT.</summary>
+    /// <summary>
+    /// User token without a browser: runs the production sign-in with the picked identity and returns the cookie JWT
+    /// (and sets the cookies, with the party cookies on <paramref name="partyId"/> when given). The JWT carries the
+    /// user's own party, as production's does.
+    /// </summary>
     [HttpGet("GetTestUserToken")]
+    [HttpGet("GetTestUserToken/{userId:int}")]
     public async Task<IActionResult> GetTestUserToken(
-        [FromQuery] int userId,
-        [FromQuery] int authenticationLevel = 3,
+        [FromRoute(Name = "userId")] int? routeUserId,
+        [FromQuery] int? userId,
+        [FromQuery] int? partyId,
+        [FromQuery] int authenticationLevel = LocaltestAuthLevels.Default,
         CancellationToken cancellationToken = default)
     {
-        var register = HttpContext.RequestServices.GetRequiredService<RegisterLocaltestClient>();
-        var user = (await register.GetTestUsers(cancellationToken)).FirstOrDefault(u => u.UserId == userId);
+        var id = routeUserId ?? userId;
+        if (id is null)
+        {
+            return BadRequest("userId is required.");
+        }
+
+        if (LocaltestAuthLevels.ForLevel(authenticationLevel) is not { } level)
+        {
+            return BadRequest("authenticationLevel must be 0, 1, 2, 3 or 4.");
+        }
+
+        var user = (await register.GetTestUsers(cancellationToken)).FirstOrDefault(u => u.UserId == id);
         if (user is null)
         {
-            return NotFound($"No test user with userId {userId}.");
+            return NotFound($"No test user with userId {id}.");
         }
 
-        var goTo = new Uri(generalSettings.Value.BaseUrl.TrimEnd('/') + "/");
-        var authorize = await oidcServer.AuthorizeUnregisteredClient(
-            new AuthorizeUnregisteredClientRequest { GoTo = goTo.ToString(), CorrelationId = Guid.NewGuid() },
-            cancellationToken);
-        if (authorize.Kind != AuthorizeResultKind.RedirectUpstream || authorize.UpstreamAuthorizeUrl is null)
+        var party = user.FindParty(partyId ?? user.PartyId);
+        if (party is null)
         {
-            return StatusCode(500, $"Production authorize did not redirect upstream: {authorize.Kind} {authorize.LocalErrorMessage}");
+            return BadRequest($"Test user {id} cannot act for party {partyId}.");
         }
 
-        var query = QueryHelpers.ParseQuery(authorize.UpstreamAuthorizeUrl.Query);
-        var acr = authenticationLevel >= 4 ? "idporten-loa-high" : options.Value.DefaultAcr;
-        var code = tickets.Issue(user.Ssn, user.UserId, acr, query["nonce"].FirstOrDefault());
-        var callback = await oidcServer.HandleUpstreamCallback(
-            new UpstreamCallbackInput { Code = code, State = query["state"].FirstOrDefault(), ClientIp = HttpContext.Connection.RemoteIpAddress ?? System.Net.IPAddress.Loopback, UserAgentHash = null, CorrelationId = Guid.NewGuid() },
-            existingSessionHandle: null,
-            cancellationToken);
-        if (callback.Kind != UpstreamCallbackResultKind.RedirectToGoTo)
+        var (result, failure) = await signIn.SignIn(user, level, HttpContext.Connection.RemoteIpAddress, cancellationToken);
+        if (failure is not null)
         {
-            return StatusCode(callback.StatusCode ?? 500, $"Production sign-in failed: {callback.Kind} {callback.LocalErrorMessage}");
+            return StatusCode(failure.StatusCode, failure.Message);
         }
 
-        foreach (var cookie in callback.Cookies)
-        {
-            Response.Cookies.Append(cookie.Name, cookie.Value ?? string.Empty, new CookieOptions { HttpOnly = cookie.HttpOnly, Secure = cookie.Secure, Path = cookie.Path ?? "/", Domain = cookie.Domain, Expires = cookie.Expires, SameSite = cookie.SameSite });
-        }
-
-        var jwt = callback.Cookies.FirstOrDefault(c => c.Name == generalSettings.Value.JwtCookieName)?.Value;
-        return jwt is null ? StatusCode(500, "Sign-in produced no cookie token.") : Ok(jwt);
+        signIn.AppendCookies(Response, result!, party.Value.PartyId, party.Value.PartyUuid);
+        return Ok(result!.Jwt);
     }
 
     private string MintMaskinportenToken(string orgNumber, string scopes)
