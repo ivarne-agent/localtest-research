@@ -27,6 +27,7 @@ services:
     environment:
       AUTHORIZATION_UPSTREAM: http://authorization:5070
       STORAGE_UPSTREAM: http://storage:5010
+      WORKFLOW_ENGINE_UPSTREAM: http://workflow-engine:9090
       # Apps running on the developer machine: "org/app=http://host.docker.internal:port,...". run-app.sh maintains .env.
       APP_ROUTES: ${APP_ROUTES:-}
     volumes:
@@ -44,6 +45,7 @@ services:
       - authorization
       - storage
       - pdf3
+      - workflow-engine
 
   register:
     <<: *platform-host
@@ -85,6 +87,8 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./components/storage/postgres-init/10-storage.sh:/docker-entrypoint-initdb.d/10-storage.sh:ro
       - ./components/storage/vendor/infra/postgres_init.sql:/storage-init/postgres_init.sql:ro
+      - ./postgres-init/20-workflow-engine.sh:/docker-entrypoint-initdb.d/20-workflow-engine.sh:ro
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "storagedb"]
       interval: 2s
@@ -115,6 +119,21 @@ services:
       PDF3_ENVIRONMENT: localtest
       PDF3_QUEUE_SIZE: "3"
       PDF3_LOCALTEST_PUBLIC_BASE_URL: http://local.altinn.cloud:8000
+
+  # Workflow engine from the monorepo (src/Runtime/workflow-engine-app/Dockerfile), image built by studioctl dev mode
+  # as localtest-workflow-engine:dev. The app reaches it at http://workflow-engine.local.altinn.cloud:8000/api/v1/;
+  # it calls the app back through the ingress.
+  workflow-engine:
+    <<: *platform-host
+    image: localhost/localtest-workflow-engine:dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "9090"
+      ConnectionStrings__WorkflowEngine: Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres
+      AppCommandSettings__CommandEndpoint: http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres-data:

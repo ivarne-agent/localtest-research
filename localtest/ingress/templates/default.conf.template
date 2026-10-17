@@ -15,6 +15,14 @@ server {
     location / { proxy_pass $pdf; proxy_http_version 1.1; proxy_set_header Host $http_host; }
 }
 
+# Workflow engine on its own host name, as in studioctl.
+server {
+    listen 8000;
+    server_name workflow-engine.local.altinn.cloud;
+    set $workflow_engine ${WORKFLOW_ENGINE_UPSTREAM};
+    location / { proxy_pass $workflow_engine; proxy_http_version 1.1; proxy_set_header Host $http_host; }
+}
+
 server {
     listen 8000 default_server;
     server_name local.altinn.cloud _;

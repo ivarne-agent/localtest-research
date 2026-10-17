@@ -35,6 +35,7 @@ export PlatformSettings__ApiPdf2Endpoint="http://pdf.local.altinn.cloud:8000/pdf
 export PlatformSettings__ApiNotificationEndpoint="$PLATFORM/notifications/api/v1/"
 export PlatformSettings__ApiCorrespondenceEndpoint="$PLATFORM/correspondence/api/v1/"
 export PlatformSettings__ApiAccessManagementEndpoint="$PLATFORM/accessmanagement/api/v1/"
+export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local.altinn.cloud:8000/api/v1/"
 ( cd "$APP_DIR/App" && nohup dotnet "$DLL" > "$LOG" 2>&1 & echo $! > "$PIDF" )
 for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "app $ORG/$APP on port $PORT (pid $(cat "$PIDF"), log $LOG), ready after ${i}s"
