@@ -1,0 +1,220 @@
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Altinn.Platform.Storage.Controllers;
+
+/// <summary>
+/// API for handling locking and unlocking of data elements
+/// </summary>
+[Route(
+    "storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/data/{dataGuid:guid}/lock"
+)]
+[ApiController]
+public class DataLockController : ControllerBase
+{
+    private readonly IInstanceRepository _instanceRepository;
+    private readonly IDataRepository _dataRepository;
+    private readonly IAuthorization _authorizationService;
+    private readonly IProcessAuthorizer _processAuthorizer;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataLockController"/> class
+    /// </summary>
+    /// <param name="instanceRepository">the instance repository</param>
+    /// <param name="dataRepository">the data repository handler</param>
+    /// <param name="authorizationService">the authorization service.</param>
+    /// <param name="processAuthorizer">the process authorizer.</param>
+    public DataLockController(
+        IInstanceRepository instanceRepository,
+        IDataRepository dataRepository,
+        IAuthorization authorizationService,
+        IProcessAuthorizer processAuthorizer
+    )
+    {
+        _instanceRepository = instanceRepository;
+        _dataRepository = dataRepository;
+        _authorizationService = authorizationService;
+        _processAuthorizer = processAuthorizer;
+    }
+
+    /// <summary>
+    /// Locks a data element
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element to lock.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>DataElement that was locked</returns>
+    [Authorize]
+    [HttpPut]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Produces("application/json")]
+    public async Task<ActionResult<DataElement>> Lock(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        (InstanceInternal? instance, ActionResult? instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            true,
+            cancellationToken
+        );
+        if (instance == null)
+        {
+            return instanceError!;
+        }
+
+        if (!await _processAuthorizer.AuthorizeDataElementLock(instance))
+        {
+            return Forbid();
+        }
+
+        DataElementInternal? dataElement = instance.Data.FirstOrDefault(d => d.Id == dataGuid);
+
+        if (dataElement?.Locked is true)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(dataElement.ToApiModel());
+        }
+
+        try
+        {
+            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
+                instanceGuid,
+                dataGuid,
+                true,
+                cancellationToken: cancellationToken
+            );
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                updatedDataElement.Versions
+            );
+            DataElement response = updatedDataElement.DataElement.ToApiModel();
+            return Created(response.Id, response);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e)
+        {
+            return e.StatusCodeSuggestion != null
+                ? StatusCode((int)e.StatusCodeSuggestion)
+                : StatusCode(500);
+        }
+    }
+
+    /// <summary>
+    /// Unlocks a data element
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element to unlock.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>DataElement that was unlocked</returns>
+    [Authorize]
+    [HttpDelete]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Produces("application/json")]
+    public async Task<ActionResult<DataElement>> Unlock(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        (InstanceInternal? instance, _) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+        if (instance == null)
+        {
+            return Forbid();
+        }
+
+        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(
+            instance,
+            ["write", "unlock", "reject"]
+        );
+        if (!authorized)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
+                instanceGuid,
+                dataGuid,
+                false,
+                cancellationToken: cancellationToken
+            );
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                updatedDataElement.Versions
+            );
+            return Ok(updatedDataElement.DataElement.ToApiModel());
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e)
+        {
+            return e.StatusCodeSuggestion != null
+                ? StatusCode((int)e.StatusCodeSuggestion)
+                : StatusCode(500);
+        }
+    }
+
+    private async Task<(InstanceInternal? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
+        Guid instanceGuid,
+        int instanceOwnerPartyId,
+        bool includeDataElements,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal? instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            includeDataElements,
+            cancellationToken
+        );
+
+        if (instance == null)
+        {
+            return (
+                null,
+                NotFound(
+                    $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+                )
+            );
+        }
+
+        return (instance, null);
+    }
+}

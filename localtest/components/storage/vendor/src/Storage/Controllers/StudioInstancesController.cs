@@ -1,0 +1,268 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Web;
+using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
+namespace Altinn.Platform.Storage.Controllers;
+
+/// <summary>
+/// Implements endpoints specifically for altinn studio.
+/// </summary>
+[Route("storage/api/v1/studio/instances")]
+[ApiController]
+public class StudioInstancesController : ControllerBase
+{
+    private readonly IInstanceRepository _instanceRepository;
+    private readonly ILogger _logger;
+    private readonly IApplicationService _applicationService;
+    private readonly IInstanceEventService _instanceEventService;
+    private readonly IOrganisationService _organisationService;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StudioInstancesController"/> class
+    /// </summary>
+    public StudioInstancesController(
+        IInstanceRepository instanceRepository,
+        ILogger<StudioInstancesController> logger,
+        IApplicationService applicationService,
+        IInstanceEventService instanceEventService,
+        IOrganisationService organisationService
+    )
+    {
+        _instanceRepository = instanceRepository;
+        _logger = logger;
+        _applicationService = applicationService;
+        _instanceEventService = instanceEventService;
+        _organisationService = organisationService;
+    }
+
+    /// <summary>
+    /// Retrieves all (simplified) instances that match the specified query parameters. Parameters can be combined. Invalid or unknown parameter values will result in a 400 Bad Request response.
+    /// </summary>
+    /// <param name="parameters">The parameters to retrieve instance data.</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>A <seealso cref="List{T}"/> contains all instances for given instance owner.</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
+    [HttpGet("{org}/{app}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces("application/json")]
+    public async Task<ActionResult<QueryResponse<SimpleInstance>>> GetInstances(
+        StudioInstanceParameters parameters,
+        CancellationToken ct
+    )
+    {
+        if (string.IsNullOrEmpty(parameters.Org) || string.IsNullOrEmpty(parameters.App))
+        {
+            return BadRequest("Org and App must be defined.");
+        }
+
+        if (!string.IsNullOrEmpty(parameters.ContinuationToken))
+        {
+            parameters.ContinuationToken = HttpUtility.UrlDecode(parameters.ContinuationToken);
+        }
+
+        parameters.Size ??= 10;
+
+        try
+        {
+            InstanceQueryResult result = await _instanceRepository.GetInstancesFromQuery(
+                parameters.ToInstanceQueryParameters(),
+                ct
+            );
+
+            if (!string.IsNullOrEmpty(result.Exception))
+            {
+                _logger.LogError(
+                    "Unable to perform query on instances: {Exception}",
+                    result.Exception
+                );
+                return StatusCode(ct.IsCancellationRequested ? 499 : 500, result.Exception);
+            }
+
+            string? nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
+
+            QueryResponse<SimpleInstance> response = new()
+            {
+                Instances = result.Instances?.Select(SimpleInstance.FromInstance).ToList() ?? new(),
+                Count = result.Instances?.Count ?? 0,
+                Next = nextContinuationToken,
+            };
+
+            return Ok(response);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Unable to perform query on instances");
+            return StatusCode(
+                ct.IsCancellationRequested ? 499 : 500,
+                $"Unable to perform query on instances due to: {e.Message}"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Gets a specific instance with the given instance id.
+    /// </summary>
+    /// <param name="org">The org owning the the instance to retrieve.</param>
+    /// <param name="app">The app tied to the instance to retrieve.</param>
+    /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>Details about the specific instance</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
+    [HttpGet("{org}/{app}/{instanceGuid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<SimpleInstanceDetails>> GetSingleInstance(
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            InstanceInternal result = await _instanceRepository.GetOne(instanceGuid, true, ct);
+            if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
+            {
+                return NotFound();
+            }
+
+            return Ok(SimpleInstanceDetails.FromInstance(result));
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, $"Unable to find instance {instanceGuid}");
+            return StatusCode(
+                ct.IsCancellationRequested ? 499 : 500,
+                $"Unable to find instance {instanceGuid}: {e.Message}"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Deletes an instance with the given instance id. Soft deletion.
+    /// </summary>
+    /// <param name="org">The org owning the instance.</param>
+    /// <param name="app">The app tied to the instance.</param>
+    /// <param name="instanceGuid">The id of the instance.</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
+    [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
+    [HttpDelete("{org}/{app}/{instanceGuid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> DeleteInstance(
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        CancellationToken ct
+    )
+    {
+        InstanceInternal instance = await _instanceRepository.GetOne(instanceGuid, false, ct);
+
+        if (instance == null || instance.Org != org || instance.AppId != $"{org}/{app}")
+        {
+            return NotFound(
+                $"Didn't find the object that should be deleted with instanceId={org}/{app}/{instanceGuid}"
+            );
+        }
+
+        instance.Status ??= new InstanceStatus();
+
+        (Application appInfo, ServiceError appInfoError) =
+            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+
+        if (appInfoError != null)
+        {
+            return appInfoError.ErrorCode switch
+            {
+                404 => NotFound(appInfoError.ErrorMessage),
+                _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+            };
+        }
+
+        if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
+        {
+            return StatusCode(
+                403,
+                "Instance cannot be deleted yet due to application restrictions."
+            );
+        }
+
+        if (instance.Status.IsSoftDeleted)
+        {
+            return NoContent();
+        }
+
+        DateTime now = DateTime.UtcNow;
+
+        List<string> updateProperties = [];
+        updateProperties.Add(nameof(instance.Status));
+        updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+        updateProperties.Add(nameof(instance.Status.SoftDeleted));
+        instance.Status.IsSoftDeleted = true;
+        instance.Status.SoftDeleted = now;
+
+        instance.LastChanged = now;
+        updateProperties.Add(nameof(instance.LastChanged));
+        updateProperties.Add(nameof(instance.LastChangedBy));
+
+        try
+        {
+            instance.LastChangedBy =
+                await _organisationService.GetOrgNumber(instance.Org, ct)
+                ?? throw new InvalidOperationException(
+                    $"Could not resolve organisation number for service owner '{instance.Org}'."
+                );
+
+            InstanceInternal deletedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken: ct
+            );
+
+            PlatformUser studioUser = new() { OrgId = deletedInstance.Org };
+            await _instanceEventService.DispatchEvent(
+                InstanceEventType.Deleted,
+                deletedInstance,
+                studioUser,
+                "Instance soft deleted by app owner via Altinn Studio"
+            );
+
+            return NoContent();
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Unexpected exception when deleting instance {instanceId}",
+                instance.Id
+            );
+            return StatusCode(
+                500,
+                $"Unexpected exception when deleting instance {instance.Id}: {e.Message}"
+            );
+        }
+    }
+}
