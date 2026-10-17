@@ -1,0 +1,8 @@
+﻿<Project>
+    <Import Project="..\..\Directory.Build.props" />
+
+    <PropertyGroup>
+        <IsAppProject>true</IsAppProject>
+    </PropertyGroup>
+
+</Project>

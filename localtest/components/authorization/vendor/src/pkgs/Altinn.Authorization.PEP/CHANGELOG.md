@@ -1,0 +1,46 @@
+# Changelog
+
+## [5.0.0](https://github.com/Altinn/altinn-auth/compare/Altinn.Authorization.PEP-v4.2.3...Altinn.Authorization.PEP-v5.0.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **#4322:** Altinn.Common.PEP and Altinn.Authorization.ABAC no longer target net8.0. Consumers must be on .NET 9 or later.
+
+### Features
+
+* enforce system user minimum authentication level obligation in PEP ([#3955](https://github.com/Altinn/altinn-auth/issues/3955)) ([1d94b77](https://github.com/Altinn/altinn-auth/commit/1d94b771f3cea6201cb97c0030d4a5f233ec634f)), closes [#3281](https://github.com/Altinn/altinn-auth/issues/3281)
+
+
+### Bug Fixes
+
+* **#4322:** drop net8.0 from published packages, embed symbols and reproducible builds ([#4323](https://github.com/Altinn/altinn-auth/issues/4323)) ([99e9396](https://github.com/Altinn/altinn-auth/commit/99e93960abaca3adf6b0f8771653c261a4b2a689))
+* PascalCase logger placeholders across both verticals (S6678) ([#3089](https://github.com/Altinn/altinn-auth/issues/3089)) ([f8108dc](https://github.com/Altinn/altinn-auth/commit/f8108dcd0bbb97ee8a7a7001cd7fe7add1e707ab))
+
+## [4.2.3](https://github.com/Altinn/altinn-auth/compare/Altinn.Authorization.PEP-v4.2.2...Altinn.Authorization.PEP-v4.2.3) (2026-02-09)
+
+
+### Bug Fixes
+
+* improve cancellation handling ([#1754](https://github.com/Altinn/altinn-auth/issues/1754)) ([1541df0](https://github.com/Altinn/altinn-auth/commit/1541df02575c1b50111886bc26a2916a3f5d7fb5))
+
+## [4.2.2](https://github.com/Altinn/altinn-auth/compare/Altinn.Authorization.PEP-v4.2.1...Altinn.Authorization.PEP-v4.2.2) (2025-11-04)
+
+
+### Bug Fixes
+
+* use framework reference in PEP ([#1636](https://github.com/Altinn/altinn-auth/issues/1636)) ([0253f2b](https://github.com/Altinn/altinn-auth/commit/0253f2b2ff5b6e0b081ec368a5613d7ef67158d0))
+
+## [4.2.1](https://github.com/Altinn/altinn-auth/compare/Altinn.Authorization.PEP-v4.2.0...Altinn.Authorization.PEP-v4.2.1) (2025-09-18)
+
+
+### Bug Fixes
+
+* handle ValidateDecisionResult when user has no authlevel-claim ([#1272](https://github.com/Altinn/altinn-auth/issues/1272)) ([e5c204e](https://github.com/Altinn/altinn-auth/commit/e5c204e86ebebc2d08311c693e428553ca4af1cd))
+
+## [4.2.0](https://github.com/Altinn/altinn-auth/compare/Altinn.Authorization.PEP-v4.1.2...Altinn.Authorization.PEP-v4.2.0) (2025-09-18)
+
+
+### Features
+
+* prepare for release ([#1261](https://github.com/Altinn/altinn-auth/issues/1261)) ([b0572fb](https://github.com/Altinn/altinn-auth/commit/b0572fb4841112cea44511932204475f6ab20824))

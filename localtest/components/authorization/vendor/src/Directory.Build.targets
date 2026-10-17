@@ -1,0 +1,123 @@
+﻿<Project>
+    <Choose>
+
+        <When Condition=" '$(IsTestProject)' == 'true' Or '$(IsTestLibrary)' == 'true'">
+
+            <PropertyGroup>
+                <NoWarn>$(NoWarn);SA0001</NoWarn>
+                <XUnitVersion Condition=" '$(XUnitVersion)' == '' ">v2</XUnitVersion>
+                <GenerateDocumentationFile Condition=" '$(EnableReferenceTrimmer)' == '' ">false</GenerateDocumentationFile>
+                <OutputType Condition=" '$(IsTestProject)' == 'true' And '$(XUnitVersion)' == 'v3' ">Exe</OutputType>
+
+                <!-- xUnit v3 runs on Microsoft Testing Platform, not VSTest.
+                     This opt-in makes `dotnet test` route to MTP so xUnit v3
+                     tests are actually discovered & executed in CI. -->
+                <TestingPlatformDotnetTestSupport Condition=" '$(IsTestProject)' == 'true' And '$(XUnitVersion)' == 'v3' ">true</TestingPlatformDotnetTestSupport>
+
+                <!-- Whether this assembly has integration tests that can actually run
+                     (at least one [IntegrationTest] not permanently [Skip]ped). Projects
+                     without any set this to false in their csproj so the CI integration
+                     lane skips them instead of running them with zero matching tests —
+                     MTP prints such a run as "Failed! ... Total: 0" and there is no
+                     option to change that display (the job only stays green because of
+                     the "ignore-exit-code 8" option). Enforced against the assembly's
+                     actual tests by TestCategoryGuard, so the declaration can't go stale. -->
+                <HasIntegrationTests Condition=" '$(IsTestProject)' == 'true' And '$(XUnitVersion)' == 'v3' And '$(HasIntegrationTests)' == '' ">true</HasIntegrationTests>
+
+                <!-- Coverage output format for coverlet -->
+                <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+            </PropertyGroup>
+
+            <ItemGroup>
+                <DocFileItem Remove="@(DocFileItem)" />
+            </ItemGroup>
+
+            <ItemGroup Condition=" '$(IsTestProject)' == 'true' ">
+                <PackageReference Include="coverlet.collector">
+                    <PrivateAssets>all</PrivateAssets>
+                    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+                </PackageReference>
+
+                <PackageReference Include="coverlet.msbuild">
+                    <PrivateAssets>all</PrivateAssets>
+                    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+                </PackageReference>
+
+                <PackageReference Include="Microsoft.NET.Test.Sdk" />
+                <PackageReference Include="xunit" Condition=" '$(XUnitVersion)' == 'v2' " />
+                <PackageReference Include="xunit.v3" Condition=" '$(XUnitVersion)' == 'v3' " />
+                <PackageReference Include="xunit.runner.visualstudio" Condition=" '$(XUnitVersion)' == 'v2' ">
+                    <PrivateAssets>all</PrivateAssets>
+                    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+                </PackageReference>
+            </ItemGroup>
+
+            <!-- Shared [UnitTest] / [IntegrationTest] category markers, compiled
+                 into every test assembly (linked, so no project reference needed).
+                 Only meaningful for xUnit v3 (ITraitAttribute). -->
+            <ItemGroup Condition=" '$(IsTestProject)' == 'true' And '$(XUnitVersion)' == 'v3' ">
+                <Compile Include="$(MSBuildThisFileDirectory)..\eng\testing\TestCategories.cs">
+                    <Link>Properties\TestCategories.cs</Link>
+                </Compile>
+                <!-- Fails the build if any test method lacks a Category trait, so it
+                     can't be silently skipped by the unit/integration lane filters. -->
+                <Compile Include="$(MSBuildThisFileDirectory)..\eng\testing\TestCategoryGuard.cs">
+                    <Link>Properties\TestCategoryGuard.cs</Link>
+                </Compile>
+                <Using Include="Altinn.Authorization.Testing" />
+                <!-- Exposes the lane declaration to TestCategoryGuard, which fails the
+                     run when it doesn't match the assembly's actual tests. -->
+                <AssemblyMetadata Include="HasIntegrationTests" Value="$(HasIntegrationTests)" />
+            </ItemGroup>
+
+            <ItemGroup Condition=" '$(IsTestLibrary)' == 'true' ">
+                <PackageReference Include="xunit.assert" Condition=" '$(XUnitVersion)' == 'v2' " />
+                <PackageReference Include="xunit.extensibility.core" Condition=" '$(XUnitVersion)' == 'v2' " />
+                <PackageReference Include="xunit.v3.assert" Condition=" '$(XUnitVersion)' == 'v3' " />
+                <PackageReference Include="xunit.v3.extensibility.core" Condition=" '$(XUnitVersion)' == 'v3' " />
+            </ItemGroup>
+
+            <!-- AwesomeAssertions is the free, API-compatible fork of FluentAssertions
+                 (FluentAssertions 8.x is commercially licensed; 7.2.2 was the last free
+                 release). The assertion API (.Should()...) is unchanged; only the root
+                 namespace differs (AwesomeAssertions, not FluentAssertions), which is why
+                 the global using below is AwesomeAssertions. Available in both runnable
+                 test projects and shared test-helper libraries. -->
+            <ItemGroup>
+                <PackageReference Include="AwesomeAssertions" />
+            </ItemGroup>
+
+            <ItemGroup>
+                <Using Include="Xunit" />
+                <Using Include="AwesomeAssertions" />
+            </ItemGroup>
+
+        </When>
+
+        <Otherwise>
+            <ItemGroup>
+                <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+            </ItemGroup>
+        </Otherwise>
+
+    </Choose>
+
+    <ItemGroup Condition=" '$(EnableStyleCop)' == 'true' ">
+        <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)Stylecop.json">
+            <Link>stylecop.json</Link>
+        </AdditionalFiles>
+    </ItemGroup>
+
+    <!-- CI lane gate: when the integration test lane runs (`dotnet test -p:TestLane=Integration`),
+         projects that declare <HasIntegrationTests>false</HasIntegrationTests> skip test
+         execution entirely instead of starting a run that matches zero tests (which MTP
+         reports as "Failed!"). Imported here (after the NuGet package targets) so the
+         override in the file wins over Microsoft.Testing.Platform.MSBuild's
+         InvokeTestingPlatform target.
+         Must be conditional on the import — a same-named target with a false Condition
+         would still replace the package's target and just be skipped. -->
+    <Import Project="$(MSBuildThisFileDirectory)..\eng\testing\IntegrationLaneGate.targets"
+            Condition=" '$(TestLane)' == 'Integration' And '$(IsTestProject)' == 'true' And '$(XUnitVersion)' == 'v3' And '$(HasIntegrationTests)' == 'false' " />
+
+</Project>

@@ -1,0 +1,169 @@
+﻿using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Altinn.Platform.Authorization.Models.EventLog;
+
+namespace Altinn.Platform.Authorization.Telemetry
+{
+    /// <summary>
+    /// Telemetry definitions for the Policy Decision Point, exposing metrics that attribute PDP
+    /// usage back to the resource owner so that volume and cost can be allocated per service owner.
+    /// </summary>
+    public sealed class DecisionTelemetry
+    {
+        /// <summary>
+        /// Meter name registered with the OpenTelemetry meter provider in Program.cs. Any change
+        /// here must be reflected in the <c>AddMeter</c> call, otherwise the instrument will be
+        /// silently dropped.
+        /// </summary>
+        public const string MeterName = "Altinn.Authorization.Pdp";
+
+        /// <summary>
+        /// Dimension value used when an owner or resource identifier cannot be resolved.
+        /// </summary>
+        public const string UnknownDimensionValue = "unknown";
+
+        /// <summary>
+        /// Dimension value for requests arriving on the internal PDP API
+        /// (<c>authorization/api/v1/decision</c>).
+        /// </summary>
+        public const string InternalApiDimensionValue = "internal";
+
+        /// <summary>
+        /// Dimension value for requests arriving on the external PDP API
+        /// (<c>authorization/api/v1/authorize</c>).
+        /// </summary>
+        public const string ExternalApiDimensionValue = "external";
+
+        /// <summary>
+        /// Caller dimension value for decisions that should be attributed to the resource owner. Note
+        /// that this says where the cost belongs, not that the caller is the owner: it is the value
+        /// used for every external caller that is not a known cross-owner consumer.
+        /// </summary>
+        public const string OwnerCallerDimensionValue = "owner";
+
+        /// <summary>
+        /// Caller dimension value for decisions requested by Digdir, which evaluates access to
+        /// resources owned by others in connection with the formidlingstjenester. These should not be
+        /// billed to the resource owner.
+        /// </summary>
+        public const string DigdirCallerDimensionValue = "digdir";
+
+        /// <summary>
+        /// Caller dimension value for requests on the internal PDP API, which has no external consumer.
+        /// Holding this constant keeps the internal traffic — by far the larger volume — from
+        /// multiplying the number of time series.
+        /// </summary>
+        public const string InternalCallerDimensionValue = "internal";
+
+        private const string OwnerOrgTag = "resource.owner.org";
+        private const string ResourceIdTag = "resource.id";
+        private const string ApiKindTag = "pdp.api.kind";
+        private const string CallerKindTag = "pdp.caller.kind";
+        private const string AuditLogDuplicateTag = "auditlog.duplicate";
+
+        private readonly Counter<long> _pdpDecisions;
+        private readonly Counter<long> _auditLogEvents;
+        private readonly Counter<long> _auditLogTrackerCapacityRotations;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DecisionTelemetry"/> class. Registered as a
+        /// singleton so the underlying <see cref="Meter"/> lifetime is owned by <see cref="IMeterFactory"/>
+        /// and integrates with OpenTelemetry resource attribution.
+        /// </summary>
+        public DecisionTelemetry(IMeterFactory meterFactory)
+        {
+            Meter meter = meterFactory.Create(MeterName);
+            _pdpDecisions = meter.CreateCounter<long>(
+                "altinn.pdp.decisions",
+                unit: "1",
+                description: "Number of PDP authorization decisions evaluated");
+            _auditLogEvents = meter.CreateCounter<long>(
+                "altinn.pdp.auditlog.events",
+                unit: "1",
+                description: "Number of authorization events queued for the audit log, by whether they repeat an event already seen");
+            _auditLogTrackerCapacityRotations = meter.CreateCounter<long>(
+                "altinn.pdp.auditlog.tracker.capacity_rotations",
+                unit: "1",
+                description: "Number of times the audit log duplicate tracker was full and forgot its oldest events before their window ended");
+        }
+
+        /// <summary>
+        /// Records a single PDP decision with the given owner and resource identifier.
+        /// </summary>
+        /// <param name="ownerOrg">Resource owner org code, or <see cref="UnknownDimensionValue"/>.</param>
+        /// <param name="resourceId">Resource identifier, or <see cref="UnknownDimensionValue"/>.</param>
+        /// <param name="apiKind">
+        /// Which PDP API the request arrived on, either <see cref="InternalApiDimensionValue"/> or
+        /// <see cref="ExternalApiDimensionValue"/>.
+        /// </param>
+        /// <param name="callerKind">
+        /// Who the decision should be attributed to, one of <see cref="OwnerCallerDimensionValue"/>,
+        /// <see cref="DigdirCallerDimensionValue"/> or <see cref="InternalCallerDimensionValue"/>.
+        /// Deliberately a small, closed set of values rather than the consumer identity itself, which
+        /// would grow the number of time series with the number of calling organizations.
+        /// </param>
+        public void RecordDecision(string ownerOrg, string resourceId, string apiKind, string callerKind)
+        {
+            // TagList rather than the params overload: it stores up to eight tags inline, so recording
+            // a decision stays allocation-free on a path that runs for every authorization request.
+            TagList tags = new()
+            {
+                { OwnerOrgTag, ownerOrg.ToLowerInvariant() },
+                { ResourceIdTag, resourceId.ToLowerInvariant() },
+                { ApiKindTag, apiKind },
+                { CallerKindTag, callerKind },
+            };
+
+            _pdpDecisions.Add(1, tags);
+        }
+
+        /// <summary>
+        /// Records an authorization event queued for the audit log, and whether it repeats one already
+        /// seen. The share of duplicates is what deduplication before the queue would save.
+        /// </summary>
+        /// <param name="duplicateKind">How the event was classified by the duplicate tracker.</param>
+        /// <remarks>
+        /// Deliberately not dimensioned on the resource: the total share is what matters, and the audit
+        /// log covers far more resources than a time series per resource can carry.
+        /// </remarks>
+        public void RecordAuditLogEvent(AuthorizationEventDuplicateKind duplicateKind)
+        {
+            string duplicate = duplicateKind switch
+            {
+                AuthorizationEventDuplicateKind.None => "none",
+                AuthorizationEventDuplicateKind.SameTrace => "trace",
+                AuthorizationEventDuplicateKind.Window => "window",
+                _ => UnknownDimensionValue,
+            };
+
+            TagList tags = new()
+            {
+                { AuditLogDuplicateTag, duplicate },
+            };
+
+            _auditLogEvents.Add(1, tags);
+        }
+
+        /// <summary>
+        /// Records an authorization event queued for the audit log that could not be classified, because
+        /// measuring it failed. Counted in the same instrument, so that its total stays the number of
+        /// events queued.
+        /// </summary>
+        public void RecordAuditLogEventMeasurementFailure()
+        {
+            TagList tags = new()
+            {
+                { AuditLogDuplicateTag, "error" },
+            };
+
+            _auditLogEvents.Add(1, tags);
+        }
+
+        /// <summary>
+        /// Records that the audit log duplicate tracker was full and started a new generation early,
+        /// forgetting its oldest events before their window ended. Above zero means the effective window
+        /// is shorter than configured, and duplicates are undercounted.
+        /// </summary>
+        public void RecordAuditLogTrackerCapacityRotation() => _auditLogTrackerCapacityRotations.Add(1);
+    }
+}

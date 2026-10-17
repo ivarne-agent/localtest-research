@@ -33,6 +33,10 @@ public sealed class LocaltestTestUsersController(RegisterStore store)
                         store.ByUuid[g.Key].OrganizationIdentifier.HasValue ? store.ByUuid[g.Key].OrganizationIdentifier.Value.ToString() : null,
                         store.ByUuid[g.Key].DisplayName.Value,
                         g.Select(a => a.Identifier).Distinct().ToList(),
+                        g.Select(a => store.RoleDefinitions.TryGetRoleDefinition(a.Source, a.Identifier, out var definition) ? definition.Code : null)
+                            .OfType<string>()
+                            .Distinct()
+                            .ToList(),
                         p.AccessPackages.TryGetValue(store.ByUuid[g.Key].PartyId.Value.ToString(), out var packages) ? packages : []))
                     .ToList();
 
@@ -64,7 +68,9 @@ public sealed class LocaltestTestUsersController(RegisterStore store)
 
     public sealed record TestUserDto(int UserId, uint PartyId, Guid PartyUuid, string Ssn, string DisplayName, string? UserName, string? Email, string? Language, IReadOnlyList<TestUserPartyDto> Parties, IReadOnlyList<TestClaimDto> CustomClaims);
 
-    public sealed record TestUserPartyDto(uint PartyId, Guid PartyUuid, string? OrgNumber, string DisplayName, IReadOnlyList<string> Roles, IReadOnlyList<string> AccessPackages);
+    /// <param name="Roles">CCR role identifiers, such as <c>daglig-leder</c>.</param>
+    /// <param name="RoleCodes">The same roles as legacy Altinn role codes, such as <c>DAGL</c> (what <c>urn:altinn:rolecode</c> carries).</param>
+    public sealed record TestUserPartyDto(uint PartyId, Guid PartyUuid, string? OrgNumber, string DisplayName, IReadOnlyList<string> Roles, IReadOnlyList<string> RoleCodes, IReadOnlyList<string> AccessPackages);
 
     public sealed record TestOrgDto(uint PartyId, Guid PartyUuid, string OrgNumber, string DisplayName, int? ParentPartyId);
 

@@ -7,6 +7,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | --- | --- |
 | `components/register/` | Production Register on an in-memory register seeded from `testdata/testData.json` (see its README) |
 | `components/authentication/` | Production Authentication with the upstream provider replaced by a test-user picker (see its README) |
+| `components/authorization/` | Production Authorization (PDP) with policies from a folder or the running app and PIPs over the register seed (see its README) |
 | `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, `/` to the app on the developer machine, Secure cookie flag removed |
 | `docker-compose.yml` | `ingress`, `register`, `authentication` (authorization and storage follow); the ingress has a fixed address that every component maps `local.altinn.cloud` to |
 

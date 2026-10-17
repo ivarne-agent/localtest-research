@@ -1,0 +1,23 @@
+{
+  "dis": {
+    "deploy": false,
+    "manifest": "authorization/manifest",
+    "syncroot": "authorization/syncroot"
+  },
+  "image": {},
+  "infra": {
+    "terraform": {
+      "stateFile": "Altinn.Authorization.tfstate"
+    }
+  },
+  "deps": [
+    "lib:Altinn.Authorization.Host",
+    "lib:Altinn.Authorization.Integration",
+    "lib:Altinn.Authorization.Testing",
+    "pkg:Altinn.Authorization.ABAC",
+    "pkg:Altinn.Authorization.PEP"
+  ],
+  "sonarcloud": {
+    "projectKey": "Authorization_Authorization"
+  }
+}

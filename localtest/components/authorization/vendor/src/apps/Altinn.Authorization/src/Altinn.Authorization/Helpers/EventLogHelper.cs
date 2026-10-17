@@ -1,0 +1,236 @@
+﻿#nullable enable
+
+using System.Diagnostics;
+using System.Text.Json;
+using Altinn.Authorization.ABAC.Constants;
+using Altinn.Authorization.ABAC.Xacml;
+using Altinn.Platform.Authorization.Constants;
+using Altinn.Platform.Authorization.Models.EventLog;
+
+namespace Altinn.Platform.Authorization.Helpers
+{
+    /// <summary>
+    /// Helper class for event logging
+    /// </summary>
+    public static class EventLogHelper
+    {
+        /// <summary>
+        /// Maps the user, resource information from
+        /// </summary>
+        /// <param name="contextRequest">the context request</param>
+        /// <param name="context">the http context</param>
+        /// <param name="contextRespsonse">the http context response</param>
+        /// <param name="currentDateTime">the current date time</param>
+        /// <returns></returns>
+        public static AuthorizationEvent MapAuthorizationEventFromContextRequest(XacmlContextRequest contextRequest, HttpContext context, XacmlContextResponse contextRespsonse, DateTimeOffset currentDateTime)
+        {
+            (string resource, string instanceId, int? resourcePartyId) = GetResourceAttributes(contextRequest);
+            (int? userId, int? partyId, string org, int? orgNumber, string? sessionId, string? partyUuid) = GetSubjectInformation(contextRequest);
+            AuthorizationEvent authorizationEvent = new AuthorizationEvent
+            {
+                SessionId = sessionId,
+                Created = currentDateTime,
+                Resource = resource,
+                SubjectUserId = userId,
+                SubjectOrgCode = org,
+                SubjectOrgNumber = orgNumber,
+                InstanceId = instanceId,
+                SubjectParty = partyId,
+                ResourcePartyId = resourcePartyId,
+                Operation = GetActionInformation(contextRequest),
+                IpAdress = GetClientIpAddress(context),
+                ContextRequestJson = JsonSerializer.SerializeToElement(contextRequest, JsonSerializerOptions.Web),
+                Decision = contextRespsonse.Results?.FirstOrDefault()?.Decision,
+                SubjectPartyUuid = partyUuid,
+                TraceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier,
+            };
+
+            return authorizationEvent;
+        }
+
+        /// <summary>
+        /// Returens the policy resource type based on XacmlContextRequest
+        /// </summary>
+        /// <param name="request">The requestId</param>
+        /// <returns></returns>
+        public static (string Resource, string InstanceId, int? ResourcePartyId) GetResourceAttributes(XacmlContextRequest request)
+        {
+            string resource = string.Empty;
+            string instanceId = string.Empty;
+            int? resourcePartyId = null;
+            string org = string.Empty;
+            string app = string.Empty;
+
+            if (request != null)
+            {
+                foreach (XacmlContextAttributes attr in request.Attributes.Where(attr => attr.Category.OriginalString.Equals(XacmlConstants.MatchAttributeCategory.Resource)))
+                {
+                    foreach (XacmlAttribute xacmlAtr in attr.Attributes)
+                    {
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.ResourceRegistryAttribute))
+                        {
+                            resource = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.AppAttribute))
+                        {
+                            app = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.OrgAttribute))
+                        {
+                            org = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.InstanceAttribute))
+                        {
+                            instanceId = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.PartyAttribute))
+                        {
+                            resourcePartyId = Convert.ToInt32(xacmlAtr.AttributeValues.First().Value);
+                        }
+                    }
+                }
+            }
+
+            resource = string.IsNullOrEmpty(resource) ? $"app_{org}_{app}" : resource;
+            return (resource, instanceId, resourcePartyId);
+        }
+
+        /// <summary>
+        /// Returns the values of the resource instance attribute (<c>urn:altinn:resource:instance-id</c>). It
+        /// is not persisted as a column of its own, but identifies what was accessed, such as a single
+        /// message or dialog.
+        /// </summary>
+        /// <param name="request">The context request</param>
+        /// <returns>The values in the order of the request, or an empty list when there are none</returns>
+        public static IReadOnlyList<string> GetResourceInstanceIds(XacmlContextRequest request)
+        {
+            // Runs for every logged decision while duplicates are measured, so plain loops rather than LINQ.
+            List<string>? values = null;
+
+            if (request != null)
+            {
+                foreach (XacmlContextAttributes attr in request.Attributes)
+                {
+                    if (!attr.Category.OriginalString.Equals(XacmlConstants.MatchAttributeCategory.Resource))
+                    {
+                        continue;
+                    }
+
+                    foreach (XacmlAttribute xacmlAtr in attr.Attributes)
+                    {
+                        if (!xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.ResourceRegistryInstanceAttribute))
+                        {
+                            continue;
+                        }
+
+                        foreach (XacmlAttributeValue value in xacmlAtr.AttributeValues)
+                        {
+                            (values ??= new List<string>(2)).Add(value.Value);
+                        }
+                    }
+                }
+            }
+
+            return values ?? [];
+        }
+
+        /// <summary>
+        /// Returens the policy resource type based on XacmlContextRequest
+        /// </summary>
+        /// <param name="request">The requestId</param>
+        /// <returns></returns>
+        public static (int? UserId, int? PartyId, string Org, int? OrgNumber, string? SessionId, string? PartyUuid) GetSubjectInformation(XacmlContextRequest request)
+        {
+            int? userId = null;
+            int? partyId = null;
+            string org = string.Empty;
+            int? orgNumber = null;
+            string? sessionId = null;
+            string? partyUuid = null;
+
+            if (request != null)
+            {
+                foreach (XacmlContextAttributes attr in request.Attributes.Where(attr => attr.Category.OriginalString.Equals(XacmlConstants.MatchAttributeCategory.Subject)))
+                {
+                    foreach (XacmlAttribute xacmlAtr in attr.Attributes)
+                    {
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.UserAttribute))
+                        {
+                            userId = Convert.ToInt32(xacmlAtr.AttributeValues.First().Value);
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.PartyAttribute))
+                        {
+                            partyId = Convert.ToInt32(xacmlAtr.AttributeValues.First().Value);
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.OrgAttribute))
+                        {
+                            org = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.LegacyOrganizationNumberAttribute))
+                        {
+                            orgNumber = Convert.ToInt32(xacmlAtr.AttributeValues.First().Value);
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.SessionIdAttribute))
+                        {
+                            sessionId = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.SystemUserIdAttribute))
+                        {
+                            partyUuid = xacmlAtr.AttributeValues.First().Value;
+                        }
+
+                        if (xacmlAtr.AttributeId.OriginalString.Equals(XacmlRequestAttribute.PartyUuidAttribute))
+                        {
+                            partyUuid = xacmlAtr.AttributeValues.First().Value;
+                        }
+                    }
+                }
+            }
+
+            return (userId, partyId, org, orgNumber, sessionId, partyUuid);
+        }
+
+        /// <summary>
+        /// Returens the policy resource type based on XacmlContextRequest
+        /// </summary>
+        /// <param name="request">The requestId</param>
+        /// <returns></returns>
+        public static string GetActionInformation(XacmlContextRequest request)
+        {
+            string actionId = string.Empty;
+
+            if (request != null)
+            {
+                foreach (XacmlContextAttributes attr in request.Attributes.Where(attr => attr.Category.OriginalString.Equals(XacmlConstants.MatchAttributeCategory.Action)))
+                {
+                    foreach (XacmlAttribute xacmlAtr in attr.Attributes.Where(attr => attr.AttributeId.OriginalString.Equals(XacmlConstants.MatchAttributeIdentifiers.ActionId, StringComparison.Ordinal)))
+                    {
+                        actionId = xacmlAtr.AttributeValues.First().Value;
+                    }
+                }
+            }
+
+            return actionId;
+        }
+
+        /// <summary>
+        /// Get the client ip address
+        /// </summary>
+        /// <param name="context">the http request context</param>
+        /// <returns></returns>
+        public static string? GetClientIpAddress(HttpContext context)
+        {
+            string[] clientIpList = context?.Request?.Headers?.GetCommaSeparatedValues("x-forwarded-for") ?? [];
+            return clientIpList.FirstOrDefault() ?? null;
+        }
+    }
+}

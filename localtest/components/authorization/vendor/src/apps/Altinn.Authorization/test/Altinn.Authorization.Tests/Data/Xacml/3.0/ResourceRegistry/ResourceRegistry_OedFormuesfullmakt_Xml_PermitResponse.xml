@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<xacml:Response xmlns:xacml="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17">
+	<xacml:Result>
+		<xacml:Decision>Permit</xacml:Decision>
+		<xacml:Status>
+			<xacml:StatusCode Value="urn:oasis:names:tc:xacml:1.0:status:ok"/>
+		</xacml:Status>
+		<xacml:Obligations>
+			<xacml:Obligation ObligationId="urn:altinn:obligation:authenticationLevel1" FulfillOn="Permit">
+				<xacml:AttributeAssignment DataType="http://www.w3.org/2001/XMLSchema#integer" AttributeId="urn:altinn:obligation-assignment:1" Category="urn:altinn:minimum-authenticationlevel">2</xacml:AttributeAssignment>
+			</xacml:Obligation>
+		</xacml:Obligations>
+		<xacml:Attributes Category="urn:oasis:names:tc:xacml:3.0:attribute-category:resource">
+			<xacml:Attribute AttributeId="urn:altinn:partyid" IncludeInResult="true">
+				<xacml:AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">50740574</xacml:AttributeValue>
+			</xacml:Attribute>
+		</xacml:Attributes>
+	</xacml:Result>
+</xacml:Response>
