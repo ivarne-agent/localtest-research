@@ -32,6 +32,14 @@ public static class LocaltestAuthenticationExtensions
             : "http://local.altinn.cloud:8000/").TrimEnd('/') + "/";
         var authn = platform + "authentication/api/v1/";
 
+        // URLs the browser follows use the public platform endpoint; calls this service makes itself use the
+        // internal one (in compose the ingress's service name, because containers may resolve the public host
+        // name to themselves). They are the same when running on one machine without containers.
+        var internalPlatform = (builder.Configuration["Localtest:Authentication:InternalPlatformEndpoint"] is { Length: > 0 } internalConfigured
+            ? internalConfigured
+            : platform).TrimEnd('/') + "/";
+        var internalAuthn = internalPlatform + "authentication/api/v1/";
+
         // Lowest-priority defaults; environment variables and appsettings still win. Provider settings are bound
         // lazily through options, so adding them here, after the production registrations, is in time.
         builder.Configuration.Sources.Insert(0, new MemoryConfigurationSource
@@ -41,13 +49,13 @@ public static class LocaltestAuthenticationExtensions
                 ["Altinn:LocalDev"] = "true",
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["GeneralSettings:OidcRefreshTokenPepper"] = "localtest-pepper",
-                ["Localtest:Authentication:RegisterLocaltestEndpoint"] = platform + "register/api/localtest/",
+                ["Localtest:Authentication:RegisterLocaltestEndpoint"] = internalPlatform + "register/api/localtest/",
 
                 // The one upstream provider: its authorization endpoint is the picker page in this host.
                 ["OidcProviders:idporten:Issuer"] = authn + "localtest/idporten/",
                 ["OidcProviders:idporten:AuthorizationEndpoint"] = authn + "localtest/login",
-                ["OidcProviders:idporten:TokenEndpoint"] = authn + "localtest/idporten/token",
-                ["OidcProviders:idporten:WellKnownConfigEndpoint"] = authn + "localtest/idporten/.well-known/openid-configuration",
+                ["OidcProviders:idporten:TokenEndpoint"] = internalAuthn + "localtest/idporten/token",
+                ["OidcProviders:idporten:WellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
                 ["OidcProviders:idporten:ClientId"] = "localtest",
                 ["OidcProviders:idporten:Scope"] = "openid",
                 ["OidcProviders:idporten:DefaultAuthenticationMethod"] = "NotDefined",
@@ -71,18 +79,18 @@ public static class LocaltestAuthenticationExtensions
             ["Altinn:Npgsql:authentication:Migrate:Enabled"] = "false",
             ["FeatureManagement:AuditLog"] = "false",
             ["kvSetting:SecretUri"] = string.Empty,
-            ["PlatformSettings:ApiNotificationsEndpoint"] = platform + "notifications/api/v1/",
-            ["PlatformSettings:ApiProfileEndpoint"] = platform + "profile/api/v1/",
-            ["PlatformSettings:ApiResourceRegistryEndpoint"] = platform + "resourceregistry/api/v1/",
-            ["PlatformSettings:ApiRegisterInternalEndpoint"] = platform + "register/api/v2/internal/",
-            ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-            ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
-            ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = authn + "localtest/idporten/.well-known/openid-configuration",
-            ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = authn + "localtest/idporten/.well-known/openid-configuration",
-            ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = authn + "localtest/maskinporten/.well-known/oauth-authorization-server",
-            ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = authn + "localtest/maskinporten/.well-known/oauth-authorization-server",
+            ["PlatformSettings:ApiNotificationsEndpoint"] = internalPlatform + "notifications/api/v1/",
+            ["PlatformSettings:ApiProfileEndpoint"] = internalPlatform + "profile/api/v1/",
+            ["PlatformSettings:ApiResourceRegistryEndpoint"] = internalPlatform + "resourceregistry/api/v1/",
+            ["PlatformSettings:ApiRegisterInternalEndpoint"] = internalPlatform + "register/api/v2/internal/",
+            ["PlatformSettings:ApiRegisterEndpoint"] = internalPlatform + "register/api/v1/",
+            ["PlatformSettings:ApiAuthorizationEndpoint"] = internalPlatform + "authorization/api/v1/",
+            ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
+            ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
+            ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
+            ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
             ["GeneralSettings:DefaultOidcProvider"] = "idporten",
-            ["GeneralSettings:OpenIdWellKnownEndpoint"] = authn + "openid/",
+            ["GeneralSettings:OpenIdWellKnownEndpoint"] = internalAuthn + "openid/",
             ["GeneralSettings:PlatformEndpoint"] = platform,
             ["GeneralSettings:BaseUrl"] = platform.TrimEnd('/'),
             ["GeneralSettings:HostName"] = new Uri(platform).Host,

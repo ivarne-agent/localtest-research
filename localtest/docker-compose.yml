@@ -1,25 +1,54 @@
 name: localtest
 
+# One origin for apps and platform: http://local.altinn.cloud:8000 (add "127.0.0.1 local.altinn.cloud" to /etc/hosts).
+# The ingress has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
+# use the same public URLs the browser and the app use. (podman copies the host's /etc/hosts into containers, where
+# local.altinn.cloud would otherwise point at the container itself; an added host entry wins.)
+# Apps run on the developer machine (port 5005) and are reached through host.docker.internal.
+
+x-platform-host: &platform-host
+  extra_hosts:
+    - "local.altinn.cloud:10.200.0.10"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 10.200.0.0/24
+
 services:
+  ingress:
+    build: ./ingress
+    image: localhost/localtest-ingress:dev
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      default:
+        ipv4_address: 10.200.0.10
+        aliases:
+          - local.altinn.cloud
+    depends_on:
+      - register
+      - authentication
+
   register:
+    <<: *platform-host
     build: ./components/register
+    image: localhost/localtest-register:dev
     environment:
-      # Production Register settings, pointed at the other localtest components (through the ingress once it exists).
       GeneralSettings__OpenIdWellKnownEndpoint: http://local.altinn.cloud:8000/authentication/api/v1/openid/
       PlatformSettings__ApiAuthorizationEndpoint: http://local.altinn.cloud:8000/authorization/api/v1/
-      # Localtest fakes
       Localtest__Register__RequirePlatformAccessTokenHeader: "true"
     volumes:
       - ./components/register/testdata:/testdata:ro
-    ports:
-      - "5020:5020"
 
   authentication:
+    <<: *platform-host
     build: ./components/authentication
+    image: localhost/localtest-authentication:dev
     environment:
       GeneralSettings__PlatformEndpoint: http://local.altinn.cloud:8000/
-      Localtest__Authentication__RegisterLocaltestEndpoint: http://register:5020/register/api/localtest/
     depends_on:
       - register
-    ports:
-      - "5101:5101"

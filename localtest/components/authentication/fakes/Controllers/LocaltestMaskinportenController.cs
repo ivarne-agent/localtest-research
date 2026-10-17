@@ -19,8 +19,13 @@ namespace Altinn.Platform.Authentication.Localtest.Controllers;
 [Route("authentication/api/v1/localtest/maskinporten")]
 public sealed class LocaltestMaskinportenController(LocaltestSigningKeys keys, IOptions<GeneralSettings> generalSettings) : ControllerBase
 {
+    /// <summary>The issuer is the configured well-known URL minus its suffix: the production exchange checks that the token's iss is contained in that URL.</summary>
     public static string Issuer(GeneralSettings settings)
-        => new Uri(new Uri(settings.PlatformEndpoint), "authentication/api/v1/localtest/maskinporten/").ToString();
+    {
+        const string suffix = ".well-known/oauth-authorization-server";
+        var wellKnown = settings.MaskinportenWellKnownConfigEndpoint ?? string.Empty;
+        return wellKnown.EndsWith(suffix, StringComparison.Ordinal) ? wellKnown[..^suffix.Length] : wellKnown;
+    }
 
     [HttpGet(".well-known/oauth-authorization-server")]
     public IActionResult Metadata()

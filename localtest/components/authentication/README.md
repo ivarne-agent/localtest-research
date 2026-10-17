@@ -30,8 +30,9 @@ session and `refresh` works). Both are anonymous.
 
 Localtest defaults are set in `fakes/LocaltestAuthenticationExtensions.cs`: everything derived from
 `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22 values), and
-`PlatformEndpoint` itself is set by the environment. Known gap: cookies are `Secure`, so a browser on plain http
-drops them unless the ingress rewrites the flag (`proxy_cookie_flags ~ nosecure` in nginx).
+`PlatformEndpoint` itself is set by the environment, and `Localtest:Authentication:InternalPlatformEndpoint` can point
+the service's own calls elsewhere when the public host name is not reachable from where it runs. Cookies are `Secure`;
+the ingress removes the flag (`proxy_cookie_flags ~ nosecure`), so a browser on plain http keeps them.
 
 Run locally without Docker (register must be running on 5020):
 
