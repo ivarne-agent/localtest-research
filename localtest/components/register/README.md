@@ -17,7 +17,7 @@ persistence block). Everything else is replaced through DI or switched off by co
 makes the v1 endpoints answer from persistence).
 
 Localtest-only endpoints (anonymous): `GET register/api/localtest/test-users` and `GET register/api/localtest/organizations`,
-used by the authentication fake's picker and the Access Management / PDP fakes (roles and access packages per party).
+used by the authentication fake's picker and the Access Management / PDP fakes (per party: CCR role identifiers, the matching Altinn role codes such as `DAGL`, and access packages).
 
 Run locally without Docker:
 
