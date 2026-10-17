@@ -1,0 +1,120 @@
+#nullable disable
+
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Altinn.Platform.Storage.Controllers;
+
+/// <summary>
+/// Handles operations for signing all or a subset of dataelements for an instance
+/// </summary>
+[Route("storage/api/v1/instances")]
+[ApiController]
+public class SignController : ControllerBase
+{
+    private readonly ISigningService _signingService;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SignController"/> class
+    /// </summary>
+    /// <param name="signingService">An instance service with instance related business logic.</param>
+    public SignController(ISigningService signingService)
+    {
+        _signingService = signingService;
+    }
+
+    /// <summary>
+    /// Create signature document from listed data elements.
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The guid of the instance.</param>
+    /// <param name="signRequest">Sign request containing data element ids and sign status.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
+    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
+    [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Produces("application/json")]
+    public async Task<ActionResult> Sign(
+        [FromRoute] int instanceOwnerPartyId,
+        [FromRoute] Guid instanceGuid,
+        [FromBody] SignRequest signRequest,
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
+    )
+    {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        if (
+            string.IsNullOrEmpty(signRequest?.Signee?.UserId)
+            && signRequest?.Signee?.SystemUserId is null
+        )
+        {
+            return Problem(
+                "The 'UserId' or 'SystemUserId' parameter must be defined for signee.",
+                null,
+                400
+            );
+        }
+
+        var performedBy = User.GetUserOrOrgNo();
+        if (string.IsNullOrEmpty(performedBy))
+        {
+            return Unauthorized();
+        }
+
+        SignDocumentCreateResult result;
+        try
+        {
+            result = await _signingService.CreateSignDocument(
+                instanceGuid,
+                signRequest,
+                performedBy,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            return Conflict(exception.Message);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
+
+        if (result.Created)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
+            return StatusCode(201, "SignDocument is created");
+        }
+
+        ServiceError serviceError = result.ServiceError;
+        return Problem(serviceError.ErrorMessage, null, serviceError.ErrorCode);
+    }
+}

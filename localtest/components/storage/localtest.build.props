@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn Storage source, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). The nearest vendored props above the project is imported first (what
+    MSBuild itself would have found), then LOCALTEST is layered on top.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- The vendored root props pulls in CSharpier.MsBuild, which formats sources on build; vendored and fake files stay as committed. -->
+    <CSharpier_Bypass>true</CSharpier_Bypass>
+    <!-- The localtest sources compiled into the host are not XML-documented; the Key Vault connect is unused under LOCALTEST. -->
+    <NoWarn>$(NoWarn);CS1591;CS8321</NoWarn>
+  </PropertyGroup>
+</Project>

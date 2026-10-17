@@ -1,0 +1,69 @@
+﻿#nullable disable
+
+using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Enums;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+
+namespace Altinn.Platform.Storage.Services;
+
+/// <summary>
+/// This interface describes the required methods and features of an instance event service implementation.
+/// </summary>
+public interface IInstanceEventService
+{
+    /// <summary>
+    /// Construct an instance event given a type
+    /// </summary>
+    /// <param name="eventType">Event type</param>
+    /// <param name="instance">Instance</param>
+    /// <returns></returns>
+    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, InstanceInternal instance);
+
+    /// <summary>
+    /// Construct an instance event related to a data element.
+    /// </summary>
+    /// <param name="eventType">Event type</param>
+    /// <param name="instance">Instance</param>
+    /// <param name="dataElement">Data element</param>
+    /// <returns></returns>
+    public InstanceEvent BuildInstanceEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        DataElementInternal dataElement
+    );
+
+    /// <summary>
+    /// Dispatch an instance event to the repository
+    /// </summary>
+    /// <param name="eventType">The event type</param>
+    /// <param name="instance">The instance the event is related to</param>
+    public Task DispatchEvent(InstanceEventType eventType, InstanceInternal instance);
+
+    /// <summary>
+    /// Dispatch an instance event with an explicitly provided actor and additional info,
+    /// for callers whose token does not carry user or org claims.
+    /// </summary>
+    /// <param name="eventType">The event type</param>
+    /// <param name="instance">The instance the event is related to</param>
+    /// <param name="user">The actor to record on the event</param>
+    /// <param name="additionalInfo">Free text describing the event</param>
+    public Task DispatchEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        PlatformUser user,
+        string additionalInfo = null
+    );
+
+    /// <summary>
+    /// Dispatch an instance event related to a data elementto the repository
+    /// </summary>
+    /// <param name="eventType">The event type</param>
+    /// <param name="instance">The instance the event is related to</param>
+    /// <param name="dataElement">The data element the event is related to</param>
+    public Task DispatchEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        DataElementInternal dataElement
+    );
+}
