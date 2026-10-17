@@ -1,0 +1,170 @@
+using System.Text.Json.Serialization;
+
+namespace WorkflowEngine.Models;
+
+/// <summary>
+/// Response model for workflow engine status endpoint.
+/// </summary>
+public sealed record WorkflowStatusResponse
+{
+    /// <summary>
+    /// The database ID of the workflow.
+    /// </summary>
+    [JsonPropertyName("databaseId")]
+    public Guid DatabaseId { get; init; }
+
+    /// <summary>
+    /// The collection key for this workflow, if one was provided.
+    /// </summary>
+    [JsonPropertyName("collectionKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CollectionKey { get; init; }
+
+    /// <summary>
+    /// An identifier for this operation.
+    /// </summary>
+    [JsonPropertyName("operationId")]
+    public required string OperationId { get; init; }
+
+    /// <summary>
+    /// An idempotency key for this workflow.
+    /// </summary>
+    [JsonPropertyName("idempotencyKey")]
+    public required string IdempotencyKey { get; init; }
+
+    /// <summary>
+    /// The namespace this workflow belongs to.
+    /// </summary>
+    [JsonPropertyName("namespace")]
+    public required string Namespace { get; init; }
+
+    /// <summary>
+    /// The time the workflow was created.
+    /// </summary>
+    [JsonPropertyName("createdAt")]
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>
+    /// The last time this record was updated.
+    /// </summary>
+    [JsonPropertyName("updatedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? UpdatedAt { get; init; }
+
+    /// <summary>
+    /// When a worker most recently began processing this workflow. The gap from <see cref="CreatedAt"/> is
+    /// queue wait; the gap to <see cref="UpdatedAt"/> on a settled workflow is its last attempt's
+    /// processing time. Omitted while the workflow is <see cref="PersistentItemStatus.Enqueued"/> — before
+    /// the first attempt, and again after resume, a stale reclaim or dependency recovery return it there —
+    /// and for a <see cref="PersistentItemStatus.Processing"/> workflow whose attempt has not written back yet.
+    /// </summary>
+    [JsonPropertyName("executionStartedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ExecutionStartedAt { get; init; }
+
+    /// <summary>
+    /// Optional start time for when the workflow should be executed.
+    /// </summary>
+    [JsonPropertyName("startAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? StartAt { get; init; }
+
+    /// <summary>
+    /// When the workflow will next be eligible for execution.
+    /// </summary>
+    [JsonPropertyName("backoffUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? BackoffUntil { get; init; }
+
+    /// <summary>
+    /// When cancellation was requested for this workflow, if applicable.
+    /// </summary>
+    [JsonPropertyName("cancellationRequestedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CancellationRequestedAt { get; init; }
+
+    /// <summary>
+    /// Labels associated with this workflow.
+    /// </summary>
+    [JsonPropertyName("labels")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Labels { get; init; }
+
+    /// <summary>
+    /// The overall status of the workflow for this instance.
+    /// </summary>
+    [JsonPropertyName("overallStatus")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public required PersistentItemStatus OverallStatus { get; init; }
+
+    /// <summary>
+    /// Optional dependencies for this workflow, presented as a dictionary of workflow ID and corresponding processing status.
+    /// </summary>
+    [JsonPropertyName("dependencies")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<Guid, PersistentItemStatus>? Dependencies { get; init; }
+
+    /// <summary>
+    /// Optional dependents (inverse of <see cref="Dependencies"/>) — workflows that declare this one as a dependency,
+    /// presented as a dictionary of workflow ID and corresponding processing status.
+    /// </summary>
+    [JsonPropertyName("dependents")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<Guid, PersistentItemStatus>? Dependents { get; init; }
+
+    /// <summary>
+    /// Optional links for this workflow, presented as a dictionary of workflow ID and corresponding processing status.
+    /// </summary>
+    [JsonPropertyName("links")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<Guid, PersistentItemStatus>? Links { get; init; }
+
+    /// <summary>
+    /// The initial state passed to the first step of the workflow.
+    /// </summary>
+    [JsonPropertyName("initialState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InitialState { get; init; }
+
+    /// <summary>
+    /// The head-visibility directive this workflow was enqueued with (<see cref="WorkflowRequest.IsHead"/>).
+    /// <c>false</c> identifies workflows deliberately invisible to collection head tracking (e.g.
+    /// non-blocking side chains); <c>null</c>/omitted means natural leaf detection applied.
+    /// </summary>
+    [JsonPropertyName("isHead")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsHead { get; init; }
+
+    /// <summary>
+    /// Details about each step in the workflow.
+    /// </summary>
+    [JsonPropertyName("steps")]
+    public required IReadOnlyList<StepStatusResponse> Steps { get; init; }
+
+    /// <summary>
+    /// Projects a <see cref="Workflow"/> to its public response representation.
+    /// </summary>
+    public static WorkflowStatusResponse FromWorkflow(Workflow workflow) =>
+        new()
+        {
+            DatabaseId = workflow.DatabaseId,
+            CollectionKey = workflow.CollectionKey,
+            IdempotencyKey = workflow.IdempotencyKey,
+            Namespace = workflow.Namespace,
+            OperationId = workflow.OperationId,
+            CreatedAt = workflow.CreatedAt,
+            UpdatedAt = workflow.UpdatedAt,
+            ExecutionStartedAt = workflow.ExecutionStartedAt,
+            StartAt = workflow.StartAt,
+            BackoffUntil = workflow.BackoffUntil,
+            CancellationRequestedAt = workflow.CancellationRequestedAt,
+            Labels = workflow.Labels,
+            OverallStatus = workflow.Status,
+            InitialState = workflow.InitialState,
+            IsHead = workflow.IsHead,
+            Dependencies = workflow.Dependencies?.ToDictionary(x => x.DatabaseId, x => x.Status),
+            Dependents = workflow.Dependents?.ToDictionary(x => x.DatabaseId, x => x.Status),
+            Links = workflow.Links?.ToDictionary(x => x.DatabaseId, x => x.Status),
+            Steps = workflow.Steps.Select(StepStatusResponse.FromStep).ToList(),
+        };
+}

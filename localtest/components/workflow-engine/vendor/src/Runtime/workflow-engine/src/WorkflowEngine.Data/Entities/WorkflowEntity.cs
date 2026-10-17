@@ -1,0 +1,165 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
+using WorkflowEngine.Data.Constants;
+using WorkflowEngine.Models;
+
+namespace WorkflowEngine.Data.Entities;
+
+[Table("workflows", Schema = SchemaNames.Engine)]
+internal sealed class WorkflowEntity
+{
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
+    public Guid Id { get; set; }
+
+    [MaxLength(100)]
+    public required string OperationId { get; set; }
+
+    public required string IdempotencyKey { get; set; }
+
+    [MaxLength(200)]
+    public required string Namespace { get; set; }
+
+    public PersistentItemStatus Status { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? StartAt { get; set; }
+
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    public DateTimeOffset? ExecutionStartedAt { get; set; }
+
+    /// <summary>
+    /// When the workflow was last resumed, directly or by a cascade. Null until the first resume.
+    /// </summary>
+    public DateTimeOffset? ResumedAt { get; set; }
+
+    public DateTimeOffset? BackoffUntil { get; set; }
+
+    public DateTimeOffset? ThrottledUntil { get; set; }
+
+    public DateTimeOffset? HeartbeatAt { get; set; }
+
+    public int ReclaimCount { get; set; }
+
+    public Guid? LeaseToken { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, string>? Labels { get; set; }
+
+    [MaxLength(200)]
+    public string? CollectionKey { get; set; }
+
+    [MaxLength(100)]
+    public string? DistributedTraceContext { get; set; }
+
+    [MaxLength(100)]
+    public string? EngineTraceContext { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string? ContextJson { get; set; }
+
+    public DateTimeOffset? CancellationRequestedAt { get; set; }
+
+    public string? InitialState { get; set; }
+
+    public bool? IsHead { get; set; }
+
+    /// <summary>
+    /// The mailbox this workflow receives from, or null. No foreign key: a mailbox's retention purge must not
+    /// depend on its receivers'.
+    /// </summary>
+    public Guid? MailboxId { get; set; }
+
+    public ICollection<StepEntity> Steps { get; set; } = [];
+    public ICollection<WorkflowEntity>? Dependencies { get; set; }
+    public ICollection<WorkflowEntity>? Dependents { get; set; }
+    public ICollection<WorkflowEntity>? Links { get; set; }
+
+    public static WorkflowEntity FromDomainModel(Workflow workflow)
+    {
+        var entity = new WorkflowEntity
+        {
+            Id = workflow.DatabaseId,
+            CollectionKey = workflow.CollectionKey,
+            OperationId = workflow.OperationId,
+            IdempotencyKey = workflow.IdempotencyKey,
+            Namespace = workflow.Namespace,
+            CreatedAt = workflow.CreatedAt,
+            StartAt = workflow.StartAt,
+            UpdatedAt = workflow.UpdatedAt,
+            ExecutionStartedAt = workflow.ExecutionStartedAt,
+            BackoffUntil = workflow.BackoffUntil,
+            ThrottledUntil = workflow.ThrottledUntil,
+            HeartbeatAt = workflow.HeartbeatAt,
+            ReclaimCount = workflow.ReclaimCount,
+            LeaseToken = workflow.LeaseToken,
+            Status = workflow.Status,
+            Labels = workflow.Labels,
+            ContextJson = workflow.Context?.GetRawText(),
+            DistributedTraceContext = workflow.DistributedTraceContext,
+            EngineTraceContext = workflow.EngineTraceContext,
+            CancellationRequestedAt = workflow.CancellationRequestedAt,
+            InitialState = workflow.InitialState,
+            IsHead = workflow.IsHead,
+            MailboxId = workflow.MailboxId,
+            Steps = workflow.Steps.OrderBy(x => x.ProcessingOrder).Select(StepEntity.FromDomainModel).ToList(),
+            Dependencies = workflow.Dependencies?.Select(FromDomainModel).ToList(),
+            Links = workflow.Links?.Select(FromDomainModel).ToList(),
+        };
+
+        foreach (var step in entity.Steps)
+        {
+            step.JobId = entity.Id;
+        }
+
+        return entity;
+    }
+
+    public Workflow ToDomainModel() => ToDomainModel(includeRelations: true);
+
+    /// <summary>
+    /// Maps to the domain model. When <paramref name="includeRelations"/> is <c>false</c>,
+    /// <see cref="Workflow.Dependencies"/>, <see cref="Workflow.Dependents"/>, and <see cref="Workflow.Links"/>
+    /// are left null. Used to cap recursion at one hop, since EF change-tracking fixup would
+    /// otherwise create cycles via the bidirectional Dependencies/Dependents inverse navigation.
+    /// </summary>
+    private Workflow ToDomainModel(bool includeRelations) =>
+        new()
+        {
+            DatabaseId = Id,
+            CollectionKey = CollectionKey,
+            IdempotencyKey = IdempotencyKey,
+            OperationId = OperationId,
+            Namespace = Namespace,
+            CreatedAt = CreatedAt,
+            StartAt = StartAt,
+            UpdatedAt = UpdatedAt,
+            ExecutionStartedAt = ExecutionStartedAt,
+            BackoffUntil = BackoffUntil,
+            ThrottledUntil = ThrottledUntil,
+            HeartbeatAt = HeartbeatAt,
+            ReclaimCount = ReclaimCount,
+            LeaseToken = LeaseToken,
+            Status = Status,
+            Labels = Labels,
+            Context =
+                ContextJson != null ? JsonSerializer.Deserialize<JsonElement>(ContextJson, JsonOptions.Default) : null,
+            DistributedTraceContext = DistributedTraceContext,
+            EngineTraceContext = EngineTraceContext,
+            CancellationRequestedAt = CancellationRequestedAt,
+            InitialState = InitialState,
+            IsHead = IsHead,
+            MailboxId = MailboxId,
+            Steps = Steps.OrderBy(x => x.ProcessingOrder).Select(x => x.ToDomainModel()).ToList(),
+            Dependencies = includeRelations
+                ? Dependencies?.Select(x => x.ToDomainModel(includeRelations: false)).ToList()
+                : null,
+            Dependents = includeRelations
+                ? Dependents?.Select(x => x.ToDomainModel(includeRelations: false)).ToList()
+                : null,
+            Links = includeRelations ? Links?.Select(x => x.ToDomainModel(includeRelations: false)).ToList() : null,
+        };
+}

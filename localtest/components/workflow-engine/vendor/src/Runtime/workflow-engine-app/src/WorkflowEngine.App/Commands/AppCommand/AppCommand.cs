@@ -1,0 +1,308 @@
+using System.Diagnostics;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using WorkflowEngine.Commands.Extensions;
+using WorkflowEngine.Models;
+using WorkflowEngine.Resilience;
+using WorkflowEngine.Telemetry;
+using WorkflowEngine.Telemetry.Extensions;
+
+// CA1305: Specify IFormatProvider
+#pragma warning disable CA1305
+
+namespace WorkflowEngine.App.Commands.AppCommand;
+
+/// <summary>
+/// Handles "app" commands by making HTTP callbacks to the Altinn application.
+/// Extracts actor and instance information from the typed workflow context
+/// and command-specific data from the typed command data.
+/// </summary>
+internal sealed class AppCommand : Command<AppCommandData, AppWorkflowContext>
+{
+    private readonly AppCommandSettings _settings;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConcurrencyLimiter _limiter;
+    private readonly ILogger<AppCommand> _logger;
+
+    private const string CommandTypeId = "app";
+    public override string CommandType => CommandTypeId;
+
+    public AppCommand(
+        IOptions<AppCommandSettings> settings,
+        IHttpClientFactory httpClientFactory,
+        IConcurrencyLimiter limiter,
+        ILogger<AppCommand> logger
+    )
+    {
+        _settings = settings.Value;
+        _httpClientFactory = httpClientFactory;
+        _limiter = limiter;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Creates a <see cref="CommandDefinition"/> with <see cref="AppCommandData"/>.
+    /// </summary>
+    public static CommandDefinition Create(AppCommandData data, TimeSpan? maxExecutionTime = null) =>
+        CommandDefinition.Create(CommandTypeId, data, maxExecutionTime);
+
+    /// <inheritdoc/>
+    protected override CommandValidationResult Validate(
+        AppCommandData? commandData,
+        AppWorkflowContext? workflowContext
+    )
+    {
+        if (commandData is null || string.IsNullOrWhiteSpace(commandData.CommandKey))
+            return new CommandValidationResult.Invalid("AppCommand requires a 'commandKey' in command data");
+
+        if (workflowContext is null)
+            return new CommandValidationResult.Invalid("AppCommand requires workflow context");
+
+        if (workflowContext.Actor is null)
+            return new CommandValidationResult.Invalid("AppCommand requires an 'actor' in workflow context");
+
+        if (
+            workflowContext.Actor.UserId is null
+            && workflowContext.Actor.SystemUserId is null
+            && string.IsNullOrWhiteSpace(workflowContext.Actor.OrgId)
+        )
+            return new CommandValidationResult.Invalid(
+                "AppCommand requires an 'actor' with at least one identity (userId, systemUserId, or orgId) in workflow context"
+            );
+
+        if (string.IsNullOrWhiteSpace(workflowContext.Org) || string.IsNullOrWhiteSpace(workflowContext.App))
+            return new CommandValidationResult.Invalid("AppCommand requires 'org' and 'app' in workflow context");
+
+        if (workflowContext.InstanceOwnerPartyId <= 0)
+            return new CommandValidationResult.Invalid(
+                "AppCommand requires a valid 'instanceOwnerPartyId' (> 0) in workflow context"
+            );
+
+        if (workflowContext.InstanceGuid == Guid.Empty)
+            return new CommandValidationResult.Invalid(
+                "AppCommand requires a non-empty 'instanceGuid' in workflow context"
+            );
+
+        if (string.IsNullOrWhiteSpace(workflowContext.CallbackToken))
+            return new CommandValidationResult.Invalid("AppCommand requires a 'callbackToken' in workflow context");
+
+        return new CommandValidationResult.Valid();
+    }
+
+    /// <inheritdoc/>
+    protected override async Task<ExecutionResult> Execute(
+        CommandExecutionContext context,
+        CancellationToken cancellationToken
+    )
+    {
+        var commandData = context.GetCommandData<AppCommandData>();
+        var workflowContext = context.GetWorkflowContext<AppWorkflowContext>();
+
+        using var activity = Metrics.Source.StartActivity(
+            "AppCommand.Execute",
+            parentContext: context.ParentTraceContext ?? context.Step.EngineActivity?.Context,
+            kind: ActivityKind.Client,
+            tags: [("command.key", commandData.CommandKey)]
+        );
+
+        using var slot = await _limiter.AcquireHttpSlot(activity?.Context, cancellationToken);
+        using var httpClient = CreateAuthorizedClient(workflowContext);
+
+        var mailbox = MailboxBlock(context);
+
+        var payload = new AppCallbackPayload
+        {
+            CommandKey = commandData.CommandKey,
+            Actor = workflowContext.Actor,
+            Payload = commandData.Payload,
+            WorkflowId = context.Workflow.DatabaseId,
+            Mailbox = mailbox,
+            StepId = context.Step.DatabaseId,
+            ExecutionReferenceTime = context.Workflow.StartAt ?? context.Step.CreatedAt,
+            State = context.StateIn,
+            RetryCount = context.Step.RequeueCount,
+            ExecutionDeadline = context.ExecutionDeadline,
+            DeferCount = context.Step.DeferCount,
+            FirstDeferredAt = context.Step.FirstDeferredAt,
+            WaitDeadline = context.WaitDeadline,
+            IsFinalWaitCheck = context.IsFinalWaitCheck,
+        };
+
+        var endpoint = commandData.CommandKey.ToUri(UriKind.Relative);
+
+        if (mailbox is not null)
+        {
+            _logger.SendingAppCommandWithMailbox(
+                commandData.CommandKey,
+                context.Workflow.DatabaseId,
+                mailbox.Id,
+                mailbox.Seq,
+                mailbox.Delivery is not null,
+                mailbox.DisposedReason
+            );
+        }
+
+        _logger.SendingAppCommand(
+            commandData.CommandKey,
+            endpoint,
+            context.Workflow.DatabaseId,
+            workflowContext.InstanceOwnerPartyId,
+            workflowContext.InstanceGuid
+        );
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(payload),
+        };
+        httpRequest.AddWorkflowMetadataHeaders(context);
+        using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (body.Length == 0)
+                return ExecutionResult.Success();
+
+            AppCallbackResponse? callbackResponse;
+            try
+            {
+                callbackResponse = JsonSerializer.Deserialize<AppCallbackResponse>(
+                    body,
+                    CommandDefinition.SerializerOptions
+                );
+            }
+            catch (JsonException ex)
+            {
+                return ExecutionResult.CriticalError($"App returned invalid response body: {ex.Message}", ex);
+            }
+
+            if (callbackResponse?.Defer is { } deferral)
+            {
+                _logger.AppCommandDeferred(commandData.CommandKey, context.Workflow.DatabaseId, deferral.Delay);
+                return ExecutionResult.Defer(deferral.Delay, deferral.Reason, callbackResponse.State);
+            }
+
+            return ExecutionResult.Success(callbackResponse?.State);
+        }
+
+        var statusCode = (int)response.StatusCode;
+        var errorBody = await response.GetContentOrDefault("<no body content>", cancellationToken);
+
+        // 4xx client errors (except 408/418/429) are not worth retrying
+        if (statusCode is >= 400 and < 500 and not 408 and not 418 and not 429)
+        {
+            return ExecutionResult.CriticalError(
+                $"AppCommand failed with client error {response.StatusCode}: {errorBody}",
+                httpStatusCode: statusCode
+            );
+        }
+
+        return ExecutionResult.RetryableError(
+            $"AppCommand execution failed with status code {response.StatusCode}: {errorBody}",
+            httpStatusCode: statusCode
+        );
+    }
+
+    /// <summary>
+    /// Projects the engine's mailbox receipt onto the callback, or <c>null</c> when this step receives from no
+    /// mailbox. A projection and nothing more: the delivery is not re-derived here and the absence of one is not
+    /// re-interpreted.
+    /// </summary>
+    private static AppCallbackMailbox? MailboxBlock(CommandExecutionContext context)
+    {
+        if (context.MailboxReceipt is not { } receipt)
+            return null;
+
+        AppCallbackMailboxDelivery? delivery = receipt.Delivery is not { } message
+            ? null
+            : new AppCallbackMailboxDelivery
+            {
+                IdempotencyKey = message.IdempotencyKey,
+                Payload = message.Payload,
+                AcceptedAt = message.AcceptedAt,
+            };
+
+        return new AppCallbackMailbox
+        {
+            Id = receipt.MailboxId,
+            Seq = receipt.Seq,
+            Delivery = delivery,
+            DisposedReason = receipt.DisposedReason,
+        };
+    }
+
+    private HttpClient CreateAuthorizedClient(AppWorkflowContext workflowContext)
+    {
+#pragma warning disable S1075
+        var baseUrl = _settings.CommandEndpoint.FormatWith(workflowContext).TrimEnd('/') + '/';
+#pragma warning restore S1075
+        var client = _httpClientFactory.CreateClient();
+        client.BaseAddress = new Uri(baseUrl);
+
+        // Disable the HttpClient's own request timeout so the per-step execution budget is the single
+        // authority over how long a callback may run. The executor wraps every command in a linked
+        // CancellationTokenSource that fires after Step.Command.MaxExecutionTime (or the engine's
+        // DefaultStepCommandTimeout when unset), and that token is passed to SendAsync below. Leaving
+        // HttpClient.Timeout at its 100s default would silently cap long-running service-task callbacks
+        // regardless of the step's MaxExecutionTime; deferring entirely to the token also yields clean
+        // cancellation with the correct retryable classification instead of an ambiguous timeout.
+        client.Timeout = Timeout.InfiniteTimeSpan;
+
+        // Replay the app-minted token as a bearer token so the callback controller can authenticate the
+        // engine. The app's selector auth scheme routes callback requests to the WorkflowEngineCallback
+        // scheme, so this does not collide with the default platform (cookie/bearer) authentication.
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            workflowContext.CallbackToken
+        );
+
+        return client;
+    }
+}
+
+internal static partial class AppCommandDescriptorLogs
+{
+    // Routing fields only. Never log the AppCallbackPayload: it carries actor identifiers (incl. national
+    // identity number), command key and payload body, workflow/execution metadata, and the unencrypted
+    // state envelope (instance + form data).
+    [LoggerMessage(
+        LogLevel.Information,
+        "Sending AppCommand '{CommandKey}' to {Endpoint} (workflowId: {WorkflowId}, instance: {InstanceOwnerPartyId}/{InstanceGuid})"
+    )]
+    internal static partial void SendingAppCommand(
+        this ILogger<AppCommand> logger,
+        string commandKey,
+        Uri endpoint,
+        Guid workflowId,
+        int instanceOwnerPartyId,
+        Guid instanceGuid
+    );
+
+    // Ids and shape only: the delivery's body is a forwarded external message and is never logged.
+    [LoggerMessage(
+        LogLevel.Information,
+        "AppCommand '{CommandKey}' receives from mailbox {MailboxId} at position {Seq} (workflowId: {WorkflowId}, delivered: {Delivered}, closed: {DisposedReason})"
+    )]
+    internal static partial void SendingAppCommandWithMailbox(
+        this ILogger<AppCommand> logger,
+        string commandKey,
+        Guid workflowId,
+        Guid mailboxId,
+        long seq,
+        bool delivered,
+        MailboxDisposedReason? disposedReason
+    );
+
+    // The app's reason is not logged here — it is free text, and it reaches the engine log via the deferral.
+    [LoggerMessage(
+        LogLevel.Information,
+        "AppCommand '{CommandKey}' deferred (workflowId: {WorkflowId}); re-checking in {Delay}"
+    )]
+    internal static partial void AppCommandDeferred(
+        this ILogger<AppCommand> logger,
+        string commandKey,
+        Guid workflowId,
+        TimeSpan delay
+    );
+}

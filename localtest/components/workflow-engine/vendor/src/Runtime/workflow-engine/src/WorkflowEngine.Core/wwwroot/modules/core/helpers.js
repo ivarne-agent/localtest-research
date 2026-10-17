@@ -1,0 +1,272 @@
+/* Generic helpers + JSON utilities */
+
+/** @param {string} s */
+export const cssId = (s) => s.replace(/[^a-zA-Z0-9-_]/g, '_');
+
+/** @param {string} s */
+export const esc = (s) => {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+};
+
+/** @param {string} s */
+export const escHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Escape for a double-quoted HTML attribute: `esc()` leaves quotes intact, so a quote in a
+ * caller-supplied value would end the attribute.
+ * @param {string|null|undefined} s
+ */
+export const escAttr = (s) => esc(String(s ?? '')).replace(/"/g, '&quot;');
+
+/**
+ * Escape a value for use as a single-quoted string argument inside an inline `onclick`
+ * attribute. `esc()` alone HTML-escapes but leaves quotes intact, so an apostrophe in a
+ * caller-controlled value (namespace, collection key, step names) would terminate the JS
+ * string literal, and a double quote would end the attribute itself. Backslash-escapes
+ * quotes/backslashes for the JS layer, then HTML-escapes for the attribute layer.
+ * @param {string} s
+ */
+export const escJsArg = (s) =>
+    esc(String(s ?? '').replace(/[\\']/g, (c) => `\\${c}`)).replace(/"/g, '&quot;');
+
+/**
+ * Decode a namespace for display. Namespaces are URL-encoded for use as routing
+ * path segments (e.g. `ttd%2fworkflow-engine-test`), so decode for human display.
+ * Keep the raw value for filtering, data attributes, and API calls.
+ * @param {string} ns
+ */
+export const fmtNamespace = (ns) => {
+    if (!ns) return ns;
+    try {
+        return decodeURIComponent(ns);
+    } catch {
+        return ns;
+    }
+};
+
+/**
+ * Abbreviate GUID runs ("N" format 32-char hex, or dashed "D" format) to their first
+ * 8 chars for compact display. Works on bare GUIDs and on strings that embed them
+ * (e.g. a collection key like `process-next:<guid>:Form:2`). Keep the full value for
+ * filtering, data attributes, and titles.
+ * @param {string|null|undefined} s
+ */
+export const abbrevGuids = (s) =>
+    s == null
+        ? s
+        : String(s)
+              .replace(
+                  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+                  (m) => `${m.slice(0, 8)}…`,
+              )
+              .replace(/[0-9a-f]{32}/gi, (m) => `${m.slice(0, 8)}…`);
+
+/** @param {number} seconds */
+export const formatElapsed = (seconds) => {
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+};
+
+/**
+ * Day-scale span label (`formatElapsed` tops out at hours); delegates below an hour.
+ * @param {number} seconds
+ */
+export const formatSpan = (seconds) => {
+    if (!Number.isFinite(seconds)) return '';
+    if (seconds < 3600) return formatElapsed(seconds);
+    const hours = Math.floor(seconds / 3600);
+    if (hours < 24) return `${hours}h ${Math.floor((seconds % 3600) / 60)}m`;
+    return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+};
+
+/* ── Timestamp formatting & UTC toggle ─────────────────────────────────── */
+
+/** @returns {boolean} */
+export const showTimestamps = () => localStorage.getItem('showTimestamps') !== 'false';
+
+/** @param {boolean} on */
+export const setShowTimestamps = (on) => {
+    localStorage.setItem('showTimestamps', on ? 'true' : 'false');
+    document.body.classList.toggle('hide-timestamps', !on);
+};
+
+/** @returns {boolean} */
+export const isUtcMode = () => localStorage.getItem('timestampUtc') === 'true';
+
+export const toggleUtcMode = () => {
+    localStorage.setItem('timestampUtc', isUtcMode() ? 'false' : 'true');
+    refreshTimestamps();
+};
+
+/**
+ * Format an ISO timestamp to locale-friendly string, respecting UTC preference.
+ * @param {string|null|undefined} v
+ * @returns {string|null}
+ */
+export const fmtTime = (v) => {
+    if (!v) return null;
+    try {
+        const d = new Date(v);
+        const utc = isUtcMode();
+        /** @type {Intl.DateTimeFormatOptions} */
+        const opts = { dateStyle: 'short', timeStyle: 'medium' };
+        if (utc) opts.timeZone = 'UTC';
+        const s = d.toLocaleString(undefined, opts);
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        return utc ? `${s}.${ms} UTC` : `${s}.${ms}`;
+    } catch {
+        return v;
+    }
+};
+
+/** Re-render all visible timestamps from their data-iso attribute. */
+export const refreshTimestamps = () => {
+    for (const el of document.querySelectorAll('[data-iso]')) {
+        const iso = el.getAttribute('data-iso');
+        if (iso) el.textContent = fmtTime(iso) || '';
+    }
+};
+
+/* ── Duration / relative time formatters ──────────────────────────────── */
+
+/** Format an ISO duration / TimeSpan string to a human-friendly label */
+export const fmtDuration = (/** @type {string|null|undefined} */ v) => {
+    if (!v) return null;
+    const iso = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i.exec(v);
+    if (iso) {
+        const h = parseInt(iso[1] || '0'),
+            m = parseInt(iso[2] || '0'),
+            s = parseFloat(iso[3] || '0');
+        const parts = [];
+        if (h) parts.push(`${h}h`);
+        if (m) parts.push(`${m}m`);
+        if (s) parts.push(`${s}s`);
+        return parts.join(' ') || '0s';
+    }
+    const dotnet = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(v);
+    if (dotnet) {
+        const d = parseInt(dotnet[1] || '0'),
+            h = parseInt(dotnet[2]),
+            m = parseInt(dotnet[3]),
+            s = parseInt(dotnet[4]);
+        const parts = [];
+        if (d) parts.push(`${d}d`);
+        if (h) parts.push(`${h}h`);
+        if (m) parts.push(`${m}m`);
+        if (s) parts.push(`${s}s`);
+        return parts.join(' ') || '0s';
+    }
+    return v;
+};
+
+/** Format a relative time ago string */
+export const fmtAgo = (/** @type {string|null|undefined} */ v) => {
+    if (!v) return '';
+    const ms = Date.now() - new Date(v).getTime();
+    if (ms < 0) return '';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ${m % 60}m ago`;
+    const d = Math.floor(h / 24);
+    return `${d}d ${h % 24}h ago`;
+};
+
+/* ── Line-based diff (LCS) ───────────────────────────────────────────────── */
+
+/**
+ * Compute a unified diff between two strings, split by lines.
+ * @param {string} oldText
+ * @param {string} newText
+ * @returns {{ type: ' '|'+'|'-', line: string }[]}
+ */
+export const lineDiff = (oldText, newText) => {
+    const a = oldText.split('\n');
+    const b = newText.split('\n');
+    const m = a.length,
+        n = b.length;
+
+    // LCS table
+    /** @type {number[][]} */
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+            dp[i][j] =
+                a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+    // Backtrack
+    /** @type {{ type: ' '|'+'|'-', line: string }[]} */
+    const result = [];
+    let i = m,
+        j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+            result.unshift({ type: ' ', line: a[i - 1] });
+            i--;
+            j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            result.unshift({ type: '+', line: b[j - 1] });
+            j--;
+        } else {
+            result.unshift({ type: '-', line: a[i - 1] });
+            i--;
+        }
+    }
+    return result;
+};
+
+/* ── JSON utilities (expand embedded JSON strings + syntax highlighting) ── */
+
+/**
+ * @param {unknown} obj
+ * @returns {unknown}
+ */
+export const expandJsonStrings = (obj) => {
+    if (typeof obj === 'string') {
+        const t = obj.trim();
+        if ((t[0] === '{' && t.at(-1) === '}') || (t[0] === '[' && t.at(-1) === ']')) {
+            try {
+                return expandJsonStrings(JSON.parse(t));
+            } catch {
+                /* not valid JSON */
+            }
+        }
+        return obj;
+    }
+    if (Array.isArray(obj)) return obj.map(expandJsonStrings);
+    if (obj && typeof obj === 'object') {
+        return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, expandJsonStrings(v)]));
+    }
+    return obj;
+};
+
+/**
+ * @param {unknown} obj
+ * @returns {string}
+ */
+export const syntaxHighlight = (obj) => {
+    const json = JSON.stringify(obj, null, 2);
+    return json.replace(
+        /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+        (match) => {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    return `<span class="json-key">${escHtml(match.replace(/:$/, ''))}</span>:`;
+                }
+                cls = 'json-string';
+            } else if (/true|false/.test(match)) {
+                cls = 'json-bool';
+            } else if (/null/.test(match)) {
+                cls = 'json-null';
+            }
+            return `<span class="${cls}">${escHtml(match)}</span>`;
+        },
+    );
+};
