@@ -28,12 +28,13 @@ job (`run-app.sh` today, studioctl later). No component watches another. For one
 | Step | Endpoint | What it does |
 | --- | --- | --- |
 | 1 | `PUT register/api/localtest/apps/{org}/{app}` with the app's `App/wwwroot/testData.json` as the body (empty body: no test data) | Register stores the test data as posted and rebuilds its store (built-in seed plus every registered app); it fetches nothing |
-| 2 | `POST storage/api/v1/applications?appId={org}/{app}` (or `PUT storage/api/v1/applications/{org}/{app}` when it exists) with `App/config/applicationmetadata.json`, and `POST`/`PUT storage/api/v1/applications/{org}/{app}/texts[/{lang}]` with each `App/config/texts/resource.{lang}.json` | Production Storage endpoints, with a service-owner token standing in for Designer's `studio.designer` claim |
-| 3 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (full re-poll, production code), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
+| 2 | `POST storage/api/v1/applications?appId={org}/{app}` (or `PUT storage/api/v1/applications/{org}/{app}` when it exists) with `App/config/applicationmetadata.json`, and `POST`/`PUT storage/api/v1/applications/{org}/{app}/texts[/{lang}]` with each `App/config/texts/resource.{lang}.json` | Production Storage endpoints, with the Studio token (`GET /Home/GetTestStudioToken`: Designer's own `studio`/`studio.designer` platform access token exchanged through the production `exchange/altinnstudio`), exactly Designer's credential |
+| 3 | `POST authorization/api/v1/policies?org={org}&app={app}` with `App/config/authorization/policy.xml`, `[ORG]`/`[org]`/`[APP]`/`[app]` replaced as Designer's `ReplacePolicyPlaceholderTokens` does | Production PDP endpoint (Studio token); the policy lands in the policy store shared with Access Management, which reads it for delegable rights |
+| 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the local stand-in (service owners, `app_{org}_{app}` resources and their policy subjects from Storage and the policy store), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
 
-Still fetched by the component itself from the running app, to be turned into a push later: the authorization policy
-(PDP). The Register's store is rebuilt only by these calls, not on a timer, so an edited `testData.json` becomes
-visible after the next registration or refresh. An app path the runner has not registered is a 404 at the ingress.
+Nothing is fetched from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
+so an edited `testData.json` becomes visible after the next registration or refresh. An app path the runner has not
+registered is a 404 at the ingress.
 
 Run it:
 

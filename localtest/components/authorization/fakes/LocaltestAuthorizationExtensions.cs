@@ -48,7 +48,6 @@ public static class LocaltestAuthorizationExtensions
             InitialData = new Dictionary<string, string?>
             {
                 ["Localtest:Authorization:PlatformEndpoint"] = platform,
-                ["Localtest:Authorization:AppsBaseUrl"] = platform,
                 ["Localtest:Authorization:RegisterLocaltestEndpoint"] = platform + "register/api/localtest/",
                 ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
                 ["PlatformSettings:ApiStorageEndpoint"] = platform + "storage/api/v1/",
@@ -98,11 +97,14 @@ public static class LocaltestAuthorizationExtensions
 
         // Policies: folder, posted or running app instead of Azure Blob; production PRP with a seconds-long reuse.
         services.RemoveAll<IPolicyRepository>();
-        services.AddSingleton<IPolicyRepository>(sp => ActivatorUtilities.CreateInstance<LocaltestPolicyRepository>(sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(LocaltestPolicyRepository))));
+        services.AddSingleton<IPolicyRepository, LocaltestPolicyRepository>();
         services.TryAddSingleton<PolicyRetrievalPoint>();
         Replace<IPolicyRetrievalPoint, LocaltestPolicyRetrievalPoint>(services);
 
         // PIPs.
+        // Delegation changes come from the real Access Management component (production wrapper); roles, packages and
+        // authorized parties still from the register seed until step 6 of planned-components/access-management.
+        services.AddSingleton<AccessManagementWrapper>();
         Replace<IAccessManagementWrapper, LocaltestAccessManagementWrapper>(services);
         Replace<IProfile, LocaltestProfile>(services);
         Replace<IRoles, LocaltestRoles>(services);

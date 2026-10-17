@@ -8,19 +8,18 @@ public sealed class LocaltestAuthorizationOptions
     public string PlatformEndpoint { get; set; } = "http://local.altinn.cloud:8000/";
 
     /// <summary>
-    /// Folder with mounted policies: <c>{org}/{app}/policy.xml</c> for apps and <c>resourceregistry/{id}/policy.xml</c>
-    /// (plus an optional <c>resource.json</c>) for resource registry resources. Missing folder means none.
+    /// The policy store shared with the Access Management component, one folder per blob container: app policies in
+    /// <c>metadata/{org}/{app}/policy.xml</c> (written here by the production <c>POST authorization/api/v1/policies</c>,
+    /// pushed by the app runner) and delegation policies in <c>delegationpolicies/…</c> (written by Access Management,
+    /// read here by version).
+    /// </summary>
+    public string PolicyStorePath { get; set; } = "/policy-store";
+
+    /// <summary>
+    /// Folder with resource registry stand-ins: <c>resourceregistry/{id}/policy.xml</c> (plus an optional
+    /// <c>resource.json</c>) per resource. Missing folder means none.
     /// </summary>
     public string PoliciesPath { get; set; } = "/policies";
-
-    /// <summary>Base URL the running apps are reached at; the app policy is <c>{AppsBaseUrl}{org}/{app}/api/v1/meta/authorizationpolicy</c>.</summary>
-    public string AppsBaseUrl { get; set; } = "http://local.altinn.cloud:8000/";
-
-    /// <summary>Whether an app policy missing from <see cref="PoliciesPath"/> is fetched from the running app.</summary>
-    public bool FetchPoliciesFromApps { get; set; } = true;
-
-    /// <summary>How long a policy read from the folder or an app is reused, so edits apply almost immediately.</summary>
-    public int PolicyCacheSeconds { get; set; } = 5;
 
     /// <summary>Base URL of the register component's localtest endpoints (test users and organisations).</summary>
     public string RegisterLocaltestEndpoint { get; set; } = "http://local.altinn.cloud:8000/register/api/localtest/";

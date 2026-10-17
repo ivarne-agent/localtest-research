@@ -1,10 +1,8 @@
 #nullable enable
 using System;
-using System.Collections.Concurrent;
+using System.Globalization;
 using System.IO;
 using System.Net;
-using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Authorization.Repositories.Interface;
@@ -16,115 +14,87 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Authorization.Localtest.Policies;
 
 /// <summary>
-/// Replaces the Azure Blob policy store. An app policy (<c>{org}/{app}/policy.xml</c> in the <c>metadata</c>
-/// container) comes from, in order: the mounted policies folder, a policy posted to <c>authorization/api/v1/policies</c>
-/// since start, or the running app (<c>{org}/{app}/api/v1/meta/authorizationpolicy</c>), as today's localtest does.
-/// <c>[ORG]</c>/<c>[APP]</c> placeholders are replaced, also as today's localtest does. Delegation policies
-/// (<c>delegationpolicies</c> container) do not exist locally. Reads are reused for a few seconds.
+/// Replaces the Azure Blob policy store with the file store shared with the Access Management component (the
+/// <c>policy-store</c> volume), laid out as the blob containers are: <c>metadata/{org}/{app}/policy.xml</c> for app
+/// policies and <c>delegationpolicies/{path}</c> for delegation policies, each with its written versions under
+/// <c>{path}.versions/{versionId}</c>. App policies arrive through the production <c>POST authorization/api/v1/policies</c>
+/// (the app runner pushes them, placeholders already replaced, as Designer does); delegation policies are written by
+/// Access Management and read here by the version id it recorded. Nothing is fetched from apps.
 /// </summary>
 public sealed class LocaltestPolicyRepository(
-    HttpClient httpClient,
     IOptions<LocaltestAuthorizationOptions> options,
     TimeProvider timeProvider,
     ILogger<LocaltestPolicyRepository> logger)
     : IPolicyRepository
 {
-    private readonly ConcurrentDictionary<string, string> _posted = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, (DateTimeOffset At, string? Policy)> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly SemaphoreSlim WriteLock = new(1, 1);
 
-    public async Task<Stream> GetPolicyAsync(string filepath, CancellationToken cancellationToken = default)
-    {
-        if (filepath.Contains("delegationpolicy.xml", StringComparison.Ordinal))
-        {
-            return new MemoryStream();
-        }
-
-        var now = timeProvider.GetUtcNow();
-        if (!_cache.TryGetValue(filepath, out var cached) || now - cached.At >= TimeSpan.FromSeconds(options.Value.PolicyCacheSeconds))
-        {
-            cached = (now, await Load(filepath, cancellationToken));
-            _cache[filepath] = cached;
-        }
-
-        return cached.Policy is null ? new MemoryStream() : new MemoryStream(Encoding.UTF8.GetBytes(cached.Policy), writable: false);
-    }
+    public Task<Stream> GetPolicyAsync(string filepath, CancellationToken cancellationToken = default)
+        => Task.FromResult(Read(FileFor(filepath)));
 
     public Task<Stream> GetPolicyVersionAsync(string filepath, string version, CancellationToken cancellationToken = default)
-        => Task.FromResult<Stream>(new MemoryStream());
+        => Task.FromResult(IsSafeVersion(version) ? Read(Path.Combine(VersionsDirectory(filepath), version)) : new MemoryStream());
 
     public async Task<Response<BlobContentInfo>> WritePolicyAsync(string filepath, Stream fileStream, CancellationToken cancellationToken = default)
     {
-        using var reader = new StreamReader(fileStream);
-        _posted[filepath] = await reader.ReadToEndAsync(cancellationToken);
-        _cache.TryRemove(filepath, out _);
-        logger.LogInformation("Localtest: stored posted policy {Path} in memory", filepath);
-        var info = BlobsModelFactory.BlobContentInfo(new ETag(Guid.NewGuid().ToString()), timeProvider.GetUtcNow(), null, Guid.NewGuid().ToString(), null, null, 0);
-        return Response.FromValue(info, new LocaltestResponse((int)HttpStatusCode.Created));
+        await WriteLock.WaitAsync(cancellationToken);
+        try
+        {
+            using var buffer = new MemoryStream();
+            await fileStream.CopyToAsync(buffer, cancellationToken);
+            var bytes = buffer.ToArray();
+            var file = FileFor(filepath);
+            Directory.CreateDirectory(VersionsDirectory(filepath));
+            var now = timeProvider.GetUtcNow();
+            var versionId = now.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", CultureInfo.InvariantCulture);
+            await File.WriteAllBytesAsync(Path.Combine(VersionsDirectory(filepath), versionId), bytes, cancellationToken);
+            await File.WriteAllBytesAsync(file, bytes, cancellationToken);
+            logger.LogInformation("Localtest: wrote policy {Path} ({Bytes} bytes, version {Version})", filepath, bytes.Length, versionId);
+            var info = BlobsModelFactory.BlobContentInfo(new ETag(versionId), now, null, versionId, null, null, 0);
+            return Response.FromValue(info, new LocaltestResponse((int)HttpStatusCode.Created));
+        }
+        finally
+        {
+            WriteLock.Release();
+        }
     }
 
     public Task<Response<BlobContentInfo>> WritePolicyConditionallyAsync(string filepath, Stream fileStream, string blobLeaseId, CancellationToken cancellationToken = default)
         => WritePolicyAsync(filepath, fileStream, cancellationToken);
 
     public Task<Response> DeletePolicyVersionAsync(string filepath, string version, CancellationToken cancellationToken = default)
-        => Task.FromResult<Response>(new LocaltestResponse((int)HttpStatusCode.Accepted));
+    {
+        if (IsSafeVersion(version))
+        {
+            File.Delete(Path.Combine(VersionsDirectory(filepath), version));
+        }
+
+        return Task.FromResult<Response>(new LocaltestResponse((int)HttpStatusCode.Accepted));
+    }
 
     public Task<string> TryAcquireBlobLease(string filepath, CancellationToken cancellationToken = default)
         => Task.FromResult(Guid.NewGuid().ToString());
 
     public Task ReleaseBlobLease(string filepath, string leaseId) => Task.CompletedTask;
 
-    public async Task<bool> PolicyExistsAsync(string filepath, CancellationToken cancellationToken = default)
+    public Task<bool> PolicyExistsAsync(string filepath, CancellationToken cancellationToken = default)
+        => Task.FromResult(File.Exists(FileFor(filepath)));
+
+    // Production: PolicyRepository.CreateBlobClient picks the delegations container for delegation policies.
+    private string FileFor(string filepath)
     {
-        using var stream = await GetPolicyAsync(filepath, cancellationToken);
-        return stream.Length > 0;
+        var container = filepath.Contains("delegationpolicy.xml", StringComparison.Ordinal) ? "delegationpolicies" : "metadata";
+        var relative = filepath.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+        var root = Path.GetFullPath(Path.Combine(options.Value.PolicyStorePath, container));
+        var file = Path.GetFullPath(Path.Combine(root, relative));
+        return file.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? file : Path.Combine(root, "invalid-path");
     }
 
-    private async Task<string?> Load(string filepath, CancellationToken cancellationToken)
-    {
-        // Production path: {org}/{app}/policy.xml (PolicyHelper.GetAltinnAppsPolicyPath).
-        var parts = filepath.Split('/');
-        if (parts.Length != 3)
-        {
-            return null;
-        }
+    private string VersionsDirectory(string filepath) => FileFor(filepath) + ".versions";
 
-        string org = parts[0], app = parts[1];
-        var file = Path.Combine(options.Value.PoliciesPath, org, app, "policy.xml");
-        string? policy = null;
-        if (File.Exists(file))
-        {
-            policy = await File.ReadAllTextAsync(file, cancellationToken);
-        }
-        else if (_posted.TryGetValue(filepath, out var posted))
-        {
-            policy = posted;
-        }
-        else if (options.Value.FetchPoliciesFromApps)
-        {
-            policy = await FetchFromApp(org, app, cancellationToken);
-        }
+    private static bool IsSafeVersion(string version)
+        => !string.IsNullOrWhiteSpace(version) && version.IndexOfAny(['/', '\\']) < 0 && version != "." && version != "..";
 
-        return policy?.Replace("[org]", org).Replace("[ORG]", org).Replace("[app]", app).Replace("[APP]", app);
-    }
-
-    private async Task<string?> FetchFromApp(string org, string app, CancellationToken cancellationToken)
-    {
-        var url = new Uri(new Uri(options.Value.AppsBaseUrl.TrimEnd('/') + "/"), $"{org}/{app}/api/v1/meta/authorizationpolicy");
-        try
-        {
-            using var response = await httpClient.GetAsync(url, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadAsStringAsync(cancellationToken);
-            }
-
-            logger.LogWarning("Localtest: no policy for {Org}/{App}: {Url} answered {Status}", org, app, url, (int)response.StatusCode);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            logger.LogWarning("Localtest: no policy for {Org}/{App}: {Url} failed: {Message}", org, app, url, ex.Message);
-        }
-
-        return null;
-    }
+    private static Stream Read(string file)
+        => File.Exists(file) ? new MemoryStream(File.ReadAllBytes(file), writable: false) : new MemoryStream();
 }

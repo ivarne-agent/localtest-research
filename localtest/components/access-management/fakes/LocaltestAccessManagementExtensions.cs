@@ -117,6 +117,15 @@ public static class LocaltestAccessManagementExtensions
         // Azure Blob: a versioned file store instead of the three blob containers.
         Replace<IPolicyFactory, LocaltestPolicyFactory>(services);
 
+        // Resource Registry: app resources derived from the local Storage's application list and the pushed app
+        // policies, as the production Resource Registry derives them. Two stand-ins over one loader: the delegation
+        // services' client and the integration client behind the production resource sync (providers, resources,
+        // role/package-resource links), which the refresh runs.
+        services.AddHttpClient(nameof(ResourceRegistry.LocaltestAppResources), c => c.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton<ResourceRegistry.LocaltestAppResources>();
+        Replace<Altinn.AccessManagement.Core.Clients.Interfaces.IResourceRegistryClient, ResourceRegistry.LocaltestResourceRegistryClient>(services);
+        Replace<Altinn.Authorization.Integration.Platform.ResourceRegistry.IAltinnResourceRegistry, ResourceRegistry.LocaltestAltinnResourceRegistry>(services);
+
         services.AddHostedService<LocaltestStartupLogger>();
         services.AddScoped<Sync.LocaltestRefreshService>();
 

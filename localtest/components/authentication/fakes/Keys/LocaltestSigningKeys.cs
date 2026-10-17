@@ -98,3 +98,23 @@ public sealed class LocaltestPublicSigningKeyProvider : IPublicSigningKeyProvide
     public Task<IEnumerable<SecurityKey>> GetSigningKeys(string issuer)
         => Task.FromResult(_keys.Value);
 }
+
+/// <summary>
+/// Signs platform access tokens (the Studio token) with the shared localtest certificate, the same pfx every app and
+/// component signs platform access tokens with (<c>AccessTokenSettings:AccessTokenSigningCertificateFullPath</c>).
+/// </summary>
+public sealed class LocaltestAccessTokenSigner(IConfiguration configuration)
+{
+    private readonly Lazy<X509SigningCredentials> _credentials = new(() =>
+    {
+        var path = configuration["AccessTokenSettings:AccessTokenSigningCertificateFullPath"];
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            throw new InvalidOperationException("AccessTokenSettings:AccessTokenSigningCertificateFullPath must point at the shared localtest certificate.");
+        }
+
+        return new X509SigningCredentials(X509CertificateLoader.LoadPkcs12FromFile(path, password: null), SecurityAlgorithms.RsaSha256);
+    });
+
+    public X509SigningCredentials SigningCredentials => _credentials.Value;
+}

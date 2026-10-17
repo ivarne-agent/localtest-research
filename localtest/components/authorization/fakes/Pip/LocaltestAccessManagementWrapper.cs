@@ -9,6 +9,7 @@ using Altinn.Authorization.Api.Contracts.Authorization;
 using Altinn.Authorization.Enums;
 using Altinn.Platform.Authorization.Localtest.Register;
 using Altinn.Platform.Authorization.Models.AccessManagement;
+using Altinn.Platform.Authorization.Services.Implementation;
 using Altinn.Platform.Authorization.Services.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -16,20 +17,38 @@ using Microsoft.Extensions.Logging;
 namespace Altinn.Platform.Authorization.Localtest.Pip;
 
 /// <summary>
-/// Access Management PIP over the register seed: roles and access packages per (subject, party) pair, authorized
-/// parties for the logged-in user, and no delegations.
+/// Access Management PIP: delegation changes from the real Access Management component through the production
+/// <see cref="AccessManagementWrapper"/>; roles and access packages per (subject, party) pair and authorized parties
+/// for the logged-in user still over the register seed (step 6 of planned-components/access-management moves them).
 /// </summary>
 public sealed class LocaltestAccessManagementWrapper(
+    AccessManagementWrapper production,
     RegisterLocaltestClient register,
     IHttpContextAccessor httpContextAccessor,
     ILogger<LocaltestAccessManagementWrapper> logger)
     : IAccessManagementWrapper
 {
-    public Task<IEnumerable<DelegationChangeDto>> GetAllDelegationChanges(DelegationChangeInputDto input, CancellationToken cancellationToken = default)
-        => Task.FromResult(Enumerable.Empty<DelegationChangeDto>());
+    public async Task<IEnumerable<DelegationChangeDto>> GetAllDelegationChanges(DelegationChangeInputDto input, CancellationToken cancellationToken = default)
+    {
+        var changes = (await production.GetAllDelegationChanges(input, cancellationToken)).ToList();
+        logger.LogInformation(
+            "Localtest PIP: Access Management returned {Count} delegation changes for subject {Subject} on party {Party}",
+            changes.Count,
+            input.Subject is null ? "?" : $"{input.Subject.Id}:{input.Subject.Value}",
+            input.Party?.Value);
+        return changes;
+    }
 
     public Task<IEnumerable<DelegationChangeDto>> GetAllDelegationChanges(CancellationToken cancellationToken = default, params Action<DelegationChangeInputDto>[] actions)
-        => Task.FromResult(Enumerable.Empty<DelegationChangeDto>());
+    {
+        var input = new DelegationChangeInputDto();
+        foreach (var action in actions)
+        {
+            action(input);
+        }
+
+        return GetAllDelegationChanges(input, cancellationToken);
+    }
 
     public async Task<PipResponseDto> GetRolesAndAccessPackages(Guid to, Guid from, AccessRestriction accessRestriction = AccessRestriction.None, string? viaPartyOrganizationNumber = null, CancellationToken cancellationToken = default)
     {

@@ -34,6 +34,7 @@ The old localtest's login contract (what the app-frontend Cypress suite, app-lib
 | `GET /Home/Localtest/Version` | `8` (`application/json`), the version `LocaltestValidation` in app-lib probes |
 | `GET /Home/GetTestUserToken[/{userId}]?userId&partyId&authenticationLevel` | Same headless sign-in; returns the JWT and sets the cookies (party cookies on `partyId` when given). Default level 2 |
 | `GET /Home/GetTestOrgToken[/{org}]?org&orgNumber&authenticationLevel&scopes` | Mints a Maskinporten-shaped token with a local key and runs it through the production `exchange/maskinporten` (level 3 from the exchange; default service-owner scopes) |
+| `GET /Home/GetTestStudioToken` | Designer's credential: a platform access token with issuer `studio` and app `studio.designer`, signed with the shared test certificate, exchanged through the production `exchange/altinnstudio`. Carries `urn:altinn:app=studio.designer`, which Storage's and Authorization's `StudioDesignerAccess` policy requires for pushing metadata, texts and policies |
 
 Authentication levels map to acr values from production's built-in ID-porten table (`OidcAuthLevelDefaults.IdPorten`),
 set as the `OidcProviders:idporten:AuthLevels` default from `fakes/Login/LocaltestAuthLevels.cs`; production claim

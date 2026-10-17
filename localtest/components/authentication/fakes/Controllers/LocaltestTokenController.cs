@@ -33,6 +33,7 @@ namespace Altinn.Platform.Authentication.Localtest.Controllers;
 [Route("Home")]
 public sealed class LocaltestTokenController(
     LocaltestSigningKeys keys,
+    LocaltestAccessTokenSigner accessTokenSigner,
     RegisterLocaltestClient register,
     LocaltestSignIn signIn,
     IServer server,
@@ -107,6 +108,28 @@ public sealed class LocaltestTokenController(
 
         signIn.AppendCookies(Response, result!, party.Value.PartyId, party.Value.PartyUuid);
         return Ok(result!.Jwt);
+    }
+
+    /// <summary>
+    /// Studio token, what Designer uses against the platform (push of application metadata, texts and the
+    /// authorization policy): a platform access token with issuer <c>studio</c> and app <c>studio.designer</c>, signed
+    /// with the shared localtest certificate, exchanged through the production <c>exchange/altinnstudio</c> endpoint.
+    /// The result carries <c>urn:altinn:app=studio.designer</c>, the claim Storage's and Authorization's
+    /// <c>StudioDesignerAccess</c> policy requires.
+    /// </summary>
+    [HttpGet("GetTestStudioToken")]
+    public async Task<IActionResult> GetTestStudioToken(CancellationToken cancellationToken = default)
+    {
+        var now = timeProvider.GetUtcNow();
+        var token = new JwtSecurityToken(
+            "studio",
+            null,
+            [new Claim("urn:altinn:app", "studio.designer")],
+            now.AddSeconds(-5).UtcDateTime,
+            now.AddMinutes(30).UtcDateTime,
+            accessTokenSigner.SigningCredentials);
+        var exchanged = await Exchange("altinnstudio", new JwtSecurityTokenHandler().WriteToken(token), cancellationToken);
+        return exchanged is null ? StatusCode(502, "The production exchange/altinnstudio endpoint rejected the locally minted Studio token.") : Ok(exchanged);
     }
 
     private string MintMaskinportenToken(string orgNumber, string scopes)

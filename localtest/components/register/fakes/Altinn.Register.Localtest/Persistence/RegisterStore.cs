@@ -150,7 +150,7 @@ public sealed class RegisterStore
                 VersionId = ++version,
                 Source = OrganizationSource.CentralCoordinatingRegister,
                 UnitStatus = org.UnitStatus ?? "N",
-                UnitType = Text(org.UnitType),
+                UnitType = Text(string.IsNullOrWhiteSpace(org.UnitType) ? DefaultUnitType(org) : org.UnitType),
                 TelephoneNumber = Text(org.TelephoneNumber),
                 MobileNumber = Text(org.MobileNumber),
                 FaxNumber = Text(org.FaxNumber),
@@ -160,6 +160,11 @@ public sealed class RegisterStore
                 BusinessAddress = MailingAddress(org.BusinessAddress, org.BusinessPostalCode, org.BusinessPostalCity),
                 ParentOrganizationUuid = FieldValue.Unset,
             });
+
+            if (string.IsNullOrWhiteSpace(org.UnitType))
+            {
+                Warn($"Organisation {org.PartyId} has no unitType; using {DefaultUnitType(org)} (set it explicitly in testData.json)");
+            }
 
             if (org.ParentPartyId is int parentId)
             {
@@ -375,6 +380,13 @@ public sealed class RegisterStore
             list.Add(value);
         }
     }
+
+
+    /// <summary>
+    /// The production Register always has a unit type (Access Management's import rejects an organisation without
+    /// one). Old testData.json files leave it null: sub-units become BEDR and main units AS, with a load warning.
+    /// </summary>
+    private static string DefaultUnitType(TestOrg org) => org.ParentPartyId is null ? "AS" : "BEDR";
 
     private static FieldValue<string> Text(string? value)
         => string.IsNullOrEmpty(value) ? FieldValue.Null : value;

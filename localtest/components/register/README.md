@@ -24,7 +24,7 @@ Localtest-only (anonymous), under `register/api/localtest/`:
 | Endpoint | What |
 | --- | --- |
 | `GET test-users` | Every user: ids, `ssn` (`""` for self-identified), `displayName`, `userUuid`, `partyType`, `profile` (`language`, `preSelectedPartyId`, `doNotPromptForParty`, `userType`, `userTypeName`), `customClaims`, `selfRoleCodes`, `parties` and `actingFor` (below) |
-| `GET organizations` | Every organisation with `parentPartyId` and `unitType` |
+| `GET organizations` | Every organisation with `parentPartyId` and `unitType` (a missing `unitType` in a testData.json becomes `AS`, `BEDR` for sub-units, with a load warning: the production Register always has one and Access Management's import rejects an organisation without it) |
 | `GET apps` | Registered apps, their test-data status (`TestData`, `NoTestData`), merge conflicts and load warnings |
 | `PUT apps/{org}/{app}` with the app's `testData.json` as the body (empty body: no test data) | Register an app with the posted test data (replaces earlier data) and rebuild; a body that does not parse is a 400 and changes nothing |
 | `DELETE apps/{org}/{app}` | Unregister and rebuild |

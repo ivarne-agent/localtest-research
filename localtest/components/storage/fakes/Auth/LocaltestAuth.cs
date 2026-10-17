@@ -49,26 +49,3 @@ public sealed class LocaltestPublicSigningKeyProvider : IPublicSigningKeyProvide
     public Task<IEnumerable<SecurityKey>> GetSigningKeys(string issuer)
         => Task.FromResult(_keys.Value);
 }
-
-public sealed class LocaltestClaimAccessHandler : AuthorizationHandler<ClaimAccessRequirement>
-{
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ClaimAccessRequirement requirement)
-    {
-        var claims = context.User?.Claims ?? [];
-        var hasClaim = claims.Any(c => c.Type.Equals(requirement.ClaimType) && c.Value.Equals(requirement.ClaimValue));
-        var designerStandIn = requirement.ClaimType == "urn:altinn:app"
-            && requirement.ClaimValue == "studio.designer"
-            && claims.Any(c => c.Type == "urn:altinn:org" && !string.IsNullOrEmpty(c.Value));
-
-        if (hasClaim || designerStandIn)
-        {
-            context.Succeed(requirement);
-        }
-        else
-        {
-            context.Fail();
-        }
-
-        return Task.CompletedTask;
-    }
-}

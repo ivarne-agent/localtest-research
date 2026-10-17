@@ -107,6 +107,7 @@ public static class LocaltestAuthenticationExtensions
 
         // Keys: no Key Vault, http metadata allowed.
         services.AddSingleton<LocaltestSigningKeys>();
+        services.AddSingleton<LocaltestAccessTokenSigner>();
         services.RemoveAll<ISigningKeysRetriever>();
         services.AddHttpClient<ISigningKeysRetriever, LocaltestSigningKeysRetriever>();
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);

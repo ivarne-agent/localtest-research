@@ -87,6 +87,9 @@ services:
     volumes:
       - ./certs:/certs:ro
       - ./components/authorization/policies:/policies:ro
+      # App policies (written by the PDP's production policy endpoint) and delegation policies (written by Access
+      # Management) in one store, as production's shared blob account.
+      - policy-store:/policy-store
     depends_on:
       - register
 

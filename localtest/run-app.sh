@@ -57,9 +57,10 @@ INGRESS=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E '^localtest[_-]i
 for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "ingress routes $PLATFORM/$ORG/$APP/ -> host port $PORT (after ${i}s)"
 # Push the app's artefacts to the platform, as Studio does on deploy (see README.md, "What the app runner pushes").
-ORGTOKEN=$(curl -s "$PLATFORM/Home/GetTestOrgToken?org=$ORG" | tr -d '"')
-push() { # method url file
-  local code; code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ORGTOKEN" -H 'Content-Type: application/json' -X "$1" "$2" --data-binary @"$3"); echo "$code"
+# Designer's own token (issuer studio, app studio.designer), exchanged by the production authentication endpoint.
+STUDIOTOKEN=$(curl -s "$PLATFORM/Home/GetTestStudioToken" | tr -d '"')
+push() { # method url file [content-type]
+  local code; code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $STUDIOTOKEN" -H "Content-Type: ${4:-application/json}" -X "$1" "$2" --data-binary @"$3"); echo "$code"
 }
 # 1. Register: the test users the app defines (testData.json as is), or none.
 if [[ -f "$APP_DIR/App/wwwroot/testData.json" ]]; then
@@ -78,5 +79,14 @@ for f in "$APP_DIR"/App/config/texts/resource.*.json; do
   [[ "$code" == "201" || "$code" == "200" ]] || code=$(push PUT "$PLATFORM/storage/api/v1/applications/$ORG/$APP/texts/$lang" "$f")
   echo "storage texts $lang: HTTP $code"
 done
-# 3. Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
+# 3. Authorization: the app policy through the production endpoint, [ORG]/[org]/[APP]/[app] replaced as Designer does on
+#    deploy (AuthorizationPolicyService.ReplacePolicyPlaceholderTokens).
+POLICY="$APP_DIR/App/config/authorization/policy.xml"
+if [[ -f "$POLICY" ]]; then
+  code=$(sed -e "s/\[ORG\]/$ORG/g" -e "s/\[org\]/$ORG/g" -e "s/\[APP\]/$APP/g" -e "s/\[app\]/$APP/g" "$POLICY" | push POST "$PLATFORM/authorization/api/v1/policies?org=$ORG&app=$APP" /dev/stdin application/xml)
+  echo "authorization policy: HTTP $code"
+else
+  echo "authorization policy: none in $POLICY"
+fi
+# 4. Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
 curl -s -o /dev/null -w "access-management refresh: HTTP %{http_code}\n" -X POST "$PLATFORM/accessmanagement/api/localtest/refresh" || true

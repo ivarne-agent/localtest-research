@@ -38,7 +38,6 @@ queues in `Development`, Application Insights is only wired when Key Vault yield
 | `IBlobRepository` (Azure Blob) | `FileBlobRepository`: `{BlobRootPath}/{org}/{blobStoragePath}`, the Azure container layout. Retained blob versions (altinn-storage#1125) are already distinct paths (`…/data-elements/{blobVersionId}` vs legacy `…/data/{dataGuid}`), so no suffix scheme is needed |
 | `IFileScanQueueClient` (Azure Queue) | `LocaltestFileScanQueueClient`: runs the production `IDataRepository.UpdateFileScanStatus(…, Clean)` at once. Upload responses still say `Pending` (as in production); every later read says `Clean`. The update does not bump the instance version |
 | `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | `LocaltestPublicSigningKeyProvider`: returns the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer, so the production `AccessTokenHandler` validates incoming platform access tokens for real. The production `AccessTokenGenerator` signs outgoing ones (to Register) with the same certificate |
-| PEP `ClaimAccessHandler` | same rule, plus a service-owner token (`urn:altinn:org`, e.g. `/Home/GetTestOrgToken`) satisfies `urn:altinn:app=studio.designer`, the policy on POST/PUT/DELETE of applications and texts. Replaced, not complemented, because the production handler calls `Fail()` |
 
 ### Application metadata and texts
 
@@ -46,7 +45,8 @@ Production repositories on Postgres, nothing else. The app runner (`../../run-ap
 `App/config/applicationmetadata.json` with `POST storage/api/v1/applications?appId={org}/{app}` (`PUT
 applications/{org}/{app}` when it exists) and each `App/config/texts/resource.{lang}.json` with
 `POST applications/{org}/{app}/texts` (`PUT …/texts/{lang}`), exactly what Designer does on deploy. A service-owner
-token (`/Home/GetTestOrgToken?org={org}`) satisfies the `studio.designer` policy (see the PEP row above). Storage never
+token is not enough: the production `ClaimAccessHandler` requires `urn:altinn:app=studio.designer`, which the Studio
+token (`/Home/GetTestStudioToken`, Designer's own credential exchanged by the authentication component) carries. Storage never
 asks the app for anything, and an app that was not pushed is unknown to it (`404` on `GET applications/{org}/{app}`).
 
 No seeding of `storage.applications` is needed for instances: no instance or data SQL joins that table (checked

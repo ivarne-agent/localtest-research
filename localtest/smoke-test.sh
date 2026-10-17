@@ -25,8 +25,10 @@ ORG=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&authentica
 check "org token through exchange/maskinporten" "ttd" "$(python3 -c "import sys,base64,json; p=sys.argv[1].split('.')[1]; p+='='*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p)).get('urn:altinn:org'))" "$ORG")"
 
 # What the app runner pushes before an app is used (see README.md): metadata and texts through production Storage.
-FX=$(dirname "$0")/components/storage/smoke/apps/ttd/testapp
-DES=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd" | tr -d '"')
+FX=$(dirname "$0")/smoke/apps/ttd/testapp
+DES=$(curl -s "$BASE/Home/GetTestStudioToken" | tr -d '"')
+check "studio token carries urn:altinn:app=studio.designer" "studio.designer" "$(python3 -c "import sys,base64,json; p=sys.argv[1].split('.')[1]; p+='='*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p)).get('urn:altinn:app'))" "$DES")"
+check "storage: an org token is not a Studio token (403)" "403" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp" --data-binary @"$FX/applicationmetadata.json")"
 MC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/applications?appId=ttd/testapp" --data-binary @"$FX/applicationmetadata.json")
 [[ "$MC" == "201" ]] || MC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp" --data-binary @"$FX/applicationmetadata.json")
 check "storage: runner pushes application metadata (POST or PUT)" "yes" "$([[ "$MC" == 20? ]] && echo yes || echo "$MC")"
@@ -34,6 +36,8 @@ TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X
 [[ "$TC" == "201" ]] || TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp/texts/nb" --data-binary @"$FX/texts/resource.nb.json")
 check "storage: runner pushes texts (POST or PUT)" "yes" "$([[ "$TC" == 20? ]] && echo yes || echo "$TC")"
 check "storage: pushed metadata is served" "attachment" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/applications/ttd/testapp" | python3 -c 'import sys,json; print("attachment" if any(d["id"] == "attachment" for d in json.load(sys.stdin)["dataTypes"]) else "missing")')"
+PC=$(sed -e 's/\[ORG\]/ttd/g' -e 's/\[org\]/ttd/g' -e 's/\[APP\]/testapp/g' -e 's/\[app\]/testapp/g' "$FX/policy.xml" | curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $DES" -H 'Content-Type: application/xml' -X POST "$BASE/authorization/api/v1/policies?org=ttd&app=testapp" --data-binary @-)
+check "authorization: runner pushes the app policy" "200" "$PC"
 check "ingress: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-running/api/v1/applicationmetadata")"
 
 dec() { curl -s "$BASE/authorization/api/localtest/decision?userId=$1&partyId=$2&org=ttd&app=testapp&action=$3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])'; }

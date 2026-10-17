@@ -11,7 +11,7 @@ to the other localtest components.
 | `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except one `#if LOCALTEST` block |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
 | `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, PIPs over the register seed, token handling, no-op audit queue, a localtest decision helper, DI composition |
-| `policies/` | Built-in policies, copied into the image at `/policies`: `ttd/testapp/policy.xml` (a Studio app policy with `[ORG]`/`[APP]` placeholders), `ttd/frontend-test/policy.xml` (copy of `src/test/apps/frontend-test/App/config/authorization/policy.xml` in altinn-studio, for the Cypress suite) and `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing) |
+| `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
 | `smoke-test.sh` | Starts register, authentication and the PDP from Release builds and checks decisions (see below) |
 | `Dockerfile` | Publishes the vendored host with the overrides |
 
@@ -38,9 +38,9 @@ are skipped by production code because `kvSetting` is empty.
 
 | Production | Localtest (`fakes/`) |
 | --- | --- |
-| `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: an app policy `{org}/{app}/policy.xml` from the mounted folder (`Localtest:Authorization:PoliciesPath`), else one posted to `POST authorization/api/v1/policies` since start, else fetched from the running app at `{AppsBaseUrl}{org}/{app}/api/v1/meta/authorizationpolicy` (today's localtest behaviour). `[ORG]`/`[APP]` placeholders replaced. Reused for `PolicyCacheSeconds` (5). Delegation policies: none. |
+| `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: the file store shared with Access Management (`Localtest:Authorization:PolicyStorePath`, the `policy-store` volume), laid out as the containers: `metadata/{org}/{app}/policy.xml` written by the production `POST authorization/api/v1/policies` (the runner pushes it, placeholders already replaced as Designer does) and `delegationpolicies/{path}` with versions under `{path}.versions/{versionId}`, written by Access Management and read here by the version it recorded. Nothing is fetched from apps and no placeholders are replaced |
 | `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read, so a policy edit applies within about 5 s |
-| `IAccessManagementWrapper` (AM `policyinformation/roles-and-accesspackages`, `getdelegationchanges`, `authorizedparties`) | `LocaltestAccessManagementWrapper` over the register seed (`{register}/api/localtest/test-users`, `organizations`): roles as `urn:altinn:rolecode:<code>` in lower and upper case (see [Role codes](#role-codes)) and `urn:altinn:external-role:ccr:<identifier>`, access packages as `urn:altinn:accesspackage:<id>`; `PRIV` / `urn:altinn:role:privatperson` for the person's own party, plus any roles the register lists for it; a sub-unit gets the roles held for its main unit. No delegations. Authorized parties: the same list as the endpoint below (`LocaltestAuthorizedParties`) |
+| `IAccessManagementWrapper` (AM `policyinformation/roles-and-accesspackages`, `getdelegationchanges`, `authorizedparties`) | `LocaltestAccessManagementWrapper`: `getdelegationchanges` goes to the real Access Management component through the production `AccessManagementWrapper` (the ingress routes `accessmanagement/api/v1/policyinformation/` there), so instance delegations made by apps are honoured; roles and access packages still over the register seed (`{register}/api/localtest/test-users`, `organizations`): roles as `urn:altinn:rolecode:<code>` in lower and upper case (see [Role codes](#role-codes)) and `urn:altinn:external-role:ccr:<identifier>`, access packages as `urn:altinn:accesspackage:<id>`; `PRIV` / `urn:altinn:role:privatperson` for the person's own party, plus any roles the register lists for it; a sub-unit gets the roles held for its main unit. Authorized parties: the same list as the endpoint below (`LocaltestAuthorizedParties`) |
 | `IProfile` (Profile `internal/user`) | `LocaltestProfile`: user id or ssn to the user's party (uuid, ssn) from the register seed |
 | `IRoles` (SBL Bridge, legacy `roles` endpoint) | `LocaltestRoles`: role codes from the register seed |
 | `IResourceRegistry` | `LocaltestResourceRegistry`: `resourceregistry/{id}/policy.xml` and optional `resource.json` in the policies folder; no access lists |
@@ -122,19 +122,19 @@ still be pointed elsewhere when running without the ingress:
 
 - `PlatformSettings:Api{Register,Storage,ResourceRegistry,AccessManagement,Profile}Endpoint` = `{platform}<service>/api/v1/`
 - `GeneralSettings:OpenIdWellKnownEndpoint` = `{platform}authentication/api/v1/openid/`, `RuntimeCookieName` = `AltinnStudioRuntime`
-- `Localtest:Authorization:RegisterLocaltestEndpoint` = `{platform}register/api/localtest/`, `AppsBaseUrl` = `{platform}`
+- `Localtest:Authorization:RegisterLocaltestEndpoint` = `{platform}register/api/localtest/`
 - cache timeouts 1 minute (the smallest valid value); feature flags as in production
   (`UserAccessPackageAuthorization`, `SystemUserAccessPackageAuthorization`, `AccessManagementAuthorizedParties`,
   `DecisionRequestLogRequestOnError` on)
 
 Forced over everything: `FeatureManagement:AuditLog=false`. Other settings: `Localtest:Authorization:PoliciesPath`
-(default `/policies`), `FetchPoliciesFromApps` (true), `PolicyCacheSeconds` (5).
+(default `/policies`) and `PolicyStorePath` (default `/policy-store`, the shared policy store).
 
 ## What the other components must provide
 
 - Ingress on the platform endpoint: `/authorization/` and `/accessmanagement/` to this service, `/register/` (v1 parties and the localtest
   endpoints), `/authentication/api/v1/openid/` (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance
-  authinfo), and `/{org}/{app}/` to the running app (policy fetch when no policy is mounted).
+  authinfo).
 - Register: the `RoleCodes` field of `test-users` (added for this component); seeded parties need stable UUIDs. For
   the Cypress users: role codes for the user's own party (`regna`, `dagl`, `priv` as in the old localtest), Altinn 2
   codes that are not CCR roles (`regna`, `A0239`, ...), and `unitType` on organisations.
@@ -175,7 +175,7 @@ Added 2026-10-17 (`./smoke-test.sh` with `REG_PORT=5031 AUTHN_PORT=8011 PDP_PORT
 
 Not verified: app-lib actually calling the endpoint through the ingress, `onlyHierarchyElementWithNoAccess` (no seeded
 user holds a sub-unit without its main unit), access-package rules (no seeded user has packages for a policy that uses them), a real app's PEP calling
-through the ingress, the policy fetch from a running app, `POST policies`, resource-registry decisions.
+through the ingress, resource-registry decisions.
 
 ## Compose
 

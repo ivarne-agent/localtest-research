@@ -8,6 +8,8 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.AccessMgmt.Core.HostedServices;
+using Altinn.AccessMgmt.Core.HostedServices.Contracts;
+using Altinn.Authorization.Host.Lease;
 using Altinn.AccessMgmt.Core.Services.Contracts;
 using Altinn.AccessMgmt.PersistenceEF.Audit;
 using Altinn.AccessMgmt.PersistenceEF.Extensions;
@@ -48,6 +50,16 @@ public sealed class LocaltestRefreshService(
         {
             using var importScope = services.CreateScope();
             await importScope.ServiceProvider.GetRequiredService<RegisterHostedService>().EnsureDbIsIngestWithRegisterData(cancellationToken);
+        }
+
+        // Production's resource sync (service owners as providers, app resources, their role and package subjects)
+        // against the Resource Registry stand-in. A no-op lease: the stand-in's stream is a snapshot, re-applied each run.
+        using (var resourceScope = services.CreateScope())
+        {
+            var resourceSync = resourceScope.ServiceProvider.GetRequiredService<IResourceSyncService>();
+            await resourceSync.SyncResourceOwners(cancellationToken);
+            await using var lease = await resourceScope.ServiceProvider.GetRequiredService<ILeaseService>().TryAcquireNonBlocking("localtest_resource_sync", cancellationToken);
+            await resourceSync.SyncResources(lease!, cancellationToken);
         }
 
         var url = options.Value.PlatformEndpoint.TrimEnd('/') + "/register/api/localtest/test-users";
@@ -108,8 +120,12 @@ public sealed class LocaltestRefreshService(
         }
 
         // Prune: role assignments to test users (entities with a user id) that neither the seed nor the structural
-        // sync roles account for, and imported packages the seed no longer lists.
+        // sync roles account for, and imported packages the seed no longer lists. Access Management's own runtime
+        // assignments stay: the rightholder carrying imported packages (pruned per package below) and the
+        // app-controlled rightholder every instance delegation hangs on.
         var structural = StructuralRoleCodes.Select(c => RoleConstants.TryGetByCode(c, out var r) ? r.Id : Guid.Empty).Where(id => id != Guid.Empty).ToHashSet();
+        structural.Add(RoleConstants.Rightholder.Id);
+        structural.Add(RoleConstants.AppControlledRightholder.Id);
         var testUserIds = users.Select(u => u.PartyUuid).ToHashSet();
         var candidates = await db.Assignments.AsNoTracking()
             .Where(a => testUserIds.Contains(a.ToId) && !structural.Contains(a.RoleId))

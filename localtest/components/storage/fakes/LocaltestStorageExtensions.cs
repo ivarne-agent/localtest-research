@@ -91,11 +91,6 @@ public static class LocaltestStorageExtensions
         // production handler.
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
 
-        // studio.designer: a service-owner token stands in for Designer when pushing app metadata and texts.
-        var claimHandler = services.Single(d => d.ServiceType == typeof(IAuthorizationHandler) && d.ImplementationType == typeof(ClaimAccessHandler));
-        services.Remove(claimHandler);
-        services.AddTransient<IAuthorizationHandler, LocaltestClaimAccessHandler>();
-
         // Application metadata and texts: production repositories on Postgres only. The app runner pushes them through
         // the production endpoints (POST/PUT applications, POST/PUT applications/{org}/{app}/texts), as Designer does.
 
