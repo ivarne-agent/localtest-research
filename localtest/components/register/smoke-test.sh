@@ -6,6 +6,7 @@
 #   ./smoke-test.sh [REGISTER_URL] [STUB_PORT]
 set -euo pipefail
 
+HERE=$(cd "$(dirname "$0")" && pwd)
 REGISTER=${1:-http://127.0.0.1:5020}
 STUB_PORT=${2:-18093}
 OLA_SSN=01817512212   # Ola Nordmann (12345), see testdata/README.md
@@ -35,6 +36,8 @@ check() { # name, python expression over d (parsed JSON)
     echo "FAIL $name: ${body:0:400}"; fail=1
   fi
 }
+# InternalOrPlatformAccess is validated for real against the shared test certificate (see ../../certs/README.md).
+PAT=$("$HERE/../../certs/mint-platform-access-token.sh" platform localtest)
 post() { curl -sS -H Content-Type:application/json -X POST "$@"; }
 
 for _ in $(seq 1 30); do curl -sf "$REGISTER/health" >/dev/null && break; sleep 1; done
@@ -44,9 +47,9 @@ curl -sS "$REGISTER/register/api/localtest/test-users" | check "seeded Cypress u
   '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "Selvregistrert Bruker"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "self-party role codes and acting-for list" \
   'any(u["userId"] == 12345 and u["parties"][0]["partyId"] == 512345 and "regna" in u["parties"][0]["roleCodes"] for u in d) and any(u["userId"] == 1337 and {500000, 500001, 500800}.issubset({a["partyId"] for a in u["actingFor"]}) for u in d)'
-post -H PlatformAccessToken:x "$REGISTER/register/api/v1/parties/partylist?fetchSubUnits=true" -d '[500000]' | check "partylist [500000] with sub-units" \
+post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist?fetchSubUnits=true" -d '[500000]' | check "partylist [500000] with sub-units" \
   'd[0]["partyId"] == 500000 and [c["partyId"] for c in d[0]["childParties"]] == [500001, 500002, 500003] and d[0]["organization"]["name"] == "DDG Fitness"'
-post -H PlatformAccessToken:x "$REGISTER/register/api/v1/parties/partylist" -d '[512345, 510004]' | check "person and self-identified parties" \
+post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist" -d '[512345, 510004]' | check "person and self-identified parties" \
   '{p["partyId"]: p["name"] for p in d} == {512345: "Ola Nordmann", 510004: "Selvregistrert Bruker"} and [p for p in d if p["partyId"] == 512345][0]["person"]["name"] == "Ola Nordmann"'
 curl -sS "$REGISTER/profile/api/v1/users/1337" | check "profile users/1337" \
   'd["userId"] == 1337 and d["party"]["person"]["name"] == "Sophie Salt" and d["profileSettingPreference"]["language"] == "nn" and d["userType"] == 1'

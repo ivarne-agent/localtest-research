@@ -46,8 +46,7 @@ are skipped by production code because `kvSetting` is empty.
 | `IResourceRegistry` | `LocaltestResourceRegistry`: `resourceregistry/{id}/policy.xml` and optional `resource.json` in the policies folder; no access lists |
 | `IOedRoleAssignmentWrapper` | `NoOedRoleAssignments` (empty) |
 | `IEventsQueueClient` (audit queue) | `NoopEventsQueueClient`; `FeatureManagement:AuditLog` forced off |
-| `IAccessTokenGenerator` (Key Vault certificate) | `LocaltestAccessTokenGenerator`: a token signed with a key made at start; the register only checks the header is present |
-| `AccessTokenHandler`, `IPublicSigningKeyProvider` | `LocaltestAccessTokenHandler` (a `PlatformAccessToken` header is enough), `LocaltestPublicSigningKeyProvider` (no keys) |
+| `IPublicSigningKeyProvider` (Key Vault certificates) | `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer. The production `AccessTokenGenerator` and `AccessTokenHandler` run unchanged: outgoing platform access tokens (to Register) are signed with it, incoming ones validated against it |
 | Access Management `GET accessmanagement/api/v1/enduser/authorizedparties` | `LocaltestAuthorizedPartiesController`, see [Authorized parties](#authorized-parties) |
 | (none) | `GET authorization/api/localtest/decision?userId&partyId&org&app&action[&instanceId&task&authenticationLevel]`, anonymous: builds the request an app's PEP sends and posts it to the production `decision` endpoint |
 | (none) | `POST authorization/api/localtest/refresh`, anonymous: drops the cached register seed and every production PDP cache entry (profiles, parties, policies) |

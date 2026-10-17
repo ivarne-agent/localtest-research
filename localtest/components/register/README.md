@@ -84,10 +84,14 @@ Run locally without Docker:
 ```sh
 export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5020 \
+  AccessTokenSettings__AccessTokenSigningCertificateFullPath=$PWD/../../certs/localtest-accesstoken.pfx \
   Localtest__Register__TestDataPath=$PWD/testdata/testData.json \
   Localtest__Register__AppsBaseUrl=http://127.0.0.1:18093/ \
   dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Register/src/Altinn.Register
 ./smoke-test.sh http://127.0.0.1:5020 18093
-curl -H PlatformAccessToken:x -H Content-Type:application/json \
+# InternalOrPlatformAccess: either a platform access token signed with ../../certs/localtest-accesstoken.pfx
+# (set AccessTokenSettings__AccessTokenSigningCertificateFullPath on the register too), or a bearer token with the
+# scope altinn:register/partylookup.admin, e.g. from the authentication component's /Home/GetTestOrgToken?scopes=...
+curl -H "Authorization: Bearer $TOKEN" -H Content-Type:application/json \
   -X POST 'http://127.0.0.1:5020/register/api/v1/parties/partylist?fetchSubUnits=true' -d '[500000]'
 ```

@@ -34,8 +34,7 @@ queues in `Development`, Application Insights is only wired when Key Vault yield
 | `IFileScanQueueClient` (Azure Queue) | `LocaltestFileScanQueueClient`: runs the production `IDataRepository.UpdateFileScanStatus(…, Clean)` at once. Upload responses still say `Pending` (as in production); every later read says `Clean`. The update does not bump the instance version |
 | `IApplicationRepository` | `LocaltestApplicationRepository`: running app → mounted folder → Postgres (`PgApplicationRepository`, which keeps what was POSTed). Writes go to Postgres |
 | `ITextRepository` | `LocaltestTextRepository`: same order; `Create` inserts the application row from the app source first when Postgres does not have it (the production insert needs the foreign key) |
-| `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | returns no keys; platform access tokens are not verified (`DisableAccessTokenVerification` forced) |
-| `IAccessTokenGenerator` (Key Vault cert, sends no header without one) | short-lived token signed with a startup key, so Register's localtest handler sees a `PlatformAccessToken` header |
+| `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | `LocaltestPublicSigningKeyProvider`: returns the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer, so the production `AccessTokenHandler` validates incoming platform access tokens for real. The production `AccessTokenGenerator` signs outgoing ones (to Register) with the same certificate |
 | PEP `ClaimAccessHandler` | same rule, plus a service-owner token (`urn:altinn:org`, e.g. `/Home/GetTestOrgToken`) satisfies `urn:altinn:app=studio.designer`, the policy on POST/PUT/DELETE of applications and texts. Replaced, not complemented, because the production handler calls `Fail()` |
 
 ### Application metadata and texts
@@ -71,7 +70,8 @@ They are inserted just below the environment variables, so they override the ven
 | `Localtest:Storage:AppsPath`, `BlobRootPath` | `/apps`, `/data/blobs` |
 
 Forced (cannot differ without Azure): `kvSetting:SecretUri` empty, `WolverineSettings:EnableSending=false`,
-`GeneralSettings:DisableA2Endpoints=true` (SBL bridge clients are no-ops), `AccessTokenSettings:DisableAccessTokenVerification=true`.
+`GeneralSettings:DisableA2Endpoints=true` (SBL bridge clients are no-ops). Platform access tokens are verified against the
+shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, mounted from `../../certs`).
 `ASPNETCORE_ENVIRONMENT=Development` (set by the Dockerfile) is required: Wolverine uses local queues only in
 Development, and JWT metadata over plain http is allowed only there. Postgres connection strings come from the
 environment (`PostgreSqlSettings__AdminConnectionString` / `__ConnectionString`, `{0}` is replaced by the password

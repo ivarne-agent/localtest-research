@@ -59,16 +59,10 @@ public static class LocaltestRegisterExtensions
         services.TryAddSingleton<Altinn.Register.Core.Ccr.ICcrUpdateFederator>(_ => throw NotAvailable("ICcrUpdateFederator (CCR federation)"));
         services.TryAddSingleton<Altinn.Register.Core.Location.ILocationLookupProvider>(_ => throw NotAvailable("ILocationLookupProvider (CCR import)"));
 
-        // Platform access tokens: no Key Vault locally.
+        // Platform access tokens: the production handler validates them against the shared localtest certificate
+        // instead of Key Vault certificates (see LocaltestPublicSigningKeyProvider).
         services.RemoveAll<IPublicSigningKeyProvider>();
         services.AddSingleton<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>();
-        var productionHandler = services.FirstOrDefault(d => d.ServiceType == typeof(IAuthorizationHandler) && d.ImplementationType == typeof(Altinn.Common.AccessToken.AccessTokenHandler));
-        if (productionHandler is not null)
-        {
-            services.Remove(productionHandler);
-        }
-
-        services.AddSingleton<IAuthorizationHandler, LocaltestAccessTokenHandler>();
 
         // Localtest-only controllers. The host uses AddControllersAsServices, so they must be in DI too.
         services.AddControllers().AddApplicationPart(typeof(LocaltestTestUsersController).Assembly);

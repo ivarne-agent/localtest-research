@@ -111,14 +111,14 @@ public static class LocaltestAuthorizationExtensions
 
         // Azure: no audit queue, no Key Vault.
         Replace<IEventsQueueClient, NoopEventsQueueClient>(services);
-        Replace<IAccessTokenGenerator, LocaltestAccessTokenGenerator>(services);
+        // Platform access tokens: production generator and handler, with the shared localtest certificate standing in
+        // for Key Vault on both sides (AccessTokenSettings:AccessTokenSigningCertificateFullPath).
+        // Production passes the generator a Key Vault certificate explicitly and never binds the client-side settings,
+        // so the resolver's AccessTokenSigningCertificateFullPath would be empty without this.
+        services.Configure<Altinn.Common.AccessTokenClient.Configuration.AccessTokenSettings>(builder.Configuration.GetSection("AccessTokenSettings"));
+        services.RemoveAll<IAccessTokenGenerator>();
+        services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
-        foreach (var handler in services.Where(d => d.ServiceType == typeof(IAuthorizationHandler) && d.ImplementationType == typeof(AccessTokenHandler)).ToList())
-        {
-            services.Remove(handler);
-        }
-
-        services.AddSingleton<IAuthorizationHandler, LocaltestAccessTokenHandler>();
 
         return builder;
     }

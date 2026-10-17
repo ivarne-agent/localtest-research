@@ -74,7 +74,6 @@ public static class LocaltestStorageExtensions
             ["kvSetting:SecretUri"] = string.Empty,
             ["WolverineSettings:EnableSending"] = "false",
             ["GeneralSettings:DisableA2Endpoints"] = "true",
-            ["AccessTokenSettings:DisableAccessTokenVerification"] = "true",
         });
     }
 
@@ -89,9 +88,10 @@ public static class LocaltestStorageExtensions
         // File scan: no queue and no scanner; the element is marked clean as soon as the scan is requested.
         Replace<IFileScanQueueClient, LocaltestFileScanQueueClient>(services);
 
-        // Key Vault: no keys. Platform access tokens are not verified (forced above), outgoing ones are unsigned stand-ins.
+        // Key Vault: the shared localtest certificate (AccessTokenSettings:AccessTokenSigningCertificateFullPath) signs
+        // outgoing platform access tokens through the production generator and validates incoming ones through the
+        // production handler.
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
-        Replace<IAccessTokenGenerator, LocaltestAccessTokenGenerator>(services);
 
         // studio.designer: a service-owner token stands in for Designer when pushing app metadata and texts.
         var claimHandler = services.Single(d => d.ServiceType == typeof(IAuthorizationHandler) && d.ImplementationType == typeof(ClaimAccessHandler));

@@ -13,13 +13,18 @@ META="$APP_DIR/App/config/applicationmetadata.json"
 ORG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["org"])' "$META")
 APP=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"].split("/")[1])' "$META")
 mkdir -p "$HERE/.run"; LOG="$HERE/.run/$ORG-$APP.log"; PIDF="$HERE/.run/$ORG-$APP.pid"
-if [[ -f "$PIDF" ]] && kill -0 "$(cat "$PIDF")" 2>/dev/null; then kill "$(cat "$PIDF")"; sleep 1; fi
+if [[ -f "$PIDF" ]] && kill -0 "$(cat "$PIDF")" 2>/dev/null; then kill "$(cat "$PIDF")"; fi
+# Whatever still listens on the port (an app started outside this script, for example) must go before we bind it.
+for p in $( (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null) | grep -E "[:.]$PORT " | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do kill "$p" 2>/dev/null; done
+for i in $(seq 1 30); do (ss -ltn 2>/dev/null || netstat -ltn) | grep -qE "[:.]$PORT " || break; sleep 1; done
 
 ASM=$(sed -nE "s/.*<AssemblyName>([^<]+)<.*/\1/p" "$APP_DIR/App/App.csproj" | head -1); ASM=${ASM:-App}
 DLL=$(ls "$APP_DIR"/App/bin/Release/net*/"$ASM".dll 2>/dev/null | head -1 || true)
 if [[ -z "$DLL" ]]; then echo "building $APP_DIR/App ..."; dotnet build "$APP_DIR/App/App.csproj" -c Release --nologo -v q; DLL=$(ls "$APP_DIR"/App/bin/Release/net*/"$ASM".dll | head -1); fi
 
 export ASPNETCORE_ENVIRONMENT=Development
+# The app signs platform access tokens with the shared test certificate (certs/README.md).
+export AccessTokenSettings__AccessTokenSigningCertificateFullPath="$HERE/certs/localtest-accesstoken.pfx"
 export Kestrel__EndPoints__Http__Url="http://0.0.0.0:$PORT"
 export AppSettings__OpenIdWellKnownEndpoint="$PLATFORM/authentication/api/v1/openid/"
 export AppSettings__AppFrontendAssetBaseUrl="${APP_FRONTEND_ASSET_BASE_URL:-$PLATFORM/app-frontend}"
@@ -40,17 +45,11 @@ export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local
 for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "app $ORG/$APP on port $PORT (pid $(cat "$PIDF"), log $LOG), ready after ${i}s"
 
-# Route it through the ingress: maintain APP_ROUTES in .env and recreate the ingress container.
-ENVF="$HERE/.env"; touch "$ENVF"
-CUR=$(grep -E '^APP_ROUTES=' "$ENVF" | cut -d= -f2- || true)
-NEW=$(python3 -c '
-import sys
-cur=[e for e in sys.argv[1].split(",") if e and not e.startswith(sys.argv[2]+"=")]
-cur.append(f"{sys.argv[2]}=http://host.docker.internal:{sys.argv[3]}")
-print(",".join(cur))' "$CUR" "$ORG/$APP" "$PORT")
-grep -vE '^APP_ROUTES=' "$ENVF" > "$ENVF.tmp" || true; echo "APP_ROUTES=$NEW" >> "$ENVF.tmp"; mv "$ENVF.tmp" "$ENVF"
-COMPOSE=${COMPOSE:-$(command -v podman-compose >/dev/null && echo podman-compose || echo "docker compose")}
-( cd "$HERE" && $COMPOSE up -d --no-build --force-recreate ingress >/dev/null 2>&1 )
+# Route it through the ingress: one nginx location per app, picked up by a graceful reload (no restart).
+mkdir -p "$HERE/ingress/app-routes"
+printf 'location /%s/ { proxy_pass http://host.docker.internal:%s; }\n' "$ORG/$APP" "$PORT" > "$HERE/ingress/app-routes/$ORG-$APP.conf"
+INGRESS=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E '^localtest[_-]ingress[_-]1$' || docker ps --format '{{.Names}}' | grep -E '^localtest[_-]ingress[_-]1$')
+( podman exec "$INGRESS" nginx -s reload 2>/dev/null || docker exec "$INGRESS" nginx -s reload )
 for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "ingress routes $PLATFORM/$ORG/$APP/ -> host port $PORT (after ${i}s)"
 # Register the app with the platform (test data from the app, metadata fetched on demand).

@@ -10,6 +10,11 @@ x-platform-host: &platform-host
   extra_hosts:
     - "local.altinn.cloud:10.200.0.10"
 
+# Platform access tokens: every app and component signs them with the same test certificate (certs/README.md) and
+# the components validate them against it, so the production token handlers run unchanged.
+x-access-token-cert: &access-token-cert
+  AccessTokenSettings__AccessTokenSigningCertificateFullPath: /certs/localtest-accesstoken.pfx
+
 networks:
   default:
     ipam:
@@ -28,12 +33,12 @@ services:
       AUTHORIZATION_UPSTREAM: http://authorization:5070
       STORAGE_UPSTREAM: http://storage:5010
       WORKFLOW_ENGINE_UPSTREAM: http://workflow-engine:9090
-      # Apps running on the developer machine: "org/app=http://host.docker.internal:port,...". run-app.sh maintains .env.
-      APP_ROUTES: ${APP_ROUTES:-}
     volumes:
       # The built app-frontend (src/App/frontend/dist) served at /app-frontend/; apps run with
       # AppSettings__AppFrontendAssetBaseUrl=http://local.altinn.cloud:8000/app-frontend
       - ${FRONTEND_DIST:-./frontend-dist}:/frontend:ro
+      # One nginx location per app started with run-app.sh; reloaded without restarting the ingress.
+      - ./ingress/app-routes:/etc/nginx/app-routes:ro
     networks:
       default:
         ipv4_address: 10.200.0.10
@@ -52,10 +57,11 @@ services:
     build: ./components/register
     image: localhost/localtest-register:dev
     environment:
+      <<: *access-token-cert
       GeneralSettings__OpenIdWellKnownEndpoint: http://local.altinn.cloud:8000/authentication/api/v1/openid/
       PlatformSettings__ApiAuthorizationEndpoint: http://local.altinn.cloud:8000/authorization/api/v1/
-      Localtest__Register__RequirePlatformAccessTokenHeader: "true"
     volumes:
+      - ./certs:/certs:ro
       - ./components/register/testdata:/testdata:ro
 
   authentication:
@@ -63,7 +69,10 @@ services:
     build: ./components/authentication
     image: localhost/localtest-authentication:dev
     environment:
+      <<: *access-token-cert
       GeneralSettings__PlatformEndpoint: http://local.altinn.cloud:8000/
+    volumes:
+      - ./certs:/certs:ro
     depends_on:
       - register
 
@@ -72,8 +81,10 @@ services:
     build: ./components/authorization
     image: localhost/localtest-authorization:dev
     environment:
+      <<: *access-token-cert
       Localtest__Authorization__PlatformEndpoint: http://local.altinn.cloud:8000/
     volumes:
+      - ./certs:/certs:ro
       - ./components/authorization/policies:/policies:ro
     depends_on:
       - register
@@ -99,10 +110,12 @@ services:
     build: ./components/storage
     image: localhost/localtest-storage:dev
     environment:
+      <<: *access-token-cert
       GeneralSettings__PlatformEndpoint: http://local.altinn.cloud:8000/
       PostgreSqlSettings__AdminConnectionString: Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb
       PostgreSqlSettings__ConnectionString: Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True
     volumes:
+      - ./certs:/certs:ro
       - storage-blobs:/data/blobs
       - ./apps:/apps:ro
     depends_on:

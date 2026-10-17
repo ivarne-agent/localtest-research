@@ -11,7 +11,8 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/storage/` | Production Storage on Postgres, file-backed blobs, scan marked clean, app metadata from the app or `apps/` (see its README) |
 | `apps/` | Fallback application metadata and texts per `{org}/{app}` for Storage when the app is not running (sample `ttd/testapp`) |
 | `smoke-test.sh` | End-to-end check of the running stack through the ingress |
-| `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, `/` to the app on the developer machine, Secure cookie flag removed |
+| `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, one drop-in file per app started with `run-app.sh` (`ingress/app-routes/`, graceful reload), `/` to the app on the developer machine, Secure cookie flag removed |
+| `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate against it with the production token handlers (see its README) |
 | `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `postgres`, `storage`; the ingress has a fixed address that every component maps `local.altinn.cloud` to |
 
 Fake-only components (authentication, later profile, events, notifications) are written fresh for this layout and
