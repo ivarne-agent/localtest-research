@@ -74,10 +74,11 @@ under `conflicts`. An app that cannot be reached keeps the data from its last su
 
 ## Self-identified users
 
-A person without `ssn` becomes a `SelfIdentifiedUserRecord` (`Legacy` type, external URN
-`urn:altinn:person:legacy-selfidentified:<userName>`). The user name is kept out of the record's user names because
-the v1 mapping names a self-identified party after its user name, and apps show the party name ("Selvregistrert
-Bruker"); `usernames` lookups still find it through the test data.
+A person without `ssn` is a self-identified user as ID-porten registers them today: identified by `email`, no
+username, type `idporten-email`, external URN `urn:altinn:person:idporten-email:<email>`, display name = the e-mail
+(what `register.get_or_create_email_user` does in production). The v1 party `name` is therefore the e-mail (or
+`epost:<email>` when the lookup includes the self-identified fields, as production's mapper does); apps show that.
+Legacy username users are not modelled; a person without `ssn` and without `email` is skipped with a warning.
 
 Run locally without Docker:
 

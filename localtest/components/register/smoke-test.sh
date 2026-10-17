@@ -44,18 +44,18 @@ for _ in $(seq 1 30); do curl -sf "$REGISTER/health" >/dev/null && break; sleep 
 for _ in $(seq 1 20); do curl -sf "http://127.0.0.1:$STUB_PORT/ttd/smoke-app/testData.json" >/dev/null && break; sleep 0.2; done
 
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "seeded Cypress users" \
-  '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "Selvregistrert Bruker"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
+  '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "selvregistrert.bruker@example.com"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "self-party role codes and acting-for list" \
   'any(u["userId"] == 12345 and u["parties"][0]["partyId"] == 512345 and "regna" in u["parties"][0]["roleCodes"] for u in d) and any(u["userId"] == 1337 and {500000, 500001, 500800}.issubset({a["partyId"] for a in u["actingFor"]}) for u in d)'
 post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist?fetchSubUnits=true" -d '[500000]' | check "partylist [500000] with sub-units" \
   'd[0]["partyId"] == 500000 and [c["partyId"] for c in d[0]["childParties"]] == [500001, 500002, 500003] and d[0]["organization"]["name"] == "DDG Fitness"'
 post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist" -d '[512345, 510004]' | check "person and self-identified parties" \
-  '{p["partyId"]: p["name"] for p in d} == {512345: "Ola Nordmann", 510004: "Selvregistrert Bruker"} and [p for p in d if p["partyId"] == 512345][0]["person"]["name"] == "Ola Nordmann"'
+  '{p["partyId"]: p["name"] for p in d} == {512345: "Ola Nordmann", 510004: "selvregistrert.bruker@example.com"} and [p for p in d if p["partyId"] == 512345][0]["person"]["name"] == "Ola Nordmann"'
 curl -sS "$REGISTER/profile/api/v1/users/1337" | check "profile users/1337" \
   'd["userId"] == 1337 and d["party"]["person"]["name"] == "Sophie Salt" and d["profileSettingPreference"]["language"] == "nn" and d["userType"] == 1'
 post "$REGISTER/profile/api/v1/users" -d "\"$OLA_SSN\"" | check "profile POST users (ssn string)" 'd["userId"] == 12345'
 post "$REGISTER/profile/api/v1/users" -d "{\"ssn\":\"$OLA_SSN\"}" | check "profile POST users {ssn}" 'd["userId"] == 12345'
-post "$REGISTER/profile/api/v1/internal/user" -d '{"userId":1004}' | check "profile internal/user self-identified" 'd["userType"] == 2 and d["party"]["name"] == "Selvregistrert Bruker"'
+post "$REGISTER/profile/api/v1/internal/user" -d '{"userId":1004}' | check "profile internal/user self-identified" 'd["userType"] == 2 and d["party"]["name"] == "epost:selvregistrert.bruker@example.com" and d["email"] == "selvregistrert.bruker@example.com"'
 curl -sS "$REGISTER/profile/api/v1/users/byuuid/00000000-0000-0000-0000-000000510001" | check "profile users/byuuid" 'd["userId"] == 1001 and d["profileSettingPreference"]["doNotPromptForParty"] is True'
 code=$(curl -sS -o /dev/null -w '%{http_code}' "$REGISTER/profile/api/v1/users/current")
 echo "$code" | check "users/current needs a token" 'd == 401'

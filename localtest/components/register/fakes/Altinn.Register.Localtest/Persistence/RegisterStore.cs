@@ -52,16 +52,22 @@ public sealed class RegisterStore
 
             if (string.IsNullOrEmpty(person.Ssn))
             {
-                // Self-identified user (legacy username/password user). The username goes in the external URN only:
-                // the v1 mapping names a self-identified party after its username, and apps show the display name.
-                var siUsername = string.IsNullOrEmpty(person.UserName) ? $"si-{person.PartyId}" : person.UserName;
+                // Self-identified user, as ID-porten creates them today: identified by e-mail, no username, display
+                // name = the e-mail (register.get_or_create_email_user). Legacy username users are not modelled.
+                if (string.IsNullOrWhiteSpace(person.Email))
+                {
+                    Warn($"Skipping self-identified person with partyId {person.PartyId}: no 'email' (self-identified users are e-mail registrations)");
+                    continue;
+                }
+
+                var email = person.Email.Trim().ToLowerInvariant();
                 var si = new SelfIdentifiedUserRecord
                 {
                     PartyUuid = uuid,
                     OwnerUuid = FieldValue.Null,
                     PartyId = checked((uint)person.PartyId),
-                    ExternalUrn = PartyExternalRefUrn.LegacySelfIdentifiedUsername.Create(UrnEncoded.Create(siUsername)),
-                    DisplayName = displayName,
+                    ExternalUrn = PartyExternalRefUrn.IDPortenEmail.Create(UrnEncoded.Create(email)),
+                    DisplayName = email,
                     PersonIdentifier = FieldValue.Null,
                     OrganizationIdentifier = FieldValue.Null,
                     CreatedAt = LoadedAt,
@@ -71,8 +77,8 @@ public sealed class RegisterStore
                     IsDeleted = false,
                     DeletedAt = FieldValue.Null,
                     VersionId = ++version,
-                    SelfIdentifiedUserType = SelfIdentifiedUserType.Legacy,
-                    Email = Text(person.Email),
+                    SelfIdentifiedUserType = SelfIdentifiedUserType.IdPortenEmail,
+                    Email = email,
                     ExtRef = FieldValue.Null,
                 };
                 parties.Add(si);

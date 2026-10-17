@@ -42,7 +42,7 @@ unchanged. Organisation numbers are the nearest valid mod-11 number that is not 
 | 1001 | 510001 | Pengelens Partner | 01899699552 | 01899699552 |
 | 1002 | 510002 | Gjentagende Forelder | 17858296439 | 17858296439 |
 | 1003 | 510003 | Rik Forelder | 08829698278 | 08829698278 |
-| 1004 | 510004 | Selvregistrert Bruker | (self-identified) | - |
+| 1004 | 510004 | selvregistrert.bruker@example.com | (self-identified, e-mail registration) | - |
 | 1337 | 501337 | Sophie Salt | 01039012345 | 01839012345 |
 | 2001 | 512001 | MultiParty Prompt | 01899699001 | 01899699048 |
 | 2002 | 512002 | Kari Nordvik | 12889898001 | 12889898044 |

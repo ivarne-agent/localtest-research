@@ -21,6 +21,8 @@ pass and every role answer is a local approximation. Vendoring the production se
 | Register sync | Try production's own sync against the vendored Register's v2 streams first; fall back to a localtest full re-poll over HTTP only if the streams do not carry what it needs. |
 | Altinn 2 / SBL bridge | Obsolete and about to be removed upstream: ignored locally with the smallest possible change (stub to empty, no directive unless unavoidable). |
 | Rollout | Keep the PDP's role fakes until the sync is proven; retire them last. |
+| Self-identified users | Production-faithful: modelled as ID-porten e-mail registrations (no username, display name = e-mail, `urn:altinn:person:idporten-email`), as `register.get_or_create_email_user` creates them. The test user is `selvregistrert.bruker@example.com`; legacy username users are not modelled. |
+| Unit types | Explicit in the built-in `testData.json`; sub-units `BEDR`, `Testdepartementet` `STAT`, `Skog og Fjell Consulting` `ENK`. |
 
 ## Steps
 
