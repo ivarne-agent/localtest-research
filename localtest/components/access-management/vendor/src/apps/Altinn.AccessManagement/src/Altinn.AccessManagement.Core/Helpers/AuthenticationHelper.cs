@@ -1,0 +1,214 @@
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Altinn.AccessManagement.Core.Constants;
+using Microsoft.AspNetCore.Http;
+
+namespace Altinn.AccessManagement.Core.Helpers
+{
+    /// <summary>
+    /// helper class for authentication
+    /// </summary>
+    public static class AuthenticationHelper
+    {
+        /// <summary>
+        /// Gets the users id
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>the logged in users id</returns>
+        public static int GetUserId(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals(AltinnCoreClaimTypes.UserId));
+            if (claim != null && int.TryParse(claim.Value, out int userId))
+            {
+                return userId;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Gets the users PartyUuid
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>the logged in users party uuid</returns>
+        public static Guid GetPartyUuid(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals(AltinnCoreClaimTypes.PartyUuid));
+            if (claim != null && Guid.TryParse(claim.Value, out Guid userUuid))
+            {
+                return userUuid;
+            }
+
+            return Guid.Empty;
+        }
+
+        /// <summary>
+        /// Gets the authenticated user's party id
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>the logged in users party id</returns>
+        public static int GetPartyId(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals(AltinnCoreClaimTypes.PartyID));
+            if (claim != null && int.TryParse(claim.Value, out int partyId))
+            {
+                return partyId;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Gets the system user PartyUuid
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>The sytem user uuid</returns>
+        public static string GetSystemUserUuidString(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals("authorization_details"));
+            if (claim == null || string.IsNullOrEmpty(claim.Value))
+            {
+                return string.Empty;
+            }
+
+            AuthorizationDetails authDetails = JsonSerializer.Deserialize<AuthorizationDetails>(claim.Value);
+            if (authDetails != null && authDetails.Type == "urn:altinn:systemuser" && authDetails.SystemUserId is { Length: > 0 })
+            {
+                return authDetails.SystemUserId[0];
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Gets the users PartyUuid or system user uuid.
+        /// </summary>
+        public static Guid GetAuthenticatedPartyUuid(HttpContext context)
+        {
+            var partyuuid = GetPartyUuid(context);
+            if (partyuuid == Guid.Empty)
+            {
+                return GetSystemUserUuid(context);
+            }
+
+            return partyuuid;
+        }
+
+        /// <summary>
+        /// Gets the system user PartyUuid
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>The sytem user uuid</returns>
+        public static Guid GetSystemUserUuid(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals("authorization_details"));
+            if (claim == null || string.IsNullOrEmpty(claim.Value))
+            {
+                return Guid.Empty;
+            }
+
+            AuthorizationDetails authDetails = JsonSerializer.Deserialize<AuthorizationDetails>(claim.Value);
+            if (authDetails != null && authDetails.Type == "urn:altinn:systemuser" && authDetails.SystemUserId is { Length: > 0 })
+            {
+                return Guid.TryParse(authDetails.SystemUserId[0], out Guid systemUserUuid) ? systemUserUuid : Guid.Empty;
+            }
+
+            return Guid.Empty;
+        }
+
+        /// <summary>
+        /// Gets the organization number of the system user owner (<c>systemuser_org</c> in <c>authorization_details</c>)
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>The owner organization number, or <c>null</c> if not present</returns>
+        public static string GetSystemUserOrgNo(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals("authorization_details"));
+            if (claim == null || string.IsNullOrEmpty(claim.Value))
+            {
+                return null;
+            }
+
+            try
+            {
+                AuthorizationDetails authDetails = JsonSerializer.Deserialize<AuthorizationDetails>(claim.Value);
+                var id = authDetails?.Type == "urn:altinn:systemuser" ? authDetails.SystemUserOrg?.Id : null;
+                if (string.IsNullOrEmpty(id))
+                {
+                    return null;
+                }
+
+                var parts = id.Split(':');
+                return parts.Length == 2 && parts[0] == "0192" ? parts[1] : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the users authentication level
+        /// </summary>
+        /// <param name="context">the http context</param>
+        /// <returns>the logged in users authentication level</returns>
+        public static int GetUserAuthenticationLevel(HttpContext context)
+        {
+            var claim = context.User?.Claims.FirstOrDefault(c => c.Type.Equals(AltinnCoreClaimTypes.AuthenticationLevel));
+            if (claim != null && int.TryParse(claim.Value, out int authenticationLevel))
+            {
+                return authenticationLevel;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// AuthorizationDetails class
+        /// </summary>
+        public class AuthorizationDetails
+        {
+            /// <summary>
+            /// Type
+            /// </summary>
+            [JsonPropertyName("type")]
+            public string Type { get; set; }
+
+            /// <summary>
+            /// SystemUserId
+            /// </summary>
+            [JsonPropertyName("systemuser_id")]
+            public string[] SystemUserId { get; set; }
+
+            /// <summary>
+            /// SystemUserOrg
+            /// </summary>
+            [JsonPropertyName("systemuser_org")]
+            public SystemUserOrg SystemUserOrg { get; set; }
+
+            /// <summary>
+            /// SystemId
+            /// </summary>
+            [JsonPropertyName("system_id")]
+            public string SystemId { get; set; }
+        }
+
+        /// <summary>
+        /// SystemUserOrg class
+        /// </summary>
+        public class SystemUserOrg
+        {
+            /// <summary>
+            /// Authority
+            /// </summary>
+            [JsonPropertyName("authority")]
+            public string Authority { get; set; }
+
+            /// <summary>
+            /// ID
+            /// </summary>
+            [JsonPropertyName("ID")]
+            public string Id { get; set; }
+        }
+    }
+}

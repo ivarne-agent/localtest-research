@@ -1,0 +1,428 @@
+﻿using Altinn.AccessMgmt.Persistence.Services.Models;
+using Altinn.AccessMgmt.PersistenceEF.Constants;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.Authorization.Api.Contracts.AccessManagement;
+using Altinn.Authorization.ProblemDetails;
+
+namespace Altinn.AccessMgmt.Core.Services.Contracts;
+
+/// <summary>
+/// Interface for managing connections.
+/// </summary>
+public interface IConnectionService
+{
+    /// <summary>
+    /// Get Connections
+    /// </summary>
+    Task<Result<IEnumerable<ConnectionDto>>> Get(Guid party, Guid? fromId, Guid? toId, bool includeClientDelegations = true, bool includeAgentConnections = true, bool includeAccessPackages = false, bool includeResources = false, bool includeInstances = false, Action<ConnectionOptions> configureConnections = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a role assignment between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment is made.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>
+    /// A <see cref="Result{T}"/> containing the newly created <see cref="Assignment"/>.
+    /// </returns>
+    Task<Result<AssignmentDto>> AddRightholder(Guid fromId, Guid toId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a specific role assignment between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="cascade">If <c>false</c>, stop if there are any dependent records.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<ValidationProblemInstance> RemoveAssignment(Guid fromId, Guid toId, bool cascade = false, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks for connected references for a specific assignment.
+    /// </summary>
+    /// <param name="assignment">The assignment to check.</param>
+    /// <param name="a2Assignments">Optional list of a2 role assignments to check for connected references.</param>
+    /// <param name="cancellationToken">A token used to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a validation problem instance.</returns>
+    Task<ValidationProblemInstance> CheckAssignmentForConnectedReferences(Assignment assignment, List<Assignment> a2Assignments = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves the roles associated with a given entity.
+    /// </summary>
+    /// <param name="party">The user is operating on behalf of.</param>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="configureConnections">A delegate used to configure connection behavior.</param>
+    /// <param name="cancellationToken">A token used to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a collection of role permissions.</returns>
+    Task<Result<IEnumerable<RolePermissionDto>>> GetRoles(Guid party, Guid? fromId, Guid? toId, Action<ConnectionOptions> configureConnections, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks for role delegation access for a specific user. 
+    /// Note:
+    ///     - This method assumes that the caller has already been authenticated and authorized as an access manager for the specified party.
+    ///     - Currently only usable for resource delegation checks.
+    /// </summary>
+    /// <param name="party">The party the user is operating on behalf of.</param>
+    /// <param name="toId">The user</param>
+    /// <param name="toIsMainAdminForFrom">Wether the toId user is authorized as main administrator for the party</param>
+    /// <param name="cancellationToken">A token used to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a collection of role delegations.</returns>
+    Task<Result<IEnumerable<RoleDtoCheck>>> RoleDelegationCheck(Guid party, Guid? toId = null, bool toIsMainAdminForFrom = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get connection resources
+    /// </summary>
+    /// <returns></returns>
+    Task<Result<IEnumerable<ResourcePermissionDto>>> GetResources(Guid party, Guid? fromId, Guid? toId, Guid? resourceId, Action<ConnectionOptions> configureConnections = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get connection resource instances
+    /// </summary>
+    /// <returns></returns>
+    Task<Result<IEnumerable<InstancePermissionDto>>> GetResourceInstances(Guid party, Guid? fromId, Guid? toId, Guid? resourceId, string instanceId, Action<ConnectionOptions> configureConnections = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a resource (by resource unique name) from assignment based on a specific role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="resource">Resource unique string identifier</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<ValidationProblemInstance> RemoveResource(Guid fromId, Guid toId, string resource, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a resource (by resource id) from assignment based on a specific role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="resourceId">Resource uuid</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<ValidationProblemInstance> RemoveResource(Guid fromId, Guid toId, Guid resourceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get connection packages
+    /// </summary>
+    /// <returns></returns>
+    Task<Result<IEnumerable<PackagePermissionDto>>> GetPackages(Guid party, Guid? fromId, Guid? toId, Action<ConnectionOptions> configureConnections = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a package to an assignment (by package ID) based on the role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment is made.</param>
+    /// <param name="packageId">Unique identifier of the package to assign.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A <see cref="Result{T}"/> containing the created <see cref="AssignmentPackage"/>.
+    /// </returns>
+    Task<Result<AssignmentPackageDto>> AddPackage(Guid fromId, Guid toId, Guid packageId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a package to an assignment (by package name or code) based on the role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment is made.</param>
+    /// <param name="packageUrn">PackageUrn</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Result{T}"/> containing the created <see cref="AssignmentPackage"/>.
+    /// </returns>
+    Task<Result<AssignmentPackageDto>> AddPackage(Guid fromId, Guid toId, string packageUrn, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a package (by package ID) from assignment based on a specific role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="package">Package</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<ValidationProblemInstance> RemovePackage(Guid fromId, Guid toId, string package, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a package (by package name or code) from assignment based on a specific role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="packageId">packageId</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<ValidationProblemInstance> RemovePackage(Guid fromId, Guid toId, Guid packageId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an authpenticated user is an access manager and has the necessary permissions to delegate a specific access package.
+    /// </summary>
+    /// <param name="party">ID of the person.</param>
+    /// <param name="packageIds">Filter param using unique package identifiers.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<Result<IEnumerable<AccessPackageDto.AccessPackageDtoCheck>>> CheckPackage(Guid party, IEnumerable<Guid> packageIds = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Method to check if a resource is delegable by an authenticated user on behalf of a party
+    /// </summary>
+    /// <param name="authenticatedUserUuid">The authenticated user</param>
+    /// <param name="party">The party performing the check on behalf of</param>
+    /// <param name="resource">The resource id to check</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="languageCode">the requested language code fallback "nb"</param>
+    /// <param name="ignoreDelegableFlag">When true, the resource's Delegable flag is ignored and only the user's access is checked. Used for consent scenarios where re-delegation should not be allowed but access verification is still needed.</param>
+    /// <param name="allowMaskinportenSchema">When true, MaskinportenSchema resources are not denied for being MaskinportenSchema. The Delegable flag and access rights still apply. Used by the dedicated Maskinporten scope delegation API.</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns>The result on all the resource/action that is delegable on the resource and a reason behind if the user can or can not delegate a given action</returns>
+    Task<Result<ResourceCheckDto>> ResourceDelegationCheck(Guid authenticatedUserUuid, Guid party, string resource, Action<ConnectionOptions> configureConnection = null, string languageCode = "nb", bool ignoreDelegableFlag = false, bool allowMaskinportenSchema = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Method to check if a resource instance is delegable by an authenticated user on behalf of a party
+    /// </summary>
+    /// <param name="authenticatedUserUuid">The authenticated user</param>
+    /// <param name="party">The party performing the check on behalf of</param>
+    /// <param name="resource">The resource id to check</param>
+    /// <param name="instanceId">The instance identifier to check</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="languageCode">the requested language code fallback "nb"</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns>The result on all the resource/action that is delegable on the resource instance</returns>
+    Task<Result<InstanceCheckDto>> InstanceDelegationCheck(Guid authenticatedUserUuid, Guid party, string resource, string instanceId, Action<ConnectionOptions> configureConnection = null, string languageCode = "nb", CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an authpenticated user is an access manager and has the necessary permissions to a specific access package for delegation of resources.
+    /// </summary>
+    /// <param name="party">ID of the person.</param>
+    /// <param name="authenticatedUserUuid">ID of the authenticated user.</param>
+    /// <param name="packageIds">Filter param using unique package identifiers.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<Result<IEnumerable<AccessPackageDto.AccessPackageDtoCheck>>> CheckPackageForResource(Guid party, Guid authenticatedUserUuid, IEnumerable<Guid> packageIds = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an authpenticated user is an access manager and has the necessary permissions to delegate a specific access package.
+    /// </summary>
+    /// <param name="party">ID of the person.</param>
+    /// <param name="packages">Filter param using urn package identifiers.</param>
+    /// <param name="packageIds">Filter param using unique package identifiers.</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A <see cref="ValidationProblemInstance"/> indicating success or describing any validation errors.
+    /// </returns>
+    Task<Result<IEnumerable<AccessPackageDto.AccessPackageDtoCheck>>> CheckPackage(Guid party, IEnumerable<string> packages, IEnumerable<Guid> packageIds = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get connections given from party
+    /// </summary>
+    /// <param name="partyId">Filter for party</param>
+    /// <param name="toId">to party</param>
+    /// <param name="roleId">Filter for role</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns></returns>
+    Task<IEnumerable<ConnectionDto>> GetConnectionsToOthers(Guid partyId, Guid? toId = null, Guid? roleId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Connections recived from party
+    /// </summary>
+    /// <param name="partyId">Filter for party</param>
+    /// <param name="fromId">to party</param>
+    /// <param name="roleId">Filter for role</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns></returns>
+    Task<IEnumerable<ConnectionDto>> GetConnectionsFromOthers(Guid partyId, Guid? fromId = null, Guid? roleId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of packages with a list of parties you have this permission at
+    /// </summary>
+    Task<IEnumerable<PackagePermissionDto>> GetPackagePermissionsFromOthers(Guid partyId, Guid? fromId = null, Guid? packageId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of packages with a list of parties that have this permission
+    /// </summary>
+    Task<IEnumerable<PackagePermissionDto>> GetPackagePermissionsToOthers(Guid partyId, Guid? toId = null, Guid? packageId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of resources with a list of parties you have this permission at
+    /// </summary>
+    Task<IEnumerable<ResourcePermissionDto>> GetResourcePermissionsFromOthers(Guid partyId, Guid? fromId = null, Guid? packageId = null, Guid? resourceId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of resources with a list of parties that have this permission
+    /// </summary>
+    Task<IEnumerable<ResourcePermissionDto>> GetResourcePermissionsToOthers(Guid partyId, Guid? toId = null, Guid? packageId = null, Guid? resourceId = null, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of resourcerules with a list of parties that have this permission
+    /// </summary>
+    Task<ResourceRightDto> GetResourceRightsToOthers(Guid partyId, Guid toId, Guid resourceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of resourcerules with a list of parties that have this permission
+    /// </summary>
+    Task<ResourceRightDto> GetResourceRightsFromOthers(Guid partyId, Guid fromId, Guid resourceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of instance rights with a list of parties that have this permission
+    /// </summary>
+    Task<InstanceRightDto> GetInstanceRightsToOthers(Guid partyId, Guid toId, Guid resourceId, string instanceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get list of instance rights with a list of parties you have this permission at
+    /// </summary>
+    Task<InstanceRightDto> GetInstanceRightsFromOthers(Guid partyId, Guid fromId, Guid resourceId, string instanceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all connections to an agent of the given service provider (viaId)
+    /// </summary>
+    /// <param name="viaId">The uuid of the service provider party</param>
+    /// <param name="toId">The uuid of the agent</param>
+    /// <param name="fromId">The uuid of the client</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns>collection of all connections of the agent</returns>
+    Task<IEnumerable<SystemUserClientConnectionDto>> GetConnectionsToAgent(Guid viaId, Guid toId, Guid? fromId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a delegation to a resource between two entities with the specified action keys. If not all actions is posible nothing is performed and a Problem is returned
+    /// </summary>
+    /// <param name="from">The source entity from which the delegation originates.</param>
+    /// <param name="to">The target entity to which the delegation is granted.</param>
+    /// <param name="resourceObj">The resource to associate between the source and target entities.</param>
+    /// <param name="rightKeys">A list of rule keys that define the permissions or actions allowed for the resource.</param>
+    /// <param name="by">The entity performing the operation. Used for auditing and authorization purposes.</param>
+    /// <param name="configureConnection">An optional delegate to configure connection options for the operation. If null, default connection settings are used.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a Result object indicating whether
+    /// the resource was successfully added.</returns>
+    Task<Result<bool>> AddResource(Entity from, Entity to, Resource resourceObj, RightKeyListDto rightKeys, Entity by, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a delegation to a resource between two entities with the specified action keys. If not all actions is posible nothing is performed and a Problem is returned
+    /// </summary>
+    /// <param name="from">The source entity from which the delegation originates.</param>
+    /// <param name="to">The target entity to which the delegation is granted.</param>
+    /// <param name="resourceObj">The resource to associate between the source and target entities.</param>
+    /// <param name="rightKeys">A list of rule keys that define the permissions or actions allowed for the resource.</param>
+    /// <param name="by">The entity performing the operation. Used for auditing and authorization purposes.</param>
+    /// <param name="configureConnection">An optional delegate to configure connection options for the operation. If null, default connection settings are used.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a Result object indicating whether
+    /// the resource was successfully added.</returns>
+    Task<Result<bool>> UpdateResource(Entity from, Entity to, Resource resourceObj, IEnumerable<string> rightKeys, Entity by, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a delegation to a resource instance between two entities with the specified action keys. If not all actions is posible nothing is performed and a Problem is returned
+    /// </summary>
+    /// <param name="from">The source entity from which the delegation originates.</param>
+    /// <param name="to">The target entity to which the delegation is granted.</param>
+    /// <param name="resourceObj">The resource to associate between the source and target entities.</param>
+    /// <param name="instanceId">The instance identifier for the resource instance.</param>
+    /// <param name="rightKeys">A list of rule keys that define the permissions or actions allowed for the resource instance.</param>
+    /// <param name="by">The entity performing the operation. Used for auditing and authorization purposes.</param>
+    /// <param name="configureConnection">An optional delegate to configure connection options for the operation. If null, default connection settings are used.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a Result object indicating whether
+    /// the instance delegation was successfully added.</returns>
+    Task<Result<bool>> AddInstance(Entity from, Entity to, Resource resourceObj, string instanceId, RightKeyListDto rightKeys, Entity by, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates (replaces) a delegation to a resource instance between two entities with the specified action keys. If not all actions are possible, nothing is performed and a Problem is returned.
+    /// </summary>
+    /// <param name="from">The source entity from which the delegation originates.</param>
+    /// <param name="to">The target entity to which the delegation is granted.</param>
+    /// <param name="resourceObj">The resource to associate between the source and target entities.</param>
+    /// <param name="instanceId">The instance identifier for the resource instance.</param>
+    /// <param name="rightKeys">A list of rule keys that define the permissions or actions allowed for the resource instance.</param>
+    /// <param name="by">The entity performing the operation. Used for auditing and authorization purposes.</param>
+    /// <param name="configureConnection">An optional delegate to configure connection options for the operation. If null, default connection settings are used.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a Result object indicating whether
+    /// the instance delegation was successfully updated.</returns>
+    Task<Result<bool>> UpdateInstance(Entity from, Entity to, Resource resourceObj, string instanceId, IEnumerable<string> rightKeys, Entity by, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a resource instance (by resource string and instance id) from assignment based on a specific role between two entities.
+    /// </summary>
+    /// <param name="fromId">ID of the entity from which the assignment originates.</param>
+    /// <param name="toId">ID of the entity to which the assignment was made.</param>
+    /// <param name="resource">Resource reference id</param>
+    /// <param name="instanceId">Instance identifier</param>
+    /// <param name="configureConnection">ConnectionOptions</param>
+    /// <param name="cancellationToken">
+    /// Token to monitor for cancellation requests.
+    /// </param>
+    /// <returns>
+    /// A task whose result is either <c>null</c> or a <see cref="ValidationProblemInstance"/>.
+    /// <list type="bullet">
+    /// <item>
+    /// <description>
+    /// <c>null</c> if the instance assignment was successfully removed, or if no matching assignment was found for the specified parameters.
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <description>
+    /// A <see cref="ValidationProblemInstance"/> describing any validation errors that prevented the removal of the instance assignment.
+    /// </description>
+    /// </item>
+    /// </list>
+    /// </returns>
+    Task<ValidationProblemInstance> RemoveInstance(Guid fromId, Guid toId, string resource, string instanceId, Action<ConnectionOptions> configureConnection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes the specified role assignment between two parties identified by <paramref name="fromId"/> and <paramref name="toId"/>.
+    /// </summary>
+    /// <param name="partyId">The unique identifier of the party the operation is performed on behalf of.</param>
+    /// <param name="fromId">The unique identifier of the from party the assigned role is for.</param>
+    /// <param name="toId">The unique identifier of the to party the assigned role is given to.</param>
+    /// <param name="roleCode">The unique code of the assigned role to remove.</param>
+    /// <param name="configureConnections">An optional delegate to configure connection options for the operation. If null, default connection settings are used.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
+    /// <returns>A result indicating whether the role was successfully removed. The result value is true if the role was removed, false if nothing was removed and a 
+    /// problem if something is wrong.</returns>
+    Task<Result<bool>> RemoveRoleAssignment(Guid partyId, Guid fromId, Guid toId, string roleCode, Action<ConnectionOptions> configureConnections = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates assignment with role <see cref="RoleConstants.SelfRegisteredUser"/> from a self identified user to a email user or adds it to itself if the sub variant is SI_EDU or SI_EMAIL.
+    /// </summary>
+    /// <param name="fromId">The unique identifier of the self identified user.</param>
+    /// <param name="toId">The unique identifier of the email user the <see cref="RoleConstants.SelfRegisteredUser"/> is given to.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
+    Task<Result<AssignmentDto>> AddSelfRegisteredUserRole(Guid fromId, Guid toId, CancellationToken cancellationToken = default);
+}

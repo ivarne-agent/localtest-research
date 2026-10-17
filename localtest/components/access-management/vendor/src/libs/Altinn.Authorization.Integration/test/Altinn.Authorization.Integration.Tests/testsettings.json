@@ -1,0 +1,17 @@
+{
+  "Platform": {
+    "ResourceRegistry": {
+      "Enabled": true,
+      "Endpoint": "https://platform.altinn.no"
+    },
+    "Register": {
+      "Enabled": false,
+      "Endpoint": "http://localhost:5020"
+    },
+    "Token": {
+      "TestTool": {
+        "Environment": "at22"
+      }
+    }
+  }
+}

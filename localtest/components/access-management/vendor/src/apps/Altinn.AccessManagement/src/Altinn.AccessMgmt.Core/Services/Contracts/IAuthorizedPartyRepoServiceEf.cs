@@ -1,0 +1,154 @@
+﻿using Altinn.AccessManagement.Core.Models;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Queries.Connection.Models;
+
+namespace Altinn.AccessMgmt.Core.Services.Contracts;
+
+/// <summary>
+/// Interface for managing optimized database queries using entity framework, to be used by authorized parties service.
+/// </summary>
+public interface IAuthorizedPartyRepoServiceEf
+{
+    /// <summary>
+    /// Gets an entity by its unique identifier
+    /// </summary>
+    /// <param name="id">The uuid of the entity</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns>Single entity</returns>
+    Task<Entity?> GetEntity(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Get Entity based on PartyId
+    /// </summary>
+    /// <param name="partyId">party id</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Single entity</returns>
+    Task<Entity?> GetEntityByPartyId(int partyId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get Entity based on Organization Id
+    /// </summary>
+    /// <param name="organizationId">organization id</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Single entity</returns>
+    Task<Entity?> GetEntityByOrganizationId(string organizationId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get Entity based on Person Id
+    /// </summary>
+    /// <param name="personId">person id</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    Task<Entity?> GetEntityByPersonId(string personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get Entity based on User Id
+    /// </summary>
+    /// <param name="userId">userId</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    Task<Entity?> GetEntityByUserId(int userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get Entity based on Username
+    /// </summary>
+    /// <param name="username">Username</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    Task<Entity?> GetEntityByUsername(string username, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get Entity based on IDPorten email identifier
+    /// </summary>
+    /// <param name="emailIdentifier">Email identifier</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    Task<Entity?> GetEntityByIdPortenEmailId(string emailIdentifier, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all child entities based on a list of parentIds
+    /// </summary>
+    /// <param name="parentIds">List of parent ids</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Enumerable of entities</returns>
+    Task<IEnumerable<Entity>> GetSubunits(IEnumerable<Guid> parentIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all entities based on a list of ids
+    /// </summary>
+    /// <param name="ids">All party uuids to get</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Enumerable of entities</returns>
+    Task<IEnumerable<Entity>> GetEntities(IEnumerable<Guid> ids, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all entities based on a list of partyIds
+    /// </summary>
+    /// <param name="partyIds">All party ids to get</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Enumerable of entities</returns>
+    Task<IEnumerable<Entity>> GetEntitiesByPartyIds(IEnumerable<int> partyIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets all key role assignments for a given to entity.
+    /// </summary>
+    /// <param name="toId">The to party</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Enumerable of keyrole assignments</returns>
+    Task<IEnumerable<Assignment>> GetKeyRoleAssignments(Guid toId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all connections the to party has any access to in one query.
+    /// </summary>
+    /// <returns>List of connection records matching the provided filters</returns>
+    Task<List<ConnectionQueryExtendedRecord>> GetConnectionsFromOthers(Guid toId, AuthorizedPartiesFilters filters = null, bool enrichEntities = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get list of packages the to party has access to, on behalf of the from party
+    /// </summary>
+    /// <returns>Enumerable of package permissions</returns>
+    Task<List<ConnectionQueryExtendedRecord>> GetPipConnectionsFromOthers(Guid toId, AuthorizedPartiesFilters filters = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets the ids of the given client delegations that were received through the given via-party.
+    /// The via-party is resolved from the original delegation, so it is preserved for connections
+    /// projected through main-unit hierarchy where the connection via-party is replaced by the main unit.
+    /// </summary>
+    /// <param name="delegationIds">The delegation ids to check</param>
+    /// <param name="viaPartyId">The via-party the delegations must have been received through</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>The subset of the delegation ids received through the via-party</returns>
+    Task<HashSet<Guid>> GetDelegationIdsViaParty(IEnumerable<Guid> delegationIds, Guid viaPartyId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get resources by provider code and/or resource ids
+    /// </summary>
+    /// <param name="providerCode">Provider code</param>
+    /// <param name="resourceIds">Resource ids</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>Enumerable of resources</returns>
+    Task<List<Resource>> GetResources(string? providerCode = null, IEnumerable<string>? resourceIds = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get role codes filtered by provider code and/or resource ids
+    /// </summary>
+    /// <param name="providerCode">Provider code</param>
+    /// <param name="resourceIds">Resource ids</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>List of roles for the specified filtering</returns>
+    Task<List<string>> GetRoleCodesFromRoleResources(string? providerCode = null, IEnumerable<string>? resourceIds = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get resources filtered by provider code and/or resource ids, grouped by package id
+    /// </summary>
+    /// <param name="providerCode">Provider code</param>
+    /// <param name="resourceIds">Resource ids</param>
+    /// <param name="ct">The <see cref="CancellationToken"/></param>
+    /// <returns>List of package resources</returns>
+    Task<List<PackageResource>> GetPackageResources(string? providerCode = null, IEnumerable<string>? resourceIds = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get roles filtered by role ids and/or package ids, grouped by package id
+    /// </summary>
+    /// <param name="roleIds">List of role ids</param>
+    /// <param name="packageIds">List of package ids</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>List of role packages</returns>
+    Task<List<RolePackage>> GetRolePackages(IEnumerable<Guid>? roleIds = null, IEnumerable<Guid>? packageIds = null, CancellationToken ct = default);
+}

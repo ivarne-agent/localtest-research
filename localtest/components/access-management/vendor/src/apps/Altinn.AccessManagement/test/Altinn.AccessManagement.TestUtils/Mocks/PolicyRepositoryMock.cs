@@ -1,0 +1,182 @@
+﻿using System.Collections.Concurrent;
+using System.Net;
+using System.Reflection;
+using Altinn.AccessManagement.Core.Helpers.Extensions;
+using Altinn.AccessManagement.Core.Repositories.Interfaces;
+using Azure;
+using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.Logging;
+using Moq;
+
+namespace Altinn.AccessManagement.TestUtils.Mocks
+{
+    /// <summary>
+    /// Mock class for <see cref="IPolicyRepository"></see> interface
+    /// </summary>
+    public class PolicyRepositoryMock(string filepath, ILogger<PolicyRepositoryMock> logger, ConcurrentDictionary<string, byte[]> writtenPolicies = null) : IPolicyRepository
+    {
+        private string Filepath { get; } = filepath;
+
+        private ILogger<PolicyRepositoryMock> Logger { get; } = logger;
+
+        private ConcurrentDictionary<string, byte[]> WrittenPolicies { get; } = writtenPolicies;
+
+        /// <inheritdoc/>
+        public Task<Stream> GetPolicyAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(GetTestDataStream(Filepath));
+        }
+
+        /// <inheritdoc/>
+        public Task<Stream> GetPolicyVersionAsync(string version, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(GetTestDataStream(Filepath));
+        }
+
+        /// <inheritdoc/>
+        public Task<Response<BlobContentInfo>> WritePolicyAsync(Stream fileStream, CancellationToken cancellationToken = default)
+        {
+            return WriteStreamToTestDataFolder(Filepath, fileStream);
+        }
+
+        /// <inheritdoc/>
+        public Task<Response> DeletePolicyVersionAsync(string version, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public async Task<Response<BlobContentInfo>> WritePolicyConditionallyAsync(Stream fileStream, string blobLeaseId, CancellationToken cancellationToken = default)
+        {
+            if (blobLeaseId == "CorrectLeaseId" && !Filepath.Contains("error/blobstorageleaselockwritefail"))
+            {
+                return await WriteStreamToTestDataFolder(Filepath, fileStream);
+            }
+
+            throw new RequestFailedException((int)HttpStatusCode.PreconditionFailed, "The condition specified using HTTP conditional header(s) is not met.");
+        }
+
+        /// <inheritdoc/>
+        public Task<string> TryAcquireBlobLease(CancellationToken cancellationToken = default)
+        {
+            if (Filepath.Contains("error/blobstoragegetleaselockfail"))
+            {
+                return Task.FromResult((string)null);
+            }
+
+            return Task.FromResult("CorrectLeaseId");
+        }
+
+        /// <inheritdoc/>
+        public Task ReleaseBlobLease(string leaseId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> PolicyExistsAsync(CancellationToken cancellationToken = default)
+        {
+            string fullpath = ResolveUnderBlobPath(GetDataInputBlobPath(), Filepath);
+
+            if (WrittenPolicies != null && WrittenPolicies.ContainsKey(Filepath))
+            {
+                return Task.FromResult(true);
+            }
+
+            if (File.Exists(fullpath))
+            {
+                return Task.FromResult(true);
+            }
+
+            Logger.LogWarning("Policy not found for full path: {FullPath}", fullpath.AsLogValue());
+
+            return Task.FromResult(false);
+        }
+
+        private static string GetDataOutputBlobPath()
+        {
+            return Path.Join(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Data", "blobs", "output");
+        }
+
+        private static string GetDataInputBlobPath()
+        {
+            return Path.Join(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Data", "blobs", "input");
+        }
+
+        /// <summary>
+        /// Resolves <paramref name="filepath"/> inside <paramref name="blobPath"/> and refuses a
+        /// path that leaves it.
+        /// </summary>
+        /// <remarks>
+        /// The mock is handed the policy path the request under test produced, so a plain combine
+        /// lets a path containing <c>..</c> reach files outside the test data folder. Resolving
+        /// both sides first and comparing the result against the folder keeps every read and write
+        /// where the tests expect it.
+        /// </remarks>
+        private static string ResolveUnderBlobPath(string blobPath, string filepath)
+        {
+            ArgumentNullException.ThrowIfNull(filepath);
+
+            string root = Path.GetFullPath(blobPath);
+            string resolved = Path.GetFullPath(Path.Combine(root, filepath));
+
+            if (!resolved.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                throw new ArgumentException($"Policy path '{filepath}' resolves outside the test data folder '{root}'.", nameof(filepath));
+            }
+
+            return resolved;
+        }
+
+        private static Stream GetTestDataStream(string filepath)
+        {
+            string dataPath = ResolveUnderBlobPath(GetDataInputBlobPath(), filepath);
+            Stream ms = new MemoryStream();
+            if (File.Exists(dataPath))
+            {
+                using FileStream file = new FileStream(dataPath, FileMode.Open, FileAccess.Read);
+                file.CopyTo(ms);
+            }
+
+            return ms;
+        }
+
+        private async Task<Response<BlobContentInfo>> WriteStreamToTestDataFolder(string filepath, Stream fileStream)
+        {
+            string dataPath = ResolveUnderBlobPath(GetDataOutputBlobPath(), filepath);
+
+            if (!Directory.Exists(Path.GetDirectoryName(dataPath)))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(dataPath));
+            }
+
+            int filesize;
+
+            if (WrittenPolicies != null)
+            {
+                var ms = new MemoryStream();
+                await fileStream.CopyToAsync(ms);
+                WrittenPolicies[filepath] = ms.ToArray();
+                ms.Position = 0;
+                fileStream = ms;
+            }
+
+            using (Stream streamToWriteTo = File.Open(dataPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                await fileStream.CopyToAsync(streamToWriteTo);
+                streamToWriteTo.Flush();
+                filesize = (int)streamToWriteTo.Length;
+            }
+
+            BlobContentInfo mockedBlobInfo = BlobsModelFactory.BlobContentInfo(new ETag("ETagSuccess"), DateTime.Now, new byte[1], DateTime.Now.ToUniversalTime().ToString(), "encryptionKeySha256", "encryptionScope", 1);
+            Mock<Response<BlobContentInfo>> mockResponse = new Mock<Response<BlobContentInfo>>();
+            mockResponse.SetupGet(r => r.Value).Returns(mockedBlobInfo);
+
+            Mock<Response> responseMock = new Mock<Response>();
+            responseMock.SetupGet(r => r.Status).Returns((int)HttpStatusCode.Created);
+            mockResponse.Setup(r => r.GetRawResponse()).Returns(responseMock.Object);
+
+            return mockResponse.Object;
+        }
+    }
+}

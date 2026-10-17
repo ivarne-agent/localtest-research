@@ -1,0 +1,47 @@
+environment = "at22"
+aks_federation = [
+  {
+    issuer_url      = "https://norwayeast.oic.prod-aks.azure.com/cd0026d8-283b-4a55-9bfa-d0ef4a8ba21c/cb4eb3bd-3ee3-4e48-ad7c-db31c12f5f64/"
+    namespace       = "default"
+    service_account = "altinn-access-management"
+  }
+]
+deploy_app_principal_id = "6eaed23e-df7f-4708-9c8e-a7f34deeadb4"
+platform_workflow_principal_ids = [
+  "8fcf3019-ee5f-44d4-8c57-b2248f6f282e", # altinn-access-management-app-at22-aks01
+  "2b74d490-2e91-48ad-aee1-478276b7e4e4", # altinn-access-management-app-at22-aks02
+  "5af9e789-bd92-4fbb-9445-a5920837d035", # DIS AKS Pre-deployment
+  "6b52ae2c-d73f-4179-9b46-49d180dc1fa8"  # DIS AKS Deployment
+]
+db_max_pool_size = 4
+db_compute_sku   = "D2"
+configuration = {
+  consent = {
+    events_page_size = 5
+  }
+  core = {
+    request_notify_request_approved_in_seconds = 30
+    request_notify_request_pending_in_seconds  = 30
+    notifications = {
+      access_added_notify_in_seconds        = 30
+      access_removed_notify_in_seconds      = 30
+      request_pending_notify_in_seconds     = 30
+      request_reviewed_notify_in_seconds    = 30
+      rightholder_added_notify_in_seconds   = 30
+      rightholder_removed_notify_in_seconds = 30
+      instance_added_notify_in_seconds      = 30
+      instance_removed_notify_in_seconds    = 30
+    }
+  }
+  serviceowner_delegation = {
+    package_whitelist = {
+      "974761076" = [ # SKATTEETATEN
+        "innbygger-skatteforhold-privatpersoner"
+      ]
+      "991825827" = [ # DIGDIR
+        "innbygger-stotte-tilskudd",
+        "teknisk-samhandling-digdir"
+      ]
+    }
+  }
+}

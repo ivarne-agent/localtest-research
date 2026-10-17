@@ -1,0 +1,294 @@
+module.exports = {
+  env: "at22",
+  resource_to_delegate: {
+    resource_id_privatperson:
+      "ttd-test-bruno-enkelttjeneste-privatperson-ressurs",
+    resource_id_virksomhet:
+      "ttd-test-bruno-enkelttjenestedelegering-virksomhet",
+    app_id: "app_ttd_test-bruno-app-for-delegation",
+    skattetaten_ressurs: "ske-informasjon-om-trekkpaalegg",
+    maskinporten_ressurs : "ttd-bruno-maskinporten-ressurs"
+  },
+  package_to_delegate: {
+    package_id_privatperson: "urn:altinn:accesspackage:innbygger-samliv",
+    package_id_privatperson_withdraw:
+      "urn:altinn:accesspackage:innbygger-vapen",
+    package_id_privatperson_reject:
+      "urn:altinn:accesspackage:innbygger-byggesoknad",
+    package_id_virksomhet: "urn:altinn:accesspackage:posttjenester",
+    hadm: "urn:altinn:accesspackage:hovedadministrator",
+    regn_not_assignable:
+      "urn:altinn:accesspackage:regnskapsforer-med-signeringsrettighet",
+    eksplisitt: "urn:altinn:accesspackage:eksplisitt",
+    konkbotilg: "urn:altinn:accesspackage:konkursbo-tilgangsstyrer",
+  },
+  Bot_person: {
+    lastname: "INGREDIENS",
+    pid: "21866699620",
+    partyid: 50786406,
+    userid: 20420567,
+    partyuuid: "5632f664-c7c1-46ce-968c-5ca50883967a",
+  },
+  Bot_from_person: {
+    lastname: "KARIES",
+    pid: "06920848050",
+    partyid: 51107242,
+    userid: 20388113,
+    partyuuid: "4f61b87e-8f3f-4c34-8036-7bf403ad7bf7",
+  },
+  Bot_Org_for_serviceowner: {
+    name: "STERK DYP TIGER AS",
+    org_no: "313025098",
+    partyid: 51603580,
+    partyuuid: "b6220906-4437-48dd-b219-779c3cc6aaf5",
+    dagligleder: {
+      name: "Materialistisk Bygg",
+      pid: "22816399142",
+      partyid: 51189860,
+      userid: 20080164,
+      partyuuid: "0e251053-2cf3-4cdb-ae3c-fde6931389fa",
+    },
+  },
+  Bot_person_serviceowner: {
+    lastname: "STAMMOR",
+    pid: "08826499630",
+    partyid: 50956332,
+    userid: 20915572,
+    partyuuid: "bf02757f-419d-4a81-9c83-f224731d1fe6",
+  },
+
+  Bot_Org: {
+    name: "PASSIV HANDLEKRAFTIG PUMA",
+    org_no: "313657892",
+    partyid: 51647456,
+    partyuuid: "24ad99ed-5e92-48f1-a969-4f1e8c886e40",
+    innehaver: {
+      name: "FROM ANDAKT",
+      pid: "04907397659",
+      partyid: 50712216,
+      userid: 20082861,
+      partyuuid: "0eb7144c-1ff1-4657-a1d7-2b127830f52d",
+    },
+  },
+   
+  Bot_Org_SubUnits: {
+    name: "FINTFØLENDE RASK PIGGSVIN",
+    org_no: "210008802",
+    partyid: 51235200,
+    partyuuid: "ad52d6a6-b174-49b2-8b9d-8d6345e31909",
+    dagligleder: {
+      name: "FANTASTISK PIANOKRAKK",
+      pid: "11896498713",
+      partyid: 50237764,
+      userid: 20332185,
+      partyuuid: "437ef092-ce90-49f7-9330-f3ecd51198e0",
+    },
+    underenhet01: {
+      name: "BLØT INITIATIVRIK FJELLREV",
+      org_no: "211942932",
+      partyid: 51260232,
+      partyuuid: "760e6057-be41-47ff-a019-db6b8f8c711a"
+    },
+    underenhet02: {
+      name: "NORMAL FAST FJELLREV",
+      org_no: "211943092",
+      partyid: 51260229,
+      partyuuid: "d27475ce-9612-40de-bab1-686ae63a0d53"
+    },
+    underenhet03: {
+      name: "URETTFERDIG SPETTETE FJELLREV",
+      org_no: "311942921",
+      partyid: 51509257,
+      partyuuid: "219e0864-0af3-4872-b73b-d96bde73d5f9"
+    },
+    underenhet04: {
+      name: "VOKAL PRESIS FJELLREV",
+      org_no: "311942948",
+      partyid: 51509258,
+      partyuuid: "2adc85c7-b5c6-4b3a-abca-1e8e7da7aa82"
+    },
+    underenhet05: {
+      name: "FORETAKSOM KURSIV FJELLREV",
+      org_no: "311942956",
+      partyid: 51509259,
+      partyuuid: "f0d82626-5889-4dd2-84c3-8d1531434c16"
+    },
+    underenhet06: {
+      name: "ANONYM ALVORLIG FJELLREV",
+      org_no: "311942964",
+      partyid: 51509260,
+      partyuuid: "2b5d7c4d-35be-41f2-b993-91af54cf0e1c"
+    },
+    underenhet07: {
+      name: "GLEMSOM EGOISTISK FJELLREV",
+      org_no: "311942972",
+      partyid: 51509261,
+      partyuuid: "58b1d57e-c66b-4968-8c11-bd6824cd1d7e"
+    },
+    underenhet08: {
+      name: "RASTLØS STILLE FJELLREV",
+      org_no: "311942980",
+      partyid: 51509262,
+      partyuuid: "4febd634-b69f-4758-83e3-d48f39aeaf50"
+    },
+    underenhet09: {
+      name: "BERIKENDE URIMELIG FJELLREV",
+      org_no: "311942999",
+      partyid: 51509263,
+      partyuuid: "7f1b7725-68e8-4a8e-9e82-edb9ed30a8c5"
+    },
+    underenhet10: {
+      name: "SLITEN STRIDLYNT FJELLREV",
+      org_no: "311943006",
+      partyid: 51509264,
+      partyuuid: "077c3311-6c8e-455b-a620-c50af33120a3"
+    },
+    underenhet11: {
+      name: "UMAKE SKRAVLETE FJELLREV",
+      org_no: "311943014",
+      partyid: 51509265,
+      partyuuid: "4614ca66-45ed-4252-bd1c-e9f974dd9137"
+    },
+    underenhet12: {
+      name: "NETT SMIGRENDE FJELLREV",
+      org_no: "311943022",
+      partyid: 51509266,
+      partyuuid: "a48b17fd-c178-4cbc-8847-f602b81f6469"
+    },
+    underenhet13: {
+      name: "BERØMT INNESLUTTET FJELLREV",
+      org_no: "311943030",
+      partyid: 51509267,
+      partyuuid: "c3398b35-860f-47dc-b379-e75d615ef7b4"
+    },
+    underenhet14: {
+      name: "PLEIENDE UFORNUFTIG FJELLREV",
+      org_no: "311943049",
+      partyid: 51509268,
+      partyuuid: "54495d32-5747-4958-9cfe-96529b5801e9"
+    },
+    underenhet15: {
+      name: "GILD NYTTIG FJELLREV",
+      org_no: "311943057",
+      partyid: 51509269,
+      partyuuid: "3e60392e-5c94-4d1c-9fd5-60a178446106"
+    },
+    underenhet16: {
+      name: "BESKJEDEN UKJENT FJELLREV",
+      org_no: "311943065",
+      partyid: 51509270,
+      partyuuid: "e626f8e4-c70f-4c37-acb2-f8456a929214"
+    },
+    underenhet17: {
+      name: "STADIG UKJENT FJELLREV",
+      org_no: "311943073",
+      partyid: 51509271,
+      partyuuid: "045237b9-f7d2-48c3-b365-cd057c25bb72"
+    },
+    underenhet18: {
+      name: "RUSTEN UAVHENGIG FJELLREV",
+      org_no: "311943081",
+      partyid: 51509273,
+      partyuuid: "6e3de871-5f8b-4827-a4f2-1559f1bbfd28"
+    },
+    underenhet19: {
+      name: "OPPBLÅST TYKKHUDET FJELLREV",
+      org_no: "311943103",
+      partyid: 51509274,
+      partyuuid: "093895ff-20f3-4b72-aa2b-84108de4d2f3"
+    },
+  },
+   
+  Bot_Org_2: {
+    name: "RIMELIG FAST HEST BORETTSLAG",
+    org_no: "310413089",
+    partyid: 51347779,
+    partyuuid: "584f3e33-1dc6-4e72-ad4b-6d4d1e39dea2",
+    styreleder: {
+      name: "Lysegul Femkant",
+      pid: "14838799907",
+      partyid: 50167981,
+      userid: 20281547,
+      partyuuid: "38c5f772-3544-4850-9cab-e4c81077c56c",
+    },
+    
+  },
+  user_uten_rettighetshaver: {
+    lastname: "SJOKOLADEKAKE",
+    pid: "63881275025",
+    partyid: 51089153,
+    userid: 20230679,
+    partyuuid: "2dfe42c3-0c03-4684-be9a-fa3b0a451725",
+  },
+  serviceowner_digdir: {
+    org: "digdir",
+    orgno: "991825827",
+  },
+  Bot_package_person: {
+    lastname: "KOLONI",
+    pid: "47855701924",
+    partyid: 51026392,
+    userid: 20159085,
+    partyuuid: "1ee055c5-53ae-4e35-8c47-1ab1d30cbc29",
+  },
+  Bot_package_person_withdraw: {
+    lastname: "FAMILIEBARNEHAGE",
+    pid: "13859797622",
+    partyid: 50299613,
+    userid: 20317790,
+    partyuuid: "406891e0-2237-4a16-96af-ef8505704afc",
+  },
+  Bot_package_person_reject: {
+    lastname: "KALV",
+    pid: "27920999617",
+    partyid: 50313591,
+    userid: 20848780,
+    partyuuid: "b0f674b8-a88a-46c6-8cc6-32ea5e8c696a",
+  },
+  Bot_package_from_person: {
+    lastname: "JUVEL",
+    pid: "11837198668",
+    partyid: 50941784,
+    userid: 20332321,
+    partyuuid: "4386762e-2b50-4208-a5ca-bfc0e28be176",
+  },
+  Bot_package_Org_for_serviceowner: {
+    name: "RASTLØS RESERVERT TIGER AS",
+    org_no: "210774432",
+    partyid: 51244126,
+    partyuuid: "ecee2f11-d9e8-436d-a188-d69e4fb51de3",
+    dagligleder: {
+      name: "NYTTIG RIBBE",
+      pid: "11826899389",
+      partyid: 50951925,
+      userid: 20119526,
+      partyuuid: "1676408c-c492-4878-a0f9-219f132c0315",
+    },
+  },
+  Bot_package_Org: {
+    name: "KREATIV SNÅL PIGGSVIN",
+    org_no: "313696057",
+    partyid: 51255656,
+    partyuuid: "8b0d56b5-2927-4775-9121-a005a30d4cae",
+    innehaver: {
+      name: "SMAL GÅSTOL",
+      pid: "26867198260",
+      partyid: 50633584,
+      userid: 20058157,
+      partyuuid: "09718393-861f-40c9-96b0-0252cf20c1ff",
+    },
+  },
+  Bot_package_Org_B: {
+    name: "UNGT URETTFERDIG TIGER AS",
+    org_no: "211155892",
+    partyid: 51248079,
+    partyuuid: "0d5879ee-414c-4c63-99ae-7e9629fbeb5d",
+    innehaver: {
+      name: "SNAKKESALIG NATTHEGRE",
+      pid: "02928498746",
+      partyid: 50655446,
+      userid: 20423314,
+      partyuuid: "56c73e24-37f4-4fc5-8fa2-6ed307f66810",
+    },
+  },
+};

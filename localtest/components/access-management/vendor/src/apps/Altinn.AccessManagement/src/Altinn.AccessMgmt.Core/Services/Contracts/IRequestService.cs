@@ -1,0 +1,88 @@
+﻿using Altinn.Authorization.Api.Contracts.AccessManagement.Request;
+using Altinn.Authorization.ProblemDetails;
+
+namespace Altinn.AccessMgmt.Core.Services.Contracts;
+
+/// <summary>
+/// Defines a contract for managing request assignments, including creation, retrieval, and updating of assignment packages and resources.
+/// </summary>
+public interface IRequestService
+{
+    /// <summary>
+    /// Retrieves the request associated with the specified request identifier.
+    /// </summary>
+    Task<Result<RequestDto>> GetRequest(Guid requestId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get requests sent by the party
+    /// </summary>
+    Task<Result<IEnumerable<RequestDto>>> GetSentRequests(Guid partyId, Guid? toId, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get requests received by the party
+    /// </summary>
+    Task<Result<IEnumerable<RequestDto>>> GetReceivedRequests(Guid partyId, Guid? fromId, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get count of requests sent by the party
+    /// </summary>
+    Task<Result<int>> GetSentRequestsCount(Guid partyId, Guid? toId, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get count of requests received by the party
+    /// </summary>
+    Task<Result<int>> GetReceivedRequestsCount(Guid partyId, Guid? fromId, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get count of requests received by each subunit of the party.
+    /// Every direct subunit is included, also those with no requests.
+    /// </summary>
+    Task<Result<IEnumerable<ReceivedRequestCountSubunitDto>>> GetReceivedRequestsCountForSubunits(Guid partyId, Guid? fromId, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a new request
+    /// A Request from Kari by NAV to BakerAS for AppResource01.
+    /// Will create an Assignment from BakerAS to Kari with an AssignmentResource for AppResource01.
+    /// </summary>
+    Task<Result<RequestDto>> CreateResourceRequest(Guid toId, Guid fromId, Guid byId, Guid roleId, Guid resourceId, RequestStatus status = RequestStatus.Pending, CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a new request
+    /// A Request from Kari by NAV to BakerAS for Taxes.
+    /// Will create an Assignment from BakerAS to Kari with an AssignmentPackage for Taxes.
+    /// </summary>
+    Task<Result<RequestDto>> CreatePackageRequest(Guid toId, Guid fromId, Guid byId, Guid roleId, Guid packageId, RequestStatus status = RequestStatus.Pending, CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a new request
+    /// A Request from Kari by NAV to BakerAS for Taxes.
+    /// Will create an Assignment from BakerAS to Kari with an AssignmentPackage for Taxes.
+    /// </summary>
+    Task<Result<RequestDto>> CreatePackageRequest(Guid toId, Guid fromId, Guid byId, Guid roleId, string package, RequestStatus status = RequestStatus.Pending, CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a new package request where the requester (from-party) is a system user.
+    /// The <paramref name="systemUserId"/> must resolve to a system user entity, the
+    /// <see cref="AccessMgmtFeatureFlags.EnableSystemUserRequests"/> feature must be enabled, the
+    /// consumer organization (<paramref name="consumerOrgNo"/>) must be a public sector organization
+    /// (KOMM, FYLK or STAT) and the recipient is the organization identified by <paramref name="organizationNo"/>.
+    /// </summary>
+    Task<Result<RequestDto>> CreateSystemUserPackageRequest(string organizationNo, Guid systemUserId, string consumerOrgNo, Guid roleId, string package, RequestStatus status = RequestStatus.Pending, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets the requests sent by a system user, optionally filtered by the recipient organization number.
+    /// Applies the same sender rules as <see cref="CreateSystemUserPackageRequest"/>.
+    /// </summary>
+    Task<Result<IEnumerable<RequestDto>>> GetSystemUserSentRequests(Guid systemUserId, string consumerOrgNo, string? toOrganizationNo, IEnumerable<RequestStatus> status, string? type, CancellationToken ct = default);
+
+    /// <summary>
+    /// Withdraws a request sent by a system user.
+    /// Applies the same sender rules as <see cref="CreateSystemUserPackageRequest"/>.
+    /// </summary>
+    Task<Result<RequestDto>> WithdrawSystemUserRequest(Guid systemUserId, string consumerOrgNo, Guid requestId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Updates the status of a request.
+    /// </summary>
+    Task<Result<RequestDto>> UpdateRequest(Guid partyUuid, Guid requestId, RequestStatus status, CancellationToken ct = default);
+}

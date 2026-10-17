@@ -1,0 +1,172 @@
+﻿using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Web;
+
+namespace Altinn.Authorization.Integration.Platform;
+
+/// <summary>
+/// Provides utility methods to create and modify HTTP requests.
+/// </summary>
+internal static class RequestComposer
+{
+    /// <summary>
+    /// Creates a new HTTP request message and applies the provided actions to it.
+    /// </summary>
+    /// <param name="actions">A set of actions to configure the HTTP request.</param>
+    /// <returns>A configured <see cref="HttpRequestMessage"/>.</returns>
+    public static HttpRequestMessage New(params Action<HttpRequestMessage>[] actions)
+    {
+        var request = new HttpRequestMessage();
+        foreach (var action in actions)
+        {
+            action(request);
+        }
+
+        return request;
+    }
+
+    /// <summary>
+    /// Sets the HTTP method for the request.
+    /// </summary>
+    /// <param name="method">The HTTP method to set.</param>
+    /// <returns>An action to configure the request method.</returns>
+    public static Action<HttpRequestMessage> WithHttpVerb(HttpMethod method) => request =>
+    {
+        request.Method = method;
+    };
+
+    /// <summary>
+    /// Sets the URI of the request.
+    /// </summary>
+    /// <remarks>
+    /// ignores uri if empty string or null.
+    /// </remarks>
+    /// <param name="uri">The URI to set.</param>
+    /// <returns>An action to configure the request URI.</returns>
+    public static Action<HttpRequestMessage> WithSetUri(string uri) => request =>
+    {
+        if (!string.IsNullOrEmpty(uri))
+        {
+            request.RequestUri = new Uri(uri);
+        }
+    };
+
+    /// <summary>
+    /// Sets the URI of the request with additional segments.
+    /// </summary>
+    /// <remarks>
+    /// ignores uri if null.
+    /// </remarks>
+    /// <param name="uri">The base URI.</param>
+    /// <param name="segments">Additional path segments to append.</param>
+    /// <returns>An action to configure the request URI.</returns>
+    public static Action<HttpRequestMessage> WithSetUri(Uri uri, params string[] segments) => request =>
+    {
+        if (uri != null)
+        {
+            request.RequestUri = new Uri(uri, string.Join("/", segments));
+        }
+    };
+
+    /// <summary>
+    /// Sets the payload of the request and content-type to 'application/json'
+    /// </summary>
+    /// <param name="payload">The object to be serialized.</param>
+    /// <param name="options">The JSON serializer options.</param>
+    /// <returns>An action to configure the request content.</returns>
+    public static Action<HttpRequestMessage> WithJSONPayload<T>(T payload, JsonSerializerOptions? options = null) => request =>
+    {
+        if (payload is { })
+        {
+            request.Content = JsonContent.Create(payload, options: options);
+        }
+    };
+
+    /// <summary>
+    /// Appends a query parameter with multiple values to the request URI.
+    /// </summary>
+    /// <typeparam name="T">The type of values.</typeparam>
+    /// <param name="param">The query parameter name.</param>
+    /// <param name="values">The values to associate with the parameter.</param>
+    /// <returns>An action to modify the request URI.</returns>
+    public static Action<HttpRequestMessage> WithAppendQueryParam<T>(string param, IEnumerable<T> values) => request =>
+    {
+        values ??= [];
+        if (request == null || string.IsNullOrEmpty(param) || !values.Any())
+        {
+            return;
+        }
+
+        var query = HttpUtility.ParseQueryString(request.RequestUri?.Query ?? string.Empty);
+        query[param] = string.Join(",", values);
+        request.RequestUri = new UriBuilder(request.RequestUri)
+        {
+            Query = query.ToString()
+        }.Uri;
+    };
+
+    /// <summary>
+    /// Appends a query parameter with a single value to the request URI.
+    /// </summary>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    /// <param name="param">The query parameter name.</param>
+    /// <param name="value">The value to associate with the parameter.</param>
+    /// <returns>An action to modify the request URI.</returns>
+    public static Action<HttpRequestMessage> WithAppendQueryParam<T>(string param, T value) => request =>
+    {
+        if (request == null || string.IsNullOrEmpty(param) || EqualityComparer<T>.Default.Equals(value, default))
+        {
+            return;
+        }
+
+        var query = HttpUtility.ParseQueryString(request.RequestUri?.Query ?? string.Empty);
+        query[param] = value.ToString();
+        request.RequestUri = new UriBuilder(request.RequestUri)
+        {
+            Query = query.ToString()
+        }.Uri;
+    };
+
+    public static Action<HttpRequestMessage> WithBasicAuth(string username, string password) => request =>
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(username);
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+
+        var cred = $"{username}:{password}";
+        request.Headers.Authorization = new("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(cred)));
+    };
+
+    /// <summary>
+    /// Adds a platform access token to the request headers.
+    /// </summary>
+    /// <returns>An action to add the access token to the request headers.</returns>
+    public static Action<HttpRequestMessage> WithPlatformAccessToken(string token) => request =>
+    {
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Add("PlatformAccessToken", token);
+        }
+    };
+
+    public static Action<HttpRequestMessage> WithPlatformAccessToken(Func<Task<string>> tokenRefresh) => request =>
+    {
+        var token = tokenRefresh().GetAwaiter().GetResult();
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Add("PlatformAccessToken", token);
+        }
+    };
+
+    /// <summary>
+    /// Adds a platform access token to the request headers.
+    /// </summary>
+    /// <returns>An action to add the access token to the request headers.</returns>
+    public static Action<HttpRequestMessage> WithJWTToken(string token) => request =>
+    {
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Add("Authorization", $"Bearer {token}");
+        }
+    };
+}

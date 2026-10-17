@@ -1,0 +1,112 @@
+variable "organization" {
+  type    = string
+  default = "altinn"
+}
+
+variable "product_name" {
+  type    = string
+  default = "auth"
+}
+
+variable "name" {
+  type    = string
+  default = "accessmgmt"
+}
+
+variable "instance" {
+  type    = string
+  default = "001"
+}
+
+variable "environment" {
+  type = string
+}
+
+variable "hub_subscription_id" {
+  type    = string
+  default = "01de49cb-48ef-4494-bc9d-b9e19a90bcd5"
+}
+
+variable "db_admins_user_principal_ids" {
+  type = list(object(
+    {
+      principal_id   = string
+      principal_name = string
+      principal_type = string
+  }))
+
+  default = [{
+    principal_id   = "4241b5ee-326f-4359-bde7-ee1a99287d7f",
+    principal_name = "ext-mthue-prod@ai-dev.no",
+    principal_type = "User"
+    },
+    {
+      principal_id   = "be1a510a-db1e-473c-a73a-558cdb68e353",
+      principal_name = "ext-anils@ai-dev.no",
+      principal_type = "User"
+    },
+    {
+      principal_id   = "3ab09791-7fa4-49ec-95ae-cd84b51ab691",
+      principal_name = "acn-joye-prod@ai-dev.no",
+      principal_type = "User"
+  }]
+}
+
+variable "deploy_app_principal_id" {
+  type = string
+}
+
+variable "aks_federation" {
+  type = list(object({
+    issuer_url      = string
+    namespace       = string
+    service_account = string
+  }))
+}
+
+variable "platform_workflow_principal_ids" {
+  type    = list(string)
+  default = []
+}
+
+variable "db_max_pool_size" {
+  type    = number
+  default = 4
+}
+
+variable "db_compute_sku" {
+  type = string
+}
+
+variable "db_storage_tier" {
+  type    = string
+  default = "P10"
+}
+
+variable "configuration" {
+  type = object({
+    consent = optional(object({
+      events_page_size = optional(number, 100)
+    }), {})
+    core = optional(object({
+      request_notify_request_approved_in_seconds = optional(number, 60 * 15) # Deprecated
+      request_notify_request_pending_in_seconds  = optional(number, 60 * 15) # Deprecated
+
+      notifications = optional(object({
+        request_reviewed_notify_in_seconds    = optional(number, 60 * 15)
+        request_pending_notify_in_seconds     = optional(number, 60 * 15)
+        rightholder_added_notify_in_seconds   = optional(number, 60 * 15)
+        rightholder_removed_notify_in_seconds = optional(number, 60 * 15)
+        access_added_notify_in_seconds        = optional(number, 60 * 15)
+        access_removed_notify_in_seconds      = optional(number, 60 * 15)
+        instance_added_notify_in_seconds      = optional(number, 60 * 15)
+        instance_removed_notify_in_seconds    = optional(number, 60 * 15)
+      }), {})
+    }), {})
+    serviceowner_delegation = optional(object({
+      package_whitelist = optional(map(list(string)), {})
+    }), {})
+  })
+  default = {}
+}
+

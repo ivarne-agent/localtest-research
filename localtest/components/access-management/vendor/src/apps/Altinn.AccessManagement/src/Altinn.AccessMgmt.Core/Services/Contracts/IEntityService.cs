@@ -1,0 +1,116 @@
+﻿using Altinn.AccessMgmt.PersistenceEF.Models;
+
+namespace Altinn.AccessMgmt.Core.Services.Contracts;
+
+public interface IEntityService
+{
+    ValueTask<Entity> GetEntity(Guid id, CancellationToken cancellationToken);
+
+    Task<bool> CreateEntity(Entity entity, CancellationToken cancellationToken);
+
+    ValueTask<Entity> GetOrCreateEntity(Guid id, string name, string refId, string type, string variant, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on OrgNo
+    /// </summary>
+    /// <param name="orgNo">Organization No</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByOrgNo(string orgNo, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on OrgNo with Type navigation property included
+    /// </summary>
+    /// <param name="orgNo">Organization No</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByOrgNoWithType(string orgNo, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on PersNo
+    /// </summary>
+    /// <param name="persNo">persNo</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByPersNo(string persNo, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on PersNo
+    /// </summary>
+    /// <param name="partyId">partyid</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByPartyId(string partyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on PersNo
+    /// </summary>
+    /// <param name="partyId">partyid</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByPartyId(int partyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on PersNo
+    /// </summary>
+    /// <param name="userId">userId</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByUserId(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on PersNo
+    /// </summary>
+    /// <param name="userId">userId</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByUserId(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get Entity based on Username
+    /// </summary>
+    /// <param name="username">username</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetByUsername(string username, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get parent Entity based on parentId
+    /// </summary>
+    /// <param name="parentId">profileId</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<Entity> GetParent(Guid parentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all child entities based on parentId
+    /// </summary>
+    /// <param name="parentId">Parent entity identifier</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<IEnumerable<Entity>> GetChildren(Guid parentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all child entities based on a list of parentIds
+    /// </summary>
+    /// <param name="parentIds">List of parent ids</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<IEnumerable<Entity>> GetChildren(IEnumerable<Guid> parentIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all entities based on a list of ids
+    /// </summary>
+    /// <param name="ids">All party uuids to get</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<IEnumerable<Entity>> GetEntities(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all entities based on a list of partyids
+    /// </summary>
+    /// <param name="partyIds">All party ids to get</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/></param>
+    /// <returns></returns>
+    Task<IEnumerable<Entity>> GetEntitiesByPartyIds(IEnumerable<int> partyIds, CancellationToken cancellationToken = default);
+}

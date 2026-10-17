@@ -1,0 +1,33 @@
+{
+  "dis": {
+    "deploy": true,
+    "manifest": "access-management/manifests",
+    "syncroot": "access-management/syncroot"
+  },
+  "image": {},
+  "database": {
+    "prefix": "accessmgmt",
+    "name": "accessmgmt",
+    "schema": {
+      "dbo": {},
+      "translation": {},
+      "dbo_history": {},
+      "translation_history": {}
+    }
+  },
+  "infra": {
+    "terraform": {
+      "stateFile": "Altinn.AccessManagement.tfstate"
+    }
+  },
+  "deps": [
+    "lib:Altinn.Authorization.Host",
+    "lib:Altinn.Authorization.Integration",
+    "lib:Altinn.Authorization.Api.Contracts",
+    "lib:Altinn.Authorization.Testing",
+    "pkg:Altinn.Authorization.PEP"
+  ],
+  "sonarcloud": {
+    "projectKey": "Authorization_AccessManagement"
+  }
+}

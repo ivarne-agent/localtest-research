@@ -1,0 +1,234 @@
+﻿using Altinn.AccessManagement.Core.Models;
+using Altinn.AccessMgmt.Core.Services.Contracts;
+using Altinn.AccessMgmt.PersistenceEF.Contexts;
+using Altinn.AccessMgmt.PersistenceEF.Extensions;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Queries.Connection;
+using Altinn.AccessMgmt.PersistenceEF.Queries.Connection.Models;
+using Altinn.Authorization.Api.Contracts.AccessManagement.Enums;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.FeatureManagement;
+
+namespace Altinn.AccessMgmt.Core.Services;
+
+/// <inheritdoc/>
+public class AuthorizedPartyRepoServiceEf(AppDbContext db, ConnectionQuery connectionQuery, IFeatureManager featureManager) : IAuthorizedPartyRepoServiceEf
+{
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntity(Guid id, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(t => t.Id == id)
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByPartyId(int partyId, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(t => t.PartyId == partyId)
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByOrganizationId(string organizationId, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(e => e.OrganizationIdentifier == organizationId)
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByPersonId(string personId, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(e => e.PersonIdentifier == personId)
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByUserId(int userId, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(e => e.UserId == userId)
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByUsername(string username, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(e => e.Username.ToLower() == username.ToLower())
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<Entity?> GetEntityByIdPortenEmailId(string emailIdentifier, CancellationToken ct = default) =>
+        await db.Entities
+            .AsNoTracking()
+            .Where(e => e.EmailIdentifier == emailIdentifier.ToLower())
+            .FirstOrDefaultAsync(ct);
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<Entity>> GetEntities(IEnumerable<Guid> ids, CancellationToken ct = default)
+    {
+        return await db.Entities
+            .AsNoTracking()
+            .Where(r => ids.Contains(r.Id))
+            .Include(t => t.Parent)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<Entity>> GetEntitiesByPartyIds(IEnumerable<int> partyIds, CancellationToken ct = default)
+    {
+        return await db.Entities
+            .AsNoTracking()
+            .Where(r => r.PartyId.HasValue && partyIds.Contains(r.PartyId.Value))
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<Entity>> GetSubunits(IEnumerable<Guid> parentIds, CancellationToken ct = default)
+    {
+        return await db.Entities
+            .AsNoTracking()
+            .Where(t => t.ParentId.HasValue && parentIds.Contains(t.ParentId.Value))
+            .Include(t => t.Parent)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<Assignment>> GetKeyRoleAssignments(Guid toId, CancellationToken ct = default)
+    {
+        return await db.Assignments.AsNoTracking()
+            .Where(t => t.ToId == toId)
+            .Include(t => t.Role)
+            .Where(t => t.Role.IsKeyRole)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<ConnectionQueryExtendedRecord>> GetConnectionsFromOthers(
+        Guid toId,
+        AuthorizedPartiesFilters filters = null,
+        bool enrichEntities = false,
+        CancellationToken ct = default)
+    {
+        var includeResources = filters?.IncludeResources == true || filters?.ResourceFilter?.Keys?.Count > 0;
+        var includeDelegationResources = includeResources && await featureManager.IsEnabledAsync(AccessMgmtFeatureFlags.IncludeClientDelegationResourcesInConnectionQuery);
+
+        return await connectionQuery.GetConnectionsAsync(
+        new ConnectionQueryFilter()
+        {
+            ToIds = [toId],
+            FromIds = filters?.PartyFilter?.Keys.ToList(),
+            EnrichEntities = enrichEntities,
+            IncludeSubConnections = true,
+            IncludeKeyRole = filters?.IncludePartiesViaKeyRoles == AuthorizedPartiesIncludeFilter.True ? true : false,
+            IncludeMainUnitConnections = true,
+            IncludeDelegation = true,
+            IncludePackages = filters?.IncludeAccessPackages == true || filters?.PackageFilter?.Keys?.Count > 0,
+            IncludeResources = includeResources,
+            IncludeDelegationResources = includeDelegationResources,
+            IncludeInstances = filters?.IncludeInstances == true || filters?.ResourceFilter?.Keys?.Count > 0,
+            EnrichPackageResources = false,
+            ExcludeDeleted = false
+        },
+        ConnectionQueryDirection.FromOthers,
+        ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<ConnectionQueryExtendedRecord>> GetPipConnectionsFromOthers(
+        Guid toId,
+        AuthorizedPartiesFilters filters = null,
+        CancellationToken ct = default)
+    {
+        return await connectionQuery.GetConnectionsAsync(
+            new ConnectionQueryFilter()
+            {
+                ToIds = [toId],
+                FromIds = filters?.PartyFilter?.Keys.ToList(),
+                PackageIds = null,
+                EnrichEntities = false,
+                IncludeSubConnections = true,
+                IncludeKeyRole = filters?.IncludePartiesViaKeyRoles == AuthorizedPartiesIncludeFilter.True ? true : false,
+                IncludeMainUnitConnections = true,
+                IncludeDelegation = filters?.IncludeClientDelegations ?? true,
+                IncludePackages = filters?.IncludeAccessPackages ?? true,
+                IncludeResources = false,
+                EnrichPackageResources = false,
+                ExcludeDeleted = false
+            },
+            ConnectionQueryDirection.FromOthers,
+            ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<HashSet<Guid>> GetDelegationIdsViaParty(IEnumerable<Guid> delegationIds, Guid viaPartyId, CancellationToken ct = default)
+    {
+        var ids = delegationIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        // Same via-party semantics as the connection query: the to-party of the delegation's from-assignment.
+        var result = await db.Delegations
+            .AsNoTracking()
+            .Where(d => ids.Contains(d.Id) && d.From.ToId == viaPartyId)
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+
+        return result.ToHashSet();
+    }
+
+    public async Task<List<Resource>> GetResources(string? providerCode = null, IEnumerable<string>? resourceIds = null, CancellationToken ct = default)
+    {
+        return await db.Resources
+            .AsNoTracking()
+            .Include(res => res.Provider)
+            .WhereIf(providerCode != null, res => res.Provider.Code == providerCode)
+            .WhereIf(resourceIds != null, res => resourceIds!.Contains(res.RefId))
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<string>> GetRoleCodesFromRoleResources(
+        string? providerCode = null,
+        IEnumerable<string>? resourceIds = null,
+        CancellationToken ct = default)
+    {
+        var results = await db.RoleResources
+            .AsNoTracking()
+            .Include(rr => rr.Role)
+            .Include(rr => rr.Resource)
+                .ThenInclude(res => res.Provider)
+            .WhereIf(providerCode != null, rr => rr.Resource.Provider.Code == providerCode)
+            .WhereIf(resourceIds != null, rr => resourceIds!.Contains(rr.Resource.RefId))
+            .Select(rr => new { rr.Role.Code, rr.Role.LegacyCode })
+            .Distinct()
+            .ToListAsync(ct);
+
+        return results.SelectMany(r => new[] { r.Code, r.LegacyCode })
+            .Where(code => !string.IsNullOrEmpty(code))
+            .Distinct()
+            .ToList();
+    }
+
+    public async Task<List<PackageResource>> GetPackageResources(string? providerCode = null, IEnumerable<string>? resourceIds = null, CancellationToken ct = default)
+    {
+        return await db.PackageResources
+            .AsNoTracking()
+            .Include(pr => pr.Resource)
+                .ThenInclude(res => res.Provider)
+            .WhereIf(providerCode != null, pr => pr.Resource.Provider.Code == providerCode)
+            .WhereIf(resourceIds != null, pr => resourceIds.Contains(pr.Resource.RefId))
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<RolePackage>> GetRolePackages(IEnumerable<Guid>? roleIds = null, IEnumerable<Guid>? packageIds = null, CancellationToken ct = default)
+    {
+        return await db.RolePackages
+            .AsNoTracking()
+            .Include(rp => rp.Role)
+            .WhereIf(roleIds != null, rp => roleIds.Contains(rp.RoleId))
+            .WhereIf(packageIds != null, rp => packageIds.Contains(rp.PackageId))
+            .Where(t => t.HasAccess == true)
+            .ToListAsync(ct);
+    }
+}

@@ -1,0 +1,253 @@
+﻿using System.Runtime.InteropServices;
+using System.Text;
+using Altinn.AccessMgmt.PersistenceEF.Audit;
+using Altinn.AccessMgmt.PersistenceEF.Constants;
+using Altinn.AccessMgmt.PersistenceEF.Contexts;
+using Altinn.AccessMgmt.PersistenceEF.Data;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Models.Base;
+using Altinn.AccessMgmt.PersistenceEF.Queries;
+using Altinn.AccessMgmt.PersistenceEF.Queries.Connection;
+using Altinn.AccessMgmt.PersistenceEF.Utils;
+using Altinn.Authorization.Host.Database;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
+
+namespace Altinn.AccessMgmt.PersistenceEF.Extensions;
+
+public static class ServiceCollectionExtensions
+{
+    private static readonly IMemoryCache _sqlHashCache = new MemoryCache(new MemoryCacheOptions());
+    private static bool _configureTracing = false;
+    private static readonly MemoryCacheEntryOptions _cacheOptions = new()
+    {
+        SlidingExpiration = TimeSpan.FromHours(6)
+    };
+
+    public static IServiceCollection AddAccessManagementDatabase(this IServiceCollection services, Action<AccessManagementDatabaseOptions> configureOptions)
+    {
+        var options = new AccessManagementDatabaseOptions(configureOptions);
+        services.Configure(configureOptions);
+        _configureTracing = options.AppConnectionString.Contains("database=authorizationdb", StringComparison.OrdinalIgnoreCase);
+        ConstantGuard.ConstantIdsAreUnique();
+        services.AddScoped<ReadOnlyInterceptor>();
+        services.AddScoped<IAuditAccessor, AuditAccessor>();
+        services.AddMemoryCache(); // Add memory cache for translation service
+        services.AddScoped<ITranslationService, TranslationService>();
+        services.AddScoped<ActivityLogQuery>();
+        services.AddScoped<AppDbContextFactory>();
+        services.AddScoped(sp => sp.GetRequiredService<AppDbContextFactory>().CreateDbContext());
+
+        if (options.EnableEFPooling)
+        {
+            return options.Source switch
+            {
+                SourceType.App => services.AddPooledDbContextFactory<AppDbContext>((sp, opt) => AddAppDbContext(sp, opt, options)),
+                SourceType.Migration => services.AddPooledDbContextFactory<AppDbContext>((sp, opt) => AddMigrationDbContext(sp, opt, options)),
+                _ => throw new ArgumentException("Invalid configured source must be either <App, Migration>", nameof(configureOptions)),
+            };
+        }
+
+        return options.Source switch
+        {
+            SourceType.App => services.AddDbContextFactory<AppDbContext>((sp, opt) => AddAppDbContext(sp, opt, options)),
+            SourceType.Migration => services.AddDbContextFactory<AppDbContext>((sp, opt) => AddMigrationDbContext(sp, opt, options)),
+            _ => throw new ArgumentException("Invalid configured source must be either <App, Migration>", nameof(configureOptions)),
+        };
+    }
+
+    private static void ConfigureNpgsql(NpgsqlDbContextOptionsBuilder builder)
+    {
+        builder.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
+        if (_configureTracing)
+        {
+            builder.ConfigureDataSource((dataSourceBuilder) =>
+            {
+                dataSourceBuilder.ConfigureTracing(o =>
+                {
+                    o.EnableFirstResponseEvent(false);
+                    o.ConfigureCommandEnrichmentCallback((activity, command) =>
+                    {
+                        // Remove useless tags
+                        activity.SetTag("db.connection_id", null);
+                        activity.SetTag("db.connection_string", null);
+                        activity.SetTag("db.name", null);
+                        activity.SetTag("db.user", null);
+                        activity.SetTag("net.peer.ip", null);
+                        activity.SetTag("net.peer.name", null);
+                        activity.SetTag("net.transport", null);
+                        activity.SetTag("db.query.text", null);
+
+                        // Change statement tag to hash large queries and log the full query once per application lifetime
+                        // Tags get truncated if # > 8192 by some component before they reach the app insights GUI (remember this happens only
+                        // once for a particular query in the POD's lifetime), so they are split into multiple tags. Npgsql does currently
+                        // not follow the otel standard for tag (span) names, so the npgsql standard is expanded by adding a number
+                        // to "db.statement". This name without a number is recognized by app insights and translated to "Command".
+                        // The names with a number are shown as custom properties in app insights.
+                        (var hash, var firstHash) = GetCommandTextHash(command.CommandText);
+                        if (firstHash)
+                        {
+                            activity.AddBaggage("firsthash", "true");
+                            var commandSpan = command.CommandText.AsSpan();
+                            int maxTags = 8; // Arbitrary max number of tags. Effective total is maxTags * maxTagLength
+                            int maxTagLength = 8192; // Truncation limit observed in the value chain before the app insights GUI
+                            for (int i = 0; i < maxTags; i++)
+                            {
+                                activity.SetTag(
+                                    $"db.statement{i}",
+                                    commandSpan.Slice(i * maxTagLength, Math.Min(maxTagLength, commandSpan.Length - (i * maxTagLength))).ToString());
+                                if ((i + 1) * maxTagLength >= commandSpan.Length)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+
+                        activity.AddTag("db.hash", hash.ToString());
+                        if (command.Parameters.Count > 0)
+                        {
+                            activity.AddTag("db.command.parameters", GetParametersForLogging(command));
+                        }
+                    });
+                });
+            });
+        }
+    }
+
+    private static (ulong Hash, bool FirstHash) GetCommandTextHash(string commandText)
+    {
+        ulong hash = XxHash64Utf8(commandText);
+        string cacheKey = $"S_{hash}";
+        if (_sqlHashCache.TryGetValue(cacheKey, out _))
+        {
+            return (hash, false);
+        }
+
+        _sqlHashCache.Set(cacheKey, 0, _cacheOptions);
+        return (hash, true);
+    }
+
+    private static string GetParametersForLogging(Npgsql.NpgsqlCommand command)
+    {
+        var parameters = new StringBuilder();
+        try
+        {
+            foreach (var parameter in command.Parameters)
+            {
+                parameters.Append($"{((Npgsql.NpgsqlParameter)parameter).ParameterName}=");
+                AppendParameterValueForLogging((Npgsql.NpgsqlParameter)parameter, parameters);
+                parameters.Append(';');
+            }
+        }
+        catch (Exception ex)
+        {
+            return "Could not format parameters: " + ex.Message;
+        }
+
+        if (parameters[^1] == ';')
+        {
+            parameters.Length--; // Remove trailing ';'
+        }
+
+        return parameters.ToString();
+    }
+
+    private static void AppendParameterValueForLogging(Npgsql.NpgsqlParameter parameter, StringBuilder parameters)
+    {
+        if (!parameter.DataTypeName.EndsWith("[]"))
+        {
+            parameters.Append(MaskSensitiveValue(parameter.Value?.ToString()));
+            return;
+        }
+
+        int i = 0;
+        int maxToLog = 5;
+        parameters.Append('{');
+        if (parameter.Value is System.Collections.IEnumerable enumerable)
+        {
+            foreach (var parameterValue in enumerable)
+            {
+                parameters.Append($"{MaskSensitiveValue(parameterValue.ToString())}:");
+                if (++i >= maxToLog)
+                {
+                    parameters.Append($"...skip-{enumerable.Cast<object>().Count() - maxToLog}");
+                    break;
+                }
+            }
+        }
+        else
+        {
+            throw new NotImplementedException($"Array parameter logging not implemented for type {parameter.Value?.GetType().FullName}");
+        }
+
+        if (parameters[^1] == ':')
+        {
+            parameters.Length--; // Remove trailing ':'
+        }
+
+        parameters.Append('}');
+    }
+
+    private static string MaskSensitiveValue(string value)
+    {
+        // Currently the only sensitive query parameter access mgmt is SSN
+        return value?.Length == 11 && value.All(char.IsDigit) ? value.Substring(0, 6) + "*****" : value;
+    }
+
+    private static ulong XxHash64Utf8(string parameter)
+    {
+        return System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes(parameter.AsSpan()));
+    }
+
+    private static void AddMigrationDbContext(IServiceProvider sp, DbContextOptionsBuilder options, AccessManagementDatabaseOptions databaseOptions)
+    {
+        options.UseAsyncSeeding(async (dbcontext, anyChanges, ct) => await StaticDataIngest.IngestAll((AppDbContext)dbcontext, ct));
+        options.UseNpgsql(databaseOptions.MigrationConnectionString, ConfigureNpgsql).ReplaceService<IMigrationsSqlGenerator, CustomMigrationsSqlGenerator>();
+    }
+
+    private static void AddAppDbContext(IServiceProvider sp, DbContextOptionsBuilder options, AccessManagementDatabaseOptions databaseOptions)
+    {
+        // The custom generator must be registered here too: MigrateAsync also runs with
+        // Source = App (Program.cs Init() in RunIntegrationTests mode), and the plain Npgsql
+        // generator would apply migrations without audit/activitylog trigger DDL, grants and
+        // the activitylog PARTITION BY clause. It only affects migration SQL, never queries.
+        options.UseNpgsql(databaseOptions.AppConnectionString, ConfigureNpgsql).ReplaceService<IMigrationsSqlGenerator, CustomMigrationsSqlGenerator>();
+    }
+}
+
+public class AccessManagementDatabaseOptions
+{
+    public AccessManagementDatabaseOptions()
+    {
+    }
+
+    public AccessManagementDatabaseOptions(Action<AccessManagementDatabaseOptions> configureOptions)
+    {
+        configureOptions(this);
+    }
+
+    public SourceType Source { get; set; } = SourceType.App;
+
+    public bool EnableEFPooling { get; set; } = false;
+
+    public string MigrationConnectionString { get; set; } = string.Empty;
+
+    public string AppConnectionString { get; set; } = string.Empty;
+
+    public Dictionary<string, Type> Handlers { get; set; } = [];
+
+    public AccessManagementDatabaseOptions AddOutboxHandler<T>(string handlerName)
+        where T : IOutboxHandler
+    {
+        Handlers[handlerName] = typeof(T);
+        return this;
+    }
+}
+
+public interface IOutboxHandler
+{
+    Task<OutboxStatus> Handle(OutboxMessage message, CancellationToken cancellationToken);
+}

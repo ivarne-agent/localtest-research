@@ -1,0 +1,362 @@
+﻿using System.Diagnostics;
+using Altinn.AccessMgmt.Core.HostedServices.Contracts;
+using Altinn.AccessMgmt.Core.HostedServices.Leases;
+using Altinn.AccessMgmt.Core.Services.Contracts;
+using Altinn.AccessMgmt.Core.Telemetry;
+using Altinn.AccessMgmt.PersistenceEF.Audit;
+using Altinn.AccessMgmt.PersistenceEF.Constants;
+using Altinn.AccessMgmt.PersistenceEF.Extensions;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Utils;
+using Altinn.Authorization.Host.Lease;
+using Altinn.Authorization.Integration.Platform.Register;
+using Altinn.Authorization.ModelUtils;
+using Altinn.Register.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Altinn.AccessMgmt.Core.HostedServices.Services;
+
+/// <inheritdoc />
+public class PartySyncService : BaseSyncService, IPartySyncService
+{
+    private readonly ILogger<RegisterHostedService> _logger;
+    private readonly IAltinnRegister _register;
+    private readonly IServiceProvider _serviceProvider;
+
+    private KeyValuePair<string, object> OtelTags { get; } = new KeyValuePair<string, object?>("service", nameof(PartySyncService));
+
+    /// <summary>
+    /// PartySyncService Constructor
+    /// </summary>
+    public PartySyncService(
+        IAltinnRegister register,
+        ILogger<RegisterHostedService> logger,
+        IServiceProvider serviceProvider
+    )
+    {
+        _register = register;
+        _logger = logger;
+        _serviceProvider = serviceProvider;
+    }
+
+    /// <inheritdoc/>
+    public async Task SyncParty(ILease lease, bool isInit = false, CancellationToken cancellationToken = default)
+    {
+        var options = new AuditValues(SystemEntityConstants.RegisterImportSystem);
+        var leaseData = await lease.Get<RegisterLease>(cancellationToken) ?? new RegisterLease();
+        if (isInit == false && leaseData.IsDbIngested == false)
+        {
+            return;
+        }
+
+        var seen = new HashSet<string>();
+        var ingestEntities = new List<Entity>();
+        var ingestAssignments = new List<Assignment>();
+        var seenAssignments = new HashSet<(Guid FromId, Guid ToId, Guid RoleId)>();
+        HashSet<Guid> seenDeadPeople = [];
+        HashSet<Guid> seenDeletedSystemUsers = [];
+
+        using IServiceScope scope = _serviceProvider.CreateEFScope(options);
+        var ingestService = scope.ServiceProvider.GetRequiredService<IIngestService>();
+        IAssignmentService assignmentService = scope.ServiceProvider.GetRequiredService<IAssignmentService>();
+
+        using var activity = CoreTelemetry.ActivitySource.StartActivity(nameof(PartySyncService), ActivityKind.Internal);
+        await foreach (var page in await _register.StreamParties(AltinnRegisterClient.DefaultFields, leaseData?.PartyStreamNextPageLink, cancellationToken))
+        {
+            try
+            {
+                if (page?.Content?.Data?.Count() == 0)
+                {
+                    break;
+                }
+
+                if (page.IsProblem)
+                {
+                    Log.ResponseError(_logger, page.StatusCode);
+                    throw new InvalidOperationException("Stream page is not successful");
+                }
+
+                _logger.LogInformation("Starting proccessing party page ({0}-{1})", page.Content.Stats.PageStart, page.Content.Stats.PageEnd);
+
+                foreach (var item in page?.Content.Data ?? [])
+                {
+                    var entity = item switch
+                    {
+                        Person person => MapPerson(person),
+                        Organization organization => MapOrganization(organization),
+                        SelfIdentifiedUser selfIdentifiedUser => MapSelfIdentifiedUser(selfIdentifiedUser),
+                        SystemUser systemUser => MapSystemUser(systemUser),
+                        EnterpriseUser enterpriseUser => MapEnterpriseUser(enterpriseUser),
+                        _ => throw new InvalidDataException($"Unkown Party type {item.Type}"),
+                    };
+
+                    Assignment assignment = item switch
+                    {
+                        Person person => MapAssignmentForPerson(person),
+                        SelfIdentifiedUser selfIdentifiedUser => MapAssignmentForSelfIdentifiedUser(selfIdentifiedUser),
+                        _ => null
+                    };
+
+                    if (!seen.Add(entity.RefId))
+                    {
+                        await Flush();
+                    }
+
+                    if (entity.TypeId == EntityTypeConstants.Person && entity.DateOfDeath.HasValue)
+                    {
+                        seenDeadPeople.Add(entity.Id);
+                    }
+
+                    if (entity.TypeId == EntityTypeConstants.SystemUser && entity.IsDeleted)
+                    {
+                        seenDeletedSystemUsers.Add(entity.Id);
+                    }
+
+                    ingestEntities.Add(entity);
+                    if (assignment != null && seenAssignments.Add((assignment.FromId, assignment.ToId, assignment.RoleId)))
+                    {
+                        ingestAssignments.Add(assignment);
+                    }
+                }
+
+                var flushed = await Flush();
+
+                if (string.IsNullOrEmpty(page?.Content?.Links?.Next))
+                {
+                    break;
+                }
+
+                if (flushed > 0)
+                {
+                    leaseData.PartyStreamNextPageLink = page.Content.Links.Next;
+                    await lease.Update(leaseData, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                activity?.AddException(ex);
+                activity?.SetStatus(ActivityStatusCode.Error);
+                CoreTelemetry.HostedServicesFailures.Add(1, OtelTags);
+                CoreTelemetry.HostedServicesOk.Record(0, OtelTags);
+                return;
+            }
+        }
+
+        CoreTelemetry.HostedServicesSuccess.Add(1, OtelTags);
+        CoreTelemetry.HostedServicesOk.Record(1, OtelTags);
+
+        async Task<int> Flush()
+        {
+            var batchIdEntity = Guid.CreateVersion7();
+            var batchNameEntity = batchIdEntity.ToString("N");
+
+            var batchIdAssignment = Guid.CreateVersion7();
+
+            if (ingestEntities.Count == 0)
+            {
+                return 0;
+            }
+
+            try
+            {
+                _logger.LogInformation("Ingest and Merge Entity batch '{0}' to db", batchNameEntity);
+
+                var ingestedEntities = await ingestService.IngestTempData(ingestEntities, batchIdEntity, cancellationToken);
+                int ingestedAssignments = await ingestService.IngestTempData(ingestAssignments, batchIdAssignment, cancellationToken);
+
+                if (seenDeadPeople.Count > 0)
+                {
+                    foreach (Guid refId in seenDeadPeople)
+                    {
+                        await assignmentService.ClearAssignmentsInAfterLife(refId, options, cancellationToken);
+                    }
+                }
+
+                foreach (Guid systemUserId in seenDeletedSystemUsers)
+                {
+                    int removed = await assignmentService.ClearAssignmentsForDeletedSystemUser(systemUserId, options, cancellationToken);
+                    if (removed > 0)
+                    {
+                        Log.DeletedSystemUserAssignmentsCleared(_logger, removed, systemUserId);
+                    }
+                }
+
+                if (ingestedEntities != ingestEntities.Count)
+                {
+                    _logger.LogWarning("Ingest partial complete: Entity ({0}/{1})", ingestedEntities, ingestEntities.Count);
+                }
+
+                if (ingestedAssignments != ingestAssignments.Count)
+                {
+                    _logger.LogWarning("Ingest partial complete: Assignment ({0}/{1})", ingestedAssignments, ingestAssignments.Count);
+                }
+
+                var mergedEntities = await ingestService.MergeTempData<Entity>(batchIdEntity, options, matchColumns: ["id"], ignoreColumnsToUpdate: ["parentid"], cancellationToken: cancellationToken);
+                await ingestService.MergeTempData<Assignment>(batchIdAssignment, options, matchColumns: ["fromid", "toid", "roleid"], ignoreColumnsToUpdate: ["id", "audit_validfrom"], cancellationToken: cancellationToken);
+
+                _logger.LogInformation("Merge complete: Entity ({0}/{1})", mergedEntities, ingestedEntities);
+                return mergedEntities;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to ingest and/or merge Entity batch {0} to db", batchNameEntity);
+                await Task.Delay(2000, cancellationToken);
+            }
+            finally
+            {
+                // A successful merge drops its own temp table; these drops guarantee cleanup
+                // when a failure between ingest and merge leaves a temp table orphaned.
+                await ingestService.DropTempData<Entity>(batchIdEntity, cancellationToken);
+                await ingestService.DropTempData<Assignment>(batchIdAssignment, cancellationToken);
+
+                ingestEntities.Clear();
+                ingestAssignments.Clear();
+                seen.Clear();
+                seenDeadPeople.Clear();
+                seenDeletedSystemUsers.Clear();
+            }
+
+            return 0;
+        }
+    }
+
+    private Entity MapPerson(Person person)
+    {
+        var entity = CreateEntity(person, e =>
+        {
+            e.DateOfBirth = person.DateOfBirth.HasValue ? person.DateOfBirth.Value : null;
+            e.DateOfDeath = person.DateOfDeath.HasValue ? person.DateOfDeath.Value : null;
+            e.RefId = person.PersonIdentifier.ToString();
+            e.PersonIdentifier = person.PersonIdentifier.ToString();
+            e.TypeId = EntityTypeConstants.Person;
+            e.VariantId = EntityVariantConstants.Person;
+        });
+
+        return entity;
+    }
+
+    private Assignment MapAssignmentForPerson(Person person)
+    {
+        if ((person.IsDeleted.HasValue && person.IsDeleted.Value) || (person.DateOfDeath.HasValue && person.DateOfDeath.Value > DateOnly.MinValue))
+        {
+            // Dead or deleted
+            return null;
+        }
+
+        return new Assignment()
+        {
+            FromId = person.Uuid,
+            ToId = person.Uuid,
+            RoleId = RoleConstants.PrivatePerson.Id
+        };
+    }
+
+    private Assignment MapAssignmentForSelfIdentifiedUser(SelfIdentifiedUser user)
+    {
+        if (user.IsDeleted.HasValue && user.IsDeleted.Value)
+        {
+            // Deleted
+            return null;
+        }
+
+        return new Assignment()
+        {
+            FromId = user.Uuid,
+            ToId = user.Uuid,
+            RoleId = RoleConstants.SelfRegisteredUser.Id
+        };
+    }
+
+    private Entity MapOrganization(Organization organization)
+    {
+        if (!EntityVariantConstants.TryGetByName(organization.UnitType.Value, out var variant))
+        {
+            throw new InvalidDataException($"Invalid Unit Type {organization.UnitType}");
+        }
+
+        var entity = CreateEntity(organization, o =>
+        {
+            o.RefId = organization.OrganizationIdentifier.ToString();
+            o.OrganizationIdentifier = organization.OrganizationIdentifier.ToString();
+            o.VariantId = variant;
+            o.TypeId = EntityTypeConstants.Organization;
+        });
+
+        return entity;
+    }
+
+    private Entity MapSelfIdentifiedUser(SelfIdentifiedUser selfIdentifiedUser)
+    {
+        FieldValue<NonExhaustiveEnum<SelfIdentifiedUserType>> userType = selfIdentifiedUser.SelfIdentifiedUserType;
+        var entity = CreateEntity(selfIdentifiedUser, s =>
+        {
+            s.RefId = selfIdentifiedUser.User.Value.Username.Value;
+            s.TypeId = EntityTypeConstants.SelfIdentified;
+            s.EmailIdentifier = selfIdentifiedUser.Email.Value;
+            s.VariantId = userType switch
+            {
+                { IsNull: true } => EntityVariantConstants.SI,
+                { IsUnset: true } => throw new UnreachableException("Missing selfidentfiedUserType from register. Should never happen."),
+                { Value.IsUnknown: true } => throw new InvalidOperationException("..."),
+                { Value.Value: SelfIdentifiedUserType rrr } => rrr switch
+                {
+                    SelfIdentifiedUserType.Legacy => EntityVariantConstants.SI,
+                    SelfIdentifiedUserType.Educational => EntityVariantConstants.SI_EDU,
+                    SelfIdentifiedUserType.IdPortenEmail => EntityVariantConstants.SI_EMAIL,
+                    _ => throw new InvalidDataException($"Missing mapping for SI user type {rrr}")
+                },
+            };
+        });
+
+        return entity;
+    }
+
+    private Entity MapSystemUser(SystemUser systemUser)
+    {
+        var systemTypeVariant = systemUser.SystemUserType.Value.Value switch
+        {
+            SystemUserType.ClientPartySystemUser => EntityVariantConstants.AgentSystem,
+            SystemUserType.FirstPartySystemUser => EntityVariantConstants.StandardSystem,
+            _ => throw new InvalidDataException($"Missing mapping for system type {systemUser.SystemUserType}")
+        };
+
+        var entity = CreateEntity(systemUser, s =>
+        {
+            s.RefId = systemUser.Uuid.ToString();
+            s.TypeId = EntityTypeConstants.SystemUser;
+            s.VariantId = systemTypeVariant;
+        });
+
+        return entity;
+    }
+
+    private Entity MapEnterpriseUser(EnterpriseUser enterpriseUser)
+    {
+        var entity = CreateEntity(enterpriseUser, e =>
+        {
+            e.RefId = enterpriseUser.User.Value.Username.Value;
+            e.TypeId = EntityTypeConstants.EnterpriseUser;
+            e.VariantId = EntityVariantConstants.EnterpriseUser;
+        });
+
+        return entity;
+    }
+
+    private Entity CreateEntity(Party party, Action<Entity> configureEntity)
+    {
+        var entity = new Entity()
+        {
+            Id = party.Uuid,
+            Name = party.DisplayName.ToString(),
+            DeletedAt = party?.DeletedAt.HasValue == true ? party.DeletedAt.Value : null,
+            PartyId = party?.PartyId.HasValue == true ? Convert.ToInt32(party.PartyId.Value) : null,
+            UserId = party?.User.Value?.UserId.HasValue == true ? Convert.ToInt32(party.User.Value.UserId.Value) : null,
+            Username = party?.User.Value?.Username.HasValue == true ? party.User.Value.Username.ToString() : null,
+            IsDeleted = party?.IsDeleted.HasValue == true ? party.IsDeleted.Value : false,
+        };
+
+        configureEntity(entity);
+        return entity;
+    }
+}

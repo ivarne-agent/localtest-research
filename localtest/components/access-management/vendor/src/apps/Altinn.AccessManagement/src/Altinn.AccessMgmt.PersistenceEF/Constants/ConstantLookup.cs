@@ -1,0 +1,292 @@
+﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Models.Contracts;
+using Altinn.AccessMgmt.PersistenceEF.Utils;
+
+namespace Altinn.AccessMgmt.PersistenceEF.Constants;
+
+/// <summary>
+/// Provides lookup methods for constant definitions.
+/// Supports lookups by ID, name, and retrieving all entities and translations.
+/// </summary>
+/// <remarks>
+/// Uses reflection to find constants in a class and caches results.
+/// ID lookups require <see cref="IEntityId"/>.
+/// Name lookups require both <see cref="IEntityId"/> and <see cref="IEntityName"/>.
+/// </remarks>
+public static class ConstantLookup
+{
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), Dictionary<Guid, object>> _byId = new();
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), Dictionary<string, object>> _byName = new();
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), Dictionary<string, object>> _byUrn = new();
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), Dictionary<string, object>> _byCode = new();
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), Dictionary<string, object>> _bylegacyCode = new();
+    private static readonly ConcurrentDictionary<(Type ConstantsClass, Type EntityType), List<object>> _constants = new();
+
+    private static List<ConstantDefinition<TType>> GetConstants<TType>(Type constantsClass)
+        where TType : class, IEntityId
+    {
+        var key = (constantsClass, typeof(TType));
+        var cachedConstants = _constants.GetOrAdd(key, _ =>
+        {
+            var constants = constantsClass
+                .GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Where(p => p.PropertyType == typeof(ConstantDefinition<TType>))
+                .Select(p => (ConstantDefinition<TType>)p.GetValue(null)!)
+                .ToList();
+
+            return [.. constants.Cast<object>()];
+        });
+
+        return [.. cachedConstants.Cast<ConstantDefinition<TType>>()];
+    }
+
+    private static Dictionary<Guid, object> GetById<TType>(Type constantsClass)
+        where TType : class, IEntityId
+    {
+        var key = (constantsClass, typeof(TType));
+        return _byId.GetOrAdd(key, _ =>
+        {
+            var constants = GetConstants<TType>(constantsClass);
+            return constants.ToDictionary<ConstantDefinition<TType>, Guid, object>(
+                cd => cd.Entity.Id,
+                cd => cd);
+        });
+    }
+
+    private static Dictionary<string, object> GetByName<TType>(Type constantsClass)
+        where TType : class, IEntityId, IEntityName
+    {
+        var key = (constantsClass, typeof(TType));
+        return _byName.GetOrAdd(key, _ =>
+        {
+            var constants = GetConstants<TType>(constantsClass);
+            var dict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            foreach (var cd in constants)
+            {
+                dict.TryAdd(cd.Entity.Name, cd);
+            }
+
+            return dict;
+        });
+    }
+
+    private static Dictionary<string, object> GetByUrn<TType>(Type constantsClass)
+        where TType : class, IEntityId, IEntityUrn
+    {
+        var key = (constantsClass, typeof(TType));
+        return _byUrn.GetOrAdd(key, _ =>
+        {
+            var constants = GetConstants<TType>(constantsClass);
+            return constants.ToDictionary<ConstantDefinition<TType>, string, object>(
+                cd => cd.Entity.Urn,
+                cd => cd,
+                StringComparer.OrdinalIgnoreCase);
+        });
+    }
+
+    private static Dictionary<string, object> GetByCode<TType>(Type constantsClass)
+        where TType : class, IEntityId, IEntityCode
+    {
+        var key = (constantsClass, typeof(TType));
+        return _byCode.GetOrAdd(key, _ =>
+        {
+            var constants = GetConstants<TType>(constantsClass);
+            return constants.ToDictionary<ConstantDefinition<TType>, string, object>(
+                cd => cd.Entity.Code,
+                cd => cd,
+                StringComparer.OrdinalIgnoreCase);
+        });
+    }
+
+    private static Dictionary<string, object> GetByLegacyCode(Type constantsClass)
+    {
+        var key = (constantsClass, typeof(Role));
+        return _bylegacyCode.GetOrAdd(key, _ =>
+        {
+            var constants = GetConstants<Role>(constantsClass)
+                .Where(c => !string.IsNullOrEmpty(c.Entity.LegacyCode))
+                .ToList();
+
+            return constants.ToDictionary<ConstantDefinition<Role>, string, object>(
+                cd => cd.Entity.LegacyCode,
+                cd => cd,
+                StringComparer.OrdinalIgnoreCase);
+        });
+    }
+
+    private static List<object> GetAllEntities<TType>(Type constantsClass)
+        where TType : class, IEntityId
+    {
+        var constants = GetConstants<TType>(constantsClass);
+        return [.. constants.Cast<object>()];
+    }
+
+    /// <summary>
+    /// Try to get entity by ID for types that implement IEntityId.
+    /// </summary>
+    public static bool TryGetById<TType>(Type constantsClass, Guid id, [NotNullWhen(true)] out ConstantDefinition<TType>? result)
+        where TType : class, IEntityId
+    {
+        if (id == Guid.Empty)
+        {
+            result = null;
+            return false;
+        }
+
+        var byId = GetById<TType>(constantsClass);
+        if (byId.TryGetValue(id, out var value))
+        {
+            result = (ConstantDefinition<TType>)value;
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get entity by name for types that implement both IEntityId and IEntityName.
+    /// </summary>
+    public static bool TryGetByName<TType>(Type constantsClass, string name, [NotNullWhen(true)] out ConstantDefinition<TType>? result)
+        where TType : class, IEntityId, IEntityName
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            result = null;
+            return false;
+        }
+
+        var byName = GetByName<TType>(constantsClass);
+        if (byName.TryGetValue(name, out var value))
+        {
+            result = (ConstantDefinition<TType>)value;
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get entity by name for types that implement both IEntityId and IEntityName.
+    /// </summary>
+    public static bool TryGetByName<TType>(Type constantsClass, string name, bool includeTranslations, [NotNullWhen(true)] out ConstantDefinition<TType>? result)
+        where TType : class, IEntityId, IEntityName
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            result = null;
+            return false;
+        }
+
+        var byName = GetByName<TType>(constantsClass);
+        if (byName.TryGetValue(name, out var value))
+        {
+            result = (ConstantDefinition<TType>)value;
+            return true;
+        }
+
+        if (includeTranslations)
+        {
+            var translations = AllTranslations<TType>(constantsClass);
+            var translatedEntry = translations.FirstOrDefault(t => t.FieldName == "Name" && string.Equals(t.Value, name, StringComparison.OrdinalIgnoreCase));
+            if (translatedEntry is { })
+            {
+                return TryGetById<TType>(constantsClass, translatedEntry.Id, out result);
+            }
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get entity by ID for types that implement IEntityId.
+    /// </summary>
+    public static bool TryGetByUrn<TType>(Type constantsClass, string urn, [NotNullWhen(true)] out ConstantDefinition<TType>? result)
+        where TType : class, IEntityId, IEntityUrn
+    {
+        if (string.IsNullOrEmpty(urn))
+        {
+            result = null;
+            return false;
+        }
+
+        var byUrn = GetByUrn<TType>(constantsClass);
+        if (byUrn.TryGetValue(urn, out var value))
+        {
+            result = (ConstantDefinition<TType>)value;
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get entity by ID for types that implement IEntityId.
+    /// </summary>
+    public static bool TryGetByCode<TType>(Type constantsClass, string code, [NotNullWhen(true)] out ConstantDefinition<TType>? result)
+        where TType : class, IEntityId, IEntityCode
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            result = null;
+            return false;
+        }
+
+        var byCode = GetByCode<TType>(constantsClass);
+        if (byCode.TryGetValue(code, out var value))
+        {
+            result = (ConstantDefinition<TType>)value;
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get role by legacy code for roles.
+    /// </summary>
+    public static bool TryGetByLegacyCode(Type constantsClass, string legacyCode, [NotNullWhen(true)] out ConstantDefinition<Role>? result)
+    {
+        if (string.IsNullOrEmpty(legacyCode))
+        {
+            result = null;
+            return false;
+        }
+
+        var byCode = GetByLegacyCode(constantsClass);
+        if (byCode.TryGetValue(legacyCode, out var value))
+        {
+            result = (ConstantDefinition<Role>)value;
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Get all constants as a read-only collection for types that implement IEntityId.
+    /// </summary>
+    public static IReadOnlyCollection<ConstantDefinition<TType>> AllEntities<TType>(Type constantsClass)
+        where TType : class, IEntityId
+    {
+        var all = GetAllEntities<TType>(constantsClass);
+        return [.. all.Cast<ConstantDefinition<TType>>()];
+    }
+
+    /// <summary>
+    /// Get all translations as read-only collection for types that implement IEntityId.
+    /// </summary>
+    public static IReadOnlyCollection<TranslationEntry> AllTranslations<TType>(Type constantsClass)
+        where TType : class, IEntityId
+    {
+        return [.. AllEntities<TType>(constantsClass).SelectMany(t => (List<TranslationEntry>)t)];
+    }
+}

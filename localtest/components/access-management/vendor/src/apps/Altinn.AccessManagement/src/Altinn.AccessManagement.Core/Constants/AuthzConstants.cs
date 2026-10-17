@@ -1,0 +1,345 @@
+﻿namespace Altinn.AccessManagement.Core.Constants
+{
+    /// <summary>
+    /// Constants related to authorization.
+    /// </summary>
+    public static class AuthzConstants
+    {
+        /// <summary>
+        /// Policy tag for authorizing internal Altinn.Platform.Authorization API access
+        /// </summary>
+        public const string INTERNAL_AUTHORIZATION = "InternalAuthorizationAccess";
+
+        /// <summary>
+        /// Policy tag for authorizing Altinn.Platform.Authorization API access
+        /// </summary>
+        public const string PLATFORM_ACCESS_AUTHORIZATION = "PlatformAccess";
+
+        /// <summary>
+        /// Policy used to authorize that platform access token is issued by Altinn Platform
+        /// </summary>
+        public const string PLATFORM_ACCESSTOKEN_ISSUER_ISPLATFORM = "platform";
+
+        /// <summary>
+        /// Access Management BFF issuer.
+        /// </summary>
+        public const string PLATFORM_ACCESSTOKEN_ISSUER_BFF = "amui";
+
+        /// <summary>
+        /// Policy used to authorize that platform access token is issued by either Access Management BFF or Altinn Platform
+        /// </summary>
+        public const string PLATFORM_ACCESSTOKEN_ISSUER_BFF_OR_PLATFORM = "amuiOrplatform";
+
+        /// <summary>
+        /// Policy tag for reading an maskinporten delegation
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_DELEGATION_READ = "MaskinportenDelegationRead";
+
+        /// <summary>
+        /// Policy tag for writing an maskinporten delegation
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_DELEGATION_WRITE = "MaskinportenDelegationWrite";
+
+        /// <summary>
+        /// Policy tag for reading maskinporten delegation for end users
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_DELEGATION_ENDUSER_READ = "MaskinportenDelegationEndUserRead";
+
+        /// <summary>
+        /// Policy tag for writing maskinporten delegation for end users
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_DELEGATION_ENDUSER_WRITE = "MaskinportenDelegationEndUserWrite";
+
+        /// <summary>
+        /// Policy tag for reading access management information
+        /// </summary>
+        public const string POLICY_ACCESS_MANAGEMENT_READ = "AccessManagementRead";
+
+        /// <summary>
+        /// Policy tag for writing access management delegations
+        /// </summary>
+        public const string POLICY_ACCESS_MANAGEMENT_WRITE = "AccessManagementWrite";
+
+        /// <summary>
+        /// Policy tag for authorizing instance delegation for end users
+        /// </summary>
+        public const string POLICY_INSTANCE_DELEGATION = "InstanceDelegation";
+
+        /// <summary>
+        /// Policy tag for reading enduser access management information for the authorized party
+        /// </summary>
+        public const string POLICY_ACCESS_MANAGEMENT_ENDUSER_READ_WITH_PASS_TROUGH = "AccessManagementEndUserReadOrAuthorizedParty";
+
+        /// <summary>
+        /// Policy tag for reading enduser access management information
+        /// </summary>
+        public const string POLICY_ACCESS_MANAGEMENT_ENDUSER_READ = "AccessManagementEndUserRead";
+
+        /// <summary>
+        /// Policy tag for reading enduser access management information
+        /// </summary>
+        public const string POLICY_ACCESS_MANAGEMENT_ENDUSER_WRITE = "AccessManagementEndUserWrite";
+
+        /// <summary>
+        /// Policy tag for scope authorization on the proxy API from Altinn II for the maskinporten integration API
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_DELEGATIONS_PROXY = "MaskinportenDelegationsProxy";
+
+        /// <summary>
+        /// Policy tag for scope authorization on the consent API for maskinporten to create consent tokens
+        /// </summary>
+        public const string POLICY_MASKINPORTEN_CONSENT_READ = "MaskinportenConsentRead";
+
+        /// <summary>
+        /// Policy tag for scope authorization on the resource owner API for getting the Authorized Party list for a third party
+        /// </summary>
+        public const string POLICY_RESOURCEOWNER_AUTHORIZEDPARTIES = "ResourceOwnerAuthorizedParty";
+
+        /// <summary>
+        /// Policy tag for scope authorization on the enduser API for getting the list of Authorized Parties for the authenticated user.
+        /// </summary>
+        public const string POLICY_ENDUSER_AUTHORIZEDPARTIES = "EnduserAuthorizedParty";
+
+        /// <summary>
+        /// Policy tag for scope authorization on the instance delegation API for Apps
+        /// </summary>
+        public const string POLICY_APPS_INSTANCEDELEGATION = "AppsInstanceDelegation";
+
+        /// <summary>
+        /// Policy tag for authorizing client administration API read access
+        /// </summary>
+        public const string POLICY_CLIENTDELEGATION_READ = "CLIENTDELEGATION_READ";
+
+        /// <summary>
+        /// Policy tag for authorizing client administration API write access
+        /// </summary>
+        public const string POLICY_CLIENTDELEGATION_WRITE = "CLIENTDELEGATION_WRITE";
+
+        /// <summary>
+        /// Policy tag for authorizing enterprises for consent requests
+        /// </summary>
+        public const string POLICY_CONSENTREQUEST_WRITE = "CONSENTREQUEST_WRITE";
+
+        /// <summary>
+        /// Policy tag for authorizing enterprises for consent requests
+        /// </summary>
+        public const string POLICY_CONSENTREQUEST_READ = "CONSENTREQUEST_READ";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser connections API read access to and from others.
+        /// </summary>
+        public const string POLICY_ENDUSER_CONNECTIONS_BIDRECTIONAL_READ = "POLICY_ENDUSER_CONNECTIONS_CONDITIONAL_BIDRECTIONAL";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser connections API writes access to and from others.
+        /// </summary>
+        public const string POLICY_ENDUSER_CONNECTIONS_BIDIRECTIONAL_WRITE = "POLICY_ENDUSER_CONNECTIONS_WRITE_BIDIRECTIONAL";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser connections API write access only to others.
+        /// </summary>
+        public const string POLICY_ENDUSER_CONNECTIONS_WRITE_TOOTHERS = "POLICY_ENDUSER_CONNECTIONS_WRITE_TOOTHERS";
+
+        /// <summary>
+        /// Portal enduser scope giving access to most of the end user APIs
+        /// </summary>
+        public const string SCOPE_PORTAL_ENDUSER = "altinn:portal/enduser";
+
+        /// <summary>
+        /// MyClients-Administration Read enduser scope giving access to read operations on behalf of Agent having received client-delegations
+        /// </summary>
+        public const string SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_READ = "altinn:clientdelegations/myclients.read";
+
+        /// <summary>
+        /// MyClients-Administration Write enduser scope giving access to write operations on behalf of Agent having received client-delegations
+        /// </summary>
+        public const string SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_WRITE = "altinn:clientdelegations/myclients.write";
+
+        /// <summary>
+        /// Client-Administration Read enduser scope giving access to read operations on behalf of Client-Administrators
+        /// </summary>
+        public const string SCOPE_ENDUSER_CLIENTDELEGATION_READ = "altinn:clientdelegations.read";
+
+        /// <summary>
+        /// Client-Administration Write enduser scope giving access to write operations on behalf of Client-Administrators
+        /// </summary>
+        public const string SCOPE_ENDUSER_CLIENTDELEGATION_WRITE = "altinn:clientdelegations.write";
+
+        /// <summary>
+        /// Enduser scope giving access to read operations on received connections aka from others
+        /// </summary>
+        public const string SCOPE_ENDUSER_CONNECTIONS_FROMOTHERS_READ = "altinn:accessmanagement/enduser:connections:fromothers.read";
+
+        /// <summary>
+        /// Enduser scope giving access to write operations on received connections aka from others
+        /// </summary>
+        public const string SCOPE_ENDUSER_CONNECTIONS_FROMOTHERS_WRITE = "altinn:accessmanagement/enduser:connections:fromothers.write";
+
+        /// <summary>
+        /// Enduser scope giving access to read operations on provided connections aka to others
+        /// </summary>
+        public const string SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_READ = "altinn:accessmanagement/enduser:connections:toothers.read";
+
+        /// <summary>
+        /// Enduser scope giving access to write operations on provided connections aka to others
+        /// </summary>
+        public const string SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_WRITE = "altinn:accessmanagement/enduser:connections:toothers.write";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser requests API read access
+        /// </summary>
+        public const string POLICY_ENDUSER_REQUESTS_READ = "POLICY_ENDUSER_REQUESTS_READ";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser requests API write access
+        /// </summary>
+        public const string POLICY_ENDUSER_REQUESTS_WRITE = "POLICY_ENDUSER_REQUESTS_WRITE";
+
+        /// <summary>
+        /// Enduser scope giving access to read operations on requests
+        /// </summary>
+        public const string SCOPE_ENDUSER_REQUESTS_READ = "altinn:accessmanagement/enduser:requests.read";
+
+        /// <summary>
+        /// Enduser scope giving access to write operations on requests
+        /// </summary>
+        public const string SCOPE_ENDUSER_REQUESTS_WRITE = "altinn:accessmanagement/enduser:requests.write";
+
+        /// <summary>
+        /// Maskinporten scope giving a system user access to write operations on requests
+        /// </summary>
+        public const string SCOPE_ENDUSER_SYSTEMUSER_REQUESTS_WRITE = "altinn:accessmanagement/systemuser:requests.write";
+
+        /// <summary>
+        /// Enduser scope giving access to read operations on maskinporten supplier assignments and delegated scopes
+        /// </summary>
+        public const string SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_READ = "altinn:accessmanagement/enduser:maskinportensuppliers.read";
+
+        /// <summary>
+        /// Enduser scope giving access to write operations for managing maskinporten supplier assignments and delegated scopes
+        /// </summary>
+        public const string SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_WRITE = "altinn:accessmanagement/enduser:maskinportensuppliers.write";
+
+        /// <summary>
+        /// Enduser scope giving access to read operations on maskinporten consumer connections and received scopes
+        /// </summary>
+        public const string SCOPE_ENDUSER_MASKINPORTENCONSUMERS_READ = "altinn:accessmanagement/enduser:maskinportenconsumers.read";
+
+        /// <summary>
+        /// Enduser scope giving access to write operations for managing maskinporten consumer connections and received scopes
+        /// </summary>
+        public const string SCOPE_ENDUSER_MASKINPORTENCONSUMERS_WRITE = "altinn:accessmanagement/enduser:maskinportenconsumers.write";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser maskinporten activity log read access per
+        /// direction: the supplier read scope for direction=from, the consumer read scope for
+        /// direction=to, mirroring the neighboring suppliers/consumers endpoints.
+        /// </summary>
+        public const string POLICY_ENDUSER_MASKINPORTEN_BIDIRECTIONAL_READ = "POLICY_ENDUSER_MASKINPORTEN_BIDIRECTIONAL_READ";
+
+        /// <summary>
+        /// Policy tag for authorizing enduser connections activity log read access per
+        /// direction: the to-others read scope for direction=from (access given), the
+        /// from-others read scope for direction=to (access received), with the person
+        /// access-manager rule — the same model as the connections endpoints, keyed on the
+        /// activity log's direction parameter.
+        /// </summary>
+        public const string POLICY_ENDUSER_CONNECTIONS_ACTIVITYLOG_READ = "POLICY_ENDUSER_CONNECTIONS_ACTIVITYLOG_READ";
+
+        /// <summary>
+        /// Scope giving access to getting authorized parties for a given subject.
+        /// </summary>
+        public const string SCOPE_AUTHORIZEDPARTIES_ENDUSERSYSTEM = "altinn:accessmanagement/authorizedparties";
+
+        /// <summary>
+        /// Scope giving access to getting authorized parties for any third party, for which the third party have access to one or more of the resource owners services, apps or resources.
+        /// </summary>
+        public const string SCOPE_AUTHORIZEDPARTIES_RESOURCEOWNER = "altinn:accessmanagement/authorizedparties.resourceowner";
+
+        /// <summary>
+        /// Scope giving access to getting all authorized parties for any third party
+        /// </summary>
+        public const string SCOPE_AUTHORIZEDPARTIES_ADMIN = "altinn:accessmanagement/authorizedparties.admin";
+
+        /// <summary>
+        /// Scope giving access to delegations for Maskinporten schemes owned by authenticated party 
+        /// </summary>
+        public const string SCOPE_MASKINPORTEN_DELEGATIONS = "altinn:maskinporten/delegations";
+
+        /// <summary>
+        /// Scope giving access to delegations for arbitrary Maskinporten schemes
+        /// </summary>
+        public const string SCOPE_MASKINPORTEN_DELEGATIONS_ADMIN = "altinn:maskinporten/delegations.admin";
+
+        /// <summary>
+        /// Scope giving access to creating consentrequests for anyone if you are the resource owner for the resources that is part of the consent request
+        /// </summary>
+        public const string SCOPE_CONSENTREQUEST_ORG = "altinn:consentrequests.org";
+
+        /// <summary>
+        /// Scope giving access to creating consentrequests
+        /// </summary>
+        public const string SCOPE_CONSENTREQUEST_WRITE = "altinn:consentrequests.write";
+
+        /// <summary>
+        /// Scope giving access to creating consentrequests
+        /// </summary>
+        public const string SCOPE_CONSENTREQUEST_READ = "altinn:consentrequests.read";
+
+        /// <summary>
+        /// Scope giving service owners access to delegate access packages betweeen two parties. Limited to packages "owned" by the service owner. Very limited access to this scope
+        /// </summary>
+        public const string SCOPE_SERVICEOWNER_PACKAGE_DELEGATION_WRITE = "altinn:serviceowner/delegations:accesspackage.write";
+
+        /// <summary>
+        /// Scope giving service owners access to delegate resources between two parties. Limited to resources owned by the service owner.
+        /// </summary>
+        public const string SCOPE_SERVICEOWNER_RESOURCE_DELEGATION_WRITE = "altinn:serviceowner/delegations:resource.write";
+
+        /// <summary>
+        /// Claim for scopes from maskinporten token
+        /// </summary>
+        public const string CLAIM_MASKINPORTEN_SCOPE = "scope";
+
+        /// <summary>
+        /// Claim for full consumer from maskinporten token
+        /// </summary>
+        public const string CLAIM_MASKINPORTEN_CONSUMER = "consumer";
+
+        /// <summary>
+        /// Claim for consumer prefixes from maskinporten token
+        /// </summary>
+        public const string CLAIM_MASKINPORTEN_CONSUMER_PREFIX = "consumer_prefix";
+
+        /// <summary>
+        /// Scope giving access to reading delegationrequests
+        /// </summary>
+        public const string ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_READ = "altinn:serviceowner/delegationrequests.read";
+
+        /// <summary>
+        /// Scope giving access to creating delegationrequests
+        /// </summary>
+        public const string ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_WRITE = "altinn:serviceowner/delegationrequests.write";
+
+        /// <summary>
+        /// Valid URN prefixes for instance identifiers
+        /// </summary>
+        public static class InstanceUrnPrefixes
+        {
+            /// <summary>
+            /// URN prefix for Altinn App instances
+            /// </summary>
+            public const string Apps = "urn:altinn:instance-id:";
+
+            /// <summary>
+            /// URN prefix for Altinn Correspondence instances
+            /// </summary>
+            public const string Correspondence = "urn:altinn:correspondence-id:";
+
+            /// <summary>
+            /// URN prefix for Dialogporten Dialog instances
+            /// </summary>
+            public const string Dialog = "urn:altinn:dialog-id:";
+        }
+    }
+}

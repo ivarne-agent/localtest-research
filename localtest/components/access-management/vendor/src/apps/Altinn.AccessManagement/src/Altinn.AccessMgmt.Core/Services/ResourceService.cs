@@ -1,0 +1,48 @@
+﻿using Altinn.AccessMgmt.Core.Services.Contracts;
+using Altinn.AccessMgmt.PersistenceEF.Audit;
+using Altinn.AccessMgmt.PersistenceEF.Contexts;
+using Altinn.AccessMgmt.PersistenceEF.Extensions;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.Authorization.Api.Contracts.AccessManagement.Request;
+using Microsoft.EntityFrameworkCore;
+
+namespace Altinn.AccessMgmt.Core.Services;
+
+/// <inheritdoc/>
+public class ResourceService : IResourceService
+{
+    public AppDbContext Db { get; }
+
+    public IAuditAccessor AuditAccessor { get; }
+
+    public ResourceService(AppDbContext appDbContext, IAuditAccessor auditAccessor)
+    {
+        Db = appDbContext;
+        AuditAccessor = auditAccessor;
+    }
+
+    public async ValueTask<Resource> GetResource(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await Db.Resources.AsNoTracking().Include(t => t.Type).Include(t => t.Provider).SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+    }
+
+    public async ValueTask<Resource> GetResource(string refId, CancellationToken cancellationToken = default)
+    {
+        return await Db.Resources.AsNoTracking().Include(t => t.Type).Include(t => t.Provider).SingleOrDefaultAsync(r => r.RefId == refId, cancellationToken);
+    }
+
+    public async ValueTask<Resource> GetResource(RequestReferenceDto reference, CancellationToken cancellationToken = default)
+    {
+        if (reference.Id == null && string.IsNullOrEmpty(reference.ReferenceId))
+        {
+            return null;
+        }
+
+        return await Db.Resources.AsNoTracking()
+            .Include(t => t.Type)
+            .Include(t => t.Provider)
+            .WhereIf(reference.Id.HasValue && reference.Id.Value != Guid.Empty, t => t.Id == reference.Id.Value)
+            .WhereIf(!string.IsNullOrEmpty(reference.ReferenceId), t => t.RefId == reference.ReferenceId)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+}

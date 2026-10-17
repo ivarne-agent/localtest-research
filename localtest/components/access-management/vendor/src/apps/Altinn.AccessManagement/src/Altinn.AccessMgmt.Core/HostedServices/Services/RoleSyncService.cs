@@ -1,0 +1,322 @@
+﻿using System.Diagnostics;
+using Altinn.AccessMgmt.Core.HostedServices.Contracts;
+using Altinn.AccessMgmt.Core.HostedServices.Leases;
+using Altinn.AccessMgmt.Core.Telemetry;
+using Altinn.AccessMgmt.PersistenceEF.Audit;
+using Altinn.AccessMgmt.PersistenceEF.Constants;
+using Altinn.AccessMgmt.PersistenceEF.Contexts;
+using Altinn.AccessMgmt.PersistenceEF.Extensions;
+using Altinn.AccessMgmt.PersistenceEF.Models;
+using Altinn.AccessMgmt.PersistenceEF.Queries;
+using Altinn.AccessMgmt.PersistenceEF.Utils;
+using Altinn.Authorization.Host.Lease;
+using Altinn.Authorization.Integration.Platform.Register;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.FeatureManagement;
+
+namespace Altinn.AccessMgmt.Core.HostedServices.Services;
+
+/// <inheritdoc />
+public class RoleSyncService : BaseSyncService, IRoleSyncService
+{
+    public RoleSyncService(
+        IAltinnRegister register,
+        ILogger<RoleSyncService> logger,
+        IServiceProvider serviceProvider
+    )
+    {
+        _register = register;
+        _logger = logger;
+        _serviceProvider = serviceProvider;
+    }
+
+    private readonly IAltinnRegister _register;
+    private readonly ILogger<RoleSyncService> _logger;
+    private readonly IServiceProvider _serviceProvider;
+
+    private KeyValuePair<string, object> OtelTags { get; } = new KeyValuePair<string, object?>("service", nameof(RoleSyncService));
+
+    /// <inheritdoc />
+    public async Task SyncRoles(ILease lease, bool isInit = false, CancellationToken cancellationToken = default)
+    {
+        var seen = new HashSet<(Guid From, Guid To, Guid Role)>();
+        var addParent = new Dictionary<Guid, Guid>();
+        var removeParent = new Dictionary<Guid, Guid>();
+        var addAssignments = new List<Assignment>();
+        var removeAssignments = new List<Assignment>();
+        var options = new AuditValues(SystemEntityConstants.RegisterImportSystem);
+
+        using var scope = _serviceProvider.CreateEFScope(options);
+        var appDbContextFactory = scope.ServiceProvider.GetRequiredService<AppDbContextFactory>();
+        var ingestService = scope.ServiceProvider.GetRequiredService<IIngestService>();
+        var featureManager = scope.ServiceProvider.GetRequiredService<IFeatureManager>();
+        var adosSubunitInheritanceEnabled = await featureManager.IsEnabledAsync(AccessMgmtFeatureFlags.AdosSubunitInheritance, cancellationToken);
+        var leaseData = await lease.Get<RegisterLease>(cancellationToken);
+
+        if (isInit == false && leaseData.IsDbIngested == false)
+        {
+            return;
+        }
+
+        using var activity = CoreTelemetry.ActivitySource.StartActivity(nameof(RoleSyncService), ActivityKind.Internal);
+        await foreach (var page in await _register.StreamRoles([], leaseData.RoleStreamNextPageLink, cancellationToken))
+        {
+            try
+            {
+                if (page?.Content?.Data?.Count() == 0)
+                {
+                    break;
+                }
+
+                if (page.IsProblem)
+                {
+                    Log.ResponseError(_logger, page.StatusCode);
+                    throw new InvalidOperationException("Stream page is not successful");
+                }
+
+                _logger.LogInformation("Starting proccessing party page ({0}-{1})", page.Content.Stats.PageStart, page.Content.Stats.PageEnd);
+
+                var flushed = 0;
+                foreach (var item in page.Content.Data)
+                {
+                    var assignment = MapToAssignment(item);
+                    if (ShouldSetParent(item, adosSubunitInheritanceEnabled))
+                    {
+                        // Track every parent-materializing role for this (From, To) so ordering/flush behavior
+                        // is consistent across BEDR, AAFY and ADOS. ADOS is only included when the feature flag
+                        // is enabled, matching ShouldSetParent(...).
+                        foreach (var parentRole in ParentRoles(adosSubunitInheritanceEnabled))
+                        {
+                            if (!seen.Add((From: assignment.FromId, To: assignment.ToId, Role: parentRole)))
+                            {
+                                flushed += await Flush();
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!seen.Add((From: assignment.FromId, To: assignment.ToId, Role: assignment.RoleId)))
+                        {
+                            flushed += await Flush();
+                        }
+                    }
+
+                    if (item.Type == ExternalRoleAssignmentEvent.EventType.Added)
+                    {
+                        addAssignments.Add(assignment);
+                        if (ShouldSetParent(item, adosSubunitInheritanceEnabled))
+                        {
+                            addParent[assignment.FromId] = assignment.ToId;
+                        }
+                    }
+                    else if (item.Type == ExternalRoleAssignmentEvent.EventType.Removed)
+                    {
+                        removeAssignments.Add(assignment);
+                        if (ShouldSetParent(item, adosSubunitInheritanceEnabled))
+                        {
+                            removeParent[assignment.FromId] = assignment.ToId;
+                        }
+
+                        flushed += await Flush();
+                    }
+                }
+
+                flushed += await Flush();
+
+                if (string.IsNullOrEmpty(page?.Content?.Links?.Next))
+                {
+                    break;
+                }
+
+                if (flushed > 0)
+                {
+                    leaseData.RoleStreamNextPageLink = page.Content.Links.Next;
+                    await lease.Update(leaseData, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                activity?.AddException(ex);
+                activity?.SetStatus(ActivityStatusCode.Error);
+                CoreTelemetry.HostedServicesFailures.Add(1, OtelTags);
+                CoreTelemetry.HostedServicesOk.Record(0, OtelTags);
+                return;
+            }
+        }
+
+        CoreTelemetry.HostedServicesSuccess.Add(1, OtelTags);
+        CoreTelemetry.HostedServicesOk.Record(1, OtelTags);
+        async Task<int> Flush()
+        {
+            var result = 0;
+            result += await SetParents(appDbContextFactory, addParent, cancellationToken);
+            result += await IngestAssigments(ingestService, addAssignments, options, cancellationToken);
+
+            result += await RemoveParents(appDbContextFactory, removeParent, cancellationToken);
+            result += await RemoveAssignments(appDbContextFactory, removeAssignments, cancellationToken);
+
+            seen.Clear();
+            addParent.Clear();
+            removeParent.Clear();
+            addAssignments.Clear();
+            removeAssignments.Clear();
+
+            return result;
+        }
+    }
+
+    private async Task<int> RemoveAssignments(AppDbContextFactory dbContextFactory, List<Assignment> relations, CancellationToken cancellationToken = default)
+    {
+        using var dbContext = dbContextFactory.CreateDbContext();
+        var relationsFrom = relations
+            .Select(r => r.FromId)
+            .ToList();
+
+        var entities = await dbContext.Assignments
+            .AsTracking()
+            .Where(e => relationsFrom.Contains(e.FromId))
+            .ToListAsync(cancellationToken: cancellationToken);
+
+        var relationSet = relations
+            .Select(r => (r.FromId, r.ToId, r.RoleId))
+            .ToHashSet();
+
+        entities = entities
+            .Where(e => relationSet.Contains((e.FromId, e.ToId, e.RoleId)))
+            .ToList();
+
+        // Check for client delegations associated with removed client and remove them as well
+        // TODO: Remove after 01.01.2027 when roles from A2 is retired as a concept.
+        var clientRelations = entities.Where(e => e.RoleId == RoleConstants.BusinessManager.Entity.Id)
+            .Select(e => (e.FromId, e.ToId))
+            .ToList();
+
+        foreach (var clientRelation in clientRelations)
+        {
+            var clientDelegations = await dbContext.GetClientRoleDelegations(
+                clientRelation.FromId,
+                clientRelation.ToId,
+                cancellationToken
+            );
+
+            List<Guid> assignmentIdsToRemove = clientDelegations.Select(t => t.AssignmentId).ToList();
+
+            var clientAssignments = await dbContext.Assignments
+                .AsTracking()
+                .Where(e => assignmentIdsToRemove.Contains(e.Id))
+                .ToListAsync(cancellationToken: cancellationToken);
+
+            entities.AddRange(clientAssignments);
+        }
+
+        dbContext.RemoveRange(entities);
+        return await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<int> IngestAssigments(IIngestService ingestService, List<Assignment> assignments, AuditValues options, CancellationToken cancellationToken)
+    {
+        var batchId = Guid.CreateVersion7();
+        try
+        {
+            _logger.LogInformation("Ingest and Merge Assignment batch '{0}' to db", batchId.ToString());
+            var ingested = await ingestService.IngestTempData<Assignment>(assignments, batchId, cancellationToken);
+
+            if (ingested != assignments.Count)
+            {
+                _logger.LogWarning("Ingest partial complete: Assignment ({0}/{1})", ingested, assignments.Count);
+            }
+
+            var merged = await ingestService.MergeTempData<Assignment>(batchId, options, matchColumns: ["fromid", "roleid", "toid"], cancellationToken: cancellationToken);
+
+            _logger.LogInformation("Merge complete: Assignment ({0}/{1})", merged, ingested);
+
+            return merged;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to ingest and/or merge Assignment batch {0} to db", batchId.ToString());
+            throw new InvalidOperationException($"Failed to ingest and/or merge Assignment batch {batchId} to db", ex);
+        }
+        finally
+        {
+            // A successful merge drops its own temp table; this guarantees cleanup when a
+            // failure between ingest and merge leaves a temp table orphaned.
+            await ingestService.DropTempData<Assignment>(batchId, cancellationToken);
+        }
+    }
+
+    private async Task<int> RemoveParents(AppDbContextFactory dbContextFactory, Dictionary<Guid, Guid> relations, CancellationToken cancellationToken = default)
+    {
+        using var dbContext = dbContextFactory.CreateDbContext();
+        var subunitIds = relations.Keys.ToList();
+        var entities = await dbContext.Entities
+            .AsTracking()
+            .Where(e => subunitIds.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var entity in entities)
+        {
+            // Checks that we only remove the parent if it matches the one we intend to remove
+            if (entity.ParentId == relations[entity.Id])
+            {
+                entity.ParentId = null;
+            }
+        }
+
+        return await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<int> SetParents(AppDbContextFactory dbContextFactory, Dictionary<Guid, Guid> relations, CancellationToken cancellationToken = default)
+    {
+        using var dbContext = dbContextFactory.CreateDbContext();
+        var subunitIds = relations.Keys.ToList();
+        var entities = await dbContext.Entities
+            .AsTracking()
+            .Where(e => subunitIds.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var entity in entities)
+        {
+            entity.ParentId = relations[entity.Id];
+        }
+
+        return await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    internal static bool ShouldSetParent(ExternalRoleAssignmentEvent item, bool adosSubunitInheritanceEnabled) =>
+        item.RoleIdentifier == RoleConstants.HasAsRegistrationUnitBEDR.Entity.Code
+        || item.RoleIdentifier == RoleConstants.HasAsRegistrationUnitAAFY.Entity.Code
+        || (adosSubunitInheritanceEnabled && item.RoleIdentifier == RoleConstants.AdministrativeUnitPublicSector.Entity.Code);
+
+    /// <summary>
+    /// The roles that materialize a parent (subunit) relationship. ADOS is included only when the
+    /// feature flag is enabled, mirroring <see cref="ShouldSetParent(ExternalRoleAssignmentEvent, bool)"/>.
+    /// </summary>
+    internal static IEnumerable<Guid> ParentRoles(bool adosSubunitInheritanceEnabled)
+    {
+        yield return RoleConstants.HasAsRegistrationUnitBEDR;
+        yield return RoleConstants.HasAsRegistrationUnitAAFY;
+        if (adosSubunitInheritanceEnabled)
+        {
+            yield return RoleConstants.AdministrativeUnitPublicSector;
+        }
+    }
+
+    private Assignment MapToAssignment(ExternalRoleAssignmentEvent model)
+    {
+        if (RoleConstants.TryGetByCode(model.RoleIdentifier, out var role))
+        {
+            return new Assignment()
+            {
+                FromId = model.FromParty,
+                ToId = model.ToParty,
+                RoleId = role.Id
+            };
+        }
+
+        throw new InvalidOperationException($"Failed to convert model to Assignment. From:{model.FromParty} To:{model.ToParty} Role:{model.RoleIdentifier}");
+    }
+}

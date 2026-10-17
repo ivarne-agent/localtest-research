@@ -1,0 +1,612 @@
+﻿using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using Altinn.AccessManagement.Api.Enduser;
+using Altinn.AccessManagement.Api.Enduser.Authorization.AuthorizationHandler;
+using Altinn.AccessManagement.Api.Enduser.Authorization.AuthorizationRequirement;
+using Altinn.AccessManagement.Api.Internal;
+using Altinn.AccessManagement.Core.Configuration;
+using Altinn.AccessManagement.Core.Constants;
+using Altinn.AccessManagement.Core.Extensions;
+using Altinn.AccessManagement.Core.Models;
+using Altinn.AccessManagement.Health;
+using Altinn.AccessManagement.Integration.Configuration;
+using Altinn.AccessManagement.Integration.Extensions;
+using Altinn.AccessManagement.Persistence.Configuration;
+using Altinn.AccessManagement.Persistence.Extensions;
+using Altinn.AccessManagement.Telemetry;
+using Altinn.AccessMgmt.Core.Authorization;
+using Altinn.AccessMgmt.Core.Extensions;
+using Altinn.AccessMgmt.Core.Notifications;
+using Altinn.AccessMgmt.Core.Outbox;
+using Altinn.AccessMgmt.PersistenceEF.Extensions;
+using Altinn.Authorization.Api.Contracts.Register;
+using Altinn.Authorization.Host.Database;
+using Altinn.Authorization.Host.Lease;
+using Altinn.Authorization.Host.Startup;
+using Altinn.Authorization.Integration.Platform.Extensions;
+using Altinn.Authorization.ServiceDefaults;
+using Altinn.Common.AccessToken;
+using Altinn.Common.AccessToken.Configuration;
+using Altinn.Common.AccessToken.Services;
+using Altinn.Common.Authentication.Configuration;
+using Altinn.Common.Authentication.Models;
+using Altinn.Common.PEP.Authorization;
+using Altinn.Common.PEP.Clients;
+using Altinn.Common.PEP.Implementation;
+using Altinn.Common.PEP.Interfaces;
+using AltinnCore.Authentication.JwtCookie;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.FeatureManagement;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Npgsql;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using Swashbuckle.AspNetCore.Filters;
+using Swashbuckle.AspNetCore.SwaggerGen;
+
+namespace Altinn.AccessManagement;
+
+/// <summary>
+/// Configures the register host.
+/// </summary>
+internal static partial class AccessManagementHost
+{
+    private static ILogger Logger { get; } = StartupLoggerFactory.Create(nameof(AccessManagementHost));
+
+    /// <summary>
+    /// Configures the register host.
+    /// </summary>
+    /// <param name="args">The command line arguments.</param>
+    public static WebApplication Create(string[] args)
+    {
+        Log.CreateAltinnHost(Logger);
+        var builder = AltinnHost.CreateWebApplicationBuilder("access-management", args, opts => opts.ConfigureEnabledServices(services => services.DisableApplicationInsights()));
+        builder.ConfigureAppsettings();
+        builder.ConfigureLibsHost();
+        builder.Services.AddMemoryCache();
+        builder.Services.AddAutoMapper(typeof(Program));
+        builder.Services.AddRouting(options => options.LowercaseUrls = true);
+        builder.Services.AddControllers();
+        builder.Services.AddFeatureManagement();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddHealthChecks()
+            .AddCheck<HealthCheck>("authorization_admin_health_check");
+
+        builder.ConfigureLibsIntegrations();
+        builder.ConfigureAppsettings();
+
+        if (!builder.Environment.IsDevelopment())
+        {
+            if (builder.Configuration.GetValue<string>("ApplicationInsights:InstrumentationKey") is var key && !string.IsNullOrEmpty(key))
+            {
+                var npgsqlMinDurationMs = builder.Configuration.GetValue("Telemetry:NpgsqlMinimumDurationMs", 100);
+
+                builder.Services.AddOpenTelemetry()
+                    .UseAzureMonitor(m =>
+                    {
+                        m.ConnectionString = string.Format("InstrumentationKey={0}", key);
+                    })
+                    .WithTracing(tracing =>
+                    {
+                        tracing
+                            .AddProcessor(sp => new ApiVersionRouteProcessor(sp.GetRequiredService<IHttpContextAccessor>()))
+                            .AddProcessor(sp => new NpgsqlProcessor(
+                                TimeSpan.FromMilliseconds(npgsqlMinDurationMs),
+                                sp.GetRequiredService<IHttpContextAccessor>()));
+                    });
+            }
+        }
+
+        builder.Services.AddSingleton<AuthorizedPartiesTelemetry>();
+        builder.Services.ConfigureOpenTelemetryMeterProvider(provider => provider
+            .AddMeter(AuthorizedPartiesTelemetry.MeterName));
+
+        var connectionStrings = GetConnectionStrings(builder.Configuration);
+
+        builder.AddAltinnDatabase(opt =>
+        {
+            opt.Enabled = connectionStrings.Valid;
+            opt.AppSource = new(connectionStrings.AppSource);
+            opt.MigrationSource = new(connectionStrings.MigrationSource);
+        });
+
+        builder.Services.AddAccessManagementDatabase(options =>
+        {
+            var appsettings = new AccessManagementAppsettings(builder.Configuration);
+            options.AppConnectionString = connectionStrings.AppSource;
+            options.MigrationConnectionString = connectionStrings.MigrationSource;
+            options.Source = appsettings.RunInitOnly ? SourceType.Migration : SourceType.App;
+
+            // Request
+            options.AddOutboxHandler<RequestReviewedNotificationHandler>(RequestReviewedNotification.Handler);
+            options.AddOutboxHandler<RequestPendingNotificationHandler>(RequestPendingNotification.Handler);
+
+            // Connections
+            options.AddOutboxHandler<RightholderAddedNotificationHandler>(RightholderAddedNotification.Handler);
+            options.AddOutboxHandler<RightholderRemovedNotificationHandler>(RightholderRemovedNotification.Handler);
+
+            // Access
+            options.AddOutboxHandler<AccessAddedNotificationHandler>(AccessAddedNotification.Handler);
+            options.AddOutboxHandler<AccessRemovedNotificationHandler>(AccessRemovedNotification.Handler);
+
+            // Agent
+            options.AddOutboxHandler<AgentAddedNotificationHandler>(AgentAddedNotification.Handler);
+            options.AddOutboxHandler<AgentRemovedNotificationHandler>(AgentRemovedNotification.Handler);
+
+            // Client
+            options.AddOutboxHandler<ClientAddedNotificationHandler>(ClientAddedNotification.Handler);
+            options.AddOutboxHandler<ClientRemovedNotificationHandler>(ClientRemovedNotification.Handler);
+
+            options.AddOutboxHandler<InstanceAddedNotificationHandler>(InstanceAddedNotification.Handler);
+            options.AddOutboxHandler<InstanceRemovedNotificationHandler>(InstanceRemovedNotification.Handler);
+        });
+
+        builder.Services.AddAccessMgmtCore(builder.Configuration, options =>
+        {
+            var appsettings = new AccessManagementAppsettings(builder.Configuration);
+            options.Request.NotifyRequestApprovedInSeconds = appsettings.Core.Request.NotifyRequestApprovedInSeconds;
+            options.Request.NotifyRequestPendingInSeconds = appsettings.Core.Request.NotifyRequestPendingInSeconds;
+        });
+
+        builder.ConfigurePostgreSqlConfiguration();
+        builder.ConfigureAltinnPackages();
+        builder.ConfigureInternals();
+        builder.ConfigureOpenAPI();
+        builder.ConfigureAuthorization();
+        builder.AddAccessManagementEnduser();
+        builder.AddAccessManagementInternal();
+
+        return builder.Build();
+    }
+
+    private static (string AppSource, string MigrationSource, bool Valid) GetConnectionStrings(ConfigurationManager configuration)
+    {
+        var adminConnectionStringFmt = configuration.GetValue<string>("PostgreSQLSettings:AdminConnectionString");
+        var connectionStringFmt = configuration.GetValue<string>("PostgreSQLSettings:ConnectionString");
+
+        if (string.IsNullOrEmpty(connectionStringFmt) || string.IsNullOrEmpty(adminConnectionStringFmt))
+        {
+            Log.PgsqlMissingConnectionString(Logger);
+            return (connectionStringFmt, adminConnectionStringFmt, false);
+        }
+        else
+        {
+            var adminConnectionStringPwd = configuration.GetValue<string>("PostgreSQLSettings:AuthorizationDbAdminPwd");
+            var connectionStringPwd = configuration.GetValue<string>("PostgreSQLSettings:AuthorizationDbPwd");
+            return (string.Format(connectionStringFmt, connectionStringPwd), string.Format(adminConnectionStringFmt, adminConnectionStringPwd), true);
+        }
+    }
+
+    private static WebApplicationBuilder ConfigureLibsIntegrations(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddAltinnPlatformIntegrationDefaults(() =>
+        {
+            var appsettings = new AccessManagementAppsettings(builder.Configuration);
+            appsettings.Platform.Token.TestTool.Environment = appsettings.Environment;
+            if (builder.Configuration.GetValue<Uri>("kvSetting:SecretUri") is var endpoint && endpoint != null)
+            {
+                appsettings.Platform.Token.KeyVault.Endpoint = endpoint;
+            }
+
+            return appsettings.Platform;
+        });
+
+        return builder;
+    }
+
+    private static WebApplicationBuilder ConfigureLibsHost(this WebApplicationBuilder builder)
+    {
+        builder.AddAltinnLease(opts =>
+        {
+            var appsettings = new AccessManagementAppsettings(builder.Configuration);
+            if (appsettings.Lease?.StorageAccount?.BlobEndpoint == null)
+            {
+                opts.Type = AltinnLeaseType.InMemory;
+            }
+            else
+            {
+                opts.StorageAccount.BlobEndpoint = appsettings.Lease.StorageAccount.BlobEndpoint;
+                opts.Type = AltinnLeaseType.AzureStorageAccount;
+            }
+        });
+
+        return builder;
+    }
+
+    private static WebApplicationBuilder ConfigureAltinnPackages(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddTransient<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
+        builder.Services.AddSingleton<IPDP, PDPAppSI>();
+        builder.Services.AddHttpClient<AuthorizationApiClient>();
+        return builder;
+    }
+
+    private static void ConfigureInternals(this WebApplicationBuilder builder)
+    {
+        builder.AddAccessManagementCore();
+        builder.AddAccessManagementIntegration();
+        builder.AddAccessManagementPersistence();
+    }
+
+    private static void ConfigureOpenAPI(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddApiVersioning(options =>
+        {
+            // Existing routes carry a literal "v1" segment and no api version attribute,
+            // so unspecified requests must keep resolving to 1.0. The url segment reader
+            // keeps ?api-version=... query parameters inert on those routes.
+            options.DefaultApiVersion = new ApiVersion(1.0);
+            options.AssumeDefaultVersionWhenUnspecified = true;
+            options.ApiVersionReader = new UrlSegmentApiVersionReader();
+        })
+        .AddMvc()
+        .AddApiExplorer(options =>
+        {
+            // Formats the version as "'v'major[.minor][-status]" so group names
+            // line up with the swagger document names ("v1", "v2", ...).
+            options.GroupNameFormat = "'v'VVV";
+            options.SubstituteApiVersionInUrl = true;
+        });
+
+        builder.Services.AddEndpointsApiExplorer();
+
+        var applicationName = builder.Environment.ApplicationName;
+        builder.Services.AddOptions<SwaggerGenOptions>()
+            .Configure((SwaggerGenOptions options, IApiVersionDescriptionProvider provider) =>
+            {
+                // One swagger document per discovered api version. The v1 document keeps
+                // the name and URL of the previous single document, which external APIM
+                // extraction depends on.
+                foreach (var description in provider.ApiVersionDescriptions)
+                {
+                    options.SwaggerDoc(description.GroupName, new OpenApiInfo { Title = applicationName, Version = description.ApiVersion.ToString() });
+                }
+            });
+
+        builder.Services.AddSwaggerGen(options =>
+        {
+            // Endpoints without a version group (minimal endpoints) belong to the v1 document.
+            options.DocInclusionPredicate((documentName, apiDescription) => (apiDescription.GroupName ?? "v1") == documentName);
+
+            options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+            {
+                Description = "Standard Authorization header using the Bearer scheme. Example: \"bearer {token}\"",
+                Type = SecuritySchemeType.Http,
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Scheme = "bearer",
+                BearerFormat = "JWT"
+            });
+            options.OperationFilter<SecurityRequirementsOperationFilter>();
+            options.EnableAnnotations();
+            options.DocumentFilter<Swagger.FeatureGateDocumentFilter>();
+
+            var originalIdSelector = options.SchemaGeneratorOptions.SchemaIdSelector;
+            options.SchemaGeneratorOptions.SchemaIdSelector = (Type t) =>
+            {
+                if (!t.IsNested)
+                {
+                    var orig = originalIdSelector(t);
+
+                    if (t.Assembly == typeof(OrganizationNumber).Assembly)
+                    {
+                        orig = $"AMCoreModels.{orig}";
+                    }
+
+                    return orig;
+                }
+
+                var chain = new List<string>();
+                do
+                {
+                    chain.Add(originalIdSelector(t));
+                    t = t.DeclaringType;
+                }
+                while (t != null);
+                chain.Reverse();
+                return string.Join(".", chain);
+            };
+        });
+
+        builder.Services.AddUrnSwaggerSupport();
+    }
+
+    private static void ConfigureAppsettings(this WebApplicationBuilder builder)
+    {
+        var config = builder.Configuration;
+        builder.Services.Configure<AccessManagementAppsettings>(builder.Configuration.Bind);
+        builder.Services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
+        builder.Services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+        builder.Services.Configure<Altinn.Common.PEP.Configuration.PlatformSettings>(config.GetSection("PlatformSettings"));
+        builder.Services.Configure<CacheConfig>(config.GetSection("CacheConfig"));
+        builder.Services.Configure<PostgreSQLSettings>(config.GetSection("PostgreSQLSettings"));
+        builder.Services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
+        builder.Services.Configure<SblBridgeSettings>(config.GetSection("SblBridgeSettings"));
+        builder.Services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
+        builder.Services.Configure<OidcProviderSettings>(config.GetSection("OidcProviders"));
+        builder.Services.Configure<UserProfileLookupSettings>(config.GetSection("UserProfileLookupSettings"));
+        builder.Services.Configure<AppsInstanceDelegationSettings>(config.GetSection("AppsInstanceDelegationSettings"));
+        builder.Services.Configure<ConsentSettings>(config.GetSection("Consent"));
+    }
+
+    private static void ConfigureAuthorization(this WebApplicationBuilder builder)
+    {
+        PlatformSettings platformSettings = builder.Configuration.GetSection("PlatformSettings").Get<PlatformSettings>();
+        OidcProviderSettings oidcProviders = builder.Configuration.GetSection("OidcProviders").Get<OidcProviderSettings>();
+
+        if (oidcProviders.TryGetValue("altinn", out OidcProvider altinnOidcProvder))
+        {
+            builder.Services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
+            .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
+            {
+                options.JwtCookieName = platformSettings.JwtCookieName;
+                options.MetadataAddress = altinnOidcProvder.Issuer;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    RequireExpirationTime = true,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                if (builder.Environment.IsDevelopment())
+                {
+                    options.RequireHttpsMetadata = false;
+                }
+            });
+        }
+
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(AuthzConstants.PLATFORM_ACCESS_AUTHORIZATION, policy => policy.Requirements.Add(new AccessTokenRequirement()))
+            .AddPolicy(AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_ISPLATFORM, policy => policy.Requirements.Add(new AccessTokenRequirement(AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_ISPLATFORM)))
+            .AddPolicy(AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_BFF, policy => policy.Requirements.Add(new AccessTokenRequirement(AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_BFF)))
+            .AddPolicy(AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_BFF_OR_PLATFORM, policy => policy.Requirements.Add(new AccessTokenRequirement([AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_BFF, AuthzConstants.PLATFORM_ACCESSTOKEN_ISSUER_ISPLATFORM])))
+            .AddPolicy(AuthzConstants.INTERNAL_AUTHORIZATION, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "internal.authorization")))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_DELEGATION_READ, policy => policy.Requirements.Add(new ResourceAccessRequirement("read", "altinn_maskinporten_scope_delegation")))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_DELEGATION_WRITE, policy => policy.Requirements.Add(new ResourceAccessRequirement("write", "altinn_maskinporten_scope_delegation")))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_DELEGATION_ENDUSER_READ, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("read", "altinn_maskinporten_scope_delegation", false)))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_DELEGATION_ENDUSER_WRITE, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("write", "altinn_maskinporten_scope_delegation", false)))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_READ])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_WRITE])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_MASKINPORTENCONSUMERS_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENCONSUMERS_READ])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_MASKINPORTENCONSUMERS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENCONSUMERS_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_DELEGATIONS_PROXY, policy => policy.Requirements.Add(new ScopeAccessRequirement(["altinn:maskinporten/delegations", "altinn:maskinporten/delegations.admin"])))
+            .AddPolicy(AuthzConstants.POLICY_MASKINPORTEN_CONSENT_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement(["altinn:maskinporten/consent.read"])))
+            .AddPolicy(AuthzConstants.POLICY_ACCESS_MANAGEMENT_READ, policy => policy.Requirements.Add(new ResourceAccessRequirement("read", "altinn_access_management")))
+            .AddPolicy(AuthzConstants.POLICY_ACCESS_MANAGEMENT_WRITE, policy => policy.Requirements.Add(new ResourceAccessRequirement("write", "altinn_access_management")))
+            .AddPolicy(AuthzConstants.POLICY_ACCESS_MANAGEMENT_ENDUSER_READ, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("read", "altinn_access_management", false)))
+            .AddPolicy(AuthzConstants.POLICY_ACCESS_MANAGEMENT_ENDUSER_WRITE, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("write", "altinn_access_management", false)))
+            .AddPolicy(AuthzConstants.POLICY_INSTANCE_DELEGATION, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("write", "altinn_instance_delegation", false)))
+            .AddPolicy(AuthzConstants.POLICY_ACCESS_MANAGEMENT_ENDUSER_READ_WITH_PASS_TROUGH, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("read", "altinn_access_management", true)))
+            .AddPolicy(AuthzConstants.POLICY_RESOURCEOWNER_AUTHORIZEDPARTIES, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_AUTHORIZEDPARTIES_RESOURCEOWNER, AuthzConstants.SCOPE_AUTHORIZEDPARTIES_ADMIN])))
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_AUTHORIZEDPARTIES, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_AUTHORIZEDPARTIES_ENDUSERSYSTEM])))
+            .AddPolicy(AuthzConstants.POLICY_CONSENTREQUEST_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_CONSENTREQUEST_ORG, AuthzConstants.SCOPE_CONSENTREQUEST_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_CONSENTREQUEST_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_CONSENTREQUEST_ORG, AuthzConstants.SCOPE_CONSENTREQUEST_READ, AuthzConstants.SCOPE_CONSENTREQUEST_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_CLIENTDELEGATION_WRITE, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("write", "altinn_client_administration")))
+            .AddPolicy(AuthzConstants.POLICY_CLIENTDELEGATION_READ, policy => policy.Requirements.Add(new EndUserResourceAccessRequirement("read", "altinn_client_administration")))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_READ])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_MYCLIENTS_WRITE])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_READ])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CLIENTDELEGATION_WRITE])))
+            .AddPolicy(AuthzConstants.ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_READ])))
+            .AddPolicy(AuthzConstants.ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.ALTINN_SERVICEOWNER_DELEGATIONREQUESTS_WRITE])))
+            .AddPolicy(AuthzConstants.SCOPE_PORTAL_ENDUSER, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER])))
+            .AddPolicy(AuthzConstants.SCOPE_SERVICEOWNER_PACKAGE_DELEGATION_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_SERVICEOWNER_PACKAGE_DELEGATION_WRITE])))
+            .AddPolicy(AuthzConstants.SCOPE_SERVICEOWNER_RESOURCE_DELEGATION_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_SERVICEOWNER_RESOURCE_DELEGATION_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_CONNECTIONS_BIDRECTIONAL_READ, policy =>
+            {
+                policy.AddRequirementConditionalScope(
+                    new ConditionalScope(ConditionalScope.FromOthers, AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_FROMOTHERS_READ),
+                    new ConditionalScope(ConditionalScope.ToOthers, AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_READ)
+                );
+                policy.Requirements.Add(new PersonAccessManagerRequirement());
+            })
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_CONNECTIONS_BIDIRECTIONAL_WRITE, policy =>
+            {
+                policy.AddRequirementConditionalScope(
+                    new ConditionalScope(ConditionalScope.FromOthers, AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_FROMOTHERS_WRITE),
+                    new ConditionalScope(ConditionalScope.ToOthers, AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_WRITE)
+                );
+                policy.Requirements.Add(new PersonAccessManagerRequirement());
+            })
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_CONNECTIONS_WRITE_TOOTHERS, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_REQUESTS_READ, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_REQUESTS_READ])))
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_REQUESTS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_REQUESTS_WRITE])))
+            .AddPolicy(AuthzConstants.SCOPE_ENDUSER_SYSTEMUSER_REQUESTS_WRITE, policy => policy.Requirements.Add(new ScopeAccessRequirement([AuthzConstants.SCOPE_ENDUSER_SYSTEMUSER_REQUESTS_WRITE])))
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_MASKINPORTEN_BIDIRECTIONAL_READ, policy =>
+            {
+                // direction=from is the supplier perspective and direction=to the consumer
+                // perspective, guarded by the same scopes as the neighboring
+                // suppliers/consumers endpoints. The numeric forms are the enum values the
+                // model binder also accepts.
+                policy.AddRequirementConditionalScope(
+                    new ConditionalScope(ConditionalScope.QueryParamIs("direction", "from", "1"), AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENSUPPLIERS_READ),
+                    new ConditionalScope(ConditionalScope.QueryParamIs("direction", "to", "2"), AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_MASKINPORTENCONSUMERS_READ));
+            })
+            .AddPolicy(AuthzConstants.POLICY_ENDUSER_CONNECTIONS_ACTIVITYLOG_READ, policy =>
+            {
+                // direction=from reads what the party has given (to-others) and direction=to
+                // what it has received (from-others) — the same scopes and person rule as the
+                // connections endpoints, keyed on the activity log's direction parameter
+                // because from/to are plain filters there and may equal the party.
+                policy.AddRequirementConditionalScope(
+                    new ConditionalScope(ConditionalScope.QueryParamIs("direction", "from", "1"), AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_TOOTHERS_READ),
+                    new ConditionalScope(ConditionalScope.QueryParamIs("direction", "to", "2"), AuthzConstants.SCOPE_PORTAL_ENDUSER, AuthzConstants.SCOPE_ENDUSER_CONNECTIONS_FROMOTHERS_READ));
+                policy.Requirements.Add(new PersonAccessManagerRequirement());
+            });
+
+        builder.Services.AddScoped<IAuthorizationHandler, AccessTokenHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, ClaimAccessHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, ResourceAccessHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, EndUserResourceAccessHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, ScopeAccessHandler>();
+    }
+
+    private static void ConfigurePostgreSqlConfiguration(this WebApplicationBuilder builder)
+    {
+        var runMigrations = builder.Configuration.GetValue<bool>("PostgreSQLSettings:EnableDBConnection");
+        var adminConnectionStringFmt = builder.Configuration.GetValue<string>("PostgreSQLSettings:AdminConnectionString");
+        var adminConnectionStringPwd = builder.Configuration.GetValue<string>("PostgreSQLSettings:AuthorizationDbAdminPwd");
+        var connectionStringFmt = builder.Configuration.GetValue<string>("PostgreSQLSettings:ConnectionString");
+        var connectionStringPwd = builder.Configuration.GetValue<string>("PostgreSQLSettings:AuthorizationDbPwd");
+
+        var adminConnectionString = new NpgsqlConnectionStringBuilder(string.Format(adminConnectionStringFmt, adminConnectionStringPwd));
+        var connectionString = new NpgsqlConnectionStringBuilder(string.Format(connectionStringFmt, connectionStringPwd))
+        {
+            MaxAutoPrepare = 50,
+            AutoPrepareMinUsages = 2,
+            IncludeErrorDetail = true
+        };
+
+        var serviceDescriptor = builder.Services.GetAltinnServiceDescriptor();
+        var existing = builder.Configuration.GetValue<string>($"ConnectionStrings:{serviceDescriptor.Name}_db");
+
+        if (!string.IsNullOrEmpty(existing))
+        {
+            return;
+        }
+
+        builder.Configuration.AddInMemoryCollection([
+            KeyValuePair.Create($"ConnectionStrings:{serviceDescriptor.Name}_db", connectionString.ToString()),
+            KeyValuePair.Create($"ConnectionStrings:{serviceDescriptor.Name}_db_migrate", adminConnectionString.ToString()),
+            KeyValuePair.Create($"Altinn:Npgsql:{serviceDescriptor.Name}:Migrate:Enabled", runMigrations ? "true" : "false"),
+        ]);
+    }
+
+    static partial class Log
+    {
+        [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "Creating Altinn host.")]
+        internal static partial void CreateAltinnHost(ILogger logger);
+
+        [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "Configuration setting '{Field}' is null or empty.")]
+        internal static partial void ConfigValueIsNullOrEmpty(ILogger logger, string field);
+
+        [LoggerMessage(EventId = 2, Level = LogLevel.Debug, Message = "Connection string(s) for pgsql server are missing")]
+        internal static partial void PgsqlMissingConnectionString(ILogger logger);
+    }
+}
+
+/*
+public class HttpContextAuditContextProvider(IHttpContextAccessor accessor) : IAuditContextProvider
+{
+    public AuditValues Current
+    {
+        get
+        {
+            var user = accessor.HttpContext?.User;
+            var userId = Guid.Parse(user?.FindFirst("sub")?.Value ?? throw new Exception("Missing sub"));
+            var systemId = Guid.Parse("00000000-0000-0000-0000-000000000001"); // evt fra config
+            var operationId = Guid.NewGuid().ToString();
+
+            return new AuditValues(userId, systemId, operationId);
+        }
+    }
+}
+*/
+
+public class NpgsqlProcessor(TimeSpan minimumTotalDuration, IHttpContextAccessor httpContextAccessor) : BaseProcessor<Activity>
+{
+    public override void OnEnd(Activity activity)
+    {
+        // Suppress Npgsql activities with short duration if it's not the first time we see this trace
+        if (IsNpgsqlActivity(activity))
+        {
+            if (activity.Duration < minimumTotalDuration && activity.GetBaggageItem("firsthash") == null)
+            {
+                // Suppress export
+                activity.ActivityTraceFlags &= ~ActivityTraceFlags.Recorded;
+            }
+
+            // Clear baggage to avoid propagating out of process
+            activity.SetBaggage("firsthash", null);
+
+            if (activity.Duration < minimumTotalDuration)
+            {
+                // Remove logged parameters
+                activity.SetTag("db.command.parameters", null);
+            }
+
+            Activity? parent = activity.Parent;
+            while (parent != null && !(parent.Kind == ActivityKind.Server && parent.Parent == null))
+            {
+                parent = parent.Parent;
+            }
+
+            // Transfer state to the root request activity
+            if (parent != null)
+            {
+                Guid id = Guid.CreateVersion7();
+                parent.SetBaggage($"hash{id}", $"{activity.GetTagItem("db.hash")}:{activity.Duration.TotalMilliseconds:F0}");
+            }
+        }
+
+        // Process root request activity: aggregate DB time and add as tag, along with individual DB command hashes and durations
+        if (activity.Kind == ActivityKind.Server && activity.Parent == null)
+        {
+            StringBuilder sb = new();
+            long totalDbDuration = 0;
+            int dbActivityCount = 0;
+            List<string> baggageKeys = [];
+            activity.Baggage.Where(b => b.Key.StartsWith("hash", StringComparison.OrdinalIgnoreCase)).OrderBy(b => b.Key).ToList().ForEach(b =>
+            {
+                baggageKeys.Add(b.Key);
+                sb.Append($";{b.Value}");
+                ++dbActivityCount;
+                var parts = b.Value.Split(':');
+                if (parts.Length == 2 && long.TryParse(parts[1], out var duration))
+                {
+                    totalDbDuration += duration;
+                }
+            });
+
+            // Clear baggage to avoid propagating out of process
+            foreach (var key in baggageKeys)
+            {
+                activity.SetBaggage(key, null);
+            }
+
+            if (dbActivityCount > 0)
+            {
+                activity.SetTag("db.stats", $"Count: {dbActivityCount}, tot dur: {totalDbDuration:N0}ms, avg dur: {totalDbDuration / dbActivityCount:N0}ms, hashes:duration: {sb.Remove(0, 1)}");
+            }
+
+            LogClaims(httpContextAccessor, activity);
+        }
+    }
+
+    private static void LogClaims(IHttpContextAccessor httpContextAccessor, Activity activity)
+    {
+        foreach (var claim in httpContextAccessor.HttpContext.User.Claims)
+        {
+            switch (claim.Type)
+            {
+                case AltinnCoreClaimTypes.UserId:
+                case AltinnCoreClaimTypes.PartyID:
+                case AltinnCoreClaimTypes.PartyUuid:
+                case AltinnCoreClaimTypes.RepresentingPartyId:
+                case AltinnCoreClaimTypes.Org:
+                case AltinnCoreClaimTypes.OrgNumber:
+                    activity.SetTag(claim.Type, claim.Value);
+                    break;
+                case "authorization_details":
+                    SystemUserClaim claimValue = JsonSerializer.Deserialize<SystemUserClaim>(claim.Value);
+                    activity.SetTag("user.system.id", claimValue?.Systemuser_id[0] ?? null);
+                    activity.SetTag("user.system.owner.number", claimValue?.Systemuser_org.ID ?? null);
+                    break;
+            }
+        }
+    }
+
+    private static bool IsNpgsqlActivity(Activity a)
+    {
+        return a.OperationName.Contains("postgresql", StringComparison.OrdinalIgnoreCase);
+    }
+}

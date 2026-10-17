@@ -1,0 +1,55 @@
+﻿using Altinn.AccessManagement.Core.Asserters;
+using Altinn.AccessManagement.Core.Models;
+using Altinn.AccessManagement.Core.Resolvers;
+using Altinn.AccessManagement.Core.Services;
+using Altinn.AccessManagement.Core.Services.Implementation;
+using Altinn.AccessManagement.Core.Services.Interfaces;
+using Altinn.AccessManagement.Resolvers;
+using Altinn.Common.AccessTokenClient.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Altinn.AccessManagement.Core.Extensions;
+
+/// <summary>
+/// Extension methods for adding access management core services to the dependency injection container.
+/// </summary>
+public static class CoreDependencyInjectionExtensions
+{
+    /// <summary>
+    /// Extension methods for adding access management core services to the dependency injection container.
+    /// </summary>
+    /// <param name="builder">web application builder</param>
+    public static void AddAccessManagementCore(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddTransient<IDelegationRequests, DelegationRequestService>();
+        builder.Services.AddTransient<IAssert<AttributeMatch>, Asserter<AttributeMatch>>();
+        builder.Services.AddTransient<IAttributeResolver, UrnResolver>();
+
+        builder.Services.AddTransient<UrnResolver>();
+        builder.Services.AddTransient<AltinnEnterpriseUserResolver>();
+        builder.Services.AddTransient<AltinnResolver>();
+        builder.Services.AddTransient<AltinnResourceResolver>();
+        builder.Services.AddTransient<AltinnOrganizationResolver>();
+        builder.Services.AddTransient<AltinnPersonResolver>();
+        builder.Services.AddTransient<PartyAttributeResolver>();
+        builder.Services.AddTransient<UserAttributeResolver>();
+        builder.Services.AddTransient<IConsent, ConsentService>();
+        builder.Services.AddTransient<IIdPortenAuthorizationService, IdPortenAuthorizationService>();
+        builder.Services.AddTransient<IAMPartyService, AMPartyService>();
+
+        builder.Services.AddSingleton<IPolicyRetrievalPoint, PolicyRetrievalPoint>();
+        builder.Services.AddScoped<IPolicyInformationPoint, PolicyInformationPoint>();
+        builder.Services.AddScoped<IPolicyAdministrationPoint, PolicyAdministrationPoint>();
+        builder.Services.AddSingleton<IResourceAdministrationPoint, ResourceAdministrationPoint>();
+        builder.Services.AddSingleton<IContextRetrievalService, ContextRetrievalService>();
+
+        builder.Services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
+        builder.Services.AddTransient<ISigningCredentialsResolver, SigningCredentialsResolver>();
+
+        builder.Services.AddScoped<ISingleRightsService, SingleRightsService>();
+        builder.Services.AddScoped<IMaskinportenDelegationLookupService, MaskinportenDelegationLookupService>();
+        builder.Services.AddSingleton<IUserProfileLookupService, UserProfileLookupService>();
+        builder.Services.AddTransient<IAppsInstanceDelegationService, AppsInstanceDelegationService>();
+    }
+}

@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Altinn.ApiClients.Maskinporten" />
+    <PackageReference Include="JWTCookieAuthentication" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Altinn.Platform.Models" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Altinn.Common.AccessToken" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Altinn.AccessManagement.Core\Altinn.AccessManagement.Core.csproj" />
+    <ProjectReference Include="..\Altinn.AccessMgmt.Core\Altinn.AccessMgmt.Core.csproj" />
+  </ItemGroup>
+
+</Project>
