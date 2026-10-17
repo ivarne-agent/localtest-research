@@ -1,6 +1,6 @@
 # Access Management: vendor the production service
 
-Status: step 1 and 2 done (2026-10-17 evening), step 3 next. Working mode agreed with the product owner: one step at a time, each verified and
+Status: steps 1 to 3 done (2026-10-17 evening), step 4 next. Working mode agreed with the product owner: one step at a time, each verified and
 reported before the next starts.
 
 ## Why
@@ -28,7 +28,7 @@ pass and every role answer is a local approximation. Vendoring the production se
 
 1. **Done.** Pristine copy (`05c82c1`), build overrides, Dockerfile, three directive sites, five fakes; the host starts on the shared Postgres.
 2. **Done, verified.** `LocaltestDatabase` creates the roles and database at start (no volume reset); EF (49 migrations) and Yuniql ran; static seed in place: 149 roles, 223 packages, 1 420 role-package rows; `/health` 200 and `meta/info/accesspackages/export` answers.
-3. Register sync against the vendored Register; verify entities and role assignments for the seeded users.
+3. **Done, verified.** Production's `PartySyncService`/`RoleSyncService` run unchanged at init against the vendored Register's v2 streams (`RegisterSync.Import` on): 22 parties and 16 external role assignments imported, sub-units with `ParentId` via `hovedenhet`, `daglig-leder` for Sophie Salt on DDG Fitness. Open: a refresh after apps register their `testData.json` at runtime (the import runs only at start) and pruning of assignments that disappear.
 4. Access packages from `testData.json` into Access Management.
 5. Instance delegations end to end: app delegates, Access Management writes the policy, the PDP permits the signee. `signing.ts` green.
 6. Authorized parties and the PIP endpoints served by Access Management; remove the PDP's Access Management fakes.

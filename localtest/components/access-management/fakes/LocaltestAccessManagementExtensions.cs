@@ -77,9 +77,9 @@ public static class LocaltestAccessManagementExtensions
                 ["Platform:Token:TestTool:Password"] = "localtest",
                 ["Platform:Token:TestTool:Environment"] = "localtest",
 
-                // Sync jobs off until their steps in the plan; the init import is switched on in step 3.
+                // The init-time Register import runs against the vendored Register; the periodic sync jobs and the outbox stay off.
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.RegisterSync"] = "false",
-                ["FeatureManagement:AccessMgmt.Core.HostedServices.RegisterSync.Import"] = "false",
+                ["FeatureManagement:AccessMgmt.Core.HostedServices.RegisterSync.Import"] = "true",
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.ResourceRegistrySync"] = "false",
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.Outbox.Handler"] = "false",
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.Outbox.Reaper"] = "false",
@@ -116,6 +116,8 @@ public static class LocaltestAccessManagementExtensions
 
         // Azure Blob: a versioned file store instead of the three blob containers.
         Replace<IPolicyFactory, LocaltestPolicyFactory>(services);
+
+        services.AddHostedService<LocaltestStartupLogger>();
 
         return builder;
     }
