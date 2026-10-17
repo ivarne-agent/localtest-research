@@ -16,6 +16,7 @@ using var scope = app.Services.CreateScope();
 var appsettings = scope.ServiceProvider.GetRequiredService<IOptions<AccessManagementAppsettings>>().Value;
 await app.Services.InitializeAppLifecycleFeaturesAsync();
 
+#if !LOCALTEST
 if (appsettings.RunInitOnly)
 {
     await Init();
@@ -25,6 +26,12 @@ else if (appsettings.RunIntegrationTests)
 {
     await Init();
 }
+#else
+// Localtest: one container does everything. Make sure the database and its roles exist on the shared Postgres,
+// then run the production init (migrations, static data, Register import) on every start before serving.
+await Altinn.AccessManagement.Localtest.Database.LocaltestDatabase.EnsureAsync(app.Services);
+await Init();
+#endif
 
 app.AddDefaultAltinnMiddleware(errorHandlingPath: "/accessmanagement/api/v1/error");
 

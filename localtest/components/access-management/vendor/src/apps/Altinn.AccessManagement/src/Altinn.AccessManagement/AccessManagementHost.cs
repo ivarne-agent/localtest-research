@@ -67,6 +67,10 @@ internal static partial class AccessManagementHost
     {
         Log.CreateAltinnHost(Logger);
         var builder = AltinnHost.CreateWebApplicationBuilder("access-management", args, opts => opts.ConfigureEnabledServices(services => services.DisableApplicationInsights()));
+#if LOCALTEST
+        // Connection strings, OIDC provider and platform endpoints are read eagerly below, so the localtest defaults go in first.
+        Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions.AddLocaltestConfiguration(builder);
+#endif
         builder.ConfigureAppsettings();
         builder.ConfigureLibsHost();
         builder.Services.AddMemoryCache();
@@ -161,6 +165,9 @@ internal static partial class AccessManagementHost
         builder.ConfigureAuthorization();
         builder.AddAccessManagementEnduser();
         builder.AddAccessManagementInternal();
+#if LOCALTEST
+        Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions.AddLocaltestAccessManagement(builder);
+#endif
 
         return builder.Build();
     }

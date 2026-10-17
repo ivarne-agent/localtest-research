@@ -89,6 +89,27 @@ services:
     depends_on:
       - register
 
+  # Production Access Management (altinn-auth) on the shared Postgres (own database, created on start) with a
+  # file-backed policy store instead of Azure Blob. Step 1 of planned-components/access-management: boots and seeds;
+  # not yet routed through the ingress, so port 5080 is published for verification.
+  access-management:
+    <<: *platform-host
+    build: ./components/access-management
+    image: localhost/localtest-access-management:dev
+    environment:
+      <<: *access-token-cert
+      Localtest__AccessManagement__PlatformEndpoint: http://local.altinn.cloud:8000/
+    ports:
+      - "5080:5080"
+    volumes:
+      - ./certs:/certs:ro
+      - policy-store:/policy-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      register:
+        condition: service_started
+
   postgres:
     image: docker.io/library/postgres:16-alpine
     environment:
@@ -151,4 +172,5 @@ services:
 volumes:
   postgres-data:
   storage-blobs:
+  policy-store:
 

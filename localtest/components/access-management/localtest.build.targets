@@ -1,0 +1,13 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <!--
+    The localtest fakes implement interfaces from the host's own project graph (IPolicyFactory, ITokenGenerator, ...)
+    and need the host's configuration types, so, as in the PDP component, they are compiled into the host from the
+    adjacent fakes/ folder instead of being a separate project.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.AccessManagement'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>
