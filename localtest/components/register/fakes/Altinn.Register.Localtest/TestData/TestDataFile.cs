@@ -18,11 +18,50 @@ public sealed class TestDataFile
 
     public static TestDataFile Empty => new();
 
-    public List<TestPerson> Persons { get; set; } = [];
+    private List<TestPerson> _persons = [];
 
-    public List<TestOrg> Orgs { get; set; } = [];
 
-    public List<TestSystem> Systems { get; set; } = [];
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<TestPerson> Persons
+
+    {
+
+        get => _persons;
+
+        set => _persons = value ?? [];
+
+    }
+
+    private List<TestOrg> _orgs = [];
+
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<TestOrg> Orgs
+
+    {
+
+        get => _orgs;
+
+        set => _orgs = value ?? [];
+
+    }
+
+    private List<TestSystem> _systems = [];
+
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<TestSystem> Systems
+
+    {
+
+        get => _systems;
+
+        set => _systems = value ?? [];
+
+    }
 
     public static TestDataFile Load(string path)
     {
@@ -107,7 +146,14 @@ public sealed class TestPerson
     /// organisations become external role assignments in Register; every code is also kept verbatim for the PDP fake
     /// (<c>urn:altinn:rolecode</c>). An empty list means "may act for this party" without any role.
     /// </summary>
-    public Dictionary<string, List<TestRole>> PartyRoles { get; set; } = [];
+    private Dictionary<string, List<TestRole>> _partyRoles = [];
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+    public Dictionary<string, List<TestRole>> PartyRoles
+    {
+        get => _partyRoles;
+        set => _partyRoles = value ?? [];
+    }
 
     /// <summary>
     /// Access packages ("tilgangspakker") the person holds, keyed by the party id of the organisation they are
@@ -115,9 +161,29 @@ public sealed class TestPerson
     /// <c>urn:altinn:accesspackage:skattegrunnlag</c>. Register does not use them; the localtest endpoint
     /// exposes them for the Access Management and PDP fakes. Needs test-users.schema v2.
     /// </summary>
-    public Dictionary<string, List<string>> AccessPackages { get; set; } = [];
+    private Dictionary<string, List<string>> _accessPackages = [];
 
-    public List<TestClaim> CustomClaims { get; set; } = [];
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+    public Dictionary<string, List<string>> AccessPackages
+    {
+        get => _accessPackages;
+        set => _accessPackages = value ?? [];
+    }
+
+    private List<TestClaim> _customClaims = [];
+
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<TestClaim> CustomClaims
+
+    {
+
+        get => _customClaims;
+
+        set => _customClaims = value ?? [];
+
+    }
 }
 
 /// <summary>The values of <c>Altinn.Platform.Profile.Enums.UserType</c>; the profile endpoints return the number.</summary>
@@ -193,7 +259,20 @@ public sealed class TestSystem
 
     public string Name { get; set; } = string.Empty;
 
-    public List<TestSystemUser> SystemUsers { get; set; } = [];
+    private List<TestSystemUser> _systemUsers = [];
+
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<TestSystemUser> SystemUsers
+
+    {
+
+        get => _systemUsers;
+
+        set => _systemUsers = value ?? [];
+
+    }
 }
 
 public sealed class TestSystemUser
@@ -202,5 +281,18 @@ public sealed class TestSystemUser
 
     public string OrgNumber { get; set; } = string.Empty;
 
-    public List<string> Actions { get; set; } = [];
+    private List<string> _actions = [];
+
+
+    /// <remarks>A JSON <c>null</c> (the published schema allows it for optional lists) is read as empty.</remarks>
+
+    public List<string> Actions
+
+    {
+
+        get => _actions;
+
+        set => _actions = value ?? [];
+
+    }
 }
