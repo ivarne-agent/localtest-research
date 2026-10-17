@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+Dockerfile
+.dockerignore
+smoke-test.sh
+README.md

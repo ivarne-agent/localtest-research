@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Evaluated after each vendored project file (DirectoryBuildTargetsPath). Upstream has no Directory.Build.targets on
+    the workflow engine's path today; the import keeps one working if it appears. No fakes: the engine is
+    localtest-aware through configuration alone (studioctl runs it unmodified).
+  -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+</Project>

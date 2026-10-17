@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored workflow engine, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). The nearest vendored props above the project is imported first (what
+    MSBuild itself would have found), then LOCALTEST is layered on top.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+    <LocaltestVendoredBuildProps Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildProps>
+  </PropertyGroup>
+
+  <!-- Altinn.Studio.Common has no Directory.Build.props above it, hence the guard. -->
+  <Import Project="$(LocaltestVendoredBuildProps)" Condition="'$(LocaltestVendoredBuildProps)' != '' And Exists('$(LocaltestVendoredBuildProps)')" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <!-- The vendored props pull in CSharpier.MsBuild, which formats sources on build; vendored files stay as committed
+         (the upstream Dockerfile passes /p:CSharpier_Bypass=true for the same reason). -->
+    <CSharpier_Bypass>true</CSharpier_Bypass>
+  </PropertyGroup>
+</Project>
