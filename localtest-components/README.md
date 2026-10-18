@@ -19,8 +19,14 @@ Constraints from the product owner (2026-10-16):
 | `storage.md` | Storage strand (localtest copy vs [`Altinn/altinn-storage`](https://github.com/Altinn/altinn-storage)) |
 | `authorization.md` | Authorization, Access Management, Resource Registry strand ([`Altinn/altinn-auth`](https://github.com/Altinn/altinn-auth)) |
 | `authn-profile-register.md` | Authentication, Profile, Register and the test-user data model |
-| `events-notifications.md` | Events and Notifications strand |
+| `events-notifications.md` | Events and Notifications strand (16 Oct; its stub verdict is superseded by `communication-and-inbox.md`) |
 | `studioctl-and-app-contract.md` | How studioctl composes containers, the app ↔ platform contract, subtree practice |
+| `communication-and-inbox.md` | 2026-10-18: Events, Notifications, Correspondence, Dialogporten and the inspection GUI combined; shared prerequisites, order, open questions (read this first for that topic) |
+| `events-vendoring.md` | Vendoring production Events, with a capture API for the GUI |
+| `notifications-vendoring.md` | Vendoring production Notifications (API, e-mail and SMS hosts), with e-mail and SMS capture |
+| `correspondence-vendoring.md` | Vendoring production Correspondence |
+| `dialogporten-arbeidsflate.md` | Dialogporten, the Altinn adapter and Arbeidsflate in localtest |
+| `inspection-gui.md` | Design of the GUI where testers see everything the platform sent |
 
 ## Sources
 
