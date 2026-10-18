@@ -92,7 +92,7 @@ public static class LocaltestAuthorizationExtensions
         // Configure (not PostConfigure) runs before the scheme's own post-configure builds the metadata manager.
         services.Configure<JwtCookieOptions>(JwtCookieDefaults.AuthenticationScheme, o => o.MetadataAddress = config["GeneralSettings:OpenIdWellKnownEndpoint"]);
 
-        // The register seed: roles, access packages and users for the PIP fakes.
+        // The register seed: user profiles for the profile PIP and the localtest decision helper.
         services.AddSingleton(sp => ActivatorUtilities.CreateInstance<RegisterLocaltestClient>(sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(RegisterLocaltestClient))));
 
         // Policies: folder, posted or running app instead of Azure Blob; production PRP with a seconds-long reuse.
@@ -101,13 +101,10 @@ public static class LocaltestAuthorizationExtensions
         services.TryAddSingleton<PolicyRetrievalPoint>();
         Replace<IPolicyRetrievalPoint, LocaltestPolicyRetrievalPoint>(services);
 
-        // PIPs.
-        // Delegation changes come from the real Access Management component (production wrapper); roles, packages and
-        // authorized parties still from the register seed until step 6 of planned-components/access-management.
-        services.AddSingleton<AccessManagementWrapper>();
-        Replace<IAccessManagementWrapper, LocaltestAccessManagementWrapper>(services);
+        // PIPs. Roles, access packages, delegation changes and authorized parties come from the real Access Management
+        // component through the production AccessManagementWrapper (registered by Program.cs). The Altinn 2 roles
+        // endpoint (IRoles, SBL bridge) keeps its production wrapper and answers empty: nothing locally calls it.
         Replace<IProfile, LocaltestProfile>(services);
-        Replace<IRoles, LocaltestRoles>(services);
         Replace<IResourceRegistry, LocaltestResourceRegistry>(services);
         Replace<IOedRoleAssignmentWrapper, NoOedRoleAssignments>(services);
 

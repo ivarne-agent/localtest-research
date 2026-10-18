@@ -1,18 +1,18 @@
 # authorization
 
 Production Altinn Authorization, the PDP (`vendor/`, see `UPSTREAM.md`), answering `authorization/api/v1/decision`,
-`parties` and `roles` for apps, plus an emulated Access Management `accessmanagement/api/v1/enduser/authorizedparties`
-(app-lib's party list). Azure Blob policies, the Access Management, Profile, Resource Registry, OED and
-SBL Bridge PIPs, the audit queue and Key Vault are replaced by fakes; Register and Storage stay production HTTP calls
-to the other localtest components.
+`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the Profile,
+Resource Registry and OED PIPs, the audit queue and Key Vault are replaced by fakes; Register, Storage and Access
+Management (roles, access packages, delegations, authorized parties) stay production HTTP calls to the other localtest
+components.
 
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except one `#if LOCALTEST` block |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, PIPs over the register seed, token handling, no-op audit queue, a localtest decision helper, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, profile and resource-registry PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
 | `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
-| `smoke-test.sh` | Starts register, authentication and the PDP from Release builds and checks decisions (see below) |
+| `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running compose stack (see below) |
 | `Dockerfile` | Publishes the vendored host with the overrides |
 
 ## Directive site
@@ -40,142 +40,60 @@ are skipped by production code because `kvSetting` is empty.
 | --- | --- |
 | `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: the file store shared with Access Management (`Localtest:Authorization:PolicyStorePath`, the `policy-store` volume), laid out as the containers: `metadata/{org}/{app}/policy.xml` written by the production `POST authorization/api/v1/policies` (the runner pushes it, placeholders already replaced as Designer does) and `delegationpolicies/{path}` with versions under `{path}.versions/{versionId}`, written by Access Management and read here by the version it recorded. Nothing is fetched from apps and no placeholders are replaced |
 | `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read, so a policy edit applies within about 5 s |
-| `IAccessManagementWrapper` (AM `policyinformation/roles-and-accesspackages`, `getdelegationchanges`, `authorizedparties`) | `LocaltestAccessManagementWrapper`: `getdelegationchanges` goes to the real Access Management component through the production `AccessManagementWrapper` (the ingress routes `accessmanagement/api/v1/policyinformation/` there), so instance delegations made by apps are honoured; roles and access packages still over the register seed (`{register}/api/localtest/test-users`, `organizations`): roles as `urn:altinn:rolecode:<code>` in lower and upper case (see [Role codes](#role-codes)) and `urn:altinn:external-role:ccr:<identifier>`, access packages as `urn:altinn:accesspackage:<id>`; `PRIV` / `urn:altinn:role:privatperson` for the person's own party, plus any roles the register lists for it; a sub-unit gets the roles held for its main unit. Authorized parties: the same list as the endpoint below (`LocaltestAuthorizedParties`) |
 | `IProfile` (Profile `internal/user`) | `LocaltestProfile`: user id or ssn to the user's party (uuid, ssn) from the register seed |
-| `IRoles` (SBL Bridge, legacy `roles` endpoint) | `LocaltestRoles`: role codes from the register seed |
 | `IResourceRegistry` | `LocaltestResourceRegistry`: `resourceregistry/{id}/policy.xml` and optional `resource.json` in the policies folder; no access lists |
 | `IOedRoleAssignmentWrapper` | `NoOedRoleAssignments` (empty) |
 | `IEventsQueueClient` (audit queue) | `NoopEventsQueueClient`; `FeatureManagement:AuditLog` forced off |
 | `IPublicSigningKeyProvider` (Key Vault certificates) | `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer. The production `AccessTokenGenerator` and `AccessTokenHandler` run unchanged: outgoing platform access tokens (to Register) are signed with it, incoming ones validated against it |
-| Access Management `GET accessmanagement/api/v1/enduser/authorizedparties` | `LocaltestAuthorizedPartiesController`, see [Authorized parties](#authorized-parties) |
 | (none) | `GET authorization/api/localtest/decision?userId&partyId&org&app&action[&instanceId&task&authenticationLevel]`, anonymous: builds the request an app's PEP sends and posts it to the production `decision` endpoint |
-| (none) | `POST authorization/api/localtest/refresh`, anonymous: drops the cached register seed and every production PDP cache entry (profiles, parties, policies) |
+| (none) | `POST authorization/api/localtest/refresh`, anonymous: drops the cached register seed and every production PDP cache entry (profiles, parties, roles and packages, delegation changes, policies) |
 
 Kept production: `ContextHandler`, `DelegationContextHandler`, `DecisionController`, `PartiesController`, the ABAC
 engine, `RegisterService` (Register v1 `parties/partylist`, `partylistbyuuid`, `lookup`, served by the register
-component) and `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`).
+component), `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`), `AccessManagementWrapper`
+(Access Management `policyinformation/roles-and-accesspackages`, `policyinformation/getdelegationchanges`,
+`authorizedparties`, `authorizedparty/{partyId}`, served by the access-management component) and `RolesWrapper` (the
+Altinn 2 `roles` endpoint over the SBL bridge, which does not exist locally: it answers an empty list, and nothing
+locally calls it).
 
-## Authorized parties
+## Authorized parties and role codes
 
-`GET accessmanagement/api/v1/enduser/authorizedparties` is what app-lib's `AuthorizationClient.GetPartyList` calls
-(`{ApiAccessManagementEndpoint}enduser/authorizedparties?includeRoles=true&includeAccessPackages=true&...`, with the
-user's token). The user is the `urn:altinn:userid` claim of the bearer token or runtime cookie; without a token,
-`?userId=` is accepted (tools, debugging); a token plus a different `?userId=` is 403, neither is 401. Response, the
-Access Management envelope with the contracts `AuthorizedPartyDto` (camelCase, `type` as `Person` / `Organization`):
+Served by the access-management component, not here: app-lib's `GetPartyList` calls
+`accessmanagement/api/v1/enduser/authorizedparties` (the ingress routes all of `/accessmanagement/` there), and this
+PDP's `parties` endpoint calls Access Management's internal `authorizedparties` through the production wrapper. See
+`../access-management/README.md`.
 
-```json
-{"links": {"next": null}, "data": [
-  {"partyId": 501337, "partyUuid": "…501337", "name": "Ola Nordmann", "personId": "01817510120", "type": "Person",
-   "authorizedRoles": ["priv"], "authorizedAccessPackages": [], "onlyHierarchyElementWithNoAccess": false, "isDeleted": false, "subunits": []},
-  {"partyId": 500000, "partyUuid": "…500000", "name": "DDG Fitness AS", "organizationNumber": "910000012", "type": "Organization",
-   "unitType": null, "authorizedRoles": ["dagl"], "authorizedAccessPackages": [], "onlyHierarchyElementWithNoAccess": false,
-   "subunits": [{"partyId": 500001, "name": "DDG Fitness Bergen", "organizationNumber": "910000020", "type": "Organization",
-                 "unitType": "BEDR", "parentId": "…500000", "authorizedRoles": ["dagl"], "subunits": []}]},
-  {"partyId": 500002, "name": "Nordmann Bakeri ENK", "organizationNumber": "910000039", "type": "Organization", "authorizedRoles": ["innh"], "subunits": []}
-]}
-```
-
-Built from the register seed by `LocaltestAuthorizedParties`: the person's own party first (`priv`, plus any roles and
-packages the register lists for the user's own party), then every party the register lists for the user, with
-lower-case role codes and its access packages (identifiers without the `urn:altinn:accesspackage:` prefix); under an
-organisation all its sub-units from `organizations` with the main unit's roles (plus any held directly). A sub-unit
-held without its main unit brings the main unit along with `onlyHierarchyElementWithNoAccess: true`, as Access
-Management does. `includeRoles=false` / `includeAccessPackages=false` empty those lists; the other flags
-(`includeResources`, `includeInstances`, ...) are accepted and ignored: there are no resource or instance delegations
-locally. The PDP's own `authorization/api/v1/parties?userId=` returns the same list (production code, through the
-wrapper), sub-units as `childParties`.
-
-Fields read from the register defensively (missing is null, unknown is ignored): per user `parties[]` with `roles`,
-`roleCodes`, `accessPackages`, optionally `unitType` and `isDeleted`; per organisation optionally `unitType` and
-`isDeleted`. Today the register sends no `unitType` for organisations, so main units have `unitType: null` and sub-units
-default to `BEDR`.
-
-## Role codes
-
-Production Access Management sends `urn:altinn:rolecode` values in lower case (`dagl`, `regna`), and Studio app
-policies match those (the frontend-test policy uses `dagl`, `regna`, `seln`); older policies and the register seed
-use upper case (`DAGL`). XACML `string-equal` is case-sensitive, so the PIP emits every code in both cases (and as
-seeded, if mixed). `authorizedRoles` in the authorized-parties list is lower case only. The person's own party always
-has `PRIV`/`priv` and `urn:altinn:role:privatperson`.
-
-## frontend-test policy
-
-`policies/ttd/frontend-test/policy.xml` (concrete, no placeholders; `partyTypesAllowed` in the app is all false, which
-means every party type may instantiate). What it grants:
-
-| Subject | Actions |
-| --- | --- |
-| `rolecode` `dagl`, `regna` or `seln` | `instantiate`, `read`, `pdfIfRequested` on the app; `read`, `write`, `confirm`, `reject` in `Task_1`..`Task_5`, `Task_Custom_Confirm`, `Task_Default_Confirm`, `EndEvent_1`; `fill`, `conflictingOptionsReset`, `shiftingOptionsAdd`, `shiftingOptionsRemoveAll` in `Task_2`; `sortPets`, `generatePets` in `Task_3`; `delete`; `read` on the `events` app resource |
-| `urn:altinn:org` `ttd` (the service owner) | `write` on the app; `complete` in `EndEvent_1` |
-
-Nothing for `priv`/`PRIV`: a person acting for themselves is denied unless the register lists one of those roles for
-their own party. The old localtest did exactly that for the Cypress users (user 12345 had `regna`, `dagl`, `priv` for
-party 512345 in `testdata/authorization/roles`), so the register seed must carry those role codes for the self party
-(`parties[]` entry for the user's own party with `roleCodes`) for `defaultPartyId: 12345.512345` to instantiate.
-
-## Configuration
-
-`Localtest:Authorization:PlatformEndpoint` (env `Localtest__Authorization__PlatformEndpoint`, default
-`http://local.altinn.cloud:8000/`) is the one setting to give. The composition derives from it, as a source above the
-vendored `appsettings.json` (which carries at22/localhost values) and below the environment, so a single endpoint can
-still be pointed elsewhere when running without the ingress:
-
-- `PlatformSettings:Api{Register,Storage,ResourceRegistry,AccessManagement,Profile}Endpoint` = `{platform}<service>/api/v1/`
-- `GeneralSettings:OpenIdWellKnownEndpoint` = `{platform}authentication/api/v1/openid/`, `RuntimeCookieName` = `AltinnStudioRuntime`
-- `Localtest:Authorization:RegisterLocaltestEndpoint` = `{platform}register/api/localtest/`
-- cache timeouts 1 minute (the smallest valid value); feature flags as in production
-  (`UserAccessPackageAuthorization`, `SystemUserAccessPackageAuthorization`, `AccessManagementAuthorizedParties`,
-  `DecisionRequestLogRequestOnError` on)
-
-Forced over everything: `FeatureManagement:AuditLog=false`. Other settings: `Localtest:Authorization:PoliciesPath`
-(default `/policies`) and `PolicyStorePath` (default `/policy-store`, the shared policy store).
+Access Management sends `urn:altinn:rolecode` values in lower case (`dagl`, `regna`). Every role-code match in the
+test apps' policies and the Studio template uses `string-equal-ignore-case`, so upper-case policies (`DAGL`) match.
 
 ## What the other components must provide
 
-- Ingress on the platform endpoint: `/authorization/` and `/accessmanagement/` to this service, `/register/` (v1 parties and the localtest
-  endpoints), `/authentication/api/v1/openid/` (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance
-  authinfo).
-- Register: the `RoleCodes` field of `test-users` (added for this component); seeded parties need stable UUIDs. For
-  the Cypress users: role codes for the user's own party (`regna`, `dagl`, `priv` as in the old localtest), Altinn 2
-  codes that are not CCR roles (`regna`, `A0239`, ...), and `unitType` on organisations.
+- Ingress on the platform endpoint: `/authorization/` to this service, `/accessmanagement/` to Access Management (PIP
+  and authorized parties), `/register/` (v1 parties and the localtest endpoints), `/authentication/api/v1/openid/`
+  (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance authinfo).
+- Register: v1 parties for the subject and resource party lookups; the profile fake reads `test-users`.
 - Caching: the register seed is re-read at most every 2 s, so users and parties added by
   `POST register/api/localtest/apps` are seen almost at once. Production PDP caches (user profile, party lookups) last
   1 minute, including a "user not found" profile; `POST authorization/api/localtest/refresh` clears them all.
-- Storage: `GET storage/api/v1/instances/{partyId}/{guid}/process/authinfo` without a user token. Until then every
-  instance-scoped decision is `Indeterminate`.
+- Storage: `GET storage/api/v1/instances/{partyId}/{guid}/process/authinfo` without a user token.
+- Access Management: the production PIP and authorized-parties endpoints; its delegation-change lookups are cached here
+  for five minutes per subject, party and app (not instance), so drop the caches with `POST
+  authorization/api/localtest/refresh` after new instance delegations when a test needs them at once.
 
-## Verified (2026-10-17)
+## Verified (2026-10-18)
 
-`./smoke-test.sh` with register on 5021, authentication on 8001 (`local.altinn.cloud:8001`), the PDP on 5070 and a
-user token from `GET /Home/GetTestUserToken?userId=1337`, requests built from the token claims as the PEP does:
+`./smoke-test.sh` against the running stack (30 checks, all ok), user tokens from `GET /Home/GetTestUserToken`,
+requests built from the token claims as the PEP does, roles and packages from Access Management:
 
-- Ola (1337, DAGL for 500000): `read` and `instantiate` on `ttd/testapp` for 500000 Permit; for 500003, 500002 (INNH)
-  and himself (PRIV) NotApplicable; for sub-unit 500001 Permit. Kari (1338): DAGL for 500003 Permit, LEDE/MEDL for
-  500000 NotApplicable.
-- Instance-scoped request: Indeterminate (Storage authinfo 404). App without a policy (`ttd/otherapp`): Indeterminate.
-- Editing the mounted policy changes the decision within 6 s; restoring it changes it back.
-- `GET parties?userid=1337` with the bearer token: 501337, 500000 (sub-unit 500001), 500002; `parties/500000/validate`
-  true, `500003` false; without a token 401.
-- `podman build -t localtest-authorization:dev .`; the container (host network) answers `/health` 200 and the localtest
-  decision endpoint Permit for 500000 and NotApplicable for 500003 with the built-in policies.
-
-Added 2026-10-17 (`./smoke-test.sh` with `REG_PORT=5031 AUTHN_PORT=8011 PDP_PORT=5080`, all ok; the script adds user
-12345 / party 512345 with no roles to a copy of the register seed):
-
-- frontend-test: Ola (1337, DAGL emitted as `dagl`) on 500000 Permit for `instantiate`, `read`, `write` in `Task_1`,
-  `confirm` in `Task_Custom_Confirm`, and `instantiate` on sub-unit 500001; NotApplicable for `write` without a task
-  and `complete` (org only) and on 500002 (INNH). Kari (1338) DAGL on 500003 Permit. User 12345 for himself
-  NotApplicable (only `PRIV`/`priv`). With a hand-made `test-users` that lists `roleCodes: [regna, dagl, priv]` for
-  12345's own party (served by a stub, register v1 from the real register): `instantiate`, `read`, `write` in `Task_1`
-  Permit and the self party lists `["priv", "regna", "dagl"]`.
-- `accessmanagement/api/v1/enduser/authorizedparties` with Ola's token: 501337 (Person, `priv`), 500000 (`dagl`,
-  sub-unit 500001 `dagl`), 500002 (`innh`); `includeRoles=false` empties roles; `?userId=12345` without a token; 401
-  without either; 403 for a different `?userId`. `parties?userid=1337`: 501337, 500000 (500001), 500002.
-- Image rebuilt; the container answers the frontend-test decision and the authorized-parties call.
-
-Not verified: app-lib actually calling the endpoint through the ingress, `onlyHierarchyElementWithNoAccess` (no seeded
-user holds a sub-unit without its main unit), access-package rules (no seeded user has packages for a policy that uses them), a real app's PEP calling
-through the ingress, resource-registry decisions.
+- Policies pushed with the Studio token (200); a service-owner token is refused (403).
+- `ttd/testapp`: Sophie Salt (1337, DAGL on DDG Fitness and its sub-units) Permit for `read`/`instantiate` on 500000, a
+  sub-unit and herself (REGNA); NotApplicable on 500005 and 500900. Kari Nordvik (2002, Altinn 2 codes only on 500000)
+  NotApplicable.
+- An unknown instance and an app without a pushed policy are Indeterminate; a re-pushed policy applies at once.
+- `ttd/frontend-test` with the app's own policy: task-scoped `write`/`confirm` Permit, org-only rules NotApplicable for
+  users, Ola Nordmann (12345) Permit for himself.
+- Authorized parties from Access Management: Sophie's five top-level parties with sub-units, `dagl` on DDG Fitness and
+  its sub-units with `includeRoles=true`; 401 without a token; the PDP's `parties?userid=1337` returns the same ids.
 
 ## Compose
 

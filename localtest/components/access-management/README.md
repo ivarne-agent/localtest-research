@@ -41,5 +41,15 @@ their step in the plan.
 
 ## Status
 
-Steps 1 to 4 of the plan: boots, migrates, seeds, imports parties and external roles from the vendored Register, and applies the seed's own roles, Altinn 2 codes and access packages (`LocaltestRefreshService`, run at start and on `POST accessmanagement/api/localtest/refresh`, the app runner's hook; the ingress routes that path here). The startup log lists the effective feature flags with their providers. Not yet routed through the ingress (`/accessmanagement/` still goes
-to the PDP's fakes); port 5080 is published on the host for verification.
+Steps 1 to 6 of the plan are done. Access Management boots, migrates and seeds on the shared Postgres, imports parties
+and external roles from the vendored Register, applies the seed's own roles, Altinn 2 codes and access packages
+(`LocaltestRefreshService`, run at start and on `POST accessmanagement/api/localtest/refresh`, the app runner's hook),
+syncs app resources from the local Resource Registry stand-in, takes instance delegations from apps, and serves the
+PDP's PIP (`policyinformation/*`) and authorized parties (`enduser/authorizedparties` for app-lib, the internal
+`authorizedparties` for the PDP, which needs `FeatureManagement:RightsDelegationApi`, on as in production). The
+ingress routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers;
+port 5080 is also published on the host for debugging.
+
+User tokens are validated by production's JWT cookie handler. For an issuer listed under `OidcProviders` it fetches
+the metadata with an HTTPS-only retriever regardless of environment; `LocaltestOidcMetadata` registers that issuer's
+metadata manager up front with a retriever that allows the authentication component's plain-http endpoint.

@@ -54,13 +54,9 @@ server {
     location = /                { proxy_pass $authentication; }
     location = /Home            { proxy_pass $authentication; }
     location /authorization/    { proxy_pass $authorization; }
-    # Access Management: the app runner's refresh, the apps' instance delegations and the PDP's delegation-change
-    # lookups go to the real service; the rest of /accessmanagement/ (authorized parties, roles and packages) stays
-    # on the PDP's fakes until step 6 of planned-components/access-management.
-    location /accessmanagement/api/localtest/ { proxy_pass $access_management; }
-    location /accessmanagement/api/v1/app/ { proxy_pass $access_management; }
-    location /accessmanagement/api/v1/policyinformation/ { proxy_pass $access_management; }
-    location /accessmanagement/ { proxy_pass $authorization; }
+    # Production Access Management: authorized parties, the PDP's PIP, the apps' instance delegations and the app
+    # runner's refresh.
+    location /accessmanagement/ { proxy_pass $access_management; }
     location /storage/          { proxy_pass $storage; }
 
     # The app-frontend bundle built from src/App/frontend (dist mounted at /frontend), served as the app's asset base.

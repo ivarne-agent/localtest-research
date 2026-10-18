@@ -83,7 +83,9 @@ public static class LocaltestAccessManagementExtensions
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.ResourceRegistrySync"] = "false",
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.Outbox.Handler"] = "false",
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.Outbox.Reaper"] = "false",
-                ["FeatureManagement:RightsDelegationApi"] = "false",
+                // The internal authorized-parties API the PDP calls (authorizedparties, authorizedparty/{partyId}) sits
+                // behind this flag; it is on in production.
+                ["FeatureManagement:RightsDelegationApi"] = "true",
             },
         };
         var lastEnvironmentSource = config.Sources.ToList().FindLastIndex(s => s is EnvironmentVariablesConfigurationSource);
@@ -125,6 +127,9 @@ public static class LocaltestAccessManagementExtensions
         services.AddSingleton<ResourceRegistry.LocaltestAppResources>();
         Replace<Altinn.AccessManagement.Core.Clients.Interfaces.IResourceRegistryClient, ResourceRegistry.LocaltestResourceRegistryClient>(services);
         Replace<Altinn.Authorization.Integration.Platform.ResourceRegistry.IAltinnResourceRegistry, ResourceRegistry.LocaltestAltinnResourceRegistry>(services);
+
+        // User tokens from the localtest authentication component: OpenID metadata over http (see LocaltestOidcMetadata).
+        LocaltestOidcMetadata.AllowHttpProviders(config);
 
         services.AddHostedService<LocaltestStartupLogger>();
         services.AddScoped<Sync.LocaltestRefreshService>();
