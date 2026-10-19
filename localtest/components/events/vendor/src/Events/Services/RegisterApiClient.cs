@@ -1,0 +1,175 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Altinn.Common.AccessTokenClient.Services;
+using Altinn.Platform.Events.Configuration;
+using Altinn.Platform.Events.Exceptions;
+using Altinn.Platform.Events.Extensions;
+using Altinn.Platform.Events.Services.Interfaces;
+using Altinn.Platform.Register.Models;
+
+using AltinnCore.Authentication.Utils;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace Altinn.Platform.Events.Services
+{
+    /// <summary>
+    /// Handles HTTP communication with the Register API.
+    /// </summary>
+    public class RegisterApiClient : IRegisterApiClient
+    {
+        private readonly HttpClient _client;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly GeneralSettings _generalSettings;
+        private readonly IAccessTokenGenerator _accessTokenGenerator;
+        private readonly ILogger _logger;
+
+        private readonly JsonSerializerOptions _serializerOptions;
+
+        private readonly int _chunkSize;
+
+        private const string ApplicationJson = "application/json";
+
+        /// <summary>Name of the named <see cref="HttpClient"/> used by this service.</summary>
+        internal const string HttpClientName = nameof(RegisterApiClient);
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RegisterApiClient"/> class.
+        /// </summary>
+        public RegisterApiClient(
+            IHttpClientFactory httpClientFactory,
+            IHttpContextAccessor httpContextAccessor,
+            IAccessTokenGenerator accessTokenGenerator,
+            IOptions<GeneralSettings> generalSettings,
+            IOptions<PlatformSettings> platformSettings,
+            ILogger<RegisterApiClient> logger)
+        {
+            _client = httpClientFactory.CreateClient(HttpClientName);
+            _httpContextAccessor = httpContextAccessor;
+            _generalSettings = generalSettings.Value;
+            _accessTokenGenerator = accessTokenGenerator;
+            _logger = logger;
+
+            _client.BaseAddress = new Uri(platformSettings.Value.RegisterApiBaseAddress);
+            _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue(ApplicationJson));
+            _chunkSize = platformSettings.Value.RegisterApiChunkSize;
+
+            _serializerOptions = new()
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new JsonStringEnumConverter() }
+            };
+        }
+
+        /// <inheritdoc/>
+        public async Task<int> PartyLookup(string orgNo, string person)
+        {
+            string endpointUrl = "v1/parties/lookup";
+
+            PartyLookup partyLookup = new PartyLookup() { Ssn = person, OrgNo = orgNo };
+
+            string bearerToken = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.JwtCookieName);
+            string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
+
+            StringContent content = new StringContent(JsonSerializer.Serialize(partyLookup));
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse(ApplicationJson);
+
+            HttpResponseMessage response = await _client.PostAsync(bearerToken, endpointUrl, content, accessToken);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                Party party = await response.Content.ReadFromJsonAsync<Party>(_serializerOptions);
+                return party.PartyId;
+            }
+            else
+            {
+                string reason = await response.Content.ReadAsStringAsync();
+                _logger.LogError("// RegisterApiClient // PartyLookup // Failed to lookup party in platform register. Response {Response}. Reason {Reason}.", response, reason);
+
+                throw await PlatformHttpException.CreateAsync(response);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<IEnumerable<PartyIdentifiers>> PartyLookup(
+            IEnumerable<string> partyUrnList, 
+            CancellationToken cancellationToken)
+        {
+            string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
+            List<PartyIdentifiers> partyIdentifiers = [];
+
+            // The Register API only supports 100 entries per request
+            foreach (string[] chunk in partyUrnList.Chunk(_chunkSize))
+            {
+                PartiesRegisterQueryRequest partyLookup = new() { Data = chunk };
+
+                StringContent content = new(JsonSerializer.Serialize(partyLookup));
+                content.Headers.ContentType = MediaTypeHeaderValue.Parse(ApplicationJson);
+
+                const string RequestUri = "v2/internal/parties/query?fields=identifiers";
+                HttpResponseMessage response = await _client.PostAsync(
+                    RequestUri, content, accessToken, cancellationToken);
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    PartiesRegisterQueryResponse queryResults = 
+                        await response.Content.ReadFromJsonAsync<PartiesRegisterQueryResponse>(
+                            _serializerOptions, cancellationToken);
+
+                    partyIdentifiers.AddRange(queryResults.Data);
+                }
+                else
+                {
+                    throw await PlatformHttpException.CreateAsync(response);
+                }
+            }
+
+            return partyIdentifiers;
+        }
+
+        /// <inheritdoc/>
+        public async Task<OrganizationRecord> GetMainUnit(string organizationUrnValue, CancellationToken cancellationToken)
+        {
+            var request = new LookupMainUnitRequest(organizationUrnValue);
+
+            string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
+
+            StringContent content = new(JsonSerializer.Serialize(request));
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse(ApplicationJson);
+
+            const string RequestUri = "v2/internal/parties/main-units";
+            HttpResponseMessage response = await _client.PostAsync(
+                RequestUri, content, accessToken, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw await PlatformHttpException.CreateAsync(response);
+            }
+
+            var responseObject = await response.Content.ReadFromJsonAsync<LookupMainUnitResponse>(_serializerOptions, cancellationToken);
+            if (!(responseObject?.Data?.Count > 0))
+            {
+                return null;
+            }
+
+            // The response is a list, but assuming the list contains only one item in all cases
+            if (responseObject.Data.Count > 1)
+            {
+                _logger.LogWarning("Get main units for organization {OrganizationUrn} returned multiple results. Using the first one.", organizationUrnValue);
+            }
+
+            return responseObject.Data[0];
+        }
+    }
+}

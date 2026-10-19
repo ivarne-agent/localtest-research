@@ -1,0 +1,53 @@
+﻿namespace Altinn.Platform.Events.Models
+{
+    /// <summary>
+    /// Enum for trace log activity
+    /// </summary>
+    public enum TraceLogActivity
+    {
+        /// <summary>
+        /// Event is registered 
+        /// </summary>
+        Registered,
+
+        /// <summary>
+        /// Response from post to consumer endpoint
+        /// </summary>
+        WebhookPostResponse,
+
+        /// <summary>
+        /// Trace log when is sent to outbound queue
+        /// </summary>
+        OutboundQueue,
+
+        /// <summary>
+        /// Subscriber was unauthorized for the event
+        /// </summary>
+        Unauthorized,
+
+        /// <summary>
+        /// Number of retries for the event has been reached
+        /// </summary>
+        DequeueLimitReached,
+
+        /// <summary>
+        /// Subscription is invalid
+        /// </summary>
+        InvalidSubscription,
+
+        /// <summary>
+        /// The response code is 2xx ie successful
+        /// </summary>
+        EndpointValidationSuccess,
+
+        /// <summary>
+        /// The response code implies that validation failed
+        /// </summary>
+        EndpointValidationFailed,
+
+        /// <summary>
+        /// A duplicate cloud event (matching an existing idempotency key) was detected and skipped.
+        /// </summary>
+        DuplicateIdempotencyKeySkipped,
+    }
+}

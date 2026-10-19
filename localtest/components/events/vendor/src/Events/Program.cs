@@ -1,0 +1,424 @@
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+
+using Altinn.Common.AccessToken;
+using Altinn.Common.AccessToken.Configuration;
+using Altinn.Common.AccessToken.Services;
+using Altinn.Common.AccessTokenClient.Services;
+using Altinn.Common.PEP.Authorization;
+using Altinn.Common.PEP.Clients;
+using Altinn.Common.PEP.Implementation;
+using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Events.Authorization;
+using Altinn.Platform.Events.BackgroundServices;
+using Altinn.Platform.Events.Clients;
+using Altinn.Platform.Events.Clients.Interfaces;
+using Altinn.Platform.Events.Configuration;
+using Altinn.Platform.Events.Extensions;
+using Altinn.Platform.Events.Formatters;
+using Altinn.Platform.Events.Health;
+using Altinn.Platform.Events.Middleware;
+using Altinn.Platform.Events.Repository;
+using Altinn.Platform.Events.Services;
+using Altinn.Platform.Events.Services.Interfaces;
+using Altinn.Platform.Events.Swagger;
+using Altinn.Platform.Events.Telemetry;
+using AltinnCore.Authentication.JwtCookie;
+using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.Exporter;
+using CloudNative.CloudEvents;
+using CloudNative.CloudEvents.SystemTextJson;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Npgsql;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using Yuniql.AspNetCore;
+using Yuniql.PostgreSql;
+
+ILogger logger;
+
+var builder = WebApplication.CreateBuilder(args);
+
+ConfigureWebHostCreationLogging();
+
+await SetConfigurationProviders(builder.Configuration);
+
+ConfigureApplicationLogging(builder.Logging);
+
+ConfigureServices(builder.Services, builder.Configuration);
+
+var app = builder.Build();
+
+Configure(builder.Configuration);
+
+app.Run();
+
+void ConfigureWebHostCreationLogging()
+{
+    var logFactory = LoggerFactory.Create(builder =>
+    {
+        builder
+            .AddFilter("Altinn.Platform.Events.Program", LogLevel.Debug)
+            .AddConsole();
+    });
+
+    logger = logFactory.CreateLogger<Program>();
+}
+
+async Task SetConfigurationProviders(ConfigurationManager config)
+{
+    string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
+
+    config.SetBasePath(basePath);
+    string configJsonFile1 = $"{basePath}/altinn-appsettings/altinn-dbsettings-secret.json";
+    string configJsonFile2 = $"{Directory.GetCurrentDirectory()}/appsettings.json";
+
+    if (basePath == "/")
+    {
+        configJsonFile2 = "/app/appsettings.json";
+    }
+
+    config.AddJsonFile(configJsonFile1, optional: true, reloadOnChange: true);
+
+    config.AddJsonFile(configJsonFile2, optional: false, reloadOnChange: true);
+
+    config.AddUserSecrets<Program>();
+
+    config.AddEnvironmentVariables();
+
+    var keyVaultUri = config.GetValue<string>("kvSetting:SecretUri");
+
+    if (!string.IsNullOrEmpty(keyVaultUri))
+    {
+        config.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+    }
+
+    config.AddCommandLine(args);
+}
+
+void ConfigureApplicationLogging(ILoggingBuilder logging)
+{
+    logging.AddOpenTelemetry(builder =>
+    {
+       builder.IncludeFormattedMessage = true;
+       builder.IncludeScopes = true; 
+    });
+}
+
+void ConfigureServices(IServiceCollection services, IConfiguration config)
+{
+    logger.LogInformation("Program // ConfigureServices");
+
+    services.AddOpenTelemetry()
+        .ConfigureResource(resourceBuilder => resourceBuilder.AddService(serviceName: TelemetryClient.AppName, serviceInstanceId: Environment.MachineName))
+        .WithMetrics(metrics => 
+        {
+            metrics.AddAspNetCoreInstrumentation();
+            metrics.AddMeter(
+                "Microsoft.AspNetCore.Hosting",
+                "Microsoft.AspNetCore.Server.Kestrel",
+                "System.Net.Http",
+                TelemetryClient.AppName);
+        })
+        .WithTracing(tracing => 
+        {
+            if (builder.Environment.IsDevelopment())
+            {
+                tracing.SetSampler(new AlwaysOnSampler());
+            }
+
+            tracing.AddSource(TelemetryClient.AppName);
+            tracing.AddSource("Altinn.Platform.Events.RegisteredEventsProcessingService");
+            tracing.AddAspNetCoreInstrumentation();
+
+            tracing.AddHttpClientInstrumentation();
+            tracing.AddNpgsql();
+
+            tracing.AddProcessor(new RequestFilterProcessor(new HttpContextAccessor()));
+        });
+
+    AddAzureMonitorTelemetryExporters(services, config);
+
+    services.AddSingleton<TelemetryClient>();
+
+    services.AddMemoryCache();
+    services.AddHealthChecks().AddCheck<HealthCheck>("events_health_check");
+
+    if (config.GetValue<bool>("PostgreSQLSettings:EnableDBConnection"))
+    {
+        var connectionString = string.Format(
+                config.GetValue<string>("PostgreSQLSettings:ConnectionString"),
+                config.GetValue<string>("PostgreSQLSettings:EventsDbPwd"));
+
+        services.AddHealthChecks()
+            .AddNpgSql(connectionString);
+
+        services.AddNpgsqlDataSource(connectionString, builder => builder
+                .EnableParameterLogging(true)
+                .EnableDynamicJson()
+                .ConfigureTracing(o => o
+                    .ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
+                    .ConfigureCommandFilter(cmd => true)
+                    .EnableFirstResponseEvent(false)));
+    }
+
+    services.AddWolverineServices(config, builder.Environment);
+
+    services.AddSingleton(config);
+    services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSQLSettings"));
+    services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
+    services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
+    services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<EventsOutboundSettings>(config.GetSection("EventsOutboundSettings"));
+    services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
+    services.Configure<Altinn.Common.PEP.Configuration.PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<EventsProcessingSettings>(config.GetSection("EventsProcessingSettings"));
+
+    services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
+    services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+    services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
+    services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
+    services.AddTransient<ISigningCredentialsResolver, SigningCredentialsResolver>();
+
+    services.AddHttpClient<AuthorizationApiClient>();
+
+    services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
+          .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
+          {
+              GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
+              options.JwtCookieName = generalSettings.JwtCookieName;
+              options.MetadataAddress = generalSettings.OpenIdWellKnownEndpoint;
+              options.TokenValidationParameters = new TokenValidationParameters
+              {
+                  ValidateIssuerSigningKey = true,
+                  ValidateIssuer = false,
+                  ValidateAudience = false,
+                  RequireExpirationTime = true,
+                  ValidateLifetime = true,
+                  ClockSkew = TimeSpan.Zero
+              };
+
+              if (builder.Environment.IsDevelopment())
+              {
+                  options.RequireHttpsMetadata = false;
+              }
+          });
+
+    services.AddAuthorizationBuilder()
+        .AddPolicy(AuthorizationConstants.POLICY_PUBLISH_SCOPE_OR_PLATFORM_ACCESS, policy =>
+        {
+            policy.Requirements.Add(new PublishScopeOrAccessTokenRequirement(AuthorizationConstants.SCOPE_EVENTS_PUBLISH));
+        })
+        .AddPolicy(AuthorizationConstants.POLICY_PLATFORM_ACCESS, policy => policy.Requirements.Add(new AccessTokenRequirement()))
+        .AddPolicy(AuthorizationConstants.POLICY_SCOPE_EVENTS_PUBLISH, policy => policy.Requirements.Add(new ScopeAccessRequirement(AuthorizationConstants.SCOPE_EVENTS_PUBLISH)))
+        .AddPolicy(AuthorizationConstants.POLICY_SCOPE_EVENTS_SUBSCRIBE, policy => policy.Requirements.Add(new ScopeAccessRequirement(AuthorizationConstants.SCOPE_EVENTS_SUBSCRIBE)));
+
+    services.AddControllers(opts =>
+    {
+        opts.InputFormatters.Insert(0, new CloudEventJsonInputFormatter(new JsonEventFormatter()));
+        opts.OutputFormatters.Insert(0, new CloudEventJsonOutputFormatter());
+        opts.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+    })
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
+
+    services.AddHttpClient(RegisterApiClient.HttpClientName);
+    services.AddScoped<IRegisterApiClient, RegisterApiClient>();
+    services.AddScoped<IRegisterService, CachingRegisterService>();
+    services.AddSingleton<ITraceLogService, TraceLogService>();
+    services.AddScoped<IEventsService, EventsService>();
+    services.AddScoped<IOutboundService, OutboundService>();
+    services.AddScoped<ISubscriptionService, SubscriptionService>();
+    services.AddScoped<IAppSubscriptionService, AppSubscriptionService>();
+    services.AddScoped<IGenericSubscriptionService, GenericSubscriptionService>();
+    services.AddSingleton<ICloudEventRepository, CloudEventRepository>();
+    services.AddSingleton<ISubscriptionRepository, SubscriptionRepository>();
+    services.AddSingleton<ITraceLogRepository, TraceLogRepository>();
+    services.Decorate<ISubscriptionRepository, SubscriptionRepositoryCachingDecorator>();
+    services.AddSingleton<IEventsQueueClient, EventsQueueClient>();
+    services.AddSingleton<IPDP, PDPAppSI>();
+    services.AddTransient<IAuthorizationHandler, ScopeAccessHandler>();
+    services.AddHttpClient(WebhookService.HttpClientName);
+    services.AddScoped<IWebhookService, WebhookService>();
+
+    services.AddScoped<IAuthorization, AuthorizationService>();
+    services.AddTransient<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
+
+    services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "Altinn Platform Events", Version = "v1" });
+        IncludeXmlComments(c);
+        c.EnableAnnotations();
+
+        // Adding filters to provide object examples
+        c.SchemaFilter<SchemaExampleFilter>();
+        c.RequestBodyFilter<RequestBodyExampleFilter>();
+
+        // CloudEventsSpecVersion is a complex type on the wire it is serialized as a simple string (e.g. "1.0").
+        // Map it to a plain string schema so the OpenAPI spec reflects the actual JSON shape.
+        c.MapType<CloudEventsSpecVersion>(() => new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Example = JsonValue.Create("1.0")
+        });
+
+        // CloudEventAttribute (SDK metadata describing an attribute's definition, not its value) exposes
+        // Type.ClrType, a System.Type. Left unmapped, Swashbuckle recursively generates schemas for the
+        // entire System.Reflection type graph (Type, Assembly, Module, MethodInfo, ...). Map it to a plain
+        // object schema to stop that recursion at the source.
+        c.MapType<CloudEventAttribute>(() => new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            AdditionalPropertiesAllowed = true
+        });
+
+        // ExtensionAttributes/IsValid are CloudEvents SDK-internal metadata, never part of the actual
+        // request/response payload (real extension attribute values are accessed via an indexer that
+        // Swashbuckle does not reflect over). Hide them from the public CloudEvent schema.
+        c.SchemaFilter<CloudEventMetadataSchemaFilter>();
+
+        // add JWT Authentication
+        c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            In = ParameterLocation.Header,
+            Description = "Please enter JWT token",
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            BearerFormat = "JWT",
+            Scheme = "bearer"
+        });
+
+        c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+    });
+
+    services.AddSingleton<IUnitOfWorkRepository, UnitOfWorkRepository>();
+    services.AddScoped<IRegisteredEventsProcessingService, RegisteredEventsProcessingService>();
+    services.AddHostedService<RegisteredEventsBackgroundService>();
+}
+
+void AddAzureMonitorTelemetryExporters(IServiceCollection services, IConfiguration config)
+{
+    var applicationInsightsConnectionString = config.GetValue<string>("ApplicationInsights:ConnectionString");
+
+    if (string.IsNullOrEmpty(applicationInsightsConnectionString))
+    {
+        return;
+    }
+
+    services.Configure<OpenTelemetryLoggerOptions>(logging => logging.AddAzureMonitorLogExporter(o =>
+    {
+        o.ConnectionString = applicationInsightsConnectionString;
+        o.SamplingRatio = 1.0f;
+        o.TracesPerSecond = null;
+    }));
+    services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddAzureMonitorMetricExporter(o =>
+    {
+        o.ConnectionString = applicationInsightsConnectionString;
+        o.SamplingRatio = 1.0f;
+        o.TracesPerSecond = null;
+    }));
+    services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddAzureMonitorTraceExporter(o =>
+    {
+        o.ConnectionString = applicationInsightsConnectionString;
+        o.SamplingRatio = 1.0f;
+        o.TracesPerSecond = null;
+    }));
+}
+
+void IncludeXmlComments(SwaggerGenOptions swaggerGenOptions)
+{
+    try
+    {
+        string xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        swaggerGenOptions.IncludeXmlComments(xmlPath);
+    }
+    catch (Exception e)
+    {
+        logger.LogWarning(e, "Program // Exception when attempting to include the XML comments file(s).");
+    }
+}
+
+void Configure(IConfiguration config)
+{
+    if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+    {
+        app.UseDeveloperExceptionPage();
+    }
+    else
+    {
+        app.UseExceptionHandler("/events/api/v1/error");
+    }
+
+    if (config.GetValue<bool>("PostgreSQLSettings:EnableDBConnection"))
+    {
+        ConsoleTraceService traceService = new ConsoleTraceService { IsDebugEnabled = true };
+
+        string connectionString = string.Format(
+            config.GetValue<string>("PostgreSQLSettings:AdminConnectionString"),
+            config.GetValue<string>("PostgreSQLSettings:EventsDbAdminPwd"));
+
+        app.UseYuniql(
+            new PostgreSqlDataService(traceService),
+            new PostgreSqlBulkImportService(traceService),
+            traceService,
+            new Yuniql.AspNetCore.Configuration
+            {
+                Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSQLSettings:WorkspacePath")),
+                ConnectionString = connectionString,
+                IsAutoCreateDatabase = false,
+                IsDebug = true
+            });
+    }
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    app.UseRouting();
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.UseMiddleware<EnableRequestBodyBufferingMiddleware>();
+
+    app.MapControllers();
+
+    app.MapHealthChecks("/health");
+}
+
+/// <summary>
+/// Startup class.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public sealed partial class Program
+{
+    private Program()
+    {
+    }
+}
