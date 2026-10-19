@@ -71,6 +71,13 @@ public static class LocaltestAuthenticationExtensions
                 ["OidcProviders:idporten:Scope"] = "openid",
                 ["OidcProviders:idporten:DefaultAuthenticationMethod"] = "NotDefined",
                 ["OidcProviders:idporten:ProviderClaims:0"] = "actual_iss",
+
+                // ID-porten announces RFC 9207 (authorization_response_iss_parameter_supported in its discovery) and
+                // signs id_tokens for the client, so the stricter of production's opt-in checks are on: the callback's
+                // iss is checked against the discovery issuer, and the id_token's aud and exact iss are required. The
+                // fake ID-porten satisfies both. (Production's own values for these are not public.)
+                ["OidcProviders:idporten:ValidateCallbackIssuer"] = "true",
+                ["OidcProviders:idporten:StrictIdTokenValidation"] = "true",
             }),
         });
 

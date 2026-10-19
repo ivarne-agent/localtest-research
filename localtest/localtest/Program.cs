@@ -15,6 +15,16 @@ using Microsoft.Extensions.FileProviders;
 // route table is code (PlatformRoutes) and the app routes arrive over HTTP (AppRoutes), so nothing reads files or
 // reloads. Each feature keeps its own API under localtest/api/{feature}/.
 var builder = WebApplication.CreateSlimBuilder(args);
+// One line per request at Information drowned everything else during a Cypress run; warnings and the start-up lines
+// stay. Logging__LogLevel__… in the environment still wins.
+builder.Configuration.Sources.Insert(0, new Microsoft.Extensions.Configuration.Memory.MemoryConfigurationSource
+{
+    InitialData = new Dictionary<string, string?>
+    {
+        ["Logging:LogLevel:Default"] = "Warning",
+        ["Logging:LogLevel:Microsoft.Hosting.Lifetime"] = "Information",
+    },
+});
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
     // Data element uploads; the nginx ingress allowed the same.

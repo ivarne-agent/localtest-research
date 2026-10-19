@@ -60,8 +60,13 @@ public static class IdPortenApi
             return Results.Content(PickerPage(users, hidden, level.Number, notice), "text/html; charset=utf-8");
         });
 
-        api.MapPost("/authorize", async (HttpRequest request, TestUsers testUsers, AuthorizationCodes codes, CancellationToken cancellationToken) =>
+        api.MapPost("/authorize", async (HttpRequest request, TestUsers testUsers, AuthorizationCodes codes, IdPortenSettings settings, CancellationToken cancellationToken) =>
         {
+            if (!request.HasFormContentType)
+            {
+                return Results.BadRequest("Expected a form post (application/x-www-form-urlencoded).");
+            }
+
             var form = await request.ReadFormAsync(cancellationToken);
             var state = form["state"].ToString();
             var redirectUri = form["redirect_uri"].ToString();
@@ -98,11 +103,17 @@ public static class IdPortenApi
                 NullIfEmpty(form["nonce"]),
                 NullIfEmpty(form["code_challenge"]),
                 default));
-            return Results.Redirect(QueryHelpers.AddQueryString(redirectUri, new Dictionary<string, string?> { ["code"] = code, ["state"] = state }));
+            // iss as ID-porten sends it (RFC 9207); Authentication checks it when its provider has ValidateCallbackIssuer.
+            return Results.Redirect(QueryHelpers.AddQueryString(redirectUri, new Dictionary<string, string?> { ["code"] = code, ["state"] = state, ["iss"] = settings.Issuer }));
         });
 
         api.MapPost("/token", async (HttpRequest request, AuthorizationCodes codes, [FromKeyedServices(IdPortenSettings.KeyName)] SigningKey key, IdPortenSettings settings, CancellationToken cancellationToken) =>
         {
+            if (!request.HasFormContentType)
+            {
+                return TokenError("invalid_request", "Expected a form post (application/x-www-form-urlencoded).");
+            }
+
             var form = await request.ReadFormAsync(cancellationToken);
             if (form["grant_type"] != "authorization_code")
             {

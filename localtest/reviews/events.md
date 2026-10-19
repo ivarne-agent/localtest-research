@@ -1,5 +1,7 @@
 # Events review (2026-10-20)
 
+> **Status (2026-10-20):** one change after the review: in `LocalOnly` mode webhooks to `host.docker.internal` are now delivered to the developer's machine (compose maps the name to the gateway, because podman copies the host's `/etc/hosts`); verified with a receiver on the host, which got the subscription's validation event. `localhost` still means the events container itself. The findings below are open.
+
 ## Summary
 
 The vendored tree matches upstream `Altinn/altinn-events@1a4a80c` exactly, apart from `UPSTREAM.md` and three small,

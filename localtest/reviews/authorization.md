@@ -1,5 +1,7 @@
 # Authorization (PDP) review (2026-10-20)
 
+> **Status (2026-10-20):** fixed after the review: 1 (the Dockerfile mirrors `src/apps/Altinn.Authorization/Dockerfile`: pinned digests, tzdata and krb5-libs, the non-root `dotnet` user, `/policy-store` owned by it; the shared volume was handed to uid 1000), 2 (re-pinned to `3d518103` with the other altinn-auth components; the fake now imports `Api.Contracts.Register` and `.ResourceRegistry`) and 3 (sync instructions in `UPSTREAM.md`). Verified: the authorization smoke test 30/30, the root smoke test 23/23. The rest is open.
+
 ## Summary
 
 The vendored copy matches upstream `Altinn/altinn-auth` at `392f9578` exactly. The only change is one pure

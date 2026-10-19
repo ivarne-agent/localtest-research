@@ -9,7 +9,7 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 | `vendor/` | Unmodified upstream copy except the `#if LOCALTEST` blocks listed below (`git diff` against the baseline commit shows them all) |
 | `fakes/` | Localtest composition and replacements, compiled into the host by `localtest.build.targets` |
 | `localtest.build.props` / `.targets` | Define `LOCALTEST` for the vendored projects, relax analyzers, compile `fakes/` into the host |
-| `Dockerfile` | Publishes the vendored host with the overrides; listens on 5080 |
+| `Dockerfile` | Mirrors the release image: the bake files `vendor/containers/Dockerfile.aspnet-builder`, `-runtime` and `vendor/src/apps/Altinn.AccessManagement/containers/Dockerfile.api` in order (chiseled, non-root `dotnet`, Kerberos libraries); each difference is marked `localtest:`. Listens on 5080 |
 
 ## Directive sites in `vendor/`
 

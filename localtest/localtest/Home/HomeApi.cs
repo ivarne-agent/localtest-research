@@ -30,9 +30,10 @@ public static class HomeApi
     public static void Map(WebApplication app)
     {
         RequestDelegate startPage = StartPage;
-        app.MapGet("/", startPage);
-        app.MapGet("/Home", startPage);
-        app.MapGet("/Home/Index", startPage);
+        string[] getOrHead = [HttpMethods.Get, HttpMethods.Head];
+        app.MapMethods("/", getOrHead, startPage);
+        app.MapMethods("/Home", getOrHead, startPage);
+        app.MapMethods("/Home/Index", getOrHead, startPage);
 
         app.MapGet("/Home/Localtest/Version", () => Results.Text(LocaltestApiVersion.ToString(CultureInfo.InvariantCulture), "application/json"));
 
@@ -304,7 +305,14 @@ public static class HomeApi
     /// <summary>Relative URLs and URLs on the platform origin (where the apps run too); no open redirect.</summary>
     private static bool IsOwnOrigin(string url, LocaltestSettings localtest)
     {
-        if (url.StartsWith('/') && !url.StartsWith("//", StringComparison.Ordinal) && !url.StartsWith("/\\", StringComparison.Ordinal))
+        // Browsers drop tabs and newlines from URLs and read a backslash as a slash, so "/\t/evil.example" or
+        // "/\\evil.example" would leave the origin; such URLs are refused outright.
+        if (url.Any(c => char.IsControl(c) || c == '\\'))
+        {
+            return false;
+        }
+
+        if (url.StartsWith('/') && !url.StartsWith("//", StringComparison.Ordinal))
         {
             return true;
         }

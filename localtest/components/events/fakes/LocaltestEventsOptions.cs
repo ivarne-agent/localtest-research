@@ -18,7 +18,8 @@ public sealed class LocaltestEventsOptions
 public enum WebhookDelivery
 {
     /// <summary>
-    /// Deliver to the platform host, its subdomains and single-label hosts (compose services, <c>localhost</c>);
+    /// Deliver to the platform host, its subdomains, single-label hosts (compose services, <c>localhost</c>, which is the
+    /// events container itself) and <c>host.docker.internal</c> (the developer's machine, for a receiver run there);
     /// capture every other endpoint with a synthetic <c>200</c>.
     /// </summary>
     LocalOnly,

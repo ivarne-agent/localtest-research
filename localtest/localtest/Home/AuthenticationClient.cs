@@ -11,7 +11,7 @@ namespace Localtest.Home;
 /// Production Authentication, called over HTTP from <c>/Home</c>: the browser sign-in run headlessly, and the token
 /// exchanges. Calls go straight to the component's upstream with the public <c>Host</c>, as the proxy forwards a browser's.
 /// </summary>
-public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes, LocaltestSettings localtest, AuthorizationCodes codes)
+public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten)
 {
     /// <summary>The named client: Authentication's redirects and cookies are read, not followed or stored.</summary>
     public const string HttpClientName = "localtest-authentication";
@@ -49,7 +49,9 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
             NullIfEmpty(query["nonce"]),
             NullIfEmpty(query["code_challenge"]),
             default));
-        var callback = QueryHelpers.AddQueryString(new Uri(redirectUri).PathAndQuery.TrimStart('/'), new Dictionary<string, string?> { ["code"] = code, ["state"] = query["state"] });
+        var callback = QueryHelpers.AddQueryString(
+            new Uri(redirectUri).PathAndQuery.TrimStart('/'),
+            new Dictionary<string, string?> { ["code"] = code, ["state"] = query["state"], ["iss"] = idPorten.Issuer });
         using var response = await client.SendAsync(Request(HttpMethod.Get, callback), cancellationToken);
         var setCookies = response.Headers.TryGetValues("Set-Cookie", out var values) ? values.ToArray() : [];
         var jwt = setCookies.Select(c => CookieValue(c, "AltinnStudioRuntime")).FirstOrDefault(v => !string.IsNullOrEmpty(v));

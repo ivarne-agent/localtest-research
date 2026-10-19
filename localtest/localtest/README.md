@@ -94,7 +94,7 @@ Authentication's own OIDC client and token validation run (plan:
 Both tokens carry `iss`, a pairwise `sub`, `pid` (or `urn:altinn:userid` for a self-identified test user without a
 national identity number), `acr` (level table in `IdPorten/AuthLevels.cs`, kept in step with Authentication's
 `OidcProviders:idporten:AuthLevels`), `amr: ["TestID"]`, `actual_iss`, `jti`, `iat`, `nbf`, `exp`. JWTs are written
-by hand (`IdPorten/SigningKey.cs`): the IdentityModel token libraries are not verified for Native AOT. Test users
+by hand (`Tokens/SigningKey.cs`): the IdentityModel token libraries are not verified for Native AOT. Test users
 come from the register's `register/api/localtest/test-users`, read from its upstream directly.
 
 ## Maskinporten

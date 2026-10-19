@@ -94,6 +94,7 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IO
         string platformHost = new Uri(options.Value.PlatformEndpoint).Host;
         string host = uri.Host;
         return !host.Contains('.')
+            || host.Equals("host.docker.internal", StringComparison.OrdinalIgnoreCase)
             || host.Equals(platformHost, StringComparison.OrdinalIgnoreCase)
             || host.EndsWith("." + platformHost, StringComparison.OrdinalIgnoreCase);
     }

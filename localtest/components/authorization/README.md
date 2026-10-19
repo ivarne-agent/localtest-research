@@ -13,7 +13,7 @@ components.
 | `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, profile and resource-registry PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
 | `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running compose stack (see below) |
-| `Dockerfile` | Publishes the vendored host with the overrides |
+| `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
 ## Directive site
 

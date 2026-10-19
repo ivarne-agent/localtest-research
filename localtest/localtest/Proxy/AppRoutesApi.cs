@@ -20,6 +20,11 @@ public static class AppRoutesApi
                 return Results.BadRequest("org and app must be lower-case letters, digits and hyphens");
             }
 
+            if (PlatformRoutes.IsPlatformPath($"/{org}/") || org == "localtest")
+            {
+                return Results.BadRequest($"/{org}/ belongs to the platform or the localtest app; an app route there would shadow it");
+            }
+
             if (!Uri.TryCreate(request.Upstream, UriKind.Absolute, out var upstream)
                 || (upstream.Scheme != Uri.UriSchemeHttp && upstream.Scheme != Uri.UriSchemeHttps)
                 || upstream.AbsolutePath != "/")

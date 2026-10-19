@@ -10,23 +10,23 @@ production, and findings. One file per component, newest status at the top of ea
 | Register | [`register.md`](register.md) | Reviewed and fixed 2026-10-19/20 (Dockerfile, Profile authorization, `userType` at load) |
 | Authentication | [`authentication.md`](authentication.md) | Reviewed 2026-10-19; identity fakes moved to the localtest app 2026-10-20 |
 | Localtest app | [`localtest-app.md`](localtest-app.md) | Reviewed 2026-10-20; most findings fixed the same day |
-| Authorization (PDP) | [`authorization.md`](authorization.md) | Reviewed 2026-10-20; findings open |
-| Access Management | [`access-management.md`](access-management.md) | Reviewed 2026-10-20; findings open |
-| Events | [`events.md`](events.md) | Reviewed 2026-10-20; findings open |
+| Authorization (PDP) | [`authorization.md`](authorization.md) | Reviewed 2026-10-20; Dockerfile, re-pin and sync instructions fixed |
+| Access Management | [`access-management.md`](access-management.md) | Reviewed 2026-10-20; Dockerfile (release image), re-pin and sync instructions fixed |
+| Events | [`events.md`](events.md) | Reviewed 2026-10-20; findings open (webhooks to `host.docker.internal` now delivered) |
 | Workflow engine and PDF | [`workflow-engine.md`](workflow-engine.md) | Reviewed 2026-10-20; findings open |
 
 ## Across components
 
-- **Dockerfiles.** Storage, Register and Authentication mirror upstream's Dockerfile (pinned digests, non-root user,
-  the same steps; deviations marked `localtest:`). Authorization, Access Management and Events do not yet; they run as
-  root on unpinned tags. Authorization and Access Management share the `policy-store` volume and must switch to the
-  non-root user together. For Access Management, CI and releases build through `docker-bake.hcl` and the shared
-  `containers/` files (not vendored); at the pin they have the same content as the app folder's Dockerfile.
+- **Dockerfiles.** Storage, Register, Authentication, Authorization and Access Management mirror the upstream image
+  definition (pinned digests, non-root user, the same steps; deviations marked `localtest:`); for Access Management
+  that is the release image built through `docker-bake.hcl` from the shared `containers/` files. Events and the
+  workflow engine do not yet.
+
 - **HEALTHCHECK** lines are dead everywhere: podman builds OCI images, which drop them. Health checks are left for the
   studioctl integration.
 - **Re-pinning.** Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and
-  share libraries; re-pin them together. Upstream `8509a47b4` moves types the Authorization fakes import.
-- **Sync instructions** (`vendor/UPSTREAM.md`) exist for Storage, Register and Authentication; the others need them.
+  share libraries; they were re-pinned together to `3d518103` on 2026-10-20 with `../tools/repin-vendor.py`.
+- **Sync instructions** (`vendor/UPSTREAM.md`) exist for Storage, Register and the three altinn-auth components; Events and the workflow engine need them.
 - **`ASPNETCORE_ENVIRONMENT=Development`** everywhere, for http metadata and local queues: developer exception pages,
   Debug logging (very noisy in Authorization and Events), Swagger.
 - **Internet.** Authentication's `exchange/maskinporten` (org code), Storage's Studio and metrics endpoints and pdf3's

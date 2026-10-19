@@ -90,6 +90,9 @@ public sealed class PlatformRoutes
         return null;
     }
 
+    /// <summary>True when a platform route owns the path.</summary>
+    public static bool IsPlatformPath(string path) => Prefixes.Any(p => path.StartsWith(p.Prefix, StringComparison.Ordinal));
+
     /// <summary>True when the path is a platform prefix without its trailing slash (<c>/storage</c>), which nginx redirected.</summary>
     public static bool IsPrefixWithoutSlash(string path)
         => Prefixes.Any(p => string.Equals(p.Prefix, path + "/", StringComparison.Ordinal));

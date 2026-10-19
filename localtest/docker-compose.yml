@@ -156,6 +156,11 @@ services:
   # events/api/v1/app, webhooks inside the stack are delivered, others captured; events/api/localtest/ shows it all.
   events:
     <<: *platform-host
+    # Webhooks to host.docker.internal reach the developer's machine; podman copies the host's /etc/hosts, where the
+    # name may be 127.0.0.1, so it is set to the gateway here (with the platform host, which the list replaces).
+    extra_hosts:
+      - "local.altinn.cloud:10.200.0.10"
+      - "host.docker.internal:host-gateway"
     build: ./components/events
     image: localhost/localtest-events:dev
     environment:
