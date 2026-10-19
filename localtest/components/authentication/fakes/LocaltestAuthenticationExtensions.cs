@@ -22,7 +22,7 @@ namespace Altinn.Platform.Authentication.Localtest;
 /// Localtest composition for the vendored Authentication host, called from the single <c>#if LOCALTEST</c> block in
 /// <c>AuthenticationHost.cs</c>, placed just before the persistence layer: its settings are read eagerly there, and its
 /// repositories use TryAdd, so registering the in-memory ones first is enough. Replaces the upstream provider with the picker,
-/// Profile with the register seed, Postgres with memory, and Key Vault with a local key.
+/// Postgres with memory, and Key Vault with a local key. Profile is the production client, answered by the register component.
 /// </summary>
 public static class LocaltestAuthenticationExtensions
 {
@@ -34,21 +34,25 @@ public static class LocaltestAuthenticationExtensions
         var authn = platform + "authentication/api/v1/";
 
         // URLs the browser follows use the public platform endpoint; calls this service makes itself use the
-        // internal one (in compose the ingress's service name, because containers may resolve the public host
+        // internal one (in compose possibly the localtest app's service name, because containers may resolve the public host
         // name to themselves). They are the same when running on one machine without containers.
         var internalPlatform = (builder.Configuration["Localtest:Authentication:InternalPlatformEndpoint"] is { Length: > 0 } internalConfigured
             ? internalConfigured
             : platform).TrimEnd('/') + "/";
         var internalAuthn = internalPlatform + "authentication/api/v1/";
+        var profile = builder.Configuration["Localtest:Authentication:ProfileEndpoint"] is { Length: > 0 } profileConfigured
+            ? profileConfigured.TrimEnd('/') + "/"
+            : internalPlatform + "profile/api/v1/";
 
         // Lowest-priority defaults; environment variables and appsettings still win. Provider settings are bound
-        // lazily through options, so adding them here, after the production registrations, is in time.
+        // lazily through options, so adding them here, after the production registrations, is in time. AltinnHost has
+        // read its own settings by now, so ServiceDefaults runs in environment UNKNOWN; LOCAL is not wanted (it would
+        // fetch platform tokens from the remote test token generator).
         builder.Configuration.Sources.Insert(0, new MemoryConfigurationSource
         {
             // The level table covers the old localtest's levels 0-4 (LocaltestAuthLevels).
             InitialData = LocaltestAuthLevels.ConfigurationDefaults("OidcProviders:idporten:AuthLevels").Concat(new Dictionary<string, string?>
             {
-                ["Altinn:LocalDev"] = "true",
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["GeneralSettings:OidcRefreshTokenPepper"] = "localtest-pepper",
                 ["Localtest:Authentication:RegisterLocaltestEndpoint"] = internalPlatform + "register/api/localtest/",
@@ -74,7 +78,7 @@ public static class LocaltestAuthenticationExtensions
             ["FeatureManagement:AuditLog"] = "false",
             ["kvSetting:SecretUri"] = string.Empty,
             ["PlatformSettings:ApiNotificationsEndpoint"] = internalPlatform + "notifications/api/v1/",
-            ["PlatformSettings:ApiProfileEndpoint"] = internalPlatform + "profile/api/v1/",
+            ["PlatformSettings:ApiProfileEndpoint"] = profile,
             ["PlatformSettings:ApiResourceRegistryEndpoint"] = internalPlatform + "resourceregistry/api/v1/",
             ["PlatformSettings:ApiRegisterInternalEndpoint"] = internalPlatform + "register/api/v2/internal/",
             ["PlatformSettings:ApiRegisterEndpoint"] = internalPlatform + "register/api/v1/",
@@ -100,10 +104,9 @@ public static class LocaltestAuthenticationExtensions
         Replace<IOidcProvider, LocaltestOidcProvider>(services);
         Replace<IUpstreamTokenValidator, LocaltestUpstreamTokenValidator>(services);
 
-        // Profile lookup from the register seed instead of the Profile service.
+        // Test users for the picker and the /Home endpoints. Profile itself is the production ProfileService: the
+        // register component answers Profile's internal/user (PlatformSettings:ApiProfileEndpoint below).
         services.AddHttpClient<RegisterLocaltestClient>();
-        services.RemoveAll<IProfile>();
-        services.AddSingleton<IProfile, LocaltestProfile>();
 
         // Keys: no Key Vault, http metadata allowed.
         services.AddSingleton<LocaltestSigningKeys>();

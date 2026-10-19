@@ -1,14 +1,15 @@
 # authentication
 
 Production Altinn Authentication (`vendor/`, see `UPSTREAM.md`) with the upstream identity provider replaced by a
-test-user picker, Profile replaced by the register seed, Postgres replaced by memory and Key Vault by a local key.
+test-user picker, Postgres replaced by memory and Key Vault by a local key. Profile lookups use the production client
+against the register component, which answers Profile's `internal/user`.
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them) |
+| `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): picker and start page, headless sign-in, fake upstream provider and validator, Profile over the register seed, in-memory repositories, local signing key, token endpoints, DI composition |
-| `Dockerfile` | Publishes the vendored host with the overrides |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): picker and start page, headless sign-in, fake upstream provider and validator, in-memory repositories, local signing key, token endpoints, DI composition |
+| `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
 Directive sites in `vendor/`:
 
@@ -21,7 +22,7 @@ How a login works: production `authentication?goTo=` redirects to the configured
 which is the picker page in this host (`authentication/api/v1/localtest/login`). Submitting it issues a one-time code
 and sends the browser to the production `upstream/callback`; the fake `IOidcProvider` turns the code into an id_token
 for the picked user, the fake `IUpstreamTokenValidator` reads it, and production `GetUserFromToken`, Profile lookup
-(fake, from the register seed), session creation, cookie JWT and cookies run unchanged. The picker offers each user's
+(production `ProfileService`, answered by the register component), session creation, cookie JWT and cookies run unchanged. The picker offers each user's
 own party only, because the production callback sets the party cookies; the app's party selection does the rest.
 
 The old localtest's login contract (what the app-frontend Cypress suite, app-lib and developers use), in
@@ -68,6 +69,7 @@ export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsP
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:8000 \
   GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/ \
   Localtest__Authentication__RegisterLocaltestEndpoint=http://127.0.0.1:5020/register/api/localtest/ \
+  Localtest__Authentication__ProfileEndpoint=http://127.0.0.1:5020/profile/api/v1/ \
   dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication
 open 'http://local.altinn.cloud:8000/authentication/api/v1/authentication?goTo=http://local.altinn.cloud:8000/ttd/app/'
 BASE=http://local.altinn.cloud:8000 ./smoke-test.sh

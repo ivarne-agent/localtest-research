@@ -9,9 +9,15 @@ public sealed class LocaltestAuthenticationOptions
 
     /// <summary>
     /// Base URL this service uses for its own platform calls (openid metadata, register, Maskinporten metadata).
-    /// Defaults to <c>GeneralSettings:PlatformEndpoint</c>; in compose it is the ingress service name.
+    /// Defaults to <c>GeneralSettings:PlatformEndpoint</c>; in compose it is the localtest app's service name.
     /// </summary>
     public string? InternalPlatformEndpoint { get; set; }
+
+    /// <summary>
+    /// Base URL of the Profile API the production <c>ProfileService</c> calls (<c>internal/user</c>), answered by the
+    /// register component. Defaults to <c>{InternalPlatformEndpoint}profile/api/v1/</c>.
+    /// </summary>
+    public string? ProfileEndpoint { get; set; }
 
     /// <summary>The acr the picker preselects when the app did not ask for a level.</summary>
     public string DefaultAcr { get; set; } = "idporten-loa-substantial";
