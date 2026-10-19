@@ -1,7 +1,7 @@
 # Vendored copy of Altinn/altinn-auth (Access Management)
 
 - Repository: https://github.com/Altinn/altinn-auth
-- Commit: [`392f9578d925b947331a1e90fb609c031654d3d2`](https://github.com/Altinn/altinn-auth/tree/392f9578d925b947331a1e90fb609c031654d3d2) (main, 2026-10-16)
+- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19), re-pinned from `392f9578` on 2026-10-20 together with the other altinn-auth components
 - Copied paths, relative layout preserved:
   - `src/apps/Altinn.AccessManagement/` (host, API projects, Core, Integration, Persistence, PersistenceEF, AppHost
     and tests; AppHost is never built here)
@@ -12,5 +12,23 @@
   - build files on the path from the repository root: `.editorconfig`, `global.json`, `src/Directory.Build.props`,
     `src/Directory.Build.targets`, `src/Directory.Packages.props`, `src/Altinn.ruleset`, `src/Stylecop.json`, and the
     `Directory.Build.*`, `Directory.Packages.props` and `README.md` files in `src/apps/`, `src/libs/` and `src/pkgs/`.
+  - `containers/Dockerfile.aspnet-builder` and `containers/Dockerfile.aspnet-runtime` (added 2026-10-20): the shared
+    build and runtime images `docker-bake.hcl` builds Access Management's release image with, for reference.
 - Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
+
+## Syncing to a newer upstream commit
+
+Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and share libraries
+(`Api.Contracts`, `ABAC`, `PEP`), so re-pin all three together.
+
+1. In a clone of `Altinn/altinn-auth` with both commits, re-pin with the shared script, which takes upstream's new
+   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
+   deletes files, and reports conflicts:
+   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.AccessManagement src/libs/Altinn.Authorization.Api.Contracts src/libs/Altinn.Authorization.Host src/libs/Altinn.Authorization.Integration src/pkgs/Altinn.Authorization.ABAC src/pkgs/Altinn.Authorization.PEP containers/Dockerfile.aspnet-builder containers/Dockerfile.aspnet-runtime <build files>`.
+2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
+   `UPSTREAM.md` and the files with `LOCALTEST` sites (`src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs` and `AccessManagementHost.cs`) may differ.
+3. **Keep `../Dockerfile` as equal to the release image as possible.** Access Management is released through `src/apps/Altinn.AccessManagement/docker-bake.hcl`: `containers/Dockerfile.api` in the app folder over the named contexts `aspnet-builder` and `aspnet-runtime` (the vendored `containers/` files). `../Dockerfile` is those three files in order, with the context names as stage names, and every deviation is marked `localtest:`. When `git diff <pin> <new> -- containers src/apps/Altinn.AccessManagement/containers src/apps/Altinn.AccessManagement/docker-bake.hcl` shows a change, make the same change in `../Dockerfile`. The app folder's own `Dockerfile` is only used by the manually run `publish-flux-artifacts.yml`.
+4. Fix the localtest code (`../fakes/`, the overrides) for upstream's moves and renames, update the commit line above,
+   build the image (`podman build -t localtest-access-management:dev ..`) and run the smoke tests. Commit the re-pin of the
+   vendored files on its own, separate from localtest changes.

@@ -1,7 +1,7 @@
 # Vendored copy of Altinn/altinn-auth (Authentication)
 
 - Repository: https://github.com/Altinn/altinn-auth
-- Commit: [`392f9578d925b947331a1e90fb609c031654d3d2`](https://github.com/Altinn/altinn-auth/tree/392f9578d925b947331a1e90fb609c031654d3d2) (main, 2026-10-16)
+- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19), re-pinned from `392f9578` on 2026-10-20 together with the other altinn-auth components
 - Copied paths, relative layout preserved: `src/apps/Altinn.Authentication/`, `src/pkgs/JWTCookieAuthentication/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
   `.editorconfig`, `global.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`
@@ -11,6 +11,10 @@
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first.
 
 ## Syncing to a newer upstream commit
+
+Authentication, Authorization and Access Management vendor the same commit; re-pin all three together.
+`../../tools/repin-vendor.py <clone> <pin> <new> vendor <paths>` does steps 1 and 2 (it three-way merges
+the files with `LOCALTEST` sites and reports conflicts).
 
 1. In a clone of `Altinn/altinn-auth`, list what changed in the copied paths since the pin. The build files to
    include are `.editorconfig`, `global.json` and the `Directory.Build.*` / `Directory.Packages.props` files that

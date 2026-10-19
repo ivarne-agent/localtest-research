@@ -1,7 +1,7 @@
 # Vendored copy of Altinn/altinn-auth (Authorization PDP)
 
 - Repository: https://github.com/Altinn/altinn-auth
-- Commit: [`392f9578d925b947331a1e90fb609c031654d3d2`](https://github.com/Altinn/altinn-auth/tree/392f9578d925b947331a1e90fb609c031654d3d2) (main, 2026-10-16)
+- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19), re-pinned from `392f9578` on 2026-10-20 together with the other altinn-auth components
 - Copied paths, relative layout preserved:
   - `src/apps/Altinn.Authorization/` (the PDP host and its tests)
   - `src/libs/Altinn.Authorization.Api.Contracts/` (project reference from the host, not on NuGet)
@@ -13,3 +13,19 @@
     and `src/pkgs/README.md` (package readme fallback).
 - Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
+
+## Syncing to a newer upstream commit
+
+Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and share libraries
+(`Api.Contracts`, `ABAC`, `PEP`), so re-pin all three together.
+
+1. In a clone of `Altinn/altinn-auth` with both commits, re-pin with the shared script, which takes upstream's new
+   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
+   deletes files, and reports conflicts:
+   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.Authorization src/libs/Altinn.Authorization.Api.Contracts src/pkgs/Altinn.Authorization.ABAC src/pkgs/Altinn.Authorization.PEP <build files>`.
+2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
+   `UPSTREAM.md` and `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` may differ.
+3. **Keep `../Dockerfile` as equal to `src/apps/Altinn.Authorization/Dockerfile` as possible.** It mirrors that file line for line (base images and digests, publish, tzdata and krb5-libs, the `dotnet` user), and every deviation is marked `localtest:`. When `git diff <pin> <new> -- src/apps/Altinn.Authorization/Dockerfile` shows a change, make the same change in `../Dockerfile`. (`docker-bake.hcl` has an empty default group at the 2026-10-19 pin, so nothing is released from it.)
+4. Fix the localtest code (`../fakes/`, the overrides) for upstream's moves and renames, update the commit line above,
+   build the image (`podman build -t localtest-authorization:dev ..`) and run the smoke tests. Commit the re-pin of the
+   vendored files on its own, separate from localtest changes.
