@@ -10,6 +10,9 @@ public sealed class LocaltestEventsOptions
 
     /// <summary>Which webhook POSTs leave the container. See <see cref="WebhookDelivery"/>.</summary>
     public WebhookDelivery Delivery { get; set; } = WebhookDelivery.LocalOnly;
+
+    /// <summary>Empty every eventsdb data table when the component starts (<c>fakes/Startup/reset-on-start.sql</c>).</summary>
+    public bool ResetOnStart { get; set; } = true;
 }
 
 public enum WebhookDelivery

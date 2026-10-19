@@ -9,9 +9,10 @@ Runtime behaviour inferred from code is marked "not confirmed".
 > **Status 2026-10-19: built** as [`localtest/components/events`](../localtest/components/events/README.md), vendored at
 > `1a4a80c` (one documentation commit after the pin below). Differences from this plan:
 >
-> - **No Postgres**: at the product owner's request the database is an in-memory store with repositories that follow
->   the production SQL, behind `PostgreSQLSettings:EnableDBConnection=false`. The init script, the `eventsdb` roles and
->   the `trace_log` partition service below are not needed.
+> - **Postgres as planned, emptied on every start**: the production repositories and migrations run on the shared
+>   server. A startup step adds the `trace_log` year partitions and the localtest delivery table, then truncates the
+>   data tables (product owner's choice: captures do not survive a restart, open question 7). A first version kept the
+>   database in memory; it was replaced, because reimplementing the production SQL is the largest fake and drifts.
 > - **Wolverine local routing works** (risk 1): the production bus publishers reach the production handlers in-process,
 >   and the production retry policies attach through `services.ConfigureWolverine`.
 > - **Register main units work** (risk 2) once outgoing platform tokens can be signed: Events never binds the client

@@ -4,7 +4,7 @@ Research date 2026-10-18. This combines five reports written the same day and re
 
 | Report | Verdict | Effort |
 | --- | --- | --- |
-| [`events-vendoring.md`](events-vendoring.md) (built 2026-10-19, in-memory database) | Vendor production Events. Service Bus off through Wolverine flags, 3 directive sites, webhooks inside the stack delivered, external ones captured | 3–4 days |
+| [`events-vendoring.md`](events-vendoring.md) (built 2026-10-19, shared Postgres, emptied on start) | Vendor production Events. Service Bus off through Wolverine flags, 3 directive sites, webhooks inside the stack delivered, external ones captured | 3–4 days |
 | [`notifications-vendoring.md`](notifications-vendoring.md) | Vendor the API, e-mail and SMS hosts as one component. Service Bus replaced by Wolverine's Postgres transport (spike first), capture sinks at the e-mail and SMS provider interfaces | 6–9 days |
 | [`correspondence-vendoring.md`](correspondence-vendoring.md) | Vendor production Correspondence. Upstream's own Dev clients for absent neighbours, 2 directive sites | 2–3 days, plus resources |
 | [`dialogporten-arbeidsflate.md`](dialogporten-arbeidsflate.md) | Include Dialogporten and the Altinn adapter, then Arbeidsflate as an opt-in profile. Arbeidsflate already logs in through Altinn Authentication's OIDC endpoints | about 3–4 weeks with prerequisites |

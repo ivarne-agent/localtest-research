@@ -7,8 +7,9 @@ using Altinn.Platform.Events.Clients.Interfaces;
 using Altinn.Platform.Events.Configuration;
 using Altinn.Platform.Events.Localtest.Auth;
 using Altinn.Platform.Events.Localtest.Delivery;
-using Altinn.Platform.Events.Localtest.Persistence;
+using Altinn.Platform.Events.Localtest.Changes;
 using Altinn.Platform.Events.Localtest.Queues;
+using Altinn.Platform.Events.Localtest.Startup;
 using Altinn.Platform.Events.Repository;
 using Altinn.Platform.Events.Services;
 using Altinn.Platform.Events.Wolverine.Policies;
@@ -19,6 +20,7 @@ using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Wolverine;
 
 namespace Altinn.Platform.Events.Localtest;
@@ -26,11 +28,11 @@ namespace Altinn.Platform.Events.Localtest;
 /// <summary>
 /// Localtest composition for the vendored Events host, called from the two <c>LOCALTEST</c> blocks in
 /// <c>Program.cs</c>. <see cref="AddLocaltestConfiguration"/> runs before any setting is read and turns off
-/// everything Azure (Key Vault, Service Bus, Application Insights) and Postgres. <see cref="AddLocaltestEvents"/> runs
-/// after the production registrations and replaces the repositories with in-memory ones, the Storage Queue
-/// publishers with the production in-process bus publishers, and the Key Vault keys with the shared test certificate.
-/// The pipeline itself (controllers, services, Wolverine handlers, the claim loop, PDP and Register calls, webhook
-/// delivery) is production code.
+/// everything Azure (Key Vault, Service Bus, Application Insights). <see cref="AddLocaltestEvents"/> runs after the
+/// production registrations and replaces the Storage Queue publishers with the production in-process bus publishers
+/// and the Key Vault keys with the shared test certificate, and adds the localtest startup scripts, the webhook
+/// capture and the inspection API. The pipeline itself (controllers, services, Wolverine handlers, the claim loop, the
+/// Postgres repositories and migrations, PDP and Register calls, webhook delivery) is production code.
 /// </summary>
 public static class LocaltestEventsExtensions
 {
@@ -82,13 +84,11 @@ public static class LocaltestEventsExtensions
             config.Sources.Add(source);
         }
 
-        // Settings that cannot be anything else without Azure and Postgres: forced over appsettings and the environment.
+        // Settings that cannot be anything else without Azure: forced over appsettings and the environment.
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["kvSetting:SecretUri"] = string.Empty,
             ["ApplicationInsights:ConnectionString"] = string.Empty,
-            // No Npgsql data source, no Npgsql health check, no Yuniql migrations: the repositories are in memory.
-            ["PostgreSQLSettings:EnableDBConnection"] = "false",
             // No Service Bus transport: Wolverine routes the commands to the API's own handlers on local queues.
             ["WolverineSettings:EnableRegistrationPublisher"] = "false",
             ["WolverineSettings:EnableValidationPublisher"] = "false",
@@ -105,21 +105,18 @@ public static class LocaltestEventsExtensions
         var config = builder.Configuration;
         services.Configure<LocaltestEventsOptions>(config.GetSection("Localtest:Events"));
 
-        // Persistence: eventsdb in memory. The production caching decorator is put back around the subscriptions.
-        services.AddSingleton<LocaltestEventsStore>();
-        services.RemoveAll<IUnitOfWorkRepository>();
-        services.AddSingleton<InMemoryUnitOfWorkRepository>();
-        services.AddSingleton<IUnitOfWorkRepository>(sp => sp.GetRequiredService<InMemoryUnitOfWorkRepository>());
-        Replace<ICloudEventRepository, InMemoryCloudEventRepository>(services);
-        Replace<ITraceLogRepository, InMemoryTraceLogRepository>(services);
-        // Scrutor keeps the decorated production repository as a keyed registration, which RemoveAll leaves alone.
-        foreach (var descriptor in services.Where(d => d.ServiceType == typeof(ISubscriptionRepository)).ToList())
-        {
-            services.Remove(descriptor);
-        }
+        // Postgres: the production repositories on the shared server. Before anything starts, the localtest startup
+        // scripts add the next trace log partition and the delivery table, and empty the tables (ResetOnStart).
+        services.AddSingleton<LocaltestAdminDatabase>();
+        services.AddSingleton<IHostedService, LocaltestDatabaseStartup>();
 
-        services.AddSingleton<ISubscriptionRepository, InMemorySubscriptionRepository>();
-        services.Decorate<ISubscriptionRepository, SubscriptionRepositoryCachingDecorator>();
+        // Change notifications for the inspection stream, raised after the production repositories have written.
+        services.AddSingleton<LocaltestChanges>();
+        services.AddSingleton<ClaimedEvents>();
+        services.Decorate<ICloudEventRepository, NotifyingCloudEventRepository>();
+        services.Decorate<IUnitOfWorkRepository, NotifyingUnitOfWorkRepository>();
+        services.Decorate<ITraceLogRepository, NotifyingTraceLogRepository>();
+        services.Decorate<ISubscriptionRepository, NotifyingSubscriptionRepository>();
 
         // Messaging: with every Service Bus flag off, production picks the legacy Storage Queue publishers. The bus
         // publishers send to Wolverine instead, whose default local routing hands the commands to the production
@@ -145,6 +142,7 @@ public static class LocaltestEventsExtensions
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
 
         // Webhooks: every POST is recorded; endpoints outside the stack are answered locally (LocaltestEventsOptions.Delivery).
+        services.AddSingleton<LocaltestDeliveryLog>();
         services.AddTransient<LocaltestWebhookDeliveryHandler>();
         services.AddHttpClient(WebhookService.HttpClientName).AddHttpMessageHandler<LocaltestWebhookDeliveryHandler>();
 

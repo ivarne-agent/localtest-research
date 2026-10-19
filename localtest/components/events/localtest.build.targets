@@ -12,5 +12,7 @@
   -->
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Platform.Events'">
     <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+    <!-- The startup SQL the localtest database step runs (fakes/Startup/*.sql), read as Localtest.{name}.sql. -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)fakes/**/*.sql" LinkBase="Localtest" LogicalName="Localtest.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

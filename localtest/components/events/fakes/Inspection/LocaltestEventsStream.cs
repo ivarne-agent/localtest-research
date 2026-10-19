@@ -2,18 +2,18 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
-using Altinn.Platform.Events.Localtest.Persistence;
+using Altinn.Platform.Events.Localtest.Changes;
 
 namespace Altinn.Platform.Events.Localtest.Inspection;
 
-/// <summary>Fans the store's changes out to every open <c>events/api/localtest/stream</c> connection.</summary>
+/// <summary>Fans <see cref="LocaltestChanges"/> out to every open <c>events/api/localtest/stream</c> connection.</summary>
 public sealed class LocaltestEventsStream
 {
     private readonly ConcurrentDictionary<Guid, Channel<LocaltestChange>> _listeners = new();
 
-    public LocaltestEventsStream(LocaltestEventsStore store)
+    public LocaltestEventsStream(LocaltestChanges changes)
     {
-        store.Changed += change =>
+        changes.Changed += change =>
         {
             foreach (var listener in _listeners.Values)
             {

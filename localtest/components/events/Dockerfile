@@ -12,7 +12,8 @@ RUN dotnet publish vendor/src/Events/Altinn.Platform.Events.csproj -c Release -o
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app
 COPY --from=build /app .
-# No Migration/ folder: the repositories are in memory (fakes/Persistence), so Postgres and Yuniql are switched off.
+# Yuniql runs the production migrations from ./Migration at startup (upstream copies the folder the same way).
+COPY vendor/src/Events/Migration ./Migration
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5080
 EXPOSE 5080

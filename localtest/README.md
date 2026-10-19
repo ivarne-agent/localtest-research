@@ -12,12 +12,12 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/authorization/` | Production PDP with app policies in the policy store shared with Access Management; roles, access packages, delegations and authorized parties from Access Management |
 | `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, serves the PDP's PIP and authorized parties |
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
-| `components/events/` | Production Events with its database in memory: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
+| `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
 | `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, one drop-in route per app started with `run-app.sh` (`ingress/app-routes/`), 404 for any app path without a route, Secure cookie flag removed |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the ingress has a fixed address that every component maps `local.altinn.cloud` to |
+| `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the ingress has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
 | `smoke-test.sh` | End-to-end check of the running stack through the ingress |
@@ -55,6 +55,10 @@ open 'http://local.altinn.cloud:8000/ttd/frontend-test/'
 `run-app.sh <app-dir> [port]` builds the app, starts it on the given port with platform URLs pointing at the stack,
 writes its ingress route, and performs the pushes above. Its log is `.run/<org>-<app>.log`. Each app needs its own
 port; `./stop-apps.sh` stops them all and removes their routes.
+
+A component added after the Postgres volume was created needs its database created by hand, because Postgres runs
+init scripts only on an empty volume. Each init script is idempotent, for example
+`podman exec -i localtest_postgres_1 sh < components/events/postgres-init/30-events.sh`.
 
 To swap in a rebuilt image: `podman build -t localhost/localtest-<name>:dev components/<name>`, then recreate the
 container. A component other services depend on (the PDP, for example) is only replaced by `podman-compose down` and

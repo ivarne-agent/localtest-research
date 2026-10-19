@@ -8,18 +8,18 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Events.Localtest.Persistence;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Events.Localtest.Delivery;
 
 /// <summary>
 /// Sits on the production named client <c>WebhookService</c>, which sends every event delivery and every subscription
-/// validation. Records each POST in <see cref="LocaltestEventsStore"/>, and either lets it through or answers it
+/// validation. Records each POST, and either lets it through or answers it
 /// itself with a synthetic <c>200</c> (header <c>X-Localtest-Captured: true</c>), so no event leaves the stack. The
 /// production <c>WebhookService</c>, its trace log entries and the retry handling see an ordinary response.
+/// Records go to <c>localtest.delivery</c> in eventsdb through <see cref="LocaltestDeliveryLog"/>.
 /// </summary>
-public sealed class LocaltestWebhookDeliveryHandler(LocaltestEventsStore store, IOptions<LocaltestEventsOptions> options) : DelegatingHandler
+public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IOptions<LocaltestEventsOptions> options) : DelegatingHandler
 {
     private const int MaxRecordedResponseBody = 4096;
     private const string ValidationType = "platform.events.validatesubscription";
@@ -34,9 +34,7 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestEventsStore store, 
         bool deliver = ShouldDeliver(request.RequestUri);
         var stopwatch = Stopwatch.StartNew();
 
-        StoredDelivery Record(long id, int? status, string? responseBody, string? error) => new(
-            id,
-            DateTimeOffset.UtcNow,
+        DeliveryRecord Record(int? status, string? responseBody, string? error) => new(
             eventId,
             eventType,
             eventType == ValidationType ? "validation" : "event",
@@ -51,28 +49,31 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestEventsStore store, 
 
         if (!deliver)
         {
-            store.InsertDelivery(id => Record(id, (int)HttpStatusCode.OK, null, null));
+            await log.Record(Record((int)HttpStatusCode.OK, null, null), cancellationToken);
             var captured = new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new StringContent(string.Empty) };
             captured.Headers.Add("X-Localtest-Captured", "true");
             return captured;
         }
 
+        HttpResponseMessage response;
         try
         {
-            var response = await base.SendAsync(request, cancellationToken);
-            string responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);
-            store.InsertDelivery(id => Record(
-                id,
-                (int)response.StatusCode,
-                responseBody.Length > MaxRecordedResponseBody ? responseBody[..MaxRecordedResponseBody] : responseBody,
-                null));
-            return response;
+            response = await base.SendAsync(request, cancellationToken);
         }
         catch (Exception e)
         {
-            store.InsertDelivery(id => Record(id, null, null, $"{e.GetType().Name}: {e.Message}"));
+            await log.Record(Record(null, null, $"{e.GetType().Name}: {e.Message}"), CancellationToken.None);
             throw;
         }
+
+        string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (responseBody.Length > MaxRecordedResponseBody)
+        {
+            responseBody = responseBody[..MaxRecordedResponseBody];
+        }
+
+        await log.Record(Record((int)response.StatusCode, responseBody, null), cancellationToken);
+        return response;
     }
 
     private bool ShouldDeliver(Uri? uri)

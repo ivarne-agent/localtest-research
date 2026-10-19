@@ -129,6 +129,7 @@ services:
       - ./components/storage/postgres-init/10-storage.sh:/docker-entrypoint-initdb.d/10-storage.sh:ro
       - ./components/storage/vendor/infra/postgres_init.sql:/storage-init/postgres_init.sql:ro
       - ./postgres-init/20-workflow-engine.sh:/docker-entrypoint-initdb.d/20-workflow-engine.sh:ro
+      - ./components/events/postgres-init/30-events.sh:/docker-entrypoint-initdb.d/30-events.sh:ro
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "storagedb"]
@@ -151,7 +152,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Production Altinn Events with its database in memory (components/events/fakes/Persistence): apps publish to
+  # Production Altinn Events on the shared Postgres (database eventsdb, emptied on every start): apps publish to
   # events/api/v1/app, webhooks inside the stack are delivered, others captured; events/api/localtest/ shows it all.
   events:
     <<: *platform-host
@@ -160,14 +161,20 @@ services:
     environment:
       <<: *access-token-cert
       Localtest__Events__PlatformEndpoint: http://local.altinn.cloud:8000/
+      PostgreSQLSettings__AdminConnectionString: Host=postgres;Port=5432;Username=platform_events_admin;Password={0};Database=eventsdb
+      PostgreSQLSettings__ConnectionString: Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True
     volumes:
       - ./certs:/certs:ro
       # Events never binds AccessTokenSettings for its outgoing platform tokens (to Register), so the production
       # SigningCredentialsResolver reads its default path, ../accesstoken/accesstokencredentials.pfx from /app.
       - ./certs/localtest-accesstoken.pfx:/accesstoken/accesstokencredentials.pfx:ro
     depends_on:
-      - register
-      - authorization
+      postgres:
+        condition: service_healthy
+      register:
+        condition: service_started
+      authorization:
+        condition: service_started
 
   # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), image built by studioctl dev mode as
   # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the ingress.
