@@ -38,6 +38,9 @@ Rules:
   now) are fake-only folders with their own small project and Dockerfile, in the same layout minus `vendor/`.
   They are written fresh; the current localtest source is not copied, only consulted for the behaviours apps rely on.
 - Upstream csproj files are never edited. The props and targets files do the overriding (next section).
+- A vendored component's Dockerfile mirrors the upstream Dockerfile (same pinned base images, build steps and runtime
+  user); every difference is a line marked `localtest:`, and a sync carries upstream Dockerfile changes over
+  (rule added 2026-10-19; storage and workflow-engine follow it, see `localtest/components/storage/vendor/UPSTREAM.md`).
 
 ## Build mechanics (verified in a scratch project today)
 

@@ -6,9 +6,11 @@
   -->
   <PropertyGroup>
     <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+    <!-- Empty in the image, which (like upstream's) leaves vendor/Directory.Build.props out of the build. -->
+    <LocaltestVendoredBuildProps Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildProps>
   </PropertyGroup>
 
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+  <Import Project="$(LocaltestVendoredBuildProps)" Condition="'$(LocaltestVendoredBuildProps)' != '' And Exists('$(LocaltestVendoredBuildProps)')" />
 
   <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
     <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>

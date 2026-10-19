@@ -6,12 +6,12 @@ and texts arrive through the production endpoints, pushed by the app runner.
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites in `Program.cs` (`git diff` against the baseline commit shows them) |
-| `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, bypass CSharpier, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, Key Vault and token stand-ins, DI and configuration composition |
+| `vendor/` | Unmodified upstream copy except three `LOCALTEST` sites, two in `Program.cs` and one in `InstancesController.cs` (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
+| `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the vendored `Directory.Build.props` when it is there (not in the image), define `LOCALTEST`, bypass CSharpier, compile `fakes/` into the host |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, signing-key provider, DI and configuration composition |
 | `postgres-init/10-storage.sh` | Postgres init script: creates `platform_storage_admin`, runs the vendored `infra/postgres_init.sql` unchanged, hands the database and schema to the admin role |
-| `Dockerfile` | Publishes the vendored host with the overrides; copies `Migration/` next to it as upstream does |
-| `smoke-test.sh`, `smoke/` | Standalone smoke test (fresh Postgres container, register, authentication, a PDP/app stub, Storage) |
+| `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned images, DbTools step, chiseled non-root runtime); each difference is marked `localtest:` (see [Image](#image)) |
+| `smoke-test.sh`, `smoke/` | Standalone smoke test of the host build, not the image (fresh Postgres container, register, authentication, a PDP stub, Storage) |
 
 ## Directive sites in `vendor/`
 
@@ -86,48 +86,38 @@ fresh database is migrated in about a second.
 
 ## docker-compose
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./components/storage/postgres-init/10-storage.sh:/docker-entrypoint-initdb.d/10-storage.sh:ro
-      - ./components/storage/vendor/infra/postgres_init.sql:/storage-init/postgres_init.sql:ro
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "storagedb"]
-      interval: 2s
-      retries: 30
-
-  storage:
-    build: ./components/storage
-    environment:
-      GeneralSettings__PlatformEndpoint: http://local.altinn.cloud:8000/
-      PostgreSqlSettings__AdminConnectionString: Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb
-      PostgreSqlSettings__ConnectionString: Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True
-    volumes:
-      - storage-blobs:/data/blobs
-      # Optional fallback when the app is not running: {org}/{app}/applicationmetadata.json and texts/resource.{lang}.json
-      # - ./apps:/apps:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "5010:5010"
-
-volumes:
-  postgres-data:
-  storage-blobs:
-```
+The `postgres` and `storage` services in [`../../docker-compose.yml`](../../docker-compose.yml) are the reference.
+Storage gets the Postgres connection strings, `GeneralSettings__PlatformEndpoint`, the shared certificate
+(`./certs` mounted at `/certs`, `AccessTokenSettings__AccessTokenSigningCertificateFullPath`) and the
+`storage-blobs` volume at `/data/blobs`; Postgres mounts `postgres-init/10-storage.sh` and
+`vendor/infra/postgres_init.sql`.
 
 Inside the compose network `local.altinn.cloud:8000` must reach the ingress (for example a network alias
 `local.altinn.cloud` on the ingress service listening on 8000), because Storage fetches the OpenID metadata, calls
 the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the ingress service
 URL. The ingress routes `/storage/` to `storage:5010` (Storage's routes already start with `/storage/api/v1/`; do
 not strip the prefix).
+
+## Image
+
+The `Dockerfile` follows the upstream one line for line, so the image is what production runs apart from the lines
+marked `localtest:`:
+
+- Same pinned `sdk:10.0-resolute` and `aspnet:10.0-resolute-chiseled-extra` images, the same DbTools build (it
+  regenerates the latest migration's `01-functions-and-procedures.sql` during publish) and the `Migration/` copy from
+  the build stage, `USER $APP_UID` (1654).
+- `localtest:` the sources keep the component layout under `/src` (the overrides need `vendor/` next to them),
+  `fakes/` and the overrides are copied in, and the two `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`
+  variables are set. Like upstream, the vendored root `Directory.Build.props` (CSharpier, CI warnings-as-errors) is
+  not in the build context.
+- `localtest:` `/data/blobs` owned by uid 1654 as a volume, and the environment production gets from its deployment
+  (`ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS=http://+:5010`, the blob root).
+- No `HEALTHCHECK`: the chiseled image has no shell or HTTP client. Probe `http://localhost:5010/health` from outside;
+  nothing in the compose file waits for Storage's health.
+- A `storage-blobs` volume created by the earlier root-run image is owned by root and has to be handed to the app
+  user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
+- Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` at startup: the chiseled image has no Kerberos
+  library, as in production, and nothing uses it.
 
 ## Verified
 
@@ -144,10 +134,12 @@ describe the pushed flow verified by the root `../../smoke-test.sh`:
 - `GET instances?org=ttd` with the `altinn:serviceowner/instances.read` token; no errors in the Storage log.
 
 The image (`podman build -t localtest-storage:dev .`) starts against a Postgres container on a podman network,
-migrates and answers `/health` 200 in about 4 s.
+migrates and answers `/health` 200 in about 3 s.
 
-Not verified: real PDP decisions (the authorization component did not exist yet; the stub permits everything),
-the full app-lib lifecycle (process next, instance mutations, signing) and the route through an ingress.
+The image built from upstream `9e72a9f1` (2026-10-19) passes the root `../../smoke-test.sh` (23 checks: real PDP
+decisions, instance create, process start and end by the app, upload, read-back, file scan `Clean`, denial, service-owner
+listing) with a fresh Postgres and blob volume; blobs are written as uid 1654. The full app-lib lifecycle runs in the
+Cypress suite, see `../../README.md`.
 
 Run locally without Docker (Postgres prepared with the init script on 5433):
 

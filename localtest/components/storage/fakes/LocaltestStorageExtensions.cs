@@ -3,14 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Altinn.Common.AccessToken.Services;
-using Altinn.Common.AccessTokenClient.Services;
-using Altinn.Common.PEP.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Localtest.Auth;
 using Altinn.Platform.Storage.Localtest.Blobs;
 using Altinn.Platform.Storage.Localtest.FileScan;
 using Altinn.Platform.Storage.Repository;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
@@ -24,7 +21,8 @@ namespace Altinn.Platform.Storage.Localtest;
 /// Localtest composition for the vendored Storage host. Called from the two <c>LOCALTEST</c> blocks in
 /// <c>Program.cs</c>: <see cref="AddLocaltestConfiguration"/> instead of the Key Vault connect (before any setting is
 /// read), and <see cref="AddLocaltestStorage"/> after the production registrations, where it replaces what has no
-/// local counterpart. Postgres stays real; blobs, the file-scan queue, Key Vault keys and app metadata are local.
+/// local counterpart. Postgres stays real (application metadata and texts included); blobs, the file-scan queue and
+/// the Key Vault signing keys are local.
 /// </summary>
 public static class LocaltestStorageExtensions
 {

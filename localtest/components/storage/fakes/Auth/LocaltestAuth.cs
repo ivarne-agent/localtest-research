@@ -1,26 +1,15 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.IO;
-using System.Linq;
-using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
-using Altinn.Common.AccessTokenClient.Services;
-using Altinn.Common.PEP.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.Localtest.Auth;
 
-/// <summary>
-/// Stands in for the Key Vault backed provider, whose constructor needs a Key Vault URI. Platform access tokens are not
-/// signature-checked locally (<c>AccessTokenSettings:DisableAccessTokenVerification</c> is forced), so no keys are needed.
-/// </summary>
 /// <summary>
 /// Stands in for the Key Vault backed provider: returns the shared localtest certificate
 /// (<c>AccessTokenSettings:AccessTokenSigningCertificateFullPath</c>, the same pfx every app and component signs
