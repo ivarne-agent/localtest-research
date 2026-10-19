@@ -112,8 +112,11 @@ marked `localtest:`:
   not in the build context.
 - `localtest:` `/data/blobs` owned by uid 1654 as a volume, and the environment production gets from its deployment
   (`ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS=http://+:5010`, the blob root).
-- No `HEALTHCHECK`: the chiseled image has no shell or HTTP client. Probe `http://localhost:5010/health` from outside;
-  nothing in the compose file waits for Storage's health.
+- No `HEALTHCHECK`: `podman build` produces OCI images, which have no healthcheck field, so podman drops the
+  instruction with a warning. The `HEALTHCHECK` lines in the other components' Dockerfiles have no effect for the same
+  reason; only a `healthcheck:` in the compose file does. A check here would also have to be exec form
+  (`CMD ["program", …]`), because the chiseled image has no shell, `wget` or `curl`. Nothing in the compose file waits
+  for Storage's health; health checks are left for the studioctl integration.
 - A `storage-blobs` volume created by the earlier root-run image is owned by root and has to be handed to the app
   user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` at startup: the chiseled image has no Kerberos
