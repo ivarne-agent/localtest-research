@@ -11,6 +11,8 @@ namespace Altinn.Platform.Authentication.Localtest.Login;
 /// ones production's built-in ID-porten table (<c>OidcAuthLevelDefaults.IdPorten</c>) uses for the same
 /// <see cref="SecurityLevel"/>, so the production claim shaping turns each into the matching <c>urn:altinn:authlevel</c>.
 /// The table is also the <c>OidcProviders:idporten:AuthLevels</c> default (see <see cref="ConfigurationDefaults"/>).
+/// The localtest app's fake ID-porten has the same levels and acr values (<c>localtest/localtest/IdPorten/AuthLevels.cs</c>);
+/// keep the two in step.
 /// </summary>
 public static class LocaltestAuthLevels
 {

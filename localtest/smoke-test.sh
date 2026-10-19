@@ -11,9 +11,9 @@ for i in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /de
 
 # Sign-in through the picker, as a browser would.
 J=$(mktemp); LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/ttd/testapp/")
-check "authentication redirects to the picker" "localtest/login" "$(python3 -c "import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).path.split('/v1/')[-1])" "$LOC")"
+check "authentication redirects to the ID-porten picker" "/localtest/api/idporten/authorize" "$(python3 -c "import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).path)" "$LOC")"
 q() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$LOC" "$1"; }
-CB=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" -X POST "$BASE/authentication/api/v1/localtest/login" --data-urlencode "state=$(q state)" --data-urlencode "nonce=$(q nonce)" --data-urlencode "redirect_uri=$(q redirect_uri)" --data-urlencode "UserSelect=1337.501337" --data-urlencode "AuthenticationLevel=3")
+CB=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" -X POST "$BASE/localtest/api/idporten/authorize" --data-urlencode "client_id=$(q client_id)" --data-urlencode "state=$(q state)" --data-urlencode "nonce=$(q nonce)" --data-urlencode "redirect_uri=$(q redirect_uri)" --data-urlencode "code_challenge=$(q code_challenge)" --data-urlencode "code_challenge_method=$(q code_challenge_method)" --data-urlencode "UserSelect=1337.501337" --data-urlencode "AuthenticationLevel=3")
 H=$(mktemp); curl -s -b "$J" -c "$J" -D "$H" -o /dev/null "$CB"
 check "callback redirects to goTo" "$BASE/ttd/testapp/" "$(grep -i '^Location:' "$H" | tr -d '\r' | awk '{print $2}')"
 check "cookie JWT set without Secure" "yes" "$(grep -i '^Set-Cookie: AltinnStudioRuntime=' "$H" | grep -qi 'secure' && echo no || echo yes)"

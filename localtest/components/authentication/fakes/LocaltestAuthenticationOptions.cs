@@ -18,7 +18,4 @@ public sealed class LocaltestAuthenticationOptions
     /// register component. Defaults to <c>{InternalPlatformEndpoint}profile/api/v1/</c>.
     /// </summary>
     public string? ProfileEndpoint { get; set; }
-
-    /// <summary>The acr the picker preselects when the app did not ask for a level.</summary>
-    public string DefaultAcr { get; set; } = "idporten-loa-substantial";
 }

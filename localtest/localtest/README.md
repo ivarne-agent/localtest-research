@@ -7,10 +7,12 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | Feature | Folder | API |
 | --- | --- | --- |
 | Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform components and the apps the app runner has registered. Replaced the nginx ingress on 2026-10-19 with the same contract | `Proxy/` | `localtest/api/proxy/` |
+| ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 
 | File | What |
 | --- | --- |
 | `Program.cs` | Composition: dedicated hosts first, then the app-frontend files, routing, the features' endpoints, the catch-all forwarder |
+| `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `SigningKey.cs` (key, JWKS, JWT writer), `AuthorizationCodes.cs`, `TestUsers.cs`, `AuthLevels.cs` |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts, exact paths and path prefixes, and the upstream addresses |
 | `Proxy/AppRoutes.cs`, `Proxy/AppRoutesApi.cs` | The app routes and the API the app runner pushes them through |
@@ -67,6 +69,27 @@ from an IDE. `GET localtest/api/proxy/upstreams` lists the effective ones.
 `../run-app.sh` registers each app it starts; `../stop-apps.sh` removes them. Routes are saved to
 `/data/app-routes.json` (`Proxy__AppRoutesFile`) on the `localtest-data` volume and read at start, so a recreated
 container keeps routing the apps that still run. Nothing watches the file, and nothing reloads.
+
+## ID-porten
+
+A fake ID-porten for production Authentication (`components/authentication/`), whose `idporten` provider points here
+by configuration. It replaced the in-process picker and fake token handling inside Authentication on 2026-10-19, so
+Authentication's own OIDC client and token validation run (plan:
+`../../planned-components/authentication/localtest-app-identity.md`).
+
+| Endpoint (`localtest/api/idporten/`) | What |
+| --- | --- |
+| `GET .well-known/openid-configuration` | Issuer `{Localtest:PlatformEndpoint}localtest/api/idporten` (default `http://local.altinn.cloud:8000/…`, or `IdPorten:Issuer`), endpoints, `S256` |
+| `GET jwks` | The RS256 public key, generated at start (tokens live 5 minutes; Authentication's localtest key retriever fetches the JWKS on every validation, so a restart only drops logins in flight) |
+| `GET authorize` | The picker: every test user's own party (`UserSelect=userId.partyId`) and the level 0-4 (`AuthenticationLevel`), preselected from the highest known `acr_values`, else 3. Keeps `client_id`, `redirect_uri`, `state`, `nonce` and the PKCE challenge in hidden fields |
+| `POST authorize` | The form: a one-time code (60 s) for the picked user, then `302 {redirect_uri}?code&state` |
+| `POST token` | `authorization_code` with `redirect_uri`, `client_id` and the S256 `code_verifier` checked; answers a signed `id_token` (`aud` = client id, `nonce`, `auth_time`, `sid`) and `access_token` (`client_id`, `scope`) |
+
+Both tokens carry `iss`, a pairwise `sub`, `pid` (or `urn:altinn:userid` for a self-identified test user without a
+national identity number), `acr` (level table in `IdPorten/AuthLevels.cs`, kept in step with Authentication's
+`OidcProviders:idporten:AuthLevels`), `amr: ["TestID"]`, `actual_iss`, `jti`, `iat`, `nbf`, `exp`. JWTs are written
+by hand (`IdPorten/SigningKey.cs`): the IdentityModel token libraries are not verified for Native AOT. Test users
+come from the register's `register/api/localtest/test-users`, read from its upstream directly.
 
 ## Build notes
 

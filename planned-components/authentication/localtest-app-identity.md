@@ -1,6 +1,8 @@
 # Plan: fake ID-porten, fake Maskinporten and the /Home contract move into the localtest app
 
-Status: plan, 2026-10-19. Not started. Builds on the review of `localtest/components/authentication/` (same day) and
+Status: step 1 done 2026-10-20 (fake ID-porten in the localtest app; Authentication's own OIDC client and token
+validation run); steps 2-4 open. Approved by the user 2026-10-19, with "as much production code as possible, still no
+Service Bus or other Azure services". Builds on the review of `localtest/components/authentication/` (same day) and
 [`production-authentication-analysis.md`](production-authentication-analysis.md).
 
 ## Goal

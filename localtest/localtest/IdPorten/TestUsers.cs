@@ -1,0 +1,51 @@
+using System.Net.Http.Json;
+using Localtest.Proxy;
+
+namespace Localtest.IdPorten;
+
+/// <summary>
+/// The seeded test users, read from the register component's <c>register/api/localtest/test-users</c> straight from
+/// its upstream (not through the proxy). Cached for a few seconds, so a page render and the form post that follows see
+/// the same list without hammering the register.
+/// </summary>
+public sealed class TestUsers(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes)
+{
+    private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(5);
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private TestUser[]? _cached;
+    private DateTimeOffset _cachedAt;
+
+    public Uri Endpoint => new(platformRoutes.Upstreams["register"].TrimEnd('/') + "/register/api/localtest/test-users");
+
+    public async Task<TestUser[]> GetAll(CancellationToken cancellationToken)
+    {
+        if (_cached is { } cached && DateTimeOffset.UtcNow - _cachedAt < CacheFor)
+        {
+            return cached;
+        }
+
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_cached is { } again && DateTimeOffset.UtcNow - _cachedAt < CacheFor)
+            {
+                return again;
+            }
+
+            using var client = httpClientFactory.CreateClient();
+            _cached = await client.GetFromJsonAsync(Endpoint, LocaltestJsonContext.Default.TestUserArray, cancellationToken) ?? [];
+            _cachedAt = DateTimeOffset.UtcNow;
+            return _cached;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+}
+
+/// <summary>
+/// A seeded test user, the part of the register's <c>test-users</c> entry the picker needs. Persons sign in by
+/// <c>Ssn</c>; self-identified users have none and sign in by <c>UserId</c>.
+/// </summary>
+public sealed record TestUser(int UserId, int PartyId, Guid PartyUuid, string? Ssn, string DisplayName);

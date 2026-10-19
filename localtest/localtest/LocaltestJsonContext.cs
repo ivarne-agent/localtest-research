@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Localtest.IdPorten;
 using Localtest.Proxy;
 
 namespace Localtest;
@@ -11,4 +12,9 @@ namespace Localtest;
 [JsonSerializable(typeof(AppRouteRequest))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(TestUser[]))]
+[JsonSerializable(typeof(JsonWebKeySet))]
+[JsonSerializable(typeof(OpenIdConfiguration))]
+[JsonSerializable(typeof(TokenResponse))]
+[JsonSerializable(typeof(TokenErrorResponse))]
 internal sealed partial class LocaltestJsonContext : JsonSerializerContext;

@@ -8,7 +8,7 @@ against the register component, which answers Profile's `internal/user`.
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): picker and start page, headless sign-in, fake upstream provider and validator, in-memory repositories, local signing key, token endpoints, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): start page, headless sign-in (posts to the fake ID-porten's picker), in-memory repositories, local signing key, token endpoints, DI composition |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
 Directive sites in `vendor/`:
@@ -19,11 +19,13 @@ Directive sites in `vendor/`:
    because localtest serves `local.altinn.cloud` without TLS.
 
 How a login works: production `authentication?goTo=` redirects to the configured upstream authorization endpoint,
-which is the picker page in this host (`authentication/api/v1/localtest/login`). Submitting it issues a one-time code
-and sends the browser to the production `upstream/callback`; the fake `IOidcProvider` turns the code into an id_token
-for the picked user, the fake `IUpstreamTokenValidator` reads it, and production `GetUserFromToken`, Profile lookup
-(production `ProfileService`, answered by the register component), session creation, cookie JWT and cookies run unchanged. The picker offers each user's
-own party only, because the production callback sets the party cookies; the app's party selection does the rest.
+which is the localtest app's fake ID-porten (`localtest/api/idporten/authorize`, see `../../localtest/README.md`), whose
+login page is the test-user picker. Submitting it sends the browser to the production `upstream/callback` with a
+one-time code; production `OidcProviderService` redeems it at the fake's token endpoint (with the PKCE verifier), and
+production `UpstreamTokenValidator` checks both tokens against the fake's JWKS (signature, issuer, lifetime, nonce).
+Then production `GetUserFromToken`, Profile lookup (production `ProfileService`, answered by the register component),
+session creation, cookie JWT and cookies run unchanged. The picker offers each user's own party only, because the
+production callback sets the party cookies; the app's party selection does the rest.
 
 The old localtest's login contract (what the app-frontend Cypress suite, app-lib and developers use), in
 `fakes/Controllers/LocaltestHomeController.cs` and `LocaltestTokenController.cs`, all anonymous:
@@ -62,7 +64,8 @@ Localtest defaults are set in `fakes/LocaltestAuthenticationExtensions.cs`: ever
 the service's own calls elsewhere when the public host name is not reachable from where it runs. Cookies are `Secure`;
 the proxy removes the flag from every `Set-Cookie`, so a browser on plain http keeps them.
 
-Run locally without Docker (register must be running on 5020):
+Run locally without Docker (register must be running on 5020, and the localtest app for the fake ID-porten; set
+`Localtest__Authentication__InternalPlatformEndpoint` to wherever it listens):
 
 ```sh
 export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets

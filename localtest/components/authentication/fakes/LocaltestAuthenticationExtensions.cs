@@ -21,8 +21,8 @@ namespace Altinn.Platform.Authentication.Localtest;
 /// <summary>
 /// Localtest composition for the vendored Authentication host, called from the single <c>#if LOCALTEST</c> block in
 /// <c>AuthenticationHost.cs</c>, placed just before the persistence layer: its settings are read eagerly there, and its
-/// repositories use TryAdd, so registering the in-memory ones first is enough. Replaces the upstream provider with the picker,
-/// Postgres with memory, and Key Vault with a local key. Profile is the production client, answered by the register component.
+/// repositories use TryAdd, so registering the in-memory ones first is enough. Points the upstream provider at the
+/// localtest app's fake ID-porten, and replaces Postgres with memory, and Key Vault with a local key. Profile is the production client, answered by the register component.
 /// </summary>
 public static class LocaltestAuthenticationExtensions
 {
@@ -31,7 +31,6 @@ public static class LocaltestAuthenticationExtensions
         var platform = (builder.Configuration["GeneralSettings:PlatformEndpoint"] is { Length: > 0 } configured
             ? configured
             : "http://local.altinn.cloud:8000/").TrimEnd('/') + "/";
-        var authn = platform + "authentication/api/v1/";
 
         // URLs the browser follows use the public platform endpoint; calls this service makes itself use the
         // internal one (in compose possibly the localtest app's service name, because containers may resolve the public host
@@ -40,6 +39,9 @@ public static class LocaltestAuthenticationExtensions
             ? internalConfigured
             : platform).TrimEnd('/') + "/";
         var internalAuthn = internalPlatform + "authentication/api/v1/";
+        // The fake ID-porten in the localtest app (localtest/localtest/IdPorten/); its issuer is the public URL.
+        var idporten = platform + "localtest/api/idporten";
+        var internalIdporten = internalPlatform + "localtest/api/idporten";
         var profile = builder.Configuration["Localtest:Authentication:ProfileEndpoint"] is { Length: > 0 } profileConfigured
             ? profileConfigured.TrimEnd('/') + "/"
             : internalPlatform + "profile/api/v1/";
@@ -57,11 +59,12 @@ public static class LocaltestAuthenticationExtensions
                 ["GeneralSettings:OidcRefreshTokenPepper"] = "localtest-pepper",
                 ["Localtest:Authentication:RegisterLocaltestEndpoint"] = internalPlatform + "register/api/localtest/",
 
-                // The one upstream provider: its authorization endpoint is the picker page in this host.
-                ["OidcProviders:idporten:Issuer"] = authn + "localtest/idporten/",
-                ["OidcProviders:idporten:AuthorizationEndpoint"] = authn + "localtest/login",
-                ["OidcProviders:idporten:TokenEndpoint"] = internalAuthn + "localtest/idporten/token",
-                ["OidcProviders:idporten:WellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
+                // The one upstream provider: the localtest app's fake ID-porten, whose login page is the test-user picker.
+                // The browser goes to authorize; this service calls token and the metadata itself.
+                ["OidcProviders:idporten:Issuer"] = idporten,
+                ["OidcProviders:idporten:AuthorizationEndpoint"] = idporten + "/authorize",
+                ["OidcProviders:idporten:TokenEndpoint"] = internalIdporten + "/token",
+                ["OidcProviders:idporten:WellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
                 ["OidcProviders:idporten:ClientId"] = "localtest",
                 ["OidcProviders:idporten:Scope"] = "openid",
                 ["OidcProviders:idporten:DefaultAuthenticationMethod"] = "NotDefined",
@@ -83,8 +86,8 @@ public static class LocaltestAuthenticationExtensions
             ["PlatformSettings:ApiRegisterInternalEndpoint"] = internalPlatform + "register/api/v2/internal/",
             ["PlatformSettings:ApiRegisterEndpoint"] = internalPlatform + "register/api/v1/",
             ["PlatformSettings:ApiAuthorizationEndpoint"] = internalPlatform + "authorization/api/v1/",
-            ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
-            ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = internalAuthn + "localtest/idporten/.well-known/openid-configuration",
+            ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
+            ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
             ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
             ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
             ["GeneralSettings:DefaultOidcProvider"] = "idporten",
@@ -98,11 +101,10 @@ public static class LocaltestAuthenticationExtensions
         services.AddOptions<LocaltestAuthenticationOptions>().BindConfiguration("Localtest:Authentication");
         services.TryAddSingleton(TimeProvider.System);
 
-        // Upstream identity: the picker instead of ID-porten.
-        services.AddSingleton<LocaltestTicketStore>();
+        // Upstream identity: production's OIDC client and token validation against the localtest app's fake ID-porten.
+        // The headless sign-in behind /Home posts the picker's form itself, so it must not follow the redirect.
         services.AddScoped<LocaltestSignIn>();
-        Replace<IOidcProvider, LocaltestOidcProvider>(services);
-        Replace<IUpstreamTokenValidator, LocaltestUpstreamTokenValidator>(services);
+        services.AddHttpClient(LocaltestSignIn.PickerClient).ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false });
 
         // Test users for the picker and the /Home endpoints. Profile itself is the production ProfileService: the
         // register component answers Profile's internal/user (PlatformSettings:ApiProfileEndpoint below).

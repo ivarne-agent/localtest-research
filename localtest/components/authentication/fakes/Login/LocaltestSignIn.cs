@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Authentication.Configuration;
@@ -16,15 +17,20 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Authentication.Localtest.Login;
 
 /// <summary>
-/// Runs the production browser sign-in without a browser: production authorize (which redirects to the picker),
-/// a one-time code for the chosen identity, and the production upstream callback, which creates the session and
-/// returns the cookies. Used by <c>/Home/LogInTestUser</c> and <c>/Home/GetTestUserToken</c>.
+/// Runs the production browser sign-in without a browser: production authorize (which redirects to the upstream
+/// provider, the localtest app's fake ID-porten), the picker's form post there for the chosen identity (which answers
+/// with a one-time code), and the production upstream callback, which redeems the code at the provider's token endpoint,
+/// validates the tokens, creates the session and returns the cookies. Used by <c>/Home/LogInTestUser</c> and
+/// <c>/Home/GetTestUserToken</c>.
 /// </summary>
 public sealed class LocaltestSignIn(
     IOidcServerService oidcServer,
-    LocaltestTicketStore tickets,
+    IHttpClientFactory httpClientFactory,
     IOptions<GeneralSettings> generalSettings)
 {
+    /// <summary>The named client for the picker post: it must see the provider's redirect, not follow it.</summary>
+    public const string PickerClient = "localtest-idporten-picker";
+
     public sealed record Result(IReadOnlyList<CookieInstruction> Cookies, string Jwt);
 
     public sealed record Failure(int StatusCode, string Message);
@@ -41,10 +47,20 @@ public sealed class LocaltestSignIn(
             return (null, new Failure(500, $"Production authorize did not redirect upstream: {authorize.Kind} {authorize.LocalErrorMessage}"));
         }
 
+        // The picker's form, as a browser would post it: the authorize request's parameters plus the chosen user and level.
         var query = QueryHelpers.ParseQuery(authorize.UpstreamAuthorizeUrl.Query);
+        var form = query.ToDictionary(p => p.Key, p => p.Value.ToString());
+        form["UserSelect"] = user.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        form["AuthenticationLevel"] = level.Level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var picker = new UriBuilder(authorize.UpstreamAuthorizeUrl) { Query = string.Empty }.Uri;
+        using var response = await httpClientFactory.CreateClient(PickerClient).PostAsync(picker, new FormUrlEncodedContent(form), cancellationToken);
+        var location = response.Headers.Location;
+        var code = location is null ? null : QueryHelpers.ParseQuery(location.Query)["code"].FirstOrDefault();
+        if (string.IsNullOrEmpty(code))
+        {
+            return (null, new Failure(502, $"The ID-porten picker at {picker} answered {(int)response.StatusCode} without a code: {await response.Content.ReadAsStringAsync(cancellationToken)}"));
+        }
 
-        // Persons sign in by pid (Profile lookup by ssn); self-identified users by Altinn user id.
-        var code = tickets.Issue(string.IsNullOrEmpty(user.Ssn) ? null : user.Ssn, user.UserId, level.Acr, query["nonce"].FirstOrDefault());
         var callback = await oidcServer.HandleUpstreamCallback(
             new UpstreamCallbackInput { Code = code, State = query["state"].FirstOrDefault(), ClientIp = clientIp ?? IPAddress.Loopback, UserAgentHash = null, CorrelationId = Guid.NewGuid() },
             existingSessionHandle: null,
