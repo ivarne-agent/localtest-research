@@ -3,7 +3,7 @@
 The production Altinn workflow engine (`vendor/`, see [`vendor/UPSTREAM.md`](vendor/UPSTREAM.md)): the host
 `WorkflowEngine.App` from the Altinn Studio monorepo with its library projects and `Altinn.Studio.Common`, built with
 the localtest overrides and run on the stack's Postgres. Apps enqueue workflows at
-`http://workflow-engine.local.altinn.cloud:8000/api/v1/`; the engine calls them back through the ingress.
+`http://workflow-engine.local.altinn.cloud:8000/api/v1/`; the engine calls them back through the proxy.
 
 | Path | What |
 | --- | --- |
@@ -39,7 +39,7 @@ in the default OCI image format, so a compose-level `healthcheck` is needed if a
 
 ```yaml
   # Workflow engine from the monorepo, vendored in components/workflow-engine. The app reaches it at
-  # http://workflow-engine.local.altinn.cloud:8000/api/v1/; it calls the app back through the ingress.
+  # http://workflow-engine.local.altinn.cloud:8000/api/v1/; it calls the app back through the proxy.
   workflow-engine:
     <<: *platform-host
     build: ./components/workflow-engine

@@ -92,10 +92,10 @@ Storage gets the Postgres connection strings, `GeneralSettings__PlatformEndpoint
 `storage-blobs` volume at `/data/blobs`; Postgres mounts `postgres-init/10-storage.sh` and
 `vendor/infra/postgres_init.sql`.
 
-Inside the compose network `local.altinn.cloud:8000` must reach the ingress (for example a network alias
-`local.altinn.cloud` on the ingress service listening on 8000), because Storage fetches the OpenID metadata, calls
-the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the ingress service
-URL. The ingress routes `/storage/` to `storage:5010` (Storage's routes already start with `/storage/api/v1/`; do
+Inside the compose network `local.altinn.cloud:8000` must reach the proxy (for example a network alias
+`local.altinn.cloud` on the proxy service listening on 8000), because Storage fetches the OpenID metadata, calls
+the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the proxy service
+URL. The proxy routes `/storage/` to `storage:5010` (Storage's routes already start with `/storage/api/v1/`; do
 not strip the prefix).
 
 ## Image

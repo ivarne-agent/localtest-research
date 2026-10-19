@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run an Altinn app from a source checkout against the localtest stack, register it, and route it through the ingress.
+# Run an Altinn app from a source checkout against the localtest stack, register it, and route it through the proxy.
 #
 #   ./run-app.sh <path-to-app-repo> [port]        e.g. ./run-app.sh ~/code/altinn-studio/src/test/apps/frontend-test 5005
 #
-# The app listens on 0.0.0.0:<port> on this machine; the ingress reaches it as host.docker.internal:<port>.
+# The app listens on 0.0.0.0:<port> on this machine; the proxy reaches it as host.docker.internal:<port>.
 # Platform URLs point at http://local.altinn.cloud:8000 (override with PLATFORM). Logs: .run/<org>-<app>.log, pid file next to it.
 set -euo pipefail
 APP_DIR=${1:?app directory}; PORT=${2:-5005}
@@ -49,13 +49,12 @@ export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local
 for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "app $ORG/$APP on port $PORT (pid $(cat "$PIDF"), log $LOG), ready after ${i}s"
 
-# Route it through the ingress: one nginx location per app, picked up by a graceful reload (no restart).
-mkdir -p "$HERE/ingress/app-routes"
-printf 'location /%s/ { proxy_pass http://host.docker.internal:%s; }\n' "$ORG/$APP" "$PORT" > "$HERE/ingress/app-routes/$ORG-$APP.conf"
-INGRESS=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E '^localtest[_-]ingress[_-]1$' || docker ps --format '{{.Names}}' | grep -E '^localtest[_-]ingress[_-]1$')
-( podman exec "$INGRESS" nginx -s reload 2>/dev/null || docker exec "$INGRESS" nginx -s reload )
+# Route it through the proxy: push the app's address (the proxy reaches this machine as host.docker.internal).
+code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$PLATFORM/proxy/api/localtest/apps/$ORG/$APP" \
+  -H 'Content-Type: application/json' -d "{\"upstream\":\"http://host.docker.internal:$PORT\"}")
 for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
-echo "ingress routes $PLATFORM/$ORG/$APP/ -> host port $PORT (after ${i}s)"
+echo "proxy route $PLATFORM/$ORG/$APP/ -> host port $PORT: HTTP $code (reachable after ${i}s)"
+
 # Push the app's artefacts to the platform, as Studio does on deploy (see README.md, "What the app runner pushes").
 # Designer's own token (issuer studio, app studio.designer), exchanged by the production authentication endpoint.
 STUDIOTOKEN=$(curl -s "$PLATFORM/Home/GetTestStudioToken" | tr -d '"')

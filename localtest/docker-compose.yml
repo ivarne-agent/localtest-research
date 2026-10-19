@@ -1,7 +1,7 @@
 name: localtest
 
 # One origin for apps and platform: http://local.altinn.cloud:8000 (add "127.0.0.1 local.altinn.cloud" to /etc/hosts).
-# The ingress has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
+# The proxy has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
 # use the same public URLs the browser and the app use. (podman copies the host's /etc/hosts into containers, where
 # local.altinn.cloud would otherwise point at the container itself; an added host entry wins.)
 # Apps run on the developer machine and are reached through host.docker.internal on the port run-app.sh registered.
@@ -19,31 +19,28 @@ networks:
   default:
     ipam:
       config:
-        # Dynamic addresses come from the upper half only, so no container started before the ingress can take its
-        # fixed 10.200.0.10 (after a reboot podman starts the containers in dependency order, the ingress last).
+        # Dynamic addresses come from the upper half only, so no container started before the proxy can take its
+        # fixed 10.200.0.10 (after a reboot podman starts the containers in dependency order, the proxy last).
         - subnet: 10.200.0.0/24
           ip_range: 10.200.0.128/25
 
 services:
-  ingress:
-    build: ./ingress
-    image: localhost/localtest-ingress:dev
+  # The front door (proxy/, YARP, Native AOT): platform routes by host and path prefix, app routes pushed by the app
+  # runner (PUT proxy/api/localtest/apps/{org}/{app}). Upstreams default to the services below; override one with
+  # Upstreams__<name>, for example Upstreams__storage: http://host.docker.internal:5010 for a Storage run from an IDE.
+  proxy:
+    build: ./proxy
+    image: localhost/localtest-proxy:dev
     ports:
       - "8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    environment:
-      AUTHORIZATION_UPSTREAM: http://authorization:5070
-      ACCESS_MANAGEMENT_UPSTREAM: http://access-management:5080
-      STORAGE_UPSTREAM: http://storage:5010
-      EVENTS_UPSTREAM: http://events:5080
-      WORKFLOW_ENGINE_UPSTREAM: http://workflow-engine:9090
     volumes:
       # The built app-frontend (src/App/frontend/dist) served at /app-frontend/; apps run with
       # AppSettings__AppFrontendAssetBaseUrl=http://local.altinn.cloud:8000/app-frontend
       - ${FRONTEND_DIST:-./frontend-dist}:/frontend:ro
-      # One nginx location per app started with run-app.sh; reloaded without restarting the ingress.
-      - ./ingress/app-routes:/etc/nginx/app-routes:ro
+      # The registered app routes, so a recreated proxy keeps routing the apps that still run.
+      - proxy-data:/data
     networks:
       default:
         ipv4_address: 10.200.0.10
@@ -100,7 +97,7 @@ services:
 
   # Production Access Management (altinn-auth) on the shared Postgres (own database, created on start) with a
   # file-backed policy store instead of Azure Blob. Step 1 of planned-components/access-management: boots and seeds;
-  # not yet routed through the ingress, so port 5080 is published for verification.
+  # not yet routed through the proxy, so port 5080 is published for verification.
   access-management:
     <<: *platform-host
     build: ./components/access-management
@@ -177,7 +174,7 @@ services:
         condition: service_started
 
   # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), image built by studioctl dev mode as
-  # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the ingress.
+  # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the proxy.
   pdf3:
     <<: *platform-host
     image: localhost/localtest-pdf3:dev
@@ -189,7 +186,7 @@ services:
 
   # Workflow engine from the monorepo (src/Runtime/workflow-engine-app/Dockerfile), image built by studioctl dev mode
   # as localtest-workflow-engine:dev. The app reaches it at http://workflow-engine.local.altinn.cloud:8000/api/v1/;
-  # it calls the app back through the ingress.
+  # it calls the app back through the proxy.
   workflow-engine:
     <<: *platform-host
     image: localhost/localtest-workflow-engine:dev
@@ -203,6 +200,7 @@ services:
         condition: service_healthy
 
 volumes:
+  proxy-data:
   postgres-data:
   storage-blobs:
   policy-store:

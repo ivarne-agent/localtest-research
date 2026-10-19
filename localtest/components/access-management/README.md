@@ -35,7 +35,7 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 | Lease on Azure Blob | config: no blob endpoint, so the production `NoopLeaseService` |
 
 Configuration defaults live in `LocaltestAccessManagementExtensions` (section `Localtest:AccessManagement`): every
-platform endpoint behind the ingress, the production connection strings pointed at the shared Postgres, dummy
+platform endpoint behind the proxy, the production connection strings pointed at the shared Postgres, dummy
 test-tool token settings to satisfy eager validation, and the sync and outbox hosted services switched off until
 their step in the plan.
 
@@ -47,7 +47,7 @@ and external roles from the vendored Register, applies the seed's own roles, Alt
 syncs app resources from the local Resource Registry stand-in, takes instance delegations from apps, and serves the
 PDP's PIP (`policyinformation/*`) and authorized parties (`enduser/authorizedparties` for app-lib, the internal
 `authorizedparties` for the PDP, which needs `FeatureManagement:RightsDelegationApi`, on as in production). The
-ingress routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers;
+proxy routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers;
 port 5080 is also published on the host for debugging.
 
 User tokens are validated by production's JWT cookie handler. For an issuer listed under `OidcProviders` it fetches

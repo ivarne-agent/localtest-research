@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks the old localtest login contract on the authentication component: start page, LogInTestUser (204 and the
 # party cookies of the selected party), authentication levels in the token, version probe and token endpoints.
-# BASE is the authentication service itself or the ingress (default); the register component must be reachable from it.
+# BASE is the authentication service itself or the proxy (default); the register component must be reachable from it.
 # USER_SELECT must be a user acting for an organisation (userId.orgPartyId); OWN_PARTY is that user's own party.
 set -u
 BASE=${BASE:-http://local.altinn.cloud:8000}

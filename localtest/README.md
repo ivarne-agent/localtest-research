@@ -14,13 +14,13 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
 | `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
-| `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, one drop-in route per app started with `run-app.sh` (`ingress/app-routes/`), 404 for any app path without a route, Secure cookie flag removed |
+| `proxy/` | The front door on `local.altinn.cloud:8000`: a YARP-based C# proxy published with Native AOT. Routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT proxy/api/localtest/apps/{org}/{app}`), the app-frontend files, a 404 for any app path without a route, `Secure` removed from cookies |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the ingress has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
+| `docker-compose.yml` | `proxy`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the proxy has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
-| `smoke-test.sh` | End-to-end check of the running stack through the ingress |
+| `smoke-test.sh` | End-to-end check of the running stack through the proxy |
 
 Fakes are written fresh for this layout and reach the vendored services the way their production counterparts do: the
 picker resolves users through the Register API, and `testData.json` is Register seed data, not a file other
@@ -41,7 +41,7 @@ job (`run-app.sh` today, studioctl later). No component watches another. For one
 
 Nothing is fetched from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
 so an edited `testData.json` becomes visible after the next registration or refresh. An app path the runner has not
-registered is a 404 at the ingress.
+registered is a 404 at the proxy.
 
 ## Run it
 
@@ -53,7 +53,7 @@ open 'http://local.altinn.cloud:8000/ttd/frontend-test/'
 ```
 
 `run-app.sh <app-dir> [port]` builds the app, starts it on the given port with platform URLs pointing at the stack,
-writes its ingress route, and performs the pushes above. Its log is `.run/<org>-<app>.log`. Each app needs its own
+registers its route with the proxy, and performs the pushes above. Its log is `.run/<org>-<app>.log`. Each app needs its own
 port; `./stop-apps.sh` stops them all and removes their routes.
 
 A component added after the Postgres volume was created needs its database created by hand, because Postgres runs
@@ -68,8 +68,9 @@ container. A component other services depend on (the PDP, for example) is only r
 
 | Command | What it checks |
 | --- | --- |
-| `./smoke-test.sh` | Through the ingress: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing) |
+| `./smoke-test.sh` | Through the proxy: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing) |
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties |
+| `proxy/smoke-test.sh` | The proxy's contract: routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, and the app route API |
 | `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
 | `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |

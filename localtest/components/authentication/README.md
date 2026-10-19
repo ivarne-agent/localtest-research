@@ -52,14 +52,14 @@ Persons sign in by pid (Profile lookup by ssn). A test user with an empty `ssn` 
 carries `urn:altinn:userid`, which takes production's Profile-by-userId branch. Test users are read from the register
 component's `test-users`; unknown fields are ignored.
 
-The ingress routes `/` (exact), `/Home` (exact) and `/Home/` to this service. `smoke-test.sh` checks the contract
-(`BASE` = the ingress or the service itself).
+The proxy routes `/` (exact), `/Home` (exact) and `/Home/` to this service. `smoke-test.sh` checks the contract
+(`BASE` = the proxy or the service itself).
 
 Localtest defaults are set in `fakes/LocaltestAuthenticationExtensions.cs`: everything derived from
 `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22 values), and
 `PlatformEndpoint` itself is set by the environment, and `Localtest:Authentication:InternalPlatformEndpoint` can point
 the service's own calls elsewhere when the public host name is not reachable from where it runs. Cookies are `Secure`;
-the ingress removes the flag (`proxy_cookie_flags ~ nosecure`), so a browser on plain http keeps them.
+the proxy removes the flag from every `Set-Cookie`, so a browser on plain http keeps them.
 
 Run locally without Docker (register must be running on 5020):
 

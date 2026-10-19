@@ -59,7 +59,7 @@ locally calls it).
 ## Authorized parties and role codes
 
 Served by the access-management component, not here: app-lib's `GetPartyList` calls
-`accessmanagement/api/v1/enduser/authorizedparties` (the ingress routes all of `/accessmanagement/` there), and this
+`accessmanagement/api/v1/enduser/authorizedparties` (the proxy routes all of `/accessmanagement/` there), and this
 PDP's `parties` endpoint calls Access Management's internal `authorizedparties` through the production wrapper. See
 `../access-management/README.md`.
 
@@ -68,7 +68,7 @@ test apps' policies and the Studio template uses `string-equal-ignore-case`, so 
 
 ## What the other components must provide
 
-- Ingress on the platform endpoint: `/authorization/` to this service, `/accessmanagement/` to Access Management (PIP
+- Proxy on the platform endpoint: `/authorization/` to this service, `/accessmanagement/` to Access Management (PIP
   and authorized parties), `/register/` (v1 parties and the localtest endpoints), `/authentication/api/v1/openid/`
   (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance authinfo).
 - Register: v1 parties for the subject and resource party lookups; the profile fake reads `test-users`.

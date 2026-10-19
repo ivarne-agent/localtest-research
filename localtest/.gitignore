@@ -7,4 +7,3 @@ AltinnPlatformLocal/
 .run/
 frontend-dist/*
 !frontend-dist/.gitkeep
-ingress/app-routes/*.conf

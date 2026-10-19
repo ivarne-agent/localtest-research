@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end check of the compose stack through the ingress: sign-in, tokens, PDP decisions and a full instance
+# End-to-end check of the compose stack through the proxy: sign-in, tokens, PDP decisions and a full instance
 # lifecycle on production Storage. Requires `docker compose up -d` (or podman-compose) and local.altinn.cloud in /etc/hosts.
 set -u
 BASE=${BASE:-http://local.altinn.cloud:8000}
@@ -38,7 +38,7 @@ check "storage: runner pushes texts (POST or PUT)" "yes" "$([[ "$TC" == 20? ]] &
 check "storage: pushed metadata is served" "attachment" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/applications/ttd/testapp" | python3 -c 'import sys,json; print("attachment" if any(d["id"] == "attachment" for d in json.load(sys.stdin)["dataTypes"]) else "missing")')"
 PC=$(sed -e 's/\[ORG\]/ttd/g' -e 's/\[org\]/ttd/g' -e 's/\[APP\]/testapp/g' -e 's/\[app\]/testapp/g' "$FX/policy.xml" | curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $DES" -H 'Content-Type: application/xml' -X POST "$BASE/authorization/api/v1/policies?org=ttd&app=testapp" --data-binary @-)
 check "authorization: runner pushes the app policy" "200" "$PC"
-check "ingress: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-running/api/v1/applicationmetadata")"
+check "proxy: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-running/api/v1/applicationmetadata")"
 
 dec() { curl -s "$BASE/authorization/api/localtest/decision?userId=$1&partyId=$2&org=ttd&app=testapp&action=$3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])'; }
 check "PDP: Sophie (DAGL) may read ttd/testapp for 500000" "Permit" "$(dec 1337 500000 read)"
