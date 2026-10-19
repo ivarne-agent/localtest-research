@@ -6,6 +6,20 @@ Research date: 2026-10-18. Read-only: nothing was built or run. Sources, all pin
 [`app-lib-dotnet@8d059b8`](https://github.com/Altinn/app-lib-dotnet/tree/8d059b8c5e92df15905f273fa1c22dda91113da4) (main, 2026-10-16, app-lib v8).
 Runtime behaviour inferred from code is marked "not confirmed".
 
+> **Status 2026-10-19: built** as [`localtest/components/events`](../localtest/components/events/README.md), vendored at
+> `1a4a80c` (one documentation commit after the pin below). Differences from this plan:
+>
+> - **No Postgres**: at the product owner's request the database is an in-memory store with repositories that follow
+>   the production SQL, behind `PostgreSQLSettings:EnableDBConnection=false`. The init script, the `eventsdb` roles and
+>   the `trace_log` partition service below are not needed.
+> - **Wolverine local routing works** (risk 1): the production bus publishers reach the production handlers in-process,
+>   and the production retry policies attach through `services.ConfigureWolverine`.
+> - **Register main units work** (risk 2) once outgoing platform tokens can be signed: Events never binds the client
+>   `AccessTokenSettings`, so the certificate is mounted at the default `/accesstoken/accesstokencredentials.pfx`.
+> - **Scrutor 7** keeps a decorated registration as a keyed service, so replacing `ISubscriptionRepository` has to remove
+>   the keyed descriptor too, then decorate again.
+> - The http directive in `SubscriptionController` is in (open question 2 answered for the test sink and v8 apps).
+
 ## Summary
 
 - **Vendor it.** The blockers in [`events-notifications.md`](events-notifications.md) (16 Oct) do not hold with the

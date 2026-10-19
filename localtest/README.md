@@ -12,11 +12,12 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/authorization/` | Production PDP with app policies in the policy store shared with Access Management; roles, access packages, delegations and authorized parties from Access Management |
 | `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, serves the PDP's PIP and authorized parties |
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
+| `components/events/` | Production Events with its database in memory: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
 | `ingress/` | nginx on `local.altinn.cloud:8000`: path-prefix routing to the components, one drop-in route per app started with `run-app.sh` (`ingress/app-routes/`), 404 for any app path without a route, Secure cookie flag removed |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `workflow-engine`, `pdf3`; the ingress has a fixed address that every component maps `local.altinn.cloud` to |
+| `docker-compose.yml` | `ingress`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the ingress has a fixed address that every component maps `local.altinn.cloud` to |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
 | `smoke-test.sh` | End-to-end check of the running stack through the ingress |
@@ -65,6 +66,7 @@ container. A component other services depend on (the PDP, for example) is only r
 | --- | --- |
 | `./smoke-test.sh` | Through the ingress: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing) |
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties |
+| `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
 | `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |
 
@@ -72,11 +74,11 @@ container. A component other services depend on (the PDP, for example) is only r
 
 Running together and verified: all components above, with sign-in, Storage, PDP decisions, instance delegations
 (signing) and authorized parties on production code. All 13 test apps in `altinn-studio/src/test/apps` run against
-the stack: 101 Cypress specs with 418 tests, all passing except one test in process-transition-test's
-`workflow-status.ts`. That app publishes Altinn events, and there is no Events service yet: every publish is a 404,
-the workflow engine retries the step and then throttles the app's namespace for an hour, which stalls later
-scenarios. Started with `AppSettings__RegisterEventsWithEventsComponent=false`, the spec passes 19 of 19.
+the stack: 101 Cypress specs with 418 tests (run 2026-10-18), all passing except one test in process-transition-test's
+`workflow-status.ts`, which failed because there was no Events service: every publish was a 404, and the workflow
+engine throttled the app's namespace. With the events component (2026-10-19) the spec passes 19 of 19 with events on.
 
-Not yet: an Events service, stubs for Profile, Notifications and Correspondence (apps that send correspondence log a 404), a
+Not yet: Notifications and Correspondence (apps that order notifications or send correspondence get a 404), Profile
+beyond what the Register component serves, the inspection GUI over the components' `api/localtest/` endpoints, a
 Resource Registry beyond the app resources Access Management derives itself, a way to keep the vendored copies in
 step with upstream, and studioctl integration.

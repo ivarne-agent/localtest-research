@@ -45,6 +45,7 @@ server {
     set $authorization  ${AUTHORIZATION_UPSTREAM};
     set $access_management ${ACCESS_MANAGEMENT_UPSTREAM};
     set $storage        ${STORAGE_UPSTREAM};
+    set $events         ${EVENTS_UPSTREAM};
 
     location /register/         { proxy_pass $register; }
     location /profile/          { proxy_pass $register; }
@@ -58,6 +59,8 @@ server {
     # runner's refresh.
     location /accessmanagement/ { proxy_pass $access_management; }
     location /storage/          { proxy_pass $storage; }
+    # Production Events (events/api/v1/…) and its localtest inspection API (events/api/localtest/…, with an SSE stream).
+    location /events/           { proxy_pass $events; }
 
     # The app-frontend bundle built from src/App/frontend (dist mounted at /frontend), served as the app's asset base.
     location /app-frontend/ {

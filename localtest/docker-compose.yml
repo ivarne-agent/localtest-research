@@ -33,6 +33,7 @@ services:
       AUTHORIZATION_UPSTREAM: http://authorization:5070
       ACCESS_MANAGEMENT_UPSTREAM: http://access-management:5080
       STORAGE_UPSTREAM: http://storage:5010
+      EVENTS_UPSTREAM: http://events:5080
       WORKFLOW_ENGINE_UPSTREAM: http://workflow-engine:9090
     volumes:
       # The built app-frontend (src/App/frontend/dist) served at /app-frontend/; apps run with
@@ -50,6 +51,7 @@ services:
       - authentication
       - authorization
       - storage
+      - events
       - pdf3
       - workflow-engine
 
@@ -145,6 +147,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Production Altinn Events with its database in memory (components/events/fakes/Persistence): apps publish to
+  # events/api/v1/app, webhooks inside the stack are delivered, others captured; events/api/localtest/ shows it all.
+  events:
+    <<: *platform-host
+    build: ./components/events
+    image: localhost/localtest-events:dev
+    environment:
+      <<: *access-token-cert
+      Localtest__Events__PlatformEndpoint: http://local.altinn.cloud:8000/
+    volumes:
+      - ./certs:/certs:ro
+      # Events never binds AccessTokenSettings for its outgoing platform tokens (to Register), so the production
+      # SigningCredentialsResolver reads its default path, ../accesstoken/accesstokencredentials.pfx from /app.
+      - ./certs/localtest-accesstoken.pfx:/accesstoken/accesstokencredentials.pfx:ro
+    depends_on:
+      - register
+      - authorization
 
   # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), image built by studioctl dev mode as
   # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the ingress.

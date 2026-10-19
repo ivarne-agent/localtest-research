@@ -60,10 +60,16 @@ var builder = WebApplication.CreateBuilder(args);
 ConfigureWebHostCreationLogging();
 
 await SetConfigurationProviders(builder.Configuration);
+#if LOCALTEST
+Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestConfiguration(builder.Configuration);
+#endif
 
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
+#if LOCALTEST
+Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestEvents(builder);
+#endif
 
 var app = builder.Build();
 

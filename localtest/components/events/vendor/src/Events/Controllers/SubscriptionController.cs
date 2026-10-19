@@ -190,7 +190,12 @@ namespace Altinn.Platform.Events.Controllers
 
         private static bool IsValidUri(Uri uri)
         {
+#if !LOCALTEST
             return uri is not null && uri.IsAbsoluteUri && uri.Scheme == Uri.UriSchemeHttps;
+#else
+            // Apps and the localtest sinks are served over plain http on local.altinn.cloud:8000.
+            return uri is not null && uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+#endif
         }
 
         private static void AddQueryModelToTelemetry(SubscriptionRequestModel subscriptionRequest)
