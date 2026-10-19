@@ -24,7 +24,7 @@ The script is deterministic and prints the mapping below.
   2001 and 2002) are kept as an empty role list (`"500700": []`).
 - Sub-units: DDG Fitness 500000 has 500001-500003 (from the partylist `childParties`); EAS Health Consulting 500600
   has 500800-500802 (the old data only listed them side by side).
-- The self-identified user 1004/510004 has `"ssn": ""` and `userType: "SelfIdentified"`.
+- The self-identified user 1004/510004 has `"ssn": ""`.
 - `customClaims` (12345 and 1337) and the `913312465_sbs` system with its system user for 950474084.
 
 Dropped: `Register/Org/910423185.json`, a second "EAS Health Consulting Svolvær" record without a party.
@@ -71,5 +71,7 @@ unchanged. Organisation numbers are the nearest valid mod-11 number that is not 
 | `language` | Profile language (`nb`, `nn`, `en`); default `nb` (v1 already had it) |
 | `preSelectedPartyId` | Profile: party preselected in the party picker; default 0 |
 | `doNotPromptForParty` | Profile: skip the party picker; default false |
-| `userType` | `Altinn.Platform.Profile.Enums.UserType` name or number; default `SSNIdentified` with `ssn`, `SelfIdentified` without |
 | `accessPackages` | Access packages per party id (see the component README) |
+
+The Profile `userType` is not a field: it is set when the persons are loaded, `SSNIdentified` with an `ssn` and
+`SelfIdentified` without, as Profile reports them. A `userType` in an app's `testData.json` is ignored.

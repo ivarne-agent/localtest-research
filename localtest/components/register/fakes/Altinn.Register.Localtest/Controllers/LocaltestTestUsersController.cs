@@ -111,7 +111,7 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
     }
 
     internal static ProfileUserType UserType(TestPerson person)
-        => person.UserType ?? (string.IsNullOrEmpty(person.Ssn) ? ProfileUserType.SelfIdentified : ProfileUserType.SSNIdentified);
+        => string.IsNullOrEmpty(person.Ssn) ? ProfileUserType.SelfIdentified : ProfileUserType.SSNIdentified;
 
     private static ActingForPartyDto Acting(RegisterStore store, PartyRecord party, uint? parentPartyId, IReadOnlyList<string> roles, IReadOnlyList<string> roleCodes, IReadOnlyList<string> accessPackages)
         => new(

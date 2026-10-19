@@ -109,13 +109,6 @@ public sealed class TestPerson
     /// <summary>Profile: skip the party picker and use the preselected or own party (schema v2).</summary>
     public bool? DoNotPromptForParty { get; set; }
 
-    /// <summary>
-    /// Profile user type, an <c>Altinn.Platform.Profile.Enums.UserType</c> name or number (schema v2). Defaults to
-    /// <c>SSNIdentified</c> for persons with <c>ssn</c> and <c>SelfIdentified</c> without.
-    /// </summary>
-    [JsonConverter(typeof(JsonStringEnumConverter))]
-    public ProfileUserType? UserType { get; set; }
-
     public string? MobileNumber { get; set; }
 
     public string? TelephoneNumber { get; set; }

@@ -34,10 +34,6 @@ FNR_K1 = [3, 7, 6, 1, 8, 9, 4, 5, 2]
 FNR_K2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
 ORG_W = [3, 2, 7, 6, 5, 4, 3, 2]
 
-# Altinn.Platform.Profile.Enums.UserType, written by name in the seed.
-USER_TYPES = ["None", "SSNIdentified", "SelfIdentified", "EnterpriseIdentified", "AgencyUser", "PSAN", "PSA"]
-
-
 def load(path):
     with open(path, encoding="utf-8-sig") as f:
         return json.load(f)
@@ -215,7 +211,6 @@ def main():
             "language": ci(prefs, "language"),
             "preSelectedPartyId": ci(prefs, "preSelectedPartyId"),
             "doNotPromptForParty": ci(prefs, "doNotPromptForParty"),
-            "userType": USER_TYPES[ci(profile, "userType")] if ci(profile, "userType") is not None else None,
             "telephoneNumber": ci(details, "telephoneNumber"),
             "mobileNumber": ci(details, "mobileNumber") or ci(profile, "phoneNumber"),
             "addressStreetName": ci(details, "addressStreetName"),
