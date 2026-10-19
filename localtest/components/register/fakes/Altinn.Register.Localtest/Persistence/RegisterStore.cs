@@ -290,9 +290,9 @@ public sealed class RegisterStore
         Parties = [.. parties];
         ByUuid = Parties.ToDictionary(p => p.PartyUuid.Value);
         ByPartyId = Parties.ToDictionary(p => p.PartyId.Value);
-        ByPersonIdentifier = Parties.Where(p => p.PersonIdentifier.HasValue).ToDictionary(p => p.PersonIdentifier.Value.ToString());
-        ByOrganizationIdentifier = Parties.Where(p => p.OrganizationIdentifier.HasValue).ToDictionary(p => p.OrganizationIdentifier.Value.ToString());
-        ByUserId = Parties.Where(p => p.UserIds.Value.HasCurrentValue).ToDictionary(p => p.UserIds.Value.CurrentValue.Value);
+        ByPersonIdentifier = Parties.Where(p => p.PersonIdentifier.HasValue).ToDictionary(p => p.PersonIdentifier.Value!.ToString());
+        ByOrganizationIdentifier = Parties.Where(p => p.OrganizationIdentifier.HasValue).ToDictionary(p => p.OrganizationIdentifier.Value!.ToString());
+        ByUserId = Parties.Where(p => p.UserIds.HasValue && p.UserIds.Value!.HasCurrentValue).ToDictionary(p => p.UserIds.Value!.CurrentValue.Value);
         Users = [.. users];
         UsersByUserId = Users.ToDictionary(u => u.Person.UserId);
         UsersByUsername = Users.Where(u => !string.IsNullOrEmpty(u.Person.UserName))

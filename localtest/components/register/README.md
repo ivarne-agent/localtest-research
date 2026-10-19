@@ -5,17 +5,20 @@ Production Altinn Register (`vendor/`, see `UPSTREAM.md`) running on an in-memor
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except `#if LOCALTEST` blocks (`git diff` against the baseline commit shows them all) |
+| `vendor/` | Unmodified upstream copy except `#if LOCALTEST` blocks (`git diff` against the baseline commit shows them all); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, link the fakes project |
-| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, lenient platform-token handler, localtest-only and Profile controllers, DI composition |
+| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, localtest-only and Profile controllers, DI composition |
 | `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and the schema v2 fields) |
-| `smoke-test.sh` | Curl checks against a running register, with a stub app for registration |
-| `Dockerfile` | Publishes the vendored host with the overrides |
+| `smoke-test.sh` | Curl checks against a running register (and the authentication component for a user token), with a stub app for registration |
+| `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned Alpine images, build and publish, tzdata, non-root `dotnet` user); each difference is marked `localtest:` |
 
 Directive sites in `vendor/`: one, in `RegisterHost.cs` (`AddLocaltestRegister(builder)` after the production
 persistence block). Everything else is replaced through DI or switched off by configuration
 (`Altinn:IsTest=true` skips MassTransit, jobs, leases and CCR federation; `Altinn:register:ApiSource:Default=DB`
-makes the v1 endpoints answer from persistence).
+makes the v1 endpoints answer from persistence). These defaults are added inside `RegisterHost`, after `AltinnHost`
+has read its own settings, so ServiceDefaults runs in environment `UNKNOWN` (not `LOCAL`) with the descriptor's
+`IsTest` off. That is intended: `LOCAL` would get platform tokens from the remote test token generator instead of
+signing them with the shared certificate. A setting ServiceDefaults must see has to come from the environment.
 
 ## Endpoints added by the fakes
 
@@ -48,13 +51,17 @@ Profile (`profile/api/v1/`, route the `/profile` prefix to this container). Resp
 `register/api/v1/parties`), `userType` (enum number), `profileSettingPreference` (`language`, `preSelectedPartyId`,
 `doNotPromptForParty`).
 
+Authorization follows Profile's own controllers: a user or org token (`AltinnStudioRuntime` cookie or bearer,
+validated like every other token) on every `users` route, and a platform access token (`PlatformAccessToken` header,
+checked against the shared certificate) on the lookups apps make, which app-lib always sends.
+
 | Endpoint | Auth |
 | --- | --- |
-| `GET users/{userId}` | anonymous |
-| `GET users/byuuid/{userUuid}` | anonymous |
-| `POST users`, body `"<ssn>"` (what app-lib sends) or `{ "ssn" \| "userId" \| "userUuid" \| "username": ... }` | anonymous |
-| `POST internal/user`, same body (what Authentication calls) | anonymous |
-| `GET users/current` | `AltinnStudioRuntime` cookie or bearer, validated like every other user token; user from `urn:altinn:userid` |
+| `GET users/{userId}` | user token and platform access token |
+| `GET users/byuuid/{userUuid}` | user token and platform access token |
+| `POST users`, body `"<ssn>"` (what app-lib sends) or `{ "ssn" \| "userId" \| "userUuid" \| "username": ... }` | user token and platform access token |
+| `POST internal/user`, same body (what Authentication, Authorization and Access Management call) | anonymous, as Profile's internal controller |
+| `GET users/current` | user token; user from `urn:altinn:userid`. Profile's feature-toggled `altinn:portal/enduser` scope check is not modelled |
 
 ## App test data
 
@@ -86,7 +93,7 @@ ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5020 \
   AccessTokenSettings__AccessTokenSigningCertificateFullPath=$PWD/../../certs/localtest-accesstoken.pfx \
   Localtest__Register__TestDataPath=$PWD/testdata/testData.json \
   dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Register/src/Altinn.Register
-./smoke-test.sh http://127.0.0.1:5020
+AUTH=http://local.altinn.cloud:8000 ./smoke-test.sh http://127.0.0.1:5020   # AUTH: the authentication component, for a user token
 # InternalOrPlatformAccess: either a platform access token signed with ../../certs/localtest-accesstoken.pfx
 # (set AccessTokenSettings__AccessTokenSigningCertificateFullPath on the register too), or a bearer token with the
 # scope altinn:register/partylookup.admin, e.g. from the authentication component's /Home/GetTestOrgToken?scopes=...

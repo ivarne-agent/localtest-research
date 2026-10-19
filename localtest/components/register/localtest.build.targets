@@ -6,7 +6,7 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
 
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Register'">
-    <!-- Localtest fakes: in-memory persistence over testData.json, lenient platform-token handler, picker controller. -->
+    <!-- Localtest fakes: in-memory persistence over testData.json, shared-certificate signing keys, localtest and Profile controllers. -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj" />
   </ItemGroup>
 </Project>

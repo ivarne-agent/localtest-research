@@ -7,7 +7,4 @@ public sealed class LocaltestRegisterOptions
 {
     /// <summary>Path to the <c>testData.json</c> that seeds the in-memory register.</summary>
     public string TestDataPath { get; set; } = "/testdata/testData.json";
-
-
-
 }

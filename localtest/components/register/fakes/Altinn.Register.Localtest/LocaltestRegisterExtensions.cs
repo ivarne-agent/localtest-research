@@ -22,13 +22,15 @@ public static class LocaltestRegisterExtensions
 {
     public static WebApplicationBuilder AddLocaltestRegister(this WebApplicationBuilder builder)
     {
-        // Lowest-priority defaults; environment variables and appsettings still win.
+        // Lowest-priority defaults; environment variables and appsettings still win. They only reach what is read from
+        // here on (the rest of RegisterHost, options, request time). AltinnHost reads its own settings when the builder
+        // is created, so the service descriptor stays IsTest=false in environment UNKNOWN; that is intended: LOCAL would
+        // fetch platform tokens from the remote test token generator instead of signing them with the shared certificate.
         builder.Configuration.Sources.Insert(0, new MemoryConfigurationSource
         {
             InitialData = new Dictionary<string, string?>
             {
-                ["Altinn:IsTest"] = "true",                       // no MassTransit, import jobs, leases or CCR federation
-                ["Altinn:LocalDev"] = "true",                     // service defaults: LOCAL environment
+                ["Altinn:IsTest"] = "true",                       // RegisterHost: no MassTransit, import jobs, leases or CCR federation
                 ["Altinn:register:ApiSource:Default"] = "DB",     // v1 endpoints answer from persistence, not the A2 bridge
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["AccessTokenSettings:AccessTokenHeaderId"] = "PlatformAccessToken",

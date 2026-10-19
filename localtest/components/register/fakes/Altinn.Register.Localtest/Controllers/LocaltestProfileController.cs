@@ -12,9 +12,13 @@ namespace Altinn.Register.Localtest.Controllers;
 /// <summary>
 /// The Profile user endpoints apps and Authentication call (<c>profile/api/v1/</c>), answered from the register's
 /// test data. The <c>party</c> is the register's own v1 party, so names and person details match
-/// <c>register/api/v1/parties</c>. Anonymous except <c>users/current</c>, which needs the user token.
+/// <c>register/api/v1/parties</c>. Authorization as in Profile's <c>UsersController</c>: a user or org token on every
+/// <c>users</c> route, plus a platform access token on the lookups apps make; <c>users/current</c> has no
+/// <c>altinn:portal/enduser</c> scope check (feature-toggled in Profile). <c>internal/user</c> is anonymous, as in
+/// Profile's <c>UserProfileInternalController</c>.
 /// </summary>
 [ApiController]
+[Authorize]
 [ApiVersionNeutral]
 [Route("profile/api/v1")]
 public sealed class LocaltestProfileController(RegisterStoreProvider provider, IRequestSender<GetV1PartyByIdRequest, V1Models.Party> partySender)
@@ -22,12 +26,12 @@ public sealed class LocaltestProfileController(RegisterStoreProvider provider, I
 {
     private const string UserIdClaim = "urn:altinn:userid";
 
-    [AllowAnonymous]
+    [Authorize(Policy = "PlatformAccess")]
     [HttpGet("users/{userId:int}")]
     public Task<ActionResult<UserProfileDto>> GetByUserId(int userId, CancellationToken cancellationToken)
         => Respond(provider.Current.UsersByUserId.GetValueOrDefault(userId), cancellationToken);
 
-    [AllowAnonymous]
+    [Authorize(Policy = "PlatformAccess")]
     [HttpGet("users/byuuid/{userUuid:guid}")]
     public Task<ActionResult<UserProfileDto>> GetByUuid(Guid userUuid, CancellationToken cancellationToken)
         => Respond(provider.Current.UserByPartyUuid(userUuid), cancellationToken);
@@ -36,7 +40,7 @@ public sealed class LocaltestProfileController(RegisterStoreProvider provider, I
     /// Lookup by body: a JSON string (the national identity number, what app-lib sends) or an object with
     /// <c>ssn</c>, <c>userId</c>, <c>userUuid</c> or <c>username</c> (the Profile <c>UserProfileLookup</c>).
     /// </summary>
-    [AllowAnonymous]
+    [Authorize(Policy = "PlatformAccess")]
     [HttpPost("users")]
     public Task<ActionResult<UserProfileDto>> Lookup([FromBody] JsonElement body, CancellationToken cancellationToken)
         => LookupCore(body, cancellationToken);
@@ -47,7 +51,6 @@ public sealed class LocaltestProfileController(RegisterStoreProvider provider, I
     public Task<ActionResult<UserProfileDto>> InternalLookup([FromBody] JsonElement body, CancellationToken cancellationToken)
         => LookupCore(body, cancellationToken);
 
-    [Authorize]
     [HttpGet("users/current")]
     public async Task<ActionResult<UserProfileDto>> GetCurrent(CancellationToken cancellationToken)
     {
