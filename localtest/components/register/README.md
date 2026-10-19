@@ -96,7 +96,7 @@ ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5020 \
 AUTH=http://local.altinn.cloud:8000 ./smoke-test.sh http://127.0.0.1:5020   # AUTH: the authentication component, for a user token
 # InternalOrPlatformAccess: either a platform access token signed with ../../certs/localtest-accesstoken.pfx
 # (set AccessTokenSettings__AccessTokenSigningCertificateFullPath on the register too), or a bearer token with the
-# scope altinn:register/partylookup.admin, e.g. from the authentication component's /Home/GetTestOrgToken?scopes=...
+# scope altinn:register/partylookup.admin, e.g. from the localtest app's /Home/GetTestOrgToken?scopes=...
 curl -H "Authorization: Bearer $TOKEN" -H Content-Type:application/json \
   -X POST 'http://127.0.0.1:5020/register/api/v1/parties/partylist?fetchSubUnits=true' -d '[500000]'
 ```

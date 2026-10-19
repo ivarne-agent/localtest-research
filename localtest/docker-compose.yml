@@ -42,6 +42,8 @@ services:
       - ${FRONTEND_DIST:-./frontend-dist}:/frontend:ro
       # The registered app routes, so a recreated container keeps routing the apps that still run.
       - localtest-data:/data
+      # The shared test certificate: /Home/GetTestStudioToken signs Designer's platform access token with it.
+      - ./certs:/certs:ro
     networks:
       default:
         ipv4_address: 10.200.0.10

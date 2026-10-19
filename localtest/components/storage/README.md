@@ -46,7 +46,7 @@ Production repositories on Postgres, nothing else. The app runner (`../../run-ap
 applications/{org}/{app}` when it exists) and each `App/config/texts/resource.{lang}.json` with
 `POST applications/{org}/{app}/texts` (`PUT …/texts/{lang}`), exactly what Designer does on deploy. A service-owner
 token is not enough: the production `ClaimAccessHandler` requires `urn:altinn:app=studio.designer`, which the Studio
-token (`/Home/GetTestStudioToken`, Designer's own credential exchanged by the authentication component) carries. Storage never
+token (`/Home/GetTestStudioToken` on the localtest app, Designer's own credential exchanged by production Authentication) carries. Storage never
 asks the app for anything, and an app that was not pushed is unknown to it (`404` on `GET applications/{org}/{app}`).
 
 No seeding of `storage.applications` is needed for instances: no instance or data SQL joins that table (checked

@@ -33,7 +33,6 @@ public sealed class PlatformRoutes
         ("/register/", "register"),
         ("/profile/", "register"),
         ("/authentication/", "authentication"),
-        ("/Home/", "authentication"),
         ("/authorization/", "authorization"),
         // Production Access Management: authorized parties, the PDP's PIP, the apps' instance delegations and the app
         // runner's refresh.
@@ -41,13 +40,6 @@ public sealed class PlatformRoutes
         ("/storage/", "storage"),
         // Production Events (events/api/v1/…) and its localtest inspection API (events/api/localtest/…, with an SSE stream).
         ("/events/", "events"),
-    ];
-
-    /// <summary>Exact paths → upstream name: the start page (test-user select) and its <c>/Home</c> route.</summary>
-    private static readonly (string Path, string Upstream)[] ExactPaths =
-    [
-        ("/", "authentication"),
-        ("/Home", "authentication"),
     ];
 
     private readonly Dictionary<string, string> _upstreams;
@@ -87,14 +79,6 @@ public sealed class PlatformRoutes
     /// <summary>The upstream for a path on the main host, or null when no platform route matches.</summary>
     public Route? Resolve(string path)
     {
-        foreach (var (exact, upstream) in ExactPaths)
-        {
-            if (string.Equals(path, exact, StringComparison.Ordinal))
-            {
-                return new Route(upstream, _upstreams[upstream]);
-            }
-        }
-
         foreach (var (prefix, upstream) in Prefixes)
         {
             if (path.StartsWith(prefix, StringComparison.Ordinal))
@@ -106,13 +90,9 @@ public sealed class PlatformRoutes
         return null;
     }
 
-    /// <summary>
-    /// True when the path is a platform prefix without its trailing slash (<c>/storage</c>) and not an exact route of its
-    /// own (<c>/Home</c>), which nginx redirected.
-    /// </summary>
+    /// <summary>True when the path is a platform prefix without its trailing slash (<c>/storage</c>), which nginx redirected.</summary>
     public static bool IsPrefixWithoutSlash(string path)
-        => !ExactPaths.Any(e => string.Equals(e.Path, path, StringComparison.Ordinal))
-            && Prefixes.Any(p => string.Equals(p.Prefix, path + "/", StringComparison.Ordinal));
+        => Prefixes.Any(p => string.Equals(p.Prefix, path + "/", StringComparison.Ordinal));
 }
 
 /// <summary>A resolved destination: a name for logs and error pages, and the base URL the request path is appended to.</summary>

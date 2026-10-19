@@ -15,38 +15,15 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Authentication.Localtest.Keys;
 
-/// <summary>An RSA key generated at startup. It signs the Maskinporten-shaped tokens the localtest token endpoints mint.</summary>
-public sealed class LocaltestSigningKeys
-{
-    public LocaltestSigningKeys()
-    {
-        var rsa = RSA.Create(2048);
-        Key = new RsaSecurityKey(rsa) { KeyId = "localtest-" + Guid.NewGuid().ToString("N")[..8] };
-        PublicJwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(new RsaSecurityKey(rsa.ExportParameters(false)) { KeyId = Key.KeyId });
-        PublicJwk.Use = "sig";
-        PublicJwk.Alg = SecurityAlgorithms.RsaSha256;
-    }
-
-    public RsaSecurityKey Key { get; }
-
-    public JsonWebKey PublicJwk { get; }
-
-    public SigningCredentials SigningCredentials => new(Key, SecurityAlgorithms.RsaSha256);
-}
-
 /// <summary>
-/// Fetches signing keys over plain http (production requires https for metadata), and answers for the
-/// localtest Maskinporten issuer without a round trip.
+/// Fetches provider metadata and signing keys over plain http, which production's <c>HttpDocumentRetriever</c> refuses.
+/// No cache: the localtest app's fake ID-porten and Maskinporten generate their keys at start, and a fetch per
+/// validation picks up a restarted one at once.
 /// </summary>
-public sealed class LocaltestSigningKeysRetriever(HttpClient httpClient, LocaltestSigningKeys keys) : ISigningKeysRetriever
+public sealed class LocaltestSigningKeysRetriever(HttpClient httpClient) : ISigningKeysRetriever
 {
     public async Task<ICollection<SecurityKey>> GetSigningKeys(string url)
     {
-        if (url.Contains("/localtest/maskinporten/", StringComparison.OrdinalIgnoreCase))
-        {
-            return [keys.Key];
-        }
-
         var metadata = await Fetch(url, CancellationToken.None);
         if (!metadata.TryGetProperty("jwks_uri", out var jwksUri))
         {
@@ -97,24 +74,4 @@ public sealed class LocaltestPublicSigningKeyProvider : IPublicSigningKeyProvide
 
     public Task<IEnumerable<SecurityKey>> GetSigningKeys(string issuer)
         => Task.FromResult(_keys.Value);
-}
-
-/// <summary>
-/// Signs platform access tokens (the Studio token) with the shared localtest certificate, the same pfx every app and
-/// component signs platform access tokens with (<c>AccessTokenSettings:AccessTokenSigningCertificateFullPath</c>).
-/// </summary>
-public sealed class LocaltestAccessTokenSigner(IConfiguration configuration)
-{
-    private readonly Lazy<X509SigningCredentials> _credentials = new(() =>
-    {
-        var path = configuration["AccessTokenSettings:AccessTokenSigningCertificateFullPath"];
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            throw new InvalidOperationException("AccessTokenSettings:AccessTokenSigningCertificateFullPath must point at the shared localtest certificate.");
-        }
-
-        return new X509SigningCredentials(X509CertificateLoader.LoadPkcs12FromFile(path, password: null), SecurityAlgorithms.RsaSha256);
-    });
-
-    public X509SigningCredentials SigningCredentials => _credentials.Value;
 }

@@ -159,7 +159,7 @@ NuGet, if one is published; not confirmed).
 
 - **Ingress.** (Since 2026-10-19 the YARP proxy of the localtest app in `localtest/localtest/`, same rules.) Plain nginx on `local.altinn.cloud:8000` with path-prefix rules (`/storage/` → storage,
   `/authorization/` → authorization, `/register/` → register, `/profile/`, `/events/`, `/notifications/`,
-  `/authentication/` and `/Home/` → authentication, `/{org}/{app}/` → the app on the developer host via
+  `/authentication/` and `/Home/` → authentication (since 2026-10-20 `/` and `/Home/` are the localtest app's own), `/{org}/{app}/` → the app on the developer host via
   `host.docker.internal`). The app keeps today's `PlatformSettings` defaults. Today's cookie-domain rewrite and
   frontend version override are dropped for the MVP (decision 2026-10-17).
 - **One signing certificate** mounted into authentication (issuer), storage and authorization (verifiers via the

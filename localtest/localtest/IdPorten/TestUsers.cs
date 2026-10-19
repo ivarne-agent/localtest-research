@@ -45,7 +45,19 @@ public sealed class TestUsers(IHttpClientFactory httpClientFactory, PlatformRout
 }
 
 /// <summary>
-/// A seeded test user, the part of the register's <c>test-users</c> entry the picker needs. Persons sign in by
-/// <c>Ssn</c>; self-identified users have none and sign in by <c>UserId</c>.
+/// A seeded test user, the part of the register's <c>test-users</c> entry the picker and <c>/Home</c> need. Persons sign
+/// in by <c>Ssn</c>; self-identified users have none and sign in by <c>UserId</c>. <c>Parties</c> starts with the user's
+/// own party, then the parties the user holds something for directly.
 /// </summary>
-public sealed record TestUser(int UserId, int PartyId, Guid PartyUuid, string? Ssn, string DisplayName);
+public sealed record TestUser(int UserId, int PartyId, Guid PartyUuid, string? Ssn, string DisplayName, TestUserParty[]? Parties)
+{
+    public IEnumerable<TestUserParty> OtherParties => (Parties ?? []).Where(p => p.PartyId != PartyId);
+
+    /// <summary>The user's own party, or one of the others; null when the user cannot act for it.</summary>
+    public (int PartyId, Guid PartyUuid)? FindParty(int partyId)
+        => partyId == PartyId
+            ? (PartyId, PartyUuid)
+            : OtherParties.FirstOrDefault(p => p.PartyId == partyId) is { } party ? (party.PartyId, party.PartyUuid) : null;
+}
+
+public sealed record TestUserParty(int PartyId, Guid PartyUuid, string DisplayName);

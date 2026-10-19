@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Localtest.IdPorten;
+using Localtest.Maskinporten;
 using Localtest.Proxy;
+using Localtest.Tokens;
 
 namespace Localtest;
 
@@ -17,4 +19,5 @@ namespace Localtest;
 [JsonSerializable(typeof(OpenIdConfiguration))]
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(TokenErrorResponse))]
+[JsonSerializable(typeof(AuthorizationServerMetadata))]
 internal sealed partial class LocaltestJsonContext : JsonSerializerContext;

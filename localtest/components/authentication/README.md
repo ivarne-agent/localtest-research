@@ -1,47 +1,69 @@
 # authentication
 
-Production Altinn Authentication (`vendor/`, see `UPSTREAM.md`) with the upstream identity provider replaced by a
-test-user picker, Postgres replaced by memory and Key Vault by a local key. Profile lookups use the production client
-against the register component, which answers Profile's `internal/user`.
+Production Altinn Authentication (`vendor/`, see `UPSTREAM.md`) with Postgres replaced by memory and Key Vault by the
+shared test certificate. Everything that stands in for a system outside Authentication lives in the localtest app
+(`../../localtest/`): the fake ID-porten with the test-user picker, the fake Maskinporten, and the old localtest's
+start page and `/Home` test helpers. Authentication reaches them by configuration and runs its own OIDC client, token
+validation, Profile client, session handling and token exchanges unchanged.
 
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): start page, headless sign-in (posts to the fake ID-porten's picker), in-memory repositories, local signing key, token endpoints, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
-Directive sites in `vendor/`:
+## Directive sites in `vendor/`
 
 1. `AuthenticationHost.cs`: `AddLocaltestAuthentication(builder)` just before the persistence layer. Its settings
    are read eagerly there and its repositories use TryAdd, so the in-memory ones registered first win.
 2. `AuthenticationController.cs`, `IsSafeSameOrSubdomainHttps`: the `goto` guard accepts plain http as well,
    because localtest serves `local.altinn.cloud` without TLS.
 
-How a login works: production `authentication?goTo=` redirects to the configured upstream authorization endpoint,
-which is the localtest app's fake ID-porten (`localtest/api/idporten/authorize`, see `../../localtest/README.md`), whose
-login page is the test-user picker. Submitting it sends the browser to the production `upstream/callback` with a
-one-time code; production `OidcProviderService` redeems it at the fake's token endpoint (with the PKCE verifier), and
-production `UpstreamTokenValidator` checks both tokens against the fake's JWKS (signature, issuer, lifetime, nonce).
-Then production `GetUserFromToken`, Profile lookup (production `ProfileService`, answered by the register component),
-session creation, cookie JWT and cookies run unchanged. The picker offers each user's own party only, because the
-production callback sets the party cookies; the app's party selection does the rest.
+## What the fakes replace
 
-The old localtest's login contract (what the app-frontend Cypress suite, app-lib and developers use), in
-`fakes/Controllers/LocaltestHomeController.cs` and `LocaltestTokenController.cs`, all anonymous:
-
-| Endpoint | Behaviour |
+| Production | Localtest |
 | --- | --- |
-| `GET /`, `/Home`, `/Home/Index` | Start page: `<select id="UserSelect">` with `userId.partyId` options (`Name`, and `Name for Org` for each party in the user's register `parties`), `AuthenticationLevel` 0-4 (default 2), optional `AppPathSelection`; `?goto=` becomes `RedirectUrl` |
-| `POST /Home/LogInTestUser` | Form or JSON: `UserSelect`, `AuthenticationLevel` (-1 skips the login), `action`, `RedirectUrl`, `AppPathSelection`. Runs the production sign-in headlessly, appends its cookies with `AltinnPartyId`/`AltinnPartyUuid` replaced by the selected party (the JWT keeps the user's own party, as in production). `action=reauthenticate` answers 204; otherwise redirects to `RedirectUrl` (same origin only), else `/{AppPathSelection}/`, else `/` |
-| `GET /Home/Localtest/Version` | `8` (`application/json`), the version `LocaltestValidation` in app-lib probes |
-| `GET /Home/GetTestUserToken[/{userId}]?userId&partyId&authenticationLevel` | Same headless sign-in; returns the JWT and sets the cookies (party cookies on `partyId` when given). Default level 2 |
-| `GET /Home/GetTestOrgToken[/{org}]?org&orgNumber&authenticationLevel&scopes` | Mints a Maskinporten-shaped token with a local key and runs it through the production `exchange/maskinporten` (level 3 from the exchange; default service-owner scopes) |
-| `GET /Home/GetTestStudioToken` | Designer's credential: a platform access token with issuer `studio` and app `studio.designer`, signed with the shared test certificate, exchanged through the production `exchange/altinnstudio`. Carries `urn:altinn:app=studio.designer`, which Storage's and Authorization's `StudioDesignerAccess` policy requires for pushing metadata, texts and policies |
+| Postgres: sessions, upstream login transactions, unregistered client requests | `Persistence/`: in memory, so a restart signs everyone out |
+| Postgres health check | Removed from the health checks; the service's own stays |
+| Key Vault: keys for incoming platform access tokens | `Keys/LocaltestKeyProviders.cs`, `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`) for every issuer |
+| `SigningKeysRetriever` (provider metadata and JWKS over https only, cached 12 h) | `LocaltestSigningKeysRetriever`: over plain http, no cache, so a restarted localtest app's new keys are picked up at once |
 
-Authentication levels map to acr values from production's built-in ID-porten table (`OidcAuthLevelDefaults.IdPorten`),
-set as the `OidcProviders:idporten:AuthLevels` default from `fakes/Login/LocaltestAuthLevels.cs`; production claim
-shaping turns the acr into `urn:altinn:authlevel`:
+Everything else is configuration (`fakes/LocaltestAuthenticationExtensions.cs`):
+
+- The `idporten` OIDC provider points at the localtest app's fake ID-porten (`localtest/api/idporten/`): issuer,
+  authorize (public), token and metadata. The level table `OidcProviders:idporten:AuthLevels` comes from
+  `Login/LocaltestAuthLevels.cs`; the localtest app's picker has the same table (`IdPorten/AuthLevels.cs`).
+- `MaskinportenWellKnownConfigEndpoint` (and the alternative) point at the fake Maskinporten
+  (`localtest/api/maskinporten/.well-known/oauth-authorization-server`). The exchange accepts a token when that URL
+  contains its `iss`, so the public URL is used.
+- `PlatformSettings:ApiProfileEndpoint` points at the register component, which answers Profile's `internal/user`
+  (`Localtest:Authentication:ProfileEndpoint` overrides it).
+- Everything derived from `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22
+  values); `PlatformEndpoint` itself comes from the environment. `Localtest:Authentication:InternalPlatformEndpoint`
+  points the service's own calls elsewhere when the public host name is not reachable from where it runs.
+- No database, no migrations, no audit log, no Key Vault.
+
+ServiceDefaults runs in environment `UNKNOWN`: the defaults are added after `AltinnHost` read its own settings, and
+`LOCAL` is not wanted (it would fetch platform tokens from the remote test token generator).
+
+## A sign-in
+
+1. The app sends the browser to production `authentication?goTo=…`, which redirects to the fake ID-porten's
+   `authorize` with state, nonce and an S256 PKCE challenge.
+2. The picker (each test user's own party, level 0-4) answers with a one-time code to production `upstream/callback`.
+3. Production `OidcProviderService` redeems the code at the fake's token endpoint with the verifier; production
+   `UpstreamTokenValidator` checks the id and access tokens against the fake's JWKS (signature, issuer, lifetime,
+   nonce).
+4. Production `GetUserFromToken`, the Profile lookup, session creation, the cookie JWT and the cookies follow. Persons
+   sign in by `pid`; a self-identified test user's token carries `urn:altinn:userid`, which takes production's
+   Profile-by-userId branch.
+
+The old localtest's `/Home/LogInTestUser` and `/Home/GetTestUserToken` run the same steps over HTTP from the localtest
+app, which posts the picker for the chosen user and rewrites the party cookies to the selected party.
+
+Authentication levels map to acr values from production's built-in ID-porten table (`OidcAuthLevelDefaults.IdPorten`);
+production claim shaping turns the acr into `urn:altinn:authlevel`:
 
 | Level | acr | `SecurityLevel` |
 | --- | --- | --- |
@@ -51,29 +73,26 @@ shaping turns the acr into `urn:altinn:authlevel`:
 | 3 | `idporten-loa-substantial` | `Sensitive` |
 | 4 | `idporten-loa-high` | `VerySensitive` |
 
-Persons sign in by pid (Profile lookup by ssn). A test user with an empty `ssn` is self-identified: the fake id_token
-carries `urn:altinn:userid`, which takes production's Profile-by-userId branch. Test users are read from the register
-component's `test-users`; unknown fields are ignored.
+Cookies are `Secure`; the localtest app removes the flag from every `Set-Cookie` (forwarded or from `/Home`), so a
+browser on plain http keeps them.
 
-The proxy routes `/` (exact), `/Home` (exact) and `/Home/` to this service. `smoke-test.sh` checks the contract
-(`BASE` = the proxy or the service itself).
+## Verified
 
-Localtest defaults are set in `fakes/LocaltestAuthenticationExtensions.cs`: everything derived from
-`GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22 values), and
-`PlatformEndpoint` itself is set by the environment, and `Localtest:Authentication:InternalPlatformEndpoint` can point
-the service's own calls elsewhere when the public host name is not reachable from where it runs. Cookies are `Secure`;
-the proxy removes the flag from every `Set-Cookie`, so a browser on plain http keeps them.
+The localtest app's `smoke-test.sh` (sections `identity providers` and `home`) and the root `smoke-test.sh` cover the
+sign-in at every level, the party cookies, `refresh`, the org token through the fake Maskinporten and the production
+exchange, and the Studio token.
 
-Run locally without Docker (register must be running on 5020, and the localtest app for the fake ID-porten; set
-`Localtest__Authentication__InternalPlatformEndpoint` to wherever it listens):
+## Run from an IDE
+
+Authentication needs the rest of the stack (register for Profile, the localtest app for the identity providers). Run
+the stack, point the localtest app's `authentication` upstream at the IDE instance, and start it:
 
 ```sh
+# in localtest/: Proxy__Upstreams__authentication=http://host.docker.internal:5101 on the localtest service, then
+podman-compose up -d --no-build
 export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:8000 \
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5101 \
   GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/ \
-  Localtest__Authentication__RegisterLocaltestEndpoint=http://127.0.0.1:5020/register/api/localtest/ \
-  Localtest__Authentication__ProfileEndpoint=http://127.0.0.1:5020/profile/api/v1/ \
+  AccessTokenSettings__AccessTokenSigningCertificateFullPath=$PWD/../../certs/localtest-accesstoken.pfx \
   dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication
-open 'http://local.altinn.cloud:8000/authentication/api/v1/authentication?goTo=http://local.altinn.cloud:8000/ttd/app/'
-BASE=http://local.altinn.cloud:8000 ./smoke-test.sh
 ```

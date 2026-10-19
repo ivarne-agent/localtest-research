@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Platform.Authentication.Core.RepositoryInterfaces;
-using Altinn.Platform.Authentication.Localtest.Identity;
 using Altinn.Platform.Authentication.Localtest.Keys;
 using Altinn.Platform.Authentication.Localtest.Login;
 using Altinn.Platform.Authentication.Localtest.Persistence;
@@ -42,6 +41,10 @@ public static class LocaltestAuthenticationExtensions
         // The fake ID-porten in the localtest app (localtest/localtest/IdPorten/); its issuer is the public URL.
         var idporten = platform + "localtest/api/idporten";
         var internalIdporten = internalPlatform + "localtest/api/idporten";
+
+        // The fake Maskinporten, also in the localtest app. Production's exchange accepts a token whose iss the
+        // well-known URL contains, and the fake's issuer is the public {platform}localtest/api/maskinporten/.
+        var maskinportenWellKnown = platform + "localtest/api/maskinporten/.well-known/oauth-authorization-server";
         var profile = builder.Configuration["Localtest:Authentication:ProfileEndpoint"] is { Length: > 0 } profileConfigured
             ? profileConfigured.TrimEnd('/') + "/"
             : internalPlatform + "profile/api/v1/";
@@ -57,7 +60,6 @@ public static class LocaltestAuthenticationExtensions
             {
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["GeneralSettings:OidcRefreshTokenPepper"] = "localtest-pepper",
-                ["Localtest:Authentication:RegisterLocaltestEndpoint"] = internalPlatform + "register/api/localtest/",
 
                 // The one upstream provider: the localtest app's fake ID-porten, whose login page is the test-user picker.
                 // The browser goes to authorize; this service calls token and the metadata itself.
@@ -88,8 +90,8 @@ public static class LocaltestAuthenticationExtensions
             ["PlatformSettings:ApiAuthorizationEndpoint"] = internalPlatform + "authorization/api/v1/",
             ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
             ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
-            ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
-            ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = internalAuthn + "localtest/maskinporten/.well-known/oauth-authorization-server",
+            ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = maskinportenWellKnown,
+            ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = maskinportenWellKnown,
             ["GeneralSettings:DefaultOidcProvider"] = "idporten",
             ["GeneralSettings:OpenIdWellKnownEndpoint"] = internalAuthn + "openid/",
             ["GeneralSettings:PlatformEndpoint"] = platform,
@@ -101,18 +103,10 @@ public static class LocaltestAuthenticationExtensions
         services.AddOptions<LocaltestAuthenticationOptions>().BindConfiguration("Localtest:Authentication");
         services.TryAddSingleton(TimeProvider.System);
 
-        // Upstream identity: production's OIDC client and token validation against the localtest app's fake ID-porten.
-        // The headless sign-in behind /Home posts the picker's form itself, so it must not follow the redirect.
-        services.AddScoped<LocaltestSignIn>();
-        services.AddHttpClient(LocaltestSignIn.PickerClient).ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false });
-
-        // Test users for the picker and the /Home endpoints. Profile itself is the production ProfileService: the
-        // register component answers Profile's internal/user (PlatformSettings:ApiProfileEndpoint below).
-        services.AddHttpClient<RegisterLocaltestClient>();
+        // Upstream identity and Profile are production code: the OIDC client and token validation against the localtest
+        // app's fake ID-porten and Maskinporten, ProfileService against the register component (settings above).
 
         // Keys: no Key Vault, http metadata allowed.
-        services.AddSingleton<LocaltestSigningKeys>();
-        services.AddSingleton<LocaltestAccessTokenSigner>();
         services.RemoveAll<ISigningKeysRetriever>();
         services.AddHttpClient<ISigningKeysRetriever, LocaltestSigningKeysRetriever>();
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);

@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Localtest.Tokens;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace Localtest.IdPorten;
@@ -35,7 +36,7 @@ public static class IdPortenApi
             ["openid", "profile"],
             [.. AuthLevels.All.Select(l => l.Acr)]));
 
-        api.MapGet("/jwks", (SigningKey key) => key.Jwks());
+        api.MapGet("/jwks", ([FromKeyedServices(IdPortenSettings.KeyName)] SigningKey key) => key.Jwks());
 
         api.MapGet("/authorize", async (HttpRequest request, TestUsers testUsers, CancellationToken cancellationToken) =>
         {
@@ -100,7 +101,7 @@ public static class IdPortenApi
             return Results.Redirect(QueryHelpers.AddQueryString(redirectUri, new Dictionary<string, string?> { ["code"] = code, ["state"] = state }));
         });
 
-        api.MapPost("/token", async (HttpRequest request, AuthorizationCodes codes, SigningKey key, IdPortenSettings settings, CancellationToken cancellationToken) =>
+        api.MapPost("/token", async (HttpRequest request, AuthorizationCodes codes, [FromKeyedServices(IdPortenSettings.KeyName)] SigningKey key, IdPortenSettings settings, CancellationToken cancellationToken) =>
         {
             var form = await request.ReadFormAsync(cancellationToken);
             if (form["grant_type"] != "authorization_code")
@@ -261,11 +262,11 @@ public static class IdPortenApi
 /// <summary>Settings of the fake ID-porten. The issuer is public: the browser and Authentication both use it.</summary>
 public sealed record IdPortenSettings(string Issuer)
 {
-    public static IdPortenSettings FromConfiguration(IConfiguration configuration)
-    {
-        var platform = (configuration["Localtest:PlatformEndpoint"] is { Length: > 0 } configured ? configured : "http://local.altinn.cloud:8000/").TrimEnd('/');
-        return new IdPortenSettings(configuration["IdPorten:Issuer"] is { Length: > 0 } issuer ? issuer.TrimEnd('/') : platform + "/localtest/api/idporten");
-    }
+    /// <summary>The DI key of the fake ID-porten's <see cref="SigningKey"/>.</summary>
+    public const string KeyName = "idporten";
+
+    public static IdPortenSettings FromConfiguration(IConfiguration configuration, LocaltestSettings localtest)
+        => new(configuration["IdPorten:Issuer"] is { Length: > 0 } issuer ? issuer.TrimEnd('/') : localtest.PlatformEndpoint + "localtest/api/idporten");
 }
 
 public sealed record OpenIdConfiguration(
