@@ -36,6 +36,6 @@ the rollout order. Background research is in [`../localtest-components/`](../loc
 - Localtest-only implementations (in-memory persistence over the test-data model, auth policies) live
   outside the vendored directory, under `src/Runtime/localtest/src/<Component>/`, and are wired in from the
   `#else` branches or from localtest's own `Startup.cs`.
-| Authentication | MVP implemented in [`../localtest/components/authentication/`](../localtest/components/authentication/) | [`authentication/production-authentication-analysis.md`](authentication/production-authentication-analysis.md) (analysis with verified run) |
+| Authentication | MVP implemented in [`../localtest/components/authentication/`](../localtest/components/authentication/) | [`authentication/production-authentication-analysis.md`](authentication/production-authentication-analysis.md) (analysis with verified run); [`authentication/localtest-app-identity.md`](authentication/localtest-app-identity.md) (plan: fake ID-porten, Maskinporten and `/Home` move to the localtest app) |
 | Authorization (PDP) | MVP implemented in [`../localtest/components/authorization/`](../localtest/components/authorization/) | [`../localtest-components/authorization.md`](../localtest-components/authorization.md) |
 | Storage | MVP implemented in [`../localtest/components/storage/`](../localtest/components/storage/) | [`../localtest-components/storage.md`](../localtest-components/storage.md) |
