@@ -1,9 +1,7 @@
 # Plan: fake ID-porten, fake Maskinporten and the /Home contract move into the localtest app
 
-Status: step 1 done 2026-10-20 (fake ID-porten in the localtest app; Authentication's own OIDC client and token
-validation run); steps 2-4 open. Approved by the user 2026-10-19, with "as much production code as possible, still no
-Service Bus or other Azure services". Builds on the review of `localtest/components/authentication/` (same day) and
-[`production-authentication-analysis.md`](production-authentication-analysis.md).
+Status: done 2026-10-20 (steps 1-4). Approved by the user 2026-10-19, with "as much production code as possible,
+still no Service Bus or other Azure services". See the verification section at the end.
 
 ## Goal
 
@@ -136,3 +134,17 @@ Estimate: two to three days including the Cypress run.
   outside the stack links to it as far as found; keep a redirect from the old path for a while?
 - **Ownership.** `Proxy/PlatformRoutes.cs` and the localtest app's README belong to the session that built the
   localtest app; coordinate step 3 with it.
+
+## Verification (2026-10-20)
+
+- Step 1 (`1485935`): authentication smoke 24, root smoke 23, register smoke 20, localtest app smoke 21; the fake's
+  token endpoint refuses a wrong PKCE verifier and a spent code. Cypress: service-task 3/3, signering-brukerstyrt 2/2,
+  signing-test 4/4, stateless-app 9/9.
+- Steps 2-3 (`180fd3c`): the localtest app smoke test (now 54 checks with the identity providers and the whole
+  `/Home` contract), root smoke 23, register smoke 20.
+- Step 4, the full Cypress suite (13 app folders, 00:14-01:00): 419 tests, 415 passed, 1 pending, 3 failed:
+  - `frontend-test/footer.ts`: passed on a rerun (flaky).
+  - `multiple-datamodels-test/readonly.ts` and `saving.ts`: reproduced, and unrelated to localtest. The specs build a
+    birth date from today's day and month and expect the age in the Cypress process's local time (Europe/Oslo,
+    2026-10-20 after midnight: 36), while the app computes it with today's UTC date (still 2026-10-19: 35). They fail
+    between local midnight and midnight UTC only; they passed in the runs before midnight.
