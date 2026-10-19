@@ -1,7 +1,7 @@
 name: localtest
 
 # One origin for apps and platform: http://local.altinn.cloud:8000 (add "127.0.0.1 local.altinn.cloud" to /etc/hosts).
-# The proxy has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
+# The localtest app has a fixed address and every component maps local.altinn.cloud to it, so service-to-service calls
 # use the same public URLs the browser and the app use. (podman copies the host's /etc/hosts into containers, where
 # local.altinn.cloud would otherwise point at the container itself; an added host entry wins.)
 # Apps run on the developer machine and are reached through host.docker.internal on the port run-app.sh registered.
@@ -19,18 +19,19 @@ networks:
   default:
     ipam:
       config:
-        # Dynamic addresses come from the upper half only, so no container started before the proxy can take its
-        # fixed 10.200.0.10 (after a reboot podman starts the containers in dependency order, the proxy last).
+        # Dynamic addresses come from the upper half only, so no container started before the localtest app can take its
+        # fixed 10.200.0.10 (after a reboot podman starts the containers in dependency order, the localtest app last).
         - subnet: 10.200.0.0/24
           ip_range: 10.200.0.128/25
 
 services:
-  # The front door (proxy/, YARP, Native AOT): platform routes by host and path prefix, app routes pushed by the app
-  # runner (PUT proxy/api/localtest/apps/{org}/{app}). Upstreams default to the services below; override one with
-  # Upstreams__<name>, for example Upstreams__storage: http://host.docker.internal:5010 for a Storage run from an IDE.
-  proxy:
-    build: ./proxy
-    image: localhost/localtest-proxy:dev
+  # The localtest app (localtest/, Native AOT), the front door: its proxy routes the platform by host and path prefix
+  # and the apps the app runner pushes (PUT localtest/api/proxy/apps/{org}/{app}). Upstreams default to the services
+  # below; override one with Proxy__Upstreams__<name>, for example
+  # Proxy__Upstreams__storage: http://host.docker.internal:5010 for a Storage run from an IDE.
+  localtest:
+    build: ./localtest
+    image: localhost/localtest-localtest:dev
     ports:
       - "8000:8000"
     extra_hosts:
@@ -39,8 +40,8 @@ services:
       # The built app-frontend (src/App/frontend/dist) served at /app-frontend/; apps run with
       # AppSettings__AppFrontendAssetBaseUrl=http://local.altinn.cloud:8000/app-frontend
       - ${FRONTEND_DIST:-./frontend-dist}:/frontend:ro
-      # The registered app routes, so a recreated proxy keeps routing the apps that still run.
-      - proxy-data:/data
+      # The registered app routes, so a recreated container keeps routing the apps that still run.
+      - localtest-data:/data
     networks:
       default:
         ipv4_address: 10.200.0.10
@@ -200,7 +201,7 @@ services:
         condition: service_healthy
 
 volumes:
-  proxy-data:
+  localtest-data:
   postgres-data:
   storage-blobs:
   policy-store:

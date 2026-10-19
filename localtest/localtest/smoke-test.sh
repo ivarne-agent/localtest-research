@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Smoke test for the proxy in the running compose stack: the contract the nginx ingress had (routes by host and path,
+# Smoke test for the localtest app's proxy in the running compose stack: the contract the nginx ingress had (routes by host and path,
 # trailing-slash redirects, cookies without Secure, streaming, the app-frontend files) and the app route API the app
 # runner uses. Registers and removes a route for ttd/proxy-smoke only. Requires `podman-compose up -d`.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
 BASE=${1:-http://local.altinn.cloud:8000}
-API="$BASE/proxy/api/localtest/apps"
+API="$BASE/localtest/api/proxy/apps"
 FAIL=0
 expect() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1 (expected $2, got $3)"; FAIL=1; fi

@@ -1,10 +1,13 @@
-using LocaltestProxy;
+using Localtest;
+using Localtest.Proxy;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 
-// The localtest front door: one origin, local.altinn.cloud:8000, split by host and path prefix onto the platform
-// components and the apps the app runner has registered. Forwarding is YARP's IHttpForwarder; the route table is
-// code (PlatformRoutes) and the app routes arrive over HTTP (AppRoutes), so nothing reads files or reloads.
+// The localtest app: the front door of the stack, and home of the localtest features that are not a platform
+// component. Today that is the proxy (Proxy/): one origin, local.altinn.cloud:8000, split by host and path prefix
+// onto the platform components and the apps the app runner has registered. Forwarding is YARP's IHttpForwarder; the
+// route table is code (PlatformRoutes) and the app routes arrive over HTTP (AppRoutes), so nothing reads files or
+// reloads. Each feature keeps its own API under localtest/api/{feature}/.
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
@@ -17,7 +20,7 @@ builder.Services.AddSingleton(sp => new AppRoutes(
     builder.Configuration["Proxy:AppRoutesFile"] ?? "/data/app-routes.json",
     sp.GetRequiredService<ILogger<AppRoutes>>()));
 builder.Services.AddSingleton<Forwarder>();
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, ProxyJsonContext.Default));
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, LocaltestJsonContext.Default));
 
 var app = builder.Build();
 

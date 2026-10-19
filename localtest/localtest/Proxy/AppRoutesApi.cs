@@ -1,14 +1,15 @@
-namespace LocaltestProxy;
+namespace Localtest.Proxy;
 
 /// <summary>
-/// The proxy's own localtest API, under <c>proxy/api/localtest/</c> like every component's: the app runner registers
-/// and removes app routes, and anyone can list them and the platform upstreams. Anonymous, local only.
+/// The proxy's API, under <c>localtest/api/proxy/</c> (each feature of the localtest app gets its own
+/// <c>localtest/api/{feature}/</c>): the app runner registers and removes app routes, and anyone can list them and the
+/// platform upstreams. Anonymous, local only.
 /// </summary>
 public static class AppRoutesApi
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/proxy/api/localtest");
+        var api = app.MapGroup("/localtest/api/proxy");
 
         api.MapGet("/apps", (AppRoutes routes) => routes.All.ToArray());
 

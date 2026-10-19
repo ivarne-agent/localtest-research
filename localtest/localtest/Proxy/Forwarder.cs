@@ -3,7 +3,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using Yarp.ReverseProxy.Forwarder;
 
-namespace LocaltestProxy;
+namespace Localtest.Proxy;
 
 /// <summary>
 /// Sends one request to its upstream with YARP's <see cref="IHttpForwarder"/>: an app route if the runner registered

@@ -14,10 +14,10 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
 | `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
-| `proxy/` | The front door on `local.altinn.cloud:8000`: a YARP-based C# proxy published with Native AOT. Routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT proxy/api/localtest/apps/{org}/{app}`), the app-frontend files, a 404 for any app path without a route, `Secure` removed from cookies |
+| `localtest/` | The localtest app, the front door on `local.altinn.cloud:8000` (C#, Native AOT), and the home of localtest features that are not a platform component. Its proxy routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT localtest/api/proxy/apps/{org}/{app}`), serves the app-frontend files, answers 404 for any app path without a route, and removes `Secure` from cookies |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `docker-compose.yml` | `proxy`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the proxy has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
+| `docker-compose.yml` | `localtest`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the localtest app has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
 | `smoke-test.sh` | End-to-end check of the running stack through the proxy |
@@ -70,7 +70,7 @@ container. A component other services depend on (the PDP, for example) is only r
 | --- | --- |
 | `./smoke-test.sh` | Through the proxy: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing) |
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties |
-| `proxy/smoke-test.sh` | The proxy's contract: routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, and the app route API |
+| `localtest/smoke-test.sh` | The localtest app's proxy: routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, and the app route API |
 | `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
 | `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |

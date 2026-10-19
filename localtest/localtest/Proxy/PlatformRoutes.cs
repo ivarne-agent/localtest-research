@@ -1,10 +1,10 @@
-namespace LocaltestProxy;
+namespace Localtest.Proxy;
 
 /// <summary>
 /// Where each platform path goes. Hosts first (the PDF generator and the workflow engine have their own host names, as
 /// in production and studioctl), then path prefixes on the main host. Matching is ordinal and case-sensitive, like the
-/// nginx locations it replaces. Upstream addresses come from configuration (<c>Upstreams:{name}</c>, for example the
-/// environment variable <c>Upstreams__storage=http://storage:5010</c>), so a component can be pointed elsewhere.
+/// nginx locations it replaced. Upstream addresses come from configuration (<c>Proxy:Upstreams:{name}</c>, for example
+/// the environment variable <c>Proxy__Upstreams__storage=http://storage:5010</c>), so a component can be pointed elsewhere.
 /// </summary>
 public sealed class PlatformRoutes
 {
@@ -57,7 +57,7 @@ public sealed class PlatformRoutes
     public static PlatformRoutes FromConfiguration(IConfiguration configuration)
     {
         var upstreams = new Dictionary<string, string>(DefaultUpstreams, StringComparer.OrdinalIgnoreCase);
-        foreach (var setting in configuration.GetSection("Upstreams").GetChildren())
+        foreach (var setting in configuration.GetSection("Proxy:Upstreams").GetChildren())
         {
             if (!string.IsNullOrWhiteSpace(setting.Value))
             {

@@ -93,8 +93,8 @@ Storage gets the Postgres connection strings, `GeneralSettings__PlatformEndpoint
 `vendor/infra/postgres_init.sql`.
 
 Inside the compose network `local.altinn.cloud:8000` must reach the proxy (for example a network alias
-`local.altinn.cloud` on the proxy service listening on 8000), because Storage fetches the OpenID metadata, calls
-the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the proxy service
+`local.altinn.cloud` on the `localtest` service listening on 8000), because Storage fetches the OpenID metadata, calls
+the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the `localtest` service
 URL. The proxy routes `/storage/` to `storage:5010` (Storage's routes already start with `/storage/api/v1/`; do
 not strip the prefix).
 

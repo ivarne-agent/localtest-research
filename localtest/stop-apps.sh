@@ -7,5 +7,5 @@ for f in "$HERE"/.run/*.pid; do
   name=$(basename "$f" .pid)            # {org}-{app}; org codes have no hyphen
   kill "$(cat "$f")" 2>/dev/null && echo "stopped $name"
   rm -f "$f"
-  curl -s -o /dev/null -X DELETE "$PLATFORM/proxy/api/localtest/apps/${name%%-*}/${name#*-}" || true
+  curl -s -o /dev/null -X DELETE "$PLATFORM/localtest/api/proxy/apps/${name%%-*}/${name#*-}" || true
 done

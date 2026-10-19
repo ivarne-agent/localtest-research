@@ -50,7 +50,7 @@ for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP
 echo "app $ORG/$APP on port $PORT (pid $(cat "$PIDF"), log $LOG), ready after ${i}s"
 
 # Route it through the proxy: push the app's address (the proxy reaches this machine as host.docker.internal).
-code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$PLATFORM/proxy/api/localtest/apps/$ORG/$APP" \
+code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$PLATFORM/localtest/api/proxy/apps/$ORG/$APP" \
   -H 'Content-Type: application/json' -d "{\"upstream\":\"http://host.docker.internal:$PORT\"}")
 for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "proxy route $PLATFORM/$ORG/$APP/ -> host port $PORT: HTTP $code (reachable after ${i}s)"
