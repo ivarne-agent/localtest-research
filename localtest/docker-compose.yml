@@ -19,7 +19,10 @@ networks:
   default:
     ipam:
       config:
+        # Dynamic addresses come from the upper half only, so no container started before the ingress can take its
+        # fixed 10.200.0.10 (after a reboot podman starts the containers in dependency order, the ingress last).
         - subnet: 10.200.0.0/24
+          ip_range: 10.200.0.128/25
 
 services:
   ingress:
