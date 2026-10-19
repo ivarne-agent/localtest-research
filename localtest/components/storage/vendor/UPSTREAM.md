@@ -1,7 +1,7 @@
 # Vendored copy of Altinn/altinn-storage
 
 - Repository: https://github.com/Altinn/altinn-storage
-- Commit: [`1c594731249c9efb8ef41fab037780e47f659049`](https://github.com/Altinn/altinn-storage/tree/1c594731249c9efb8ef41fab037780e47f659049) (main, 2026-10-16)
+- Commit: [`9e72a9f128debd7b9815b615d842a2d1a6d343c5`](https://github.com/Altinn/altinn-storage/tree/9e72a9f128debd7b9815b615d842a2d1a6d343c5) (main, 2026-10-19)
 - Copied paths, relative layout preserved: `src/Storage/` (the host, including `Migration/`), `src/DbTools/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
   `Directory.Build.props`, `.editorconfig`, `.csharpierignore`, `.config/dotnet-tools.json`; plus
