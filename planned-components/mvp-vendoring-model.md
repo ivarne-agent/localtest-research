@@ -8,8 +8,8 @@ service defaults get a plain bootstrap under `#else`.
 
 ```
 localtest/
-  docker-compose.yml              # proxy + one service per component + one shared postgres
-  proxy/                          # YARP proxy (since 2026-10-19; nginx before): local.altinn.cloud/<prefix> -> component container
+  docker-compose.yml              # the localtest app + one service per component + one shared postgres
+  localtest/                      # the localtest app (C#, Native AOT; nginx before 2026-10-19): its proxy routes local.altinn.cloud/<prefix> -> component container
   testdata/                       # built-in test users; mounted read-only into the components that need it
   components/
     authentication/               # FAKE ONLY: login page, user picker, token issuing, openid/jwks, testData.json merge
@@ -157,7 +157,7 @@ NuGet, if one is published; not confirmed).
 
 ### Cross-cutting
 
-- **Ingress.** (Since 2026-10-19 the YARP proxy in `localtest/proxy/`, same rules.) Plain nginx on `local.altinn.cloud:8000` with path-prefix rules (`/storage/` → storage,
+- **Ingress.** (Since 2026-10-19 the YARP proxy of the localtest app in `localtest/localtest/`, same rules.) Plain nginx on `local.altinn.cloud:8000` with path-prefix rules (`/storage/` → storage,
   `/authorization/` → authorization, `/register/` → register, `/profile/`, `/events/`, `/notifications/`,
   `/authentication/` and `/Home/` → authentication, `/{org}/{app}/` → the app on the developer host via
   `host.docker.internal`). The app keeps today's `PlatformSettings` defaults. Today's cookie-domain rewrite and
@@ -198,7 +198,7 @@ NuGet, if one is published; not confirmed).
 | Central package management | Non-issue: `fakes/` sits outside `vendor/` and never sees the vendored `Directory.Packages.props` (verified). |
 | Service defaults without Azure | Configuration only, no directive (verified in the package source, see the Register table). |
 | App metadata into Storage | Deferred to the storage step. The MVP has no discovery of running apps; test users come from a static `testData.json` in the repo. |
-| Ingress | Plain nginx with path-prefix routing. Cookie rewrite and frontend version override are out of scope. **Superseded 2026-10-19:** a YARP-based C# proxy published with Native AOT (`localtest/proxy/`), same routes, with app routes pushed by the app runner over HTTP instead of drop-in nginx files and a reload. |
+| Ingress | Plain nginx with path-prefix routing. Cookie rewrite and frontend version override are out of scope. **Superseded 2026-10-19:** a YARP-based C# proxy published with Native AOT, part of the localtest app (`localtest/localtest/`), same routes, with app routes pushed by the app runner over HTTP instead of drop-in nginx files and a reload. |
 | Images | Local `docker compose build` only during the MVP. Registry and pin policy are decided at the move into the monorepo. |
 
 Still open: analyzers pulled in by the vendored build chains, and how the compose file later maps onto studioctl's
