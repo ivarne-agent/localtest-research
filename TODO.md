@@ -27,7 +27,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
-| 6 | [Notifications](#6-notifications) | research in progress (2026-10-20, agent `task6-notifications-plan`, worktree `.worktrees/task6-notifications-plan`, branch `plan/notifications`; implementation unapproved) | medium | yes |
+| 6 | [Notifications](#6-notifications) | plan done (2026-10-20, `planned-components/notifications/`); implementation unapproved | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | approved 2026-10-20, design under discussion (reset, routing, Redis); 9a not yet dispatched | large | yes |
@@ -206,15 +206,16 @@ still passes; Access Management's refresh still produces the same `app_{org}_{ap
 **Goal.** Apps that order notifications (`notifications/api/v1/orders…`) get production answers instead of a 404, and a
 tester can see what was ordered.
 
-**Design to settle.** Production `Altinn/altinn-notifications` uses Postgres and Kafka, plus e-mail and SMS providers.
-Options: (a) vendor the orders API with fakes for Kafka (in-process queue) and the providers (captured, listed under
-`notifications/api/localtest/`), the Events model; (b) a fake-only service that validates and stores orders. The
-vendoring rule says (a) when the build chain allows it; the Kafka dependency decides. Research first: a short report
-under `planned-components/notifications/` (consumers in app-lib, the orders API surface, the build chain, Kafka
-coupling, effort), then the implementation as a second task.
-
-**Status.** Research dispatched 2026-10-20 (report under `planned-components/notifications/`); implementation waits
-for the report and approval.
+**Plan (2026-10-20).** [`planned-components/notifications/notifications.md`](planned-components/notifications/notifications.md).
+The Kafka premise was stale: upstream `altinn-notifications` (pin a4aa959) uses Azure Service Bus through Wolverine,
+reached from the orders API host through one registration call and three publisher classes; the Email and SMS hosts
+sit behind the queue and are not needed locally. Recommendation: Option A, vendor the orders API host
+(`components/api` + `components/shared`) with capture fakes in place of the publishers (every would-be e-mail and SMS
+recorded under `notifications/api/localtest/`, the production status machinery running on the shared Postgres), two
+directive sites (one additive, one `#if !LOCALTEST`), about 1 400 lines of fakes, 6 to 7 days including the Profile
+contact-point lookups the Register component must gain (four endpoints) and the studioctl wiring. Verified with a
+scratch build and start of the host; the 104 migration folders have not been run on Postgres 18. The capture fake
+must apply send results after the claim transaction commits (section 6.4). Open questions in section 6.14.
 
 **Open.** Everything above; whether Correspondence (task 7) should share the capture GUI.
 
