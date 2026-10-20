@@ -1,32 +1,50 @@
-# studioctl `localtest-v2` runtime (copy of the monorepo change)
+# studioctl with the `localtest-v2` runtime
 
-The studioctl side of the stack is one commit on `Altinn/altinn-studio`, kept here so this repository holds the whole
-picture while the change waits to be upstreamed:
+A vendored copy of the studioctl source from `Altinn/altinn-studio`, so the `localtest-v2` runtime can be developed
+next to the components it starts and upstreamed later. Pin, copied paths, baseline commit, how to produce the upstream
+patch and how to sync: [`UPSTREAM.md`](UPSTREAM.md). Design: [`../../planned-components/studioctl-integration.md`](../../planned-components/studioctl-integration.md).
 
-- `0001-feat-studioctl-localtest-v2-runtime.patch`: `git format-patch --binary` of commit `43be33f73e` (2026-10-20),
-  parent `89b1d7bc70` on `main`. Also pushed as `ivarne-agent/altinn-studio` branch `feat/studioctl-localtest-v2`.
-- `monorepo/`: the 36 files the commit touches, at their monorepo paths, as they are after the commit. For reading
-  and grepping; the patch is the thing to apply.
+## Layout
 
-Apply on a fresh altinn-studio checkout:
+The monorepo layout is kept, so relative paths resolve as upstream.
+
+| Path | What |
+| --- | --- |
+| `src/cli` | studioctl (Go), `studioctl-server` (C#), `studioctl-server-tests`, `common/dotnet`; the Makefile and `.gitignore` live here (`build/`, `bin/`, `obj/` are ignored) |
+| `src/Runtime/devenv` | Go module `altinn.studio/devenv`, replaced into `src/cli/go.mod` |
+| `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common` | `HostBridge` and `EnvTopology` sources compiled into `studioctl-server` |
+| `src/Runtime/localtest/infra` | Files staged by `make dev-install` |
+
+## Dev loop
 
 ```sh
-git checkout -b feat/studioctl-localtest-v2 origin/main
-git am --3way path/to/0001-feat-studioctl-localtest-v2-runtime.patch
+cd localtest/studioctl/src/cli
+make dev-install                            # builds build/dev-home/bin/{studioctl,studioctl-server}
+export STUDIOCTL_HOME=$PWD/build/dev-home
+export STUDIOCTL_LOCALTEST_V2_SRC=<this checkout>/localtest
+build/dev-home/bin/studioctl env up -r localtest-v2 [--dev <component>|all] [--latest]
+build/dev-home/bin/studioctl env logs
+build/dev-home/bin/studioctl env down
 ```
 
-What the commit adds (details in [`../../planned-components/studioctl-integration.md`](../../planned-components/studioctl-integration.md)):
+`--dev` builds the named component (or all) from `localtest/components/<name>` instead of pulling the pinned image;
+`--latest` follows the published `latest` images. `make dev-install` runs `studioctl self install`, which stops every
+environment and app first.
+
+Gotcha: only one `studioctl-server` can own port 8000. A dev-home server started from another checkout must be stopped
+first, with `studioctl env down` from that home or by killing its `studioctl-server` process.
+
+## What the localtest-v2 change adds
+
+Paths below are under `src/cli/`.
 
 | Where | What |
 | --- | --- |
-| `src/cli/internal/cmd/env/localtestv2/` | The runtime: component specs (`components.go`), start/stop/reset (`env.go`), HTTP health polling (`health.go`), topology (`topology.go`), the embedded test certificate (`certs.go`, `assets/localtest-accesstoken.pfx`) |
-| `src/cli/internal/cmd/env/runtime.go`, `registry/`, `types.go`, `env.go` | `-r <runtime>` with one runtime at a time, defaulting to the last one started |
-| `src/cli/internal/config/images.go` | `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` images pinned by `sha-<commit>` (`tagLocaltestV2`), `--latest` |
-| `src/cli/internal/localtestv2/state.go` | The state file both studioctl and studioctl-server read |
-| `src/cli/internal/cmd/app/{env,run}.go`, `internal/studioctlserver/client.go` | App environment for the real components (platform token certificate), provisioning call on `studioctl run` |
-| `src/cli/studioctl-server/Proxy/` | The front door: routes component prefixes, the PDF and workflow-engine hosts, falls back to the localtest app; keeps `Host`, strips `Secure` |
-| `src/cli/studioctl-server/Provisioning/AppProvisioner.cs` | The deploy step: metadata, texts, policy, `testData.json` pushed to the components with the Studio token, Access Management refresh, register `DELETE` on app stop |
-| `src/cli/README.md`, `AGENTS.md`, `CHANGELOG.md`, the bundled skill | Docs |
-
-Dev loop in the monorepo: `make dev-install`, then `STUDIOCTL_HOME=build/dev-home build/dev-home/bin/studioctl env up -r localtest-v2`.
-`make dev-install` runs `studioctl self install`, which stops every environment and app first.
+| `internal/cmd/env/localtestv2/` | The runtime: component specs (`components.go`), start/stop/reset (`env.go`), HTTP health polling (`health.go`), topology (`topology.go`), the embedded test certificate (`certs.go`, `assets/localtest-accesstoken.pfx`) |
+| `internal/cmd/env/runtime.go`, `registry/`, `types.go`, `env.go` | `-r <runtime>` with one runtime at a time, defaulting to the last one started |
+| `internal/config/images.go` | `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` images pinned by `sha-<commit>` (`tagLocaltestV2`), `--latest` |
+| `internal/localtestv2/state.go` | The state file both studioctl and studioctl-server read |
+| `internal/cmd/app/{env,run}.go`, `internal/studioctlserver/client.go` | App environment for the real components (platform token certificate), provisioning call on `studioctl run` |
+| `studioctl-server/Proxy/` | The front door: routes component prefixes, the PDF and workflow-engine hosts, falls back to the localtest app; keeps `Host`, strips `Secure` |
+| `studioctl-server/Provisioning/AppProvisioner.cs` | The deploy step: metadata, texts, policy, `testData.json` pushed to the components with the Studio token, Access Management refresh, register `DELETE` on app stop |
+| `README.md`, `AGENTS.md`, `CHANGELOG.md`, the bundled skill | Docs |

@@ -16,7 +16,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
 | `localtest/` | The localtest app, the front door on `local.altinn.cloud:8000` (C#, Native AOT), and the home of localtest features that are not a platform component. Its proxy routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT localtest/api/proxy/apps/{org}/{app}`), serves the app-frontend files, answers 404 for any app path without a route, and removes `Secure` from cookies. It also hosts the fake ID-porten (test-user picker) and Maskinporten that production Authentication trusts, and the old localtest's start page and `/Home` test helpers |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
-| `studioctl/` | The studioctl side of the stack: the `localtest-v2` runtime commit from `Altinn/altinn-studio` as a patch and as the 36 files it touches, kept here until it is upstreamed |
+| `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
 | `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
@@ -48,8 +48,9 @@ registered is a 404 at the proxy.
 
 ## Run it
 
-The stack runs through studioctl's `localtest-v2` runtime (altinn-studio `src/cli`, branch `feat/studioctl-localtest-v2`
-until merged), which starts the components from the images this repository publishes, proxies
+The stack runs through studioctl's `localtest-v2` runtime, built from [`studioctl/src/cli`](studioctl/src/cli) in this
+repository (`make dev-install`, see [`studioctl/README.md`](studioctl/README.md)) until it is upstreamed to
+altinn-studio. It starts the components from the images this repository publishes, proxies
 `http://local.altinn.cloud:8000` from studioctl-server, pushes each app's artefacts when `studioctl run` discovers it,
 and polls every component's `/health`:
 

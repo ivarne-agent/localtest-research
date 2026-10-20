@@ -2,7 +2,8 @@
 
 Status: superseded in part, 2026-10-20. The integration was built differently on several points (studioctl branch
 `feat/studioctl-localtest-v2`, commit `43be33f73e`; the research repo's image workflow in `84514a3`). The choices are
-argued in [`studioctl-integration-options.md`](studioctl-integration-options.md). What was built:
+argued in [`studioctl-integration-options.md`](studioctl-integration-options.md). The source now lives in
+[`localtest/studioctl/`](../localtest/studioctl/) and the runtime is developed there until it is upstreamed. What was built:
 
 - **A separate runtime**, `studioctl env up -r localtest-v2`, next to the classic localtest, instead of a flag that
   swaps the classic one. Images are pinned from `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` (`--latest`
