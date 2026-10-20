@@ -29,7 +29,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | research in progress (2026-10-20, Opus research agent, branch `research/correspondence`; plan under `planned-components/correspondence/`, then a brief to approve) | medium | yes |
-| 8 | [Inspection GUI](#8-inspection-gui) | research in progress (2026-10-20, Opus research agent, branch `research/inspection-gui`; plan under `planned-components/inspection-gui/`, then a brief to approve) | medium | yes |
+| 8 | [Inspection GUI](#8-inspection-gui) | unapproved (research done 2026-10-20: plan in `planned-components/inspection-gui/`, proposed brief in its README; 8a Storage instances endpoint, 8b GUI, 8c follow-ups; 11 open questions to discuss) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf; pin bump pending the images workflow) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
