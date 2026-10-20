@@ -19,7 +19,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
 | `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `docker-compose.yml` | `localtest`, `register`, `authentication`, `authorization`, `access-management`, `postgres`, `storage`, `events`, `workflow-engine`, `pdf3`; the localtest app has a fixed address (10.200.0.10) that every component maps `local.altinn.cloud` to, and the others get addresses from 10.200.0.128/25 only, so none can take it |
+| `postgres/` | The shared Postgres image: Postgres 18 with every component's database init script baked in |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
 | `smoke-test.sh` | End-to-end check of the running stack through the proxy |
@@ -47,26 +47,23 @@ registered is a 404 at the proxy.
 
 ## Run it
 
+The stack runs through studioctl's `localtest-v2` runtime (altinn-studio `src/cli`, branch `feat/studioctl-localtest-v2`
+until merged), which starts the components from the images this repository publishes, proxies
+`http://local.altinn.cloud:8000` from studioctl-server, pushes each app's artefacts when `studioctl run` discovers it,
+and polls every component's `/health`:
+
 ```sh
-grep -q ' local.altinn.cloud' /etc/hosts || echo '127.0.0.1 local.altinn.cloud' | sudo tee -a /etc/hosts
-# The PDF generator and the workflow engine have host names of their own, which the apps on this machine call.
-grep -q pdf.local.altinn.cloud /etc/hosts || echo '127.0.0.1 pdf.local.altinn.cloud workflow-engine.local.altinn.cloud' | sudo tee -a /etc/hosts
-docker compose up --build -d        # or podman-compose up -d (build the images first)
-./run-app.sh ~/code/altinn-studio/src/test/apps/frontend-test 5005
-open 'http://local.altinn.cloud:8000/ttd/frontend-test/'
+studioctl env up -r localtest-v2            # pinned images from ghcr; --latest follows main
+studioctl run                               # in an app checkout
 ```
 
-`run-app.sh <app-dir> [port]` builds the app, starts it on the given port with platform URLs pointing at the stack,
-registers its route with the proxy, and performs the pushes above. Its log is `.run/<org>-<app>.log`. Each app needs its own
-port; `./stop-apps.sh` stops them all and removes their routes.
+Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
+for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked
+in), tagged `sha-<commit>` and `latest`. To run a component from this checkout instead, `studioctl env up -r localtest-v2
+--dev <name>` builds it from `components/<name>` (`STUDIOCTL_LOCALTEST_V2_SRC` points at this `localtest/` folder).
 
-A component added after the Postgres volume was created needs its database created by hand, because Postgres runs
-init scripts only on an empty volume. Each init script is idempotent, for example
-`podman exec -i localtest_postgres_1 sh < components/events/postgres-init/30-events.sh`.
-
-To swap in a rebuilt image: `podman build -t localhost/localtest-<name>:dev components/<name>`, then recreate the
-container. A component other services depend on (the PDP, for example) is only replaced by `podman-compose down` and
-`up -d --no-build`; check `podman inspect` that the container runs the new image id.
+There is no compose file any more; `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` predate the studioctl
+runtime and push app routes to the localtest app's own proxy API, which studioctl does not use.
 
 ## Tests
 

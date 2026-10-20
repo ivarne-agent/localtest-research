@@ -1,0 +1,97 @@
+# Builds the localtest stack's images and pushes them to ghcr.io/<owner>/<repo>/localtest-<name>, tagged with the commit
+# (sha-<short>) and, from main, latest. studioctl pins the sha tag of a build it was tested with and runs latest on request.
+# The build runs natively per architecture (the localtest app is a Native AOT build, which does not cross-compile), and a
+# manifest list joins the two.
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "localtest/components/**"
+      - "localtest/localtest/**"
+      - "localtest/postgres/**"
+      - "localtest/postgres-init/**"
+      - ".github/workflows/images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: localtest, context: localtest/localtest, file: localtest/localtest/Dockerfile }
+          - { name: register, context: localtest/components/register, file: localtest/components/register/Dockerfile }
+          - { name: authentication, context: localtest/components/authentication, file: localtest/components/authentication/Dockerfile }
+          - { name: authorization, context: localtest/components/authorization, file: localtest/components/authorization/Dockerfile }
+          - { name: access-management, context: localtest/components/access-management, file: localtest/components/access-management/Dockerfile }
+          - { name: storage, context: localtest/components/storage, file: localtest/components/storage/Dockerfile }
+          - { name: events, context: localtest/components/events, file: localtest/components/events/Dockerfile }
+          - { name: postgres, context: localtest, file: localtest/postgres/Dockerfile }
+        platform:
+          - { os: ubuntu-24.04, arch: amd64 }
+          - { os: ubuntu-24.04-arm, arch: arm64 }
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: repo
+        run: echo "name=${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}/localtest-${{ matrix.image.name }}" >> "$GITHUB_OUTPUT"
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.file }}
+          platforms: linux/${{ matrix.platform.arch }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          outputs: type=image,name=${{ steps.repo.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }},mode=max
+      - run: |
+          mkdir -p /tmp/digests
+          echo -n "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.image.name }}-${{ matrix.platform.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  manifest:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        name: [localtest, register, authentication, authorization, access-management, storage, events, postgres]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ matrix.name }}-*
+          path: /tmp/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          repo="${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}/localtest-${{ matrix.name }}"
+          tags=(--tag "$repo:sha-${GITHUB_SHA::7}")
+          [ "$GITHUB_REF" = "refs/heads/main" ] && tags+=(--tag "$repo:latest")
+          refs=()
+          for f in /tmp/digests/*; do refs+=("$repo@$(cat "$f")"); done
+          docker buildx imagetools create "${tags[@]}" "${refs[@]}"
+          docker buildx imagetools inspect "$repo:sha-${GITHUB_SHA::7}"

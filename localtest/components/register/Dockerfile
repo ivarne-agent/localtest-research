@@ -22,6 +22,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:c4b29bf368004ad9076c1ab9
 EXPOSE 5020
 WORKDIR /app
 COPY --from=build /app_output .
+# localtest: the built-in seed the fake store starts from (the compose file used to mount it).
+COPY testdata /testdata
 
 # Install tzdata for timezone support, which is needed for correct handling of dates and times in the application
 RUN apk add --no-cache tzdata
