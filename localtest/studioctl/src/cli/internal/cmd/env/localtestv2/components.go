@@ -28,11 +28,13 @@ const (
 	componentPDF              = "pdf3"
 	componentWorkflowEngine   = "workflow-engine"
 
-	// The optional Dialogporten group (see groups.go): Redis and the three hosts built from one vendored tree.
+	// The optional Dialogporten group (see groups.go): Redis and the three hosts built from one vendored tree, and the
+	// adapter that turns Storage's instances into dialogs, built from its own.
 	componentRedis               = "redis"
 	componentDialogportenWebApi  = "dialogporten-webapi"
 	componentDialogportenGraphQL = "dialogporten-graphql"
 	componentDialogportenService = "dialogporten-service"
+	componentDialogportenAdapter = "dialogporten-adapter"
 )
 
 // Host ports, loopback only. The proxy in studioctl-server forwards to these; 5300 is also what app-lib's
@@ -50,6 +52,7 @@ const (
 	hostPortDialogportenWeb  = "8030"
 	hostPortDialogportenGQL  = "8031"
 	hostPortDialogportenSvc  = "8032"
+	hostPortDialogportenAdpt = "8035"
 	hostPortNotifications    = "8029"
 	hostPortPDF              = "5300"
 )
@@ -243,6 +246,7 @@ func allComponents(opts *Options) []component {
 		dialogportenWebApiComponent(opts, platform),
 		dialogportenGraphQLComponent(opts, platform),
 		dialogportenServiceComponent(opts, platform),
+		dialogportenAdapterComponent(opts, platform),
 	}
 }
 
@@ -638,6 +642,33 @@ func dialogportenServiceComponent(opts *Options, platform string) component {
 	return c
 }
 
+// dialogportenAdapterComponent is the Dialogporten adapter: it takes Storage's outbox commands on its anonymous
+// localtest enqueue endpoint (Storage posts them through the proxy whether or not the group is up) and syncs each
+// instance to a dialog with the production code, calling Storage, Register and Dialogporten through the public origin.
+func dialogportenAdapterComponent(opts *Options, platform string) component {
+	c := newComponent(
+		opts,
+		componentDialogportenAdapter,
+		opts.Images.LocaltestV2.DialogportenAdapter,
+		"components/dialogporten-adapter",
+		"5011",
+		hostPortDialogportenAdpt,
+	)
+	c.group = groupDialogporten
+	c.healthPath = healthPath
+	c.env = map[string]string{"Localtest__Adapter__PlatformEndpoint": platform}
+	c.deps = []string{
+		containerOf(componentStorage),
+		containerOf(componentRegister),
+		containerOf(componentAuthentication),
+		containerOf(componentDialogportenWebApi),
+	}
+	// Its routes start with /storage/dialogporten, so the path passes unchanged. The proxy matches the longest prefix,
+	// so this route wins over Storage's /storage for the adapter's paths.
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/storage/dialogporten", rewrite: ""}}
+	return c
+}
+
 // DevBuildable lists the components a dev build can produce from the research checkout.
 // "dialogporten" selects the group's three images, which are built from one folder.
 func DevBuildable() []string {
@@ -650,10 +681,10 @@ func DevBuildable() []string {
 	return slices.Compact(names)
 }
 
-// devName is what `--dev` calls a component: its own name, or the group's for one that is built together with the rest
-// of its group.
+// devName is what `--dev` calls a component: the group's name for one built from the group's own folder together with
+// the rest of it (Dialogporten's three hosts), otherwise its own name (the Dialogporten adapter).
 func devName(c component) string {
-	if c.group != "" && c.devContext != "" {
+	if c.group != "" && c.devContext == "components/"+c.group {
 		return c.group
 	}
 	return c.name

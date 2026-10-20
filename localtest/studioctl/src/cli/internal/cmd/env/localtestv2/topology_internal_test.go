@@ -147,7 +147,13 @@ func TestTheDialogportenGroupIsOffByDefault(t *testing.T) {
 	opts := defaultOptions(config.DefaultImages(), t.TempDir())
 	for _, name := range containerNamesOf(opts) {
 		if slices.Contains(
-			[]string{componentRedis, componentDialogportenWebApi, componentDialogportenGraphQL, componentDialogportenService},
+			[]string{
+				componentRedis,
+				componentDialogportenWebApi,
+				componentDialogportenGraphQL,
+				componentDialogportenService,
+				componentDialogportenAdapter,
+			},
 			name,
 		) {
 			t.Errorf("%s is part of the default environment", name)
@@ -155,15 +161,16 @@ func TestTheDialogportenGroupIsOffByDefault(t *testing.T) {
 	}
 	off := 0
 	for _, route := range boundTopologyConfig(opts).Routes {
-		if route.Match.PathPrefix == "/dialogporten" || route.Match.PathPrefix == "/dialogporten/graphql" {
+		groupPrefixes := []string{"/dialogporten", "/dialogporten/graphql", "/storage/dialogporten"}
+		if slices.Contains(groupPrefixes, route.Match.PathPrefix) {
 			off++
 			if route.Enabled || metadataValue(route, groupMetadataKey) != groupDialogporten {
 				t.Errorf("route %s%s = %+v, want it disabled and naming its group", route.Match.Host, route.Match.PathPrefix, route)
 			}
 		}
 	}
-	if off != 2 {
-		t.Errorf("%d Dialogporten routes with the group off, want both written disabled for the proxy's 503", off)
+	if off != 3 {
+		t.Errorf("%d Dialogporten routes with the group off, want all three written disabled for the proxy's 503", off)
 	}
 	for _, target := range healthTargets(opts) {
 		if target.name == componentDialogportenWebApi {
@@ -180,7 +187,7 @@ func TestTheDialogportenGroupRegistersItsRoutesAndHealthWhenOn(t *testing.T) {
 	opts := dialogportenOptions(t)
 	if got := containerNamesOf(opts); !slices.Contains(got, componentRedis) ||
 		!slices.Contains(got, componentDialogportenService) {
-		t.Fatalf("components = %v, want the group's four", got)
+		t.Fatalf("components = %v, want the group's five", got)
 	}
 
 	byPrefix := map[string]envtopology.BoundTopologyRoute{}
@@ -216,6 +223,7 @@ func TestTheDialogportenGroupRegistersItsRoutesAndHealthWhenOn(t *testing.T) {
 			t.Errorf("health of %s = %q, want %q", name, health[name], want)
 		}
 	}
+
 	if _, polled := health[componentRedis]; polled {
 		t.Error("redis has no published port and is covered by its container health check")
 	}
@@ -382,5 +390,61 @@ func TestDialogportenIsBuiltAsOneDevComponentFromThreeDockerfiles(t *testing.T) 
 	}
 	if !maps.Equal(dockerfiles, want) {
 		t.Errorf("built images = %v, want %v", dockerfiles, want)
+	}
+}
+
+func TestTheDialogportenAdapterRoutesStorageDialogportenAndIsPolled(t *testing.T) {
+	t.Parallel()
+	opts := dialogportenOptions(t)
+	byPrefix := map[string]envtopology.BoundTopologyRoute{}
+	for _, route := range boundTopologyConfig(opts).Routes {
+		byPrefix[route.Match.Host+route.Match.PathPrefix] = route
+	}
+	adapter := byPrefix["local.altinn.cloud/storage/dialogporten"]
+	if adapter.Component != componentDialogportenAdapter ||
+		adapter.Destination.URL != "http://127.0.0.1:"+hostPortDialogportenAdpt || !adapter.Enabled ||
+		metadataValue(adapter, rewriteMetadataKey) != "" {
+		t.Errorf("adapter route = %+v, want the adapter's port and an unchanged path", adapter)
+	}
+	// The proxy picks the longest matching prefix, so the adapter's paths do not reach Storage.
+	if storage := byPrefix["local.altinn.cloud/storage"]; storage.Component != componentStorage {
+		t.Errorf("/storage route = %+v, want Storage beside the adapter's longer prefix", storage)
+	}
+	for _, target := range healthTargets(opts) {
+		if target.name == componentDialogportenAdapter {
+			if want := "http://127.0.0.1:" + hostPortDialogportenAdpt + "/health"; target.url != want {
+				t.Errorf("health of the adapter = %q, want %q", target.url, want)
+			}
+			return
+		}
+	}
+	t.Error("the adapter's health is not polled")
+}
+
+func TestTheDialogportenAdapterIsItsOwnDevComponent(t *testing.T) {
+	t.Parallel()
+	selected, err := devComponents([]string{componentDialogportenAdapter})
+	if err != nil || !selected[componentDialogportenAdapter] {
+		t.Fatalf("--dev %s = %v, %v", componentDialogportenAdapter, selected, err)
+	}
+	opts := dialogportenOptions(t)
+	opts.DevSourceRoot = "/src/localtest"
+	opts.DevComponents = selected
+	var built []string
+	for _, c := range components(opts) {
+		if image, ok := componentImage(opts, c).(*resource.BuiltImage); ok {
+			built = append(built, c.name)
+			if image.Dockerfile != "/src/localtest/components/dialogporten-adapter/Dockerfile" {
+				t.Errorf("adapter Dockerfile = %s", image.Dockerfile)
+			}
+		}
+	}
+	if !slices.Equal(built, []string{componentDialogportenAdapter}) {
+		t.Errorf("built = %v, want only the adapter", built)
+	}
+	for _, c := range components(opts) {
+		if c.name == componentDialogportenAdapter && c.group != groupDialogporten {
+			t.Errorf("adapter group = %q, want %q", c.group, groupDialogporten)
+		}
 	}
 }

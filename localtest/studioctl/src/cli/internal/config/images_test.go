@@ -157,6 +157,7 @@ func TestDialogportenImagesFollowTheResearchBuildsAndRedisStaysPinned(t *testing
 		"localtest-dialogporten-webapi":  &images.DialogportenWebApi,
 		"localtest-dialogporten-graphql": &images.DialogportenGraphQL,
 		"localtest-dialogporten-service": &images.DialogportenService,
+		"localtest-dialogporten-adapter": &images.DialogportenAdapter,
 	}
 	for name, spec := range want {
 		if !strings.HasSuffix(spec.Image, "/"+name) {

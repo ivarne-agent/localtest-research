@@ -82,11 +82,12 @@ type LocaltestV2Images struct {
 	Notifications    ImageSpec
 	Postgres         ImageSpec
 
-	// The optional Dialogporten group: three hosts built from one vendored tree, and the Redis they share,
+	// The optional Dialogporten group: three hosts built from one vendored tree, the adapter, and the Redis they share,
 	// which is a third-party image and so is not one of the research repository's builds (not in All).
 	DialogportenWebApi  ImageSpec
 	DialogportenGraphQL ImageSpec
 	DialogportenService ImageSpec
+	DialogportenAdapter ImageSpec
 	Redis               ImageSpec
 }
 
@@ -106,6 +107,7 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.DialogportenWebApi,
 		&i.DialogportenGraphQL,
 		&i.DialogportenService,
+		&i.DialogportenAdapter,
 	}
 }
 
@@ -171,6 +173,7 @@ func DefaultImages() ImagesConfig {
 			DialogportenWebApi:  localtestV2Image("dialogporten-webapi"),
 			DialogportenGraphQL: localtestV2Image("dialogporten-graphql"),
 			DialogportenService: localtestV2Image("dialogporten-service"),
+			DialogportenAdapter: localtestV2Image("dialogporten-adapter"),
 			Redis:               ImageSpec{Image: imageRedis, Tag: tagRedis, Floating: false},
 		},
 	}
@@ -211,6 +214,7 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_WEBAPI":  &c.LocaltestV2.DialogportenWebApi,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_GRAPHQL": &c.LocaltestV2.DialogportenGraphQL,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_SERVICE": &c.LocaltestV2.DialogportenService,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER": &c.LocaltestV2.DialogportenAdapter,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
 	}
 }
