@@ -25,7 +25,12 @@ becomes a group table: each group has a default (all off) and the groups it impl
 transitively, what it implies; `--without` removes only the named group. Groups: `dialogporten` (Redis, the three
 Dialogporten hosts, the adapter from task 10) implies nothing; `receipt` implies nothing; `correspondence` implies
 `dialogporten`; `everything` implies every other group. Task 16 lands the table (its first commit, merged ahead of the
-rest); 7 and 10 build on it. The state file and the provisioner's route-table check are unchanged.
+rest); 7 and 10 build on it. **Front door for components that are not running (decided 2026-10-20, in task 16's
+studioctl step):** `env up` writes every known component's route, enabled or not, and studioctl-server answers `503`
+with an RFC 9457 ProblemDetails (`application/problem+json`; a small HTML page when `Accept` prefers `text/html`)
+naming the component and group and the exact `studioctl env up -r localtest-v2 --with <group>` command (and
+`--with everything`); an enabled component that does not answer gets the same shape pointing at `studioctl env logs`.
+A path matching no route still falls through to the localtest app.
 
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
