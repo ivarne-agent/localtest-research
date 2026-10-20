@@ -117,6 +117,28 @@ RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"11111111111","c
 expect "a person without contact points: 422" 422 "${RESPONSE##*$'\n'}"
 echo "${RESPONSE%$'\n'*}" | check "... with the NOT-00001 problem details (Authentication, Access Management and Correspondence branch on it)" 'd["code"] == "NOT-00001" and d["status"] == 422'
 
+# Organisation recipients: the seed has no official organisation addresses, and Notifications adds the user-registered
+# contact points (the PDP-filtered role holders) only when processing an order, not when registering it, so registration
+# answers 422 whatever the policy says. That is production behaviour with this seed.
+RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069644","channelSchema":"Email","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Org","body":"B"}}}' "" "${bearer[@]}")
+expect "an organisation without official addresses (DDG Fitness): 422" 422 "${RESPONSE##*$'\n'}"
+echo "${RESPONSE%$'\n'*}" | check "... NOT-00001" 'd["code"] == "NOT-00001"'
+
+echo "== condition endpoint (the production client with the Maskinporten fake; the production sink answers conditionMet)"
+for MET in false true; do
+  RESPONSE=$(curl -s -w '\n%{http_code}' "${JSON[@]}" "${bearer[@]}" -X POST "$API/future/orders" -d "{\"idempotencyId\":\"$(uuid)\",\"sendersReference\":\"smoke-condition\",\"conditionEndpoint\":\"$BASE/notifications/api/v1/tests/sendcondition?conditionMet=$MET\",\"recipient\":{\"recipientEmail\":{\"emailAddress\":\"condition-$MET@example.com\",\"emailSettings\":{\"subject\":\"Condition $MET\",\"body\":\"B\"}}}}")
+  expect "POST future/orders with conditionEndpoint conditionMet=$MET" 201 "${RESPONSE##*$'\n'}"
+done
+okwait "condition true: the e-mail is sent and delivered" "$LOCAL/inboxes/condition-true@example.com" 'd["messages"][0]["outcome"] == "Delivered"'
+sleep 3
+expect "condition false: nothing is captured" 404 "$(code "$LOCAL/inboxes/condition-false@example.com")"
+
+echo "== composed e-mail (attachments by reference)"
+COMPOSED=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&scopes=altinn:serviceowner/notifications.create%20altinn:serviceowner/notifications.composedemail.create" | tr -d '"')
+expect "POST future/orders/composed-email" 201 "$(code "${JSON[@]}" -H "Authorization: Bearer $COMPOSED" -X POST "$API/future/orders/composed-email" -d "{\"idempotencyId\":\"$(uuid)\",\"sendersReference\":\"smoke-composed\",\"recipient\":{\"emailAddress\":\"composed@example.com\",\"emailSettings\":{\"subject\":\"Composed\",\"body\":\"B\",\"attachments\":[{\"filename\":\"a.pdf\",\"mimeType\":\"application/pdf\",\"sasUrl\":\"https://example.blob.core.windows.net/x/a.pdf?se=2030-01-01T00:00:00Z&sig=abc&sp=r&sr=b\"}]}}}")"
+okwait "captured as composed with the attachment by reference, delivered" "$LOCAL/inboxes/composed@example.com" \
+  'd["messages"][0]["kind"] == "composed" and d["messages"][0]["attachments"][0]["filename"] == "a.pdf" and d["messages"][0]["outcome"] == "Delivered"'
+
 echo "== instant orders (the Email and SMS hosts' endpoints are served by the localtest host)"
 RESPONSE=$(curl -s -w '\n%{http_code}' "${JSON[@]}" "${bearer[@]}" -X POST "$API/future/orders/instant/email" -d "{\"idempotencyId\":\"$(uuid)\",\"sendersReference\":\"smoke-instant\",\"recipientEmail\":{\"emailAddress\":\"instant@example.com\",\"emailSettings\":{\"subject\":\"Instant\",\"body\":\"<b>Instant</b>\",\"contentType\":\"Html\"}}}")
 expect "POST future/orders/instant/email" 201 "${RESPONSE##*$'\n'}"

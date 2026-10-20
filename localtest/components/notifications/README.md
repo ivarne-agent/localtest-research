@@ -133,15 +133,19 @@ which return the seed's addresses and numbers exactly as stored. Production then
   and MultiParty Prompt (2001). The fix for the others is the seed data, not a fake.
 - A recipient without any contact point (a national identity number not in the seed) answers `422` with the problem code
   `NOT-00001`.
-- The seed has no official organisation addresses, so an organisation recipient resolves only through the users holding
-  roles at it that the PDP permits for the order's resource (`resourceId`); with none, `422` `NOT-00001`.
+- **Organisation recipients answer `422` `NOT-00001`.** The seed has no official organisation addresses. Notifications
+  adds the user-registered contact points (the Profile `units/contactpoint/lookup` users, filtered by the PDP for the
+  `resourceId`, which must be written `urn:altinn:resource:…`) only while *processing* an order, not when registering it,
+  so registration fails whatever the policy says (checked with DDG Fitness, 897069644, against `altinn_keyrole_access`,
+  which Sophie Salt's DAGL role permits, and against the pushed `ttd/testapp` policy). Giving organisations official
+  addresses is a change to the Profile fake or the seed, not done here.
 
 ## Known gaps
 
 - No per-inbox reception switch (planned, see above), no failure simulation, no reserved recipients.
 - Correspondence (task 7) is not in the stack; it will appear in this capture under its own creator.
 - Attachments of composed e-mail are recorded by reference only.
-- The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake.
+- The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake; checked against the production sink `notifications/api/v1/tests/sendcondition?conditionMet=`. That the Maskinporten token it carries is accepted by a real consumer is not checked.
 - The support dashboard and `metrics` endpoints are production code and untested here.
 
 ## Running without Docker
@@ -161,6 +165,19 @@ likewise `platform_notifications`), `PostgreSQLSettings__MigrationScriptPath` as
 
 ## Verified
 
-Phase 1 (scratch build and a scratch host on a local PostgreSQL 18.6, no containers): `dotnet build -c Release` of the host
-0 warnings, 0 errors; all 104 migration folders applied; `smoke-test.sh` variant against the host with a scratch Register
-(platform access token instead of the service-owner token): 46 checks ok. Phase 2 (image, stack, regressions) follows.
+2026-10-20, on the rebased branch (main a04d0a5) with `studioctl env up -r localtest-v2 --dev notifications --dev register --dev postgres`
+after `env reset`, Postgres 18.3:
+
+- `smoke-test.sh`: 55 ok, 0 FAIL, and again 55 ok on a second run against the same data (the 104 Yuniql migrations ran on 18.3
+  at first start; the host was healthy in the 76 s `env up`, build included). Covers a service-owner token without the scope
+  (403), no token and a bad platform token (401), v1 e-mail and SMS, `links.self` followed, future orders with idempotency
+  (201 then 200, same chain), shipments `Order_Completed`/`Email_Delivered`, persons, self-identified users, the 422
+  `NOT-00001`, organisation (422), condition endpoint true and false, composed e-mail, instant e-mail and SMS, cancel, reset.
+- Responder ordering: a burst of 20 two-recipient orders (40 messages) all ended `Delivered`, every `outcomeAt` after its
+  `capturedAt`, and the log has no "applying the result anyway" (claim not committed in 30 s) and no "could not deliver"
+  line; over all runs the database holds only `Delivered` and the three expected `Failed_RecipientNotIdentified` (Sophie's
+  bare `87654321`), nothing left in `New` or `Sending`.
+- Restart: `podman restart` of the container keeps the 40 captured messages and the production tables (`ResetOnStart` is off).
+- Memory: `podman stats --no-stream` 133 MB, 5 % CPU idle with the six process loops at a 1 s delay.
+- Regressions with the component running: root `smoke-test.sh` 23 ok, `components/register/smoke-test.sh` 24 ok (20 before
+  the four contact point checks), `components/resource-registry/smoke-test.sh` 35 ok, `components/events/smoke-test.sh` 22 ok.
