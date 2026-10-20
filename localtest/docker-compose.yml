@@ -33,7 +33,8 @@ services:
     build: ./localtest
     image: localhost/localtest-localtest:dev
     ports:
-      - "8000:8000"
+      # Loopback only: the stack (the engine dashboard, Swagger, the token helpers) is not for the network.
+      - "127.0.0.1:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -99,8 +100,8 @@ services:
       - register
 
   # Production Access Management (altinn-auth) on the shared Postgres (own database, created on start) with a
-  # file-backed policy store instead of Azure Blob. Step 1 of planned-components/access-management: boots and seeds;
-  # not yet routed through the proxy, so port 5080 is published for verification.
+  # file-backed policy store instead of Azure Blob. The localtest app routes /accessmanagement/ to it; port 5080 is also
+  # published on the host for debugging.
   access-management:
     <<: *platform-host
     build: ./components/access-management
@@ -117,6 +118,9 @@ services:
       postgres:
         condition: service_healthy
       register:
+        condition: service_started
+      # The startup refresh builds the app resources from Storage's application list.
+      storage:
         condition: service_started
 
   postgres:
@@ -181,8 +185,9 @@ services:
       authorization:
         condition: service_started
 
-  # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), image built by studioctl dev mode as
-  # localtest-pdf3:dev; the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the proxy.
+  # PDF generator from the monorepo (src/Runtime/pdf3/Dockerfile.worker), not vendored: ./build-pdf3.sh builds
+  # localtest-pdf3:dev from an altinn-studio checkout and labels it with the commit (studioctl dev mode builds the same
+  # tag without the label); the app reaches it at http://pdf.local.altinn.cloud:8000/pdf through the proxy.
   pdf3:
     <<: *platform-host
     image: localhost/localtest-pdf3:dev
@@ -192,15 +197,18 @@ services:
       PDF3_QUEUE_SIZE: "3"
       PDF3_LOCALTEST_PUBLIC_BASE_URL: http://local.altinn.cloud:8000
 
-  # Workflow engine from the monorepo (src/Runtime/workflow-engine-app/Dockerfile), image built by studioctl dev mode
-  # as localtest-workflow-engine:dev. The app reaches it at http://workflow-engine.local.altinn.cloud:8000/api/v1/;
+  # Workflow engine from the monorepo, vendored in components/workflow-engine (its Dockerfile mirrors
+  # src/Runtime/workflow-engine-app/Dockerfile); studioctl dev mode builds an image with the same tag. The app reaches it at http://workflow-engine.local.altinn.cloud:8000/api/v1/;
   # it calls the app back through the proxy.
   workflow-engine:
     <<: *platform-host
+    build: ./components/workflow-engine
     image: localhost/localtest-workflow-engine:dev
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "9090"
+      # No OpenTelemetry collector runs in the stack; the default exporter would send to localhost:4317 and fail.
+      EngineSettings__EnableTelemetry: "false"
       ConnectionStrings__WorkflowEngine: Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres
       AppCommandSettings__CommandEndpoint: http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/
     depends_on:

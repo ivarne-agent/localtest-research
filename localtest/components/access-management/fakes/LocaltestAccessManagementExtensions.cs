@@ -17,9 +17,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Altinn.AccessManagement.Localtest;
 
 /// <summary>
-/// The one localtest hook in the vendored host (<c>AccessManagementHost.Create</c>, right before <c>Build()</c>):
-/// localtest configuration defaults and the DI replacements for Azure Blob, Key Vault and the test-tool token
-/// generator. Everything else in the host runs as in production.
+/// The localtest hooks in the vendored host's <c>AccessManagementHost.Create</c>: <see cref="AddLocaltestConfiguration"/>
+/// right after the builder is created (configuration defaults), and <see cref="AddLocaltestAccessManagement"/> right
+/// before <c>Build()</c> (the DI replacements for Azure Blob, Key Vault and the test-tool token generator, and the
+/// startup refresh). Everything else in the host runs as in production.
 /// </summary>
 public static class LocaltestAccessManagementExtensions
 {
@@ -91,12 +92,13 @@ public static class LocaltestAccessManagementExtensions
         var lastEnvironmentSource = config.Sources.ToList().FindLastIndex(s => s is EnvironmentVariablesConfigurationSource);
         config.Sources.Insert(lastEnvironmentSource < 0 ? config.Sources.Count : lastEnvironmentSource, defaults);
 
-        // Cannot be anything else without Azure: forced over every other source.
+        // Forced over every other source. ServiceDefaults has already decided against Key Vault (no settings) by now; an
+        // empty kvSetting:SecretUri still makes AccessManagementHost.ConfigureLibsIntegrations take the path without Key
+        // Vault, and an empty lease blob endpoint keeps the lease provider off Azure Blob.
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["kvSetting:SecretUri"] = string.Empty,
             ["Lease:StorageAccount:BlobEndpoint"] = string.Empty,
-            ["ApplicationInsights:InstrumentationKey"] = string.Empty,
         });
 
         return builder;

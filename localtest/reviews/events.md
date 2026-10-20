@@ -1,6 +1,6 @@
 # Events review (2026-10-20)
 
-> **Status (2026-10-20):** one change after the review: in `LocalOnly` mode webhooks to `host.docker.internal` are now delivered to the developer's machine (compose maps the name to the gateway, because podman copies the host's `/etc/hosts`); verified with a receiver on the host, which got the subscription's validation event. `localhost` still means the events container itself. The findings below are open.
+> **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors upstream's: pinned digests, the DbTools build, whose generated SQL equals the committed script, `Migration` from the build stage, non-root `dotnet`), 2 (sync instructions), 3 (no HEALTHCHECK), 4 (default log level Information), 5 (webhooks to `host.docker.internal` are delivered; `localhost` documented), 7 (a failure to record a delivery is logged, not thrown; `id`/`type` read only as strings), 9 (the dead Key Vault override removed, the comment corrected), 11 (the docs). Documented in the README's known gaps: 6, 8, 10, 12. Verified: events smoke 22/22, a receiver on the host got the subscription validation.
 
 ## Summary
 

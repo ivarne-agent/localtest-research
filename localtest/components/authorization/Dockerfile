@@ -42,8 +42,10 @@ USER dotnet
 RUN mkdir /tmp/logtelemetry
 
 # localtest: settings production gets from its deployment. The stack reaches the service on 5070, not upstream's 5050.
+# Development's Debug logging was mostly JWT cookie lines, so the default is Information (the environment still wins).
 # No HEALTHCHECK: podman builds OCI images, which drop the instruction (only a compose healthcheck: takes effect).
 ENV ASPNETCORE_ENVIRONMENT=Development \
+    Logging__LogLevel__Default=Information \
     ASPNETCORE_URLS=http://+:5070 \
     Localtest__Authorization__PoliciesPath=/policies \
     Localtest__Authorization__PolicyStorePath=/policy-store

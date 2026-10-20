@@ -1,16 +1,16 @@
 # authorization
 
 Production Altinn Authorization, the PDP (`vendor/`, see `UPSTREAM.md`), answering `authorization/api/v1/decision`,
-`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the Profile,
-Resource Registry and OED PIPs, the audit queue and Key Vault are replaced by fakes; Register, Storage and Access
-Management (roles, access packages, delegations, authorized parties) stay production HTTP calls to the other localtest
-components.
+`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the Resource
+Registry and OED PIPs, the audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`,
+answered by the register component), Storage and Access Management (roles, access packages, delegations, authorized
+parties) stay production HTTP calls to the other localtest components.
 
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except one `#if LOCALTEST` block |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, profile and resource-registry PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, resource-registry and OED PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
 | `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running compose stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
@@ -39,18 +39,17 @@ are skipped by production code because `kvSetting` is empty.
 | Production | Localtest (`fakes/`) |
 | --- | --- |
 | `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: the file store shared with Access Management (`Localtest:Authorization:PolicyStorePath`, the `policy-store` volume), laid out as the containers: `metadata/{org}/{app}/policy.xml` written by the production `POST authorization/api/v1/policies` (the runner pushes it, placeholders already replaced as Designer does) and `delegationpolicies/{path}` with versions under `{path}.versions/{versionId}`, written by Access Management and read here by the version it recorded. Nothing is fetched from apps and no placeholders are replaced |
-| `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read, so a policy edit applies within about 5 s |
-| `IProfile` (Profile `internal/user`) | `LocaltestProfile`: user id or ssn to the user's party (uuid, ssn) from the register seed |
+| `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read; the store reads the file every time, so a pushed policy applies to the next decision |
 | `IResourceRegistry` | `LocaltestResourceRegistry`: `resourceregistry/{id}/policy.xml` and optional `resource.json` in the policies folder; no access lists |
 | `IOedRoleAssignmentWrapper` | `NoOedRoleAssignments` (empty) |
 | `IEventsQueueClient` (audit queue) | `NoopEventsQueueClient`; `FeatureManagement:AuditLog` forced off |
 | `IPublicSigningKeyProvider` (Key Vault certificates) | `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer. The production `AccessTokenGenerator` and `AccessTokenHandler` run unchanged: outgoing platform access tokens (to Register) are signed with it, incoming ones validated against it |
 | (none) | `GET authorization/api/localtest/decision?userId&partyId&org&app&action[&instanceId&task&authenticationLevel]`, anonymous: builds the request an app's PEP sends and posts it to the production `decision` endpoint |
-| (none) | `POST authorization/api/localtest/refresh`, anonymous: drops the cached register seed and every production PDP cache entry (profiles, parties, roles and packages, delegation changes, policies) |
+| (none) | `POST authorization/api/localtest/refresh`, anonymous: drops every production PDP cache entry (profiles, parties, roles and packages, delegation changes) |
 
 Kept production: `ContextHandler`, `DelegationContextHandler`, `DecisionController`, `PartiesController`, the ABAC
 engine, `RegisterService` (Register v1 `parties/partylist`, `partylistbyuuid`, `lookup`, served by the register
-component), `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`), `AccessManagementWrapper`
+component), `ProfileWrapper` (Profile `internal/user`, served by the register component), `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`), `AccessManagementWrapper`
 (Access Management `policyinformation/roles-and-accesspackages`, `policyinformation/getdelegationchanges`,
 `authorizedparties`, `authorizedparty/{partyId}`, served by the access-management component) and `RolesWrapper` (the
 Altinn 2 `roles` endpoint over the SBL bridge, which does not exist locally: it answers an empty list, and nothing
@@ -71,10 +70,11 @@ test apps' policies and the Studio template uses `string-equal-ignore-case`, so 
 - Proxy on the platform endpoint: `/authorization/` to this service, `/accessmanagement/` to Access Management (PIP
   and authorized parties), `/register/` (v1 parties and the localtest endpoints), `/authentication/api/v1/openid/`
   (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance authinfo).
-- Register: v1 parties for the subject and resource party lookups; the profile fake reads `test-users`.
-- Caching: the register seed is re-read at most every 2 s, so users and parties added by
-  `POST register/api/localtest/apps` are seen almost at once. Production PDP caches (user profile, party lookups) last
-  1 minute, including a "user not found" profile; `POST authorization/api/localtest/refresh` clears them all.
+- Register: v1 parties for the subject and resource party lookups, and Profile's `internal/user` for the user
+  profile.
+- Caching: production PDP caches (user profile, party lookups) last 1 minute, including a "user not found" profile, so
+  users and parties added by `PUT register/api/localtest/apps/{org}/{app}` are seen after a minute;
+  `POST authorization/api/localtest/refresh` clears them all at once.
 - Storage: `GET storage/api/v1/instances/{partyId}/{guid}/process/authinfo` without a user token.
 - Access Management: the production PIP and authorized-parties endpoints; its delegation-change lookups are cached here
   for five minutes per subject, party and app (not instance), so drop the caches with `POST
@@ -95,31 +95,27 @@ requests built from the token claims as the PEP does, roles and packages from Ac
 - Authorized parties from Access Management: Sophie's five top-level parties with sub-units, `dagl` on DDG Fitness and
   its sub-units with `includeRoles=true`; 401 without a token; the PDP's `parties?userid=1337` returns the same ids.
 
-## Compose
+## Compose and running from an IDE
 
-```yaml
-  authorization:
-    build: ./components/authorization
-    environment:
-      Localtest__Authorization__PlatformEndpoint: http://local.altinn.cloud:8000/
-    volumes:
-      - ./components/authorization/policies:/policies:ro   # optional: the image carries the same files
-    depends_on:
-      - register
-    ports:
-      - "5070:5070"
-```
+The `authorization` service in [`../../docker-compose.yml`](../../docker-compose.yml) is the reference: the
+platform endpoint, the shared certificate (`./certs` at `/certs`, `AccessTokenSettings__AccessTokenSigningCertificateFullPath`)
+and the `policy-store` volume shared with Access Management. No port is published; the localtest app routes
+`/authorization/` to it.
 
-Run locally without Docker (register on 5020, authentication on 8000):
+To run the PDP from an IDE, keep the stack up, point the localtest app's `authorization` upstream at the IDE instance
+(`Proxy__Upstreams__authorization=http://host.docker.internal:5070` on the `localtest` service) and start it with the
+overrides, a writable policy store and the certificate:
 
 ```sh
 export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
 dotnet build -c Release vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization
 cd vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/bin/Release/net10.0   # Program.cs loads ./appsettings.json
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5070 \
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5070 \
   Localtest__Authorization__PoliciesPath=$OLDPWD/policies \
-  Localtest__Authorization__RegisterLocaltestEndpoint=http://127.0.0.1:5020/register/api/localtest/ \
-  PlatformSettings__ApiRegisterEndpoint=http://127.0.0.1:5020/register/api/v1/ \
+  Localtest__Authorization__PolicyStorePath=/tmp/policy-store \
+  AccessTokenSettings__AccessTokenSigningCertificateFullPath=$OLDPWD/../../certs/localtest-accesstoken.pfx \
   dotnet Altinn.Authorization.dll
-curl 'http://127.0.0.1:5070/authorization/api/localtest/decision?userId=1337&partyId=500000&org=ttd&app=testapp&action=read'
 ```
+
+Policies pushed while the PDP runs from the IDE land in its own store; Access Management's delegation policies stay in
+the volume.

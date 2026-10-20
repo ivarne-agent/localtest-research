@@ -48,7 +48,9 @@ registered is a 404 at the proxy.
 ## Run it
 
 ```sh
-grep -q local.altinn.cloud /etc/hosts || echo '127.0.0.1 local.altinn.cloud' | sudo tee -a /etc/hosts
+grep -q ' local.altinn.cloud' /etc/hosts || echo '127.0.0.1 local.altinn.cloud' | sudo tee -a /etc/hosts
+# The PDF generator and the workflow engine have host names of their own, which the apps on this machine call.
+grep -q pdf.local.altinn.cloud /etc/hosts || echo '127.0.0.1 pdf.local.altinn.cloud workflow-engine.local.altinn.cloud' | sudo tee -a /etc/hosts
 docker compose up --build -d        # or podman-compose up -d (build the images first)
 ./run-app.sh ~/code/altinn-studio/src/test/apps/frontend-test 5005
 open 'http://local.altinn.cloud:8000/ttd/frontend-test/'

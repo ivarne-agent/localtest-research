@@ -13,9 +13,12 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 
 ## Directive sites in `vendor/`
 
+Paths relative to `vendor/src/apps/Altinn.AccessManagement/`.
+
 1. `src/Altinn.AccessManagement/Program.cs`: `#if !LOCALTEST` keeps the production init selection (`RunInitOnly`
    exits after init, `RunIntegrationTests` inits then serves); `#else` ensures the database and roles exist
    (`LocaltestDatabase`) and runs the production `Init()` (migrations, static data, Register import) on every start,
+   then the localtest refresh (`LocaltestRefreshService.RunAtStartup`: resource sync and the seed's roles and packages),
    then serves.
 2. `src/Altinn.AccessManagement/AccessManagementHost.cs`, right after the host builder is created:
    `#if LOCALTEST LocaltestAccessManagementExtensions.AddLocaltestConfiguration(builder) #endif` (connection strings,
@@ -53,3 +56,13 @@ port 5080 is also published on the host for debugging.
 User tokens are validated by production's JWT cookie handler. For an issuer listed under `OidcProviders` it fetches
 the metadata with an HTTPS-only retriever regardless of environment; `LocaltestOidcMetadata` registers that issuer's
 metadata manager up front with a retriever that allows the authentication component's plain-http endpoint.
+
+## Known gaps
+
+- **Altinn 2 bridge.** `ContextRetrievalService` asks the SBL bridge for Altinn 2 roles in the older rights-delegation
+  APIs. There is no bridge locally and no stub, so those calls get the proxy's 404. Apps' instance delegations (signing)
+  do not use it.
+- **Database roles.** Both production roles (`platform_authorization_admin`, `platform_authorization`) are superusers,
+  because in localtest mode the EF migrations run on the app connection. A grant an upstream migration forgets would
+  therefore pass locally.
+

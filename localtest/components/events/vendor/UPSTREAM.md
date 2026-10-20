@@ -10,3 +10,20 @@
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
   `#if LOCALTEST … #endif` addition.
+
+## Syncing to a newer upstream commit
+
+1. In a clone of `Altinn/altinn-events` with both commits, re-pin with the shared script, which takes upstream's new
+   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
+   deletes files, and reports conflicts:
+   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/Events src/Events.Common src/DbTools stylecop.json .editorconfig Dockerfile`.
+2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
+   `UPSTREAM.md` and the files with `LOCALTEST` sites (`src/Events/Program.cs`,
+   `src/Events/Controllers/SubscriptionController.cs`) may differ.
+3. **Keep `../Dockerfile` as equal to `Dockerfile` as possible.** It mirrors the upstream file line for line (base
+   images and digests, the DbTools build, build and publish, the `Migration` copy, the `dotnet` user), and every
+   deviation is marked `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in
+   `../Dockerfile`.
+4. Fix the localtest code (`../fakes/`, the overrides, `../postgres-init/`) for upstream's changes, update the commit
+   line above, build the image (`podman build -t localtest-events:dev ..`) and run `../smoke-test.sh`. Commit the
+   re-pin of the vendored files on its own, separate from localtest changes.

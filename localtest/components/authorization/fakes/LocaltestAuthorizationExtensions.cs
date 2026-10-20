@@ -10,7 +10,6 @@ using Altinn.Platform.Authorization.Clients.Interfaces;
 using Altinn.Platform.Authorization.Localtest.Infrastructure;
 using Altinn.Platform.Authorization.Localtest.Pip;
 using Altinn.Platform.Authorization.Localtest.Policies;
-using Altinn.Platform.Authorization.Localtest.Register;
 using Altinn.Platform.Authorization.Repositories.Interface;
 using Altinn.Platform.Authorization.Services.Implementation;
 using Altinn.Platform.Authorization.Services.Interface;
@@ -27,9 +26,10 @@ namespace Altinn.Platform.Authorization.Localtest;
 
 /// <summary>
 /// Localtest composition for the vendored PDP, called from the single <c>#if LOCALTEST</c> block in <c>Program.cs</c>
-/// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the Access Management,
-/// Profile, Resource Registry, OED and SBL Bridge PIPs, the audit queue and the Key Vault backed token handling.
-/// Register (v1 parties) and Storage (instance authinfo) stay production HTTP clients pointed at the localtest platform.
+/// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the Resource Registry and
+/// OED PIPs, the audit queue and the Key Vault backed token handling. Register (v1 parties), Profile
+/// (<c>internal/user</c>, answered by the register component), Storage (instance authinfo) and Access Management
+/// (roles, access packages, delegations) stay production HTTP clients pointed at the localtest platform.
 /// </summary>
 public static class LocaltestAuthorizationExtensions
 {
@@ -48,7 +48,6 @@ public static class LocaltestAuthorizationExtensions
             InitialData = new Dictionary<string, string?>
             {
                 ["Localtest:Authorization:PlatformEndpoint"] = platform,
-                ["Localtest:Authorization:RegisterLocaltestEndpoint"] = platform + "register/api/localtest/",
                 ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
                 ["PlatformSettings:ApiStorageEndpoint"] = platform + "storage/api/v1/",
                 ["PlatformSettings:ApiResourceRegistryEndpoint"] = platform + "resourceregistry/api/v1/",
@@ -92,10 +91,8 @@ public static class LocaltestAuthorizationExtensions
         // Configure (not PostConfigure) runs before the scheme's own post-configure builds the metadata manager.
         services.Configure<JwtCookieOptions>(JwtCookieDefaults.AuthenticationScheme, o => o.MetadataAddress = config["GeneralSettings:OpenIdWellKnownEndpoint"]);
 
-        // The register seed: user profiles for the profile PIP and the localtest decision helper.
-        services.AddSingleton(sp => ActivatorUtilities.CreateInstance<RegisterLocaltestClient>(sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(RegisterLocaltestClient))));
-
-        // Policies: folder, posted or running app instead of Azure Blob; production PRP with a seconds-long reuse.
+        // Policies: a file store (written by the production policies endpoint, which the app runner calls) instead of
+        // Azure Blob; the production PRP, without its cache for app policies.
         services.RemoveAll<IPolicyRepository>();
         services.AddSingleton<IPolicyRepository, LocaltestPolicyRepository>();
         services.TryAddSingleton<PolicyRetrievalPoint>();
@@ -104,7 +101,6 @@ public static class LocaltestAuthorizationExtensions
         // PIPs. Roles, access packages, delegation changes and authorized parties come from the real Access Management
         // component through the production AccessManagementWrapper (registered by Program.cs). The Altinn 2 roles
         // endpoint (IRoles, SBL bridge) keeps its production wrapper and answers empty: nothing locally calls it.
-        Replace<IProfile, LocaltestProfile>(services);
         Replace<IResourceRegistry, LocaltestResourceRegistry>(services);
         Replace<IOedRoleAssignmentWrapper, NoOedRoleAssignments>(services);
 

@@ -34,7 +34,12 @@ public sealed class LocaltestAppResources(
     private readonly SemaphoreSlim _lock = new(1, 1);
     private (DateTimeOffset At, IReadOnlyList<AppResource> Apps)? _cached;
 
-    /// <summary>Service-owner organisation numbers (altinncdn.no/orgs/altinn-orgs.json) for the org codes test apps use.</summary>
+    /// <summary>
+    /// Service-owner organisation numbers for the org codes test apps use. Real owners have their number from
+    /// altinncdn.no/orgs/altinn-orgs.json; <c>ttd</c> has none there and gets Digdir's (991825827), the convention the app
+    /// backend and studioctl use for test apps (altinn-studio <c>operatorcontext.go</c>). The register seed's
+    /// Testdepartementet party (405003309) is a different, local organisation.
+    /// </summary>
     public static readonly IReadOnlyDictionary<string, (string OrgNumber, string Name)> ServiceOwners = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
     {
         ["ttd"] = ("991825827", "Testdepartementet"),

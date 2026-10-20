@@ -12,8 +12,8 @@ namespace Altinn.Platform.Authorization.Localtest.Policies;
 
 /// <summary>
 /// Runs the production <see cref="PolicyRetrievalPoint"/>, but drops its whole-minute cache entry for an app policy
-/// before each read, so the few-seconds reuse in <see cref="LocaltestPolicyRepository"/> decides how fast a policy
-/// edit applies (today's localtest: 5 s; production minimum: 1 minute).
+/// before each read. <see cref="LocaltestPolicyRepository"/> reads the policy file on every call, so a policy the app
+/// runner pushes applies to the next decision (production: after the cache timeout, at least a minute).
 /// </summary>
 public sealed class LocaltestPolicyRetrievalPoint(PolicyRetrievalPoint inner, IMemoryCache memoryCache) : IPolicyRetrievalPoint
 {

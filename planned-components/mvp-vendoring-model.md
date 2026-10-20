@@ -40,8 +40,7 @@ Rules:
 - Upstream csproj files are never edited. The props and targets files do the overriding (next section).
 - A vendored component's Dockerfile mirrors the upstream Dockerfile (same pinned base images, build steps and runtime
   user); every difference is a line marked `localtest:`, and a sync carries upstream Dockerfile changes over
-  (rule added 2026-10-19; storage, register, authentication, authorization and access-management follow it; for Access Management the
-  reference is the release image's bake files, see `localtest/components/storage/vendor/UPSTREAM.md`).
+  (rule added 2026-10-19; every vendored component follows it; for Access Management the reference is the release image's bake files, see `localtest/components/storage/vendor/UPSTREAM.md`).
 
 ## Build mechanics (verified in a scratch project today)
 

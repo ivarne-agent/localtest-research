@@ -27,8 +27,8 @@ namespace Altinn.Platform.Events.Localtest;
 
 /// <summary>
 /// Localtest composition for the vendored Events host, called from the two <c>LOCALTEST</c> blocks in
-/// <c>Program.cs</c>. <see cref="AddLocaltestConfiguration"/> runs before any setting is read and turns off
-/// everything Azure (Key Vault, Service Bus, Application Insights). <see cref="AddLocaltestEvents"/> runs after the
+/// <c>Program.cs</c>. <see cref="AddLocaltestConfiguration"/> runs before any setting is read and turns off Service Bus
+/// and Application Insights (Key Vault stays off because <c>kvSetting:SecretUri</c> is unset). <see cref="AddLocaltestEvents"/> runs after the
 /// production registrations and replaces the Storage Queue publishers with the production in-process bus publishers
 /// and the Key Vault keys with the shared test certificate, and adds the localtest startup scripts, the webhook
 /// capture and the inspection API. The pipeline itself (controllers, services, Wolverine handlers, the claim loop, the
@@ -84,10 +84,11 @@ public static class LocaltestEventsExtensions
             config.Sources.Add(source);
         }
 
-        // Settings that cannot be anything else without Azure: forced over appsettings and the environment.
+        // Settings that cannot be anything else without Azure: forced over appsettings and the environment. (Key Vault is
+        // not among them: production decides on kvSetting:SecretUri in SetConfigurationProviders, before this runs, and
+        // skips Key Vault because nothing sets it locally.)
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["kvSetting:SecretUri"] = string.Empty,
             ["ApplicationInsights:ConnectionString"] = string.Empty,
             // No Service Bus transport: Wolverine routes the commands to the API's own handlers on local queues.
             ["WolverineSettings:EnableRegistrationPublisher"] = "false",

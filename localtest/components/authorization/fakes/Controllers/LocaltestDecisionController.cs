@@ -6,7 +6,6 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Authorization.Localtest.Register;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -20,16 +19,15 @@ namespace Altinn.Platform.Authorization.Localtest.Controllers;
 [ApiController]
 [AllowAnonymous]
 [Route("authorization/api/localtest")]
-public sealed class LocaltestDecisionController(IHttpClientFactory httpClientFactory, RegisterLocaltestClient register, IMemoryCache memoryCache) : ControllerBase
+public sealed class LocaltestDecisionController(IHttpClientFactory httpClientFactory, IMemoryCache memoryCache) : ControllerBase
 {
     /// <summary>
-    /// Drops the cached register seed and every production PDP cache entry (profiles, parties, roles, policies), so a
-    /// change in the register or a policy applies to the next request instead of after the cache timeouts.
+    /// Drops every production PDP cache entry (profiles, parties, roles, main units), so a change in the register or in
+    /// Access Management applies to the next request instead of after the cache timeouts.
     /// </summary>
     [HttpPost("refresh")]
     public IActionResult Refresh()
     {
-        register.Invalidate();
         (memoryCache as MemoryCache)?.Compact(1.0);
         return NoContent();
     }

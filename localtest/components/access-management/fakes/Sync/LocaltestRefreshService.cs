@@ -38,6 +38,12 @@ public sealed class LocaltestRefreshService(
 {
     private static readonly string[] StructuralRoleCodes = ["privatperson", "selvregistrert", "hovedenhet", "rettighetshaver"];
 
+    /// <summary>
+    /// One refresh at a time in the process: two app runners refreshing together would run the import, the resource
+    /// sync and the prune in parallel, and the localtest leases (no-ops) do not serialise them as production's do.
+    /// </summary>
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+
     public static async Task RunAtStartup(IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -45,6 +51,19 @@ public sealed class LocaltestRefreshService(
     }
 
     public async Task<RefreshSummary> RunAsync(bool importFromRegister, CancellationToken cancellationToken)
+    {
+        await Gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await RunExclusiveAsync(importFromRegister, cancellationToken);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    private async Task<RefreshSummary> RunExclusiveAsync(bool importFromRegister, CancellationToken cancellationToken)
     {
         if (importFromRegister)
         {

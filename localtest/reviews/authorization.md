@@ -1,6 +1,6 @@
 # Authorization (PDP) review (2026-10-20)
 
-> **Status (2026-10-20):** fixed after the review: 1 (the Dockerfile mirrors `src/apps/Altinn.Authorization/Dockerfile`: pinned digests, tzdata and krb5-libs, the non-root `dotnet` user, `/policy-store` owned by it; the shared volume was handed to uid 1000), 2 (re-pinned to `3d518103` with the other altinn-auth components; the fake now imports `Api.Contracts.Register` and `.ResourceRegistry`) and 3 (sync instructions in `UPSTREAM.md`). Verified: the authorization smoke test 30/30, the root smoke test 23/23. The rest is open.
+> **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors upstream's, non-root), 2 (re-pinned to `3d518103`; the fake imports the moved namespaces), 3 (sync instructions), 4 (the Profile fake and the register client are gone: production `ProfileWrapper` calls the register component's `internal/user`), 5 and 6 (the policy-caching and class comments say what the code does), 7 (the README points at the compose service and has a run-from-an-IDE recipe), 8 (default log level Information in the image), 10 (the ignored `bin/`/`obj/` folders in `vendor/` deleted). 9 stays as described (the two policy stores do not overlap today). Verified: authorization smoke 30/30, root smoke 23/23, Cypress signing-test 4/4.
 
 ## Summary
 

@@ -1,6 +1,10 @@
 # Vendored workflow engine (Altinn/altinn-studio src/Runtime/workflow-engine-app) built with the localtest overrides.
-# Build context: the component folder (localtest/components/workflow-engine). Mirrors the upstream
-# vendor/src/Runtime/workflow-engine-app/Dockerfile: same pinned base images, same restore/publish of the host.
+# Build context: the component folder (localtest/components/workflow-engine).
+#
+# Mirrors vendor/src/Runtime/workflow-engine-app/Dockerfile (the upstream one) line for line, and .dockerignore
+# repeats its Dockerfile.dockerignore's exclusion of the Directory.*.props files. Every difference is marked
+# "localtest:". When re-pinning, diff both files against the previous pin and carry the change over here (see
+# vendor/UPSTREAM.md).
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS base
 USER $APP_UID
 WORKDIR /app
@@ -9,25 +13,33 @@ EXPOSE 9090
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 AS build
 ARG BUILD_CONFIGURATION=Release
+# localtest: the version the engine reports.
 ARG BUILD_VERSION=localtest
-WORKDIR /src
-# The overrides decide "vendored" by path (vendor/ next to them), so the component layout is kept; vendor/src is the
-# upstream build context src/, so relative project references resolve unchanged.
+WORKDIR /build
+
+# localtest: upstream's build context is the monorepo's src/; here it is vendor/src under /build, next to the
+# overrides (which decide "vendored" by that path). The two variables redirect MSBuild's Directory.Build.props/targets
+# lookup to the overrides: they define LOCALTEST for the vendored projects. No vendored csproj is edited.
 COPY localtest.build.props localtest.build.targets ./
-COPY vendor/ vendor/
-# Redirect MSBuild's Directory.Build.props/targets lookup to the localtest overrides: they import the nearest
-# vendored props/targets and define LOCALTEST for the vendored projects. No vendored csproj is edited.
-ENV DirectoryBuildPropsPath=/src/localtest.build.props \
-    DirectoryBuildTargetsPath=/src/localtest.build.targets
-WORKDIR /src/vendor/src/Runtime/workflow-engine-app/src/WorkflowEngine.App
+ENV DirectoryBuildPropsPath=/build/localtest.build.props \
+    DirectoryBuildTargetsPath=/build/localtest.build.targets
+COPY vendor/src/common/dotnet/Altinn.Studio.Common/ vendor/src/common/dotnet/Altinn.Studio.Common/
+COPY vendor/src/Runtime/workflow-engine/ vendor/src/Runtime/workflow-engine/
+COPY vendor/src/Runtime/workflow-engine-app/ vendor/src/Runtime/workflow-engine-app/
+
+# Prune host build artifacts, including literal backslash dirs such as `bin\Debug`.
+# localtest: under vendor/src.
+RUN find vendor/src/common vendor/src/Runtime -type d \( -name 'bin*' -o -name 'obj*' \) -prune -exec rm -rf '{}' +
+
+# localtest: the project under vendor/src.
+WORKDIR /build/vendor/src/Runtime/workflow-engine-app/src/WorkflowEngine.App
 RUN dotnet restore "WorkflowEngine.App.csproj"
 RUN dotnet publish "WorkflowEngine.App.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false /p:CSharpier_Bypass=true /p:InformationalVersion=$BUILD_VERSION
 
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+# localtest: settings production gets from its deployment. No HEALTHCHECK: podman builds OCI images, which drop the
+# instruction (only a compose healthcheck: takes effect).
 ENV ASPNETCORE_ENVIRONMENT=Development
-# The aspnet image has no curl or wget; probe over bash's /dev/tcp as studioctl does. The versionless /health/ready
-# is a redirect, so the probe asks the versioned path.
-HEALTHCHECK --interval=2s --timeout=5s --retries=60 CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9090 && printf 'GET /api/v1/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"]
 ENTRYPOINT ["dotnet", "WorkflowEngine.App.dll"]

@@ -20,7 +20,4 @@ public sealed class LocaltestAuthorizationOptions
     /// <c>resource.json</c>) per resource. Missing folder means none.
     /// </summary>
     public string PoliciesPath { get; set; } = "/policies";
-
-    /// <summary>Base URL of the register component's localtest endpoints (test users and organisations).</summary>
-    public string RegisterLocaltestEndpoint { get; set; } = "http://local.altinn.cloud:8000/register/api/localtest/";
 }

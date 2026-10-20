@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.AccessManagement.Core.Clients.Interfaces;
@@ -22,8 +23,10 @@ namespace Altinn.AccessManagement.Localtest.ResourceRegistry;
 /// </summary>
 public sealed class LocaltestResourceRegistryClient(LocaltestAppResources apps) : IResourceRegistryClient
 {
+    /// <summary>The resource, or, as production's client on a non-200 answer, an <see cref="HttpRequestException"/>.</summary>
     public async Task<ServiceResource> GetResource(string resourceId, CancellationToken cancellationToken = default)
-        => (await GetResourceList(cancellationToken)).Find(r => string.Equals(r.Identifier, resourceId, StringComparison.OrdinalIgnoreCase))!;
+        => (await GetResourceList(cancellationToken)).Find(r => string.Equals(r.Identifier, resourceId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new HttpRequestException($"Failed to get resource from Resource Registry. Status code: {System.Net.HttpStatusCode.NotFound}");
 
     public Task<List<ServiceResource>> GetResources(CancellationToken cancellationToken = default, string? searchParams = null)
         => GetResourceList(cancellationToken);

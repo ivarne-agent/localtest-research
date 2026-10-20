@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Events.Localtest.Delivery;
@@ -19,7 +20,7 @@ namespace Altinn.Platform.Events.Localtest.Delivery;
 /// production <c>WebhookService</c>, its trace log entries and the retry handling see an ordinary response.
 /// Records go to <c>localtest.delivery</c> in eventsdb through <see cref="LocaltestDeliveryLog"/>.
 /// </summary>
-public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IOptions<LocaltestEventsOptions> options) : DelegatingHandler
+public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IOptions<LocaltestEventsOptions> options, ILogger<LocaltestWebhookDeliveryHandler> logger) : DelegatingHandler
 {
     private const int MaxRecordedResponseBody = 4096;
     private const string ValidationType = "platform.events.validatesubscription";
@@ -49,7 +50,7 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IO
 
         if (!deliver)
         {
-            await log.Record(Record((int)HttpStatusCode.OK, null, null), cancellationToken);
+            await TryRecord(Record((int)HttpStatusCode.OK, null, null), cancellationToken);
             var captured = new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new StringContent(string.Empty) };
             captured.Headers.Add("X-Localtest-Captured", "true");
             return captured;
@@ -62,7 +63,7 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IO
         }
         catch (Exception e)
         {
-            await log.Record(Record(null, null, $"{e.GetType().Name}: {e.Message}"), CancellationToken.None);
+            await TryRecord(Record(null, null, $"{e.GetType().Name}: {e.Message}"), CancellationToken.None);
             throw;
         }
 
@@ -72,8 +73,24 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IO
             responseBody = responseBody[..MaxRecordedResponseBody];
         }
 
-        await log.Record(Record((int)response.StatusCode, responseBody, null), cancellationToken);
+        await TryRecord(Record((int)response.StatusCode, responseBody, null), cancellationToken);
         return response;
+    }
+
+    /// <summary>
+    /// Records the delivery for the inspection API. A failure here must not fail the delivery: production's retries
+    /// would then send a webhook that already arrived once more.
+    /// </summary>
+    private async Task TryRecord(DeliveryRecord record, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await log.Record(record, cancellationToken);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            logger.LogWarning(e, "Localtest delivery record for {Endpoint} could not be written", record.Endpoint);
+        }
     }
 
     private bool ShouldDeliver(Uri? uri)
@@ -112,8 +129,8 @@ public sealed class LocaltestWebhookDeliveryHandler(LocaltestDeliveryLog log, IO
 
             // Slack endpoints get the event wrapped as { "text": ... }; everything else gets the CloudEvent itself.
             return (
-                root.TryGetProperty("id", out var id) ? id.GetString() : null,
-                root.TryGetProperty("type", out var type) ? type.GetString() : null);
+                root.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() : null,
+                root.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String ? type.GetString() : null);
         }
         catch (JsonException)
         {

@@ -18,7 +18,8 @@ Runtime behaviour inferred from code is marked "not confirmed".
 > - **Register main units work** (risk 2) once outgoing platform tokens can be signed: Events never binds the client
 >   `AccessTokenSettings`, so the certificate is mounted at the default `/accesstoken/accesstokencredentials.pfx`.
 > - **Scrutor 7** keeps a decorated registration as a keyed service, so replacing `ISubscriptionRepository` has to remove
->   the keyed descriptor too, then decorate again.
+>   the keyed descriptor too, then decorate again. (This applied to the in-memory repositories, removed on 2026-10-19 when Events
+>   moved to the shared Postgres; the current component only decorates.)
 > - The http directive in `SubscriptionController` is in (open question 2 answered for the test sink and v8 apps).
 
 ## Summary
