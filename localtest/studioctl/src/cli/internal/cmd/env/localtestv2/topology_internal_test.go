@@ -1,8 +1,10 @@
 package localtestv2
 
 import (
+	"errors"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 
 	"altinn.studio/devenv/pkg/resource"
@@ -143,7 +145,7 @@ func TestTheDialogportenGroupIsOffByDefault(t *testing.T) {
 			t.Errorf("health polled for %s with the group off", target.name)
 		}
 	}
-	if dialogportenOnByDefault {
+	if groupTable()[groupDialogporten].onByDefault {
 		t.Error("the group is opt-in")
 	}
 }
@@ -214,25 +216,98 @@ func TestTheDialogportenHostsStartAfterTheWebApiThatMigrates(t *testing.T) {
 func TestResolveGroups(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
+		wantErr       error
 		name          string
 		with, without []string
 		want          []string
-		wantErr       bool
 	}{
 		{name: "default", want: nil},
 		{name: "with", with: []string{"dialogporten"}, want: []string{"dialogporten"}},
+		{name: "with receipt", with: []string{"receipt"}, want: []string{"receipt"}},
+		{name: "repeated", with: []string{"receipt", "dialogporten"}, want: []string{"dialogporten", "receipt"}},
 		{name: "without wins when both are given", with: []string{"dialogporten"}, without: []string{"dialogporten"}},
-		{name: "unknown with", with: []string{"nosuch"}, wantErr: true},
-		{name: "unknown without", without: []string{"nosuch"}, wantErr: true},
+		{
+			name: "with brings in the implied group",
+			with: []string{"correspondence"},
+			want: []string{"correspondence", "dialogporten"},
+		},
+		{
+			name:    "without removes only the named group",
+			with:    []string{"correspondence"},
+			without: []string{"correspondence"},
+			want:    nil,
+		},
+		{
+			name:    "without an implied group is an error",
+			with:    []string{"correspondence"},
+			without: []string{"dialogporten"},
+			wantErr: errImpliedGroupRemoved,
+		},
+		{
+			name: "everything",
+			with: []string{"everything"},
+			want: []string{"correspondence", "dialogporten", "everything", "receipt"},
+		},
+		{
+			name:    "everything without one of its groups is an error",
+			with:    []string{"everything"},
+			without: []string{"receipt"},
+			wantErr: errImpliedGroupRemoved,
+		},
+		{name: "without a group that is off", without: []string{"receipt"}, want: nil},
+		{name: "unknown with", with: []string{"nosuch"}, wantErr: errUnknownGroup},
+		{name: "unknown without", without: []string{"nosuch"}, wantErr: errUnknownGroup},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := ResolveGroups(tt.with, tt.without)
-			if (err != nil) != tt.wantErr || !slices.Equal(got, tt.want) {
+			if !errors.Is(err, tt.wantErr) || !slices.Equal(got, tt.want) {
 				t.Errorf("ResolveGroups(%v, %v) = %v, %v; want %v, error %v", tt.with, tt.without, got, err, tt.want, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestTheImpliedGroupErrorNamesBothGroups(t *testing.T) {
+	t.Parallel()
+	_, err := ResolveGroups([]string{"correspondence"}, []string{"dialogporten"})
+	if err == nil || !strings.Contains(err.Error(), "correspondence implies dialogporten") {
+		t.Errorf("error = %v, want it to say that correspondence implies dialogporten", err)
+	}
+}
+
+func TestEveryGroupIsOffByDefaultAndImpliesOnlyKnownGroups(t *testing.T) {
+	t.Parallel()
+	table := groupTable()
+	for name, g := range table {
+		if g.onByDefault {
+			t.Errorf("%s is on by default", name)
+		}
+		for _, implied := range g.implies {
+			if _, known := table[implied]; !known || implied == name {
+				t.Errorf("%s implies %q", name, implied)
+			}
+		}
+	}
+	if got := table[groupEverything].implies; len(got) != len(table)-1 {
+		t.Errorf("everything implies %v, want every other group", got)
+	}
+	if want := []string{"correspondence", "dialogporten", "everything", "receipt"}; !slices.Equal(GroupNames(), want) {
+		t.Errorf("GroupNames() = %v, want %v", GroupNames(), want)
+	}
+}
+
+func TestAGroupWithoutComponentsAddsNothing(t *testing.T) {
+	t.Parallel()
+	base := defaultOptions(config.DefaultImages(), t.TempDir())
+	empty := defaultOptions(config.DefaultImages(), t.TempDir())
+	empty.Groups = groupSet([]string{groupEverything})
+	if !slices.Equal(containerNamesOf(base), containerNamesOf(empty)) {
+		t.Errorf("everything alone changed the components: %v, want %v", containerNamesOf(empty), containerNamesOf(base))
+	}
+	if len(boundTopologyConfig(base).Routes) != len(boundTopologyConfig(empty).Routes) {
+		t.Error("everything alone changed the routes")
 	}
 }
 

@@ -22,14 +22,26 @@ cd localtest/studioctl/src/cli
 make dev-install                            # builds build/dev-home/bin/{studioctl,studioctl-server}
 export STUDIOCTL_HOME=$PWD/build/dev-home
 export STUDIOCTL_LOCALTEST_V2_SRC=<this checkout>/localtest
-build/dev-home/bin/studioctl env up -r localtest-v2 [--dev <component>|all] [--with <group>] [--latest]
+build/dev-home/bin/studioctl env up -r localtest-v2 [--dev <component>|all] [--with <group>] [--without <group>] [--latest]
 build/dev-home/bin/studioctl env logs
 build/dev-home/bin/studioctl env down
 ```
 
 `--dev` builds the named component (or all) from `localtest/components/<name>` instead of pulling the pinned image;
-`--with dialogporten` starts the optional Dialogporten group (Redis and three hosts; `--without <group>` leaves out a group that is on by
-default, none is today, see `groupDefaults` in `groups.go`), and `--dev dialogporten` builds its three images from `components/dialogporten`.
+`--with <group>` starts an optional component group and, transitively, the groups it implies; `--without <group>` leaves
+out only the named group. The groups are a table in `groups.go` (`groupTable`): each has a default (all off today) and the
+groups it implies.
+
+| Group | Implies | Components |
+| --- | --- | --- |
+| `dialogporten` | – | Redis and the three Dialogporten hosts; `--dev dialogporten` builds the three images from `components/dialogporten` |
+| `receipt` | – | the platform receipt (task 16) |
+| `correspondence` | `dialogporten` | none yet (task 7) |
+| `everything` | every other group | none of its own |
+
+Leaving out a group that an enabled group implies is an error, because the enabled group cannot run without it:
+`--with correspondence --without dialogporten` and `--with everything --without receipt` both fail and say which group
+needs which. A group without components is harmless: it is recorded in the state file and adds no containers or routes.
 `--latest` follows the published `latest` images. `make dev-install` runs `studioctl self install`, which stops every
 environment and app first.
 
@@ -46,7 +58,7 @@ Paths below are under `src/cli/`.
 
 | Where | What |
 | --- | --- |
-| `internal/cmd/env/localtestv2/` | The runtime: component specs (`components.go`), the optional component groups (`groups.go`: a component with a `group` exists only when that group is enabled; the enabled groups are recorded in the state file, so `env status` and `env logs` cover what was started and `env down` and `env reset` always cover every group), start/stop/reset (`env.go`), HTTP health polling (`health.go`), topology (`topology.go`), the embedded test certificate (`certs.go`, `assets/localtest-accesstoken.pfx`) |
+| `internal/cmd/env/localtestv2/` | The runtime: component specs (`components.go`), the optional component groups (`groups.go`: the group table with defaults and implied groups; a component with a `group` exists only when that group is enabled; the enabled groups are recorded in the state file, so `env status` and `env logs` cover what was started and `env down` and `env reset` always cover every group), start/stop/reset (`env.go`), HTTP health polling (`health.go`), topology (`topology.go`), the embedded test certificate (`certs.go`, `assets/localtest-accesstoken.pfx`) |
 | `internal/cmd/env/runtime.go`, `registry/`, `types.go`, `env.go` | `-r <runtime>` with one runtime at a time, defaulting to the last one started |
 | `internal/config/images.go` | `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` images pinned by `sha-<commit>` (`tagLocaltestV2`), `--latest` |
 | `internal/localtestv2/state.go` | The state file both studioctl and studioctl-server read |

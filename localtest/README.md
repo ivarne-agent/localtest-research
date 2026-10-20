@@ -80,12 +80,16 @@ and polls every component's `/health`:
 ```sh
 studioctl env up -r localtest-v2            # pinned images from ghcr; --latest follows main
 studioctl env up -r localtest-v2 --with dialogporten   # also Dialogporten (three hosts and Redis, about 0.5 GB)
+studioctl env up -r localtest-v2 --with everything     # every optional group
 studioctl run                               # in an app checkout
 ```
 
-`--with dialogporten` starts the optional Dialogporten group (see [`components/dialogporten/`](components/dialogporten/README.md));
-without it none of its containers, routes or health checks exist, and `/dialogporten/...` falls through to the localtest app's 404. A later
-`env up` with or without the flag converges the environment to that choice.
+The optional groups are off by default: `dialogporten` (see [`components/dialogporten/`](components/dialogporten/README.md)),
+`receipt`, `correspondence` (implies `dialogporten`) and `everything` (implies every other group). `--with <group>` starts
+a group and what it implies, `--without <group>` leaves out only that group, and leaving out a group an enabled one implies
+is an error (see [`studioctl/README.md`](studioctl/README.md)). Without a group none of its containers, routes or health
+checks exist, and `/dialogporten/...` falls through to the localtest app's 404. A later `env up` with or without the flags
+converges the environment to that choice.
 
 Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
 for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked

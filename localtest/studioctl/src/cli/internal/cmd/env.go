@@ -327,8 +327,8 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --open           Open localtest in browser after starting",
 			"  --latest         Run the localtest-v2 images at :latest instead of the pinned build",
 			"  --dev NAME       Build a localtest-v2 component from "+envlocaltestv2.EnvSourceRoot+" (repeatable; 'all')",
-			"  --with GROUP     Start an optional localtest-v2 component group ("+groupNames+"; repeatable)",
-			"  --without GROUP  Leave out an optional localtest-v2 component group that is on by default (repeatable)",
+			"  --with GROUP     Start an optional localtest-v2 component group and the groups it implies ("+groupNames+"; repeatable)",
+			"  --without GROUP  Leave out an optional localtest-v2 component group, not the groups it implies (repeatable)",
 			"  --json           Output as JSON",
 		))
 	}
