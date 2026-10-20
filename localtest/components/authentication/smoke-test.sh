@@ -103,9 +103,12 @@ check "after logout the session's refresh token is refused" "invalid_grant" "$(c
 echo "== Dialogporten's end-user API with the code-flow access token"
 if [[ "$(code "$BASE/dialogporten/health/readiness")" == 200 ]]; then
   curl -s -o "$T/t.json" "$HELPER/token?client=localtest-smoke&userId=1337&authenticationLevel=3"
-  check "GET dialogporten/api/v1/enduser/dialogs" "200" "$(code -H "Authorization: Bearer $(field "$T/t.json" access_token)" "$BASE/dialogporten/api/v1/enduser/dialogs")"
+  # The list needs a party or a service resource; the person's own party.
+  DIALOGS="$BASE/dialogporten/api/v1/enduser/dialogs?party=urn:altinn:person:identifier-no:$PID_1337"
+  check "the cookie JWT (no pid) is refused: unknown user type" "403" "$(code -H "Authorization: Bearer $COOKIE" "$DIALOGS")"
+  check "GET dialogporten/api/v1/enduser/dialogs with the code-flow token" "200" "$(code -H "Authorization: Bearer $(field "$T/t.json" access_token)" "$DIALOGS")"
 else
-  echo "skip GET dialogporten/api/v1/enduser/dialogs (the dialogporten group is not up)"
+  echo "skip the end-user dialog list (the dialogporten group is not up)"
 fi
 
 echo "$OK ok"

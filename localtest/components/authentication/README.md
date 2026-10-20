@@ -167,8 +167,15 @@ exchange with its secret and verifier; the helper's tokens for user 1337 (`pid` 
 identity number, `nonce`, `sid`, `aud`); `invalid_client` for a wrong secret, `invalid_grant` for a spent code;
 refresh rotation and reuse detection; logout through `endsession` and `handleloggedout`, after which the session's
 refresh token is refused; and, with the dialogporten group up, Dialogporten's end-user dialog list with the code-flow
-access token. Phase-1 run (2026-10-20, before the stack): 30 ok against the component and the localtest app run as
-plain processes with a stub Register and Profile; the run on the stack is pending.
+access token (the cookie JWT, without `pid`, is refused with 403).
+
+On the stack (2026-10-20, `env up -r localtest-v2 --with dialogporten --dev authentication --dev localtest`): 32 ok,
+none failing. User 1337's access token carries `pid` `01839012345`, the Register's national identity number for
+Sophie Salt; `GET dialogporten/api/v1/enduser/dialogs?party=urn:altinn:person:identifier-no:01839012345` answers 200
+with her dialogs (without `party` or a service resource it is a 400 validation error, not an authorization one).
+Regressions on the same stack: root `smoke-test.sh` 23 ok; the localtest app's smoke test with `PROXY_CHECKS=0` 64 ok,
+every `identity providers` and `home` check passing; `run-platform-regression.sh --no-apps` 44 tests, all specs
+passed.
 
 ## Run a changed component
 
