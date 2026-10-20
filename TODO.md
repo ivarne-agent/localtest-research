@@ -221,8 +221,10 @@ must apply send results after the claim transaction commits (section 6.4). Open 
 (section 6.14 question 1). The capture is modelled as **inboxes**: one per e-mail address or phone number, each
 listing its messages under `notifications/api/localtest/inboxes/…`; a later version adds reception on/off per inbox
 with a default for new inboxes (an inbox with reception off makes its messages fail), so the data shape carries a
-`receiving` flag now, always true. Number normalisation: bare eight-digit seed numbers get `+47` in the Profile fake
-(question 2). The four Profile contact-point lookups live in the Register component's fakes (question 3). No failure
+`receiving` flag now, always true. **No number normalisation** (question 2, decided 2026-10-20): the Profile fake
+returns the seed's numbers and addresses exactly as stored, inboxes are keyed by the exact string the message is
+addressed to (any number, any text), and whatever production Notifications does with a bare eight-digit number is
+production behaviour to observe and document, not to mask in a fake; if it rejects them, the seed data changes. The four Profile contact-point lookups live in the Register component's fakes (question 3). No failure
 simulation and no reserved-recipient flag yet (questions 4 and 5; the inbox toggle covers failures later). The
 condition-check client keeps the shared Maskinporten fake (question 6, consistent with task 4). Instant and composed
 orders captured like the rest, attachments by reference (question 7). Correspondence does not share the capture
