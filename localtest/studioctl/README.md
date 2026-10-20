@@ -31,6 +31,10 @@ build/dev-home/bin/studioctl env down
 `--latest` follows the published `latest` images. `make dev-install` runs `studioctl self install`, which stops every
 environment and app first.
 
+Gotcha: `STUDIOCTL_HOME` must be short. studioctl-server listens on a Unix socket under it, and a socket path over
+107 characters fails `env up` with "invalid argument"; a worktree under `/home/agent/code/.worktrees/<task>/localtest/studioctl/src/cli/build/dev-home`
+is too long, so point a short symlink (for example `/home/agent/<task>-home`) at `build/dev-home` and use that.
+
 Gotcha: only one `studioctl-server` can own port 8000. A dev-home server started from another checkout must be stopped
 first, with `studioctl env down` from that home or by killing its `studioctl-server` process.
 
