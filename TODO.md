@@ -26,7 +26,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | deferred (2026-10-20: until a relying party in the stack needs the code flow, i.e. task 11 or a Dialogporten end-user test) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
-| 5 | [Resource Registry component](#5-resource-registry-component) | 5a done (2026-10-20, commits e0cba40..b6f4c47; pin a3422419); 5b in progress (2026-10-20, agent `task5b-standins`, worktree `.worktrees/task5b-standins`, branch `task/resource-registry-standins`) | large | yes |
+| 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | unapproved | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
@@ -38,7 +38,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 
-Suggested order: 5b (running), then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 9 (two steps), then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -266,6 +266,8 @@ Small items from `localtest/reviews/` and the components' "Known gaps", each its
 - Events: `DELETE events/api/localtest/events` does not drain Wolverine's in-memory queues; Slack deliveries recorded
   without their event.
 - Access Management: a stub for the SBL bridge's Altinn 2 roles calls (today a proxy 404), if any flow needs it.
+- Authorization smoke test: its closing "PDP log errors" line reads the compose-era container name
+  `localtest_authorization_1`, so under studioctl it always reports 0; read `localtest-v2-authorization` instead.
 - Authorization and Events: Debug logging is very noisy under `ASPNETCORE_ENVIRONMENT=Development`; a localtest
   logging override.
 - Workflow engine: state reset (left as decided; revisit only on request).

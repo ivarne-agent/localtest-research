@@ -69,7 +69,10 @@ in), tagged `sha-<commit>` and `latest`. To run a component from this checkout i
 There is no compose file any more; `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` predate the studioctl
 runtime and push app routes to the localtest app's own proxy API, which studioctl does not use.
 `run-platform-regression.sh --no-apps` runs the six platform specs against apps started with `studioctl run`
-(frontend-test, signering-brukerstyrt, process-transition-test).
+(frontend-test, signering-brukerstyrt, process-transition-test). The specs test the monorepo's frontend, so start those
+apps with `studioctl run --dev-frontend` and serve the built `src/App/frontend/dist` (the frontend dev server, or any
+static server on the port `--dev-frontend` expects); with the released CDN bundle the page renders empty and every spec
+fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` when running from a worktree.
 
 ## Tests
 
