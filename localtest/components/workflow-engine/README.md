@@ -29,33 +29,16 @@ Environment only; no localtest-specific keys.
 | `ASPNETCORE_ENVIRONMENT` | `Development` (image default). Selects `appsettings.Development.json`, and makes the host read an optional `appsettings.Local.json` instead of `/app/secrets/secrets.json` |
 | `ASPNETCORE_HTTP_PORTS` | `9090` (image default, as upstream) |
 | `ConnectionStrings__WorkflowEngine` | `Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres`. The database must exist: `../../postgres-init/20-workflow-engine.sh` creates it (and `pg_stat_statements`, preloaded by the postgres service's command); the engine migrates its `engine` schema itself |
-| `AppCommandSettings__CommandEndpoint` | `http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/` (same as `appsettings.Development.json`; set explicitly so the callback route is visible in compose) |
+| `AppCommandSettings__CommandEndpoint` | `http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/` (same as `appsettings.Development.json`; set explicitly so the callback route is visible) |
 
-The image has no curl or wget. Its `HEALTHCHECK` speaks HTTP over bash's `/dev/tcp` (as studioctl's probe does) and
-asks the versioned `/api/v1/health/ready`; the versionless `/health/ready` is a redirect. Podman ignores `HEALTHCHECK`
-in the default OCI image format, so a compose-level `healthcheck` is needed if anything should wait for readiness.
+The readiness endpoint is the versioned `/api/v1/health/ready`; the versionless `/health/ready` is a redirect. The
+image has no curl or wget, and podman would drop a Dockerfile `HEALTHCHECK` anyway; studioctl probes it from outside.
 
-## docker-compose.yml service
+## In the stack
 
-```yaml
-  # Workflow engine from the monorepo, vendored in components/workflow-engine. The app reaches it at
-  # http://workflow-engine.local.altinn.cloud:8000/api/v1/; it calls the app back through the proxy.
-  workflow-engine:
-    <<: *platform-host
-    build: ./components/workflow-engine
-    image: localhost/localtest-workflow-engine:dev
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: "9090"
-      ConnectionStrings__WorkflowEngine: Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres
-      AppCommandSettings__CommandEndpoint: http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/
-    depends_on:
-      postgres:
-        condition: service_healthy
-```
-
-Only `build:` is new compared with the prebuilt-image service. The image tag stays the one studioctl dev mode
-produces, so `docker compose build workflow-engine` replaces a studioctl-built image of the same name.
+studioctl's `localtest-v2` runtime runs the monorepo's own workflow-engine image (as its classic localtest does), not
+one built from this vendored copy. This copy is for building and testing the engine with the rest of this repository's
+stack; its Dockerfile mirrors the monorepo's, so the two images match apart from the `localtest:` lines.
 
 ## Build and test
 

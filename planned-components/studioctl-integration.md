@@ -1,10 +1,27 @@
 # Plan: the new localtest in studioctl
 
-Status: plan, 2026-10-20. Builds on [`../localtest-components/studioctl-and-app-contract.md`](../localtest-components/studioctl-and-app-contract.md)
-(studioctl's composition pipeline, the app ↔ platform contract), which is still accurate: `src/cli`,
-`src/Runtime/localtest` and `src/Runtime/common` have no commits on altinn-studio `main` after the `447e53eb` it read
-(checked 2026-10-20 against `89b1d7bc70`). Images are assumed to be published (for example to ghcr.io); this plan is
-about the code and configuration changes.
+Status: superseded in part, 2026-10-20. The integration was built differently on several points (studioctl branch
+`feat/studioctl-localtest-v2`, commit `43be33f73e`; the research repo's image workflow in `84514a3`). The choices are
+argued in [`studioctl-integration-options.md`](studioctl-integration-options.md). What was built:
+
+- **A separate runtime**, `studioctl env up -r localtest-v2`, next to the classic localtest, instead of a flag that
+  swaps the classic one. Images are pinned from `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` (`--latest`
+  follows main, `--dev <name>|all` builds from a research checkout).
+- **The front door is studioctl-server**, not the localtest app (section 3.2 below is superseded). It matches the bound
+  topology (component prefixes on `local.altinn.cloud`, the PDF and workflow-engine hosts, falling back to the localtest
+  app), keeps `Host`, strips `Secure`, and reaches apps directly instead of through the host bridge. The localtest app
+  keeps the fake ID-porten, Maskinporten, `/Home` and the app-frontend files; its own proxy is unused there.
+- **Provisioning in studioctl-server** as section 3.4 proposed (metadata, languages and texts, policy, `testData.json`
+  from the app over HTTP, the Studio token from `/Home/GetTestStudioToken`, the Access Management refresh, the register
+  `DELETE` when an app goes away).
+- **Health by HTTP polling** of each component's `/health` from studioctl, not a container health check.
+- **Images built in the research repo** for now (`.github/workflows/images.yml`), including a `localtest-postgres`
+  image with the init scripts; the pdf3 and workflow-engine images are the monorepo's own.
+- **The certificate** is embedded in studioctl and mounted at `/certs`, not generated per installation.
+- **No compose file** in the research repo any more.
+
+Sections 1 (where the code lands), 4 (the components need nothing studioctl-specific), 5 (contracts) and 6 (rollout)
+still describe open work.
 
 ## What moves
 

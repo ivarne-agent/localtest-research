@@ -82,17 +82,13 @@ The localtest app's `smoke-test.sh` (sections `identity providers` and `home`) a
 sign-in at every level, the party cookies, `refresh`, the org token through the fake Maskinporten and the production
 exchange, and the Studio token.
 
-## Run from an IDE
+## Run a changed component
 
-Authentication needs the rest of the stack (register for Profile, the localtest app for the identity providers). Run
-the stack, point the localtest app's `authentication` upstream at the IDE instance, and start it:
+The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`), which pulls this component's image
+from ghcr. To run a change made here instead, build it from this checkout:
 
 ```sh
-# in localtest/: Proxy__Upstreams__authentication=http://host.docker.internal:5101 on the localtest service, then
-podman-compose up -d --no-build
-export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5101 \
-  GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/ \
-  AccessTokenSettings__AccessTokenSigningCertificateFullPath=$PWD/../../certs/localtest-accesstoken.pfx \
-  dotnet run --no-launch-profile --project vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication
+STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up -r localtest-v2 --dev authentication
 ```
+
+studioctl cannot route the component's prefix to an instance running in an IDE yet; `--dev` rebuilds the image.

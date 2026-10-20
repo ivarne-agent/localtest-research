@@ -61,7 +61,7 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             context.Response.ContentType = "text/plain; charset=utf-8";
-            await context.Response.WriteAsync("No app is registered for this path. Start it with run-app.sh <app-dir> <port>.\n");
+            await context.Response.WriteAsync("No app is registered for this path. Start it with studioctl run (or, with this app as the proxy, run-app.sh <app-dir> <port>).\n");
             return;
         }
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Smoke test for the authorization component (production PDP + fakes) in the running compose stack: everything through the
+# Smoke test for the authorization component (production PDP + fakes) in the running stack: everything through the
 # proxy. Roles, access packages, delegations and authorized parties come from the real Access Management component, so
 # the PDP is no longer tested on its own. Pushes the app policies through the production policy endpoint with a Studio
 # token (as the app runner does), gets user tokens from authentication, and asks the production decision endpoint what
-# an app's PEP would ask. Requires `podman-compose up -d` (see ../../README.md).
+# an app's PEP would ask. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); Z=$HERE

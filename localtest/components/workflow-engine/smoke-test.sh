@@ -1,7 +1,7 @@
 #!/bin/bash
 # Standalone smoke test of the workflow-engine component: a fresh Postgres 16 container (podman or docker) prepared by
-# the compose stack's init script (../../postgres-init/20-workflow-engine.sh, pg_stat_statements preloaded as in
-# docker-compose.yml), then the engine on a free port, checked with GET /api/v1/health/ready -> 200.
+# the stack's init script (../../postgres-init/20-workflow-engine.sh, pg_stat_statements preloaded as in the
+# localtest-postgres image), then the engine on a free port, checked with GET /api/v1/health/ready -> 200.
 # Usage: ./smoke-test.sh           build and run the vendored host with dotnet (localtest overrides)
 #        ./smoke-test.sh --image   run the image (IMAGE, default localhost/localtest-workflow-engine:dev) on the host network
 set -u

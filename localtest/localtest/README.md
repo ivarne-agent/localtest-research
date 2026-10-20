@@ -46,10 +46,12 @@ In order:
 A prefix requested without its trailing slash (`/storage`, `/ttd/app?x=1`) is redirected with `301` to the slashed
 path, query kept, as nginx did. Matching is ordinal and case-sensitive, like the nginx locations.
 
-Upstreams default to the compose services (`register:5020`, `authentication:5101`, `authorization:5070`,
-`access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`, `workflow-engine:9090`). Override one with
-`Proxy__Upstreams__<name>`, for example `Proxy__Upstreams__storage=http://host.docker.internal:5010` to run Storage
-from an IDE. `GET localtest/api/proxy/upstreams` lists the effective ones.
+Upstreams default to the container names of the compose file the stack used to run from (`register:5020`,
+`authentication:5101`, `authorization:5070`, `access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`,
+`workflow-engine:9090`). Override one with `Proxy__Upstreams__<name>`. Behind studioctl's `localtest-v2` runtime
+studioctl-server is the front door and this proxy is not used; studioctl sets `Proxy__Upstreams__register` and
+`__authentication` to the public origin, because the identity features and `/Home` call those two. `GET
+localtest/api/proxy/upstreams` lists the effective ones.
 
 ### What it does to a request
 

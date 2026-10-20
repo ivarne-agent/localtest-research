@@ -12,7 +12,7 @@ parties) stay production HTTP calls to the other localtest components.
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
 | `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, resource-registry and OED PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
 | `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
-| `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running compose stack (see below) |
+| `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
 ## Directive site
@@ -95,27 +95,16 @@ requests built from the token claims as the PEP does, roles and packages from Ac
 - Authorized parties from Access Management: Sophie's five top-level parties with sub-units, `dagl` on DDG Fitness and
   its sub-units with `includeRoles=true`; 401 without a token; the PDP's `parties?userid=1337` returns the same ids.
 
-## Compose and running from an IDE
+## Run a changed component
 
-The `authorization` service in [`../../docker-compose.yml`](../../docker-compose.yml) is the reference: the
-platform endpoint, the shared certificate (`./certs` at `/certs`, `AccessTokenSettings__AccessTokenSigningCertificateFullPath`)
-and the `policy-store` volume shared with Access Management. No port is published; the localtest app routes
-`/authorization/` to it.
-
-To run the PDP from an IDE, keep the stack up, point the localtest app's `authorization` upstream at the IDE instance
-(`Proxy__Upstreams__authorization=http://host.docker.internal:5070` on the `localtest` service) and start it with the
-overrides, a writable policy store and the certificate:
+The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`), which pulls this component's image
+from ghcr. To run a change made here instead, build it from this checkout:
 
 ```sh
-export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
-dotnet build -c Release vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization
-cd vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/bin/Release/net10.0   # Program.cs loads ./appsettings.json
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5070 \
-  Localtest__Authorization__PoliciesPath=$OLDPWD/policies \
-  Localtest__Authorization__PolicyStorePath=/tmp/policy-store \
-  AccessTokenSettings__AccessTokenSigningCertificateFullPath=$OLDPWD/../../certs/localtest-accesstoken.pfx \
-  dotnet Altinn.Authorization.dll
+STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up -r localtest-v2 --dev authorization
 ```
 
-Policies pushed while the PDP runs from the IDE land in its own store; Access Management's delegation policies stay in
-the volume.
+studioctl cannot route the component's prefix to an instance running in an IDE yet; `--dev` rebuilds the image.
+
+In the stack the PDP gets the platform endpoint, the shared certificate at `/certs` and the `policy-store` volume shared
+with Access Management; studioctl-server routes `/authorization/` to it.

@@ -52,7 +52,7 @@ session's events.
 
 Outgoing platform access tokens (Events calls Register as `platform`/`events`) need no fake. Events never binds the
 client's `AccessTokenSettings`, so the production `SigningCredentialsResolver` reads its default path,
-`../accesstoken/accesstokencredentials.pfx` from `/app`; compose mounts the shared certificate there.
+`../accesstoken/accesstokencredentials.pfx` from `/app`; studioctl mounts the shared certificate there too.
 
 ## Inspection API (`events/api/localtest/`, anonymous)
 
@@ -84,7 +84,7 @@ Defaults, inserted just below the environment variables, with `{platform}` = `Lo
 | `EventsProcessingSettings:PrimaryTaskIdleDelaySeconds` | 1 (production 2) |
 | `WolverineSettings:*QueuePolicy` | Cooldowns under 2 s; scheduled retries of 2 s to 60 s (outbound: ten retries over about seven minutes instead of 30 s to 12 h) |
 | `Localtest:Events:ResetOnStart` | `true`: empty the database on every start |
-| `Localtest:Events:Delivery` | `LocalOnly`: deliver to the platform host, its subdomains, single-label hosts (compose services; `localhost` is the events container itself) and `host.docker.internal`, the developer's machine (a receiver there must listen on more than 127.0.0.1, for example `0.0.0.0`); capture everything else. `CaptureAll` sends nothing; `All` sends everything, as production does |
+| `Localtest:Events:Delivery` | `LocalOnly`: deliver to the platform host, its subdomains, single-label hosts (container names; `localhost` is the events container itself) and `host.docker.internal`, the developer's machine (a receiver there must listen on more than 127.0.0.1, for example `0.0.0.0`); capture everything else. `CaptureAll` sends nothing; `All` sends everything, as production does |
 
 Forced: `kvSetting:SecretUri` empty, `ApplicationInsights:ConnectionString` empty, all six
 `WolverineSettings:Enable*` false (no Service Bus). Compose sets `PostgreSQLSettings__AdminConnectionString` and

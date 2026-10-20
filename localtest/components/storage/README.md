@@ -84,19 +84,16 @@ One shared `postgres:16` service. `postgres-init/10-storage.sh` (mounted into `/
 runs the production Yuniql migrations (`Migration/v0.00` … `v0.38`) itself at startup with the admin connection; a
 fresh database is migrated in about a second.
 
-## docker-compose
+## In the stack
 
-The `postgres` and `storage` services in [`../../docker-compose.yml`](../../docker-compose.yml) are the reference.
-Storage gets the Postgres connection strings, `GeneralSettings__PlatformEndpoint`, the shared certificate
-(`./certs` mounted at `/certs`, `AccessTokenSettings__AccessTokenSigningCertificateFullPath`) and the
-`storage-blobs` volume at `/data/blobs`; Postgres mounts `postgres-init/10-storage.sh` and
-`vendor/infra/postgres_init.sql`.
-
-Inside the compose network `local.altinn.cloud:8000` must reach the proxy (for example a network alias
-`local.altinn.cloud` on the `localtest` service listening on 8000), because Storage fetches the OpenID metadata, calls
-the PDP, Register and the apps through it. Otherwise set `GeneralSettings__PlatformEndpoint` to the `localtest` service
-URL. The proxy routes `/storage/` to `storage:5010` (Storage's routes already start with `/storage/api/v1/`; do
-not strip the prefix).
+studioctl's `localtest-v2` runtime runs Storage with the Postgres connection strings (the `localtest-postgres` image
+creates `storagedb` and its roles with `postgres-init/10-storage.sh` and `vendor/infra/postgres_init.sql`),
+`GeneralSettings__PlatformEndpoint`, the shared certificate at `/certs`
+(`AccessTokenSettings__AccessTokenSigningCertificateFullPath`) and a blob volume at `/data/blobs`. Storage reaches the
+OpenID metadata, the PDP, Register and the apps through `local.altinn.cloud:8000`, which studioctl-server serves;
+studioctl-server routes `/storage/` to Storage without stripping the prefix (Storage's routes start with
+`/storage/api/v1/`). To run a change made here: `STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up
+-r localtest-v2 --dev storage`.
 
 ## Image
 
@@ -114,9 +111,8 @@ marked `localtest:`:
   (`ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS=http://+:5010`, the blob root).
 - No `HEALTHCHECK`: `podman build` produces OCI images, which have no healthcheck field, so podman drops the
   instruction with a warning. The `HEALTHCHECK` lines in the other components' Dockerfiles have no effect for the same
-  reason; only a `healthcheck:` in the compose file does. A check here would also have to be exec form
-  (`CMD ["program", …]`), because the chiseled image has no shell, `wget` or `curl`. Nothing in the compose file waits
-  for Storage's health; health checks are left for the studioctl integration.
+  reason. A check here would also have to be exec form (`CMD ["program", …]`), because the chiseled image has no shell,
+  `wget` or `curl`. studioctl polls `/health` over HTTP instead.
 - A `storage-blobs` volume created by the earlier root-run image is owned by root and has to be handed to the app
   user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` at startup: the chiseled image has no Kerberos

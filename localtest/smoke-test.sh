@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end check of the compose stack through the proxy: sign-in, tokens, PDP decisions and a full instance
-# lifecycle on production Storage. Requires `docker compose up -d` (or podman-compose) and local.altinn.cloud in /etc/hosts.
+# End-to-end check of the stack through the front door: sign-in, tokens, PDP decisions and a full instance lifecycle on
+# production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
 set -u
 BASE=${BASE:-http://local.altinn.cloud:8000}
 FAIL=0

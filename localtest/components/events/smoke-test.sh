@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Smoke test for the events component (production Altinn Events on the shared Postgres) in the running compose stack,
+# Smoke test for the events component (production Altinn Events on the shared Postgres) in the running stack,
 # everything through the proxy. Publishes app events the way app-lib does (service-owner token, the app's platform
 # access token, an idempotency key), subscribes the way an integrator does, and reads the outcome back from the
-# localtest inspection API. Resets the component's data first. Requires `podman-compose up -d` (see ../../README.md).
+# localtest inspection API. Resets the component's data first. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)

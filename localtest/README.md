@@ -64,6 +64,8 @@ in), tagged `sha-<commit>` and `latest`. To run a component from this checkout i
 
 There is no compose file any more; `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` predate the studioctl
 runtime and push app routes to the localtest app's own proxy API, which studioctl does not use.
+`run-platform-regression.sh --no-apps` runs the six platform specs against apps started with `studioctl run`
+(frontend-test, signering-brukerstyrt, process-transition-test).
 
 ## Tests
 
