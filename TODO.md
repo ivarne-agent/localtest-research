@@ -27,7 +27,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
-| 6 | [Notifications](#6-notifications) | plan done (2026-10-20, `planned-components/notifications/`); implementation unapproved | medium | yes |
+| 6 | [Notifications](#6-notifications) | in progress (2026-10-20, agent `task6-notifications`, worktree `.worktrees/task6-notifications`, branch `task/notifications`; phase 1 code, phase 2 images and stack after 9a) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a in progress (2026-10-20, agent `task9a-dialogporten`, worktree `.worktrees/task9a-dialogporten`, branch `task/dialogporten-core`); 9b follows | large | yes |
@@ -217,7 +217,17 @@ contact-point lookups the Register component must gain (four endpoints) and the 
 scratch build and start of the host; the 104 migration folders have not been run on Postgres 18. The capture fake
 must apply send results after the claim transaction commits (section 6.4). Open questions in section 6.14.
 
-**Open.** Everything above; whether Correspondence (task 7) should share the capture GUI.
+**Decisions (2026-10-20).** Option A as planned. Every captured e-mail and SMS is marked **Delivered** for now
+(section 6.14 question 1). The capture is modelled as **inboxes**: one per e-mail address or phone number, each
+listing its messages under `notifications/api/localtest/inboxes/…`; a later version adds reception on/off per inbox
+with a default for new inboxes (an inbox with reception off makes its messages fail), so the data shape carries a
+`receiving` flag now, always true. Number normalisation: bare eight-digit seed numbers get `+47` in the Profile fake
+(question 2). The four Profile contact-point lookups live in the Register component's fakes (question 3). No failure
+simulation and no reserved-recipient flag yet (questions 4 and 5; the inbox toggle covers failures later). The
+condition-check client keeps the shared Maskinporten fake (question 6, consistent with task 4). Instant and composed
+orders captured like the rest, attachments by reference (question 7). Correspondence does not share the capture
+GUI (question 8). The send result is applied after the claim transaction commits, through an in-process channel
+(section 6.4).
 
 ## 7. Correspondence
 
