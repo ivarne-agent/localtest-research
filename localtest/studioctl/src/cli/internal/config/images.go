@@ -28,7 +28,7 @@ const (
 	// They are pinned to one build studioctl was tested with; EnvLocaltestV2Tag runs another, and
 	// "latest" follows every build on main.
 	imageLocaltestV2Prefix = "ghcr.io/ivarne-agent/localtest-research/localtest-"
-	tagLocaltestV2         = "sha-84514a3"
+	tagLocaltestV2         = "sha-cae17d0"
 	tagLatest              = "latest"
 
 	// EnvLocaltestV2Tag overrides the tag every localtest-v2 image runs ("latest" follows main).
