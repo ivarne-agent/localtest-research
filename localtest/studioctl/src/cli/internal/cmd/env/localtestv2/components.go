@@ -35,6 +35,9 @@ const (
 	componentDialogportenGraphQL = "dialogporten-graphql"
 	componentDialogportenService = "dialogporten-service"
 	componentDialogportenAdapter = "dialogporten-adapter"
+
+	// The optional receipt group: the platform receipt for archived instances.
+	componentReceipt = "receipt"
 )
 
 // Host ports, loopback only. The proxy in studioctl-server forwards to these; 5300 is also what app-lib's
@@ -54,6 +57,7 @@ const (
 	hostPortDialogportenSvc  = "8032"
 	hostPortDialogportenAdpt = "8035"
 	hostPortNotifications    = "8029"
+	hostPortReceipt          = "8034"
 	hostPortPDF              = "5300"
 )
 
@@ -247,6 +251,7 @@ func allComponents(opts *Options) []component {
 		dialogportenGraphQLComponent(opts, platform),
 		dialogportenServiceComponent(opts, platform),
 		dialogportenAdapterComponent(opts, platform),
+		receiptComponent(opts, platform),
 	}
 }
 
@@ -666,6 +671,41 @@ func dialogportenAdapterComponent(opts *Options, platform string) component {
 	// Its routes start with /storage/dialogporten, so the path passes unchanged. The proxy matches the longest prefix,
 	// so this route wins over Storage's /storage for the adapter's paths.
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/storage/dialogporten", rewrite: ""}}
+	return c
+}
+
+// receiptComponent is the platform receipt (`/receipt/{instanceOwnerPartyId}/{instanceGuid}`), the target of archived
+// instances' links. It is stateless: it reads the instance from Storage, the owner from Register and the user from
+// Profile with the user's cookie, and is only the sign-in target and JWKS user of Authentication. Every endpoint is the
+// public origin, because the browser follows the sign-in redirect and the attachment links the receipt hands out.
+func receiptComponent(opts *Options, platform string) component {
+	c := newComponent(opts, componentReceipt, opts.Images.LocaltestV2.Receipt, "components/receipt", "5060", hostPortReceipt)
+	c.group = groupReceipt
+	c.healthPath = healthPath
+	c.env = map[string]string{
+		"GeneralSettings__OpenIdWellKnownEndpoint": platform + "authentication/api/v1/openid/",
+		// Storage reports attachment links on https://platform.{this host}/, which the component's fake rewrites to
+		// Localtest__Receipt__PlatformEndpoint.
+		"GeneralSettings__Hostname":                   opts.Topology.AppHostName(),
+		"PlatformSettings__ApiAuthenticationEndpoint": platform + "authentication/api/v1/",
+		"PlatformSettings__ApiProfileEndpoint":        platform + "profile/api/v1/",
+		"PlatformSettings__ApiRegisterEndpoint":       platform + "register/api/v1/",
+		"PlatformSettings__ApiStorageEndpoint":        platform + "storage/api/v1/",
+		"Localtest__Receipt__PlatformEndpoint":        platform,
+	}
+	// It validates no platform tokens; its generator (to Register and Profile) reads the default path relative to
+	// /app, as Events' and Notifications' do.
+	c.volumes = []types.VolumeMount{readOnlyBind(
+		filepath.Join(opts.CertDir, localtestv2.CertificateFileName),
+		"/accesstoken/accesstokencredentials.pfx",
+	)}
+	// Request-time dependencies only: nothing is read at start (the OpenID metadata on the first cookie).
+	c.deps = []string{
+		containerOf(componentRegister),
+		containerOf(componentAuthentication),
+		containerOf(componentStorage),
+	}
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/receipt", rewrite: ""}}
 	return c
 }
 

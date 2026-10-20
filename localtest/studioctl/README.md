@@ -35,7 +35,7 @@ groups it implies.
 | Group | Implies | Components |
 | --- | --- | --- |
 | `dialogporten` | – | Redis, the three Dialogporten hosts and the Dialogporten adapter; `--dev dialogporten` builds the three host images from `components/dialogporten`, `--dev dialogporten-adapter` the adapter from `components/dialogporten-adapter` |
-| `receipt` | – | the platform receipt (task 16) |
+| `receipt` | – | the platform receipt (`components/receipt`, host port 8034, route `/receipt`) |
 | `correspondence` | `dialogporten` | none yet (task 7) |
 | `everything` | every other group | none of its own |
 

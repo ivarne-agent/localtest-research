@@ -89,6 +89,9 @@ type LocaltestV2Images struct {
 	DialogportenService ImageSpec
 	DialogportenAdapter ImageSpec
 	Redis               ImageSpec
+
+	// The optional receipt group.
+	Receipt ImageSpec
 }
 
 // All returns every localtest-v2 image, for applying one tag to the set.
@@ -108,6 +111,7 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.DialogportenGraphQL,
 		&i.DialogportenService,
 		&i.DialogportenAdapter,
+		&i.Receipt,
 	}
 }
 
@@ -175,6 +179,8 @@ func DefaultImages() ImagesConfig {
 			DialogportenService: localtestV2Image("dialogporten-service"),
 			DialogportenAdapter: localtestV2Image("dialogporten-adapter"),
 			Redis:               ImageSpec{Image: imageRedis, Tag: tagRedis, Floating: false},
+
+			Receipt: localtestV2Image("receipt"),
 		},
 	}
 	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag)); tag != "" {
@@ -216,6 +222,8 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_SERVICE": &c.LocaltestV2.DialogportenService,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER": &c.LocaltestV2.DialogportenAdapter,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
+
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_RECEIPT": &c.LocaltestV2.Receipt,
 	}
 }
 

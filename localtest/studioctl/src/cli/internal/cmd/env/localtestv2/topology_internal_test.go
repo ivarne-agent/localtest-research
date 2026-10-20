@@ -7,9 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
+	"altinn.studio/studioctl/internal/localtestv2"
 )
 
 func TestBoundTopologyConfigRoutesEveryComponentToLoopback(t *testing.T) {
@@ -445,6 +447,79 @@ func TestTheDialogportenAdapterIsItsOwnDevComponent(t *testing.T) {
 	for _, c := range components(opts) {
 		if c.name == componentDialogportenAdapter && c.group != groupDialogporten {
 			t.Errorf("adapter group = %q, want %q", c.group, groupDialogporten)
+		}
+	}
+}
+
+func receiptOf(t *testing.T, opts *Options) component {
+	t.Helper()
+	for _, c := range components(opts) {
+		if c.name == componentReceipt {
+			return c
+		}
+	}
+	t.Fatal("no receipt container")
+	return component{}
+}
+
+func receiptOptions(t *testing.T) *Options {
+	t.Helper()
+	opts := defaultOptions(config.DefaultImages(), "/certs-dir")
+	opts.Groups = groupSet([]string{groupReceipt})
+	return opts
+}
+
+func TestTheReceiptIsInItsOwnGroup(t *testing.T) {
+	t.Parallel()
+	if slices.Contains(containerNamesOf(defaultOptions(config.DefaultImages(), t.TempDir())), componentReceipt) {
+		t.Error("the receipt is part of the default environment")
+	}
+	receipt := receiptOf(t, receiptOptions(t))
+	if receipt.containerPort != "5060" || receipt.hostPort != hostPortReceipt || receipt.healthPath != healthPath {
+		t.Errorf("receipt ports and health = %s %s %s", receipt.containerPort, receipt.hostPort, receipt.healthPath)
+	}
+	for _, dep := range []string{componentRegister, componentAuthentication, componentStorage} {
+		if !slices.Contains(receipt.deps, containerOf(dep)) {
+			t.Errorf("receipt deps %v lack %s", receipt.deps, dep)
+		}
+	}
+}
+
+func TestTheReceiptSignsPlatformTokensWithTheSharedCertificate(t *testing.T) {
+	t.Parallel()
+	opts := receiptOptions(t)
+	receipt := receiptOf(t, opts)
+	want := readOnlyBind("/certs-dir/"+localtestv2.CertificateFileName, "/accesstoken/accesstokencredentials.pfx")
+	if !slices.Equal(receipt.volumes, []types.VolumeMount{want}) {
+		t.Errorf("receipt volumes = %+v, want only %+v", receipt.volumes, want)
+	}
+	platform := opts.Topology.LocaltestBaseURL() + "/"
+	if receipt.env["GeneralSettings__Hostname"] != opts.Topology.AppHostName() ||
+		receipt.env["Localtest__Receipt__PlatformEndpoint"] != platform ||
+		receipt.env["PlatformSettings__ApiAuthenticationEndpoint"] != platform+"authentication/api/v1/" {
+		t.Errorf("receipt env = %v", receipt.env)
+	}
+}
+
+func TestTheReceiptRouteIsWrittenWithItsGroup(t *testing.T) {
+	t.Parallel()
+	off := defaultOptions(config.DefaultImages(), t.TempDir())
+	on := receiptOptions(t)
+	for _, opts := range []*Options{off, on} {
+		var found []envtopology.BoundTopologyRoute
+		for _, route := range boundTopologyConfig(opts).Routes {
+			if route.Match.Host == opts.Topology.AppHostName() && route.Match.PathPrefix == "/receipt" {
+				found = append(found, route)
+			}
+		}
+		if len(found) != 1 || found[0].Destination.URL != "http://127.0.0.1:"+hostPortReceipt ||
+			metadataValue(found[0], groupMetadataKey) != groupReceipt || found[0].Enabled != (opts == on) {
+			t.Errorf("receipt routes = %+v (group on: %v)", found, opts == on)
+		}
+	}
+	for _, target := range healthTargets(on) {
+		if target.name == componentReceipt && target.url != "http://127.0.0.1:"+hostPortReceipt+healthPath {
+			t.Errorf("receipt health = %q", target.url)
 		}
 	}
 }
