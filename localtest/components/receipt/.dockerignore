@@ -1,0 +1,10 @@
+# Mirrors vendor/.dockerignore (upstream's), with the paths under vendor/ as well.
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/node_modules
+vendor/.env
+vendor/docker-compose.yml
+vendor/docker-compose.*.yml

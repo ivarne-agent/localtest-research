@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn Receipt source, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). Upstream's image copies only src/backend/Altinn.Receipt, so the vendored
+    root Directory.Build.props (CSharpier.MsBuild, which would reformat vendored files on a local build) is never part
+    of the build and is not imported here either. LOCALTEST is layered on the SDK's constants.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

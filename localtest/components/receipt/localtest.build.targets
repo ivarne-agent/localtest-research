@@ -1,0 +1,11 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+
+  <!--
+    The fake decorates the host's own IStorage with its StorageWrapper, so it is compiled into the host from the
+    adjacent fakes/ folder instead of being a separate project (which would need a reference cycle).
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Platform.Receipt'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>

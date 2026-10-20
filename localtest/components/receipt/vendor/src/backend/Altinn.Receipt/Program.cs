@@ -43,6 +43,9 @@ builder.UseGracefulShutdown();
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
+#if LOCALTEST
+Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Configuration);
+#endif
 
 var app = builder.Build();
 
@@ -253,7 +256,13 @@ void Configure(IConfiguration config)
     {
         var request = context.HttpContext.Request;
         var response = context.HttpContext.Response;
+#if !LOCALTEST
         string url = $"https://platform.{config["GeneralSettings:Hostname"]}{request.Path}{request.QueryString}";
+#else
+        // localtest: there is no platform.* host and no TLS locally; the browser came in on the public origin, whose
+        // Host the proxy keeps, so sign-in sends it back there.
+        string url = $"{request.Scheme}://{request.Host}{request.Path}{request.QueryString}";
+#endif
         string gotoUrl = WebUtility.UrlEncode(url);
 
         // you may also check requests path to do this only for specific methods
