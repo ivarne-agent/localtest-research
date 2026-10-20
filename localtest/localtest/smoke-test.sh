@@ -62,6 +62,24 @@ IDP="$BASE/localtest/api/idporten"
 expect "ID-porten issuer" "$BASE/localtest/api/idporten" "$(curl -s -m 10 "$IDP/.well-known/openid-configuration" | python3 -c 'import json,sys; print(json.load(sys.stdin)["issuer"])')"
 expect "ID-porten JWKS has an RS256 key" "RS256" "$(curl -s -m 10 "$IDP/jwks" | python3 -c 'import json,sys; print(json.load(sys.stdin)["keys"][0]["alg"])')"
 expect "Maskinporten issuer" "$BASE/localtest/api/maskinporten/" "$(curl -s -m 10 "$BASE/localtest/api/maskinporten/.well-known/oauth-authorization-server" | python3 -c 'import json,sys; print(json.load(sys.stdin)["issuer"])')"
+MP="$BASE/localtest/api/maskinporten"
+expect "Maskinporten discovery has token_endpoint" "$MP/token" "$(curl -s -m 10 "$MP/.well-known/oauth-authorization-server" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token_endpoint"])')"
+# An unsigned (alg none) assertion with the given payload claims; the token endpoint reads only the payload.
+assertion() { python3 -c "import sys,base64,json; b=lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).rstrip(b'=').decode(); print(b({'alg':'none'})+'.'+b(json.loads(sys.argv[1]))+'.')" "$1"; }
+mp_token() { curl -s -m 10 -X POST "$MP/token" -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer --data-urlencode "assertion=$(assertion "$1")"; }
+json() { python3 -c "import sys,json; print(json.load(sys.stdin)[sys.argv[1]])" "$1"; }
+MP_RESPONSE=$(mp_token '{"iss":"localtest-smoke","scope":"altinn:serviceowner/instances.read"}')
+MP_TOKEN=$(json access_token <<<"$MP_RESPONSE")
+expect "Maskinporten token response: type, lifetime, scope" "Bearer 1800 altinn:serviceowner/instances.read" "$(json token_type <<<"$MP_RESPONSE") $(json expires_in <<<"$MP_RESPONSE") $(json scope <<<"$MP_RESPONSE")"
+expect "Maskinporten token: client_id is iss, consumer is the default org (Digdir)" "localtest-smoke 0192:991825827" "$(claim "$MP_TOKEN" client_id) $(claim "$MP_TOKEN" consumer | python3 -c "import sys,ast; print(ast.literal_eval(sys.stdin.read())['ID'])")"
+expect "Maskinporten token: the scope is echoed" "altinn:serviceowner/instances.read" "$(claim "$MP_TOKEN" scope)"
+expect "the production exchange accepts it (test=true: ttd)" ttd "$(claim "$(curl -s -m 30 -H "Authorization: Bearer $MP_TOKEN" "$BASE/authentication/api/v1/exchange/maskinporten?test=true")" urn:altinn:org)"
+consumer_id() { claim "$(json access_token <<<"$(mp_token "$1")")" consumer | python3 -c "import sys,ast; print(ast.literal_eval(sys.stdin.read())['ID'])"; }
+expect "a nine-digit client id is the organisation number" 0192:974760673 "$(consumer_id '{"iss":"974760673"}')"
+expect "consumer_org in the assertion wins" 0192:974760673 "$(consumer_id '{"iss":"991825827","consumer_org":"974760673"}')"
+expect "Maskinporten token: grant_type client_credentials" unsupported_grant_type "$(curl -s -m 10 -X POST "$MP/token" -d grant_type=client_credentials | json error)"
+expect "Maskinporten token: no assertion" invalid_request "$(curl -s -m 10 -X POST "$MP/token" -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer | json error)"
+expect "Maskinporten token: assertion without iss" invalid_request "$(mp_token '{"scope":"x"}' | json error)"
 J=$(mktemp); LOC=$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/")
 q() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$LOC" "$1"; }
 expect "Authentication sends an S256 PKCE challenge" "S256" "$(q code_challenge_method)"

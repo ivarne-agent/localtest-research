@@ -15,9 +15,9 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | --- | --- |
 | `Program.cs` | Composition: dedicated hosts first, then the app-frontend files, routing, the features' endpoints, the catch-all forwarder |
 | `LocaltestSettings.cs` | Settings the features share: the public `Localtest:PlatformEndpoint` and the shared test certificate's path |
-| `Tokens/SigningKey.cs` | RS256 keys (generated, or the shared certificate's), JWKS and a hand-written JWT writer, used by the identity features |
+| `Tokens/` | `SigningKey.cs`: RS256 keys (generated, or the shared certificate's), JWKS and a hand-written JWT writer, used by the identity features; `TokenErrorResponse.cs`, the token endpoint error both fakes answer |
 | `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `AuthorizationCodes.cs`, `TestUsers.cs` (the register's test users, also used by Home), `AuthLevels.cs` |
-| `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, minting) |
+| `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, token endpoint, minting) |
 | `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP) |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts, exact paths and path prefixes, and the upstream addresses |
@@ -107,11 +107,22 @@ points here. The exchange accepts a token when that URL contains the token's `is
 
 | Endpoint (`localtest/api/maskinporten/`) | What |
 | --- | --- |
-| `GET .well-known/oauth-authorization-server` | Issuer, `jwks_uri`, `jwt-bearer` |
+| `GET .well-known/oauth-authorization-server` | Issuer, `jwks_uri`, `token_endpoint`, `token_endpoint_auth_methods_supported` (`private_key_jwt`), `jwt-bearer` |
 | `GET jwks` | The RS256 public key, generated at start |
+| `POST token` | Anonymous, `application/x-www-form-urlencoded`: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer` (else `400 unsupported_grant_type`) and `assertion`, a compact JWT. Answers `200 {access_token, token_type: "Bearer", expires_in: 1800, scope}` |
 
-There is no token endpoint (nothing local runs a Maskinporten client); `/Home/GetTestOrgToken` mints in-process
-(`MaskinportenApi.Mint`): `iss`, `scope`, `client_id`, `consumer` (`0192:{orgNumber}`), `jti`, `iat`, `nbf`, `exp`.
+The token endpoint reads only the assertion's payload: the header and signature are ignored (an unsigned `alg: none`
+assertion is accepted) and `exp` and `aud` are not checked. A missing or undecodable assertion, or one without `iss`,
+is `400 invalid_request`. The token's `client_id` is `iss`, its `scope` the assertion's `scope` (echoed, empty when
+absent). The organisation number, which becomes `consumer` (`0192:{orgNumber}`), is the first that applies:
+
+1. `consumer_org` in the assertion;
+2. `iss` when it is exactly nine digits (the client id is the organisation number);
+3. 991825827 (Digdir), which production `exchange/maskinporten?test=true` turns into `ttd`.
+
+There is no client table and no client is refused; one Information line names the client id and the rule that applied.
+`/Home/GetTestOrgToken` mints in-process with the same `MaskinportenApi.Mint` (`client_id` `localtest`): `iss`, `scope`,
+`client_id`, `consumer`, `jti`, `iat`, `nbf`, `exp` (30 minutes).
 
 ## Home
 

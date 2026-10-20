@@ -184,7 +184,7 @@ public static class HomeApi
     /// <summary>An org token for an app running locally: a Maskinporten token for the organisation, through the production exchange.</summary>
     private static async Task<IResult> GetTestOrgToken(string? orgNumber, string? scopes, SigningKey key, MaskinportenSettings settings, AuthenticationClient authentication, CancellationToken cancellationToken)
     {
-        var token = MaskinportenApi.Mint(key, settings, string.IsNullOrWhiteSpace(orgNumber) ? "991825827" : orgNumber, string.IsNullOrWhiteSpace(scopes) ? DefaultServiceOwnerScopes : scopes);
+        var token = MaskinportenApi.Mint(key, settings, string.IsNullOrWhiteSpace(orgNumber) ? "991825827" : orgNumber, string.IsNullOrWhiteSpace(scopes) ? DefaultServiceOwnerScopes : scopes, MaskinportenApi.LocaltestClientId);
         var (exchanged, error) = await authentication.Exchange("maskinporten", token, cancellationToken);
         return exchanged is null ? Results.Problem(error, statusCode: 502) : Results.Text(exchanged);
     }

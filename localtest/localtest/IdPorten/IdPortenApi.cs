@@ -319,7 +319,3 @@ public sealed record TokenResponse(
     [property: JsonPropertyName("token_type")] string TokenType,
     [property: JsonPropertyName("expires_in")] int ExpiresIn,
     [property: JsonPropertyName("scope")] string Scope);
-
-public sealed record TokenErrorResponse(
-    [property: JsonPropertyName("error")] string Error,
-    [property: JsonPropertyName("error_description")] string ErrorDescription);

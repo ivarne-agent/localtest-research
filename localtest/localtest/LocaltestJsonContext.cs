@@ -20,6 +20,7 @@ namespace Localtest;
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(TokenErrorResponse))]
 [JsonSerializable(typeof(AuthorizationServerMetadata))]
+[JsonSerializable(typeof(MaskinportenTokenResponse))]
 // Results.Problem: Native AOT serialises ProblemDetails only through a source-generated context.
 [JsonSerializable(typeof(Microsoft.AspNetCore.Mvc.ProblemDetails))]
 internal sealed partial class LocaltestJsonContext : JsonSerializerContext;
