@@ -1,0 +1,17 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+
+  <!--
+    The localtest fakes implement interfaces that live in the Core project and use the host's types, so they are
+    compiled into the host from the adjacent fakes/ folder instead of being a separate project.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Notifications'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+    <!-- The startup SQL the localtest database step runs (fakes/Startup/*.sql), read as Localtest.{name}.sql. -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)fakes/**/*.sql" LinkBase="Localtest" LogicalName="Localtest.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

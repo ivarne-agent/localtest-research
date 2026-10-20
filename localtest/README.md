@@ -13,6 +13,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, syncs resources from the Resource Registry, serves the PDP's PIP and authorized parties |
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
 | `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
+| `components/notifications/` | Production Notifications (the orders API host) on the shared Postgres: apps, Authentication and Correspondence order e-mail and SMS as in production, recipients resolve through the Register's Profile endpoints, and every message is captured in an inbox per address or number (`notifications/api/localtest/`) and delivered by the production status machine; nothing is sent |
 | `components/resource-registry/` | Production Resource Registry on the shared Postgres: app resources computed from Storage's application list and the pushed policies (no cache), a built-in seed of other resources, the `updated` subject feed, the org list from altinncdn.no; the runner triggers the subject reload as Designer does |
 | `components/dialogporten/` | **Optional group** (`env up --with dialogporten`): production Dialogporten WebApi, GraphQL and Service hosts on a `dialogporten` database in the shared Postgres, with a Redis; service-owner API with org tokens, resource checks against the Resource Registry, events to the Events component, GraphQL under `/dialogporten/graphql`. Dialogs persist until `env reset` |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
@@ -92,6 +93,7 @@ fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` when running f
 | `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens |
 | `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, GraphQL through the rewrite |
 | `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
+| `components/notifications/smoke-test.sh` | Against the stack: orders with direct, person and self-identified recipients, order chains, idempotency, instant orders, cancel, inboxes, the 422 problem details, reset |
 | `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |
 | `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps. 44 tests, about six minutes; all pass on 2026-10-20. The full suite is mostly about the frontend |
@@ -104,7 +106,9 @@ the stack: 101 Cypress specs with 418 tests (run 2026-10-18), all passing except
 `workflow-status.ts`, which failed because there was no Events service: every publish was a 404, and the workflow
 engine throttled the app's namespace. With the events component (2026-10-19) the spec passes 19 of 19 with events on.
 
-Not yet: Notifications and Correspondence (apps that order notifications or send correspondence get a 404), Profile
+With the notifications component (2026-10-20) apps and platform services that order notifications get production answers and a tester sees every message in an inbox.
+
+Not yet: Correspondence (apps that send correspondence get a 404), Profile
 beyond what the Register component serves, the inspection GUI over the components' `api/localtest/` endpoints, the
 a way to keep the vendored copies in
 step with upstream, and the rest of the studioctl integration. All of it, with status, is in [`../TODO.md`](../TODO.md).

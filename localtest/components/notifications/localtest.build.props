@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn Notifications source, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). Upstream's root Directory.Build.props (nullable, implicit usings, warnings as
+    errors) is found by MSBuild's own lookup only when this file is not in the way, so it is imported here, for the
+    vendored projects only; LOCALTEST is layered on top.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+    <LocaltestVendoredBuildProps Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildProps>
+  </PropertyGroup>
+
+  <Import Project="$(LocaltestVendoredBuildProps)" Condition="'$(LocaltestVendoredBuildProps)' != '' And Exists('$(LocaltestVendoredBuildProps)')" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- The host generates XML documentation; the localtest sources compiled into it are not documented. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

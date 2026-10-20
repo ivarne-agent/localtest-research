@@ -42,6 +42,10 @@ ConfigureWebHostCreationLogging();
 
 SetConfigurationProviders(builder.Configuration);
 
+#if LOCALTEST
+Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfiguration(builder.Configuration);
+#endif
+
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
@@ -223,7 +227,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     AddInputModelValidators(services);
     services.AddCoreServices(config);
     services.AddAuthorizationService(config);
+#if !LOCALTEST
     services.AddWolverineServices(config, builder.Environment);
+#else
+    Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(services, config);
+#endif
 
     services.AddAltinnClients(config);
     services.AddPostgresRepositories(config);
