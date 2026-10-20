@@ -341,10 +341,11 @@ local queue so the production sync handler and its retry and error policies run 
   steps that need a dialog token from the end-user API (reading the receipt as the user, deleting through the
   adapter with the dialog token); they need the `pid` token of deferred task 2.
 
-**Open.** Dialogporten's service-owner search names the caller's organisation by the first short name the Resource
-Registry lists for 991825827 (`digdir`), while dialogs for `ttd` apps carry `ttd` (found in 9a): a `ttd` service
-owner's search does not find its own dialogs. Decide whether the stack should make `ttd` resolve to its own number
-(seed data) or accept production's shared-number behaviour.
+**Known pain point, not ours to fix (decided 2026-10-20).** Dialogporten's service-owner search names the caller's
+organisation by the first short name the Resource Registry lists for 991825827 (`digdir`), while dialogs for `ttd`
+apps carry `ttd` (found in 9a): a `ttd` service owner's search does not find its own dialogs. This is production
+behaviour (`ttd` has no organisation number and the registry substitutes Digdir's); the stack does not fix production
+issues, so it stays, documented in the Dialogporten and adapter READMEs as a pain point testers will meet.
 
 ## 11. Arbeidsflate
 
