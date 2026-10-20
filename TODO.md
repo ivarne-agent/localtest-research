@@ -20,6 +20,13 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 `localtest/studioctl/UPSTREAM.md`), built with `make dev-install` there and verified with
 `studioctl env up -r localtest-v2 --dev <component>`; nothing is edited in an altinn-studio checkout.
 
+**Optional component groups (decided 2026-10-20).** `localtest/studioctl/src/cli/internal/cmd/env/localtestv2/groups.go`
+becomes a group table: each group has a default (all off) and the groups it implies; `--with x` enables `x` and,
+transitively, what it implies; `--without` removes only the named group. Groups: `dialogporten` (Redis, the three
+Dialogporten hosts, the adapter from task 10) implies nothing; `receipt` implies nothing; `correspondence` implies
+`dialogporten`; `everything` implies every other group. Task 16 lands the table (its first commit, merged ahead of the
+rest); 7 and 10 build on it. The state file and the provisioner's route-table check are unchanged.
+
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
 | 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
@@ -28,18 +35,19 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | unapproved (research done 2026-10-20: plan in `planned-components/correspondence/`, proposed brief in its README: vendor at 6dcf561, own opt-in group `correspondence` implying `dialogporten`, two additive hooks, ~1,070 lines of fakes, prerequisites in the Resource Registry seed (`ttd` on the correspondence policies), a KRR stand-in and two Profile lookups in the Register fakes; 7 to 8 days; 9 open questions to discuss) | medium | yes |
-| 8 | [Inspection GUI](#8-inspection-gui) | unapproved (research done 2026-10-20: plan in `planned-components/inspection-gui/`, proposed brief in its README; 8a Storage instances endpoint, 8b GUI, 8c follow-ups; 11 open questions to discuss) | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task7-correspondence`, branch `task/correspondence`; phase 1 code, phase 2 stack after 10 and 16) | medium | yes |
+| 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
-| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
+| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task10-adapter`, branch `task/dialogporten-adapter`; phase 1 code, phase 2 stack first) | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
-| 16 | [Receipt](#16-receipt) | unapproved (research done 2026-10-20: plan in `planned-components/receipt/`, proposed brief in its README: vendor at babc0ed into the default stack, two directive sites and one fake, host port 8034, route `/receipt`; 2 to 3 days; scratch build rendered the production receipt against the stack; 6 open questions to discuss) | medium | yes |
+| 16 | [Receipt](#16-receipt) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task16-receipt`, branch `task/receipt`; phase 1 code incl. the group table, phase 2 stack after 10) | medium | yes |
+| 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | research in progress (2026-10-20, Opus research agent, branch `research/admin-running-services`) | small | no |
 
-Suggested order: 10 (next), then 8a and 16 (small, independent), 8b, then 7 once its prerequisites are settled, then 9 to 11 in that
+Suggested order: 10, 16 and 7 run in parallel as code (phase 1); the stack goes to 10 first, then 16, then 7 (phase 2). 8 is deferred pending 17., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -268,7 +276,19 @@ locally (and later in the inbox, task 9 to 11).
 
 **Design to settle.** Production `Altinn/altinn-correspondence` needs Postgres, Azure blobs (the Storage component's
 file-backed blob pattern applies), Dialogporten, the Resource Registry, Notifications and Maskinporten. It therefore
-comes after tasks 4, 5, 6 and 9. Research first, as for Notifications, under `planned-components/correspondence/`.
+comes after tasks 4, 5, 6 and 9. Research done 2026-10-20: `planned-components/correspondence/` (brief in its README).
+
+**Decisions (2026-10-20).** Vendor at `6dcf561` (Option A) in its own optional group `correspondence`, which implies
+`dialogporten` and shares its Redis (`defaultDatabase=1`); the default stack is unchanged, no fake-only variant.
+Plan questions 3 to 9 settled as proposed: the KRR stand-in is an anonymous `register/api/localtest/krr/rest/v2/personer`
+in the Register fakes answering "NEI" for every seeded person (a `reserved` seed flag later, shared with Notifications);
+the two Profile `correspondence/` lookups in the Register fakes require the production scope
+`altinn:profile/correspondence.notificationsettings.read`; the seeded tt02 policies get `ttd` beside `digdir` in the
+service-owner rule, marked as a localtest deviation (the org token stays `ttd`); `apps-correspondence-integrasjon2`
+is seeded as tt02 has it (`GenericAccessResource`, refused by production too); base images pinned by digest as a
+`localtest:` deviation; attachment download from Arbeidsflate goes to task 11; failure visibility is the inspection
+API's `jobs` view, no directive for Hangfire retries. Host port 8033, route `/correspondence`, Postgres init
+`70-correspondence.sh`.
 
 ## 8. Inspection GUI
 
@@ -423,6 +443,17 @@ bump in each consumer. Also covers the BFF, which is already configurable, and C
 **Goal.** Vendor `Altinn/altinn-receipt`, the platform receipt app, so that archived instances' receipt links
 (`/receipt/{instanceOwnerPartyId}/{instanceGuid}`, which Dialogporten's go-to action and the adapter emit for archived
 instances, and which the app frontend links to) work locally instead of answering 404 (decided 2026-10-20 in task
-10). Research first: what the receipt app calls (Storage, Register, Profile, Authentication, the app's texts), its
-build chain and Dockerfile, directive sites, the route (`/receipt/`), and whether app-lib or the frontend link to it in
-the test apps.
+10). Research done 2026-10-20: `planned-components/receipt/` (brief in its README).
+
+**Decisions (2026-10-20).** Its own optional group `receipt`, implying nothing (not the default stack). Accept the
+`selfLinks` rewrite fake. "Tilbake til innboks" stays as upstream has it, raised upstream with task 11. Pin `babc0ed`,
+re-pin on backend changes only. Image builds may reach the npm registry. Host port 8034, route `/receipt`.
+
+## 17. Admin of running services and the inspection GUI
+
+**Goal.** Find out whether Altinn Studio's administration of running services (the Designer `admin` frontend,
+`src/Designer/frontend/admin`, and its backend) overlaps with the planned inspection GUI (task 8), and whether it
+could be pointed at the localtest stack instead of building a separate page. Research only, under
+`planned-components/admin-running-services/`: what the admin frontend shows and calls today, what it would need
+from the stack, what task 8 would still add, and a recommendation.
+
