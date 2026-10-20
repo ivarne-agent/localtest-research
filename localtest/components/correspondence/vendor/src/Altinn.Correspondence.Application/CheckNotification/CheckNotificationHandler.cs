@@ -1,0 +1,61 @@
+using Altinn.Correspondence.Application.Helpers;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Repositories;
+using Microsoft.Extensions.Logging;
+using OneOf;
+using System.Security.Claims;
+using Altinn.Correspondence.Application.SendSlackNotification;
+
+namespace Altinn.Correspondence.Application.CheckNotification;
+
+public class CheckNotificationHandler(
+    ICorrespondenceRepository correspondenceRepository,
+    ILogger<CheckNotificationHandler> logger,
+    SendSlackNotificationHandler slackNotificationHandler)
+{
+    public async Task<OneOf<CheckNotificationResponse, Error>> Process(Guid correspondenceId, ClaimsPrincipal? user, bool isMainNotification, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Checking notification status for correspondence {CorrespondenceId} - IsMainNotification: {IsMainNotification}", correspondenceId, isMainNotification);
+        var correspondence = await correspondenceRepository.GetCorrespondenceById(correspondenceId, true, true, false, cancellationToken);
+        var response = new CheckNotificationResponse
+        {
+            SendNotification = true
+        };
+        if (correspondence == null)
+        {
+            logger.LogWarning("Correspondence {CorrespondenceId} not found during notification check", correspondenceId);
+            response.SendNotification = false;
+            return response;
+        }
+        if (!isMainNotification && correspondence.StatusHasBeen(CorrespondenceStatus.Read))
+        {
+            logger.LogInformation("Notification not needed for correspondence {CorrespondenceId} - already read", correspondenceId);
+            response.SendNotification = false;
+        }
+        if (correspondence.StatusHasBeen(CorrespondenceStatus.PurgedByAltinn) || correspondence.StatusHasBeen(CorrespondenceStatus.PurgedByRecipient))
+        {
+            logger.LogInformation("Notification not needed for correspondence {CorrespondenceId} - has been purged", correspondenceId);
+            response.SendNotification = false;
+        }
+        if (correspondence.StatusHasBeen(CorrespondenceStatus.Failed))
+        {
+            logger.LogError("Notification not needed for correspondence {CorrespondenceId} - correspondence has failed", correspondenceId);
+            var errorMessage = $"Notification should not be sendt for correspondence {correspondenceId} - correspondence has failed";
+            await slackNotificationHandler.Process(
+                "A notification order was sendt for a correspondence that has failed",
+                errorMessage);
+            response.SendNotification = false;
+        }
+        else if (!correspondence.StatusHasBeen(CorrespondenceStatus.Published))
+        {
+            logger.LogError("Notification not needed for correspondence {CorrespondenceId} - correspondence has not been published", correspondenceId);
+            var errorMessage = $"Notification should not be sendt for correspondence {correspondenceId} - correspondence has not been published";
+            await slackNotificationHandler.Process(
+                "A notification order was sendt for a correspondence that has not been published",
+                errorMessage);
+            response.SendNotification = false;
+        }
+        logger.LogInformation("Notification check completed for correspondence {CorrespondenceId} - SendNotification: {SendNotification}", correspondenceId, response.SendNotification);
+        return response;
+    }
+}

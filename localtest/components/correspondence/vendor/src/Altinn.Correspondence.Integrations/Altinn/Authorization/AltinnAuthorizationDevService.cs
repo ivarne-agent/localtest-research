@@ -1,0 +1,39 @@
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Repositories;
+using System.Security.Claims;
+
+namespace Altinn.Correspondence.Integrations.Altinn.Authorization
+{
+    public class AltinnAuthorizationDevService : IAltinnAuthorizationService
+    {
+        public Task<bool> CheckAccessAsAny(ClaimsPrincipal? user, string resource, string party, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CheckAccessAsRecipient(ClaimsPrincipal? user, CorrespondenceEntity correspondence, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CheckAttachmentAccessAsRecipient(ClaimsPrincipal? user, CorrespondenceEntity correspondence, AttachmentEntity attachment, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CheckAccessAsSender(ClaimsPrincipal? user, CorrespondenceEntity correspondence, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CheckAccessAsSender(ClaimsPrincipal? user, string resourceId, string sender, string? instance, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<List<int>> AuthorizeUserIdsForResource(int partyId, IReadOnlyCollection<int> userIds, string resourceId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(userIds.ToList());
+        }
+    }
+}

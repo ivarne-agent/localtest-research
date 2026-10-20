@@ -1,0 +1,85 @@
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+namespace Altinn.Correspondence.Application.Helpers;
+public static class CorrespondenceStatusExtensions
+{
+    public static CorrespondenceStatusEntity GetHighestStatus(this CorrespondenceEntity correspondence)
+    {
+        return correspondence.Statuses
+            .Where(s => s.Status != CorrespondenceStatus.Fetched)
+            .OrderByDescending(s => s.Status)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException($"Correspondence {correspondence.Id} has no status. Statuses may not have been loaded.");
+    }
+
+    public static bool IsPurged(this CorrespondenceStatus correspondenceStatus)
+    {
+        return correspondenceStatus == CorrespondenceStatus.PurgedByRecipient || correspondenceStatus == CorrespondenceStatus.PurgedByAltinn;
+    }
+    public static CorrespondenceStatusEntity? GetPurgedStatus(this CorrespondenceEntity correspondence)
+    {
+        var statusEntity = correspondence.Statuses
+            .Where(s => s.Status.IsPurged())
+            .OrderByDescending(s => s.StatusChanged).FirstOrDefault();
+        return statusEntity;
+    }
+
+    public static bool HasBeenPurged(this CorrespondenceEntity correspondence)
+    {
+        return correspondence.Statuses.Any(s => s.Status.IsPurged());
+    }
+
+    public static bool IsAvailableForSender(this CorrespondenceStatus correspondenceStatus)
+    {
+        List<CorrespondenceStatus> validStatuses =
+        [
+            CorrespondenceStatus.Initialized, CorrespondenceStatus.ReadyForPublish, CorrespondenceStatus.Failed,
+            CorrespondenceStatus.Published, CorrespondenceStatus.Fetched, CorrespondenceStatus.Read, 
+            CorrespondenceStatus.Confirmed, CorrespondenceStatus.Replied, CorrespondenceStatus.Reserved,
+            CorrespondenceStatus.AttachmentsDownloaded, CorrespondenceStatus.Forwarded
+        ];
+        return validStatuses.Contains(correspondenceStatus);
+    }
+
+    public static bool IsAvailableForRecipient(this CorrespondenceStatus correspondenceStatus)
+    {
+        List<CorrespondenceStatus> validStatuses =
+        [
+            CorrespondenceStatus.Published, CorrespondenceStatus.Fetched, CorrespondenceStatus.Read, CorrespondenceStatus.Replied,
+            CorrespondenceStatus.Confirmed, CorrespondenceStatus.Archived, CorrespondenceStatus.Reserved, CorrespondenceStatus.AttachmentsDownloaded, CorrespondenceStatus.Forwarded
+        ];
+        return validStatuses.Contains(correspondenceStatus);
+    }
+    public static bool IsAvailableForLegacyRecipient(this CorrespondenceStatus correspondenceStatus)
+    {
+        List<CorrespondenceStatus> validStatuses =
+        [
+            CorrespondenceStatus.Published, CorrespondenceStatus.Read, CorrespondenceStatus.Replied,
+            CorrespondenceStatus.Confirmed, CorrespondenceStatus.Archived, CorrespondenceStatus.Reserved, CorrespondenceStatus.PurgedByAltinn, CorrespondenceStatus.PurgedByRecipient
+        ];
+        return validStatuses.Contains(correspondenceStatus);
+    }
+    public static bool IsPurgeableForSender(this CorrespondenceStatus correspondenceStatus)
+    {
+        List<CorrespondenceStatus> validStatuses =
+        [
+            CorrespondenceStatus.Initialized, CorrespondenceStatus.ReadyForPublish, CorrespondenceStatus.Failed,
+        ];
+        return validStatuses.Contains(correspondenceStatus);
+    }
+    public static bool StatusHasBeen(this CorrespondenceEntity correspondence, CorrespondenceStatus status)
+    {
+        return correspondence.Statuses.Any(s => s.Status == status) || correspondence.StatusFetched.Any(s => s.Status == status);
+    }
+
+    /// <summary>
+    /// Returns the timestamp of the first time the correspondence was marked as Read, or null if it has not been read.
+    /// </summary>
+    public static DateTimeOffset? GetReadTimestamp(this CorrespondenceEntity correspondence)
+    {
+        return correspondence.Statuses
+            .Where(s => s.Status == CorrespondenceStatus.Read)
+            .OrderBy(s => s.StatusChanged)
+            .FirstOrDefault()?.StatusChanged;
+    }
+}

@@ -1,0 +1,27 @@
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+
+namespace Altinn.Correspondence.Core.Repositories
+{
+    public interface IAttachmentRepository
+    {
+        Task<AttachmentEntity> InitializeAttachment(AttachmentEntity attachment, CancellationToken cancellationToken);
+        Task<List<Guid>> InitializeMultipleAttachments(List<AttachmentEntity> attachments, CancellationToken cancellationToken);
+        Task<AttachmentEntity?> GetAttachmentById(Guid attachmentId, bool includeStatus = false, CancellationToken cancellationToken = default);
+        Task<bool> SetDataLocationUrl(AttachmentEntity attachmentEntity, AttachmentDataLocationType attachmentDataLocationType, string dataLocationUrl, StorageProviderEntity? storageProvider, CancellationToken cancellationToken);
+        Task<AttachmentEntity> GetAttachmentByAltinn2Id(string altinn2Id, CancellationToken cancellationToken);
+        Task<bool> SetChecksum(AttachmentEntity attachmentEntity, string? checksum, CancellationToken cancellationToken);
+        Task<bool> SetAttachmentSize(AttachmentEntity attachmentEntity, long size, CancellationToken cancellationToken);
+        Task<bool> CanAttachmentBeDeleted(Guid attachmentId, CancellationToken cancellationToken);
+        Task<DateTimeOffset?> GetMaxExpirationTimeForAttachment(Guid attachmentId, CancellationToken cancellationToken);
+        Task<Dictionary<Guid, DateTimeOffset?>> GetMaxExpirationTimesForAttachments(List<Guid> attachmentIds, CancellationToken cancellationToken);
+        Task<List<AttachmentEntity>> GetAttachmentsByCorrespondence(Guid correspondenceId, CancellationToken cancellationToken);
+        Task<long> GetTotalAttachmentSizeByCorrespondence(Guid correspondenceId, CancellationToken cancellationToken);
+        Task<AttachmentEntity?> GetAttachmentByCorrespondenceIdAndAttachmentId(Guid correspondenceId, Guid attachmentId, CancellationToken cancellationToken);
+        Task<List<AttachmentEntity>> GetAttachmentsByResourceIdWithoutStorageProvider(string resourceId, CancellationToken cancellationToken);
+        Task SetStorageProvider(Guid attachmentId, StorageProviderEntity storageProvider, string dataLocationUrl, CancellationToken cancellationToken);
+        Task<int> HardDeleteOrphanedAttachments(List<Guid> attachmentIds, CancellationToken cancellationToken);
+        Task<List<Guid>> GetAttachmentIdsOnResource(string resourceId, DateTimeOffset minAge, CancellationToken cancellationToken);
+        Task<List<AttachmentEntity>> GetAttachmentsByIds(List<Guid> attachmentIds, bool includeStatus = false, CancellationToken cancellationToken = default);
+    }
+}

@@ -1,0 +1,159 @@
+﻿using Altinn.Correspondence.API.Models.Enums;
+using Altinn.Correspondence.Core.Models.Enums;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using System.ComponentModel;
+using Altinn.Correspondence.API.ValidationAttributes;
+
+namespace Altinn.Correspondence.API.Models
+{
+    /// <summary>
+    /// Used to specify a single notification connected to a specific Correspondence during the Initialize Correspondence operation
+    /// </summary>
+    public class InitializeCorrespondenceNotificationExt
+    {
+        /// <summary>
+        /// Which of the notification templates to use for this notification
+        /// </summary>
+        [JsonPropertyName("notificationTemplate")]
+        [DefaultValue(NotificationTemplateExt.CustomMessage)]
+        public NotificationTemplateExt? NotificationTemplate { get; set; }
+
+        /// <summary>
+        /// The emails subject for the main notification.
+        /// Maximum length is 512 characters.
+        /// </summary>
+        [JsonPropertyName("emailSubject")]
+        [StringLength(512, MinimumLength = 0)]
+        public string? EmailSubject { get; set; }
+
+        /// <summary>
+        /// The email body for the main notification. 
+        /// Maximum length is 10,000 characters.
+        /// </summary>
+        [JsonPropertyName("emailBody")]
+        [StringLength(10000, MinimumLength = 0)]
+        public string? EmailBody { get; set; }
+
+        /// <summary>
+        /// The content type of the email body (HTML or Plain text)
+        /// </summary>
+        [JsonPropertyName("emailContentType")]
+        [OptionalEnum]
+        public EmailContentType EmailContentType { get; set; } = EmailContentType.Plain;
+
+        /// <summary>
+        /// The sms body for the main notification. 
+        /// Maximum length is 2,144 characters (16 SMS segments × 134 characters per segment).
+        /// This aligns with the Altinn Notifications service SMS processing limits.
+        /// </summary>
+        [JsonPropertyName("smsBody")]
+        [StringLength(2144, MinimumLength = 0)]
+        public string? SmsBody { get; set; }
+
+        /// <summary>
+        /// Should a reminder be sent if the notification is not confirmed or opened
+        /// </summary>
+        [JsonPropertyName("sendReminder")]
+        public bool SendReminder { get; set; }
+
+        /// <summary>
+        /// The email subject to use for the reminder notification
+        /// Maximum length is 512 characters.
+        /// </summary>
+        [JsonPropertyName("reminderEmailSubject")]
+        [StringLength(512, MinimumLength = 0)]
+        public string? ReminderEmailSubject { get; set; }
+
+        /// <summary>
+        /// The email body to use for the reminder notification. 
+        /// Maximum length is 10,000 characters.
+        /// </summary>
+        [JsonPropertyName("reminderEmailBody")]
+        [StringLength(10000, MinimumLength = 0)]
+        public string? ReminderEmailBody { get; set; }
+
+        /// <summary>
+        /// The content type of the reminder email body (HTML or Plain text)
+        /// </summary>
+        [JsonPropertyName("reminderEmailContentType")]
+        [OptionalEnum]
+        public EmailContentType? ReminderEmailContentType { get; set; }
+
+        /// <summary>
+        /// The sms body to use for the reminder notification. 
+        /// Maximum length is 2,144 characters (16 SMS segments × 134 characters per segment).
+        /// This aligns with the Altinn Notifications service SMS processing limits.
+        /// </summary>
+        [JsonPropertyName("reminderSmsBody")]
+        [StringLength(2144, MinimumLength = 0)]
+        public string? ReminderSmsBody { get; set; }
+
+        /// <summary>
+        /// Specifies the notification channel to use for the main notification
+        /// </summary>
+        [JsonPropertyName("notificationChannel")]
+        [RequiredEnum]
+        public NotificationChannelExt NotificationChannel { get; set; }
+
+        /// <summary>
+        ///  Specifies the notification channel to use for the reminder notification
+        /// </summary>
+        [JsonPropertyName("reminderNotificationChannel")]
+        [OptionalEnum]
+        public NotificationChannelExt? ReminderNotificationChannel { get; set; }
+
+        /// <summary>
+        /// Senders Reference for this notification
+        /// </summary>
+        [JsonPropertyName("sendersReference")]
+        public string? SendersReference { get; set; }
+
+        /// <summary>
+        /// A list of additional recipients for the notification. These are processed in addition to the Correspondence recipient;
+        /// if not set, only the Correspondence recipient receives the notification.
+        /// </summary>
+        [JsonPropertyName("customRecipients")]
+        public List<NotificationRecipientExt>? CustomRecipients { get; set; }
+
+        /// <summary>
+        /// A single recipient for the notification. If not set, the notification will be sent to the recipient of the Correspondence
+        /// </summary>
+        [JsonPropertyName("customRecipient")]
+        [Obsolete("This property is deprecated. Use customRecipients instead.")]
+        public NotificationRecipientExt? CustomRecipient { get; set; }
+
+        /// <summary>
+        /// Only the first list of recipients will be used. If not set, the notification will be sent to the recipient of the Correspondence
+        /// </summary>
+        [JsonPropertyName("customNotificationRecipients")]
+        [Obsolete("This property is deprecated. Use customRecipients instead.")]
+        public List<CustomNotificationRecipientExt>? CustomNotificationRecipients { get; set; }
+
+        /// <summary>
+        /// When set to true, only CustomRecipients will be used for notifications, overriding the default correspondence recipient.
+        /// This flag can only be used when CustomRecipients is provided.
+        /// Default value is false (use default contact info + custom recipients).
+        /// </summary>
+        [JsonPropertyName("overrideRegisteredContactInformation")]
+        public bool OverrideRegisteredContactInformation { get; set; } = false;
+    }
+
+    /// <summary>
+    /// Represents a custom notification recipient with override options
+    /// </summary>
+    public class CustomNotificationRecipientExt
+    {
+        /// <summary>
+        /// This is not used, but is required by the API.
+        /// </summary>
+        [JsonPropertyName("recipientToOverride")]
+        public required string RecipientToOverride { get; set; }
+
+        /// <summary>
+        /// Only the first recipient will be used as custom recipient.
+        /// </summary>
+        [JsonPropertyName("recipients")]
+        public required List<NotificationRecipientExt> Recipients { get; set; }
+    }
+}

@@ -1,0 +1,59 @@
+using Altinn.Correspondence.Core.Models.Enums;
+
+namespace Altinn.Correspondence.Core.Services;
+
+public interface IResourceRegistryService
+{
+    /// <summary>
+    /// Get the name of the service owner of the resource, for example Digitaliseringsdirektoratet, NAV, Skatteetaten, etc.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to get the service owner name for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The name of the service owner of the resource.</returns>
+    Task<string?> GetServiceOwnerNameOfResource(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get the resource title (name) from Resource Registry, localized if possible.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to get the title for.</param>
+    /// <param name="language">
+    /// Preferred language code (for example: "nb", "nn", "en").
+    /// </param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The resource title, or null if the resource was not found.</returns>
+    Task<string?> GetResourceTitle(string resourceId, string? language = null, CancellationToken cancellationToken = default);
+    
+    Task<string?> GetResourceType(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get the organization code of the service owner of the resource. Organization code is the internal id for a service owner.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to get the service owner org code for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The organization code of the service owner of the resource.</returns>
+    Task<string?> GetServiceOwnerOrgCode(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get the organization number (9 digits) of the service owner of the resource.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to get the service owner org number for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The organization number of the service owner of the resource.</returns>
+    Task<string?> GetServiceOwnerOrganizationNumber(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks the confidential level of the resource by looking up the resource rights and checking access packages.
+    /// Returns <see cref="ConfidentialTypeEnum.Confidential"/> if the resource has the "post-til-virksomheten-med-taushetsbelagt-innhold" access package,
+    /// <see cref="ConfidentialTypeEnum.ExplicitlyDelegated"/> if it has the "eksplisitt" access package, or <see cref="ConfidentialTypeEnum.NotConfidential"/> otherwise.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to check.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    Task<ConfidentialTypeEnum> GetConfidentialType(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get the minimum authentication level required to access the resource.
+    /// </summary>
+    /// <param name="resourceId">The id of the resource to check.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    Task<int> GetMinimumAuthenticationLevelForResource(string resourceId, CancellationToken cancellationToken = default);
+}

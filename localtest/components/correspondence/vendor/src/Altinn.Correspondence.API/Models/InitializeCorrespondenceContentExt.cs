@@ -1,0 +1,96 @@
+﻿using System.Collections;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.Text.Json.Serialization;
+using System.ComponentModel;
+
+namespace Altinn.Correspondence.API.Models
+{
+    /// <summary>
+    /// Represents the content of a Correspondence.
+    /// </summary>
+    public class InitializeCorrespondenceContentExt
+    {
+        /// <summary>
+        /// Gets or sets the language of the correspondence, specified according to ISO 639-1 
+        /// </summary>
+        [JsonPropertyName("language")]
+        [DefaultValue("nb")]
+        [ISO6391]
+        public string? Language { get; set; }
+
+        /// <summary>
+        /// Gets or sets the correspondence message title. Subject. Must be plaintext.
+        /// </summary>
+        [JsonPropertyName("messageTitle")]
+        [Required]
+        [StringLength(255, MinimumLength = 1)]
+        public required string MessageTitle { get; set; }
+
+        /// <summary>
+        /// Gets or sets a summary text of the correspondence. Must be plaintext.
+        /// </summary>
+        [JsonPropertyName("messageSummary")]
+        [StringLength(255)]
+        public string? MessageSummary { get; set; }
+
+        /// <summary>
+        /// Gets or sets the main body of the correspondence. Must be (CommonMark) Markdown.
+        /// </summary>
+        [JsonPropertyName("messageBody")]
+        [Required]
+        [StringLength(30000, MinimumLength = 1)]
+        public required string MessageBody { get; set; }
+
+        /// <summary>
+        /// Gets or sets metadata of the attachments added in the Attachments field. Uses the InitializeCorrespondenceAttachmentExt model.
+        /// </summary>
+        [JsonPropertyName("attachments")]
+        public List<InitializeCorrespondenceAttachmentExt> Attachments { get; set; } = new List<InitializeCorrespondenceAttachmentExt>();
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    internal class ISO6391Attribute : ValidationAttribute
+    {
+        public ISO6391Attribute()
+        {
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            var stringValue = value as string;
+            if (string.IsNullOrWhiteSpace(stringValue))
+            {
+                return ValidationResult.Success;
+            }
+            if (stringValue.Length != 2)
+            {
+                return new ValidationResult("The ISO6391 field must be exactly 2 characters long!");
+            }
+            if (CultureInfo.InvariantCulture.TwoLetterISOLanguageName.Contains(stringValue))
+            {
+                return new ValidationResult("The language code must be ISO6391 compliant!");
+            }
+            return ValidationResult.Success;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
+    internal class MaxListCountAttribute(int maxCount, string? propertyName = null) : ValidationAttribute
+    {
+        public int MaxCount { get; } = maxCount;
+        public string PropertyName { get; } = propertyName ?? "items";
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value is ICollection collection)
+            {
+                if (collection.Count > MaxCount)
+                {
+                    return new ValidationResult($"Maximum of {MaxCount} {PropertyName} allowed.");
+                }
+            }
+            return ValidationResult.Success;
+        }
+    }
+}

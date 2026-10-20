@@ -1,0 +1,994 @@
+using Altinn.Correspondence.Common.Constants;
+using Altinn.Correspondence.Core.Models;
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Repositories;
+using Altinn.Correspondence.Persistence.Helpers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace Altinn.Correspondence.Persistence.Repositories
+{
+    public class CorrespondenceRepository(ApplicationDbContext context, ILogger<ICorrespondenceRepository> logger, int maxHardDeleteBatchSize = CorrespondenceRepository.DefaultMaxHardDeleteBatchSize) : ICorrespondenceRepository
+    {
+        private const int DefaultMaxHardDeleteBatchSize = 10000;
+
+        private static readonly TimeZoneInfo OsloTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
+        private readonly ApplicationDbContext _context = context;
+
+        private static readonly Func<ApplicationDbContext, Guid, Task<CorrespondenceEntity?>> _getForSyncWithStatuses =
+            EF.CompileAsyncQuery((ApplicationDbContext ctx, Guid id) =>
+                ctx.Correspondences
+                   .AsNoTracking()
+                   .Include(c => c.ExternalReferences)
+                   .Include(c => c.Statuses)
+                   .Where(c => c.Id == id)
+                   .FirstOrDefault());
+
+        private static readonly Func<ApplicationDbContext, Guid, Task<CorrespondenceEntity?>> _getForSyncWithNotifications =
+            EF.CompileAsyncQuery((ApplicationDbContext ctx, Guid id) =>
+                ctx.Correspondences
+                   .AsNoTracking()
+                   .Include(c => c.ExternalReferences)
+                   .Include(c => c.Notifications)
+                   .Where(c => c.Id == id)
+                   .FirstOrDefault());
+
+        private static readonly Func<ApplicationDbContext, Guid, Task<CorrespondenceEntity?>> _getForSyncWithForwardingEvents =
+            EF.CompileAsyncQuery((ApplicationDbContext ctx, Guid id) =>
+                ctx.Correspondences
+                   .AsNoTracking()
+                   .Include(c => c.ExternalReferences)
+                   .Include(c => c.ForwardingEvents)
+                   .Where(c => c.Id == id)
+                   .FirstOrDefault());
+
+        public async Task<CorrespondenceEntity> CreateCorrespondence(CorrespondenceEntity correspondence, CancellationToken cancellationToken)
+        {
+            await _context.Correspondences.AddAsync(correspondence, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            return correspondence;
+        }
+        public async Task<List<CorrespondenceEntity>> CreateCorrespondences(List<CorrespondenceEntity> correspondences, CancellationToken cancellationToken)
+        {
+            await _context.Correspondences.AddRangeAsync(correspondences, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            return correspondences;
+        }
+
+        public async Task<List<Guid>> GetCorrespondences(
+            string resourceId,
+            int limit,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            CorrespondenceStatus? status,
+            string orgNo,
+            CorrespondencesRoleType role,
+            string? sendersReference,
+            Guid? idempotentKey,
+            CancellationToken cancellationToken)
+        {
+            var correspondences = _context.Correspondences
+                .Where(c => c.ResourceId == resourceId)             // Correct id
+                .Where(c => from == null || c.RequestedPublishTime > from)   // From date filter
+                .Where(c => to == null || c.RequestedPublishTime < to)       // To date filter
+                .FilterBySenderOrRecipient(orgNo, role)             // Filter by role
+                .FilterByStatus(status, orgNo, role)                // Filter by status
+                .Where(c => string.IsNullOrEmpty(sendersReference) || c.SendersReference == sendersReference) // Filter by sendersReference
+                .OrderByDescending(c => c.RequestedPublishTime)              // Sort by RequestedPublishTime
+                .Select(c => c.Id);
+
+            var result = await correspondences.Take(limit).ToListAsync(cancellationToken);
+            return result;
+        }
+
+        public async Task<CorrespondenceEntity?> GetCorrespondenceById(
+            Guid guid,
+            bool includeStatus,
+            bool includeContent,
+            bool includeForwardingEvents,
+            CancellationToken cancellationToken,
+            bool includeAttachmentStorageProvider = false)
+        {
+            logger.LogDebug("Retrieving correspondence {CorrespondenceId} including: status={IncludeStatus} content={IncludeContent}", guid, includeStatus, includeContent);
+            var correspondences = _context.Correspondences.AsSplitQuery().Include(c => c.ReplyOptions).Include(c => c.ExternalReferences).Include(c => c.Notifications).AsQueryable();
+
+            if (includeStatus)
+            {
+                correspondences = correspondences
+                    .Include(c => c.Statuses)
+                    .Include(c => c.StatusFetched);
+            }
+            if (includeContent)
+            {
+                correspondences = correspondences.Include(c => c.Content).ThenInclude(content => content.Attachments).ThenInclude(a => a.Attachment).ThenInclude(a => a!.Statuses);
+                if (includeAttachmentStorageProvider)
+                {
+                    correspondences = correspondences.Include(c => c.Content).ThenInclude(content => content.Attachments).ThenInclude(a => a.Attachment).ThenInclude(a => a!.StorageProvider);
+                }
+
+            }
+
+            var correspondence = await correspondences.SingleOrDefaultAsync(c => c.Id == guid, cancellationToken);
+
+            if (correspondence != null && includeContent && correspondence.Content != null)
+            {
+                correspondence.Content.Attachments = correspondence.Content.Attachments
+                    .OrderBy(a => a.Created)
+                    .ThenBy(a => a.Id)
+                    .ToList();
+            }
+
+            if (correspondence != null && includeForwardingEvents)
+            {
+                await _context.Entry(correspondence)
+                    .Collection(c => c.ForwardingEvents)
+                    .LoadAsync(cancellationToken);
+            }
+
+            return correspondence;
+        }
+
+        public async Task<CorrespondenceEntity?> GetCorrespondenceByIdForSync(
+            Guid guid,
+            CorrespondenceSyncType syncType,
+            CancellationToken cancellationToken)
+        {
+            logger.LogDebug("GetCorrespondenceByIdForSync {Id} syncType={syncType}", guid, syncType);
+
+            Task<CorrespondenceEntity?> correspondence = syncType switch
+            {
+                CorrespondenceSyncType.StatusEvents => _getForSyncWithStatuses(_context, guid),
+                CorrespondenceSyncType.NotificationEvents => _getForSyncWithNotifications(_context, guid),
+                CorrespondenceSyncType.ForwardingEvents => _getForSyncWithForwardingEvents(_context, guid),
+                _ => throw new NotImplementedException($"Unsupported sync type: {syncType}")
+            };
+
+            return await correspondence;
+        }
+
+        public async Task<CorrespondenceEntity> GetCorrespondenceByAltinn2Id(int altinn2Id, CancellationToken cancellationToken)
+        {
+            return await _context.Correspondences
+                .AsNoTracking()
+                .Include(c => c.ExternalReferences)
+                .Include(c => c.Statuses)
+                .Include(c => c.Notifications)
+                .Include(c => c.ForwardingEvents)
+                .SingleAsync(c => c.Altinn2CorrespondenceId == altinn2Id, cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesByAttachmentId(Guid attachmentId, bool includeStatus, CancellationToken cancellationToken = default)
+        {
+            var correspondence = _context.Correspondences
+                .Where(c => c.Content != null && c.Content.Attachments.Any(ca => ca.AttachmentId == attachmentId))
+                .AsQueryable();
+
+            correspondence = includeStatus ? correspondence.Include(c => c.Statuses) : correspondence;
+            return await correspondence.ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetNonPublishedCorrespondencesByAttachmentId(Guid attachmentId, CancellationToken cancellationToken = default)
+        {
+            var correspondences = await _context.Correspondences
+                .Where(correspondence =>
+                        correspondence.Content!.Attachments.Any(attachment => attachment.AttachmentId == attachmentId) // Correspondence has the given attachment
+                     && !correspondence.Statuses.Any(status => status.Status == CorrespondenceStatus.Published || status.Status == CorrespondenceStatus.ReadyForPublish  // Correspondence is not published
+                                                           || status.Status == CorrespondenceStatus.Failed)
+                     && correspondence.Content.Attachments.All(correspondenceAttachment => // All attachments of correspondence are published
+                            correspondenceAttachment.Attachment!.Statuses.Any(statusEntity => statusEntity.Status == AttachmentStatus.Published) // All attachments must be published
+                         && !correspondenceAttachment.Attachment.Statuses.Any(statusEntity => statusEntity.Status == AttachmentStatus.Purged || statusEntity.Status == AttachmentStatus.Expired))) // No attachments can be purged or expired
+                .ToListAsync(cancellationToken);
+
+            return correspondences;
+        }
+
+        public async Task AddExternalReference(Guid correspondenceId, ReferenceType referenceType, string referenceValue, CancellationToken cancellationToken = default)
+        {
+            var correspondence = await _context.Correspondences.Include(c => c.ExternalReferences).SingleOrDefaultAsync(c => c.Id == correspondenceId, cancellationToken);
+            if (correspondence is null)
+            {
+                throw new ArgumentException("Correspondence not found", nameof(correspondenceId));
+            }
+            if (referenceType == ReferenceType.DialogportenDialogId && correspondence.ExternalReferences.Any(er => er.ReferenceType == ReferenceType.DialogportenDialogId))
+            {
+                return;
+            }
+            correspondence.ExternalReferences.Add(new ExternalReferenceEntity
+            {
+                ReferenceType = referenceType,
+                ReferenceValue = referenceValue
+            });
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<List<Guid>> GetCorrespondenceIdsByAttachmentId(Guid attachmentId, CancellationToken cancellationToken = default)
+        {
+            var correspondenceIds = await _context.Correspondences
+            .Where(c => c.Content != null && c.Content.Attachments.Any(ca => ca.AttachmentId == attachmentId))
+            .Select(c => c.Id).ToListAsync(cancellationToken);
+            return correspondenceIds;
+        }
+        public async Task UpdatePublished(Guid correspondenceId, DateTimeOffset published, CancellationToken cancellationToken)
+        {
+            var correspondence = await _context.Correspondences.SingleOrDefaultAsync(c => c.Id == correspondenceId, cancellationToken);
+            if (correspondence != null)
+            {
+                correspondence.Published = published;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
+        public async Task UpdateIsMigrating(Guid correspondenceId, bool isMigrating, CancellationToken cancellationToken)
+        {
+            var correspondence = await _context.Correspondences.SingleOrDefaultAsync(c => c.Id == correspondenceId, cancellationToken);
+            if (correspondence != null)
+            {
+                correspondence.IsMigrating = isMigrating;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        public void ClearChangeTracker()
+        {
+            var trackedCount = _context.ChangeTracker.Entries().Count();
+            var trackedTypes = _context.ChangeTracker.Entries()
+                .GroupBy(e => e.Entity.GetType().Name)
+                .Select(g => $"{g.Key}: {g.Count()}");
+
+            logger.LogInformation("Tracked entities before clear: {Count}. Types: {Types}",
+                trackedCount, string.Join(", ", trackedTypes));
+            _context.ChangeTracker.Clear();
+        }
+
+        public async Task<bool> AreAllAttachmentsPublished(Guid correspondenceId, CancellationToken cancellationToken = default)
+        {
+            return await _context.CorrespondenceContents
+                .Where(content => content.CorrespondenceId == correspondenceId)
+                .Select(content =>
+                    content.Attachments.Count == 0 ||
+                    content.Attachments.All(correspondenceAttachment =>
+                        correspondenceAttachment.Attachment!.Statuses.Any(status => status.Status == AttachmentStatus.Published)))
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        public Task<List<CorrespondenceEntity>> GetCandidatesForMigrationToDialogporten(int batchSize, DateTimeOffset? cursorCreated, Guid? cursorId, DateTimeOffset? createdFrom, DateTimeOffset? createdTo, CancellationToken cancellationToken = default)
+        {
+            var query = _context.Correspondences
+                .Where(c => c.Altinn2CorrespondenceId != null && c.IsMigrating)
+                .ExcludePurged()
+                .AsQueryable();
+
+            if (createdFrom.HasValue)
+            {
+                query = query.Where(c => c.Created >= createdFrom.Value);
+            }
+
+            
+            if (cursorCreated.HasValue)
+            {
+                if (cursorId.HasValue)
+                {
+                    var cursorCreatedValue = cursorCreated.Value;
+                    var cursorIdValue = cursorId.Value;
+                    query = query.Where(c =>
+                        c.Created < cursorCreatedValue ||
+                        (c.Created == cursorCreatedValue && c.Id > cursorIdValue));
+                }
+                else
+                {
+                    query = query.Where(c => c.Created < cursorCreated.Value);
+                }
+            }
+            else if (createdTo.HasValue)
+            {
+                query = query.Where(c => c.Created < createdTo.Value);
+            }
+            else
+            {
+                throw new InvalidOperationException("Either cursorCreated or createdTo must be provided");
+            }
+
+
+            return query
+                    .OrderByDescending(c => c.Created)
+                    .ThenBy(c => c.Id)
+                    .Take(batchSize)
+                    .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesWindowAfter(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            bool filterMigrated,
+            CancellationToken cancellationToken)
+        {
+            _context.Database.SetCommandTimeout(TimeSpan.FromMinutes(2));
+            var query = _context.Correspondences
+                .AsNoTracking()
+                .FilterMigrated(filterMigrated)
+                .AsQueryable();
+
+            if (lastCreated.HasValue)
+            {
+                if (lastId.HasValue)
+                {
+                    query = query.Where(c => EF.Functions.GreaterThan(
+                ValueTuple.Create(c.Created, c.Id),
+                ValueTuple.Create(lastCreated.Value, lastId.Value)));
+                }
+                else
+                {
+                    query = query.Where(c => c.Created > lastCreated.Value);
+                }
+            }
+
+            query = query.OrderBy(c => c.Created).ThenBy(c => c.Id).Take(limit);
+
+            return await query.ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceAttachmentStatsDto>> GetCorrespondencesWindowAfterWithAttachmentStats(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            bool filterMigrated,
+            CancellationToken cancellationToken)
+        {
+            _context.Database.SetCommandTimeout(TimeSpan.FromMinutes(2));
+            var query = _context.Correspondences
+                .AsNoTracking()
+                .FilterMigrated(filterMigrated)
+                .AsQueryable();
+
+            if (lastCreated.HasValue)
+            {
+                if (lastId.HasValue)
+                {
+                    query = query.Where(c => EF.Functions.GreaterThan(
+                ValueTuple.Create(c.Created, c.Id),
+                ValueTuple.Create(lastCreated.Value, lastId.Value)));
+                }
+                else
+                {
+                    query = query.Where(c => c.Created > lastCreated.Value);
+                }
+            }
+
+            return await query
+                .OrderBy(c => c.Created).ThenBy(c => c.Id)
+                .Take(limit)
+                .Select(c => new CorrespondenceAttachmentStatsDto
+                {
+                    CorrespondenceId = c.Id,
+                    Created = c.Created,
+                    AttachmentCount = c.Content.Attachments.Count,
+                    TotalAttachmentSize = c.Content.Attachments.Sum(ca => (long?)ca.Attachment!.AttachmentSize) ?? 0
+                })
+                .ToListAsync(cancellationToken);
+        }
+
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesWindowBefore(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            CancellationToken cancellationToken)
+        {
+            var query = _context.Correspondences
+                .AsNoTracking()
+                .IncludeOnlyMigrated()
+                .AsQueryable();
+
+            if (lastCreated.HasValue)
+            {
+                if (lastId.HasValue)
+                {
+                    query = query.Where(c => c.Created < lastCreated.Value || (c.Created == lastCreated.Value && c.Id < lastId.Value));
+                }
+                else
+                {
+                    query = query.Where(c => c.Created < lastCreated.Value);
+                }
+            }
+
+            query = query.OrderByDescending(c => c.Created).ThenBy(c => c.Id).Take(limit);
+
+            return await query.ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReferenceAndCurrentStatus(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            List<CorrespondenceStatus> currentStatuses,
+            CancellationToken cancellationToken)
+        {
+            if (correspondenceIds == null || correspondenceIds.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+
+            if (currentStatuses == null || currentStatuses.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+
+            return await _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Where(c => correspondenceIds.Contains(c.Id))
+                .Where(c => c.ExternalReferences.Any(er => er.ReferenceType == referenceType))
+                .Where(c => currentStatuses.Contains(
+                    c.Statuses
+                        .OrderByDescending(s => s.StatusChanged)
+                        .ThenByDescending(s => s.Id)
+                        .Select(s => s.Status)
+                        .FirstOrDefault()))
+                .Include(c => c.ExternalReferences)
+                .Include(c => c.Statuses)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReference(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            CancellationToken cancellationToken)
+        {
+            if (correspondenceIds == null || correspondenceIds.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+
+            return await _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Where(c => correspondenceIds.Contains(c.Id))
+                .Where(c => c.ExternalReferences.Any(er => er.ReferenceType == referenceType))
+                .Include(c => c.ExternalReferences)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<Guid>> GetCorrespondenceIdsByResourceId(string resourceId, DateTimeOffset minAge, CancellationToken cancellationToken)
+        {
+            return await _context.Correspondences
+                .AsNoTracking()
+                .Where(c => c.ResourceId == resourceId)
+                .Where(c => c.Created <= minAge)
+                .Select(c => c.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<int> HardDeleteCorrespondencesByIds(IEnumerable<Guid> correspondenceIds, CancellationToken cancellationToken)
+        {
+            var ids = correspondenceIds?.Distinct().ToList() ?? new List<Guid>();
+            if (ids.Count == 0)
+            {
+                return 0;
+            }
+
+            var entities = await _context.Correspondences
+                .Where(c => ids.Contains(c.Id))
+                .ToListAsync(cancellationToken);
+
+            if (entities.Count == 0)
+            {
+                return 0;
+            }
+            if (entities.Count > maxHardDeleteBatchSize)
+            {
+                throw new ArgumentException($"Too many correspondences to delete. Total correspondences in requested hard delete operation: {entities.Count}");
+            }
+
+            _context.Correspondences.RemoveRange(entities);
+            await _context.SaveChangesAsync(cancellationToken);
+            return entities.Count;
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReferenceAndNotCurrentStatuses(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            List<CorrespondenceStatus> excludedCurrentStatuses,
+            CancellationToken cancellationToken)
+        {
+            if (correspondenceIds == null || correspondenceIds.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+
+            if (excludedCurrentStatuses == null)
+            {
+                excludedCurrentStatuses = new List<CorrespondenceStatus>();
+            }
+
+            return await _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Where(c => correspondenceIds.Contains(c.Id))
+                .Where(c => c.ExternalReferences.Any(er => er.ReferenceType == referenceType))
+                .Where(c => !excludedCurrentStatuses.Contains(
+                    c.Statuses
+                        .OrderByDescending(s => s.StatusChanged)
+                        .ThenByDescending(s => s.Id)
+                        .Select(s => s.Status)
+                        .FirstOrDefault()))
+                .Include(c => c.ExternalReferences)
+                .Include(c => c.Statuses)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesForReport(bool includeAltinn2, CancellationToken cancellationToken)
+        {
+            var query = _context.Correspondences.AsQueryable();
+
+            // Filter by Altinn version if needed
+            if (!includeAltinn2)
+            {
+                query = query
+                    .Where(c => c.Altinn2CorrespondenceId == null)
+                    .Where(c => c.Created > new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero)); 
+            }
+
+            // Get all correspondence data needed for detailed statistics including ServiceOwnerId and AltinnVersion info
+            return await query
+                .Select(c => new CorrespondenceEntity
+                {
+                    Id = c.Id,
+                    Sender = c.Sender,
+                    ResourceId = c.ResourceId,
+                    Created = c.Created,
+                    Recipient = c.Recipient,
+                    RecipientType = c.RecipientType,
+                    SendersReference = c.SendersReference,
+                    RequestedPublishTime = c.RequestedPublishTime,
+                    ServiceOwnerId = c.ServiceOwnerId,
+                    ServiceOwnerMigrationStatus = c.ServiceOwnerMigrationStatus,
+                    Altinn2CorrespondenceId = c.Altinn2CorrespondenceId,
+                    MessageSender = c.MessageSender,
+                    Content = c.Content,
+                    Statuses = new List<CorrespondenceStatusEntity>(), // Initialize required property
+                    StatusFetched = new List<CorrespondenceStatusFetchedEntity>()
+                })
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<DailySummaryDataDto>> GetDailySummaryData(
+            bool includeAltinn2,
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            CancellationToken cancellationToken,
+            int batchSize = 2000)
+        {
+            var summaryData = new List<DailySummaryDataDto>();
+            await foreach (var batch in StreamDailySummaryBatches(
+                includeAltinn2,
+                fromInclusive,
+                toExclusive,
+                cancellationToken,
+                batchSize))
+            {
+                summaryData.AddRange(batch);
+            }
+
+            return summaryData;
+        }
+
+        public async IAsyncEnumerable<IReadOnlyList<DailySummaryDataDto>> StreamDailySummaryBatches(
+            bool includeAltinn2,
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default,
+            int batchSize = 2000)
+        {
+            if (includeAltinn2)
+            {
+                throw new ArgumentException("Not supported");
+            }
+
+            if (batchSize <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(batchSize), batchSize, "Batch size must be positive.");
+            }
+
+            if (toExclusive <= fromInclusive)
+            {
+                throw new ArgumentException("toExclusive must be greater than fromInclusive.");
+            }
+
+            // Per-batch timeout; keyset paging keeps each round-trip bounded.
+            _context.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
+
+            var serviceOwners = await _context.ServiceOwners
+                .AsNoTracking()
+                .ToDictionaryAsync(so => so.Id, so => so.Name, cancellationToken);
+            var serviceOwnerIds = serviceOwners.Keys.ToList();
+
+            if (serviceOwnerIds.Count == 0)
+            {
+                yield break;
+            }
+
+            // Page day-by-day so each scan uses a tight Created range.
+            for (var dayStart = fromInclusive; dayStart < toExclusive; dayStart = dayStart.AddDays(1))
+            {
+                var dayEnd = dayStart.AddDays(1) < toExclusive ? dayStart.AddDays(1) : toExclusive;
+                await foreach (var batch in StreamDailySummaryBatchesForRange(
+                    dayStart,
+                    dayEnd,
+                    serviceOwners,
+                    serviceOwnerIds,
+                    batchSize,
+                    cancellationToken))
+                {
+                    yield return batch;
+                }
+            }
+        }
+
+        private async IAsyncEnumerable<IReadOnlyList<DailySummaryDataDto>> StreamDailySummaryBatchesForRange(
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            Dictionary<string, string> serviceOwners,
+            List<string> serviceOwnerIds,
+            int batchSize,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            DateTimeOffset? cursorCreated = null;
+            Guid? cursorId = null;
+            var batchNumber = 0;
+            const int notificationIdChunkSize = 1000;
+            var totalKept = 0;
+
+            while (true)
+            {
+                batchNumber++;
+                var query = _context.Correspondences
+                    .AsNoTracking()
+                    .Where(c => c.Altinn2CorrespondenceId == null)
+                    .Where(c => c.Created >= fromInclusive && c.Created < toExclusive)
+                    .Where(c => c.ServiceOwnerId != null && serviceOwnerIds.Contains(c.ServiceOwnerId));
+
+                if (cursorCreated.HasValue && cursorId.HasValue)
+                {
+                    query = query.Where(c => EF.Functions.GreaterThan(
+                        ValueTuple.Create(c.Created, c.Id),
+                        ValueTuple.Create(cursorCreated.Value, cursorId.Value)));
+                }
+                else if (cursorCreated.HasValue)
+                {
+                    query = query.Where(c => c.Created > cursorCreated.Value);
+                }
+
+                var batch = await query
+                    .OrderBy(c => c.Created)
+                    .ThenBy(c => c.Id)
+                    .Take(batchSize)
+                    .Select(c => new
+                    {
+                        c.Id,
+                        c.Created,
+                        c.ServiceOwnerId,
+                        c.MessageSender,
+                        c.ResourceId,
+                        c.RecipientType,
+                        c.PropertyList
+                    })
+                    .ToListAsync(cancellationToken);
+
+                if (batch.Count == 0)
+                {
+                    yield break;
+                }
+
+                var batchIds = batch.Select(c => c.Id).ToList();
+                var notifications = new List<(Guid CorrespondenceId, Guid? ShipmentId, bool IsReminder, DateTimeOffset? NotificationSent)>(batchIds.Count);
+
+                for (var offset = 0; offset < batchIds.Count; offset += notificationIdChunkSize)
+                {
+                    var count = Math.Min(notificationIdChunkSize, batchIds.Count - offset);
+                    var idChunk = batchIds.GetRange(offset, count);
+                    var chunkNotifications = await _context.CorrespondenceNotifications
+                        .AsNoTracking()
+                        .Where(n => idChunk.Contains(n.CorrespondenceId))
+                        .Select(n => new
+                        {
+                            n.CorrespondenceId,
+                            n.ShipmentId,
+                            n.IsReminder,
+                            n.NotificationSent
+                        })
+                        .ToListAsync(cancellationToken);
+
+                    notifications.AddRange(chunkNotifications.Select(n =>
+                        (n.CorrespondenceId, n.ShipmentId, n.IsReminder, n.NotificationSent)));
+                }
+
+                var notificationsByCorrespondence = notifications
+                    .GroupBy(n => n.CorrespondenceId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                var summaryBatch = new List<DailySummaryDataDto>(batch.Count);
+                foreach (var c in batch)
+                {
+                    // Filtered in SQL, but keep a cheap guard for nullability.
+                    if (string.IsNullOrEmpty(c.ServiceOwnerId) || !serviceOwners.TryGetValue(c.ServiceOwnerId, out var serviceOwnerName))
+                    {
+                        continue;
+                    }
+
+                    // Report date = correspondence Created (Europe/Oslo calendar day), not notification times.
+                    var date = TimeZoneInfo.ConvertTimeFromUtc(c.Created.UtcDateTime, OsloTimeZone).Date;
+                    var recipientType = c.RecipientType switch
+                    {
+                        UrnConstants.OrganizationNumberAttribute => RecipientType.Organization,
+                        UrnConstants.PersonIdAttribute => RecipientType.Person,
+                        UrnConstants.PartyUuid => RecipientType.Person,
+                        UrnConstants.PersonIdPortenEmailAttribute => RecipientType.Person,
+                        _ => RecipientType.Unknown,
+                    };
+                    var senderOrgNumber = GetSenderOrgNumberFromPropertyList(c.PropertyList);
+                    var messageSender = c.MessageSender ?? string.Empty;
+
+                    if (!notificationsByCorrespondence.TryGetValue(c.Id, out var correspondenceNotifications)
+                        || correspondenceNotifications.Count == 0)
+                    {
+                        summaryBatch.Add(new DailySummaryDataDto
+                        {
+                            CorrespondenceId = c.Id,
+                            Date = date,
+                            Year = date.Year,
+                            Month = date.Month,
+                            Day = date.Day,
+                            ServiceOwnerId = c.ServiceOwnerId,
+                            ServiceOwnerName = serviceOwnerName,
+                            MessageSender = messageSender,
+                            SenderOrgNumber = senderOrgNumber,
+                            ResourceId = c.ResourceId,
+                            RecipientType = recipientType,
+                            AltinnVersion = AltinnVersion.Altinn3,
+                            DatabaseStorageBytes = 0,
+                            AttachmentStorageBytes = 0,
+                            ShipmentId = null,
+                            IsReminder = null,
+                            NotificationSent = null
+                        });
+                        continue;
+                    }
+
+                    foreach (var notification in correspondenceNotifications)
+                    {
+                        summaryBatch.Add(new DailySummaryDataDto
+                        {
+                            CorrespondenceId = c.Id,
+                            Date = date,
+                            Year = date.Year,
+                            Month = date.Month,
+                            Day = date.Day,
+                            ServiceOwnerId = c.ServiceOwnerId,
+                            ServiceOwnerName = serviceOwnerName,
+                            MessageSender = messageSender,
+                            SenderOrgNumber = senderOrgNumber,
+                            ResourceId = c.ResourceId,
+                            RecipientType = recipientType,
+                            AltinnVersion = AltinnVersion.Altinn3,
+                            DatabaseStorageBytes = 0,
+                            AttachmentStorageBytes = 0,
+                            ShipmentId = notification.ShipmentId,
+                            IsReminder = notification.IsReminder,
+                            NotificationSent = notification.NotificationSent
+                        });
+                    }
+                }
+
+                var last = batch[^1];
+                cursorCreated = last.Created;
+                cursorId = last.Id;
+                totalKept += summaryBatch.Count;
+
+                logger.LogInformation(
+                    "Daily summary data batch {BatchNumber}: fetched {FetchedCount} correspondences (kept {KeptCount}, total kept {TotalKept}). Range=[{FromInclusive}, {ToExclusive}). Cursor={CursorCreated}/{CursorId}",
+                    batchNumber,
+                    batch.Count,
+                    summaryBatch.Count,
+                    totalKept,
+                    fromInclusive,
+                    toExclusive,
+                    cursorCreated,
+                    cursorId);
+
+                if (summaryBatch.Count > 0)
+                {
+                    yield return summaryBatch;
+                }
+
+                if (batch.Count < batchSize)
+                {
+                    yield break;
+                }
+            }
+        }
+
+        private static string? GetSenderOrgNumberFromPropertyList(Dictionary<string, string>? propertyList)
+        {
+            if (propertyList is null || propertyList.Count == 0)
+            {
+                return null;
+            }
+
+            if (propertyList.TryGetValue("senderOrgNumber", out var value))
+            {
+                return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            }
+
+            foreach (var kvp in propertyList)
+            {
+                if (string.Equals(kvp.Key, "senderOrgNumber", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.IsNullOrWhiteSpace(kvp.Value) ? null : kvp.Value.Trim();
+                }
+            }
+
+            return null;
+        }
+
+        public async Task<CorrespondenceEntity?> GetCorrespondenceByIdempotentKey(Guid idempotentKey, CancellationToken cancellationToken)
+        {
+            var correspondence = await _context.Correspondences
+            .Where(c => c.IdempotencyKeys.Any(k => k.Id == idempotentKey))
+            .SingleOrDefaultAsync(cancellationToken);
+
+            return correspondence;
+        }
+
+        public async Task<CorrespondenceEntity?> GetCorrespondenceByAltinn2CorrespondenceId(int altinn2CorrespondenceId, string resourceId, string orgNo, CorrespondencesRoleType role, CancellationToken cancellationToken)
+        {
+            return await _context.Correspondences
+                .Where(c => c.Altinn2CorrespondenceId == altinn2CorrespondenceId)
+                .Where(c => c.ResourceId == resourceId)
+                .FilterBySenderOrRecipient(orgNo, role)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesByNoAltinn2IdAndExistingDialog(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            CancellationToken cancellationToken)
+        {
+            if (correspondenceIds == null || correspondenceIds.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+            return await _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Where(c => correspondenceIds.Contains(c.Id))
+                .Where(c => c.Altinn2CorrespondenceId == null)
+                .Where(c => c.ExternalReferences.Any(er => er.ReferenceType == referenceType))
+                .Include(c => c.Content)
+                .Include(c => c.ExternalReferences)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesWithAltinn2IdNotMigratingAndConfirmedStatus(
+            List<Guid> correspondenceIds,
+            CancellationToken cancellationToken)
+        {
+            if (correspondenceIds == null || correspondenceIds.Count == 0)
+            {
+                return new List<CorrespondenceEntity>();
+            }
+            return await _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Where(c => correspondenceIds.Contains(c.Id))
+                .Where(c => c.Altinn2CorrespondenceId != null)
+                .Where(c => c.Statuses.Any(s => s.Status == CorrespondenceStatus.Confirmed))
+                .Include(c => c.Content)
+                .Include(c => c.ExternalReferences)
+                .Include(c => c.Statuses)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesWithAltinn2IdNotMigratingAndConfirmedStatusUsingCursor(
+            Guid? cursorId,
+            CancellationToken cancellationToken)
+        {
+            var query = _context.Correspondences
+                .AsNoTracking()
+                .AsSplitQuery();
+            if (cursorId.HasValue)
+            {
+                query = query.Where(c => c.Id < cursorId.Value);
+            }
+            query = query
+                .Where(c => c.Altinn2CorrespondenceId != null)
+                .Where(c => c.Statuses.Any(s => s.Status == CorrespondenceStatus.Confirmed))
+                .Include(c => c.Content)
+                .Include(c => c.ExternalReferences)
+                .Include(c => c.Statuses)
+                .OrderByDescending(c => c.Id)
+                .Take(1000);
+
+            return await query.ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetUnopenedConfidentialCorrespondencesForParty(string partyId, TimeSpan minAge, CancellationToken cancellationToken)
+        {
+            var cutoff = DateTimeOffset.UtcNow - minAge;
+            return await _context.Correspondences
+                .AsNoTracking()
+                .Where(c => c.Recipient == partyId)
+                .Where(c => c.IsConfidential)
+                .Where(c => c.Statuses.Any(s => s.Status == CorrespondenceStatus.Published))
+                .Where(c => !c.Statuses.Any(s => s.Status == CorrespondenceStatus.Read))
+                .Where(c => c.RequestedPublishTime < cutoff)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<CorrespondenceEntity>> GetCorrespondencesCreatedInRange(
+            DateTimeOffset from,
+            DateTimeOffset to,
+            DateTimeOffset? cursorCreated,
+            Guid? cursorId,
+            int batchSize,
+            CancellationToken cancellationToken)
+        {
+            var query = _context.Correspondences
+                .AsNoTracking()
+                .Where(c => c.Created >= from && c.Created < to)
+                .Where(c => c.Altinn2CorrespondenceId == null);
+
+            if (cursorCreated.HasValue && cursorId.HasValue)
+            {
+                var cursorCreatedValue = cursorCreated.Value;
+                var cursorIdValue = cursorId.Value;
+                query = query.Where(c =>
+                    c.Created < cursorCreatedValue ||
+                    (c.Created == cursorCreatedValue && c.Id > cursorIdValue));
+            }
+
+            return await query
+                .OrderByDescending(c => c.Created)
+                .ThenBy(c => c.Id)
+                .Take(batchSize)
+                .Include(c => c.Content)
+                .Include(c => c.Notifications)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<bool> RemoveExternalReference(CorrespondenceEntity correspondence, ReferenceType referenceType, CancellationToken cancellationToken = default)
+        {
+            var referencesToRemove = correspondence.ExternalReferences
+                .Where(er => er.ReferenceType == referenceType)
+                .ToList();
+
+            if (referencesToRemove.Count == 0)
+            {
+                logger.LogWarning("No external references of type {ReferenceType} found for correspondence {CorrespondenceId}", referenceType, correspondence.Id);
+                return false;
+            }
+
+            _context.ExternalReferences.RemoveRange(referencesToRemove);
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
+        public async Task<bool?> DoesCorrespondenceAllowForwarding(Guid correspondenceId, CancellationToken cancellationToken = default)
+        {
+            var correspondence = await _context.Correspondences
+                .AsNoTracking()
+                .Where(c => c.Id == correspondenceId)
+                .Select(c => new { c.Id, c.AllowForwarding })
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (correspondence == null)
+            {
+                logger.LogWarning("Correspondence with ID {CorrespondenceId} not found", correspondenceId);
+                return null;
+            }
+
+            return correspondence.AllowForwarding;
+        }
+    }
+}

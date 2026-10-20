@@ -1,0 +1,120 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Altinn.Correspondence.Common.Constants;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Core.Models.Enums;
+using Microsoft.EntityFrameworkCore;
+
+namespace Altinn.Correspondence.Core.Models.Entities
+{
+    [Index(nameof(ResourceId))]
+    [Index(nameof(Recipient))]
+    [Index(nameof(Sender))]
+    [Index(nameof(Created))]
+    [Index(nameof(IsMigrating))]
+    [Index(nameof(Altinn2CorrespondenceId), IsUnique = true)]
+    [Index(nameof(PartyId))]
+    [Index(nameof(ServiceOwnerId))]
+    [Index(nameof(Recipient), nameof(RequestedPublishTime), nameof(Id), IsDescending = new[] { false, true, false })]
+
+    public class CorrespondenceEntity
+    {
+        [Key]
+        public Guid Id { get; set; }
+
+        [StringLength(255, MinimumLength = 1)]
+        [Required]
+        public required string ResourceId { get; set; }
+
+        [Required]
+        public required string Recipient { get; set; }
+
+        public string? RecipientType { get; set; }
+
+        [Required]
+        [RegularExpression($@"^(?:0192:|{UrnConstants.OrganizationNumberAttribute}):\d{{9}}$", ErrorMessage = "Organization numbers should be on the format countrycode:organizationnumber, for instance 0192:910753614")]
+        public required string Sender { get; set; }
+
+        [StringLength(4096, MinimumLength = 1)]
+        [Required]
+        public required string SendersReference { get; set; }
+
+        [StringLength(256, MinimumLength = 0)]
+        public string? MessageSender { get; set; }
+
+        public required CorrespondenceContentEntity Content { get; set; }
+
+        public required DateTimeOffset RequestedPublishTime { get; set; }
+
+        public DateTimeOffset? DueDateTime { get; set; }
+
+        public List<ExternalReferenceEntity> ExternalReferences { get; set; } = new List<ExternalReferenceEntity>();
+
+        [MaxLength(10, ErrorMessage = "propertyList can contain at most 10 properties")]
+        public Dictionary<string, string> PropertyList { get; set; } = new Dictionary<string, string>();
+
+        public List<CorrespondenceReplyOptionEntity> ReplyOptions { get; set; } = new List<CorrespondenceReplyOptionEntity>();
+
+        [MaxLength(6, ErrorMessage = "Notifications can contain at most 6 notifcations")]
+        public List<CorrespondenceNotificationEntity> Notifications { get; set; } = new List<CorrespondenceNotificationEntity>();
+
+        public bool? IgnoreReservation { get; set; }
+
+        public required List<CorrespondenceStatusEntity> Statuses { get; set; }
+
+        public List<CorrespondenceStatusFetchedEntity> StatusFetched { get; set; } = new();
+
+        public List<CorrespondenceForwardingEventEntity> ForwardingEvents { get; set; } = [];
+
+        public List<IdempotencyKeyEntity> IdempotencyKeys { get; set; } = [];
+
+        [Column(TypeName = "jsonb")]
+        public string? OriginalRequest { get; set; }
+
+        [Required]
+        public required DateTimeOffset Created { get; set; }
+
+        public int? Altinn2CorrespondenceId { get; set; }
+
+        public DateTimeOffset? Published { get; set; }
+
+        public bool IsConfirmationNeeded { get; set; }
+
+        public bool IsMigrating { get; set; }
+
+        public bool IsConfidential { get; set; }
+        
+        public bool AllowForwarding { get; set; }
+
+        public int PartyId { get; set; } = 0;
+
+        /// <summary>
+        /// Foreign key reference to ServiceOwner table. 
+        /// Contains the organization number without prefix.
+        /// </summary>
+        public string? ServiceOwnerId { get; set; }
+
+        /// <summary>
+        /// Status of the service owner migration.
+        /// 0: Not started / pending
+        /// 1: Completed (migration completed successfully with service owner)
+        /// 2: Completed (migration completed successfully without service owner)
+        /// This field is temporary and will be removed when the migration is complete.
+        /// </summary>
+        public int ServiceOwnerMigrationStatus { get; set; } = 0;
+
+        public CorrespondenceEntity()
+        {
+            Statuses = new List<CorrespondenceStatusEntity>();
+        }   
+
+        public static string ComputeRecipientType(string? recipient) => 
+            string.IsNullOrWhiteSpace(recipient)
+          ? ""
+          : recipient.Contains(':')
+            ? recipient.Substring(0, recipient.LastIndexOf(':'))
+            : recipient.Length == 9
+                ? UrnConstants.OrganizationNumberAttribute
+                : UrnConstants.PersonIdAttribute;
+    }
+}

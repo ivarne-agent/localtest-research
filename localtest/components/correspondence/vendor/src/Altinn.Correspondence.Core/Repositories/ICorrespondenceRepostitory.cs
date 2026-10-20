@@ -1,0 +1,139 @@
+using Altinn.Correspondence.Core.Models;
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+
+namespace Altinn.Correspondence.Core.Repositories
+{
+    public interface ICorrespondenceRepository
+    {
+        Task<CorrespondenceEntity> CreateCorrespondence(CorrespondenceEntity correspondence, CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> CreateCorrespondences(List<CorrespondenceEntity> correspondences, CancellationToken cancellationToken);
+
+        Task<List<Guid>> GetCorrespondences(
+            string resourceId,
+            int limit,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            CorrespondenceStatus? status,
+            string orgNo,
+            CorrespondencesRoleType role,
+            string? sendersReference,
+            Guid? idempotentKey,
+            CancellationToken cancellationToken);
+
+
+        Task<CorrespondenceEntity?> GetCorrespondenceById(
+            Guid guid,
+            bool includeStatus,
+            bool includeContent,
+            bool includeForwardingEvents,
+            CancellationToken cancellationToken,
+            bool includeAttachmentStorageProvider = false);
+
+        Task<CorrespondenceEntity?> GetCorrespondenceByIdForSync(
+            Guid guid,
+            CorrespondenceSyncType syncType,
+            CancellationToken cancellationToken);
+
+        Task<CorrespondenceEntity> GetCorrespondenceByAltinn2Id(
+            int altinn2Id,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesByAttachmentId(Guid attachmentId, bool includeStatus, CancellationToken cancellationToken = default);
+        Task<List<CorrespondenceEntity>> GetNonPublishedCorrespondencesByAttachmentId(Guid attachmentId, CancellationToken cancellationToken = default);
+        Task<List<Guid>> GetCorrespondenceIdsByAttachmentId(Guid attachmentId, CancellationToken cancellationToken = default);
+        Task AddExternalReference(Guid correspondenceId, ReferenceType referenceType, string referenceValue, CancellationToken cancellationToken = default);
+        Task UpdatePublished(Guid correspondenceId, DateTimeOffset published, CancellationToken cancellationToken);
+        Task UpdateIsMigrating(Guid correspondenceId, bool isMigrating, CancellationToken cancellationToken);
+        Task<bool> AreAllAttachmentsPublished(Guid correspondenceId, CancellationToken cancellationToken = default);
+        Task<List<CorrespondenceEntity>> GetCandidatesForMigrationToDialogporten(int batchSize, DateTimeOffset? cursorCreated, Guid? cursorId, DateTimeOffset? createdFrom, DateTimeOffset? createdTo, CancellationToken cancellationToken = default);
+        void ClearChangeTracker();
+        Task<List<CorrespondenceEntity>> GetCorrespondencesWindowAfter(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            bool filterMigrated,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceAttachmentStatsDto>> GetCorrespondencesWindowAfterWithAttachmentStats(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            bool filterMigrated,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesWindowBefore(
+            int limit,
+            DateTimeOffset? lastCreated,
+            Guid? lastId,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReferenceAndCurrentStatus(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            List<CorrespondenceStatus> currentStatuses,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReferenceAndNotCurrentStatuses(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            List<CorrespondenceStatus> excludedCurrentStatuses,
+            CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesByIdsWithExternalReference(
+            List<Guid> correspondenceIds,
+            ReferenceType referenceType,
+            CancellationToken cancellationToken);
+
+        Task<int> HardDeleteCorrespondencesByIds(IEnumerable<Guid> correspondenceIds, CancellationToken cancellationToken);
+
+        Task<List<Guid>> GetCorrespondenceIdsByResourceId(string resourceId, DateTimeOffset minAge, CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesForReport(bool includeAltinn2, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Loads per-correspondence daily summary rows in keyset-paged batches for the half-open Created range [fromInclusive, toExclusive).
+        /// Prefer <see cref="StreamDailySummaryBatches"/> for large ranges to avoid loading the full result into memory.
+        /// </summary>
+        Task<List<DailySummaryDataDto>> GetDailySummaryData(
+            bool includeAltinn2,
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            CancellationToken cancellationToken,
+            int batchSize = 2000);
+
+        /// <summary>
+        /// Streams keyset-paged daily summary batches for the half-open Created range [fromInclusive, toExclusive).
+        /// Each yielded list is one DB page and can be processed and discarded before the next page is loaded.
+        /// </summary>
+        IAsyncEnumerable<IReadOnlyList<DailySummaryDataDto>> StreamDailySummaryBatches(
+            bool includeAltinn2,
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            CancellationToken cancellationToken,
+            int batchSize = 2000);
+
+        Task<CorrespondenceEntity?> GetCorrespondenceByIdempotentKey(Guid idempotentKey, CancellationToken cancellationToken);
+
+        Task<CorrespondenceEntity?> GetCorrespondenceByAltinn2CorrespondenceId(int altinn2CorrespondenceId, string resourceId, string orgNo, CorrespondencesRoleType role, CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesByNoAltinn2IdAndExistingDialog(List<Guid> windowIds, ReferenceType referenceType, CancellationToken cancellationToken);
+        Task<List<CorrespondenceEntity>> GetCorrespondencesWithAltinn2IdNotMigratingAndConfirmedStatus(List<Guid> windowIds, CancellationToken cancellationToken);
+        Task<List<CorrespondenceEntity>> GetCorrespondencesWithAltinn2IdNotMigratingAndConfirmedStatusUsingCursor(
+            Guid? cursorId,
+            CancellationToken cancellationToken);
+        Task<List<CorrespondenceEntity>> GetUnopenedConfidentialCorrespondencesForParty(string partyId, TimeSpan minAge, CancellationToken cancellationToken);
+
+        Task<List<CorrespondenceEntity>> GetCorrespondencesCreatedInRange(
+            DateTimeOffset from,
+            DateTimeOffset to,
+            DateTimeOffset? cursorCreated,
+            Guid? cursorId,
+            int batchSize,
+            CancellationToken cancellationToken);
+
+        Task<bool> RemoveExternalReference(CorrespondenceEntity correspondence, ReferenceType referenceType, CancellationToken cancellationToken);
+        Task<bool?> DoesCorrespondenceAllowForwarding(Guid correspondenceId, CancellationToken cancellationToken = default);
+    }
+}

@@ -1,0 +1,87 @@
+using Altinn.Correspondence.Core.Options;
+using Azure.Monitor.OpenTelemetry.Exporter;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+namespace Altinn.Correspondence.Integrations.OpenTelemetry;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection ConfigureOpenTelemetry(
+        this IServiceCollection services,
+        GeneralSettings generalSettings)
+    {
+        var attributes = new List<KeyValuePair<string, object>>
+        {
+            KeyValuePair.Create("service.name", (object)"altinn-correspondence"),
+        };
+
+        services.AddOpenTelemetry()
+            .ConfigureResource(resourceBuilder => resourceBuilder.AddAttributes(attributes))
+            .WithMetrics(metrics =>
+            {
+                metrics
+                    .AddMeter(
+                        "Microsoft.AspNetCore.Hosting",
+                        "Microsoft.AspNetCore.Server.Kestrel",
+                        "System.Net.Http",
+                        "Altinn.Correspondence.Integrations.Hangfire")
+                    .AddNpgsqlInstrumentation();
+            })
+            .WithTracing(tracing =>
+            {
+                tracing
+                    .AddSource("Altinn.Correspondence.Integrations.Hangfire")
+                    .AddAspNetCoreInstrumentation(options =>
+                    {
+                        options.Filter = httpContext =>
+                        {
+                            if (httpContext.Request.Method == "OPTIONS")
+                            {
+                                return false;
+                            }
+
+                            // Use shared filtering logic - return INVERSE (true = include, false = exclude)
+                            return !TelemetryFilterHelper.ShouldExcludeRequest(httpContext.Request.Path.Value);
+                        };
+                    })
+                    .AddHttpClientInstrumentation(options =>
+                        options.EnrichWithHttpResponseMessage = HttpClientActivityEnricher.EnrichHttpClientActivity)
+                    .AddProcessor(new RequestFilterProcessor(new HttpContextAccessor()));
+            })
+            .WithLogging();
+
+        if (!string.IsNullOrWhiteSpace(generalSettings.ApplicationInsightsConnectionString))
+        {
+            services.ConfigureOpenTelemetryMeterProvider(metrics =>
+                metrics.AddAzureMonitorMetricExporter(o => {
+                    o.ConnectionString = generalSettings.ApplicationInsightsConnectionString;
+                    o.SamplingRatio = 1.0f;
+                    o.TracesPerSecond = null;
+                }));
+
+            services.ConfigureOpenTelemetryTracerProvider(tracing =>
+                tracing.AddAzureMonitorTraceExporter(o => {
+                    o.ConnectionString = generalSettings.ApplicationInsightsConnectionString;
+                    o.SamplingRatio = 1.0f;
+                    o.TracesPerSecond = null;
+                }));
+
+            services.ConfigureOpenTelemetryLoggerProvider(logging =>
+                logging.AddAzureMonitorLogExporter(o => {
+                    o.ConnectionString = generalSettings.ApplicationInsightsConnectionString;
+                    o.SamplingRatio = 1.0f;
+                    o.TracesPerSecond = null;
+                }));
+        }
+
+        return services;
+    }
+}

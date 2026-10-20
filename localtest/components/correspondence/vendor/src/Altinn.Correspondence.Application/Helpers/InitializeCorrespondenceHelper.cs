@@ -1,0 +1,639 @@
+using Altinn.Correspondence.Application.InitializeCorrespondences;
+using Altinn.Correspondence.Application.Settings;
+using Altinn.Correspondence.Application.UploadAttachment;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Core.Extensions;
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Models.Notifications;
+using Altinn.Correspondence.Core.Repositories;
+using Altinn.Register.Contracts;
+using Altinn.Notifications.Core.Helpers;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using OneOf;
+using System.Text.RegularExpressions;
+
+namespace Altinn.Correspondence.Application.Helpers
+{
+    public class InitializeCorrespondenceHelper(
+        IAttachmentRepository attachmentRepository,
+        AttachmentHelper attachmentHelper,
+        MobileNumberHelper mobileNumberHelper,
+        ServiceOwnerHelper serviceOwnerHelper,
+        ILogger<InitializeCorrespondenceHelper> logger)
+    {
+        private static readonly Regex emailRegex = new Regex(@"^((""[^""]+"")|(([a-zA-Z0-9æøåÆØÅ!#$%&'*+\-=?\^_`{|}~])+(\.([a-zA-Z0-9æøåÆØÅ!#$%&'*+\-=?\^_`{|}~])+)*))@((((([a-zA-Z0-9æøåÆØÅ]([a-zA-Z0-9\-æøåÆØÅ]{0,61})[a-zA-Z0-9æøåÆØÅ]\.)|[a-zA-Z0-9æøåÆØÅ]\.){1,9})([a-zA-Z]{2,14}))|((\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})))$");
+
+        public Error? ValidateDateConstraints(CorrespondenceEntity correspondence)
+        {
+            var RequestedPublishTime = correspondence.RequestedPublishTime;
+            if (correspondence.DueDateTime is not null)
+            {
+                if (correspondence.DueDateTime < DateTimeOffset.UtcNow)
+                {
+                    return CorrespondenceErrors.DueDatePriorToday;
+                }
+                if (correspondence.DueDateTime < RequestedPublishTime)
+                {
+                    return CorrespondenceErrors.DueDatePriorRequestedPublishTime;
+                }
+            }
+            return null;
+        }
+
+        public Error? ValidateCorrespondenceSender(CorrespondenceEntity correspondence)
+        {
+            if (!string.IsNullOrEmpty(correspondence.MessageSender))
+            {
+            if (!TextValidation.ValidatePlainText(correspondence.MessageSender))
+                {
+                    return CorrespondenceErrors.MessageSenderIsNotPlainText;
+                }
+            }
+            return null;
+        }
+
+        public Error? ValidateCorrespondenceContent(CorrespondenceContentEntity? content)
+        {
+            if (content == null)
+            {
+                return CorrespondenceErrors.MissingContent;
+            }
+            if (string.IsNullOrWhiteSpace(content.MessageTitle))
+            {
+                return CorrespondenceErrors.MessageTitleEmpty;
+            }
+            if (!TextValidation.ValidatePlainText(content.MessageTitle))
+            {
+                return CorrespondenceErrors.MessageTitleIsNotPlainText;
+            }
+            if (content.MessageTitle.Length > 255)
+            {
+                return CorrespondenceErrors.MessageTitleTooLong;
+            }
+            if (!string.IsNullOrEmpty(content.MessageSummary) && content.MessageSummary.Length > 255)
+            {
+                return CorrespondenceErrors.MessageSummaryWrongLength;
+            }
+            if (!TextValidation.ValidatePlainText(content.MessageSummary))
+            {
+                //return CorrespondenceErrors.MessageSummaryIsNotPlainText; // Temporarily disabled until changed by customer #1331
+                logger.LogWarning("Markdown used in MessageSummary");
+            }
+            if (!TextValidation.ValidateMarkdown(content.MessageBody))
+            {
+                return CorrespondenceErrors.MessageBodyIsNotMarkdown;
+            }
+            if (content.MessageBody.Length < 1)
+            {
+                return CorrespondenceErrors.MessageBodyEmpty;
+            }
+            if (content.MessageBody.Length > 30000)
+            {
+                return CorrespondenceErrors.MessageBodyTooLong;
+            }
+            if (!IsLanguageValid(content.Language))
+            {
+                return CorrespondenceErrors.InvalidLanguage;
+            }
+            return null;
+        }
+        private static bool IsLanguageValid(string language)
+        {
+            List<string> supportedLanguages = ["nb", "nn", "en"];
+            return supportedLanguages.Contains(language.ToLower());
+        }
+        public Error? ValidateNotification(NotificationRequest notification, List<string> recipients)
+        {
+            var customRecipientError = ValidateCustomRecipient(notification, recipients);
+            if (customRecipientError != null)
+            {
+                return customRecipientError;
+            }
+
+            var contentError = ValidateNotificationContent(notification);
+            if (contentError != null)
+            {
+                return contentError;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Validate the content of the notification.
+        /// </summary>
+        private Error? ValidateNotificationContent(NotificationRequest notification)
+        {
+            if (notification.NotificationTemplate == NotificationTemplate.GenericAltinnMessage || notification.NotificationTemplate == NotificationTemplate.Altinn2Message) return null;
+
+            var reminderNotificationChannel = notification.ReminderNotificationChannel ?? notification.NotificationChannel;
+            if (notification.NotificationChannel == NotificationChannel.Email && (string.IsNullOrEmpty(notification.EmailBody) || string.IsNullOrEmpty(notification.EmailSubject)))
+            {
+                return NotificationErrors.MissingEmailContent;
+            }
+            if (reminderNotificationChannel == NotificationChannel.Email && notification.SendReminder && (string.IsNullOrEmpty(notification.ReminderEmailBody) || string.IsNullOrEmpty(notification.ReminderEmailSubject)))
+            {
+                return NotificationErrors.MissingEmailReminderContent;
+            }
+            if (notification.NotificationChannel == NotificationChannel.Sms && string.IsNullOrEmpty(notification.SmsBody))
+            {
+                return NotificationErrors.MissingSmsContent;
+            }
+            if (reminderNotificationChannel == NotificationChannel.Sms && notification.SendReminder && string.IsNullOrEmpty(notification.ReminderSmsBody))
+            {
+                return NotificationErrors.MissingSmsReminderContent;
+            }
+            if ((notification.NotificationChannel == NotificationChannel.EmailPreferred || notification.NotificationChannel == NotificationChannel.SmsPreferred) &&
+                (string.IsNullOrEmpty(notification.EmailBody) || string.IsNullOrEmpty(notification.EmailSubject) || string.IsNullOrEmpty(notification.SmsBody)))
+            {
+                return NotificationErrors.MissingPreferredChannel;
+            }
+            if ((reminderNotificationChannel == NotificationChannel.EmailPreferred || reminderNotificationChannel == NotificationChannel.SmsPreferred) &&
+                notification.SendReminder && (string.IsNullOrEmpty(notification.ReminderEmailBody) || string.IsNullOrEmpty(notification.ReminderEmailSubject) || string.IsNullOrEmpty(notification.ReminderSmsBody)))
+            {
+                return NotificationErrors.MissingPreferredReminderChannel;
+            }
+            if ((notification.NotificationChannel == NotificationChannel.EmailAndSms) &&
+                (string.IsNullOrEmpty(notification.EmailBody) || string.IsNullOrEmpty(notification.EmailSubject) || string.IsNullOrEmpty(notification.SmsBody)))
+            {
+                return NotificationErrors.MissingEmailAndSmsContent;
+            }
+            if ((reminderNotificationChannel == NotificationChannel.EmailAndSms) &&
+                notification.SendReminder && (string.IsNullOrEmpty(notification.ReminderEmailBody) || string.IsNullOrEmpty(notification.ReminderEmailSubject) || string.IsNullOrEmpty(notification.ReminderSmsBody)))
+            {
+                return NotificationErrors.MissingEmailAndSmsReminderContent;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Validate that the recipient overrides for a notification.
+        /// </summary>
+        public Error? ValidateCustomRecipient(NotificationRequest notification, List<string> recipients)
+        {
+            // Validate OverrideRegisteredContactInformation flag usage
+            if (notification.OverrideRegisteredContactInformation)
+            {
+                // OverrideRegisteredContactInformation can only be used when CustomRecipients is provided
+                if (notification.CustomRecipients == null || !notification.CustomRecipients.Any())
+                {
+                    return NotificationErrors.OverrideRegisteredContactInformationRequiresCustomRecipients;
+                }
+            }
+
+            // Check if we have custom recipients
+            if (notification.CustomRecipients != null && notification.CustomRecipients.Any())
+            {
+                // Validate that if the custom recipient exists, the correspondence does not have multiple recipients
+                if (recipients.Count > 1)
+                {
+                    return NotificationErrors.CustomRecipientWithMultipleRecipientsNotAllowed;
+                }
+
+                // Validate each recipient in the list
+                foreach (var customRecipient in notification.CustomRecipients)
+                {
+                    var error = ValidateSingleCustomRecipient(customRecipient, notification);
+                    if (error != null)
+                    {
+                        return error;
+                    }
+                }
+            }
+            
+            // No custom recipients to validate
+            return null;
+        }
+
+        /// <summary>
+        /// Validate a single custom recipient
+        /// </summary>
+        private Error? ValidateSingleCustomRecipient(Recipient customRecipient, NotificationRequest notification)
+        {
+            // Validate that the custom recipient only has one and only one identifier
+            var fieldsWithValue = new List<string>();
+            if (!string.IsNullOrEmpty(customRecipient.OrganizationNumber)) fieldsWithValue.Add("OrganizationNumber");
+            if (!string.IsNullOrEmpty(customRecipient.NationalIdentityNumber)) fieldsWithValue.Add("NationalIdentityNumber");
+            if (!string.IsNullOrEmpty(customRecipient.EmailAddress)) fieldsWithValue.Add("EmailAddress");
+            if (!string.IsNullOrEmpty(customRecipient.MobileNumber)) fieldsWithValue.Add("MobileNumber");
+
+            if (fieldsWithValue.Count == 0)
+            {
+                return NotificationErrors.CustomRecipientWithoutIdentifierNotAllowed;
+            }
+            else if (fieldsWithValue.Count > 1)
+            {
+                return NotificationErrors.CustomRecipientWithMultipleIdentifiersNotAllowed;
+            }
+
+            // Validate that the custom recipient does not contain the keyword $recipientName$ if it has a number or email
+            if (customRecipient.EmailAddress != null || customRecipient.MobileNumber != null)
+            {
+                if (TextContainsTag(notification.EmailBody, "$recipientName$") || TextContainsTag(notification.SmsBody, "$recipientName$")
+                    || TextContainsTag(notification.EmailSubject, "$recipientName$") || TextContainsTag(notification.ReminderEmailBody, "$recipientName$")
+                    || TextContainsTag(notification.ReminderSmsBody, "$recipientName$") || TextContainsTag(notification.ReminderEmailSubject, "$recipientName$"))
+                {
+                    return NotificationErrors.CustomRecipientWithNumberOrEmailNotAllowedWithKeyWordRecipientName;
+                }
+            }
+
+            // Validate that the email address is valid
+            if (customRecipient.EmailAddress is not null && (!emailRegex.IsMatch(customRecipient.EmailAddress) || customRecipient.EmailAddress.Contains(';')))
+            {
+                return NotificationErrors.InvalidEmailProvided;
+            }
+
+            // Validate that the mobile number is valid
+            if (customRecipient.MobileNumber is not null && !mobileNumberHelper.IsValidMobileNumber(customRecipient.MobileNumber))
+            {
+                return NotificationErrors.InvalidMobileNumberProvided;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Validate external references
+        /// </summary>
+        public Error? ValidateExternalReferences(List<ExternalReferenceEntity> externalReferences)
+        {
+            var hasDialogId = externalReferences.Any(er => er.ReferenceType == ReferenceType.DialogportenDialogId);
+            var transmissionTypeRefs = externalReferences
+                .Where(er => er.ReferenceType == ReferenceType.DialogportenTransmissionType)
+                .ToList();
+
+            if (transmissionTypeRefs.Count > 1)
+            {
+                logger.LogWarning("Multiple DialogportenTransmissionType external references found");
+                return CorrespondenceErrors.MultipleDialogportenTransmissionTypeExternalReferences;
+            }
+
+            if (transmissionTypeRefs.Count == 1 && !hasDialogId)
+            {
+                logger.LogWarning("DialogportenTransmissionType external reference provided without a DialogportenDialogId external reference");
+                return CorrespondenceErrors.DialogportenTransmissionTypeRequiresDialogId;
+            }
+
+            return null;
+        }
+        private bool TextContainsTag(string? text, string tag)
+        {
+            if (text == null) return false;
+            return text.Contains(tag, StringComparison.CurrentCultureIgnoreCase);
+        }
+
+        public async Task<CorrespondenceEntity> MapToCorrespondenceEntityAsync(InitializeCorrespondencesRequest request, string recipient, List<AttachmentEntity> attachmentsToBeUploaded, Guid partyUuid, Party? partyDetails, bool isReserved, string serviceOwnerOrgNumber, CancellationToken cancellationToken)
+        {
+            List<CorrespondenceStatusEntity> statuses =
+            [
+                new CorrespondenceStatusEntity
+                {
+                    Status = CorrespondenceStatus.Initialized,
+                    StatusChanged = DateTimeOffset.UtcNow,
+                    StatusText = CorrespondenceStatus.Initialized.ToString(),
+                    PartyUuid = partyUuid
+                },
+            ];
+            var currentStatus = GetCurrentCorrespondenceStatus(request.Correspondence, isReserved);
+            if (currentStatus != CorrespondenceStatus.Initialized)
+            {
+                statuses.Add(new CorrespondenceStatusEntity
+                {
+                    Status = currentStatus,
+                    StatusChanged = DateTimeOffset.UtcNow,
+                    StatusText = currentStatus.ToString(),
+                    PartyUuid = partyUuid
+                });
+            }
+
+            var (sender, serviceOwnerId, serviceOwnerMigrationStatus) = await serviceOwnerHelper.GetSenderServiceOwnerIdAndMigrationStatusAsync(serviceOwnerOrgNumber, cancellationToken);
+
+            var baseTimestamp = DateTimeOffset.UtcNow;
+            var expirationAnchorTime = request.Correspondence.RequestedPublishTime > baseTimestamp
+                ? request.Correspondence.RequestedPublishTime
+                : baseTimestamp;
+            var content = request.Correspondence.Content ?? throw new InvalidOperationException("Content must not be null after validation");
+            return new CorrespondenceEntity
+            {
+                ResourceId = request.Correspondence.ResourceId,
+                Recipient = recipient,
+                RecipientType = CorrespondenceEntity.ComputeRecipientType(recipient),
+                Sender = sender,
+                ServiceOwnerId = sender.WithoutPrefix(),
+                ServiceOwnerMigrationStatus = serviceOwnerMigrationStatus,
+                SendersReference = request.Correspondence.SendersReference,
+                MessageSender = request.Correspondence.MessageSender,
+                Content = new CorrespondenceContentEntity
+                {
+                    Attachments = attachmentsToBeUploaded.Select((a, index) => new CorrespondenceAttachmentEntity
+                    {
+                        Id = Guid.CreateVersion7(baseTimestamp.AddMilliseconds(index)),
+                        Attachment = a,
+                        Created = DateTimeOffset.UtcNow,
+                        ExpirationTime = a.ExpirationInDays.HasValue ? expirationAnchorTime.AddDays(a.ExpirationInDays.Value) : null,
+                    }).ToList(),
+                    Language = content.Language,
+                    MessageBody = AddRecipientToMessage(content.MessageBody, partyDetails?.GetDisplayName() ?? string.Empty),
+                    MessageSummary = AddRecipientToMessage(content.MessageSummary, partyDetails?.GetDisplayName() ?? string.Empty),
+                    MessageTitle = AddRecipientToMessage(content.MessageTitle, partyDetails?.GetDisplayName() ?? string.Empty),
+                },
+                RequestedPublishTime = request.Correspondence.RequestedPublishTime,
+                DueDateTime = request.Correspondence.DueDateTime,
+                PropertyList = request.Correspondence.PropertyList.ToDictionary(x => x.Key, x => x.Value),
+                ReplyOptions = request.Correspondence.ReplyOptions.Select(requestReplyOption => new CorrespondenceReplyOptionEntity()
+                {
+                    LinkText = requestReplyOption.LinkText,
+                    LinkURL = requestReplyOption.LinkURL
+                }).ToList() ?? new List<CorrespondenceReplyOptionEntity>(),
+                IgnoreReservation = request.Correspondence.IgnoreReservation,
+                Statuses = statuses,
+                Created = DateTime.UtcNow,
+                ExternalReferences = request.Correspondence.ExternalReferences.Select(requestExternalReference => new ExternalReferenceEntity()
+                {
+                    ReferenceType = requestExternalReference.ReferenceType,
+                    ReferenceValue = requestExternalReference.ReferenceValue
+                }).ToList() ?? new List<ExternalReferenceEntity>(),
+                Published = currentStatus == CorrespondenceStatus.Published ? DateTimeOffset.UtcNow : null,
+                IsConfirmationNeeded = request.Correspondence.IsConfirmationNeeded,
+                IsConfidential = request.Correspondence.IsConfidential,
+                OriginalRequest = request.Correspondence.OriginalRequest,
+                AllowForwarding = request.Correspondence.AllowForwarding
+            };
+        }
+
+        public string AddRecipientToMessage(string message, string recipient)
+        {
+            if (message.Contains("{{recipientName}}"))
+            {
+                return message.Replace("{{recipientName}}", recipient);
+            }
+            return message;
+        }
+
+        /// <summary>
+        /// Validates the uploaded files. 
+        /// Checks that the filename is valid, the files are the same as the attachments, and the files are not too large
+        /// </summary>
+        public Error? ValidateAttachmentFiles(List<IFormFile> files, List<CorrespondenceAttachmentEntity>? attachments)
+        {
+            var uploadTargetAttachments = new List<CorrespondenceAttachmentEntity>();
+            if (attachments is null)
+            {
+                logger.LogDebug("No attachments provided for validation");
+                return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+            }
+            foreach (var attachmentMetadata in attachments)
+            {
+                var attachment = attachmentMetadata.Attachment;
+                if (attachment is null)
+                {
+                    logger.LogDebug("Attachment metadata with id {AttachmentMetadataId} does not have an attachment. Attachment metadata list count: {AttachmentMetadataListCount}", attachmentMetadata.Id, attachments.Count);
+                    return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+                }
+
+                var nameError = attachmentHelper.ValidateAttachmentName(attachment);
+                if (nameError is not null)
+                {
+                    return nameError;
+                }
+
+                if (IsUploadTarget(attachment))
+                {
+                    uploadTargetAttachments.Add(attachmentMetadata);
+                }
+            }
+
+            if (uploadTargetAttachments.Count != files.Count)
+            {
+                logger.LogDebug("Number of upload target attachments does not match number of uploaded files. Upload target attachments: {UploadTargetAttachmentCount}, Uploaded files: {UploadedFileCount}", uploadTargetAttachments.Count, files.Count);
+                return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+            }
+
+            var uniqueFileIndexByName = BuildUniqueFileIndexByName(files);
+            var usedFileIndices = new HashSet<int>();
+
+            for (int i = 0; i < uploadTargetAttachments.Count; i++)
+            {
+                var attachment = uploadTargetAttachments[i].Attachment!;
+                if (attachment.FileName is null)
+                {
+                    logger.LogDebug("Attachment with id {AttachmentId} does not have a filename. Upload target attachments: {UploadTargetAttachmentCount}, Uploaded files: {UploadedFileCount}", attachment.Id, uploadTargetAttachments.Count, files.Count);
+                    return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+                }
+                if (!TryResolveFileIndex(files, uniqueFileIndexByName, usedFileIndices, attachment.FileName, i, out var fileIndex))
+                {
+                    logger.LogDebug("Could not resolve file index for attachment with filename {AttachmentFileName}. Expected file index: {ExpectedFileIndex}", attachment.FileName, i);
+                    return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+                }
+
+                usedFileIndices.Add(fileIndex);
+                var file = files[fileIndex];
+                if (file.Length > ApplicationConstants.MaxFormDataFileUploadSize || file.Length == 0)
+                {
+                    return AttachmentErrors.InvalidFileSize("2GB");
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get existing attachments from the database
+        /// </summary>
+        /// <remarks>
+        /// If the attachment is not found in the database, it is not included in the returned list
+        /// </remarks>
+        /// <returns>A list of the attachments found</returns>
+        public async Task<OneOf<List<AttachmentEntity>, Error>> GetExistingAttachments(List<Guid> attachmentIds, string sender)
+        {
+            var attachments = new List<AttachmentEntity>();
+            foreach (var attachmentId in attachmentIds)
+            {
+                var attachment = await attachmentRepository.GetAttachmentById(attachmentId, true);
+                if (attachment is not null)
+                {
+                    if (attachment.Sender.WithoutPrefix() != sender.WithoutPrefix()) return CorrespondenceErrors.InvalidSenderForAttachment;
+                    attachments.Add(attachment);
+                }
+            }
+            return attachments;
+        }
+
+        public CorrespondenceStatus GetCurrentCorrespondenceStatus(CorrespondenceEntity correspondence, bool isReserved)
+        {
+            if (isReserved && (correspondence.IgnoreReservation != true))
+            {
+                return CorrespondenceStatus.Reserved;
+            }
+            var status = correspondence.Statuses.LastOrDefault()?.Status ?? CorrespondenceStatus.Initialized;
+            if (correspondence.Content.Attachments.All(c => c.Attachment!.StatusHasBeen(AttachmentStatus.Published)))
+            {
+                status = CorrespondenceStatus.ReadyForPublish;
+            }
+            return status;
+        }
+
+        public async Task<Error?> UploadAttachments(List<AttachmentEntity> correspondenceAttachments, List<IFormFile> files, Guid partyUuid, CancellationToken cancellationToken)
+        {
+            logger.LogInformation($"Uploading {correspondenceAttachments.Count} correspondence attachments.");
+            var uploadTargetAttachments = correspondenceAttachments
+                .Where(IsUploadTarget)
+                .ToList();
+
+            if (uploadTargetAttachments.Count != files.Count)
+            {
+                return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+            }
+
+            var uniqueFileIndexByName = BuildUniqueFileIndexByName(files);
+            var usedFileIndices = new HashSet<int>();
+
+            for (int i = 0; i < files.Count; i++)
+            {
+                var attachment = uploadTargetAttachments[i];
+                if (!TryResolveFileIndex(files, uniqueFileIndexByName, usedFileIndices, attachment.FileName, i, out var fileIndex))
+                {
+                    return CorrespondenceErrors.UploadedFilesDoesNotMatchAttachments;
+                }
+
+                usedFileIndices.Add(fileIndex);
+                var file = files[fileIndex];
+                OneOf<UploadAttachmentResponse, Error> uploadResponse;
+                await using (var f = file.OpenReadStream())
+                {
+                    uploadResponse = await attachmentHelper.UploadAttachment(f, attachment.Id, partyUuid, cancellationToken);
+                }
+                var error = uploadResponse.Match(
+                    _ => { return (Error?)null; },
+                    error => { return error; }
+                );
+                if (error != null) return error;
+            }
+            logger.LogInformation($"Uploaded {correspondenceAttachments.Count} correspondence attachments.");
+            return null;
+        }
+
+        public static bool IsUploadTarget(AttachmentEntity attachment)
+        {
+            return string.IsNullOrWhiteSpace(attachment.DataLocationUrl);
+        }
+
+        private static Dictionary<string, int> BuildUniqueFileIndexByName(IReadOnlyList<IFormFile> files)
+        {
+            var uniqueFileIndexByName = new Dictionary<string, int>(StringComparer.Ordinal);
+            var duplicateFileNames = new HashSet<string>(StringComparer.Ordinal);
+
+            for (var i = 0; i < files.Count; i++)
+            {
+                var fileName = files[i].FileName;
+                if (duplicateFileNames.Contains(fileName))
+                {
+                    continue;
+                }
+
+                if (!uniqueFileIndexByName.TryAdd(fileName, i))
+                {
+                    uniqueFileIndexByName.Remove(fileName);
+                    duplicateFileNames.Add(fileName);
+                }
+            }
+
+            return uniqueFileIndexByName;
+        }
+
+        private static bool TryResolveFileIndex(
+            IReadOnlyList<IFormFile> files,
+            IReadOnlyDictionary<string, int> uniqueFileIndexByName,
+            IReadOnlySet<int> usedFileIndices,
+            string attachmentFileName,
+            int expectedIndex,
+            out int fileIndex)
+        {
+            if (expectedIndex >= 0
+                && expectedIndex < files.Count
+                && !usedFileIndices.Contains(expectedIndex)
+                && string.Equals(files[expectedIndex].FileName, attachmentFileName, StringComparison.Ordinal))
+            {
+                fileIndex = expectedIndex;
+                return true;
+            }
+
+            if (uniqueFileIndexByName.TryGetValue(attachmentFileName, out var fallbackIndex)
+                && !usedFileIndices.Contains(fallbackIndex))
+            {
+                fileIndex = fallbackIndex;
+                return true;
+            }
+
+            fileIndex = default;
+            return false;
+        }
+
+        public async Task<AttachmentEntity> ProcessNewAttachment(CorrespondenceAttachmentEntity correspondenceAttachment, Guid partyUuid, string serviceOwnerOrgNumber, CancellationToken cancellationToken)
+        {
+            var status = new List<AttachmentStatusEntity>(){
+                new AttachmentStatusEntity
+                {
+                    Status = AttachmentStatus.Initialized,
+                    StatusChanged = DateTimeOffset.UtcNow,
+                    StatusText = AttachmentStatus.Initialized.ToString(),
+                    PartyUuid = partyUuid
+                }
+            };
+            var attachment = correspondenceAttachment.Attachment!;
+            attachment.Statuses = status;
+            
+            // Set the Sender, ServiceOwnerId, and ServiceOwnerMigrationStatus from the service owner organization number
+            var (sender, serviceOwnerId, serviceOwnerMigrationStatus) = await serviceOwnerHelper.GetSenderServiceOwnerIdAndMigrationStatusAsync(serviceOwnerOrgNumber, cancellationToken);
+            attachment.Sender = sender;
+            attachment.ServiceOwnerId = serviceOwnerId;
+            attachment.ServiceOwnerMigrationStatus = serviceOwnerMigrationStatus;
+            
+            return await attachmentRepository.InitializeAttachment(attachment, cancellationToken);
+        }
+
+        public Error? ValidateReplyOptions(List<CorrespondenceReplyOptionEntity> replyOptions)
+        {
+            if (replyOptions == null)
+            {
+                return null;
+            }
+            foreach (var replyOption in replyOptions)
+            {
+                if (replyOption.LinkURL.Length > 255)
+                {
+                    return CorrespondenceErrors.InvalidReplyOptions;
+                }
+                if (!Uri.IsWellFormedUriString((string)replyOption.LinkURL, UriKind.Absolute))
+                {
+                    return CorrespondenceErrors.InvalidReplyOptions;
+                }
+                if (!replyOption.LinkURL.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    return CorrespondenceErrors.InvalidReplyOptions;
+                }
+            }
+            return null;
+        }
+
+        public async Task<Error?> ValidateAttachmentsExpiration(List<AttachmentEntity> attachments, CancellationToken cancellationToken)
+        {
+            if (attachments != null && attachments.Count > 0)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var expiringSoonThreshold = 6;
+                var ids = attachments.Select(a => a.Id).Distinct().ToList();
+                var maxByAttachmentId = await attachmentRepository.GetMaxExpirationTimesForAttachments(ids, cancellationToken);
+
+                foreach (var attachment in attachments)
+                {
+                    if (maxByAttachmentId.TryGetValue(attachment.Id, out var maxExpiration) && maxExpiration is DateTimeOffset t && t <= now.AddHours(expiringSoonThreshold))
+                    {
+                        return CorrespondenceErrors.ExistingAttachmentExpiringSoon(expiringSoonThreshold);
+                    }
+                }
+            }
+            return null;
+        }
+    }
+}

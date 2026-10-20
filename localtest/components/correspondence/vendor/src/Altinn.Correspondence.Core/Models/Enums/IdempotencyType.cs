@@ -1,0 +1,49 @@
+namespace Altinn.Correspondence.Core.Models.Enums;
+
+/// <summary>
+/// Represents different types of idempotency keys that can be used for a correspondence.
+/// This enum is used to support creating idempotent requests at the correspondence level.
+/// </summary>
+public enum IdempotencyType
+{
+    /// <summary>
+    /// Indicates that this is a key for activity on Dialogporten
+    /// </summary>
+    DialogportenActivity = 0,
+
+    /// <summary>
+    /// Indicates that this is a idempotency key for a correspondence
+    /// </summary>
+    Correspondence = 1,
+
+    /// <summary>
+    /// Indicates that this is a idempotency key for a notification order
+    /// </summary>
+    NotificationOrder = 2,
+
+    /// <summary>
+    /// Indicates that this is an idempotency key for expiring an attachment
+    /// </summary>
+    ExpireAttachment = 3,
+
+    /// <summary>
+    /// Indicates that this is an idempotency key for publishing a correspondence
+    /// </summary>
+    PublishCorrespondence = 4,
+
+    /// <summary>
+    /// Indicates that this is an idempotency key for purging a correspondence
+    /// </summary>
+    PurgeCorrespondence = 5,
+
+    /// <summary>
+    /// Indicates that this is an idempotency key for resolving a notification's final delivery status
+    /// </summary>
+    NotificationDeliveryResolution = 6,
+
+    /// <summary>
+    /// Indicates that this is an idempotency key for a confidential reminder dialog in Dialogporten.
+    /// One key per recipient while the reminder is active; deleted when the last reminder for the recipient is cleaned up.
+    /// </summary>
+    ConfidentialReminderDialog = 7,
+}

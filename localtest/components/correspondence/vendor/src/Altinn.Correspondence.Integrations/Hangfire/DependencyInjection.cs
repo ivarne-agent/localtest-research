@@ -1,0 +1,61 @@
+using Altinn.Correspondence.Core.Options;
+using Altinn.Correspondence.Integrations.Slack;
+using Hangfire;
+using Hangfire.AspNetCore;
+using Hangfire.PostgreSql;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+
+namespace Altinn.Correspondence.Integrations.Hangfire;
+public static class DependencyInjection
+{
+    public static void ConfigureHangfire(this IServiceCollection services, IConfiguration config)
+    {
+        var generalSettings = new GeneralSettings();
+        config.GetSection(nameof(GeneralSettings)).Bind(generalSettings);
+        services.AddSingleton<IConnectionFactory, HangfireConnectionFactory>();
+        services.AddHangfire((provider, config) =>
+        {
+            config.UsePostgreSqlStorage(
+                c => c.UseConnectionFactory(provider.GetService<IConnectionFactory>()),
+                new PostgreSqlStorageOptions
+                {
+                    // Default fixed timeout is 30 minutes; sliding heartbeats keep long-running
+                    // jobs (e.g. daily summary report) from being requeued while the worker is alive.
+                    UseSlidingInvisibilityTimeout = true
+                });
+            config.UseLogProvider(new AspNetCoreLogProvider(provider.GetRequiredService<ILoggerFactory>()));
+            config.UseFilter(new HangfireAppRequestFilter());
+            config.UseSerializerSettings(new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
+            config.UseFilter(new BackgroundJobClientFilter());
+            config.UseFilter(new BackgroundJobServerFilter());
+            config.UseFilter(
+                new SlackExceptionHandler(
+                    provider.GetRequiredService<SlackExceptionNotificationHandler>(),
+                    provider.GetRequiredService<ILogger<SlackExceptionHandler>>())
+                );
+        });
+
+        services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = generalSettings.WorkerCountPerReplica;
+            options.SchedulePollingInterval = TimeSpan.FromSeconds(5);
+            options.Queues = [ HangfireQueues.Default ];
+            options.WorkerCount = generalSettings.WorkerCountPerReplica;
+        });
+
+        if (generalSettings.MigrationWorkerCountPerReplica > 0)
+        {
+            services.AddHangfireServer(options =>
+            {
+                options.SchedulePollingInterval = TimeSpan.FromSeconds(5);
+                options.WorkerCount = generalSettings.MigrationWorkerCountPerReplica;
+                options.Queues = [HangfireQueues.LiveMigration, HangfireQueues.Migration];
+            });
+        };
+
+        services.AddHostedService<HangfireQueueMetricsService>();
+    }
+}

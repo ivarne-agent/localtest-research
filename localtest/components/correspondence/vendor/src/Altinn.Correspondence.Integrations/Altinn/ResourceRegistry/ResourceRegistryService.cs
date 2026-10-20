@@ -1,0 +1,228 @@
+using Altinn.Correspondence.Common.Caching;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Options;
+using Altinn.Correspondence.Core.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Net;
+using System.Net.Http.Json;
+
+namespace Altinn.Correspondence.Integrations.Altinn.ResourceRegistry;
+
+public class ResourceRegistryService : IResourceRegistryService
+{
+    private readonly HttpClient _client;
+    private readonly ILogger<ResourceRegistryService> _logger;
+
+    private readonly IHybridCacheWrapper _cache;
+    private readonly HybridCacheEntryOptions _cacheOptions;
+    private string CacheKey(string resourceId) => $"ResourceInfo_{resourceId}";
+
+    public ResourceRegistryService(HttpClient httpClient, IOptions<AltinnOptions> options, ILogger<ResourceRegistryService> logger, IHybridCacheWrapper cache)
+    {
+        httpClient.BaseAddress = new Uri(options.Value.PlatformGatewayUrl);
+        _client = httpClient;
+        _logger = logger;
+        _cache = cache;
+        _cacheOptions = new HybridCacheEntryOptions
+        {
+            Expiration = TimeSpan.FromMinutes(10)
+        };
+    }
+
+    public async Task<string?> GetResourceType(string resourceId, CancellationToken cancellationToken)
+    {
+        var altinnResourceResponse = await GetResource(resourceId, cancellationToken);
+        return altinnResourceResponse?.ResourceType;
+    }
+
+    public async Task<string?> GetServiceOwnerNameOfResource(string resourceId, CancellationToken cancellationToken)
+    {
+        var altinnResourceResponse = await GetResource(resourceId, cancellationToken);
+        if (altinnResourceResponse is null)
+        {
+            return null;
+        }
+        return GetNameOfResourceResponse(altinnResourceResponse);
+    }
+
+    public async Task<string?> GetResourceTitle(string resourceId, string? language = null, CancellationToken cancellationToken = default)
+    {
+        var altinnResourceResponse = await GetResource(resourceId, cancellationToken);
+        if (altinnResourceResponse is null)
+        {
+            return null;
+        }
+
+        return GetTitleOfResourceResponse(altinnResourceResponse, language);
+    }
+
+    public async Task<string?> GetServiceOwnerOrgCode(string resourceId, CancellationToken cancellationToken)
+    {
+        var altinnResourceResponse = await GetResource(resourceId, cancellationToken);
+        if (altinnResourceResponse is null)
+        {
+            return null;
+        }
+        return altinnResourceResponse.HasCompetentAuthority?.Orgcode ?? string.Empty;
+    }
+
+    private async Task<GetResourceResponse?> GetResource(string resourceId, CancellationToken cancellationToken)
+    {
+        string cacheKey = CacheKey(resourceId);
+        try
+        {
+            var cachedResource = await CacheHelpers.GetObjectFromCacheAsync<GetResourceResponse>(cacheKey, _cache, cancellationToken);
+            if (cachedResource != null)
+            {
+                return cachedResource;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error retrieving resource from cache.");
+        }
+        var response = await _client.GetAsync($"resourceregistry/api/v1/resource/{resourceId.WithoutPrefix()}", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound || response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            _logger.LogError("Failed to get resource from Altinn Resource Registry. Status code: {StatusCode}", response.StatusCode);
+            _logger.LogError("Body: {Response}", await response.Content.ReadAsStringAsync(cancellationToken));
+            throw new BadHttpRequestException("Failed to get resource from Altinn Resource Registry");
+        }
+        var altinnResourceResponse = await response.Content.ReadFromJsonAsync<GetResourceResponse>(cancellationToken: cancellationToken);
+        if (altinnResourceResponse is null)
+        {
+            _logger.LogError("Failed to deserialize response from Altinn Resource Registry");
+            throw new BadHttpRequestException("Failed to process response from Altinn Resource Registry");
+        }
+        try
+        {
+            await CacheHelpers.StoreObjectInCacheAsync(cacheKey, altinnResourceResponse, _cache, _cacheOptions, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error storing resource to cache when looking up resource in Resource Registry Service.");
+        }
+        return altinnResourceResponse;
+    }
+
+    private string GetNameOfResourceResponse(GetResourceResponse resourceResponse)
+    {
+        var nameAttributes = new List<string> { "nb", "nn", "en" };
+        string? name = null;
+        foreach (var nameAttribute in nameAttributes)
+        {
+            if (resourceResponse.HasCompetentAuthority?.Name?.ContainsKey(nameAttribute) == true)
+            {
+                name = resourceResponse.HasCompetentAuthority.Name[nameAttribute];
+                break;
+            }
+        }
+        return name ?? string.Empty;
+    }
+
+    private static string GetTitleOfResourceResponse(GetResourceResponse resourceResponse, string? language)
+    {
+        if (resourceResponse.Title is null || resourceResponse.Title.Count == 0)
+        {
+            return string.Empty;
+        }
+        if (language == null)
+        {
+            return resourceResponse.Title.Values.FirstOrDefault() ?? string.Empty;
+        }
+        return resourceResponse.Title.TryGetValue(language, out var preferredTitle) ? preferredTitle : string.Empty;
+    }
+
+    public async Task<string?> GetServiceOwnerOrganizationNumber(string resourceId, CancellationToken cancellationToken = default)
+    {
+        var altinnResourceResponse = await GetResource(resourceId, cancellationToken);
+        if (altinnResourceResponse is null)
+        {
+            return null;
+        }
+        return altinnResourceResponse.HasCompetentAuthority?.Organization;
+    }
+
+    private async Task<List<GetResourceRightsResponse>?> GetResourceRights(string resourceId, CancellationToken cancellationToken)
+    {
+        var response = await _client.GetAsync($"resourceregistry/api/v1/resource/{resourceId}/policy/rights", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            _logger.LogError("Failed to get resource rights from Altinn Resource Registry. Status code: {StatusCode}", response.StatusCode);
+            throw new BadHttpRequestException("Failed to get resource rights from Altinn Resource Registry");
+        }
+        var altinnResourceRightsResponse = await response.Content.ReadFromJsonAsync<List<GetResourceRightsResponse>>(cancellationToken: cancellationToken);
+        if (altinnResourceRightsResponse is null)
+        {
+            _logger.LogError("Failed to deserialize response from Altinn Resource Registry when getting resource rights");
+            throw new BadHttpRequestException("Failed to process response from Altinn Resource Registry when getting resource rights");
+        }
+        return altinnResourceRightsResponse;
+    }
+
+    public async Task<ConfidentialTypeEnum> GetConfidentialType(string resourceId, CancellationToken cancellationToken = default)
+    {
+        var resourceRightsList = await GetResourceRights(resourceId, cancellationToken);
+        if (resourceRightsList is null)
+        {
+            return ConfidentialTypeEnum.NotConfidential;
+        }
+        var allAttributes = resourceRightsList
+            .SelectMany(right => right.Subjects ?? [])
+            .SelectMany(subject => subject.SubjectAttributes ?? [])
+            .Where(attr => attr.Type == "urn:altinn:accesspackage")
+            .Select(attr => attr.Value)
+            .OfType<string>()
+            .ToHashSet();
+
+        if (allAttributes.Contains("post-til-virksomheten-med-taushetsbelagt-innhold"))
+            return ConfidentialTypeEnum.Confidential;
+        if (allAttributes.Contains("eksplisitt"))
+            return ConfidentialTypeEnum.ExplicitlyDelegated;
+        return ConfidentialTypeEnum.NotConfidential;
+    }
+
+    public async Task<int> GetMinimumAuthenticationLevelForResource(string resourceId, CancellationToken cancellationToken = default)
+    {
+        var response = await _client.GetAsync($"resourceregistry/api/v1/resource/{resourceId}/policy", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            _logger.LogError("No resource policy found in Altinn Resource Registry for resource {ResourceId}", resourceId);
+            throw new BadHttpRequestException("Failed to process response from Altinn Resource Registry when getting resource policy");
+        }
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            _logger.LogError("Failed to get resource policy from Altinn Resource Registry. Status code: {StatusCode}", response.StatusCode);
+            throw new BadHttpRequestException("Failed to get resource policy from Altinn Resource Registry");
+        }
+        var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+        GetResourcePolicyAuthLevelResponse resourcePolicy;
+        try
+        {
+            resourcePolicy = GetResourcePolicyAuthLevelResponse.Parse(xml);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse XACML policy XML from Altinn Resource Registry");
+            throw new BadHttpRequestException("Failed to process response from Altinn Resource Registry when getting resource policy");
+        }
+        if (resourcePolicy.MinimumAuthenticationLevels.Count == 0)
+        {
+            _logger.LogError("No minimum authentication level obligation found in resource policy for resource {ResourceId}", resourceId);
+            throw new BadHttpRequestException("Failed to process response from Altinn Resource Registry when getting resource policy");
+        }
+        return resourcePolicy.MinimumAuthenticationLevels.Min();
+    }
+}

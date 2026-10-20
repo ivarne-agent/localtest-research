@@ -1,0 +1,112 @@
+using Altinn.Correspondence.Application.Helpers;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Repositories;
+using Altinn.Correspondence.Core.Services;
+using Altinn.Correspondence.Core.Services.Enums;
+using Altinn.Correspondence.Persistence;
+using Hangfire;
+using Microsoft.Extensions.Logging;
+using OneOf;
+using System.Security.Claims;
+
+namespace Altinn.Correspondence.Application.InitializeAttachment;
+
+public class InitializeAttachmentHandler(
+    IAltinnRegisterService altinnRegisterService,
+    IAttachmentRepository attachmentRepository,
+    IResourceRegistryService resourceRegistryService,
+    IAltinnAuthorizationService altinnAuthorizationService,
+    ILogger<InitializeAttachmentHandler> logger,
+    IBackgroundJobClient backgroundJobClient,
+    AttachmentHelper attachmentHelper,
+    ServiceOwnerHelper serviceOwnerHelper,
+    ApplicationDbContext dbContext) : IHandler<InitializeAttachmentRequest, Guid>
+{
+    public async Task<OneOf<Guid, Error>> Process(InitializeAttachmentRequest request, ClaimsPrincipal? user, CancellationToken cancellationToken)
+    {
+        if (user is null)
+        {
+            logger.LogWarning("User is null in InitializeAttachmentHandler");
+            return AuthorizationErrors.NoAccessToResource;
+        }
+        var sanitizedResourceId = request.Attachment.ResourceId.SanitizeForLogging()?.WithoutPrefix();
+        logger.LogInformation("Starting attachment initialization process for resource {ResourceId}", sanitizedResourceId);
+        
+        var serviceOwnerOrgNumber = await resourceRegistryService.GetServiceOwnerOrganizationNumber(request.Attachment.ResourceId, cancellationToken);
+        if (string.IsNullOrEmpty(serviceOwnerOrgNumber))
+        {
+            logger.LogError("Service owner/sender's organization number (9 digits) not found for resource {ResourceId}", sanitizedResourceId);
+            return CorrespondenceErrors.InvalidResource;
+        }
+        var hasAccess = await altinnAuthorizationService.CheckAccessAsSender(
+            user,
+            request.Attachment.ResourceId,
+            serviceOwnerOrgNumber.WithoutPrefix(),
+            null,
+            cancellationToken);
+        if (!hasAccess)
+        {
+            logger.LogWarning("Access denied for resource {ResourceId} - user does not have sender access", sanitizedResourceId);
+            return AuthorizationErrors.NoAccessToResource;
+        }
+        var resourceType = await resourceRegistryService.GetResourceType(request.Attachment.ResourceId, cancellationToken);
+        if (resourceType is null)
+        {
+            logger.LogError("Resource type not found for {ResourceId} despite successful authorization", sanitizedResourceId);
+            throw new Exception($"Resource type not found for {sanitizedResourceId}. This should be impossible as authorization worked.");
+        }
+        if (resourceType != "GenericAccessResource" && resourceType != "CorrespondenceService")
+        {
+            logger.LogWarning("Incorrect resource type {ResourceType} for {ResourceId}", resourceType, sanitizedResourceId);
+            return AuthorizationErrors.IncorrectResourceType;
+        }
+
+        var userPartyUrn = user.GetCallerPartyUrn() ?? string.Empty;
+        var party = await altinnRegisterService.LookUpPartyById(userPartyUrn, cancellationToken);
+        if (party?.Uuid is not Guid partyUuid)
+        {
+            logger.LogError("Could not find party UUID for caller {caller}", userPartyUrn);
+            return AuthorizationErrors.CouldNotFindPartyUuid;
+        }
+        logger.LogInformation("Retrieved party UUID {PartyUuid} for organization {OrganizationId}", partyUuid, user.GetCallerOrganizationId());
+        var attachment = request.Attachment;
+        var attachmentNameError = attachmentHelper.ValidateAttachmentName(request.Attachment);
+        if (attachmentNameError is not null)
+        {
+            logger.LogWarning("Invalid attachment name for resource {ResourceId}: {Error}", sanitizedResourceId, attachmentNameError);
+            return attachmentNameError;
+        }
+
+        var attachmentExpirationError = attachmentHelper.ValidateAttachmentExpiration(attachment);
+        if (attachmentExpirationError is not null)
+        {
+            logger.LogWarning("Expiration time validation failed for attachment: {Error}", attachmentExpirationError);
+            return attachmentExpirationError;
+        }
+        
+        // Set the Sender, ServiceOwnerId, and ServiceOwnerMigrationStatus from the service owner organization number
+        var (sender, serviceOwnerId, serviceOwnerMigrationStatus) = await serviceOwnerHelper.GetSenderServiceOwnerIdAndMigrationStatusAsync(serviceOwnerOrgNumber, cancellationToken);
+        attachment.Sender = sender;
+        attachment.ServiceOwnerId = serviceOwnerId;
+        attachment.ServiceOwnerMigrationStatus = serviceOwnerMigrationStatus;
+        
+        return await DatabaseTransactionHelper.ExecuteAsync(dbContext, async (cancellationToken) =>
+        {
+            var initializedAttachment = await attachmentRepository.InitializeAttachment(attachment, cancellationToken);   
+            await attachmentHelper.SetAttachmentStatus(initializedAttachment.Id, AttachmentStatus.Initialized, partyUuid, cancellationToken);
+            backgroundJobClient.Enqueue<IEventBus>((eventBus) => eventBus.Publish(
+                AltinnEventType.AttachmentInitialized, 
+                initializedAttachment.ResourceId, 
+                initializedAttachment.Id.ToString(), 
+                "attachment", 
+                initializedAttachment.Sender, 
+                CancellationToken.None));
+            logger.LogInformation("Successfully initialized attachment {AttachmentId} for resource {ResourceId}", 
+                initializedAttachment.Id, 
+                sanitizedResourceId);
+            return initializedAttachment.Id;
+        }, cancellationToken);
+    }
+
+}

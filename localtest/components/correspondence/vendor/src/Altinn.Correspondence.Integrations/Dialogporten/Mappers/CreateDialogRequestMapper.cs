@@ -1,0 +1,720 @@
+using Altinn.Correspondence.Common.Constants;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Common.Helpers.Models;
+using Altinn.Correspondence.Core.Models.Entities;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Core.Services.Enums;
+using Altinn.Correspondence.Integrations.Dialogporten.Models;
+using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
+using UUIDNext;
+
+namespace Altinn.Correspondence.Integrations.Dialogporten.Mappers
+{
+    internal static class SystemLabel
+    {
+        internal static string Archived = "Archive";
+        internal static string Default = "Default";
+        internal static string Bin = "Bin";
+    }
+
+    internal static class CreateDialogRequestMapper
+    {
+        internal static CreateDialogRequest CreateCorrespondenceDialog(CorrespondenceEntity correspondence, string baseUrl, bool includeActivities = false, ILogger? logger = null, string? openedActivityIdempotencyKey = null, string? confirmedActivityIdempotencyKey = null, bool isSoftDeleted = false, DateTimeOffset? currentUtcNow = null, string? dialogParty = null, List<Activity>? forwardingActivities = null, bool enableDownloadAll = false, Dictionary<Guid, string>? partyUrnsByPartyUuid = null)
+        {
+            DateTimeOffset currentDateTimeUtcNow = currentUtcNow ?? DateTimeOffset.UtcNow;
+            var dialogId = GetDialogId(correspondence, currentDateTimeUtcNow, logger);
+            DateTimeOffset? dueAt = correspondence.DueDateTime != default ? correspondence.DueDateTime : null;
+
+            // The problem of DueAt being in the past should only occur for migrated data, as such we are checking includeActivities flag first, since this is only set when making migrated correspondences available.
+            if (includeActivities && dueAt.HasValue && dueAt < currentDateTimeUtcNow)
+            {
+                dueAt = null;
+            }
+            var actualPublishStatus = correspondence.Statuses.OrderBy(status => status.StatusChanged).FirstOrDefault(status => status.Status == CorrespondenceStatus.Published);
+            DateTimeOffset? publishTime = actualPublishStatus != null ? actualPublishStatus.StatusChanged : null;
+            var createdAt = correspondence.Created;
+            if (publishTime is not null && createdAt > publishTime)
+            {
+                createdAt = (DateTimeOffset)publishTime;
+            }
+            if (publishTime > currentDateTimeUtcNow)
+            {
+                publishTime = currentDateTimeUtcNow;
+            }
+
+            return new CreateDialogRequest
+            {
+                Id = dialogId,
+                ServiceResource = UrnConstants.Resource + ":" + correspondence.ResourceId,
+                Party = dialogParty ?? correspondence.GetRecipientUrn(),
+                CreatedAt = createdAt,
+                UpdatedAt = publishTime,
+                VisibleFrom = correspondence.RequestedPublishTime < currentDateTimeUtcNow.AddMinutes(1) ? null : correspondence.RequestedPublishTime,
+                Process = correspondence.ExternalReferences.FirstOrDefault(reference => reference.ReferenceType == ReferenceType.DialogportenProcessId)?.ReferenceValue,
+                DueAt = dueAt,
+                Status = GetDialogStatusForCorrespondence(correspondence),
+                ExternalReference = correspondence.SendersReference,
+                Content = CreateCorrespondenceContent(correspondence, baseUrl),
+                SearchTags = GetSearchTagsForCorrespondence(correspondence, logger),
+                ApiActions = GetApiActionsForCorrespondence(baseUrl, correspondence),
+                GuiActions = GetGuiActionsForCorrespondence(baseUrl, correspondence),
+                Attachments = GetAttachmentsForCorrespondence(baseUrl, correspondence, enableDownloadAll),
+                Activities = includeActivities ? GetActivitiesForMigratedCorrespondence(correspondence, partyUrnsByPartyUuid!, openedActivityIdempotencyKey, confirmedActivityIdempotencyKey, forwardingActivities) : new List<Activity>(), // Only happens for Migrated Correspondences, and we only want to include activities for those, as they are used to backfill the activity history in Dialogporten.
+                Transmissions = new List<Transmission>(),
+                SystemLabel = GetSystemLabelForCorrespondence(correspondence, isSoftDeleted),
+                ServiceOwnerContext = GetServiceOwnerContextForCorrespondence(correspondence)
+            };
+        }
+
+        internal static CreateDialogRequest CreateConfidentialReminderDialog(ConfidentialReminderDialogDto reminder, string baseUrl, ILogger? logger = null)
+        {
+            return new CreateDialogRequest
+            {
+                // Dialogporten requires UUID v7; DialogId is a pre-allocated idempotency key so retries reuse the same dialog
+                Id = reminder.DialogId.ToString(),
+                ServiceResource = UrnConstants.Resource + ":" + reminder.ResourceId,
+                Party = reminder.Recipient,
+                CreatedAt = reminder.Created,
+                UpdatedAt = reminder.Created,
+                VisibleFrom = DateTimeOffset.UtcNow,
+                ExternalReference = reminder.SendersReference,
+                Content = CreateConfidentialReminderContent(reminder, baseUrl),
+                SearchTags = new List<SearchTag>(),
+                Status = reminder.Status ?? "NotApplicable",
+                ApiActions = new List<ApiAction>(),
+                GuiActions = new List<GuiAction>(),
+                Attachments = new List<Attachment>(),
+                Activities = new List<Activity>(),
+                Transmissions = new List<Transmission>(),
+                SystemLabel = SystemLabel.Default
+            };
+        }
+
+        private static string GetDialogId(CorrespondenceEntity correspondence, DateTimeOffset currentUtcNow, ILogger? logger)
+        {
+            var sourceTimestamp = IsUuidV7(correspondence.Id)
+                ? GetTimestampFromUuidV7(correspondence.Id)
+                : correspondence.Created;
+
+            if (sourceTimestamp > currentUtcNow.AddSeconds(15))
+            {
+                logger?.LogWarning(
+                    "Dialog ID timestamp is more than 15 seconds in the future for correspondence {CorrespondenceId}. Clamping from {OriginalTimestamp:o} to {ClampedTimestamp:o}.",
+                    correspondence.Id,
+                    sourceTimestamp,
+                    currentUtcNow);
+                sourceTimestamp = currentUtcNow;
+            }
+
+            return CreateDeterministicUuidV7(sourceTimestamp, correspondence.Id).ToString();
+        }
+
+        private static bool IsUuidV7(Guid guid)
+        {
+            return guid.ToString("N")[12] == '7';
+        }
+
+        private static DateTimeOffset GetTimestampFromUuidV7(Guid uuidV7)
+        {
+            string hexValue = uuidV7.ToString("N");
+            long unixTimeMilliseconds = Convert.ToInt64(hexValue[..12], 16);
+            return DateTimeOffset.FromUnixTimeMilliseconds(unixTimeMilliseconds);
+        }
+
+        private static Guid CreateDeterministicUuidV7(DateTimeOffset timestamp, Guid correspondenceId)
+        {
+            long unixTimeMilliseconds = Math.Max(0, timestamp.ToUnixTimeMilliseconds());
+            ulong timestamp48Bit = (ulong)unixTimeMilliseconds & 0xFFFFFFFFFFFFUL;
+            string timestampHex = timestamp48Bit.ToString("x12");
+
+            byte[] seedBytes = Encoding.UTF8.GetBytes($"{correspondenceId:N}:{unixTimeMilliseconds}");
+            byte[] hash = SHA256.HashData(seedBytes);
+            string hashHex = Convert.ToHexString(hash).ToLowerInvariant();
+
+            string randA = hashHex[..3];
+            int variantNibble = (Convert.ToInt32(hashHex[3].ToString(), 16) & 0x3) | 0x8;
+            string clockSeq = $"{variantNibble:x}{hashHex.Substring(4, 3)}";
+            string node = hashHex.Substring(7, 12);
+
+            return Guid.Parse($"{timestampHex[..8]}-{timestampHex.Substring(8, 4)}-7{randA}-{clockSeq}-{node}");
+        }
+
+        private static string GetSystemLabelForCorrespondence(CorrespondenceEntity correspondence, bool isSoftDeleted)
+        {
+            if (correspondence.Altinn2CorrespondenceId.HasValue) // Only relevant for migrated correspondences
+            {
+                if (isSoftDeleted)
+                {
+                    return SystemLabel.Bin;
+                }
+                if (correspondence.Statuses != null && correspondence.Statuses.Any(s => s.Status == CorrespondenceStatus.Archived))
+                {
+                    return SystemLabel.Archived;
+                }
+            }
+
+            return SystemLabel.Default;
+        }
+
+        private static string GetDialogStatusForCorrespondence(CorrespondenceEntity correspondence)
+        {
+            if (correspondence.IsConfirmationNeeded && !correspondence.Statuses.Any(s => s.Status == CorrespondenceStatus.Confirmed))
+            {
+                return "RequiresAttention";
+            }
+            return "NotApplicable";
+        }
+
+        private static Content CreateCorrespondenceContent(CorrespondenceEntity correspondence, string baseUrl) => new()
+        {
+            Title = new ContentValue()
+            {
+                MediaType = "text/plain",
+                Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        Value = correspondence.Content!.MessageTitle ?? "", // A required field, DP will throw validation error if empty, but should not be possible to reach this point with empty title
+                        LanguageCode = correspondence.Content.Language
+                    }
+                }
+            },
+            Summary = string.IsNullOrWhiteSpace(TextValidation.StripSummaryForHtmlAndMarkdown(correspondence.Content.MessageSummary ?? "")) ? null : new ContentValue()
+            {
+                MediaType = "text/plain",
+                Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        Value = TextValidation.StripSummaryForHtmlAndMarkdown(correspondence.Content.MessageSummary ?? ""),
+                        LanguageCode = correspondence.Content.Language
+                    }
+                }
+            },
+            SenderName = string.IsNullOrWhiteSpace(correspondence.MessageSender) ? null :
+             new ContentValue()
+             {
+                 MediaType = "text/plain",
+                 Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        Value = correspondence.MessageSender ?? correspondence.Sender,
+                        LanguageCode = correspondence.Content.Language
+                    }
+                }
+             },
+            MainContentReference = new ContentValue()
+            {
+                MediaType = "application/vnd.dialogporten.frontchannelembed+json;type=markdown",
+                Value = [
+                    new DialogValue()
+                    {
+                        LanguageCode = correspondence.Content.Language,
+                        Value = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/content"
+                    }
+                ]
+            }
+        };
+
+        private static Content CreateConfidentialReminderContent(ConfidentialReminderDialogDto reminderDto, string baseUrl)
+        {
+            var title = new ContentValue()
+            {
+                MediaType = "text/plain",
+                Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        Value =  "Din virksomhet har uåpnet taushetsbelagt post",
+                        LanguageCode = "nb"
+                    },
+                    new DialogValue()
+                    {
+                        Value =  "Din verksemd har uopna tausheitsbelagt post",
+                        LanguageCode = "nn"
+                    },
+                    new DialogValue()
+                    {
+                        Value =  "Your organization has unopened confidential mail",
+                        LanguageCode = "en"
+                    }
+                }
+            };
+
+            var summary = new ContentValue()
+            {
+                MediaType = "text/plain",
+                Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        Value = "Din virksomhet har mottatt en eller flere meldinger som er taushetsbelagte og som ikke er åpnet. Dette varselet inneholder informasjon om hvordan du kan lese disse",
+                        LanguageCode = "nb"
+                    },
+                    new DialogValue()
+                    {
+                        Value = "Din verksemd har mottatt ein eller fleire meldingar som er tausheitsbelagte og som ikkje er opna. Dette varselet inneheld informasjon om korleis du kan lese desse",
+                        LanguageCode = "nn"
+                    },
+                    new DialogValue()
+                    {
+                        Value = "Your organization has received one or more correspondences that are confidential and have not been opened. This notice contains information on how you can read them",
+                        LanguageCode = "en"
+                    }
+                }
+            };
+
+            var mainContentReference = new ContentValue()
+            {
+                MediaType = "application/vnd.dialogporten.frontchannelembed+json;type=markdown",
+                Value = new List<DialogValue> {
+                    new DialogValue()
+                    {
+                        LanguageCode = "nb",
+                        Value = $"{(baseUrl ?? "").TrimEnd('/')}/correspondence/api/v1/confidential-reminders?languageCode=nb"
+                    },
+                    new DialogValue()
+                    {
+                        LanguageCode = "nn",
+                        Value = $"{(baseUrl ?? "").TrimEnd('/')}/correspondence/api/v1/confidential-reminders?languageCode=nn"
+                    },
+                    new DialogValue()
+                    {
+                        LanguageCode = "en",
+                        Value = $"{(baseUrl ?? "").TrimEnd('/')}/correspondence/api/v1/confidential-reminders?languageCode=en"
+                    }
+                }
+            };
+
+            return new Content
+            {
+                Title = title,
+                Summary = summary,
+                SenderName = string.IsNullOrWhiteSpace(reminderDto.MessageSender) ? null :
+                    new ContentValue()
+                    {
+                        MediaType = "text/plain",
+                        Value = new List<DialogValue> {
+                            new DialogValue()
+                            {
+                                Value = reminderDto.MessageSender ?? "",
+                                LanguageCode = "nb"
+                            }
+                        }
+                    },
+                MainContentReference = mainContentReference
+            };
+        }
+
+        private static List<SearchTag> GetSearchTagsForCorrespondence(CorrespondenceEntity correspondence, ILogger? logger)
+        {
+            var list = new List<SearchTag>();
+            foreach (var property in correspondence.PropertyList)
+            {
+                list = AddSearchTagIfValid(list, property.Value, correspondence, logger);
+            }
+            list = list.DistinctBy(tag => tag.Value).ToList(); // Remove duplicates
+            return list;
+        }
+
+        private static List<SearchTag> AddSearchTagIfValid(List<SearchTag> list, string? searchTag, CorrespondenceEntity correspondence, ILogger? logger)
+        {
+            if (string.IsNullOrWhiteSpace(searchTag) || searchTag.Trim().Length < 3)
+            {
+                return list;
+            }
+            var trimmed = searchTag.Trim();
+            if (trimmed.Length > 63)
+            {
+                logger?.LogWarning("Truncating Dialogporten search tag for correspondence {CorrespondenceId} from {OriginalLength} to 63 characters", correspondence.Id, trimmed.Length);
+                trimmed = trimmed.Substring(0, 63);
+            }
+            list.Add(new SearchTag() { Value = trimmed });
+            return list;
+        }
+
+
+        private static List<Activity> GetActivitiesForMigratedCorrespondence(CorrespondenceEntity correspondence, Dictionary<Guid, string> partyUrnsByPartyUuid, string? openedActivityIdempotencyKey = null, string? confirmedActivityIdempotencyKey = null, List<Activity>? forwardingActivities = null)
+        {
+            List<Activity> activities = new();
+            var orderedStatuses = correspondence.Statuses.OrderBy(s => s.StatusChanged);
+
+            var readStatus = orderedStatuses.FirstOrDefault(s => s.Status == CorrespondenceStatus.Read);
+            if (readStatus != null && !string.IsNullOrWhiteSpace(openedActivityIdempotencyKey))
+            {
+                activities.Add(GetActivityFromStatus(correspondence, readStatus, partyUrnsByPartyUuid, openedActivityIdempotencyKey));
+            }
+
+            var confirmedStatus = orderedStatuses.FirstOrDefault(s => s.Status == CorrespondenceStatus.Confirmed);
+            if (confirmedStatus != null && !string.IsNullOrWhiteSpace(confirmedActivityIdempotencyKey))
+            {
+                activities.Add(GetActivityFromStatus(correspondence, confirmedStatus, partyUrnsByPartyUuid, confirmedActivityIdempotencyKey));
+            }
+
+            activities.AddRange(GetActivitiesFromNotifications(correspondence));
+
+            if (forwardingActivities != null)
+            {
+                activities.AddRange(forwardingActivities);
+            }
+
+            return activities.OrderBy(a => a.CreatedAt).ToList();
+        }
+
+        private static Activity GetActivityFromStatus(CorrespondenceEntity correspondence, CorrespondenceStatusEntity status, Dictionary<Guid, string> partyUrnsByPartyUuid, string? activityId = null)
+        {
+            bool isConfirmation = status.Status == CorrespondenceStatus.Confirmed;
+
+
+            // Look up the correct actor URN for the party who performed this action
+            if (!partyUrnsByPartyUuid.TryGetValue(status.PartyUuid, out var actorId))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to find party URN for PartyUuid {status.PartyUuid} in activity for correspondence {correspondence.Id}. " +
+                    $"Status: {status.Status}, StatusChanged: {status.StatusChanged}. " +
+                    "This indicates a data inconsistency - the party should have been looked up before creating the dialog.");
+            }
+
+            Activity activity = new Activity
+            {
+                Id = string.IsNullOrWhiteSpace(activityId) ? Uuid.NewDatabaseFriendly(Database.PostgreSql).ToString() : activityId,
+                PerformedBy = new PerformedBy()
+                {
+                    ActorId = actorId,
+                    ActorType = "PartyRepresentative",
+                },
+                Description = []
+            };
+            activity.CreatedAt = status.StatusChanged;
+            activity.Type = isConfirmation ? "CorrespondenceConfirmed" : "CorrespondenceOpened";
+
+            return activity;
+        }
+
+        private static List<Activity> GetActivitiesFromNotifications(CorrespondenceEntity correspondence)
+        {
+            List<Activity> notificationActivities = new List<Activity>();
+            foreach (var notification in correspondence.Notifications.Where(n => n.Altinn2NotificationId != null))
+            {
+                notificationActivities.Add(GetActivityFromAltinn2Notification(correspondence, notification));
+            }
+
+            return notificationActivities;
+        }
+
+        private static Activity GetActivityFromAltinn2Notification(CorrespondenceEntity correspondence, CorrespondenceNotificationEntity notification)
+        {
+            string[] tokens = [];
+            if (notification.NotificationAddress != null)
+            {
+                tokens = [notification.NotificationAddress, notification.NotificationChannel == NotificationChannel.Email ? "Email" : "SMS"];
+            }
+
+            // Choose the appropriate text type based on whether this is a reminder notification
+            var textType = notification.IsReminder ? DialogportenTextType.NotificationReminderSent : DialogportenTextType.NotificationSent;
+
+
+            Activity activity = new Activity(){
+                Id = Uuid.NewDatabaseFriendly(Database.PostgreSql).ToString(),
+                PerformedBy = new PerformedBy()
+                {
+                    ActorType = "ServiceOwner"
+                },
+                Description =
+            [
+                new ()
+                {
+                    LanguageCode = "nb",
+                    Value = DialogportenText.GetDialogportenText(textType, Enums.DialogportenLanguageCode.NB, tokens)
+                },
+                new ()
+                {
+                    LanguageCode = "nn",
+                    Value = DialogportenText.GetDialogportenText(textType, Enums.DialogportenLanguageCode.NN, tokens)
+                },
+                new ()
+                {
+                    LanguageCode = "en",
+                    Value = DialogportenText.GetDialogportenText(textType, Enums.DialogportenLanguageCode.EN, tokens)
+                },
+            ]
+            };
+            activity.CreatedAt = notification.NotificationSent ?? notification.RequestedSendTime;
+            activity.Type = "Information";
+
+            return activity;
+        }
+
+        private static string GetDownloadAttachmentEndpoint(string baseUrl, Guid correspondenceId, Guid attachmentId)
+        {
+            return $"{baseUrl.Trim('/')}/correspondence/api/v1/correspondence/{correspondenceId}/attachment/{attachmentId}/download";
+        }
+
+        private static string GetDownloadAllAttachmentsEndpoint(string baseUrl, Guid correspondenceId)
+        {
+            return $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondenceId}/attachments/downloadall";
+        }
+        private static List<ApiAction> GetApiActionsForCorrespondence(string baseUrl, CorrespondenceEntity correspondence)
+        {
+            var apiActions = new List<ApiAction>
+            {
+                new ApiAction()
+                {
+                    Action = "read",
+                    Name = "getCorrespondence",
+                    Endpoints = new List<Endpoint>()
+                    {
+                        new Endpoint()
+                        {
+                            HttpMethod = "GET",
+                            Url = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}"
+                        }
+                    },
+
+                },
+                new ApiAction()
+                {
+                    Action = "write",
+                    Name = "purgeCorrespondence",
+                    Endpoints = new List<Endpoint>()
+                    {
+                        new Endpoint()
+                        {
+                            HttpMethod = "DELETE",
+                            Url = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/purge"
+                        }
+                    }
+                }
+            };
+            if (correspondence.IsConfirmationNeeded) apiActions.Add(new ApiAction()
+            {
+                Action = "write",
+                Name = "confirmCorrespondence",
+                Endpoints = new List<Endpoint>()
+                    {
+                        new Endpoint()
+                        {
+                            HttpMethod = "POST",
+                            Url = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/confirm"
+                        }
+                    }
+            });
+
+            foreach (var attachment in correspondence.Content.Attachments)
+            {
+                apiActions.Add(new ApiAction()
+                {
+                    Action = "read",
+                    Name = "downloadCorrespondenceAttachment",
+                    Endpoints = new List<Endpoint>()
+                    {
+                        new Endpoint()
+                        {
+                            HttpMethod = "GET",
+                            Url = GetDownloadAttachmentEndpoint(baseUrl, correspondence.Id, attachment.AttachmentId)
+                        }
+                    }
+                });
+            }
+            return apiActions;
+        }
+
+        private static List<GuiAction> GetGuiActionsForCorrespondence(string baseUrl, CorrespondenceEntity correspondence)
+        {
+            var guiActions = new List<GuiAction>();
+
+            // Add ReplyOptions as GUI actions first
+            if (correspondence.ReplyOptions != null && correspondence.ReplyOptions.Any() && correspondence.ReplyOptions.Count <= 3)
+            {
+                // Add each ReplyOption from the request
+                foreach (var replyOption in correspondence.ReplyOptions)
+                {
+                    guiActions.Add(new GuiAction()
+                    {
+                        Title = new List<Title>()
+                        {
+                            new Title()
+                            {
+                                LanguageCode = "nb",
+                                MediaType = "text/plain",
+                                Value = replyOption.LinkText ?? "Gå til tjeneste"
+                            },
+                            new Title()
+                            {
+                                LanguageCode = "nn",
+                                MediaType = "text/plain",
+                                Value = replyOption.LinkText ?? "Gå til teneste"
+                            },
+                            new Title()
+                            {
+                                LanguageCode = "en",
+                                MediaType = "text/plain",
+                                Value = replyOption.LinkText ?? "Go to service"
+                            }
+                        },
+                        Action = "read",
+                        Url = replyOption.LinkURL,
+                        HttpMethod = "GET",
+                        Priority = "Tertiary"
+                    });
+                }
+            }
+            if (correspondence.IsConfirmationNeeded && !correspondence.Statuses.Any(s => s.Status == CorrespondenceStatus.Confirmed))
+            {
+                guiActions.Add(new GuiAction()
+                {
+                    Title = new List<Title>()
+                    {
+                        new Title()
+                        {
+                            LanguageCode = "nb",
+                            MediaType = "text/plain",
+                            Value = "Bekreft"
+                        },
+                        new Title()
+                        {
+                            LanguageCode = "nn",
+                            MediaType = "text/plain",
+                            Value = "Bekreft"
+                        },
+                        new Title()
+                        {
+                            LanguageCode = "en",
+                            MediaType = "text/plain",
+                            Value = "Confirm"
+                        },
+                    },
+                    Action = "read",
+                    Url = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/confirm",
+                    HttpMethod = "POST",
+                    Priority = "Primary"
+                });
+            }
+        
+            guiActions.Add(new GuiAction()
+            {
+                Title = new List<Title>()
+                {
+                    new Title()
+                    {
+                        LanguageCode = "nb",
+                        MediaType = "text/plain",
+                        Value = "Slett"
+                    },
+                    new Title()
+                    {
+                        LanguageCode = "nn",
+                        MediaType = "text/plain",
+                        Value = "Slett"
+                    },
+                    new Title()
+                    {
+                        LanguageCode = "en",
+                        MediaType = "text/plain",
+                        Value = "Purge"
+                    },
+                },
+                Action = "read",
+                IsDeleteDialogAction = true,
+                Url = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/purge",
+                HttpMethod = "DELETE",
+                Priority = "Tertiary"
+            });
+
+            return guiActions;
+        }
+
+        private static List<Attachment> GetAttachmentsForCorrespondence(string baseUrl, CorrespondenceEntity correspondence, bool enableDownloadAll = false)
+        {
+            var baseTimestamp = DateTimeOffset.UtcNow;
+            var attachments = correspondence.Content.Attachments.Select((correspondenceAttachment, index) =>
+            {
+                var attachmentFileName = correspondenceAttachment.Attachment?.FileName;
+                var mediaType = DialogportenAttachmentMediaTypeMapper.GetDialogportenAttachmentMediaTypeForFileName(attachmentFileName);
+
+                var attachment = new Attachment
+                {
+                    Id = Guid.CreateVersion7(baseTimestamp.AddMilliseconds(index + 1)).ToString(),
+                    DisplayName = new List<DisplayName>
+                    {
+                        new DisplayName
+                        {
+                            LanguageCode = correspondence.Content.Language,
+                            Value = correspondenceAttachment!.Attachment?.DisplayName ?? correspondenceAttachment!.Attachment!.FileName!
+                        }
+                    },
+                    Urls = new List<DialogUrl>
+                    {
+                        new DialogUrl
+                        {
+                            ConsumerType = "Gui",
+                            MediaType = mediaType,
+                            Url = GetDownloadAttachmentEndpoint(baseUrl, correspondence.Id, correspondenceAttachment.AttachmentId)
+                        }
+                    },
+                    AuthorizationContext = DialogportenAttachmentAuthorizationContextMapper.GetAuthorizationContextForAttachmentResource(correspondence, correspondenceAttachment.Attachment?.ResourceId)
+                };
+
+                if (correspondenceAttachment.ExpirationTime.HasValue)
+                {
+                    attachment.ExpiresAt = correspondenceAttachment.ExpirationTime.Value;
+                }
+
+                return attachment;
+            }).ToList();
+
+            if (enableDownloadAll
+                && correspondence.Content.Attachments.Count >= 2
+                && correspondence.Content.Attachments.Sum(a => a.Attachment?.AttachmentSize) < 2_000_000_000)
+            {
+                attachments.Insert(0, CreateDownloadAllAttachment(baseUrl, correspondence, Guid.CreateVersion7(baseTimestamp)));
+            }
+
+            return attachments;
+        }
+
+        internal static Attachment CreateDownloadAllAttachment(string baseUrl, CorrespondenceEntity correspondence, Guid id)
+        {
+            // Downloading all requires access to every attachment resource, so gating on any one of them never hides the link from someone allowed to use it
+            var authorizationContext = correspondence.Content.Attachments
+                .Select(correspondenceAttachment => DialogportenAttachmentAuthorizationContextMapper.GetAuthorizationContextForAttachmentResource(correspondence, correspondenceAttachment.Attachment?.ResourceId))
+                .FirstOrDefault(context => context is not null);
+
+            return new Attachment
+            {
+                Id = id.ToString(),
+                DisplayName = new List<DisplayName>
+                {
+                    new DisplayName { LanguageCode = "nb", Value = "Alle vedlegg" },
+                    new DisplayName { LanguageCode = "nn", Value = "Alle vedlegg" },
+                    new DisplayName { LanguageCode = "en", Value = "All attachments" }
+                },
+                Urls = new List<DialogUrl>
+                {
+                    new DialogUrl
+                    {
+                        ConsumerType = "Gui",
+                        MediaType = "application/zip",
+                        Url = GetDownloadAllAttachmentsEndpoint(baseUrl, correspondence.Id)
+                    }
+                },
+                AuthorizationContext = authorizationContext
+            };
+        }
+
+        private static ServiceOwnerContext GetServiceOwnerContextForCorrespondence(CorrespondenceEntity correspondence)
+        {
+            var corrUrn = $"urn:altinn:correspondence-id:{correspondence.Id}";
+            return new ServiceOwnerContext { 
+                ServiceOwnerLabels = new List<ServiceOwnerLabel>
+                {
+                    new ServiceOwnerLabel { Value = corrUrn }
+                }
+             };
+        }
+
+        internal static List<Attachment> GetAttachmentsForDialogPatchRequest(CorrespondenceEntity correspondence, string baseUrl)
+        {
+            var attachments = GetAttachmentsForCorrespondence(baseUrl, correspondence);
+            return attachments;
+        }
+    }
+}

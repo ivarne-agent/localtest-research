@@ -1,0 +1,119 @@
+using Altinn.Correspondence.Application.BatchJobs;
+using Altinn.Correspondence.Application.CheckNotification;
+using Altinn.Correspondence.Application.DownloadAttachment;
+using Altinn.Correspondence.Application.DownloadCorrespondenceAttachment;
+using Altinn.Correspondence.Application.GetAttachmentDetails;
+using Altinn.Correspondence.Application.GetAttachmentOverview;
+using Altinn.Correspondence.Application.GetCorrespondenceDetails;
+using Altinn.Correspondence.Application.GetCorrespondenceOverview;
+using Altinn.Correspondence.Application.GetCorrespondences;
+using Altinn.Correspondence.Application.Helpers;
+using Altinn.Correspondence.Application.InitializeAttachment;
+using Altinn.Correspondence.Application.InitializeCorrespondences;
+using Altinn.Correspondence.Application.InitializeServiceOwner;
+using Altinn.Correspondence.Application.PublishCorrespondence;
+using Altinn.Correspondence.Application.PurgeAttachment;
+using Altinn.Correspondence.Application.PurgeCorrespondence;
+using Altinn.Correspondence.Application.UploadAttachment;
+using Altinn.Correspondence.Application.ConfirmCorrespondence;
+using Altinn.Correspondence.Application.MarkCorrespondenceAsRead;
+using Altinn.Notifications.Core.Helpers;
+using Microsoft.Extensions.DependencyInjection;
+using Altinn.Correspondence.Application.CleanupOrphanedDialogs;
+using Altinn.Correspondence.Application.GenerateReport;
+using Altinn.Correspondence.Application.RestoreSoftDeletedDialogs;
+using Altinn.Correspondence.Application.ExpireAttachment;
+using Altinn.Correspondence.Application.CleanupBruksmonster;
+using Altinn.Correspondence.Application.VerifyCorrespondenceConfirmation;
+using Altinn.Correspondence.Application.SendSlackNotification;
+using Altinn.Correspondence.Application.MaskinportenJwkRotation;
+using Altinn.Correspondence.Application.RepairNotificationDelivery;
+using Altinn.Correspondence.Application.GetUnreadConfidentialCorrespondences;
+using Altinn.Correspondence.Application.UnreadConfidentialCorrespondence;
+using Altinn.Correspondence.Application.ManualRetryNotPublishedCorrespondences;
+using Altinn.Correspondence.Application.DownloadAllCorrespondenceAttachments;
+using Altinn.Correspondence.Application.SmsNotificationLengthStatistics;
+using Altinn.Correspondence.Application.PurgeDialogAndDeleteReminderForReadCorrespondences;
+using Altinn.Correspondence.Core.Services;
+using Altinn.Correspondence.Application.UpdateOldCorrespondencesWithDownloadAll;
+using Altinn.Correspondence.Application.ForwardCorrespondence;
+using Altinn.Correspondence.Application.CheckForwardedCorrespondenceDelivery;
+
+namespace Altinn.Correspondence.Application;
+
+public static class DependencyInjection
+{
+    public static void AddApplicationHandlers(this IServiceCollection services)
+    {
+        // Attachment
+        services.AddScoped<InitializeAttachmentHandler>();
+        services.AddScoped<UploadAttachmentHandler>();
+        services.AddScoped<GetAttachmentDetailsHandler>();
+        services.AddScoped<GetAttachmentOverviewHandler>();
+        services.AddScoped<DownloadAttachmentHandler>();
+        services.AddScoped<PurgeAttachmentHandler>();
+        services.AddScoped<ExpireAttachmentHandler>();
+        services.AddScoped<DownloadAllCorrespondenceAttachmentsHandler>();
+
+        // Correspondence
+        services.AddScoped<InitializeCorrespondencesHandler>();
+        services.AddScoped<PublishCorrespondenceHandler>();
+        services.AddScoped<GetCorrespondencesHandler>();
+        services.AddScoped<GetCorrespondenceDetailsHandler>();
+        services.AddScoped<GetCorrespondenceOverviewHandler>();
+        services.AddScoped<ConfirmCorrespondenceHandler>();
+        services.AddScoped<VerifyCorrespondenceConfirmationHandler>();
+        services.AddScoped<MarkCorrespondenceAsReadHandler>();
+        services.AddScoped<DownloadCorrespondenceAttachmentHandler>();
+        services.AddScoped<PurgeCorrespondenceHandler>();
+        services.AddScoped<ForwardCorrespondenceHandler>();
+        services.AddScoped<CanCorrespondenceBeForwardedHandler>();
+        services.AddScoped<CheckForwardedCorrespondenceDeliveryHandler>();
+
+
+        // Serviceowner
+        services.AddScoped<InitializeServiceOwnerHandler>();
+
+        // Integrations
+        services.AddScoped<MalwareScanResultHandler>();
+        services.AddScoped<CheckNotificationHandler>();
+        services.AddScoped<SendSlackNotificationHandler>();
+
+        // Maintenance
+        services.AddScoped<CleanupOrphanedDialogsHandler>();
+        services.AddScoped<CleanupPerishingDialogs.CleanupPerishingDialogsHandler>();
+        services.AddScoped<CleanupMarkdownAndHTMLInSummary.CleanupMarkdownAndHTMLInSummaryHandler>();
+        services.AddScoped<RestoreSoftDeletedDialogsHandler>();
+        services.AddScoped<CleanupBruksmonsterHandler>();
+        services.AddScoped<MaskinportenJwkRotationHandler>();
+        services.AddScoped<CleanupConfirmedMigratedCorrespondences.CleanupConfirmedMigratedCorrespondencesHandler>();
+        services.AddScoped<EnqueueMissingNotificationSentChecksHandler>();
+        services.AddScoped<CleanupBulkFetchStatuses.CleanupBulkFetchStatusesHandler>();
+        services.AddScoped<ManualRetryNotPublishedCorrespondencesHandler>();
+        services.AddScoped<SmsNotificationLengthStatisticsHandler>();
+        services.AddScoped<PurgeDialogAndDeleteReminderForReadCorrespondencesHandler>();
+        services.AddScoped<UpdateOldCorrespondencesWithDownloadAllHandler>();
+
+        // Statistics & Reporting
+        services.AddScoped<GenerateDailySummaryReportHandler>();
+
+        // Helpers
+        services.AddScoped<AttachmentHelper>();
+        services.AddScoped<UserClaimsHelper>();
+        services.AddScoped<InitializeCorrespondenceHelper>();
+        services.AddScoped<ServiceOwnerHelper>();
+        services.AddScoped<PurgeCorrespondenceHelper>();
+        services.AddScoped<MobileNumberHelper>();
+        services.AddScoped<HangfireScheduleHelper>();
+        services.AddScoped<NotificationMapper>();
+        services.AddScoped<InitializeCorrespondenceValidationHelper>();
+        services.AddScoped<PartyUrnHelper>();
+        services.AddScoped<ComposedEmailHelper>();
+        services.AddScoped<CreateNotificationOrder.CustomRecipientDeduplicationHelper>();
+
+
+        services.AddScoped<IConfidentialReminderDialogSynchronizer, PostgresConfidentialReminderDialogSynchronizer>();
+        services.AddScoped<UnreadConfidentialCorrespondenceHandler>();
+        services.AddScoped<GetUnreadConfidentialCorrespondencesHandler>();
+    }
+}

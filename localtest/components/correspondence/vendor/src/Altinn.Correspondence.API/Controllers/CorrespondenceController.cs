@@ -1,0 +1,757 @@
+using Altinn.Correspondence.API.Swagger;
+using Altinn.Correspondence.API.Models;
+using Altinn.Correspondence.API.Models.Enums;
+using Altinn.Correspondence.API.ValidationAttributes;
+using Altinn.Correspondence.Application;
+using Altinn.Correspondence.Application.CheckNotification;
+using Altinn.Correspondence.Application.ConfirmCorrespondence;
+using Altinn.Correspondence.Application.DownloadCorrespondenceAttachment;
+using Altinn.Correspondence.Application.GetCorrespondenceDetails;
+using Altinn.Correspondence.Application.GetCorrespondenceOverview;
+using Altinn.Correspondence.Application.GetCorrespondences;
+using Altinn.Correspondence.Application.Helpers;
+using Altinn.Correspondence.Application.InitializeCorrespondences;
+using Altinn.Correspondence.Application.MarkCorrespondenceAsRead;
+using Altinn.Correspondence.Application.PurgeCorrespondence;
+using Altinn.Correspondence.Application.ForwardCorrespondence;
+using Altinn.Correspondence.Application.Settings;
+using Altinn.Correspondence.Common.Constants;
+using Altinn.Correspondence.Core.Models.Enums;
+using Altinn.Correspondence.Helpers;
+using Altinn.Correspondence.API.Helpers;
+using Altinn.Correspondence.Mappers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Mvc;
+using Altinn.Authorization.ProblemDetails;
+using System.Text.Json;
+using Altinn.Correspondence.Application.DownloadAllCorrespondenceAttachments;
+using Altinn.Correspondence.Core.Options;
+using Microsoft.Extensions.Options;
+
+namespace Altinn.Correspondence.API.Controllers
+{
+    [ApiController]
+    [Route("correspondence/api/v1/correspondence")]
+    [Authorize]
+    public class CorrespondenceController : Controller
+    {
+        private readonly ILogger<CorrespondenceController> _logger;
+
+        public CorrespondenceController(ILogger<CorrespondenceController> logger)
+        {
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Initialize Correspondences
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.write <br />
+        /// Requires uploads of specified attachments if any before it can be Published
+        /// </remarks>
+        /// <response code="200">Returns metadata about the initialized correspondence</response>
+        /// <response code="400"><ul>
+        /// <li>1002: Message title must be plain text</li>
+        /// <li>1003: Message body must be markdown</li>
+        /// <li>1004: Message summary must be plain text</li>
+        /// <li>1006: Recipients must be unique</li>
+        /// <li>1007: Existing attachment not found</li>
+        /// <li>1008: DueDateTime cannot be prior to today</li>
+        /// <li>1009: DueDateTime cannot be prior to RequestedPublishTime</li>
+        /// <li>1013: Sender cannot delete correspondence that has been published</li>
+        /// <li>1016: DueDateTime is required when confirmation is needed</li>
+        /// <li>1017: The sender of the correspondence must be equal the sender of existing attachments</li>
+        /// <li>1018: Attachment is not published</li>
+        /// <li>1019: The Content field must be provided for the correspondence</li>
+        /// <li>1020: Message title cannot be empty</li>
+        /// <li>1021: Message body cannot be empty</li>
+        /// <li>1022: Message body cannot exceed 30000 characters</li>
+        /// <li>1023: Invalid language chosen. Supported languages is Norsk bokmål (nb), Nynorsk (nn) and English (en)</li>
+        /// <li>1033: The idempotency key must be a valid non-empty GUID</li>
+        /// <li>1035: Reply options must be well-formed URIs and HTTPS with a max length of 255 characters</li>
+        /// <li>1036: ResourceId must match an existing resource in the resource registry</li>
+        /// <li>1037: Message title cannot exceed 255 characters</li>
+        /// <li>1038: A correspondence cannot contain more than 100 attachments in total</li>
+        /// <li>1039: Message sender must be plain text</li>
+        /// <li>1042: Message summary, if not null, must be between 0 and 255 characters long</li>
+        /// <li>1044: The following recipients lack required roles to read the correspondence: {recipients}</li>
+        /// <li>1045: Transmission correspondences only support one recipient</li>
+        /// <li>1046: The recipient of the correspondence must be equal to the party of the dialog of the transmission</li>
+        /// <li>1047: Idempotency key is not supported for requests with multiple recipients</li>
+        /// <li>1048: DialogId must be a valid non-empty GUID</li>
+        /// <li>1050: The service owner of a transmission can not differ from the service owner of the dialog</li>
+        /// <li>1052: Only one DialogportenTransmissionType external reference is allowed</li>
+        /// <li>1053: DialogportenTransmissionType external reference requires a DialogportenDialogId external reference</li>
+        /// <li>1054: Dialogporten dialog with the given id was not found</li>
+        /// <li>1055: Existing attachment is expiring within 6 hour(s) and cannot be attached to a new correspondence</li>
+        /// <li>3001: The requested notification template with the given language was not found</li>
+        /// <li>3002: Email body and subject must be provided when sending email notifications</li>
+        /// <li>3003: Reminder email body and subject must be provided when sending reminder email notifications</li>
+        /// <li>3004: SMS body must be provided when sending SMS notifications</li>
+        /// <li>3005: Reminder SMS body must be provided when sending reminder SMS notifications</li>
+        /// <li>3006: Email body, subject and SMS body must be provided when sending preferred notifications</li>
+        /// <li>3007: Reminder email body, subject and SMS body must be provided when sending reminder preferred notifications</li>
+        /// <li>3011: Invalid email provided for custom recipient</li>
+        /// <li>3012: Invalid mobile number provided. Mobile number can contain only '+' and numeric characters, and it must adhere to the E.164 standard</li>
+        /// <li>3015: Recipient overrides with email or mobile number are not allowed when using notification recipient name because of name lookup</li>
+        /// <li>3017: Custom recipient with multiple recipients is not allowed</li>
+        /// <li>3018: Custom recipient with multiple identifiers is not allowed</li>
+        /// <li>3019: Custom recipient without identifier is not allowed</li>
+        /// <li>3024: Email body, subject and SMS body must be provided when sending email and SMS notifications</li>
+        /// <li>3025: Reminder email body, subject and SMS body must be provided when sending reminder email and SMS notifications</li>
+        /// <li>4002: Could not retrieve party uuid from lookup in Altinn Register</li>
+        /// <li>4009: Resource type is not supported. Resource must be of type CorrespondenceService</li>
+        /// </ul></response>
+        /// <response code="401"><ul>
+        /// <li>4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</li>
+        /// </ul></response>
+        /// <response code="404"><ul>
+        /// <li>1029: Could not find partyId for the following recipients: {recipients}</li>
+        /// <li>3001: The requested notification template with the given language was not found</li>
+        /// </ul></response>
+        /// <response code="409"><ul>
+        /// <li>1034: A correspondence with the same idempotent key already exists</li>
+        /// </ul></response>
+        /// <response code="422"><ul>
+        /// <li>1030: Recipient {recipientId} has reserved themselves from public correspondences. Can be overridden using the 'IgnoreReservation' flag</li>
+        /// </ul></response>
+        [HttpPost]
+        [Consumes("application/json")]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(InitializeCorrespondencesResponseExt), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        [Authorize(Policy = AuthorizationConstants.Sender)]
+        public async Task<ActionResult<InitializeCorrespondencesResponseExt>> InitializeCorrespondences(
+            InitializeCorrespondencesExt request,
+            [FromServices] InitializeCorrespondencesHandler handler,
+            CancellationToken cancellationToken)
+        {
+            LogContextHelpers.EnrichLogsWithInsertCorrespondence(request.Correspondence);
+            _logger.LogInformation("Initialize correspondences");
+            
+            var result = InitializeCorrespondencesMapper.MapToRequest(request);
+            if (result.IsT1)
+                return BadRequest(result.AsT1.Message); 
+            var mappedRequest = result.AsT0;
+            var commandResult = await handler.Process(mappedRequest, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(InitializeCorrespondencesMapper.MapToExternal(data)),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Initialize Correspondences and uploads attachments in the same request
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.write <br />
+        /// Requires uploads of specified attachments if any before it can be Published. <br />
+        /// Supports file sizes up to 2 GB each <br />
+        /// </remarks>
+        /// <param name="attachments">The attachment files as binary parts, one per entry in Correspondence.Content.Attachments, each part named with the FileName set in its entry</param>
+        /// <response code="200">Returns metadata about the initialized correspondence</response>
+        /// <response code="400"><ul>
+        /// <li>1002: Message title must be plain text</li>
+        /// <li>1003: Message body must be markdown</li>
+        /// <li>1004: Message summary must be plain text</li>
+        /// <li>1005: Mismatch between uploaded files and attachment metadata</li>
+        /// <li>1006: Recipients must be unique</li>
+        /// <li>1007: Existing attachment not found</li>
+        /// <li>1008: DueDateTime cannot be prior to today</li>
+        /// <li>1009: DueDateTime cannot be prior to RequestedPublishTime</li>
+        /// <li>1013: Sender cannot delete correspondence that has been published</li>
+        /// <li>1016: DueDateTime is required when confirmation is needed</li>
+        /// <li>1017: The sender of the correspondence must be equal the sender of existing attachments</li>
+        /// <li>1018: Attachment is not published</li>
+        /// <li>1019: The Content field must be provided for the correspondence</li>
+        /// <li>1020: Message title cannot be empty</li>
+        /// <li>1021: Message body cannot be empty</li>
+        /// <li>1022: Message body cannot exceed 30000 characters</li>
+        /// <li>1023: Invalid language chosen. Supported languages is Norsk bokmål (nb), Nynorsk (nn) and English (en)</li>
+        /// <li>1033: The idempotency key must be a valid non-empty GUID</li>
+        /// <li>1035: Reply options must be well-formed URIs and HTTPS with a max length of 255 characters</li>
+        /// <li>1036: ResourceId must match an existing resource in the resource registry</li>
+        /// <li>1037: Message title cannot exceed 255 characters</li>
+        /// <li>1038: A correspondence cannot contain more than 100 attachments in total</li>
+        /// <li>1039: Message sender must be plain text</li>
+        /// <li>1042: Message summary, if not null, must be between 0 and 255 characters long</li>
+        /// <li>1044: The following recipients lack required roles to read the correspondence: {recipients}</li>
+        /// <li>1045: Transmission correspondences only support one recipient</li>
+        /// <li>1046: The recipient of the correspondence must be equal to the party of the dialog of the transmission</li>
+        /// <li>1047: Idempotency key is not supported for requests with multiple recipients</li>
+        /// <li>1048: DialogId must be a valid non-empty GUID</li>
+        /// <li>1050: The service owner of a transmission can not differ from the service owner of the dialog</li>
+        /// <li>1052: Only one DialogportenTransmissionType external reference is allowed</li>
+        /// <li>1053: DialogportenTransmissionType external reference requires a DialogportenDialogId external reference</li>
+        /// <li>1054: Dialogporten dialog with the given id was not found</li>
+        /// <li>1055: Existing attachment is expiring within 6 hour(s) and cannot be attached to a new correspondence</li>
+        /// <li>2001: The requested attachment was not found</li>
+        /// <li>2004: File must have content and has a max file size of 2GB</li>
+        /// <li>2008: Checksum mismatch</li>
+        /// <li>2009: Could not get data location url</li>
+        /// <li>2010: Filename is missing</li>
+        /// <li>2011: Filename is too long</li>
+        /// <li>2012: Filename contains invalid characters</li>
+        /// <li>2013: Filetype not allowed</li>
+        /// <li>2017: Attachment expirationTime must be at least 14 days from now (1 day in non-production environments)</li>
+        /// <li>3001: The requested notification template with the given language was not found</li>
+        /// <li>3002: Email body and subject must be provided when sending email notifications</li>
+        /// <li>3003: Reminder email body and subject must be provided when sending reminder email notifications</li>
+        /// <li>3004: SMS body must be provided when sending SMS notifications</li>
+        /// <li>3005: Reminder SMS body must be provided when sending reminder SMS notifications</li>
+        /// <li>3006: Email body, subject and SMS body must be provided when sending preferred notifications</li>
+        /// <li>3007: Reminder email body, subject and SMS body must be provided when sending reminder preferred notifications</li>
+        /// <li>3011: Invalid email provided for custom recipient</li>
+        /// <li>3012: Invalid mobile number provided. Mobile number can contain only '+' and numeric characters, and it must adhere to the E.164 standard</li>
+        /// <li>3015: Recipient overrides with email or mobile number are not allowed when using notification recipient name because of name lookup</li>
+        /// <li>3017: Custom recipient with multiple recipients is not allowed</li>
+        /// <li>3018: Custom recipient with multiple identifiers is not allowed</li>
+        /// <li>3019: Custom recipient without identifier is not allowed</li>
+        /// <li>3024: Email body, subject and SMS body must be provided when sending email and SMS notifications</li>
+        /// <li>3025: Reminder email body, subject and SMS body must be provided when sending reminder email and SMS notifications</li>
+        /// <li>4002: Could not retrieve party uuid from lookup in Altinn Register</li>
+        /// <li>4009: Resource type is not supported. Resource must be of type CorrespondenceService</li>
+        /// </ul></response>
+        /// <response code="401"><ul>
+        /// <li>4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</li>
+        /// </ul></response>
+        /// <response code="404"><ul>
+        /// <li>1029: Could not find partyId for the following recipients: {recipients}</li>
+        /// <li>3001: The requested notification template with the given language was not found</li>
+        /// </ul></response>
+        /// <response code="408"><ul>
+        /// <li>2022: Upload request timed out due to data arriving too slowly</li>
+        /// </ul></response>
+        /// <response code="409"><ul>
+        /// <li>1034: A correspondence with the same idempotent key already exists</li>
+        /// </ul></response>
+        /// <response code="422"><ul>
+        /// <li>1030: Recipient {recipientId} has reserved themselves from public correspondences. Can be overridden using the 'IgnoreReservation' flag</li>
+        /// </ul></response>
+        /// <response code="502"><ul>
+        /// <li>2002: Error occurred during upload</li>
+        /// </ul></response>
+        [HttpPost]
+        [Route("upload")]
+        [Consumes("multipart/form-data")]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(InitializeCorrespondencesResponseExt), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
+        [Authorize(Policy = AuthorizationConstants.Sender)]
+        public async Task<ActionResult<InitializeCorrespondencesResponseExt>> UploadCorrespondences(
+            [FromForm] InitializeCorrespondencesExt request,
+            [FromForm] List<IFormFile> attachments,
+            [FromServices] InitializeCorrespondencesHandler handler,
+            CancellationToken cancellationToken)
+        {
+            LogContextHelpers.EnrichLogsWithInsertCorrespondence(request.Correspondence);
+            _logger.LogInformation("Insert correspondences with attachment data");
+            _logger.LogDebug("Request: " + JsonSerializer.Serialize(request));
+
+            var result = InitializeCorrespondencesMapper.MapToRequest(request, attachments);
+            if (result.IsT1)
+                return BadRequest(result.AsT1.Message); 
+            var mappedRequest = result.AsT0;
+            var commandResult = await handler.Process(mappedRequest, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(InitializeCorrespondencesMapper.MapToExternal(data)),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Get information about the Correspondence and its current status
+        /// </summary>
+        /// <remarks>
+        ///  One of the scopes: <br />
+        ///  - altinn:correspondence.read <br />
+        ///  - altinn:correspondence.write <br />
+        /// Mostly for use by recipients and occasional status checks
+        /// </remarks>
+        /// <response code="200">Returns an overview of metadata about the published correspondence</response>
+        /// <response code="400">4002: Could not retrieve party uuid from lookup in Altinn Register</response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404">1001: The requested correspondence was not found</response>
+        [HttpGet]
+        [Route("{correspondenceId}")]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(CorrespondenceOverviewExt), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Authorize(Policy = AuthorizationConstants.SenderOrRecipient)]
+        public async Task<ActionResult<CorrespondenceOverviewExt>> GetCorrespondenceOverview(
+            Guid correspondenceId,
+            [FromServices] GetCorrespondenceOverviewHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Getting Correspondence overview for {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new GetCorrespondenceOverviewRequest()
+            {
+                CorrespondenceId = correspondenceId,
+                OnlyGettingContent = false
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(CorrespondenceOverviewMapper.MapToExternal(data)),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Get more detailed information about the Correspondence and its current status as well as noticiation statuses, if available
+        /// </summary>
+        /// <remarks>
+        ///  One of the scopes: <br />
+        ///  - altinn:correspondence.read <br />
+        ///  - altinn:correspondence.write <br />
+        /// Meant for Senders that want a complete overview of the status and history of the Correspondence, but also available for Receivers
+        /// </remarks>
+        /// <response code="200">Detailed information about the correspondence with current status and status history</response>
+        /// <response code="400">4002: Could not retrieve party uuid from lookup in Altinn Register</response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404">1001: The requested correspondence was not found</response>
+        [HttpGet]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(CorrespondenceDetailsExt), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Route("{correspondenceId}/details")]
+        [Authorize(Policy = AuthorizationConstants.SenderOrRecipient)]
+        public async Task<ActionResult<CorrespondenceDetailsExt>> GetCorrespondenceDetails(
+            Guid correspondenceId,
+            [FromServices] GetCorrespondenceDetailsHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Getting Correspondence details for {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new GetCorrespondenceDetailsRequest()
+            {
+                CorrespondenceId = correspondenceId,
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(CorrespondenceDetailsMapper.MapToExternal(data)),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Gets the message body of a correspondence
+        /// </summary>
+        /// <remarks>
+        /// Meant for use with Felles Arbeidsflate
+        /// </remarks>
+        /// <returns>Message body in markdown format</returns>
+        [HttpGet]
+        [Route("{correspondenceId}/content")]
+        [Produces("text/plain")]
+        [Authorize(Policy = AuthorizationConstants.Recipient)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        [HideFromPublicApi]
+        public async Task<ActionResult> GetCorrespondenceContent(
+            Guid correspondenceId,
+            [FromServices] GetCorrespondenceOverviewHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Getting Correspondence content for {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new GetCorrespondenceOverviewRequest()
+            {
+                CorrespondenceId = correspondenceId,
+                OnlyGettingContent = true
+            }, HttpContext.User, cancellationToken);
+            return commandResult.Match(
+                data =>
+                {
+                    return Ok(MessageBodyHelpers.ConvertMixedToMarkdown(data.Content!.MessageBody));
+                },
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Gets a list of Correspondences for the authenticated user
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br />
+        /// - altinn:correspondence.read <br />
+        /// - altinn:correspondence.write <br />
+        /// Meant for Receivers, but also available for Senders to track Correspondences
+        /// </remarks>
+        /// <response code="200">Returns a list of Correspondences</response>   
+        /// <response code="400"><ul>
+        /// <li>1027: From date cannot be after to date</li>
+        /// <li>4002: Could not retrieve party uuid from lookup in Altinn Register</li>
+        /// </ul></response>
+        /// <response code="401"><ul>
+        /// <li>4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</li>
+        /// <li>4006: Could not determine the caller</li>
+        /// </ul></response>
+        [HttpGet]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(CorrespondencesExt), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [Authorize(Policy = AuthorizationConstants.SenderOrRecipient)]
+        public async Task<ActionResult<CorrespondencesExt>> GetCorrespondences(
+            [FromQuery] string resourceId,
+            [FromQuery] DateTimeOffset? from,
+            [FromQuery] DateTimeOffset? to,
+            [FromServices] GetCorrespondencesHandler handler,
+            [FromQuery] CorrespondenceStatusExt? status,
+            [FromQuery, RequiredEnum] CorrespondencesRoleType role,
+            [FromQuery, OnBehalfOf] string? onBehalfOf,
+            [FromQuery] string? sendersReference,
+            [FromQuery] Guid? idempotentKey,
+            [FromQuery] int? altinn2CorrespondenceId,
+            CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Get correspondences for receiver");
+
+            var commandResult = await handler.Process(new GetCorrespondencesRequest
+            {
+                ResourceId = resourceId,
+                From = from,
+                To = to,
+                Status = status is null ? null : (CorrespondenceStatus)status,
+                Role = role,
+                OnBehalfOf = onBehalfOf,
+                SendersReference = sendersReference,
+                IdempotentKey = idempotentKey,
+                Altinn2CorrespondenceId = altinn2CorrespondenceId
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Mark Correspondence found by ID as read
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.read <br />
+        /// </remarks>
+        /// <response code="200">the Id of the correspondence</response>
+        /// <response code="400">4002: Could not retrieve party uuid from lookup in Altinn Register</response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404">1001: The requested correspondence was not found</response>
+        [HttpPost]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Authorize(Policy = AuthorizationConstants.Recipient)]
+        [Route("{correspondenceId}/markasread")]
+
+        public async Task<ActionResult> MarkAsRead(
+            Guid correspondenceId,
+            [FromServices] MarkCorrespondenceAsReadHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Marking Correspondence as read for {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new MarkCorrespondenceAsReadRequest
+            {
+                CorrespondenceId = correspondenceId
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Mark Correspondence found by ID as confirmed
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.read <br />
+        /// </remarks>
+        /// <response code="200">the Id of the correspondence</response>
+        /// <response code="400">4002: Could not retrieve party uuid from lookup in Altinn Register</response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404">1001: The requested correspondence was not found</response>
+        [HttpPost]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Authorize(Policy = AuthorizationConstants.Recipient)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        [Route("{correspondenceId}/confirm")]
+        public async Task<ActionResult> Confirm(
+            Guid correspondenceId,
+            [FromServices] ConfirmCorrespondenceHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Marking Correspondence as confirmed for {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new ConfirmCorrespondenceRequest
+            {
+                CorrespondenceId = correspondenceId
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Delete Correspondence found by ID
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.read <br />
+        /// - altinn:correspondence.write <br /> (Can only purge before the correspondence is published)
+        /// </remarks>
+        /// <response code="200">the Id of the correspondence</response>
+        /// <response code="400"><ul>
+        /// <li>1013: Sender cannot delete correspondence that has been published</li>
+        /// <li>1014: Correspondence has already been purged</li>
+        /// <li>1015: Could not retrieve highest status for correspondence</li>
+        /// <li>1026: Cannot archive or delete a correspondence which has not been confirmed when confirmation is required</li>
+        /// <li>1043: Cannot purge correspondence linked to a Dialogporten Transmission</li>
+        /// <li>4002: Could not retrieve party uuid from lookup in Altinn Register</li> 
+        /// </ul></response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404">1001: The requested correspondence was not found</response>
+        [HttpDelete]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Route("{correspondenceId}/purge")]
+        [Authorize(Policy = AuthorizationConstants.SenderOrRecipient)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        public async Task<ActionResult> Purge(
+            Guid correspondenceId,
+            [FromServices] PurgeCorrespondenceHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Purging Correspondence with id: {correspondenceId}", correspondenceId.ToString());
+
+            var commandResult = await handler.Process(new PurgeCorrespondenceRequest()
+            {
+                CorrespondenceId = correspondenceId
+            }, HttpContext.User, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+
+        /// <summary>
+        /// Downloads the attachment data
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.read <br />
+        /// </remarks>
+        /// <response code="200">Returns the attachment file</response>
+        /// <response code="400">4002: Could not retrieve party uuid from lookup in Altinn Register</response>
+        /// <response code="401">4001: You must use an Altinn token, DialogToken or log in to IDPorten as someone with access to the resource and organization in Altinn Authorization</response>
+        /// <response code="404"><ul>
+        /// <li>1001: The requested correspondence was not found</li>
+        /// <li>2001: The requested attachment was not found</li>
+        /// </ul></response>
+        [HttpGet]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK, "application/octet-stream")]
+        [ProducesResponseType(typeof(AltinnProblemDetails), StatusCodes.Status401Unauthorized, "application/json")]
+        [ProducesResponseType(typeof(AltinnProblemDetails), StatusCodes.Status404NotFound, "application/json")]
+        [Route("{correspondenceId}/attachment/{attachmentId}/download")]
+        [Authorize(Policy = AuthorizationConstants.DownloadAttachmentPolicy, AuthenticationSchemes = AuthorizationConstants.AllSchemes)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        public async Task<ActionResult> DownloadCorrespondenceAttachmentData(
+            Guid correspondenceId,
+            Guid attachmentId,
+            [FromServices] DownloadCorrespondenceAttachmentHandler handler,
+            CancellationToken cancellationToken)
+        {
+            var commandResult = await handler.Process(new DownloadCorrespondenceAttachmentRequest()
+            {
+                CorrespondenceId = correspondenceId,
+                AttachmentId = attachmentId
+            }, HttpContext.User, cancellationToken);
+            return commandResult.Match(
+                result =>
+                {
+                    var contentType = FileDownloadResponseHelper.GetContentTypeFromFileName(result.FileName);
+                    var extension = Path.GetExtension(result.FileName)?.ToLowerInvariant();
+
+                    if (!string.IsNullOrWhiteSpace(extension) && ApplicationConstants.InlineFileTypes.Contains(extension))
+                    {
+                        FileDownloadResponseHelper.SetInlineContentDisposition(Response, result.FileName);
+                        return File(result.Stream, contentType);
+                    }
+
+                    return File(result.Stream, contentType, result.FileName);
+                },
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Downloads all attachments for a correspondence as a zip file
+        /// </summary>
+        [HttpGet]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK, "application/zip")]
+        [ProducesResponseType(typeof(AltinnProblemDetails), StatusCodes.Status401Unauthorized, "application/json")]
+        [ProducesResponseType(typeof(AltinnProblemDetails), StatusCodes.Status404NotFound, "application/json")]
+        [Route("{correspondenceId}/attachments/downloadall")]
+        [Authorize(Policy = AuthorizationConstants.DownloadAttachmentPolicy, AuthenticationSchemes = AuthorizationConstants.AllSchemes)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        public async Task<ActionResult> DownloadAllCorrespondenceAttachments(
+            Guid correspondenceId,
+            [FromServices] DownloadAllCorrespondenceAttachmentsHandler handler,
+            [FromServices] IOptions<GeneralSettings> generalSettings,
+            CancellationToken cancellationToken)
+        {
+            if (!generalSettings.Value.EnableDownloadAll)
+                return Problem(
+                    detail: "Download all attachments is not available in this environment.",
+                    statusCode: StatusCodes.Status404NotFound);
+
+            var commandResult = await handler.Process(new DownloadAllCorrespondenceAttachmentsRequest()
+            {
+                CorrespondenceId = correspondenceId
+            }, HttpContext.User, cancellationToken);
+            return commandResult.Match(
+                result => new FileCallbackResult("application/zip", result.ZipFileName, result.ContentLength,
+                    (stream, ct) => handler.WriteZip(result.Entries, stream, ct)),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Check if a reminder notification should be sent
+        /// </summary>
+        [HttpGet]
+        [Route("{correspondenceId}/notification/check")]
+        [Authorize(Policy = AuthorizationConstants.NotificationCheck)]
+        [HideFromPublicApi]
+        public async Task<ActionResult> CheckNotification(
+            Guid correspondenceId,
+            [FromServices] CheckNotificationHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Checking reminder notification for Correspondence with id: {correspondenceId}", correspondenceId.ToString());
+            var commandResult = await handler.Process(correspondenceId, HttpContext.User, isMainNotification: false, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Check if the main notification should be sent
+        /// </summary>
+        /// <remarks>
+        /// Unlike the reminder check, a read correspondence still gets its main notification. Only a correspondence that
+        /// is purged, failed or never published suppresses it.
+        /// </remarks>
+        [HttpGet]
+        [Route("{correspondenceId}/notification/check/main")]
+        [Authorize(Policy = AuthorizationConstants.NotificationCheck)]
+        [HideFromPublicApi]
+        public async Task<ActionResult> CheckMainNotification(
+            Guid correspondenceId,
+            [FromServices] CheckNotificationHandler handler,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Checking main notification for Correspondence with id: {correspondenceId}", correspondenceId.ToString());
+            var commandResult = await handler.Process(correspondenceId, HttpContext.User, isMainNotification: true, cancellationToken);
+
+            return commandResult.Match(
+                data => Ok(data),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Forwards a correspondence to a user-provided email address.
+        /// </summary>
+        [HttpPost]
+        [Produces("application/json")]
+        [Route("{correspondenceId}/forward")]
+        [Authorize(Policy = AuthorizationConstants.Recipient)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        public async Task<ActionResult> ForwardCorrespondence(
+            Guid correspondenceId,
+            [FromBody] ForwardCorrespondenceRequestExt request,
+            [FromServices] ForwardCorrespondenceHandler handler,
+            CancellationToken cancellationToken
+        )
+        {
+            _logger.LogInformation("Processing forwarding request for correspondence: {correspondenceId}", correspondenceId);
+            var commandResult = await handler.Process(new ForwardCorrespondenceRequest()
+            {
+                CorrespondenceId = correspondenceId,
+                ForwardTo = request.ForwardTo,
+                ForwardingText = request.ForwardingText,
+                IncludeAttachments = request.IncludeAttachments
+            }, HttpContext.User, cancellationToken);
+            return commandResult.Match(
+                result => Ok(result),
+                Problem
+            );
+        }
+
+        /// <summary>
+        /// Used by AF to check if a correspondence can be forwarded to a user-provided email address.
+        /// </summary>
+        /// <remarks>
+        /// One of the scopes: <br/>
+        /// - altinn:correspondence.forward.check <br />
+        /// </remarks>
+        [HttpGet]
+        [Produces("application/json")]
+        [Route("{correspondenceId}/forward/check")]
+        [Authorize(Policy = AuthorizationConstants.CheckAllowForwardingPolicy)]
+        [EnableCors(AuthorizationConstants.ArbeidsflateCors)]
+        [HideFromPublicApi]
+        public async Task<ActionResult> CanCorrespondenceBeForwarded(
+            Guid correspondenceId,
+            [FromServices] CanCorrespondenceBeForwardedHandler handler,
+            CancellationToken cancellationToken
+        )
+        {
+            _logger.LogInformation("Checking if correspondence can be forwarded: {correspondenceId}", correspondenceId);
+            var commandResult = await handler.Process(correspondenceId, HttpContext.User, cancellationToken);
+            return commandResult.Match(
+                result => Ok(result),
+                Problem
+            );
+        }
+
+        private ActionResult Problem(Error error) => ProblemDetailsHelper.ToProblemResult(error);
+    }
+}

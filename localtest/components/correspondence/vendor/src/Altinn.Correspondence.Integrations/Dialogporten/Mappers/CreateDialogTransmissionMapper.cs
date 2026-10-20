@@ -1,0 +1,156 @@
+using Altinn.Correspondence.Common.Constants;
+using Altinn.Correspondence.Core.Models.Entities;
+using Microsoft.Extensions.Logging;
+using Altinn.Correspondence.Common.Helpers;
+using Altinn.Correspondence.Core.Services.Enums;
+using Altinn.Correspondence.Integrations.Dialogporten.Models;
+using Altinn.Correspondence.Core.Models.Enums;
+
+namespace Altinn.Correspondence.Integrations.Dialogporten.Mappers
+{
+
+    internal static class CreateDialogTransmissionMapper
+    {
+        internal static CreateTransmissionRequest CreateDialogTransmission(CorrespondenceEntity correspondence, string baseUrl, bool includeActivities = false, ILogger? logger = null)
+        {
+            var dialogId = Guid.CreateVersion7().ToString(); // Dialogporten requires time-stamped GUIDs
+            DateTimeOffset? dueAt = correspondence.DueDateTime != default ? correspondence.DueDateTime : null;
+
+            // The problem of DueAt being in the past should only occur for migrated data, as such we are checking includeActivities flag first, since this is only set when making migrated correspondences available.
+            if (includeActivities && dueAt.HasValue && dueAt < DateTimeOffset.Now)
+            {
+                dueAt = null;
+            }
+
+            var typeReference = correspondence.ExternalReferences
+                .FirstOrDefault(reference => reference.ReferenceType == ReferenceType.DialogportenTransmissionType);
+
+            TransmissionType transmissionType = TransmissionType.Information;
+            if (typeReference is not null)
+            {
+                if (Enum.TryParse<TransmissionType>(typeReference.ReferenceValue, ignoreCase: true, out var parsedType))
+                {
+                    transmissionType = parsedType;
+                }
+                else
+                {
+                    throw new ArgumentException($"Correspondence {correspondence.Id} has an invalid Dialogporten Transmission Type external reference: {typeReference.ReferenceValue}");
+                }
+            }
+
+            return new CreateTransmissionRequest
+            {
+                Id = dialogId,
+                CreatedAt = correspondence.Created,
+                AuthorizationAttribute = UrnConstants.Resource + ":" + correspondence.ResourceId,
+                IsAuthorized = true,
+                ExternalReference = correspondence.SendersReference,
+                RelatedTransmissionId = null,
+                Type = transmissionType,
+                Sender = CreateTransmissionSender(correspondence),
+                Content = CreateTransmissionContent(correspondence, baseUrl),
+                Attachments = GetAttachmentsForCorrespondence(baseUrl, correspondence),
+            };
+        }
+
+        private static TransmissionContent CreateTransmissionContent(CorrespondenceEntity correspondence, string baseUrl) => new()
+        {
+            Title = new TransmissionTitle()
+            {
+                MediaType = "text/plain",
+                Value = new List<TransmissionValue>
+                {
+                    new TransmissionValue
+                    {
+                        Value = correspondence.Content.MessageTitle, // A required field, DP will throw validation error if empty, but should not be possible to reach this point with empty title
+                        LanguageCode = correspondence.Content.Language,
+                    }
+                }
+            },
+            Summary = string.IsNullOrWhiteSpace(correspondence.Content.MessageSummary) ? null : new TransmissionSummary()
+            {
+                MediaType = "text/plain",
+                Value = new List<TransmissionValue>{
+                    new TransmissionValue
+                    {
+                        Value = TextValidation.StripSummaryForHtmlAndMarkdown(correspondence.Content.MessageSummary),
+                        LanguageCode = correspondence.Content.Language
+                    }
+                }
+            },
+            ContentReference = new TransmissionContentReference
+            {
+                MediaType = "application/vnd.dialogporten.frontchannelembed-url;type=text/markdown",
+                Value = new List<TransmissionValue>
+                {
+                    new TransmissionValue
+                    {
+                        Value = $"{baseUrl.TrimEnd('/')}/correspondence/api/v1/correspondence/{correspondence.Id}/content",
+                        LanguageCode = correspondence.Content.Language
+                    }
+            }
+            }
+        };
+
+        private static List<TransmissionAttachment> GetAttachmentsForCorrespondence(string baseUrl, CorrespondenceEntity correspondence)
+        {
+            var baseTimestamp = DateTimeOffset.UtcNow;
+            return correspondence.Content.Attachments.Select((correspondenceAttachment, index) =>
+            {
+                var attachmentFileName = correspondenceAttachment.Attachment?.FileName;
+                var mediaType = DialogportenAttachmentMediaTypeMapper.GetDialogportenAttachmentMediaTypeForFileName(attachmentFileName);
+
+                var transmissionAttachment = new TransmissionAttachment
+                {
+                    Id = Guid.CreateVersion7(baseTimestamp.AddMilliseconds(index)).ToString(),
+                    DisplayName = new List<TransmissionDisplayName>
+                    {
+                        new TransmissionDisplayName
+                        {
+                            LanguageCode = correspondence.Content.Language,
+                            Value = correspondenceAttachment.Attachment?.DisplayName ?? correspondenceAttachment.Attachment?.FileName ?? string.Empty
+                        }
+                    },
+                    Urls = new List<TransmissionUrl>
+                    {
+                        new TransmissionUrl
+                        {
+                            ConsumerType = "Gui",
+                            MediaType = mediaType,
+                            Url = GetDownloadAttachmentEndpoint(baseUrl, correspondence.Id, correspondenceAttachment.AttachmentId)
+                        }
+                    },
+                    AuthorizationContext = DialogportenAttachmentAuthorizationContextMapper.GetAuthorizationContextForAttachmentResource(correspondence, correspondenceAttachment.Attachment?.ResourceId)
+                };
+
+                if (correspondenceAttachment.ExpirationTime.HasValue)
+                {
+                    transmissionAttachment.ExpiresAt = correspondenceAttachment.ExpirationTime.Value;
+                }
+
+                return transmissionAttachment;
+            }).ToList();
+        }
+        private static string GetDownloadAttachmentEndpoint(string baseUrl, Guid correspondenceId, Guid attachmentId)
+        {
+            return $"{baseUrl.Trim('/')}/correspondence/api/v1/correspondence/{correspondenceId}/attachment/{attachmentId}/download";
+        }
+
+        private static TransmissionSender CreateTransmissionSender(CorrespondenceEntity correspondence)
+        {
+            if (!string.IsNullOrWhiteSpace(correspondence.MessageSender))
+            {
+                return new TransmissionSender
+                {
+                    ActorName = correspondence.MessageSender,
+                    ActorType = nameof(DialogportenActorType.PartyRepresentative)
+                };
+            }
+            return new TransmissionSender
+            {
+                ActorType = nameof(DialogportenActorType.ServiceOwner),
+
+            };
+        }
+    }
+}

@@ -1,0 +1,46 @@
+using Altinn.Correspondence.API.Models;
+using Altinn.Correspondence.API.Models.Enums;
+using Altinn.Correspondence.Application.GetCorrespondenceOverview;
+
+namespace Altinn.Correspondence.Mappers;
+
+internal static class CorrespondenceOverviewMapper
+{
+    internal static CorrespondenceOverviewExt MapToExternal(GetCorrespondenceOverviewResponse correspondenceOverview)
+    {
+        var Correspondence = new CorrespondenceOverviewExt
+        {
+            CorrespondenceId = correspondenceOverview.CorrespondenceId,
+            Status = (CorrespondenceStatusExt)correspondenceOverview.Status,
+            StatusText = correspondenceOverview.StatusText,
+            StatusChanged = (DateTimeOffset)correspondenceOverview.StatusChanged,
+            SendersReference = correspondenceOverview.SendersReference,
+            Sender = correspondenceOverview.Sender,
+            MessageSender = correspondenceOverview.MessageSender,
+            Created = correspondenceOverview.Created,
+            Notifications = correspondenceOverview.Notifications
+                .Select(n => new CorrespondenceNotificationOverviewExt
+                {
+                    NotificationOrderId = n.NotificationOrderId,
+                    IsReminder = n.IsReminder
+                })
+                .ToList(),
+            Recipient = correspondenceOverview.Recipient,
+            Content = CorrespondenceContentMapper.MapToExternal(correspondenceOverview.Content),
+            ReplyOptions = CorrespondenceReplyOptionsMapper.MapListToExternal(correspondenceOverview.ReplyOptions),
+            ExternalReferences = ExternalReferenceMapper.MapListToExternal(correspondenceOverview.ExternalReferences),
+            ResourceId = correspondenceOverview.ResourceId.ToString(),
+            RequestedPublishTime = correspondenceOverview.RequestedPublishTime,
+            DueDateTime = correspondenceOverview.DueDateTime,
+            PropertyList = correspondenceOverview.PropertyList,
+            IgnoreReservation = correspondenceOverview.IgnoreReservation,
+            Published = correspondenceOverview.Published,
+            Read = correspondenceOverview.Read,
+            IsConfirmationNeeded = correspondenceOverview.IsConfirmationNeeded,
+            IsConfidential = correspondenceOverview.IsConfidential,
+            AllowForwarding = correspondenceOverview.AllowForwarding,
+            Altinn2CorrespondenceId = correspondenceOverview.Altinn2CorrespondenceId
+        };
+        return Correspondence;
+    }
+}

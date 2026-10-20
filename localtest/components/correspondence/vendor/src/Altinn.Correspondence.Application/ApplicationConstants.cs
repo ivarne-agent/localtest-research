@@ -1,0 +1,54 @@
+namespace Altinn.Correspondence.Application.Settings;
+
+public static class ApplicationConstants
+{
+    public const long MaxFormDataFileUploadSize = 2L * 1000 * 1000 * 1000;
+    public const long MaxFileStreamUploadSize = 50L * 1000 * 1000 * 1000;
+    public static readonly List<string> AllowedFileTypes =
+    [
+        ".doc",
+        ".xls",
+        ".docx",
+        ".xlsx",
+        ".ppt",
+        ".pps",
+        ".zip",
+        ".pdf",
+        ".html",
+        ".txt",
+        ".xml",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".png",
+        ".json",
+        ".csv",
+        ".dcm",
+        ".dicom"
+    ];
+
+    /// <summary>
+    /// File types that may be served with Content-Disposition: inline, allowing the browser to render them.
+    /// </summary>
+    public static readonly List<string> InlineFileTypes =
+    [
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp"
+    ];
+
+    public static readonly List<string> RequiredOrganizationRolesForConfidentialCorrespondenceRecipient = 
+    [
+        "bestyrende-reder",
+        "daglig-leder",
+        "deltaker-delt-ansvar",
+        "deltaker-fullt-ansvar",
+        "innehaver",
+        "styreleder",
+        "komplementar"
+    ];
+}
