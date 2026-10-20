@@ -67,7 +67,10 @@ Correspondence component. The provisioner does not push platform seed data.
   Management refresh: `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true`,
   as Designer does at deploy. It reads the pushed policy from the policy store and upserts the app's subject pairs
   (soft-deleting removed ones). Anonymous in production and here.
-- Nothing else in the stack calls it yet: Access Management and the PDP still carry their own stand-ins (TODO task 5b).
+- Access Management, through its production `ResourceRegistryClient` (delegation services) and `AltinnResourceRegistryClient`
+  (the production `ResourceSyncService` behind the refresh: `resource/orgs`, `resource/updated`, `resource/{id}`).
+- The PDP, through its production `ResourceRegistryWrapper`: `resource/{id}`, `resource/{id}/policy` and the access list
+  endpoints (signed with a platform access token from the shared certificate).
 
 ## Configuration
 
@@ -110,8 +113,6 @@ brings the developer exception page and Swagger (`/swagger`).
 
 ## Known gaps
 
-- Nothing consumes the registry yet except the provisioner (task 5b: Access Management's resource sync and the PDP's
-  resource lookups still use their stand-ins).
 - The registry needs `altinncdn.no` (org list); offline, `resourcelist` and app resource lookups fail. Not verified offline.
 - The seed's `altinn_keyrole_access/resource.json` is written to fit the policy, not copied from production.
 - Npgsql logs "Error loading shared library libgssapi_krb5.so.2" at start (Kerberos probe on Alpine); harmless.

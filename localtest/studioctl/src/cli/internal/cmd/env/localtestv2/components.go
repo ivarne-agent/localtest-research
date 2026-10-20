@@ -308,8 +308,8 @@ func accessManagementComponent(opts *Options, platform string) component {
 		"Localtest__AccessManagement__PlatformEndpoint": platform,
 	}
 	c.volumes = []types.VolumeMount{certMount(opts), namedVolume(volumePolicyStore, "/policy-store")}
-	// Its startup refresh reads the Register's streams and Storage's application list.
-	c.deps = []string{containerOf(componentPostgres), containerOf(componentRegister), containerOf(componentStorage)}
+	// Its startup refresh reads the Register's streams and the Resource Registry's providers, resources and updated feed.
+	c.deps = []string{containerOf(componentPostgres), containerOf(componentRegister), containerOf(componentResourceRegistry)}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/accessmanagement"}}
 	return c
 }

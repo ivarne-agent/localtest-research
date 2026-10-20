@@ -34,7 +34,6 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/`.
 | `IPolicyFactory` over three Azure Blob containers | `LocaltestPolicyFactory` + `LocaltestFilePolicyRepository`: `{PolicyStorePath}/{container}/{path}` with every written version under `{path}.versions/{versionId}`; version ids are what Access Management stores as the delegation policy version |
 | `ITokenGenerator` (test tool or Key Vault) | `LocaltestTokenGenerator`: the production `IAccessTokenGenerator` signing with the shared test certificate (`../../certs`) |
 | `IPublicSigningKeyProvider` (Key Vault) | the shared test certificate for every issuer, so the production `AccessTokenHandler` validates platform access tokens for real |
-| `IResourceRegistryClient` (the delegation services' Resource Registry client) and `IAltinnResourceRegistry` (the integration client behind the production `ResourceSyncService`) | `LocaltestResourceRegistryClient` and `LocaltestAltinnResourceRegistry` over one loader (`LocaltestAppResources`): one `app_{org}_{app}` resource per application in Storage, mapped as the production Resource Registry maps apps (`MapApplicationToApplicationResource`), with the resource's subjects (role codes, access packages) read from the app policy in the shared policy store; service owners from the apps' org codes (orgnumbers for `ttd`, `digdir`, `brg`, `skd`, `nav`, `ssb`). The refresh runs the production resource sync against it, which fills `dbo.provider`, `dbo.resource` and the role/package-resource links the instance delegation code needs |
 | Lease on Azure Blob | config: no blob endpoint, so the production `NoopLeaseService` |
 
 Configuration defaults live in `LocaltestAccessManagementExtensions` (section `Localtest:AccessManagement`): every
@@ -42,12 +41,26 @@ platform endpoint behind the proxy, the production connection strings pointed at
 test-tool token settings to satisfy eager validation, and the sync and outbox hosted services switched off until
 their step in the plan.
 
+The Resource Registry is the real component (`../resource-registry/`), reached through the production clients: the
+delegation services' `ResourceRegistryClient` at `PlatformSettings:ApiResourceRegistryEndpoint`
+(`{platform}resourceregistry/api/`, the client appends `v1/resource/...`) and the integration library's
+`AltinnResourceRegistryClient` at `Platform:ResourceRegistry:Endpoint` (`{platform}`, the client appends
+`resourceregistry/api/v1/...`). The periodic `ResourceRegistrySync` hosted service stays off; the refresh runs the
+production `ResourceSyncService` instead (`SyncResourceOwners`, then `SyncResources`). `SyncResources` reads the
+`resource/updated` feed from the `since` in its lease. The localtest lease is the production `NoopLease`, which hands
+back an empty lease every time, so each refresh reads the whole feed from the epoch (`since` is not kept between
+runs, and nothing needs resetting). The sync upserts, so a refresh after an app push picks up the new subject pairs the
+provisioner stored in the registry (step 3b, before the refresh) and re-applying the old ones changes nothing.
+Subject pairs the registry has soft-deleted come back as `deleted` updates and remove the role and package links.
+Provider rows come from the registry's `resource/orgs`, the real service-owner list from altinncdn.no. The
+registry's non-app seed resource (`altinn_keyrole_access`) is synced too.
+
 ## Status
 
 Steps 1 to 6 of the plan are done. Access Management boots, migrates and seeds on the shared Postgres, imports parties
 and external roles from the vendored Register, applies the seed's own roles, Altinn 2 codes and access packages
 (`LocaltestRefreshService`, run at start and on `POST accessmanagement/api/localtest/refresh`, the app runner's hook),
-syncs app resources from the local Resource Registry stand-in, takes instance delegations from apps, and serves the
+syncs app resources from the Resource Registry component, takes instance delegations from apps, and serves the
 PDP's PIP (`policyinformation/*`) and authorized parties (`enduser/authorizedparties` for app-lib, the internal
 `authorizedparties` for the PDP, which needs `FeatureManagement:RightsDelegationApi`, on as in production). The
 proxy routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers;

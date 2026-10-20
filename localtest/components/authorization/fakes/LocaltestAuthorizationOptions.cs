@@ -14,10 +14,4 @@ public sealed class LocaltestAuthorizationOptions
     /// read here by version).
     /// </summary>
     public string PolicyStorePath { get; set; } = "/policy-store";
-
-    /// <summary>
-    /// Folder with resource registry stand-ins: <c>resourceregistry/{id}/policy.xml</c> (plus an optional
-    /// <c>resource.json</c>) per resource. Missing folder means none.
-    /// </summary>
-    public string PoliciesPath { get; set; } = "/policies";
 }

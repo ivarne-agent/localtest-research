@@ -9,8 +9,8 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | --- | --- |
 | `components/register/` | Production Register on an in-memory store: a built-in seed plus the `testData.json` each app runner posts (see its README) |
 | `components/authentication/` | Production Authentication on memory instead of Postgres; it signs in against the localtest app's fake ID-porten and trusts its fake Maskinporten, so its own OIDC client, token validation, Profile client and exchanges run |
-| `components/authorization/` | Production PDP with app policies in the policy store shared with Access Management; roles, access packages, delegations and authorized parties from Access Management |
-| `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, serves the PDP's PIP and authorized parties |
+| `components/authorization/` | Production PDP with app policies in the policy store shared with Access Management; roles, access packages, delegations and authorized parties from Access Management, resources and resource policies from the Resource Registry |
+| `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, syncs resources from the Resource Registry, serves the PDP's PIP and authorized parties |
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
 | `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/resource-registry/` | Production Resource Registry on the shared Postgres: app resources computed from Storage's application list and the pushed policies (no cache), a built-in seed of other resources, the `updated` subject feed, the org list from altinncdn.no; the runner triggers the subject reload as Designer does |
@@ -42,7 +42,7 @@ job (`run-app.sh` today, studioctl later). No component watches another. For one
 | 2 | `POST storage/api/v1/applications?appId={org}/{app}` (or `PUT storage/api/v1/applications/{org}/{app}` when it exists) with `App/config/applicationmetadata.json`, and `POST`/`PUT storage/api/v1/applications/{org}/{app}/texts[/{lang}]` with each `App/config/texts/resource.{lang}.json` | Production Storage endpoints, with the Studio token (`GET /Home/GetTestStudioToken`: Designer's own `studio`/`studio.designer` platform access token exchanged through the production `exchange/altinnstudio`), exactly Designer's credential |
 | 3 | `POST authorization/api/v1/policies?org={org}&app={app}` with `App/config/authorization/policy.xml`, `[ORG]`/`[org]`/`[APP]`/`[app]` replaced as Designer's `ReplacePolicyPlaceholderTokens` does | Production PDP endpoint (Studio token); the policy lands in the policy store shared with Access Management, which reads it for delegable rights |
 | 3b | `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true` (when the app has a policy) | Production Resource Registry endpoint, anonymous, as Designer calls it at deploy: reads the pushed policy from the policy store and upserts the app's subject pairs for the `updated` feed. The app's resource itself is computed from Storage's application list |
-| 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the local stand-in (service owners, `app_{org}_{app}` resources and their policy subjects from Storage and the policy store), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
+| 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the Resource Registry component (service owners, `app_{org}_{app}` resources and their policy subjects from its `updated` feed, read from the epoch each time), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
 
 Nothing is fetched from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
 so an edited `testData.json` becomes visible after the next registration or refresh. An app path the runner has not
@@ -94,5 +94,5 @@ engine throttled the app's namespace. With the events component (2026-10-19) the
 
 Not yet: Notifications and Correspondence (apps that order notifications or send correspondence get a 404), Profile
 beyond what the Register component serves, the inspection GUI over the components' `api/localtest/` endpoints, the
-stand-ins in Access Management and the PDP that the Resource Registry component replaces (task 5b), a way to keep the vendored copies in
+a way to keep the vendored copies in
 step with upstream, and the rest of the studioctl integration. All of it, with status, is in [`../TODO.md`](../TODO.md).

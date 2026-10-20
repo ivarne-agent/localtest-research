@@ -32,10 +32,8 @@ RUN apk add --no-cache tzdata krb5-libs
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
 RUN addgroup -g 3000 dotnet && adduser -u 1000 -G dotnet -D -s /bin/false dotnet
-# localtest: resource registry stand-ins (the altinn_keyrole_access resource; mount a folder over /policies for your
-# own), and the policy store shared with Access Management (app policies pushed by the app runner), owned by the app
-# user like Access Management's.
-COPY policies /policies
+# localtest: the policy store shared with Access Management and the Resource Registry (app policies pushed by the app
+# runner), owned by the app user like Access Management's.
 RUN mkdir -p /policy-store && chown dotnet:dotnet /policy-store
 # update permissions of files if neccessary before becoming dotnet user
 USER dotnet
@@ -47,6 +45,5 @@ RUN mkdir /tmp/logtelemetry
 ENV ASPNETCORE_ENVIRONMENT=Development \
     Logging__LogLevel__Default=Information \
     ASPNETCORE_URLS=http://+:5070 \
-    Localtest__Authorization__PoliciesPath=/policies \
     Localtest__Authorization__PolicyStorePath=/policy-store
 ENTRYPOINT ["dotnet", "Altinn.Authorization.dll"]

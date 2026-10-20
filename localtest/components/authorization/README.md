@@ -1,17 +1,17 @@
 # authorization
 
 Production Altinn Authorization, the PDP (`vendor/`, see `UPSTREAM.md`), answering `authorization/api/v1/decision`,
-`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the Resource
-Registry and OED PIPs, the audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`,
-answered by the register component), Storage and Access Management (roles, access packages, delegations, authorized
-parties) stay production HTTP calls to the other localtest components.
+`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the OED PIP, the
+audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`, answered by the register
+component), Storage, Access Management (roles, access packages, delegations, authorized parties) and the Resource
+Registry (resources, resource policies such as `altinn_keyrole_access`, access lists) stay production HTTP calls to the
+other localtest components.
 
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except one `#if LOCALTEST` block |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, resource-registry and OED PIPs, token handling, no-op audit queue, a localtest decision helper, DI composition |
-| `policies/` | Resource registry stand-ins, copied into the image at `/policies`: `resourceregistry/altinn_keyrole_access/policy.xml` (used by signing). App policies are not here: the app runner pushes them through the production `POST authorization/api/v1/policies` into the policy store shared with Access Management |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, OED PIP, token handling, no-op audit queue, a localtest decision helper, DI composition |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
@@ -40,7 +40,6 @@ are skipped by production code because `kvSetting` is empty.
 | --- | --- |
 | `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: the file store shared with Access Management (`Localtest:Authorization:PolicyStorePath`, the `policy-store` volume), laid out as the containers: `metadata/{org}/{app}/policy.xml` written by the production `POST authorization/api/v1/policies` (the runner pushes it, placeholders already replaced as Designer does) and `delegationpolicies/{path}` with versions under `{path}.versions/{versionId}`, written by Access Management and read here by the version it recorded. Nothing is fetched from apps and no placeholders are replaced |
 | `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read; the store reads the file every time, so a pushed policy applies to the next decision |
-| `IResourceRegistry` | `LocaltestResourceRegistry`: `resourceregistry/{id}/policy.xml` and optional `resource.json` in the policies folder; no access lists |
 | `IOedRoleAssignmentWrapper` | `NoOedRoleAssignments` (empty) |
 | `IEventsQueueClient` (audit queue) | `NoopEventsQueueClient`; `FeatureManagement:AuditLog` forced off |
 | `IPublicSigningKeyProvider` (Key Vault certificates) | `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer. The production `AccessTokenGenerator` and `AccessTokenHandler` run unchanged: outgoing platform access tokens (to Register) are signed with it, incoming ones validated against it |

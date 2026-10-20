@@ -101,7 +101,6 @@ public static class LocaltestAuthorizationExtensions
         // PIPs. Roles, access packages, delegation changes and authorized parties come from the real Access Management
         // component through the production AccessManagementWrapper (registered by Program.cs). The Altinn 2 roles
         // endpoint (IRoles, SBL bridge) keeps its production wrapper and answers empty: nothing locally calls it.
-        Replace<IResourceRegistry, LocaltestResourceRegistry>(services);
         Replace<IOedRoleAssignmentWrapper, NoOedRoleAssignments>(services);
 
         // Azure: no audit queue, no Key Vault.

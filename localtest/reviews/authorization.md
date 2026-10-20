@@ -2,6 +2,8 @@
 
 > **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors upstream's, non-root), 2 (re-pinned to `3d518103`; the fake imports the moved namespaces), 3 (sync instructions), 4 (the Profile fake and the register client are gone: production `ProfileWrapper` calls the register component's `internal/user`), 5 and 6 (the policy-caching and class comments say what the code does), 7 (the README points at the compose service and has a run-from-an-IDE recipe), 8 (default log level Information in the image), 10 (the ignored `bin/`/`obj/` folders in `vendor/` deleted). 9 stays as described (the two policy stores do not overlap today). Verified: authorization smoke 30/30, root smoke 23/23, Cypress signing-test 4/4.
 
+> **Follow-up (task 5b, 2026-10-20):** `fakes/Pip/LocaltestResourceRegistry.cs` and the `policies/resourceregistry/` seed are deleted (so finding 2's fix for that file is moot). The production `ResourceRegistryWrapper` calls the Resource Registry component, which seeds `altinn_keyrole_access`, serves resource policies and answers the access-list endpoints with a platform access token.
+
 ## Summary
 
 The vendored copy matches upstream `Altinn/altinn-auth` at `392f9578` exactly. The only change is one pure
@@ -102,13 +104,11 @@ reset.
 | `fakes/Policies/LocaltestResponse.cs` | `Azure.Response` for the fake writes | Azure SDK shim | n/a |
 | `fakes/Policies/LocaltestPolicyRetrievalPoint.cs` | Wraps production `PolicyRetrievalPoint` and evicts the app-policy cache entry before each read | cache behaviour | Could be configuration only: `PolicyCacheTimeout` is in minutes and production uses `AbsoluteExpirationRelativeToNow` (not verified in detail). Re-pushes go through this same process, so a wrapper is a convenience, not a necessity. |
 | `fakes/Pip/LocaltestProfile.cs` | `IProfile` (`ProfileWrapper`, which does `POST profile/api/v1/internal/user` with `{UserId}`/`{Ssn}`) | other service | **Yes.** The register component serves `profile/api/v1/internal/user` anonymously (`components/register/fakes/Altinn.Register.Localtest/Controllers/LocaltestProfileController.cs:50`), and the proxy routes `/profile/` to register. The default `PlatformSettings:ApiProfileEndpoint` already points there. Authentication uses its production Profile client against it. |
-| `fakes/Pip/LocaltestResourceRegistry.cs` | `IResourceRegistry` (`ResourceRegistryWrapper`: resource, resource policy, access lists) | other service | Partly. No resource registry component exists, so the folder stand-in is reasonable. It breaks on the next sync (finding 2). |
 | `fakes/Pip/NoOedRoleAssignments.cs` | `IOedRoleAssignmentWrapper` (external Digitalt dødsbo API via Maskinporten) | external service | No, it is external. Empty is fine. |
 | `fakes/Infrastructure/NoopEventsQueueClient.cs` | `IEventsQueueClient` (Azure Storage Queue audit log) | Azure Queue | No, it is excluded. `AuditLog` is also forced off. |
 | `fakes/Infrastructure/LocaltestPublicSigningKeyProvider.cs` | `IPublicSigningKeyProvider` (Key Vault certificates per issuer) | Key Vault | No. It returns the shared test certificate for every issuer. |
 | `fakes/Register/RegisterLocaltestClient.cs` | (none) Reads `register/api/localtest/test-users` and `organizations` | localtest helper | Only `LocaltestProfile` uses it. It disappears if the Profile fake is dropped. |
 | `fakes/Controllers/LocaltestDecisionController.cs` | (none) `GET authorization/api/localtest/decision` (anonymous; builds a PEP-style request and posts it to the production `decision`) and `POST …/localtest/refresh` (invalidates the seed and runs `MemoryCache.Compact(1.0)`) | localtest-only API | n/a |
-| `policies/resourceregistry/altinn_keyrole_access/policy.xml` | Resource Registry policy for `altinn_keyrole_access` | test data | Provenance not verified |
 
 Kept production (from reading `Program.cs` and the overrides): `ContextHandler`, `DelegationContextHandler`, `PolicyAdministrationPoint`,
 `RegisterService` (Register v1), `InstanceMetadataRepository` (Storage authinfo), `AccessManagementWrapper`,
@@ -123,7 +123,7 @@ Kept production (from reading `Program.cs` and the overrides): `ContextHandler`,
 | Policy cache | `PolicyCacheTimeout` 10 min (appsettings) | App policy re-read from disk on every decision, so a new push applies at once |
 | Role, main-unit and key-role caches | 5 min | 1 min, cleared by `POST authorization/api/localtest/refresh` |
 | Profile PIP | Profile service | Register seed via fake. `PartyTypeName` is always `Person`; `UserType` and profile settings are not set. |
-| Resource Registry | Real registry: every resource, access lists | Only `altinn_keyrole_access` from `/policies`. Other resource ids have no policy and no resource. Access lists are always empty, so access-list-gated resources never Permit. |
+| Resource Registry | Real registry: every resource, access lists | The Resource Registry component through the production wrapper: app resources, the seeded `altinn_keyrole_access`, access lists from the registry (empty unless the Register has lists) |
 | OED (dødsbo) roles | External API | Always none |
 | Audit log | `FeatureManagement:AuditLog=true`, Azure Queue | Off, dropped |
 | Platform access tokens | Per-issuer Key Vault certificates | One shared test certificate accepted for every issuer |
