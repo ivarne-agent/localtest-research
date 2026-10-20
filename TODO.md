@@ -37,6 +37,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
+| 16 | [Receipt](#16-receipt) | unapproved | medium | yes |
 
 Suggested order: 9a (running), 9b, then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
@@ -295,9 +296,41 @@ task 2 (deferred).
 
 ## 10. Dialogporten adapter and the Storage outbox
 
-Vendor the adapter per `dialogporten-adapter.md` (five directive sites, prototype in `adapter-prototype/`), switch
-Storage's outbox on in its fakes, the in-process Wolverine path POSTing commands to the adapter's localtest enqueue
-endpoint. Needs 4 and 9. Open questions 1 and 2 in the Dialogporten plan (receipt link, outbox delays).
+Vendor the adapter per `planned-components/dialogporten/dialogporten-adapter.md` (four small directive sites plus
+additive hooks, prototype in `adapter-prototype/`), switch Storage's outbox on in its fakes, the in-process Wolverine
+path POSTing each command to a localtest-only enqueue endpoint on the adapter, which publishes it to the adapter's own
+local queue so the production sync handler and its retry and error policies run unchanged. Needs 4, 5 and 9a.
+
+**Decisions (2026-10-20).**
+
+- **Storage always sends.** The Storage fakes stop forcing `WolverineSettings:EnableSending=false`; the outbox and the
+  handler run in the default stack too. When the adapter is not running (the `dialogporten` group is off) the handler
+  treats an unreachable adapter (connection refused, 502/503/504, or the proxy's no-route answer) as "not enabled":
+  one log line, the command dropped, no retry storm, nothing else affected. The adapter joins the `dialogporten`
+  group; nothing in Storage's configuration depends on the group.
+- **The enqueue endpoint is anonymous.** Only production endpoints carry authentication; every `api/localtest/`
+  endpoint in the stack is open, this one included. Storage's handler therefore needs no token for the enqueue (the
+  earlier question about `/Home/GetTestOrgToken` in Storage is moot). The adapter's own calls to Storage, Register
+  and Dialogporten keep their production tokens through the shared Maskinporten fake.
+- **Archived instances' receipt link.** Accept the 404 for now; task 16 vendors the receipt app later.
+- **Outbox delays.** Local values `LowPriorityDelaySecs=2`, `HighPriorityDelaySecs=0` (production 60 / 5), by
+  configuration: testers should see that a sync is not instant, but not wait a minute. **Every place where localtest
+  is faster than production is documented** in one list, `localtest/README.md` section "Where localtest is faster
+  than production" (this delay, the Resource Registry's removed 10-minute application cache, Dialogporten's
+  cache-clear endpoint against its 15- and 20-minute caches, the Events component's immediate delivery, and whatever
+  else exists), each with the production value; new components add their rows.
+- **Verification.** The adapter smoke test covers the service-owner-visible path: instance created → dialog within
+  10 s with the right resource, party and go-to URL, `dataValues["dialog.id"]` on the instance; process start and a
+  data upload → attachment and activity; process end → status change (and a transmission); soft delete → `deleted:
+  true` for the service owner; manual `syncDialog/simple` idempotent; the default stack with the group off: an instance
+  created produces one log line and nothing else, and `run-platform-regression.sh` stays green. **Not in 10:** the
+  steps that need a dialog token from the end-user API (reading the receipt as the user, deleting through the
+  adapter with the dialog token); they need the `pid` token of deferred task 2.
+
+**Open.** Dialogporten's service-owner search names the caller's organisation by the first short name the Resource
+Registry lists for 991825827 (`digdir`), while dialogs for `ttd` apps carry `ttd` (found in 9a): a `ttd` service
+owner's search does not find its own dialogs. Decide whether the stack should make `ttd` resolve to its own number
+(seed data) or accept production's shared-number behaviour.
 
 ## 11. Arbeidsflate
 
@@ -345,3 +378,12 @@ and the compiled-in `IMaskinportenService` fake from task 4 can be deleted. An u
 `Altinn/altinn-apiclient-maskinporten` (the `switch` tables in `MaskinportenService.GetTokenEndpoint` and
 `GetTokenExchangeEndpoint` throw for unknown environments; `MaskinportenSettings` has no URL fields), then a version
 bump in each consumer. Also covers the BFF, which is already configurable, and Correspondence's own token service.
+
+## 16. Receipt
+
+**Goal.** Vendor `Altinn/altinn-receipt`, the platform receipt app, so that archived instances' receipt links
+(`/receipt/{instanceOwnerPartyId}/{instanceGuid}`, which Dialogporten's go-to action and the adapter emit for archived
+instances, and which the app frontend links to) work locally instead of answering 404 (decided 2026-10-20 in task
+10). Research first: what the receipt app calls (Storage, Register, Profile, Authentication, the app's texts), its
+build chain and Dockerfile, directive sites, the route (`/receipt/`), and whether app-lib or the frontend link to it in
+the test apps.
