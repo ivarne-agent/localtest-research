@@ -14,7 +14,7 @@ Consumers of the Maskinporten fake (copies in their own `fakes/`): `components/d
 
 **Copy these files into a consumer's own `fakes/` folder when that consumer is vendored; do not reference this folder
 from a build.** A component's Docker build context is its own folder, so there is no shared build context for now
-(TODO.md task 15 is the long-term replacement). Change the canonical copy here, then re-copy it into each consumer. Consumers so far: `components/notifications/fakes/Maskinporten/` (the condition-check client).
+(TODO.md task 15 is the long-term replacement). Change the canonical copy here, then re-copy it into each consumer. Consumers so far: `components/notifications/fakes/Maskinporten/` (the condition-check client), `components/dialogporten-adapter/fakes/Maskinporten/` (all of the adapter's clients; its `.editorconfig` silences two `Recommended` analyzer rules for the copy).
 
 ## `IMaskinportenService` fake
 
