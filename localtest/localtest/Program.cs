@@ -92,6 +92,14 @@ AppRoutesApi.Map(app);
 IdPortenApi.Map(app);
 MaskinportenApi.Map(app);
 HomeApi.Map(app);
+// Any other localtest/api/… path is the localtest app's own and unknown: its own 404, not the app-runner hint below.
+// (The specific feature routes win by route precedence; a plain RequestDelegate, as for the fallback.)
+app.Map("/localtest/api/{**rest}", context =>
+{
+    context.Response.StatusCode = StatusCodes.Status404NotFound;
+    context.Response.ContentType = "text/plain; charset=utf-8";
+    return context.Response.WriteAsync("Unknown localtest API path. The features' APIs are under localtest/api/{proxy,idporten,maskinporten}/.\n");
+});
 // Everything else is forwarded. An explicit catch-all pattern: MapFallback's default ({*path:nonfile}) would skip
 // every path that looks like a file (…/report.pdf, …/main.js). A plain RequestDelegate, because the AOT request
 // delegate generator rewrites the typed-lambda overload of MapFallback and loses the pattern.

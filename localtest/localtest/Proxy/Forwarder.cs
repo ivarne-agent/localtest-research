@@ -75,7 +75,9 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
         if (error != ForwarderError.None)
         {
             var exception = context.GetForwarderErrorFeature()?.Exception;
-            logger.LogWarning(exception, "{Method} {Path} -> {Route} ({Destination}): {Error}", context.Request.Method, context.Request.Path.Value, route.Name, route.Destination, error);
+            // A client that goes away (an event stream closed, a Cypress navigation) is normal, not worth a warning.
+            var level = error is ForwarderError.RequestCanceled or ForwarderError.ResponseBodyCanceled ? LogLevel.Debug : LogLevel.Warning;
+            logger.Log(level, exception, "{Method} {Path} -> {Route} ({Destination}): {Error}", context.Request.Method, context.Request.Path.Value, route.Name, route.Destination, error);
             if (!context.Response.HasStarted)
             {
                 context.Response.StatusCode = StatusCodes.Status502BadGateway;

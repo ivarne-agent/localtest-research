@@ -19,8 +19,11 @@ public static class AuthLevels
         new(4, "idporten-loa-high", "4 (high)"),
     ];
 
-    /// <summary>The level the picker preselects when the request asked for none it knows.</summary>
-    public const int Default = 3;
+    /// <summary>
+    /// The level the picker preselects when the request asked for none it knows (Authentication sends no
+    /// <c>acr_values</c> unless the app asks for a level), and <c>/Home</c>'s default: the old localtest's 2.
+    /// </summary>
+    public const int Default = 2;
 
     public static Level? ForNumber(int number) => All.FirstOrDefault(l => l.Number == number);
 

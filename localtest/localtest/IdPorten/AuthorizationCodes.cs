@@ -7,7 +7,7 @@ namespace Localtest.IdPorten;
 public sealed class AuthorizationCodes
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
-    private readonly ConcurrentDictionary<string, AuthorizationGrant> _codes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (AuthorizationGrant Grant, DateTimeOffset IssuedAt)> _codes = new(StringComparer.Ordinal);
 
     public string Issue(AuthorizationGrant grant)
     {
@@ -18,12 +18,12 @@ public sealed class AuthorizationCodes
         }
 
         var code = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
-        _codes[code] = grant with { IssuedAt = now };
+        _codes[code] = (grant, now);
         return code;
     }
 
     public AuthorizationGrant? Redeem(string code)
-        => _codes.TryRemove(code, out var grant) && DateTimeOffset.UtcNow - grant.IssuedAt <= Lifetime ? grant : null;
+        => _codes.TryRemove(code, out var entry) && DateTimeOffset.UtcNow - entry.IssuedAt <= Lifetime ? entry.Grant : null;
 }
 
 /// <summary>What a code stands for: the picked identity and the request it answers.</summary>
@@ -34,5 +34,4 @@ public sealed record AuthorizationGrant(
     string ClientId,
     string RedirectUri,
     string? Nonce,
-    string? CodeChallenge,
-    DateTimeOffset IssuedAt);
+    string? CodeChallenge);

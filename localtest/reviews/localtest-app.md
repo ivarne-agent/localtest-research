@@ -1,13 +1,16 @@
 # Localtest app review (2026-10-20)
 
-> **Status after the review (2026-10-20, Claude):** fixed in the localtest app the same day: 1 (`ProblemDetails` added
-> to `LocaltestJsonContext`), 2 (form endpoints answer 400 `invalid_request` on another content type), 4 (control
-> characters and backslashes refused in `RedirectUrl`), 6 (default log level Warning, environment still wins), 8 (an app
-> route under a platform prefix or `localtest` is refused), 12 for the start page (`GET` and `HEAD`), and part of 3 (the
-> fake ID-porten now sends `iss` in the authorization response; Authentication's `ValidateCallbackIssuer` and
-> `StrictIdTokenValidation` stay off because production's values are not known) and 15 (`SigningKey.cs` path). The
-> rest is open. The fixes are verified in the verification section of
-> [`../../planned-components/authentication/localtest-app-identity.md`](../../planned-components/authentication/localtest-app-identity.md).
+> **Status (2026-10-20):** handled. Fixed: 1 (`ProblemDetails` in the JSON context), 2 (400 on a non-form post),
+> 3 (the fake sends `iss`; Authentication's `ValidateCallbackIssuer` and `StrictIdTokenValidation` are on), 4 (control
+> characters and backslashes refused in `RedirectUrl`), 5 (`redirect_uri` must be on the platform origin), 6 (default log
+> level Warning), 7 (client aborts logged at Debug), 8 (app routes cannot shadow platform paths), 9 (an unreachable
+> register or Authentication gives a 502 with the reason), 10 (one default level, 2, for the picker and `/Home`; an
+> unknown level is a 400; the dead members of Authentication's table removed), 11 (no `token_endpoint` in the Maskinporten
+> metadata; unknown `localtest/api/…` paths get the localtest app's own 404), 12 for the start page (`GET` and `HEAD`),
+> 13 (pinned digests, the `app` user, `ASPNETCORE_HTTP_PORTS`, the stale comment), 14 (the issue time lives in the code
+> store), 15 (the README's paths and a verification record), 16 (smoke checks for the picker, the token endpoint and the
+> id_token; a note on the internet-dependent org check). Open: `HEAD` on the other endpoints (12), and the WebSocket
+> pass-through is still untested (16). Verified: the localtest app smoke test 65/65 and the other smoke tests.
 
 Scope: `localtest/localtest/` in ivarne-agent/localtest-research. Read-only review. Nothing was built, no repo file
 was edited, and no container was touched. Paths below are relative to `localtest/localtest/` unless stated.

@@ -1,7 +1,5 @@
 #nullable enable
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using Altinn.Platform.Authentication.Enum;
 
 namespace Altinn.Platform.Authentication.Localtest.Login;
@@ -16,25 +14,16 @@ namespace Altinn.Platform.Authentication.Localtest.Login;
 /// </summary>
 public static class LocaltestAuthLevels
 {
-    public sealed record Entry(int Level, string Acr, SecurityLevel SecurityLevel, string Label, string[] ClaimValues);
+    public sealed record Entry(int Level, string Acr, SecurityLevel SecurityLevel, string[] ClaimValues);
 
     public static readonly IReadOnlyList<Entry> All =
     [
-        new(0, "level0", SecurityLevel.SelfIdentifed, "0 (self-identified)", ["level0"]),
-        new(1, "level1", SecurityLevel.NotSensitive, "1 (static password)", ["level1"]),
-        new(2, "level2", SecurityLevel.QuiteSensitive, "2 (pin code)", ["level2"]),
-        new(3, "idporten-loa-substantial", SecurityLevel.Sensitive, "3 (substantial)", ["idporten-loa-substantial", "level3"]),
-        new(4, "idporten-loa-high", SecurityLevel.VerySensitive, "4 (high)", ["idporten-loa-high", "level4"]),
+        new(0, "level0", SecurityLevel.SelfIdentifed, ["level0"]),
+        new(1, "level1", SecurityLevel.NotSensitive, ["level1"]),
+        new(2, "level2", SecurityLevel.QuiteSensitive, ["level2"]),
+        new(3, "idporten-loa-substantial", SecurityLevel.Sensitive, ["idporten-loa-substantial", "level3"]),
+        new(4, "idporten-loa-high", SecurityLevel.VerySensitive, ["idporten-loa-high", "level4"]),
     ];
-
-    public const int Default = 2;
-
-    public static Entry? ForLevel(int level) => All.FirstOrDefault(e => e.Level == level);
-
-    public static Entry? ForAcr(string? acr) => All.FirstOrDefault(e => e.Acr == acr);
-
-    public static Entry? Parse(string? value)
-        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level) ? ForLevel(level) : null;
 
     /// <summary>The <c>OidcProviders:idporten:AuthLevels</c> configuration entries.</summary>
     public static IEnumerable<KeyValuePair<string, string?>> ConfigurationDefaults(string prefix)

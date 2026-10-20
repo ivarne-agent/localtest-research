@@ -68,6 +68,28 @@ TOKEN_REQUEST=(-s -m 10 -o /dev/null -w '%{http_code}' -X POST "$IDP/token" -d g
 expect "token endpoint refuses a wrong PKCE verifier" 400 "$(curl "${TOKEN_REQUEST[@]}" -d code_verifier=wrong)"
 expect "and the code is spent afterwards" 400 "$(curl "${TOKEN_REQUEST[@]}" -d code_verifier=wrong)"
 rm -f "$J"
+# The provider on its own, with a PKCE pair made here: the picker, the code and the tokens.
+CB_URI="$BASE/authentication/api/v1/upstream/callback"
+read -r VERIFIER CHALLENGE < <(python3 -c 'import secrets,hashlib,base64; v=secrets.token_urlsafe(48); print(v, base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).rstrip(b"=").decode())')
+PICKER=$(curl -s -m 10 -w '\n%{http_code}' "$IDP/authorize?client_id=localtest&redirect_uri=$CB_URI&state=smoke-state&nonce=smoke-nonce&code_challenge=$CHALLENGE&code_challenge_method=S256")
+expect "the picker page answers" 200 "$(tail -1 <<<"$PICKER")"
+expect "the picker keeps state in the form" yes "$(grep -q 'name="state" value="smoke-state"' <<<"$PICKER" && echo yes || echo no)"
+expect "the picker preselects level 2 without acr_values" yes "$(grep -q '<option value="2" selected' <<<"$PICKER" && echo yes || echo no)"
+pick() { curl -s -m 10 -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$IDP/authorize" -d client_id=localtest -d state=smoke-state -d nonce=smoke-nonce -d "code_challenge=$CHALLENGE" -d UserSelect=1337 "$@"; }
+expect "an off-platform redirect_uri is refused" 400 "$(pick --data-urlencode redirect_uri=https://example.com/cb -d AuthenticationLevel=2 | cut -d' ' -f1)"
+expect "an unknown level is refused" 400 "$(pick --data-urlencode "redirect_uri=$CB_URI" -d AuthenticationLevel=7 | cut -d' ' -f1)"
+PICKED=$(pick --data-urlencode "redirect_uri=$CB_URI" -d AuthenticationLevel=3 | cut -d' ' -f2)
+pq() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$PICKED" "$1"; }
+expect "the code comes back with state and iss" "smoke-state $IDP" "$(pq state) $(pq iss)"
+token() { curl -s -m 10 -X POST "$IDP/token" -d grant_type=authorization_code -d "code=$(pq code)" -d client_id=localtest "$@"; }
+expect "a wrong redirect_uri at the token endpoint is refused (and spends the code)" invalid_grant "$(token --data-urlencode redirect_uri=$BASE/elsewhere -d "code_verifier=$VERIFIER" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("error"))')"
+PICKED=$(pick --data-urlencode "redirect_uri=$CB_URI" -d AuthenticationLevel=3 | cut -d' ' -f2)
+ID_TOKEN=$(token --data-urlencode "redirect_uri=$CB_URI" -d "code_verifier=$VERIFIER" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id_token"])')
+KID=$(python3 -c "import sys,base64,json; h=sys.argv[1].split('.')[0]; h+='='*(-len(h)%4); print(json.loads(base64.urlsafe_b64decode(h))['kid'])" "$ID_TOKEN")
+expect "the id_token's kid is in the JWKS" yes "$(curl -s -m 10 "$IDP/jwks" | python3 -c "import json,sys; print('yes' if any(k['kid']==sys.argv[1] for k in json.load(sys.stdin)['keys']) else 'no')" "$KID")"
+expect "the id_token's aud, nonce and acr" "localtest smoke-nonce idporten-loa-substantial" "$(claim "$ID_TOKEN" aud) $(claim "$ID_TOKEN" nonce) $(claim "$ID_TOKEN" acr)"
+expect "an unknown localtest API path: the localtest app's own 404" 404 "$(code "$BASE/localtest/api/nope")"
+expect "HEAD on the start page" 200 "$(curl -s -m 10 -o /dev/null -w '%{http_code}' -I "$BASE/")"
 
 echo "== home"
 expect "GET /Home/Localtest/Version" "8" "$(curl -s -m 10 "$BASE/Home/Localtest/Version")"
@@ -95,6 +117,7 @@ expect "LogInTestUser start redirects to the app" "/ttd/my-app/" "$(curl -s -m 3
 expect "LogInTestUser does not redirect off-site" "/" "$(curl -s -m 30 -o /dev/null -w '%{redirect_url}' -X POST "$BASE/Home/LogInTestUser" -d action=start -d "UserSelect=$USER_SELECT" -d AuthenticationLevel=2 -d RedirectUrl=https://example.com/ | sed -E 's#^https?://[^/]+##')"
 expect "LogInTestUser accepts JSON" 204 "$(curl -s -m 30 -o /dev/null -w '%{http_code}' -X POST "$BASE/Home/LogInTestUser" -H 'Content-Type: application/json' -d "{\"action\":\"reauthenticate\",\"UserSelect\":\"$USER_SELECT\",\"AuthenticationLevel\":3}")"
 expect "LogInTestUser refuses a party the user cannot act for" 400 "$(curl -s -m 30 -o /dev/null -w '%{http_code}' -X POST "$BASE/Home/LogInTestUser" -d action=reauthenticate -d "UserSelect=$USER_ID.1" -d AuthenticationLevel=2)"
+# The production exchange looks the org code up at altinncdn.no, so this needs internet access from Authentication.
 ORG=$(curl -s -m 30 "$BASE/Home/GetTestOrgToken?org=ttd")
 expect "GetTestOrgToken urn:altinn:org (fake Maskinporten, production exchange)" "ttd" "$(claim "$ORG" urn:altinn:org)"
 expect "GetTestOrgToken default service-owner scopes" "altinn:serviceowner/instances.read altinn:serviceowner/instances.write" "$(claim "$ORG" scope)"

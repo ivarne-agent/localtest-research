@@ -47,8 +47,7 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
             query["client_id"].ToString(),
             redirectUri,
             NullIfEmpty(query["nonce"]),
-            NullIfEmpty(query["code_challenge"]),
-            default));
+            NullIfEmpty(query["code_challenge"])));
         var callback = QueryHelpers.AddQueryString(
             new Uri(redirectUri).PathAndQuery.TrimStart('/'),
             new Dictionary<string, string?> { ["code"] = code, ["state"] = query["state"], ["iss"] = idPorten.Issuer });

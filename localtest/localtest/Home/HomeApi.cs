@@ -22,9 +22,6 @@ public static class HomeApi
     /// <summary>The localtest API version apps check through <c>LocaltestValidation</c> (they require 6 or later).</summary>
     public const int LocaltestApiVersion = 8;
 
-    /// <summary>The level the start page preselects and <c>GetTestUserToken</c> and <c>LogInTestUser</c> default to.</summary>
-    private const int DefaultLevel = 2;
-
     private const string DefaultServiceOwnerScopes = "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
 
     public static void Map(WebApplication app)
@@ -109,7 +106,7 @@ public static class HomeApi
         html.Append("</select><label for=\"AuthenticationLevel\">Authentication level</label><select id=\"AuthenticationLevel\" name=\"AuthenticationLevel\">");
         foreach (var level in AuthLevels.All)
         {
-            html.Append("<option value=\"").Append(level.Number).Append('"').Append(level.Number == DefaultLevel ? " selected" : string.Empty)
+            html.Append("<option value=\"").Append(level.Number).Append('"').Append(level.Number == AuthLevels.Default ? " selected" : string.Empty)
                 .Append('>').Append(Encode(level.Label)).Append("</option>");
         }
 
@@ -139,7 +136,7 @@ public static class HomeApi
 
             var level = Field("AuthenticationLevel") is { } requested
                 ? int.TryParse(requested, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? AuthLevels.ForNumber(number) : null
-                : AuthLevels.ForNumber(DefaultLevel);
+                : AuthLevels.ForNumber(AuthLevels.Default);
             if (level is null)
             {
                 return Results.BadRequest("AuthenticationLevel must be 0, 1, 2, 3 or 4.");
@@ -175,7 +172,7 @@ public static class HomeApi
             return Results.BadRequest("userId is required.");
         }
 
-        if (AuthLevels.ForNumber(authenticationLevel ?? DefaultLevel) is not { } level)
+        if (AuthLevels.ForNumber(authenticationLevel ?? AuthLevels.Default) is not { } level)
         {
             return Results.BadRequest("authenticationLevel must be 0, 1, 2, 3 or 4.");
         }
@@ -223,7 +220,17 @@ public static class HomeApi
     /// <summary>Signs the user in and appends the browser cookies; the JWT, or the error to answer.</summary>
     private static async Task<(string? Jwt, IResult? Error)> SignIn(HttpContext context, int userId, int? partyId, AuthLevels.Level level, TestUsers testUsers, AuthenticationClient authentication, CancellationToken cancellationToken)
     {
-        var user = (await testUsers.GetAll(cancellationToken)).FirstOrDefault(u => u.UserId == userId);
+        TestUser[] users;
+        try
+        {
+            users = await testUsers.GetAll(cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            return (null, Results.Problem($"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?", statusCode: 502));
+        }
+
+        var user = users.FirstOrDefault(u => u.UserId == userId);
         if (user is null)
         {
             return (null, Results.NotFound($"No test user with userId {userId}."));
@@ -234,7 +241,17 @@ public static class HomeApi
             return (null, Results.BadRequest($"Test user {userId} cannot act for party {partyId}."));
         }
 
-        var (result, error) = await authentication.SignIn(user, level.Acr, cancellationToken);
+        AuthenticationClient.SignInResult? result;
+        string? error;
+        try
+        {
+            (result, error) = await authentication.SignIn(user, level.Acr, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            (result, error) = (null, $"Could not reach Authentication: {ex.Message}. Is the authentication component running?");
+        }
+
         if (result is null)
         {
             return (null, Results.Problem(error, statusCode: 502));

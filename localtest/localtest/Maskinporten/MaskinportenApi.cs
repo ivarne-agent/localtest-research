@@ -21,7 +21,6 @@ public static class MaskinportenApi
 
         api.MapGet("/.well-known/oauth-authorization-server", (MaskinportenSettings settings) => new AuthorizationServerMetadata(
             settings.Issuer,
-            settings.Issuer + "token",
             settings.Issuer + "jwks",
             ["urn:ietf:params:oauth:grant-type:jwt-bearer"],
             ["RS256"]));
@@ -70,7 +69,6 @@ public sealed record MaskinportenSettings(string Issuer)
 
 public sealed record AuthorizationServerMetadata(
     [property: JsonPropertyName("issuer")] string Issuer,
-    [property: JsonPropertyName("token_endpoint")] string TokenEndpoint,
     [property: JsonPropertyName("jwks_uri")] string JwksUri,
     [property: JsonPropertyName("grant_types_supported")] string[] GrantTypesSupported,
     [property: JsonPropertyName("token_endpoint_auth_signing_alg_values_supported")] string[] TokenEndpointAuthSigningAlgValuesSupported);

@@ -9,7 +9,7 @@ production, and findings. One file per component, newest status at the top of ea
 | Storage | [`storage.md`](storage.md) | Reviewed and fixed 2026-10-19 (re-pin, Dockerfile mirrors upstream) |
 | Register | [`register.md`](register.md) | Reviewed and fixed 2026-10-19/20 (Dockerfile, Profile authorization, `userType` at load) |
 | Authentication | [`authentication.md`](authentication.md) | Reviewed 2026-10-19; identity fakes moved to the localtest app 2026-10-20 |
-| Localtest app | [`localtest-app.md`](localtest-app.md) | Reviewed 2026-10-20; most findings fixed the same day |
+| Localtest app | [`localtest-app.md`](localtest-app.md) | Reviewed 2026-10-20; handled except `HEAD` on most endpoints and a WebSocket test |
 | Authorization (PDP) | [`authorization.md`](authorization.md) | Reviewed 2026-10-20; all findings handled |
 | Access Management | [`access-management.md`](access-management.md) | Reviewed 2026-10-20; all findings handled (two documented as known gaps) |
 | Events | [`events.md`](events.md) | Reviewed 2026-10-20; all findings handled (four documented as known gaps) |

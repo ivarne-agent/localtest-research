@@ -143,6 +143,20 @@ service-owner org token needs internet access from the authentication container.
   over it by route precedence.
 - The AOT publish is memory-hungry; don't run it alongside a Cypress run on a small machine.
 
+## Verified (2026-10-20): identity features and Home
+
+- `./smoke-test.sh`, 65 checks: the proxy, the fake ID-porten on its own (picker page, `state` and `iss` in the
+  redirect, off-platform `redirect_uri` and unknown levels refused, a wrong `redirect_uri` or PKCE verifier and a spent
+  code refused at the token endpoint, the id_token's `kid` in the JWKS with `aud`, `nonce` and `acr`), the Maskinporten
+  metadata, and the whole `/Home` contract through production Authentication (every level, party cookies, the org
+  token through `exchange/maskinporten`, the Studio token through `exchange/altinnstudio`).
+- Authentication validates the fake's tokens with its production `UpstreamTokenValidator`, with
+  `ValidateCallbackIssuer` and `StrictIdTokenValidation` on.
+- The full Cypress suite (13 app folders, 419 tests) through it; the failures were a flaky spec and a timezone bug in
+  two specs, see `../../planned-components/authentication/localtest-app-identity.md`.
+- Runs as the image's `app` user (uid 1654) on pinned base images; a `localtest-data` volume made by the earlier root
+  image needs `chown -R 1654:1654` once.
+
 ## Verified (2026-10-19)
 
 - Side by side with the nginx ingress (port 8001 against 8000, same `Host`): identical status, content type and body

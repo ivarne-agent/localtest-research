@@ -60,7 +60,7 @@ public static class IdPortenApi
             return Results.Content(PickerPage(users, hidden, level.Number, notice), "text/html; charset=utf-8");
         });
 
-        api.MapPost("/authorize", async (HttpRequest request, TestUsers testUsers, AuthorizationCodes codes, IdPortenSettings settings, CancellationToken cancellationToken) =>
+        api.MapPost("/authorize", async (HttpRequest request, TestUsers testUsers, AuthorizationCodes codes, IdPortenSettings settings, LocaltestSettings localtest, CancellationToken cancellationToken) =>
         {
             if (!request.HasFormContentType)
             {
@@ -70,9 +70,16 @@ public static class IdPortenApi
             var form = await request.ReadFormAsync(cancellationToken);
             var state = form["state"].ToString();
             var redirectUri = form["redirect_uri"].ToString();
-            if (string.IsNullOrEmpty(state) || !Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
+            if (string.IsNullOrEmpty(state) || !Uri.TryCreate(redirectUri, UriKind.Absolute, out var redirect))
             {
                 return Results.BadRequest("Missing state or redirect_uri.");
+            }
+
+            // ID-porten redirects only to a client's registered URIs; the one client here is Authentication, on the
+            // platform origin.
+            if (!IsOnPlatform(redirect, localtest))
+            {
+                return Results.BadRequest($"redirect_uri must be on {localtest.PlatformEndpoint}, where Authentication's callback is.");
             }
 
             if (!string.IsNullOrEmpty(form["code_challenge_method"]) && form["code_challenge_method"] != "S256")
@@ -85,24 +92,34 @@ public static class IdPortenApi
                 return Results.BadRequest("UserSelect must be userId or userId.partyId.");
             }
 
-            var user = (await testUsers.GetAll(cancellationToken)).FirstOrDefault(u => u.UserId == userId);
+            var level = string.IsNullOrEmpty(form["AuthenticationLevel"])
+                ? AuthLevels.ForNumber(AuthLevels.Default)
+                : int.TryParse(form["AuthenticationLevel"], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? AuthLevels.ForNumber(number) : null;
+            if (level is null)
+            {
+                return Results.BadRequest("AuthenticationLevel must be 0, 1, 2, 3 or 4.");
+            }
+
+            var (users, notice) = await Load(testUsers, cancellationToken);
+            if (notice is not null && users.Length == 0)
+            {
+                return Results.Problem(notice, statusCode: 502);
+            }
+
+            var user = users.FirstOrDefault(u => u.UserId == userId);
             if (user is null)
             {
                 return Results.NotFound($"No test user with userId {userId}.");
             }
 
-            var level = int.TryParse(form["AuthenticationLevel"], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)
-                ? AuthLevels.ForNumber(number)
-                : null;
             var code = codes.Issue(new AuthorizationGrant(
                 string.IsNullOrEmpty(user.Ssn) ? null : user.Ssn,
                 user.UserId,
-                (level ?? AuthLevels.ForNumber(AuthLevels.Default)!).Acr,
+                level.Acr,
                 form["client_id"].ToString(),
                 redirectUri,
                 NullIfEmpty(form["nonce"]),
-                NullIfEmpty(form["code_challenge"]),
-                default));
+                NullIfEmpty(form["code_challenge"])));
             // iss as ID-porten sends it (RFC 9207); Authentication checks it when its provider has ValidateCallbackIssuer.
             return Results.Redirect(QueryHelpers.AddQueryString(redirectUri, new Dictionary<string, string?> { ["code"] = code, ["state"] = state, ["iss"] = settings.Issuer }));
         });
@@ -224,6 +241,10 @@ public static class IdPortenApi
     }
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+
+    private static bool IsOnPlatform(Uri uri, LocaltestSettings localtest)
+        => (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            && Uri.Compare(uri, new Uri(localtest.PlatformEndpoint), UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0;
 
     /// <summary>
     /// The picker. Field names follow the old localtest's start page (<c>&lt;select id="UserSelect"&gt;</c> with
