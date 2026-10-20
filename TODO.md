@@ -50,7 +50,7 @@ A path matching no route still falls through to the localtest app.
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task16-receipt`, branch `task/receipt`; phase 1 code incl. the group table, phase 2 stack after 10) | medium | yes |
-| 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | research in progress (2026-10-20, Opus research agent, branch `research/admin-running-services`) | small | no |
+| 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 
 Suggested order: 10, 16 and 7 run in parallel as code (phase 1); the stack goes to 10 first, then 16, then 7 (phase 2). 8 is deferred pending 17., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
