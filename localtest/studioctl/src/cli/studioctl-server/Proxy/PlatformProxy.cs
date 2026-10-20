@@ -63,9 +63,11 @@ internal static class PlatformProxy
             return;
         }
 
+        // A component of an optional group that is off: its routes are in the table, disabled, so the request does
+        // not fall through to the localtest app's 404.
         if (!match.Route.Enabled)
         {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await ComponentUnavailable.Write(context, ComponentUnavailable.NotRunning(match.Route, path));
             return;
         }
 
@@ -83,6 +85,15 @@ internal static class PlatformProxy
         );
         if (error == ForwarderError.None || context.Response.HasStarted)
             return;
+
+        if (error is ForwarderError.Request or ForwarderError.RequestTimedOut)
+        {
+            await ComponentUnavailable.Write(
+                context,
+                ComponentUnavailable.NotAnswering(match.Route, path, destination)
+            );
+            return;
+        }
 
         var feature = context.GetForwarderErrorFeature();
         context.Response.StatusCode = StatusCodes.Status502BadGateway;

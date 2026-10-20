@@ -349,6 +349,12 @@ port). The answers tell three states apart:
 - `502` (studioctl-server: "{component} at ... did not answer") or a network error: **not answering**, with
   `studioctl env status -r localtest-v2` and `studioctl env logs --component {name}` as the hint.
 
+**Changed 2026-10-20 (task 16):** studioctl-server now answers a route whose group is off with `503`
+`application/problem+json` (`title` "Component not running", extension members `component` and `group`, the `--with`
+command in `detail`), and an enabled component that does not answer with `503` "Component not answering" instead of
+the `502`; the GUI reads `component` and `group` from that body instead of relying on the text 404, which remains only
+for a path that matches no route at all.
+
 The navigation keeps every entry; an off component's page shows only the notice.
 
 ## 6. Missing endpoints, in priority order

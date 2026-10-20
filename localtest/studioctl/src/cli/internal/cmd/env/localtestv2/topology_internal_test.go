@@ -116,6 +116,24 @@ func dialogportenOptions(t *testing.T) *Options {
 	return opts
 }
 
+func metadataValue(route envtopology.BoundTopologyRoute, key string) string {
+	for _, entry := range route.Metadata {
+		if entry.Key == key {
+			return entry.Value
+		}
+	}
+	return ""
+}
+
+func TestAlwaysOnRoutesAreEnabledWithoutAGroup(t *testing.T) {
+	t.Parallel()
+	for _, route := range boundTopologyConfig(defaultOptions(config.DefaultImages(), t.TempDir())).Routes {
+		if route.Match.PathPrefix == "/storage" && (!route.Enabled || metadataValue(route, groupMetadataKey) != "") {
+			t.Errorf("storage route = %+v, want enabled without a group", route)
+		}
+	}
+}
+
 func containerNamesOf(opts *Options) []string {
 	var names []string
 	for _, c := range components(opts) {
@@ -135,10 +153,17 @@ func TestTheDialogportenGroupIsOffByDefault(t *testing.T) {
 			t.Errorf("%s is part of the default environment", name)
 		}
 	}
+	off := 0
 	for _, route := range boundTopologyConfig(opts).Routes {
 		if route.Match.PathPrefix == "/dialogporten" || route.Match.PathPrefix == "/dialogporten/graphql" {
-			t.Errorf("route %s%s registered with the group off", route.Match.Host, route.Match.PathPrefix)
+			off++
+			if route.Enabled || metadataValue(route, groupMetadataKey) != groupDialogporten {
+				t.Errorf("route %s%s = %+v, want it disabled and naming its group", route.Match.Host, route.Match.PathPrefix, route)
+			}
 		}
+	}
+	if off != 2 {
+		t.Errorf("%d Dialogporten routes with the group off, want both written disabled for the proxy's 503", off)
 	}
 	for _, target := range healthTargets(opts) {
 		if target.name == componentDialogportenWebApi {
@@ -163,14 +188,15 @@ func TestTheDialogportenGroupRegistersItsRoutesAndHealthWhenOn(t *testing.T) {
 		byPrefix[route.Match.Host+route.Match.PathPrefix] = route
 	}
 	web := byPrefix["local.altinn.cloud/dialogporten"]
-	if web.Destination.URL != "http://127.0.0.1:"+hostPortDialogportenWeb || len(web.Metadata) != 0 {
-		t.Errorf("WebApi route = %+v, want the WebApi's port and an unchanged path", web)
+	if web.Destination.URL != "http://127.0.0.1:"+hostPortDialogportenWeb || !web.Enabled ||
+		metadataValue(web, rewriteMetadataKey) != "" || metadataValue(web, groupMetadataKey) != groupDialogporten {
+		t.Errorf("WebApi route = %+v, want the WebApi's port, enabled, its group and an unchanged path", web)
 	}
 	graphql := byPrefix["local.altinn.cloud/dialogporten/graphql"]
 	if graphql.Destination.URL != "http://127.0.0.1:"+hostPortDialogportenGQL {
 		t.Errorf("GraphQL route = %+v", graphql)
 	}
-	if len(graphql.Metadata) != 1 || graphql.Metadata[0].Key != "rewritePrefix" || graphql.Metadata[0].Value != "/graphql" {
+	if metadataValue(graphql, rewriteMetadataKey) != "/graphql" {
 		t.Errorf("GraphQL route metadata = %+v, want rewritePrefix /graphql", graphql.Metadata)
 	}
 	if len(byPrefix) != len(boundTopologyConfig(opts).Routes) {

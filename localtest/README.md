@@ -87,8 +87,11 @@ studioctl run                               # in an app checkout
 The optional groups are off by default: `dialogporten` (see [`components/dialogporten/`](components/dialogporten/README.md)),
 `receipt`, `correspondence` (implies `dialogporten`) and `everything` (implies every other group). `--with <group>` starts
 a group and what it implies, `--without <group>` leaves out only that group, and leaving out a group an enabled one implies
-is an error (see [`studioctl/README.md`](studioctl/README.md)). Without a group none of its containers, routes or health
-checks exist, and `/dialogporten/...` falls through to the localtest app's 404. A later `env up` with or without the flags
+is an error (see [`studioctl/README.md`](studioctl/README.md)). Without a group none of its containers or health checks exist,
+and its routes answer `503` problem details ("Component not running", with `component`, `group` and the `--with`
+command; a browser gets the same as an HTML page). A component that is on but does not answer gets `503` "Component
+not answering" with the `env logs` and `env status` commands. A path that matches no route still reaches the localtest
+app's 404. A later `env up` with or without the flags
 converges the environment to that choice.
 
 Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`

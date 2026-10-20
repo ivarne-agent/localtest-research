@@ -18,8 +18,8 @@ studioctl env up -r localtest-v2 --with dialogporten      # --dev dialogporten b
 The WebApi, GraphQL and Service hosts all migrate the database at start (production's `DevelopmentMigratorHostedService`, active in
 `Development`), and two of them at once collide on the schema ("column ... already exists"). The runtime therefore waits for the WebApi's container health
 check (a GET of `/health/readiness` over bash's `/dev/tcp`, the aspnet image has no curl) before it starts the other two.
-Without `--with dialogporten` none of the four containers, routes or health checks exists, and `/dialogporten/...` is answered by
-the catch-all route to the localtest app (404, "No app is registered for this path").
+Without `--with dialogporten` none of the four containers or health checks exists, and the proxy answers `/dialogporten/...`
+with `503` problem details ("Component not running", `group` `dialogporten`, the `--with dialogporten` command).
 
 | Path | What |
 | --- | --- |

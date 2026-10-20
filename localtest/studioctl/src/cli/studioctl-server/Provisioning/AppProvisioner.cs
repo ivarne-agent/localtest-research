@@ -262,7 +262,8 @@ internal sealed class AppProvisioner
     /// <summary>
     /// Runs Dialogporten's localtest sync when the `dialogporten` group is up. The group is read from the route table
     /// `env up` writes together with the state file's group list (and which this server already watches for the proxy):
-    /// the WebApi's route exists exactly when the group is on, so there is no probe and no second copy of the group list.
+    /// the WebApi's route is enabled exactly when the group is on (with the group off it is written disabled, so the proxy
+    /// can answer 503), so there is no probe and no second copy of the group list.
     /// A failure does not fail the provisioning, since Dialogporten is optional; the next refresh tries again.
     /// </summary>
     private async Task SyncDialogporten(string reason, CancellationToken cancellationToken)
@@ -313,7 +314,7 @@ internal sealed class AppProvisioner
     }
 
     internal static bool DialogportenRunning(BoundTopologyIndex topology) =>
-        topology.TryGetComponentRoute(DialogportenComponent) is not null;
+        topology.TryGetComponentRoute(DialogportenComponent) is { Route.Enabled: true };
 
     private static string DialogportenSyncSummary(string body)
     {
