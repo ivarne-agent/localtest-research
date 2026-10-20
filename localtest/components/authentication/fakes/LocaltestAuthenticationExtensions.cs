@@ -22,6 +22,7 @@ namespace Altinn.Platform.Authentication.Localtest;
 /// <c>AuthenticationHost.cs</c>, placed just before the persistence layer: its settings are read eagerly there, and its
 /// repositories use TryAdd, so registering the in-memory ones first is enough. Points the upstream provider at the
 /// localtest app's fake ID-porten, and replaces Postgres with memory, and Key Vault with a local key. Profile is the production client, answered by the register component.
+/// Seeds the registered OIDC clients (<see cref="LocaltestOidcClients"/>).
 /// </summary>
 public static class LocaltestAuthenticationExtensions
 {
@@ -56,16 +57,22 @@ public static class LocaltestAuthenticationExtensions
         builder.Configuration.Sources.Insert(0, new MemoryConfigurationSource
         {
             // The level table covers the old localtest's levels 0-4 (LocaltestAuthLevels).
-            InitialData = LocaltestAuthLevels.ConfigurationDefaults("OidcProviders:idporten:AuthLevels").Concat(new Dictionary<string, string?>
+            InitialData = LocaltestAuthLevels.ConfigurationDefaults("OidcProviders:idporten:AuthLevels").Concat(LocaltestOidcClients.ConfigurationDefaults("Localtest:Authentication:OidcClients", platform)).Concat(new Dictionary<string, string?>
             {
                 ["GeneralSettings:JwtCookieName"] = "AltinnStudioRuntime",
-                ["GeneralSettings:OidcRefreshTokenPepper"] = "localtest-pepper",
+
+                // Base64, as production decodes it (Convert.FromBase64String) for client secrets and refresh tokens: the
+                // bytes of "localtest-pepper".
+                ["GeneralSettings:OidcRefreshTokenPepper"] = "bG9jYWx0ZXN0LXBlcHBlcg==",
 
                 // The one upstream provider: the localtest app's fake ID-porten, whose login page is the test-user picker.
                 // The browser goes to authorize; this service calls token and the metadata itself.
                 ["OidcProviders:idporten:Issuer"] = idporten,
                 ["OidcProviders:idporten:AuthorizationEndpoint"] = idporten + "/authorize",
                 ["OidcProviders:idporten:TokenEndpoint"] = internalIdporten + "/token",
+                // RP-initiated logout: openid/logout sends the browser here, and the fake sends it back to
+                // logout/handleloggedout.
+                ["OidcProviders:idporten:LogoutEndpoint"] = idporten + "/endsession",
                 ["OidcProviders:idporten:WellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
                 ["OidcProviders:idporten:ClientId"] = "localtest",
                 ["OidcProviders:idporten:Scope"] = "openid",
@@ -118,11 +125,16 @@ public static class LocaltestAuthenticationExtensions
         services.AddHttpClient<ISigningKeysRetriever, LocaltestSigningKeysRetriever>();
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
 
-        // Postgres: the three tables the browser flow, refresh and logout touch live in memory. The production
-        // persistence layer registers its repositories with TryAdd after this, so these win.
+        // Postgres: the tables the browser sign-in, the OIDC provider for registered clients (authorize, code, token,
+        // refresh) and logout touch live in memory. The production persistence layer registers its repositories with
+        // TryAdd after this, so these win.
         services.AddSingleton<IUnregisteredClientRepository, InMemoryUnregisteredClientRequestRepository>();
         services.AddSingleton<IUpstreamLoginTransactionRepository, InMemoryUpstreamLoginTransactionRepository>();
         services.AddSingleton<IOidcSessionRepository, InMemoryOidcSessionRepository>();
+        services.AddSingleton<IOidcServerClientRepository, InMemoryOidcServerClientRepository>();
+        services.AddSingleton<ILoginTransactionRepository, InMemoryLoginTransactionRepository>();
+        services.AddSingleton<IAuthorizationCodeRepository, InMemoryAuthorizationCodeRepository>();
+        services.AddSingleton<IRefreshTokenRepository, InMemoryRefreshTokenRepository>();
 
         // The Npgsql health check would report the missing database; the service's own check stays.
         services.PostConfigure<HealthCheckServiceOptions>(o =>
