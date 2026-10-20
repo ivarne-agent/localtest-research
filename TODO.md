@@ -30,7 +30,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 6 | [Notifications](#6-notifications) | in progress (2026-10-20, agent `task6-notifications`, worktree `.worktrees/task6-notifications`, branch `task/notifications`; phase 1 code, phase 2 images and stack after 9a) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
-| 9 | [Dialogporten core](#9-dialogporten-core) | 9a in progress (2026-10-20, agent `task9a-dialogporten`, worktree `.worktrees/task9a-dialogporten`, branch `task/dialogporten-core`); 9b follows | large | yes |
+| 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 90e89e7..ec4ae05, pin ec333e4); 9b approved, not yet dispatched | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
@@ -39,7 +39,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | unapproved | medium | yes |
 
-Suggested order: 9a (running), 9b, then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 6 phase 2 (running), 9b, 10, then 7 and 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
