@@ -30,7 +30,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | research in progress (2026-10-20, Opus research agent, branch `research/correspondence`; plan under `planned-components/correspondence/`, then a brief to approve) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | research in progress (2026-10-20, Opus research agent, branch `research/inspection-gui`; plan under `planned-components/inspection-gui/`, then a brief to approve) | medium | yes |
-| 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b in progress (2026-10-20, agent `task9b-dialogporten`, worktree `.worktrees/task9b-dialogporten`, branch `task/dialogporten-integration`) | large | yes |
+| 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf; pin bump pending the images workflow) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
@@ -39,7 +39,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | research in progress (2026-10-20, Opus research agent, branch `research/receipt`; plan under `planned-components/receipt/`, then a brief to approve) | medium | yes |
 
-Suggested order: 9b (running), 10, then 7 and 8 as capacity allows, then 9 to 11 in that
+Suggested order: task 2 phase 2 (next), 10, then 7, 8 and 16 from their research plans, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
