@@ -55,6 +55,12 @@ Subject pairs the registry has soft-deleted come back as `deleted` updates and r
 Provider rows come from the registry's `resource/orgs`, the real service-owner list from altinncdn.no. The
 registry's non-app seed resource (`altinn_keyrole_access`) is synced too.
 
+Provider ids are the production ones (MD5 of the org code). A database from before the stand-ins were removed holds
+`ttd` with the stand-in's id, and the first sync then fails on the unique provider name (the container exits at
+start). Drop the database once with the stack's Postgres up and Access Management stopped:
+`podman exec localtest-v2-postgres psql -U platform_authorization_admin -d postgres -c "drop database authorizationdb with (force)"`.
+Start recreates it, and each app runner's refresh fills the apps in again.
+
 ## Status
 
 Steps 1 to 6 of the plan are done. Access Management boots, migrates and seeds on the shared Postgres, imports parties
