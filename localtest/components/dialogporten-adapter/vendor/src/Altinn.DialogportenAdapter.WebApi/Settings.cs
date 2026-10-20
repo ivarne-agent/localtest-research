@@ -40,8 +40,14 @@ public sealed record DialogportenSettings(Uri BaseUri);
 
 public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndpoint, Uri InternalRegisterEndpoint, string SubscriptionKey, Uri AltinnCdn)
 {
+#if !LOCALTEST
     public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}/{appId}");
     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");
+#else
+    // localtest: apps and platform share one origin (http://local.altinn.cloud:8000, port kept), no org or platform sub-domains.
+    public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.GetLeftPart(UriPartial.Authority)}/{appId}");
+    public Uri GetPlatformUri() => new(BaseUri.GetLeftPart(UriPartial.Authority));
+#endif
 }
 
 public sealed record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);

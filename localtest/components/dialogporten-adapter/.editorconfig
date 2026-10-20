@@ -1,0 +1,10 @@
+# Localtest only; never applies to production code. MSBuild finds .editorconfig files above the project directory, so
+# this one (the component root, /src in the image) reaches the fakes compiled into the vendored host.
+
+# fakes/Maskinporten is an unchanged copy of components/shared/fakes/Maskinporten. The adapter builds with
+# AnalysisMode=Recommended, which flags two things that do not apply to it.
+[fakes/Maskinporten/*.cs]
+# The namespace Localtest.Shared.Maskinporten is the canonical copy's; "Shared" is a Visual Basic keyword only.
+dotnet_diagnostic.CA1716.severity = none
+# MD5 makes a token-cache key, not a signature or a password hash.
+dotnet_diagnostic.CA5351.severity = none

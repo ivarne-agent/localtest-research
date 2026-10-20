@@ -60,11 +60,19 @@ internal static class ServiceCollectionExtensions
 
             services.AddWolverine(opts =>
             {
+#if !LOCALTEST
                 opts.ConfigureAdapterDefaults(
                     environment,
                     settings.WolverineSettings.ServiceBusConnectionString,
                     settings.WolverineSettings.ManagementConnectionString
                 );
+#else
+                // localtest: no Azure Service Bus. The settings below are ConfigureAdapterDefaults without the transport; the
+                // command arrives on the in-process local queue declared at the end of this block, so the policies below apply.
+                opts.EnableAutomaticFailureAcks = false;
+                opts.EnableRemoteInvocation = false;
+                opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+#endif
                 opts.Policies.AllListeners(x => x.ProcessInline());
                 opts.Policies.AllSenders(x => x.SendInline());
 
@@ -168,12 +176,19 @@ internal static class ServiceCollectionExtensions
 
                 //.AndPauseProcessing(clock.Seconds(30)); // Give some time for upstream to recover before processing more messages
 
+#if !LOCALTEST
                 opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
                     .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
 
                 // Also listen to the history queue with a fewer number of listeners.
                 opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
                     .ListenerCount(30.PercentOf(settings.WolverineSettings.ListenerCount));
+#else
+                // localtest: one sequential in-process queue under the production queue name, fed by the localtest enqueue
+                // endpoint (fakes/), so two syncs of the same instance never race into a 412. No history queue (migration only).
+                opts.LocalQueue(ContractConstants.AdapterQueueName).Sequential();
+                opts.PublishMessage<SyncInstanceCommand>().ToLocalQueue(ContractConstants.AdapterQueueName);
+#endif
             });
 
             services.AddMemoryCache();

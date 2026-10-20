@@ -1,0 +1,16 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+
+  <!--
+    The fakes use the host's internal types (Settings, the Wolverine bus, the routes), so they are compiled into the host
+    from the adjacent fakes/ folder instead of being a separate project. fakes/Maskinporten is a copy of
+    components/shared/fakes/Maskinporten (see that README).
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.DialogportenAdapter.WebApi'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>

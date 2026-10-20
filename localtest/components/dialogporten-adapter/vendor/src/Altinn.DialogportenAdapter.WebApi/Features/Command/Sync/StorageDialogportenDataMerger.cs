@@ -363,7 +363,12 @@ internal sealed class StorageDialogportenDataMerger
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
+#if !LOCALTEST
             var platformUrl = element.SelfLinks.Platform;
+#else
+            // localtest: Storage's self links say https://platform.{host}/storage/... (hard-coded in its Interface package).
+            var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platform, _settings);
+#endif
 
             var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
                 ? ToPortalUri(platformUrl)
@@ -390,7 +395,12 @@ internal sealed class StorageDialogportenDataMerger
         TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
+#if !LOCALTEST
             var platformUrl = element.SelfLinks.Platform;
+#else
+            // localtest: Storage's self links say https://platform.{host}/storage/... (hard-coded in its Interface package).
+            var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platform, _settings);
+#endif
 
             var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
                 ? ToPortalUri(platformUrl)

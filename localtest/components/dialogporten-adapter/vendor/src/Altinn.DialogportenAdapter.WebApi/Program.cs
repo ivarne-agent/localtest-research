@@ -39,14 +39,23 @@ static void BuildAndRun(string[] args)
         .AddLocalDevelopmentSettings(builder.Environment)
         .AddUserSecrets<DialogportenAdapterSettings>();
 
+#if LOCALTEST
+    Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.AddLocaltestConfiguration(builder.Configuration);
+#endif
 
     builder.Services
         .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new Clock())
         .ReplaceLocalDevelopmentResources(builder.Configuration, builder.Environment);
+#if LOCALTEST
+    Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.AddLocaltestAdapter(builder);
+#endif
 
     using var app = builder
         .Build()
         .RegisterRoutes();
+#if LOCALTEST
+    Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.MapLocaltestRoutes(app);
+#endif
 
     app.Run();
 }
