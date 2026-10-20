@@ -128,9 +128,9 @@ studioctl's `localtest-v2` runtime starts `localtest-v2-dialogporten-adapter` wi
 the Register, Authentication and Dialogporten's WebApi, with `Localtest__Adapter__PlatformEndpoint` set to the public
 origin, published on host port 8035 (`/health` is polled there) and routed under `/storage/dialogporten` on the platform
 host. The proxy matches the longest prefix, so the adapter's paths win over Storage's `/storage`. Without the group there
-is no container and no route: `/storage/dialogporten/...` reaches Storage under `/storage` and is a 404, which Storage's
-handler takes for "not running" (once the front door answers 503 for components that are not running, TODO task 16, it
-is a 503, which the handler takes the same way). Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter`, override
+is no container, and the route is written disabled: `/storage/dialogporten/...` answers 503 problem details ("Component not
+running", `component: dialogporten-adapter`, `group: dialogporten`), which Storage's handler takes for "not running".
+Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter`, override
 with `STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER`; `--dev dialogporten-adapter` builds it from this folder.
 
 ## Smoke test
@@ -150,16 +150,43 @@ receipt is the adapter's; the code-flow token for user 1337 → the end-user dia
 `text/markdown` (401 without a token or with a user token); `syncDialog/simple` twice 204 with the revision unchanged;
 the delete with the dialog token 204 → Storage `isSoftDeleted` → the dialog's `deletedAt` within 10 s.
 
-Without the group: no adapter on 8035, the enqueue path a 404 (503 after task 16's front door), an instance created as usual without `dialog.id`, and
+Without the group: no adapter on 8035, the enqueue path a 503 from the front door naming the component and group, an instance created as usual without `dialog.id`, and
 (through `podman logs`) exactly one "adapter is not running" line in Storage's log for it and no outbox warning.
 
-## Verified
+## Memory
 
-Phase 1 (2026-10-20, no stack): `dotnet build -c Release` of the WebApi with the overrides and fakes on SDK 10.0.401,
-0 warnings, 0 errors. The built host started with `ASPNETCORE_ENVIRONMENT=Development` and a platform endpoint on a closed
-port: `/health` 200, `syncDialog` without a token 401, the anonymous enqueue 202, and the command ran from the local
-queue into the production handler, which called the Maskinporten fake (connection refused) and went into the production
-5xx/`HttpRequestException` retry policy.
+`podman stats --no-stream` (2026-10-20, right after the smoke test): `dialogporten-adapter` 261 MB. With the three Dialogporten
+hosts and Redis (318, 148, 177 and 7 MB at the same moment) the group takes about 0.9 GB.
 
-Not yet verified (needs the image and the stack): the image build, the runtime in the stack, the Storage handler under
-Wolverine inside Storage, and every check of the smoke test.
+## Verified (2026-10-20, task 10)
+
+Stack: `studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten --dev dialogporten-adapter --dev storage`
+(the rest at the pinned `sha-a3f62a8`), images built from this branch.
+
+- `./smoke-test.sh`: 39 checks, all pass, twice in a row. The instance's dialog was there within the 10 s; after the
+  submission its status went from `Draft` to `Awaiting` with one transmission; the receipt answered 200 `text/markdown`
+  with the end user's dialog token; the delete with the token soft-deleted the instance and the dialog had `deletedAt`
+  within 10 s.
+- `./smoke-test.sh --off` on the default stack (group off, `--dev storage`): 7 checks, all pass. The front door answered
+  503 problem details with `component: dialogporten-adapter` and `group: dialogporten`, the instance got no `dialog.id`, and
+  Storage logged exactly one line for it: `Dialogporten sync of instance 500000/{guid} dropped: the Dialogporten adapter is
+  not running (the dialogporten group is off?): 503 from http://local.altinn.cloud:8000/storage/dialogporten/api/localtest/enqueue`.
+- Found on the way, and fixed:
+  - Dialogporten refused every dialog the adapter made with 400 `'Url' is not a well-formatted HTTPS URL.` (GUI actions,
+    the API action): production's validators require https and the stack is http. Fixed with one `#if !LOCALTEST` site in
+    Dialogporten's Application project (`../dialogporten/README.md`, "Directive sites"), not in the adapter, so the dialogs
+    carry the real local links.
+  - Storage's first handler run logged a JasperFx warning ("Utilizing service location ...") because the client was a typed
+    `HttpClient`; it is now a singleton over a named client, and the default stack's log has no outbox warning.
+  - The smoke test's own instance events must carry `processInfo` as the app's do: an `EndTask` event without it makes the
+    adapter's merger throw (`NullReferenceException` in `FindCreatedForDateElements`), which Wolverine moves to the error
+    queue after the production policy. Production apps always send it.
+- Production behaviour the smoke test asserts as such: the receipt and the delete endpoint bind the `Authorization` header
+  as a required parameter, so without one they answer 400, not 401; a token that is not a valid dialog token gives 401.
+- Order matters for `../events/smoke-test.sh`: right after this smoke test, Dialogporten's events for the test's dialog
+  (`dialogporten.dialog.updated.v1`, `...transmission.created.v1`, `...deleted.v1` and others, six in all) arrive in the
+  Events component a few seconds later, after its reset, and its "stored once" check fails; run on its own it passes 22 of 22.
+
+Not verified: Arbeidsflate (task 11) using the links, attachments opened through `authentication?goto=` in a browser,
+archived instances' go-to link (404 until task 16's receipt group), and the published image (the image workflow builds
+`localtest-dialogporten-adapter` after merge; until the pin moves, `--with dialogporten` needs `--dev dialogporten-adapter`).

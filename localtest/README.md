@@ -80,7 +80,7 @@ and polls every component's `/health`:
 
 ```sh
 studioctl env up -r localtest-v2            # pinned images from ghcr; --latest follows main
-studioctl env up -r localtest-v2 --with dialogporten   # also Dialogporten (three hosts and Redis, about 0.5 GB) and its adapter
+studioctl env up -r localtest-v2 --with dialogporten   # also Dialogporten (three hosts and Redis, about 0.5 GB) and its adapter (about 0.26 GB)
 studioctl env up -r localtest-v2 --with everything     # every optional group
 studioctl run                               # in an app checkout
 ```

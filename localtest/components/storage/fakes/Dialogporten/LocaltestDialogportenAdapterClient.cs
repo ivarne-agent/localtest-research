@@ -16,8 +16,8 @@ namespace Altinn.Platform.Storage.Localtest.Dialogporten;
 /// on the adapter's own queue (the adapter's handler and retry policies run there, as for a Service Bus message).
 /// <para>
 /// Storage sends whether or not the adapter runs. When it does not (the optional <c>dialogporten</c> group is off), the
-/// request is refused at the connection, answered by the proxy (502, 503, 504, or 404 because no route claims the path)
-/// or, as studioctl-server routes by the longest matching prefix, answered 404 by Storage itself under <c>/storage</c>:
+/// front door answers its disabled route with 503 problem details; a refused connection, 502, 504, or a 404 (no route
+/// claims the path, so it reaches Storage itself under the longest matching prefix <c>/storage</c>) count the same:
 /// that is "not enabled", logged once per command and dropped. Nothing is retried: the outbox row is gone once the
 /// command is on the local queue, and a later change of the instance sends a new one. Any other answer is a warning,
 /// also dropped. The handler never throws, so Wolverine never retries it.

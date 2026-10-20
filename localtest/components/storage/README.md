@@ -100,8 +100,9 @@ static `Handle`, which Wolverine discovers in the host assembly) takes the comma
 queue, where its production handler and retry policies take over (`../dialogporten-adapter/README.md`).
 
 Storage always sends, whether or not the adapter runs; nothing in its configuration depends on the `dialogporten` group.
-When the group is off the request is refused or answered 404 (studioctl-server routes `/storage/dialogporten/...` to
-Storage itself under the longest matching prefix `/storage`, which has no such route), 502, 503 or 504: one line at
+When the group is off studioctl-server answers the adapter's disabled route with 503 problem details ("Component not
+running"); a refused connection, 404 (no route claims the path, so it would reach Storage's own `/storage`), 502 and 504
+count the same: one line at
 Information, `Dialogporten sync of instance {partyId}/{guid} dropped: the Dialogporten adapter is not running ...`, and
 the command is dropped. Nothing is retried and the handler never throws, so Wolverine never retries either. Any other
 non-success answer is a warning, also dropped. An instance changed while the adapter was down is synced by its next

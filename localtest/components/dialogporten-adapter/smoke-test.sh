@@ -14,7 +14,7 @@
 #   the end user's dialog token (code-flow token for user 1337) -> the adapter's receipt (200 Markdown, 401 without);
 #   syncDialog/simple twice -> 204, no new revision;
 #   DELETE storage/dialogporten/api/v1/instance with the dialog token -> Storage soft delete -> outbox -> dialog deleted.
-# Without the group: the enqueue path is not routed to an adapter, an instance is created as usual, gets no dialog.id,
+# Without the group: the front door answers 503 problem details for the adapter's prefix, an instance is created as usual, gets no dialog.id,
 # and (when podman can read the container's log) Storage logs exactly one "adapter is not running" line for it.
 # Instances are left in Storage (soft-deleted in the first mode); dialogs persist like instances (env reset removes both).
 #
@@ -70,11 +70,12 @@ create_instance() {
 if ((OFF)); then
   echo "== the default stack: the dialogporten group is off"
   expect "no adapter on its host port" 000 "$(code --max-time 3 "$ADAPTER_DIRECT/health")"
-  # Today the adapter's prefix is not routed, so the longest matching prefix is Storage's /storage, which has no such
-  # route (404); once the front door answers for components that are not running (TODO task 16) it is a 503. Storage's
-  # handler takes either for "not running".
-  OFF_CODE=$(code -X POST -H 'Content-Type: application/json' -d x "$ADP/api/localtest/enqueue")
-  expect "POST storage/dialogporten/api/localtest/enqueue is a 404 or 503" yes "$([[ "$OFF_CODE" == 404 || "$OFF_CODE" == 503 ]] && echo yes || echo "$OFF_CODE")"
+  # The front door writes the adapter's route disabled and answers 503 problem details for it; Storage's handler takes
+  # that for "not running".
+  curl -s -D "$T/oh" -o "$T/off.json" -X POST -H 'Content-Type: application/json' -d '{}' "$ADP/api/localtest/enqueue"
+  expect "POST storage/dialogporten/api/localtest/enqueue: 503 from the front door" 503 "$(head -1 "$T/oh" | awk '{print $2}')"
+  check "  ... problem details naming component dialogporten-adapter and group dialogporten" \
+    'd["status"] == 503 and d["component"] == "dialogporten-adapter" and d["group"] == "dialogporten"' <"$T/off.json"
   SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   R=$(create_instance)
   expect "instance created as usual" 201 "${R##*$'\n'}"
@@ -139,7 +140,7 @@ check "  ... serviceResource urn:altinn:resource:app_ttd_testapp" 'd["serviceRes
 check "  ... party is the instance owner's urn (organisation or person)" 'd["party"].startswith(("urn:altinn:organization:identifier-no:", "urn:altinn:person:identifier-no:"))' <"$T/d1.json"
 GOTO_PREFIX="$BASE/authentication/api/v1/authentication?goto="
 check "  ... go-to action: authentication?goto= the app's instance page on the stack's origin" \
-  'any(a["url"].startswith("'"$GOTO_PREFIX"'") and __import__("urllib.parse").parse.unquote(a["url"][len("'"$GOTO_PREFIX"'"):]).startswith("'"$BASE"'/ttd/testapp?dontChooseReportee=true#/instance/'"$ID"'") for a in d["guiActions"] if a["priority"] == "Primary")' <"$T/d1.json"
+  'any(a["url"].startswith("'"$GOTO_PREFIX"'") and __import__("urllib.parse").parse.unquote(a["url"][len("'"$GOTO_PREFIX"'"):]).startswith("'"$BASE"'/ttd/testapp/?dontChooseReportee=true#/instance/'"$ID"'") for a in d["guiActions"] if a["priority"] == "Primary")' <"$T/d1.json"
 check "  ... delete action on the adapter's public prefix" \
   'any(a["url"] == "'"$ADP"'/api/v1/instance/'"$ID"'" and a["httpMethod"] == "DELETE" for a in d["guiActions"])' <"$T/d1.json"
 STATUS1=$(py 'd["status"]' <"$T/d1.json")
@@ -147,10 +148,12 @@ REV1=$(py 'd["revision"]' <"$T/d1.json")
 echo "     status $STATUS1"
 
 echo "== process started, data uploaded -> attachment"
-EV() { # eventType
-  printf '{"instanceId":"%s","instanceOwnerPartyId":"%s","eventType":"%s","user":{"userId":1337,"authenticationLevel":3}}' "$ID" "$PARTY_ID" "$1"
+TASK='{"flow":2,"elementId":"Task_1","name":"Utfylling","altinnTaskType":"data","started":"2026-10-17T07:00:00Z"}'
+EV() { # eventType: an instance event as the app posts it, with the process info (the adapter reads the task of EndTask events)
+  printf '{"instanceId":"%s","instanceOwnerPartyId":"%s","eventType":"%s","user":{"userId":1337,"authenticationLevel":3},"processInfo":{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","currentTask":%s}}' \
+    "$ID" "$PARTY_ID" "$1" "$TASK"
 }
-START='{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","currentTask":{"flow":2,"elementId":"Task_1","name":"Utfylling","altinnTaskType":"data","started":"2026-10-17T07:00:00Z"}}'
+START="{\"started\":\"2026-10-17T07:00:00Z\",\"startEvent\":\"StartEvent_1\",\"currentTask\":$TASK}"
 expect "the app starts the process (instanceandevents, org token)" 200 \
   "$(code -H "Authorization: Bearer $APP" -H 'Content-Type: application/json' -X PUT "$ST/instances/$ID/process/instanceandevents" -d "{\"state\":$START,\"events\":[$(EV process_StartEvent),$(EV process_StartTask)]}")"
 expect "user 1337 uploads an attachment" 201 \
@@ -183,7 +186,7 @@ curl -s -D "$T/rh" -o "$T/receipt.md" -H "Authorization: Bearer $DTOKEN" "$RECEI
 expect "GET the transmission receipt with the dialog token" 200 "$(head -1 "$T/rh" | awk '{print $2}')"
 expect "  ... as Markdown" yes "$(grep -qi '^content-type: text/markdown' "$T/rh" && echo yes || echo no)"
 expect "  ... not empty" yes "$([[ -s "$T/receipt.md" ]] && echo yes || echo no)"
-expect "GET the receipt without a token: 401" 401 "$(code "$RECEIPT")"
+expect "GET the receipt without a token: 400 (the Authorization header is a required parameter)" 400 "$(code "$RECEIPT")"
 expect "GET the receipt with a user token instead of a dialog token: 401" 401 "$(code -H "Authorization: Bearer $USR" "$RECEIPT")"
 
 echo "== manual re-sync is idempotent"
@@ -193,7 +196,9 @@ expect "  ... again" 204 "$(code -X POST -H "Authorization: Bearer $SYNC" "$ADP/
 expect "  ... the dialog's revision is unchanged" "$REV2" "$(curl -s -H "Authorization: Bearer $SOT" "$SO/dialogs/$DIALOG" | py 'd["revision"]')"
 
 echo "== delete with the dialog token -> Storage soft delete -> dialog deleted"
-expect "DELETE storage/dialogporten/api/v1/instance/$ID without a token: 401" 401 "$(code -X DELETE "$ADP/api/v1/instance/$ID")"
+# The endpoint binds the Authorization header as a required parameter, so without one the answer is 400 (production code).
+expect "DELETE storage/dialogporten/api/v1/instance/$ID without a token: 400" 400 "$(code -X DELETE "$ADP/api/v1/instance/$ID")"
+expect "DELETE storage/dialogporten/api/v1/instance/$ID with a user token: 401" 401 "$(code -X DELETE -H "Authorization: Bearer $USR" "$ADP/api/v1/instance/$ID")"
 expect "DELETE storage/dialogporten/api/v1/instance/$ID with the dialog token" 204 "$(code -X DELETE -H "Authorization: Bearer $DTOKEN" "$ADP/api/v1/instance/$ID")"
 curl -s -H "Authorization: Bearer $SYNC" "$ST/instances/$ID" | check "  ... Storage: status.isSoftDeleted" 'd["status"]["isSoftDeleted"] is True'
 if wait_until 10 "$SO/dialogs/$DIALOG" "$SOT" 'd.get("deletedAt") is not None'; then
