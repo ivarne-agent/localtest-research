@@ -14,7 +14,7 @@ const (
 	groupDialogporten = "dialogporten"
 	// groupReceipt is the platform receipt for archived instances (`/receipt/{partyId}/{instanceGuid}`).
 	groupReceipt = "receipt"
-	// groupCorrespondence is Correspondence, which cannot run without Dialogporten. It owns no components yet.
+	// groupCorrespondence is Correspondence, which cannot run without Dialogporten (its publish needs a dialog).
 	groupCorrespondence = "correspondence"
 	// groupEverything owns no components and implies every other group.
 	groupEverything = "everything"

@@ -38,6 +38,9 @@ const (
 
 	// The optional receipt group: the platform receipt for archived instances.
 	componentReceipt = "receipt"
+
+	// The optional Correspondence group (see groups.go), which implies the Dialogporten group.
+	componentCorrespondence = "correspondence"
 )
 
 // Host ports, loopback only. The proxy in studioctl-server forwards to these; 5300 is also what app-lib's
@@ -58,6 +61,7 @@ const (
 	hostPortDialogportenAdpt = "8035"
 	hostPortNotifications    = "8029"
 	hostPortReceipt          = "8034"
+	hostPortCorrespondence   = "8033"
 	hostPortPDF              = "5300"
 )
 
@@ -68,6 +72,8 @@ const (
 	volumeStorageBlobs  = "localtest-v2-storage-blobs"
 	volumePolicyStore   = "localtest-v2-policy-store"
 	volumeLocaltestData = "localtest-v2-localtest-data"
+	// volumeCorrespondenceBlobs is Correspondence's file-backed blob store (uid of the image's dotnet user).
+	volumeCorrespondenceBlobs = "localtest-v2-correspondence-blobs"
 )
 
 const (
@@ -252,6 +258,7 @@ func allComponents(opts *Options) []component {
 		dialogportenServiceComponent(opts, platform),
 		dialogportenAdapterComponent(opts, platform),
 		receiptComponent(opts, platform),
+		correspondenceComponent(opts, platform),
 	}
 }
 
@@ -706,6 +713,46 @@ func receiptComponent(opts *Options, platform string) component {
 		containerOf(componentStorage),
 	}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/receipt", rewrite: ""}}
+	return c
+}
+
+// correspondenceComponent is production Altinn Correspondence (the API host, Hangfire inside it) on its own database. It
+// cannot publish without a Dialogporten dialog and connects to Redis eagerly at start, so its group implies Dialogporten's
+// and it shares that Redis (database 1; Dialogporten uses 0). Everything but the database and Redis it reaches through the
+// public origin; the localtest hook derives those URLs from the platform endpoint (see the component README).
+func correspondenceComponent(opts *Options, platform string) component {
+	c := newComponent(
+		opts,
+		componentCorrespondence,
+		opts.Images.LocaltestV2.Correspondence,
+		"components/correspondence",
+		"2525",
+		hostPortCorrespondence,
+	)
+	c.group = groupCorrespondence
+	// /health is the database check (CanConnectAsync); /healthz is liveness only.
+	c.healthPath = healthPath
+	c.env = map[string]string{
+		"Localtest__Correspondence__PlatformEndpoint": platform,
+		"DatabaseOptions__ConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Database=correspondence;Username=correspondence;Password=localtest",
+		"GeneralSettings__RedisConnectionString": componentRedis + ":" + redisPort + ",defaultDatabase=1",
+	}
+	c.volumes = []types.VolumeMount{namedVolume(volumeCorrespondenceBlobs, "/mnt/storage")}
+	// It validates dialog tokens against Dialogporten's JWKS and creates dialogs from its first job, so the WebApi (healthy,
+	// migrated) comes first; the platform services it calls start before it too.
+	c.deps = []string{
+		containerOf(componentPostgres),
+		containerOf(componentRegister),
+		containerOf(componentAuthorization),
+		containerOf(componentResourceRegistry),
+		containerOf(componentNotifications),
+		containerOf(componentEvents),
+		containerOf(componentRedis),
+		containerOf(componentDialogportenWebApi),
+	}
+	// The host's own paths start with /correspondence/api/v1, so nothing is rewritten.
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/correspondence", rewrite: ""}}
 	return c
 }
 

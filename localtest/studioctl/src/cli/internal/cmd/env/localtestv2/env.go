@@ -197,7 +197,9 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	e.out.Println("Deleting persisted localtest-v2 data...")
-	for _, volume := range []string{volumePostgresData, volumeStorageBlobs, volumePolicyStore, volumeLocaltestData} {
+	for _, volume := range []string{
+		volumePostgresData, volumeStorageBlobs, volumePolicyStore, volumeLocaltestData, volumeCorrespondenceBlobs,
+	} {
 		if err := e.client.VolumeRemove(
 			ctx,
 			volume,

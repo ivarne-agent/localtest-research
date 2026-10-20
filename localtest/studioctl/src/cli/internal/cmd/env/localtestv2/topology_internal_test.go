@@ -523,3 +523,81 @@ func TestTheReceiptRouteIsWrittenWithItsGroup(t *testing.T) {
 		}
 	}
 }
+
+func TestTheCorrespondenceGroupIsOffByDefault(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	if slices.Contains(containerNamesOf(opts), componentCorrespondence) {
+		t.Error("correspondence is part of the default environment")
+	}
+	found := false
+	for _, route := range boundTopologyConfig(opts).Routes {
+		if route.Match.PathPrefix == "/correspondence" {
+			found = true
+			if route.Enabled || metadataValue(route, groupMetadataKey) != groupCorrespondence {
+				t.Errorf("correspondence route = %+v, want it disabled and naming its group", route)
+			}
+		}
+	}
+	if !found {
+		t.Error("no /correspondence route written for the proxy's 503")
+	}
+}
+
+func TestTheCorrespondenceGroupStartsDialogportenAndRoutesToItsHost(t *testing.T) {
+	t.Parallel()
+	groups, err := ResolveGroups([]string{groupCorrespondence}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	opts.Groups = groupSet(groups)
+	names := containerNamesOf(opts)
+	for _, want := range []string{componentCorrespondence, componentRedis, componentDialogportenWebApi} {
+		if !slices.Contains(names, want) {
+			t.Errorf("components = %v, want %s", names, want)
+		}
+	}
+	if slices.Index(names, componentCorrespondence) < slices.Index(names, componentDialogportenWebApi) {
+		t.Errorf("correspondence starts before the Dialogporten WebApi: %v", names)
+	}
+
+	var route envtopology.BoundTopologyRoute
+	for _, r := range boundTopologyConfig(opts).Routes {
+		if r.Match.Host == "local.altinn.cloud" && r.Match.PathPrefix == "/correspondence" {
+			route = r
+		}
+	}
+	if route.Destination.URL != "http://127.0.0.1:"+hostPortCorrespondence || !route.Enabled ||
+		metadataValue(route, rewriteMetadataKey) != "" || metadataValue(route, groupMetadataKey) != groupCorrespondence {
+		t.Errorf("correspondence route = %+v, want port %s, enabled, its group and an unchanged path", route, hostPortCorrespondence)
+	}
+
+	health := map[string]string{}
+	for _, target := range healthTargets(opts) {
+		health[target.name] = target.url
+	}
+	if want := "http://127.0.0.1:" + hostPortCorrespondence + "/health"; health[componentCorrespondence] != want {
+		t.Errorf("health = %q, want %q", health[componentCorrespondence], want)
+	}
+
+	for _, c := range components(opts) {
+		if c.name != componentCorrespondence {
+			continue
+		}
+		for _, dep := range []string{
+			componentPostgres, componentRegister, componentAuthorization, componentResourceRegistry,
+			componentNotifications, componentEvents, componentRedis, componentDialogportenWebApi,
+		} {
+			if !slices.Contains(c.deps, containerOf(dep)) {
+				t.Errorf("correspondence deps %v lack %s", c.deps, dep)
+			}
+		}
+		if got := c.env["GeneralSettings__RedisConnectionString"]; got != "redis:6379,defaultDatabase=1" {
+			t.Errorf("Redis = %q, want the group's Redis, database 1", got)
+		}
+		if len(c.volumes) != 1 || c.volumes[0].HostPath != volumeCorrespondenceBlobs || c.volumes[0].ContainerPath != "/mnt/storage" {
+			t.Errorf("volumes = %+v, want the blob volume at /mnt/storage", c.volumes)
+		}
+	}
+}

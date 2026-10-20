@@ -92,6 +92,8 @@ type LocaltestV2Images struct {
 
 	// The optional receipt group.
 	Receipt ImageSpec
+	// The optional Correspondence group.
+	Correspondence ImageSpec
 }
 
 // All returns every localtest-v2 image, for applying one tag to the set.
@@ -112,6 +114,7 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.DialogportenService,
 		&i.DialogportenAdapter,
 		&i.Receipt,
+		&i.Correspondence,
 	}
 }
 
@@ -180,7 +183,8 @@ func DefaultImages() ImagesConfig {
 			DialogportenAdapter: localtestV2Image("dialogporten-adapter"),
 			Redis:               ImageSpec{Image: imageRedis, Tag: tagRedis, Floating: false},
 
-			Receipt: localtestV2Image("receipt"),
+			Receipt:        localtestV2Image("receipt"),
+			Correspondence: localtestV2Image("correspondence"),
 		},
 	}
 	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag)); tag != "" {
@@ -221,6 +225,7 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_GRAPHQL": &c.LocaltestV2.DialogportenGraphQL,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_SERVICE": &c.LocaltestV2.DialogportenService,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER": &c.LocaltestV2.DialogportenAdapter,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_CORRESPONDENCE":       &c.LocaltestV2.Correspondence,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
 
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_RECEIPT": &c.LocaltestV2.Receipt,

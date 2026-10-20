@@ -40,7 +40,7 @@ groups it implies.
 | --- | --- | --- |
 | `dialogporten` | – | Redis, the three Dialogporten hosts and the Dialogporten adapter; `--dev dialogporten` builds the three host images from `components/dialogporten`, `--dev dialogporten-adapter` the adapter from `components/dialogporten-adapter` |
 | `receipt` | – | the platform receipt (`components/receipt`, host port 8034, route `/receipt`) |
-| `correspondence` | `dialogporten` | none yet (task 7) |
+| `correspondence` | `dialogporten` | Correspondence (host port 8033, route `/correspondence`, volume `localtest-v2-correspondence-blobs`, Dialogporten's Redis database 1); `--dev correspondence` builds it from `components/correspondence` |
 | `everything` | every other group | none of its own |
 
 Leaving out a group that an enabled group implies is an error, because the enabled group cannot run without it:
