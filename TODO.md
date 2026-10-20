@@ -47,7 +47,7 @@ A path matching no route still falls through to the localtest app.
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
-| 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
+| 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | research in progress (2026-10-20, Opus research agent, branch `research/profile`; conditional approval below) | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task16-receipt`, branch `task/receipt`; phase 1 code incl. the group table, phase 2 stack after 10) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
@@ -433,6 +433,11 @@ The Register component answers the Profile endpoints Authentication and Authoriz
 more of Profile (notification settings, favourites, professional notification addresses). Research first: which
 Profile endpoints app-lib and the inbox stack call, and whether vendoring `Altinn/altinn-profile` (Postgres, its own
 Register and SBL bridge clients) beats extending the Register fakes.
+
+**Conditional approval (2026-10-20).** If the research finds vendoring `Altinn/altinn-profile` (or the alternative it
+recommends) straightforward under the vendoring model, dispatch the implementation as a follow-on task after the
+running tasks (10, 16, 7) are verified, with the plan's "Proposed brief" and the inherited rules, without a further
+round. Otherwise report back.
 
 ## 15. Localtest URLs in the Maskinporten client package
 
