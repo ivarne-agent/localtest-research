@@ -21,7 +21,7 @@ README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers.
 | 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
 | 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | deferred (2026-10-20: until a relying party in the stack needs the code flow, i.e. task 11 or a Dialogporten end-user test) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
-| 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | unapproved | small | yes |
+| 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | in progress (2026-10-20, agent `task4-maskinporten`, worktree `.worktrees/task4-maskinporten`, branch `task/maskinporten-token-endpoint`) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | unapproved | large | yes |
 | 6 | [Notifications](#6-notifications) | unapproved | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
@@ -32,8 +32,9 @@ README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers.
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
+| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 
-Suggested order: 4, then 5, then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 4 (running), then 5, then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -143,9 +144,18 @@ answering a token the production `exchange/maskinporten` accepts) and one `IMask
 compiled into the .NET consumers that need a Maskinporten token (the Dialogporten adapter, Dialogporten, later
 Correspondence). Contract in `shared-prerequisites.md` sections 1 and 2.
 
-**Open.** Client id convention (open question 3: client id = organisation number, or every client configured);
-`test=true` default on the exchange (open question 4). No consumer exists in the stack until tasks 9 and 10, so the
-smoke test is the only caller at first.
+**Decisions (2026-10-20).**
+
+- Client id to organisation number: `consumer_org` in the assertion when present, else a nine-digit client id is the
+  organisation number, else the default 991825827 (Digdir). No configured client table. Unknown clients are accepted
+  and logged, not refused.
+- The assertion's signature, `exp` and `aud` are not checked; only the payload is read.
+- The fake's exchange keeps production semantics: `test=true` only when the consumer's `UseAltinnTestOrg` is true.
+- The `IMaskinportenService` fake is one canonical source under `localtest/components/shared/fakes/Maskinporten/`,
+  **copied** into each consumer's `fakes/` when that consumer is vendored (no shared build context for now); a small
+  host under `components/shared/` compiles it against `Altinn.ApiClients.Maskinporten` 10.1.0 and is its smoke test.
+  Task 15 is the long-term replacement.
+- No consumer exists in the stack until tasks 9 to 11, so the smoke tests are the only callers at first.
 
 **Verification.** `localtest/localtest/smoke-test.sh`: a token from the endpoint exchanges through production
 `exchange/maskinporten`; the fake, compiled into a scratch console host, obtains an Altinn token.
@@ -252,3 +262,12 @@ The Register component answers the Profile endpoints Authentication and Authoriz
 more of Profile (notification settings, favourites, professional notification addresses). Research first: which
 Profile endpoints app-lib and the inbox stack call, and whether vendoring `Altinn/altinn-profile` (Postgres, its own
 Register and SBL bridge clients) beats extending the Register fakes.
+
+## 15. Localtest URLs in the Maskinporten client package
+
+**Goal.** `Altinn.ApiClients.Maskinporten` accepts a configured token endpoint and exchange endpoint (or a custom
+environment) so that a consumer can point it at the localtest app and production Authentication by settings alone,
+and the compiled-in `IMaskinportenService` fake from task 4 can be deleted. An upstream change in
+`Altinn/altinn-apiclient-maskinporten` (the `switch` tables in `MaskinportenService.GetTokenEndpoint` and
+`GetTokenExchangeEndpoint` throw for unknown environments; `MaskinportenSettings` has no URL fields), then a version
+bump in each consumer. Also covers the BFF, which is already configurable, and Correspondence's own token service.
