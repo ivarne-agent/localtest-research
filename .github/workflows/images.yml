@@ -39,6 +39,7 @@ jobs:
           - { name: dialogporten-webapi, context: localtest/components/dialogporten, file: localtest/components/dialogporten/Dockerfile.webapi }
           - { name: dialogporten-graphql, context: localtest/components/dialogporten, file: localtest/components/dialogporten/Dockerfile.graphql }
           - { name: dialogporten-service, context: localtest/components/dialogporten, file: localtest/components/dialogporten/Dockerfile.service }
+          - { name: notifications, context: localtest/components/notifications, file: localtest/components/notifications/Dockerfile }
           - { name: postgres, context: localtest, file: localtest/postgres/Dockerfile }
         platform:
           - { os: ubuntu-24.04, arch: amd64 }
@@ -78,7 +79,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, dialogporten-webapi, dialogporten-graphql, dialogporten-service, postgres]
+        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, notifications, dialogporten-webapi, dialogporten-graphql, dialogporten-service, postgres]
     steps:
       - uses: actions/download-artifact@v4
         with:

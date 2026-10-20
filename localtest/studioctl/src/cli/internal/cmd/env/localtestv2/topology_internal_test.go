@@ -35,6 +35,7 @@ func TestBoundTopologyConfigRoutesEveryComponentToLoopback(t *testing.T) {
 		"local.altinn.cloud/accessmanagement": "http://127.0.0.1:" + hostPortAccessManagement,
 		"local.altinn.cloud/events":           "http://127.0.0.1:" + hostPortEvents,
 		"local.altinn.cloud/resourceregistry": "http://127.0.0.1:" + hostPortResourceRegistry,
+		"local.altinn.cloud/notifications":    "http://127.0.0.1:" + hostPortNotifications,
 		"local.altinn.cloud/authentication":   "http://127.0.0.1:" + hostPortAuthentication,
 		"local.altinn.cloud/authorization":    "http://127.0.0.1:" + hostPortAuthorization,
 		"local.altinn.cloud/register":         "http://127.0.0.1:" + hostPortRegister,

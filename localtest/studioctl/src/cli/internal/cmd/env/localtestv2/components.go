@@ -23,6 +23,7 @@ const (
 	componentStorage          = "storage"
 	componentEvents           = "events"
 	componentResourceRegistry = "resource-registry"
+	componentNotifications    = "notifications"
 	componentLocaltest        = "localtest"
 	componentPDF              = "pdf3"
 	componentWorkflowEngine   = "workflow-engine"
@@ -49,6 +50,7 @@ const (
 	hostPortDialogportenWeb  = "8030"
 	hostPortDialogportenGQL  = "8031"
 	hostPortDialogportenSvc  = "8032"
+	hostPortNotifications    = "8029"
 	hostPortPDF              = "5300"
 )
 
@@ -233,6 +235,7 @@ func allComponents(opts *Options) []component {
 		accessManagementComponent(opts, platform),
 		eventsComponent(opts, platform),
 		resourceRegistryComponent(opts, platform),
+		notificationsComponent(opts, platform),
 		localtestComponent(opts, platform),
 		pdfComponent(opts),
 		workflowEngineComponent(opts),
@@ -427,6 +430,42 @@ func resourceRegistryComponent(opts *Options, platform string) component {
 	// App resources come from Storage's application list.
 	c.deps = []string{containerOf(componentPostgres), containerOf(componentStorage)}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/resourceregistry"}}
+	return c
+}
+
+func notificationsComponent(opts *Options, platform string) component {
+	c := newComponent(
+		opts,
+		componentNotifications,
+		opts.Images.LocaltestV2.Notifications,
+		"components/notifications",
+		"5090",
+		hostPortNotifications,
+	)
+	c.healthPath = healthPath
+	c.env = map[string]string{
+		certSettingEnv: certContainerPath,
+		"Localtest__Notifications__PlatformEndpoint": platform,
+		"PostgreSQLSettings__AdminConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_notifications_admin;Password={0};Database=notificationsdb",
+		"PostgreSQLSettings__ConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True",
+	}
+	// The platform-token generator (to Register and the PDP) reads its default path relative to /app, as Events'.
+	notificationsCert := readOnlyBind(
+		filepath.Join(opts.CertDir, localtestv2.CertificateFileName),
+		"/accesstoken/accesstokencredentials.pfx",
+	)
+	c.volumes = []types.VolumeMount{certMount(opts), notificationsCert}
+	// Orders call Profile and Register (the Register component), the PDP, and the apps' condition endpoints through
+	// the public origin (the default extraHosts map every ingress hostname to the host gateway).
+	c.deps = []string{
+		containerOf(componentPostgres),
+		containerOf(componentRegister),
+		containerOf(componentAuthorization),
+		containerOf(componentAuthentication),
+	}
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/notifications"}}
 	return c
 }
 
