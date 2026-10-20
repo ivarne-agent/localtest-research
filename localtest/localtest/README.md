@@ -10,6 +10,7 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
+| Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
 
 | File | What |
 | --- | --- |
@@ -18,7 +19,8 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | `Tokens/` | `SigningKey.cs`: RS256 keys (generated, or the shared certificate's), JWKS and a hand-written JWT writer, used by the identity features; `TokenErrorResponse.cs`, the token endpoint error both fakes answer |
 | `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `AuthorizationCodes.cs`, `TestUsers.cs` (the register's test users, also used by Home), `AuthLevels.cs` |
 | `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, token endpoint, minting) |
-| `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP) |
+| `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`) |
+| `Authentication/` | `AuthenticationApi.cs` (endpoints), `CodeFlow.cs` (the code flow over HTTP), `SeededClients.cs` (the seeded clients' ids, secrets and redirect URIs) |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts, exact paths and path prefixes, and the upstream addresses |
 | `Proxy/AppRoutes.cs`, `Proxy/AppRoutesApi.cs` | The app routes and the API the app runner pushes them through |
@@ -87,11 +89,12 @@ Authentication's own OIDC client and token validation run (plan:
 
 | Endpoint (`localtest/api/idporten/`) | What |
 | --- | --- |
-| `GET .well-known/openid-configuration` | Issuer `{Localtest:PlatformEndpoint}localtest/api/idporten` (default `http://local.altinn.cloud:8000/…`, or `IdPorten:Issuer`), endpoints, `S256` |
+| `GET .well-known/openid-configuration` | Issuer `{Localtest:PlatformEndpoint}localtest/api/idporten` (default `http://local.altinn.cloud:8000/…`, or `IdPorten:Issuer`), endpoints (`end_session_endpoint` included), `S256` |
 | `GET jwks` | The RS256 public key, generated at start (tokens live 5 minutes; Authentication's localtest key retriever fetches the JWKS on every validation, so a restart only drops logins in flight) |
 | `GET authorize` | The picker: every test user's own party (`UserSelect=userId.partyId`) and the level 0-4 (`AuthenticationLevel`), preselected from the highest known `acr_values`, else 3. Keeps `client_id`, `redirect_uri`, `state`, `nonce` and the PKCE challenge in hidden fields |
 | `POST authorize` | The form: a one-time code (60 s) for the picked user, then `302 {redirect_uri}?code&state` |
 | `POST token` | `authorization_code` with `redirect_uri`, `client_id` and the S256 `code_verifier` checked; answers a signed `id_token` (`aud` = client id, `nonce`, `auth_time`, `sid`) and `access_token` (`client_id`, `scope`) |
+| `GET endsession` | RP-initiated logout, as ID-porten's: `302` to `post_logout_redirect_uri` (on the platform origin, else `400`) with `state` appended; without one a plain "signed out" page. `id_token_hint` and `client_id` are accepted and not checked. Production Authentication's `openid/logout` sends the browser here (`OidcProviders:idporten:LogoutEndpoint`) with its `logout/handleloggedout` as the redirect. The fake keeps no login session (codes are one-time), so nothing is ended |
 
 Both tokens carry `iss`, a pairwise `sub`, `pid` (or `urn:altinn:userid` for a self-identified test user without a
 national identity number), `acr` (level table in `IdPorten/AuthLevels.cs`, kept in step with Authentication's
@@ -143,11 +146,42 @@ its production exchanges. Calls to Authentication go straight to its upstream wi
 Production `exchange/maskinporten` looks the organisation code up in `https://altinncdn.no/orgs/altinn-orgs.json`, so a
 service-owner org token needs internet access from the authentication container.
 
+## Authentication
+
+Production Authentication is also an OpenID Connect provider for registered clients
+(`../components/authentication/README.md`, "As an OpenID Connect provider"). This feature runs that flow without a
+browser for the two seeded clients, `localtest-smoke` (default) and `arbeidsflate-localtest`, acting as the client with
+its seeded secret (`SeededClients.cs`, kept in step with `components/authentication/fakes/LocaltestOidcClients.cs`):
+
+1. production `authorize` with the client's redirect URI, the four scopes (or `scope`), `state`, `nonce`, an S256 PKCE
+   challenge and the level's `acr_values`;
+2. the redirect to the fake ID-porten is answered for the chosen user without the picker, and production
+   `upstream/callback` is called (the same steps `/Home` uses, `AuthenticationClient.SignInUpstream`);
+3. the callback's `302` to the client's `redirect_uri` is read, not followed, for `code` and `state` (checked);
+4. production `token` with `client_secret_basic`, the code and the verifier.
+
+| Endpoint (`localtest/api/authentication/`, anonymous) | What |
+| --- | --- |
+| `GET token?client&userId&partyId&authenticationLevel&scope` | The whole flow; production's token response (`access_token`, `id_token`, `token_type`, `expires_in`, `scope`, `refresh_token`, `refresh_token_expires_in`) plus `pid`, the access token's `pid` claim (null when absent). Defaults as `/Home/GetTestUserToken`: `userId` required, level 2, the user's own party. Sets the session cookies production's callback set (`Secure` removed, party cookies on `partyId`), so an `openid/logout` with them ends that session. Production's error status and body are passed through; a failure before the token call is a `502` problem naming the step |
+| `GET code?…` (same parameters) | Steps 1-3 only: `{client_id, code, code_verifier, redirect_uri, state, nonce}`, for a test that redeems the code itself (wrong secret, spent code). Sets the cookies too |
+| `POST refresh` (form or query: `client`, `refresh_token`) | Production's `refresh_token` grant as the client; the response as for `token` |
+| `GET callback` | `localtest-smoke`'s registered redirect URI: answers its query parameters as JSON (`code`, `state`, or `error`, `error_description`), for a browser that drives the picker itself |
+
+The access token carries `pid`, `acr`, `urn:altinn:authlevel`, `urn:altinn:userid`, the party claims, `sid` and
+`scope` (`openid digdir:dialogporten.noconsent altinn:portal/enduser altinn:instances.read`, the session's scopes, not
+the requested ones), which is what Dialogporten's end-user API needs; `/Home/GetTestUserToken`'s cookie JWT has no
+`pid` by production design.
+
 ## Build notes
 
 - `PublishAot` with `IsAotCompatible` and warnings as errors: the AOT and trim analysers run on every build. YARP 2.3.0
   publishes without AOT or trim warnings.
-- All JSON goes through the source-generated `LocaltestJsonContext`; a new feature adds its types there.
+- All JSON goes through the source-generated `LocaltestJsonContext`; a new feature adds its types there. Responses that
+  pass another service's JSON on (the Authentication feature's token responses) are rewritten with `JsonDocument` and
+  `Utf8JsonWriter`, which need no serializer metadata.
+- Give minimal-API lambdas an explicit return type (`async Task<IResult> (…) =>`) when the inferred one would be
+  nullable: for `return error ?? Results.Json(…)` with an `IResult? error` the AOT request delegate generator emits
+  uncompilable code for `Task<IResult?>`.
 - The catch-all is `MapFallback("{**path}", RequestDelegate)`. The default fallback pattern (`{*path:nonfile}`) skips
   every path that looks like a file (`…/report.pdf`), and with Native AOT the request delegate generator rewrites the
   typed-lambda overload of `MapFallback` and loses an explicit pattern, so the plain `RequestDelegate` overload is used.

@@ -29,6 +29,7 @@ public static class IdPortenApi
             settings.Issuer + "/authorize",
             settings.Issuer + "/token",
             settings.Issuer + "/jwks",
+            settings.Issuer + "/endsession",
             ["code"],
             ["pairwise"],
             ["RS256"],
@@ -122,6 +123,29 @@ public static class IdPortenApi
                 NullIfEmpty(form["code_challenge"])));
             // iss as ID-porten sends it (RFC 9207); Authentication checks it when its provider has ValidateCallbackIssuer.
             return Results.Redirect(QueryHelpers.AddQueryString(redirectUri, new Dictionary<string, string?> { ["code"] = code, ["state"] = state, ["iss"] = settings.Issuer }));
+        });
+
+        // RP-initiated logout, as ID-porten's endsession: back to post_logout_redirect_uri with state. Authentication's
+        // openid/logout sends the browser here (OidcProviders:idporten:LogoutEndpoint) with its logout/handleloggedout
+        // as the redirect. The fake keeps no login session of its own (its codes are one-time), so there is nothing to
+        // end; id_token_hint and client_id are accepted and not checked.
+        api.MapGet("/endsession", (HttpRequest request, LocaltestSettings localtest) =>
+        {
+            var redirectUri = request.Query["post_logout_redirect_uri"].ToString();
+            if (string.IsNullOrEmpty(redirectUri))
+            {
+                return Results.Text("Signed out of localtest's ID-porten.\n");
+            }
+
+            // As for authorize: ID-porten redirects only to a client's registered URIs, and the one client is
+            // Authentication, on the platform origin.
+            if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var redirect) || !IsOnPlatform(redirect, localtest))
+            {
+                return Results.BadRequest($"post_logout_redirect_uri must be on {localtest.PlatformEndpoint}, where Authentication's logout/handleloggedout is.");
+            }
+
+            var state = request.Query["state"].ToString();
+            return Results.Redirect(string.IsNullOrEmpty(state) ? redirectUri : QueryHelpers.AddQueryString(redirectUri, "state", state));
         });
 
         api.MapPost("/token", async (HttpRequest request, AuthorizationCodes codes, [FromKeyedServices(IdPortenSettings.KeyName)] SigningKey key, IdPortenSettings settings, CancellationToken cancellationToken) =>
@@ -306,6 +330,7 @@ public sealed record OpenIdConfiguration(
     [property: JsonPropertyName("authorization_endpoint")] string AuthorizationEndpoint,
     [property: JsonPropertyName("token_endpoint")] string TokenEndpoint,
     [property: JsonPropertyName("jwks_uri")] string JwksUri,
+    [property: JsonPropertyName("end_session_endpoint")] string EndSessionEndpoint,
     [property: JsonPropertyName("response_types_supported")] string[] ResponseTypesSupported,
     [property: JsonPropertyName("subject_types_supported")] string[] SubjectTypesSupported,
     [property: JsonPropertyName("id_token_signing_alg_values_supported")] string[] IdTokenSigningAlgValuesSupported,

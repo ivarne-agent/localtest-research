@@ -10,6 +10,7 @@ namespace Localtest.Home;
 /// <summary>
 /// Production Authentication, called over HTTP from <c>/Home</c>: the browser sign-in run headlessly, and the token
 /// exchanges. Calls go straight to the component's upstream with the public <c>Host</c>, as the proxy forwards a browser's.
+/// The Authentication feature's code-flow helper (<c>Authentication/</c>) shares the upstream half of the sign-in.
 /// </summary>
 public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten)
 {
@@ -26,18 +27,41 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
     /// </summary>
     public async Task<(SignInResult? Result, string? Error)> SignIn(TestUser user, string acr, CancellationToken cancellationToken)
     {
+        var (callback, error) = await SignInUpstream("authentication/api/v1/authentication?goTo=" + Uri.EscapeDataString(localtest.PlatformEndpoint), user, acr, cancellationToken);
+        if (callback is null)
+        {
+            return (null, error);
+        }
+
+        var jwt = callback.SetCookies.Select(c => CookieValue(c, "AltinnStudioRuntime")).FirstOrDefault(v => !string.IsNullOrEmpty(v));
+        return jwt is null
+            ? (null, $"Production sign-in answered {(int)callback.Status} without the AltinnStudioRuntime cookie: {callback.Body}")
+            : (new SignInResult(callback.SetCookies, jwt), null);
+    }
+
+    /// <summary>Production <c>upstream/callback</c>'s answer: its redirect (not followed), cookies and body.</summary>
+    public sealed record CallbackResponse(HttpStatusCode Status, Uri? Location, string[] SetCookies, string Body);
+
+    /// <summary>
+    /// The steps every sign-in shares: <paramref name="authorizePathAndQuery"/> on production Authentication (the
+    /// <c>goTo</c> sign-in, or <c>authorize</c> for a registered client) must redirect to the fake ID-porten's
+    /// <c>authorize</c>; the code for <paramref name="user"/> at <paramref name="acr"/> is issued here instead of the picker;
+    /// production <c>upstream/callback</c> is called with it, and its answer is returned unfollowed.
+    /// </summary>
+    public async Task<(CallbackResponse? Callback, string? Error)> SignInUpstream(string authorizePathAndQuery, TestUser user, string acr, CancellationToken cancellationToken)
+    {
         using var client = httpClientFactory.CreateClient(HttpClientName);
-        using var authorize = await client.SendAsync(Request(HttpMethod.Get, "authentication/api/v1/authentication?goTo=" + Uri.EscapeDataString(localtest.PlatformEndpoint)), cancellationToken);
+        using var authorize = await client.SendAsync(Request(HttpMethod.Get, authorizePathAndQuery), cancellationToken);
         if (authorize.Headers.Location is not { } upstream || !upstream.IsAbsoluteUri)
         {
-            return (null, $"Production authorize answered {(int)authorize.StatusCode} without a redirect to the identity provider.");
+            return (null, $"Production authorize answered {(int)authorize.StatusCode} without a redirect to the identity provider: {await authorize.Content.ReadAsStringAsync(cancellationToken)}");
         }
 
         var query = QueryHelpers.ParseQuery(upstream.Query);
         var redirectUri = query["redirect_uri"].ToString();
         if (string.IsNullOrEmpty(redirectUri) || string.IsNullOrEmpty(query["state"]))
         {
-            return (null, $"Production authorize redirected to {upstream.GetLeftPart(UriPartial.Path)} without state or redirect_uri.");
+            return (null, $"Production authorize redirected to {upstream.GetLeftPart(UriPartial.Path)} without state or redirect_uri ({upstream.Query}).");
         }
 
         var code = codes.Issue(new AuthorizationGrant(
@@ -53,10 +77,7 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
             new Dictionary<string, string?> { ["code"] = code, ["state"] = query["state"], ["iss"] = idPorten.Issuer });
         using var response = await client.SendAsync(Request(HttpMethod.Get, callback), cancellationToken);
         var setCookies = response.Headers.TryGetValues("Set-Cookie", out var values) ? values.ToArray() : [];
-        var jwt = setCookies.Select(c => CookieValue(c, "AltinnStudioRuntime")).FirstOrDefault(v => !string.IsNullOrEmpty(v));
-        return jwt is null
-            ? (null, $"Production sign-in answered {(int)response.StatusCode} without the AltinnStudioRuntime cookie: {await response.Content.ReadAsStringAsync(cancellationToken)}")
-            : (new SignInResult(setCookies, jwt), null);
+        return (new CallbackResponse(response.StatusCode, response.Headers.Location, setCookies, await response.Content.ReadAsStringAsync(cancellationToken)), null);
     }
 
     /// <summary>
@@ -96,7 +117,8 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
         }
     }
 
-    private HttpRequestMessage Request(HttpMethod method, string pathAndQuery)
+    /// <summary>A request to production Authentication's upstream with the public <c>Host</c>, as the proxy forwards a browser's.</summary>
+    public HttpRequestMessage Request(HttpMethod method, string pathAndQuery)
     {
         var request = new HttpRequestMessage(method, platformRoutes.Upstreams["authentication"].TrimEnd('/') + "/" + pathAndQuery);
         request.Headers.Host = localtest.PublicHost;

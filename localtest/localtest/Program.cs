@@ -1,4 +1,5 @@
 using Localtest;
+using Localtest.Authentication;
 using Localtest.Home;
 using Localtest.IdPorten;
 using Localtest.Maskinporten;
@@ -10,10 +11,11 @@ using Microsoft.Extensions.FileProviders;
 // The localtest app: the front door of the stack, and home of the localtest features that are not a platform
 // component: the proxy (Proxy/), one origin, local.altinn.cloud:8000, split by host and path prefix onto the platform
 // components and the apps the app runner has registered; a fake ID-porten (IdPorten/) with the test-user picker and a
-// fake Maskinporten (Maskinporten/), which production Authentication trusts; and the old localtest's start page and
-// test helpers (Home/), which sign in and exchange tokens through production Authentication. Forwarding is YARP's IHttpForwarder; the
-// route table is code (PlatformRoutes) and the app routes arrive over HTTP (AppRoutes), so nothing reads files or
-// reloads. Each feature keeps its own API under localtest/api/{feature}/.
+// fake Maskinporten (Maskinporten/), which production Authentication trusts; the old localtest's start page and
+// test helpers (Home/), which sign in and exchange tokens through production Authentication; and a headless
+// authorization-code flow for the registered OIDC clients production Authentication is seeded with (Authentication/).
+// Forwarding is YARP's IHttpForwarder; the route table is code (PlatformRoutes) and the app routes arrive over HTTP
+// (AppRoutes), so nothing reads files or reloads. Each feature keeps its own API under localtest/api/{feature}/.
 var builder = WebApplication.CreateSlimBuilder(args);
 // One line per request at Information drowned everything else during a Cypress run; warnings and the start-up lines
 // stay. Logging__LogLevel__… in the environment still wins.
@@ -46,6 +48,7 @@ builder.Services.AddSingleton<TestUsers>();
 builder.Services.AddSingleton(MaskinportenSettings.FromConfiguration(builder.Configuration, localtest));
 builder.Services.AddKeyedSingleton<SigningKey>(MaskinportenApi.KeyName);
 builder.Services.AddSingleton<AuthenticationClient>();
+builder.Services.AddSingleton<CodeFlow>();
 builder.Services.AddHttpClient(AuthenticationClient.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, LocaltestJsonContext.Default));
@@ -92,13 +95,14 @@ AppRoutesApi.Map(app);
 IdPortenApi.Map(app);
 MaskinportenApi.Map(app);
 HomeApi.Map(app);
+AuthenticationApi.Map(app);
 // Any other localtest/api/… path is the localtest app's own and unknown: its own 404, not the app-runner hint below.
 // (The specific feature routes win by route precedence; a plain RequestDelegate, as for the fallback.)
 app.Map("/localtest/api/{**rest}", context =>
 {
     context.Response.StatusCode = StatusCodes.Status404NotFound;
     context.Response.ContentType = "text/plain; charset=utf-8";
-    return context.Response.WriteAsync("Unknown localtest API path. The features' APIs are under localtest/api/{proxy,idporten,maskinporten}/.\n");
+    return context.Response.WriteAsync("Unknown localtest API path. The features' APIs are under localtest/api/{proxy,idporten,maskinporten,authentication}/.\n");
 });
 // Everything else is forwarded. An explicit catch-all pattern: MapFallback's default ({*path:nonfile}) would skip
 // every path that looks like a file (…/report.pdf, …/main.js). A plain RequestDelegate, because the AOT request
