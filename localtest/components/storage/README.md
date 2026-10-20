@@ -2,7 +2,9 @@
 
 Production Altinn Storage (`vendor/`, see `UPSTREAM.md`) on a real Postgres, with Azure Blob replaced by files on a
 volume, the file-scan queue replaced by an immediate "clean" verdict, Key Vault switched off. Application metadata
-and texts arrive through the production endpoints, pushed by the app runner.
+and texts arrive through the production endpoints, pushed by the app runner. The outbox to the Dialogporten adapter runs
+as in production and ends in a localtest handler that posts each command to the adapter (see
+[Dialogporten outbox](#dialogporten-outbox)).
 
 | Path | What |
 | --- | --- |
@@ -37,6 +39,7 @@ queues in `Development`, Application Insights is only wired when Key Vault yield
 | --- | --- |
 | `IBlobRepository` (Azure Blob) | `FileBlobRepository`: `{BlobRootPath}/{org}/{blobStoragePath}`, the Azure container layout. Retained blob versions (altinn-storage#1125) are already distinct paths (`…/data-elements/{blobVersionId}` vs legacy `…/data/{dataGuid}`), so no suffix scheme is needed |
 | `IFileScanQueueClient` (Azure Queue) | `LocaltestFileScanQueueClient`: runs the production `IDataRepository.UpdateFileScanStatus(…, Clean)` at once. Upload responses still say `Pending` (as in production); every later read says `Clean`. The update does not bump the instance version |
+| Azure Service Bus queue `altinn.dialogportenadapter.webapi` (the outbox's destination outside `Development`) | `Dialogporten/LocaltestDialogportenSyncHandler`, a Wolverine handler on the `Development` local queue, and `LocaltestDialogportenAdapterClient`, which posts the command to the adapter's anonymous `api/localtest/enqueue` (see [Dialogporten outbox](#dialogporten-outbox)) |
 | `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | `LocaltestPublicSigningKeyProvider`: returns the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer, so the production `AccessTokenHandler` validates incoming platform access tokens for real. The production `AccessTokenGenerator` signs outgoing ones (to Register) with the same certificate |
 
 ### Application metadata and texts
@@ -67,14 +70,43 @@ They are inserted just below the environment variables, so they override the ven
 | `GeneralSettings:OndemandEndpoint`, `PdfGeneratorEndpoint` | `{platform}storage/api/v1/`, `{platform}pdf/` (A2 only) |
 | `GeneralSettings:AppMetadata/TextResource/AppTitleCacheLifeTimeInSeconds` | 30 (production 300/3600/3600) |
 | `Localtest:Storage:BlobRootPath` | `/data/blobs` |
+| `WolverineSettings:EnableSending` | `true` (upstream's `appsettings.json` has `false`; production turns it on): the outbox runs in every stack |
+| `WolverineSettings:LowPriorityDelaySecs` / `HighPriorityDelaySecs` | 2 / 0 (production 60 / 5); `UrgentPriorityDelaySecs` stays 0 |
+| `WolverineSettings:EnableA2Migration` | `false` (A2 endpoints are disabled) |
+| `Localtest:Storage:DialogportenAdapterEndpoint` | `{platform}storage/dialogporten/`, the adapter's public prefix |
+| `Logging:LogLevel:Altinn.Platform.Storage.Localtest.Dialogporten` | `Information` (the host logs at `Warning`), for the one line per command |
 
-Forced (cannot differ without Azure): `kvSetting:SecretUri` empty, `WolverineSettings:EnableSending=false`,
+Forced (cannot differ without Azure): `kvSetting:SecretUri` empty,
 `GeneralSettings:DisableA2Endpoints=true` (SBL bridge clients are no-ops). Platform access tokens are verified against the
 shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, mounted from `../../certs`).
 `ASPNETCORE_ENVIRONMENT=Development` (set by the Dockerfile) is required: Wolverine uses local queues only in
 Development, and JWT metadata over plain http is allowed only there. Postgres connection strings come from the
 environment (`PostgreSqlSettings__AdminConnectionString` / `__ConnectionString`, `{0}` is replaced by the password
 settings, both `Password` as upstream).
+
+## Dialogporten outbox
+
+Production Storage writes an outbox row in the same transaction as every instance mutation that has instance events
+(`PgInstanceMutationRepository`), and `OutboxService` publishes the due rows as `SyncInstanceToDialogportenCommand`
+(message identity `Altinn.DialogportenAdapter.SyncInstanceCommand`) and deletes them. Outside `Development` Wolverine
+sends the command to the adapter's Azure Service Bus queue; in `Development`, which the container runs as, it routes it
+to an in-process sequential local queue named after the message namespace. All of that is vendored code, unchanged; there
+is no directive site for it.
+
+The localtest part is in `fakes/Dialogporten/`: `LocaltestDialogportenSyncHandler` (a public `*Handler` class with a
+static `Handle`, which Wolverine discovers in the host assembly) takes the command off the local queue and
+`LocaltestDialogportenAdapterClient` posts `{ appId, partyId, instanceId, instanceCreatedAt, isMigration }` to
+`{DialogportenAdapterEndpoint}api/localtest/enqueue`, anonymous, through the proxy. The adapter puts it on its own
+queue, where its production handler and retry policies take over (`../dialogporten-adapter/README.md`).
+
+Storage always sends, whether or not the adapter runs; nothing in its configuration depends on the `dialogporten` group.
+When the group is off the request is refused or answered 404 (studioctl-server routes `/storage/dialogporten/...` to
+Storage itself under the longest matching prefix `/storage`, which has no such route), 502, 503 or 504: one line at
+Information, `Dialogporten sync of instance {partyId}/{guid} dropped: the Dialogporten adapter is not running ...`, and
+the command is dropped. Nothing is retried and the handler never throws, so Wolverine never retries either. Any other
+non-success answer is a warning, also dropped. An instance changed while the adapter was down is synced by its next
+change or by hand with the adapter's `syncDialog/simple` endpoint. The adapter's own write-back (`PUT .../datavalues` with
+`dialog.id`) produces no instance event and so no outbox row.
 
 ## Postgres
 
