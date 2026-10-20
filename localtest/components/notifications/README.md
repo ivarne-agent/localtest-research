@@ -152,7 +152,7 @@ which return the seed's addresses and numbers exactly as stored. Production then
 ## Known gaps
 
 - No per-inbox reception switch (planned, see above), no failure simulation.
-- Correspondence (task 7) is not in the stack; it will appear in this capture under its own creator.
+- Correspondence (task 7, the optional `correspondence` group) orders through `future/orders` with a condition endpoint on itself; its messages appear in this capture. Not yet run on the stack.
 - Attachments of composed e-mail are recorded by reference only.
 - The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake; checked against the production sink `notifications/api/v1/tests/sendcondition?conditionMet=`. That the Maskinporten token it carries is accepted by a real consumer is not checked.
 - The support dashboard and `metrics` endpoints are production code and untested here.
