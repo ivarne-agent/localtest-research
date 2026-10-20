@@ -63,6 +63,19 @@ checked against the shared certificate) on the lookups apps make, which app-lib 
 | `POST internal/user`, same body (what Authentication, Authorization and Access Management call) | anonymous, as Profile's internal controller |
 | `GET users/current` | user token; user from `urn:altinn:userid`. Profile's feature-toggled `altinn:portal/enduser` scope check is not modelled |
 
+Contact point lookups, the four calls Altinn Notifications makes on Profile (`LocaltestProfileContactPointsController`).
+All four are anonymous, as Profile's internal controllers are, because Notifications sends no credential; the answers
+have the shape Notifications' `ProfileClient` deserialises (`contactPointsList`). Sources are the seed's e-mail and mobile
+data; nobody is reserved. Numbers and addresses are returned exactly as stored (a bare `87654321` stays `87654321`);
+what Notifications does with them is production behaviour (see the Notifications README).
+
+| Endpoint | Answer |
+| --- | --- |
+| `POST users/contactpoint/lookup`, `{ nationalIdentityNumbers, useStaleContactInfo }` | one entry per person found (`userId`, `nationalIdentityNumber`, `isReserved` false, `mobileNumber`, `email`); unknown numbers are left out |
+| `POST users/contactpoint/lookupsi`, `{ externalIdentities }` | one entry per `urn:altinn:person:idporten-email:{email}` that matches a self-identified user (`externalIdentity`, `email`, `mobileNumber` empty). Legacy username identities are not modelled |
+| `POST organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | one entry per organisation in the register, with empty `emailList`/`mobileNumberList`/`userContactPoints`: the seed has no official organisation addresses |
+| `POST units/contactpoint/lookup`, `{ organizationNumbers, resourceId }` | one entry per organisation in the register, `userContactPoints` = every test user that holds roles or access packages at that party. The seed has no per-resource registrations, so `resourceId` is not used here; Notifications filters the users by the PDP's decision for the resource, as in production |
+
 ## App test data
 
 The app runner (`../../run-app.sh`) registers an app with `PUT register/api/localtest/apps/{org}/{app}` and the app's

@@ -55,6 +55,16 @@ echo "$(pcode -H "PlatformAccessToken: $PAT" "$REGISTER/profile/api/v1/users/133
 echo "$(pcode -H "Authorization: Bearer $USR" "$REGISTER/profile/api/v1/users/1337")" | check "users/{id} without a platform token is 403" 'd == 403'
 echo "$(pcode -H "Authorization: Bearer $USR" -H Content-Type:application/json -X POST "$REGISTER/profile/api/v1/users" -d "\"$OLA_SSN\"")" | check "POST users without a platform token is 403" 'd == 403'
 
+# Profile contact points, as Altinn Notifications calls them: anonymous, answers under contactPointsList.
+post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["01839012345","00000000000"],"useStaleContactInfo":false}' | check "contactpoint/lookup: Sophie Salt found, unknown number absent, mobile number as stored" \
+  'd["contactPointsList"] == [{"userId": 1337, "nationalIdentityNumber": "01839012345", "isReserved": False, "mobileNumber": "87654321", "email": "1337@altinnstudiotestusers.com"}]'
+post "$REGISTER/profile/api/v1/users/contactpoint/lookupsi" -d '{"externalIdentities":["urn:altinn:person:idporten-email:selvregistrert.bruker@example.com","urn:altinn:person:idporten-email:ukjent@example.com"]}' | check "contactpoint/lookupsi: the self-identified e-mail, no mobile" \
+  'd["contactPointsList"] == [{"externalIdentity": "urn:altinn:person:idporten-email:selvregistrert.bruker@example.com", "email": "selvregistrert.bruker@example.com", "mobileNumber": ""}]'
+post "$REGISTER/profile/api/v1/organizations/notificationaddresses/lookup" -d '{"organizationNumbers":["897069644","123456785"]}' | check "notificationaddresses/lookup: no official addresses in the seed" \
+  'd["contactPointsList"] == [{"organizationNumber": "897069644", "partyId": 500000, "mobileNumberList": [], "emailList": [], "userContactPoints": []}]'
+post "$REGISTER/profile/api/v1/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644"],"resourceId":"urn:altinn:resource:app_ttd_x"}' | check "units/contactpoint/lookup: users holding something at DDG Fitness (500000), e-mail and mobile as stored" \
+  'd["contactPointsList"][0]["partyId"] == 500000 and {u["userId"]: (u["email"], u["mobileNumber"]) for u in d["contactPointsList"][0]["userContactPoints"]}[1337] == ("1337@altinnstudiotestusers.com", "87654321") and 1004 not in {u["userId"] for u in d["contactPointsList"][0]["userContactPoints"]}'
+
 put() { curl -sS -H Content-Type:application/json -X PUT "$@"; }
 put "$REGISTER/register/api/localtest/apps/ttd/smoke-app" -d "$APP_DATA" | check "register app with posted test data (apps only)" \
   'd["source"] == "apps" and d["users"] == 1 and d["apps"][0]["status"] == "TestData"'
