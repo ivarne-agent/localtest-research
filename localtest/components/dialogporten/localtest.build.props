@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Dialogporten source, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). Upstream's root Directory.Build.props (net10.0, lock files, analyzers) is
+    imported first, what MSBuild itself would have found, then LOCALTEST is layered on top.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+    <LocaltestVendoredBuildProps Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildProps>
+  </PropertyGroup>
+
+  <Import Project="$(LocaltestVendoredBuildProps)" Condition="'$(LocaltestVendoredBuildProps)' != '' And Exists('$(LocaltestVendoredBuildProps)')" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <!-- Upstream builds with AnalysisMode=Recommended and warnings as errors; the localtest sources compiled into the
+         vendored projects are held to the compiler's warnings only. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

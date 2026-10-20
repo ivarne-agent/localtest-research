@@ -1,0 +1,27 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+
+  <!--
+    The fakes implement or use types that live in the vendored projects, so they are compiled into the project that owns
+    them from the adjacent fakes/ folder instead of being a separate project. Upstream restores in locked mode, and a
+    ProjectReference or PackageReference added from this file fails that restore (NU1004), while Compile items do not.
+    fakes/Infrastructure is visible to all three hosts (it holds the shared configuration defaults and the Maskinporten
+    fake, which needs the package Infrastructure references); each host's folder holds what only that host can see.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Infrastructure'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/Infrastructure/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/WebApi/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/GraphQL/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/Service/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>

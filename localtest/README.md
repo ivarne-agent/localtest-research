@@ -14,6 +14,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/storage/` | Production Storage on Postgres with file-backed blobs and file scan marked clean; application metadata and texts pushed by the app runner |
 | `components/events/` | Production Events on the shared Postgres, emptied on every start: apps publish events, subscriptions are validated and delivered inside the stack, webhooks to anything outside it are captured; `events/api/localtest/` shows it all |
 | `components/resource-registry/` | Production Resource Registry on the shared Postgres: app resources computed from Storage's application list and the pushed policies (no cache), a built-in seed of other resources, the `updated` subject feed, the org list from altinncdn.no; the runner triggers the subject reload as Designer does |
+| `components/dialogporten/` | **Optional group** (`env up --with dialogporten`): production Dialogporten WebApi, GraphQL and Service hosts on a `dialogporten` database in the shared Postgres, with a Redis; service-owner API with org tokens, resource checks against the Resource Registry, events to the Events component, GraphQL under `/dialogporten/graphql`. Dialogs persist until `env reset` |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
 | `localtest/` | The localtest app, the front door on `local.altinn.cloud:8000` (C#, Native AOT), and the home of localtest features that are not a platform component. Its proxy routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT localtest/api/proxy/apps/{org}/{app}`), serves the app-frontend files, answers 404 for any app path without a route, and removes `Secure` from cookies. It also hosts the fake ID-porten (test-user picker) and Maskinporten that production Authentication trusts, and the old localtest's start page and `/Home` test helpers |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
@@ -58,13 +59,20 @@ and polls every component's `/health`:
 
 ```sh
 studioctl env up -r localtest-v2            # pinned images from ghcr; --latest follows main
+studioctl env up -r localtest-v2 --with dialogporten   # also Dialogporten (three hosts and Redis, about 0.5 GB)
 studioctl run                               # in an app checkout
 ```
+
+`--with dialogporten` starts the optional Dialogporten group (see [`components/dialogporten/`](components/dialogporten/README.md));
+without it none of its containers, routes or health checks exist, and `/dialogporten/...` falls through to the localtest app's 404. A later
+`env up` with or without the flag converges the environment to that choice.
 
 Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
 for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked
 in), tagged `sha-<commit>` and `latest`. To run a component from this checkout instead, `studioctl env up -r localtest-v2
---dev <name>` builds it from `components/<name>` (`STUDIOCTL_LOCALTEST_V2_SRC` points at this `localtest/` folder).
+--dev <name>` builds it from `components/<name>` (`STUDIOCTL_LOCALTEST_V2_SRC` points at this `localtest/` folder; `--dev dialogporten`
+builds the group's three images from `components/dialogporten`). An existing Postgres volume predates a component's init script, which Postgres
+only runs on an empty volume: run the script by hand (see the component's README) or `studioctl env reset -r localtest-v2 --yes`.
 
 There is no compose file any more; `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` predate the studioctl
 runtime and push app routes to the localtest app's own proxy API, which studioctl does not use.
@@ -82,6 +90,7 @@ fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` when running f
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties |
 | `localtest/smoke-test.sh` | The localtest app: the proxy (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the app route API), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers) |
 | `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens |
+| `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, GraphQL through the rewrite |
 | `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
 | `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |

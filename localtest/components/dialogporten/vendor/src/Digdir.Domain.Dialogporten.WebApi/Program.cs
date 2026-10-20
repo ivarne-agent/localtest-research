@@ -60,6 +60,9 @@ finally
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
+#if LOCALTEST
+    Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);
+#endif
 
     builder.WebHost.ConfigureKestrel(kestrelOptions =>
     {

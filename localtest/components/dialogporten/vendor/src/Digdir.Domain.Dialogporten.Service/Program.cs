@@ -38,6 +38,9 @@ finally
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
+#if LOCALTEST
+    Digdir.Domain.Dialogporten.Service.Localtest.LocaltestService.Apply(builder);
+#endif
 
     builder.Configuration
         .AddAzureConfiguration(builder.Environment.EnvironmentName)

@@ -42,6 +42,9 @@ finally
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
+#if LOCALTEST
+    Digdir.Domain.Dialogporten.GraphQL.Localtest.LocaltestGraphQl.Apply(builder);
+#endif
 
     builder.Configuration
         .AddAzureConfiguration(builder.Environment.EnvironmentName)

@@ -2,6 +2,8 @@
 
 Source for fakes that more than one .NET consumer component needs. Nothing here is built into an image.
 
+Consumers of the Maskinporten fake (copies in their own `fakes/`): `components/dialogporten/fakes/Infrastructure/Maskinporten/` (compiled into Dialogporten's Infrastructure project, so all three hosts use it). Re-copy after changing the canonical files here.
+
 | Path | What |
 | --- | --- |
 | `fakes/Maskinporten/` | `LocaltestMaskinportenService` (an `IMaskinportenService` for `Altinn.ApiClients.Maskinporten` 10.1.0), its options (`Localtest:Maskinporten`: `Issuer`, `ExchangeEndpoint`) and `AddLocaltestMaskinporten` |

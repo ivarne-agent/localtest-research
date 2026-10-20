@@ -1,0 +1,64 @@
+# Vendored Dialogporten GraphQL host built with the localtest overrides.
+# Build context: the component folder (localtest/components/dialogporten):
+#   podman build -f Dockerfile.graphql -t localtest-dialogporten-graphql:dev .
+#
+# Mirrors vendor/src/Digdir.Domain.Dialogporten.GraphQL/Dockerfile (the upstream one): same pinned base images, locked
+# restore of the host's closure, publish without the apphost, non-root $APP_UID. Every difference is marked "localtest:".
+# The three hosts' Dockerfiles here (Dockerfile.webapi, .graphql, .service) are identical except for the host name and
+# the WebApi's EXPOSE, as upstream's are. When re-pinning, diff the upstream Dockerfiles of the three hosts against the
+# previous pin and carry the change over (see vendor/UPSTREAM.md).
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.12@sha256:6a94333d37514e385650a3c81a55e5350b67253dbe136e9cf17e499c35606a8c AS base
+WORKDIR /app
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:2fa828c68761b1b8c23d7662dc134421b9d3b59fe1425fdbc80804e390cdb24d AS build
+# localtest: upstream's build context is the repository root with src/ copied to /src. Here the same tree keeps its layout
+# under /src/vendor (vendor/ next to the overrides, which decide "vendored" by that path), with fakes/ and the overrides
+# beside it. The two variables redirect MSBuild's Directory.Build.props/targets lookup to the overrides, which define
+# LOCALTEST and compile fakes/ into the projects. No vendored csproj is edited.
+WORKDIR /src
+COPY localtest.build.props localtest.build.targets ./
+COPY fakes/ fakes/
+ENV DirectoryBuildPropsPath=/src/localtest.build.props \
+    DirectoryBuildTargetsPath=/src/localtest.build.targets
+WORKDIR /src/vendor
+
+COPY ["vendor/.editorconfig", "."]
+COPY ["vendor/Directory.Build.props", "."]
+# localtest: pins the SDK the image carries anyway (rollForward: disable), so a build on the host matches this one
+COPY ["vendor/global.json", "."]
+
+# Main project
+COPY ["vendor/src/Digdir.Domain.Dialogporten.GraphQL/Digdir.Domain.Dialogporten.GraphQL.csproj", "src/Digdir.Domain.Dialogporten.GraphQL/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.GraphQL/packages.lock.json", "src/Digdir.Domain.Dialogporten.GraphQL/"]
+# Dependencies
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Application/Digdir.Domain.Dialogporten.Application.csproj", "src/Digdir.Domain.Dialogporten.Application/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Application/packages.lock.json", "src/Digdir.Domain.Dialogporten.Application/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Domain/Digdir.Domain.Dialogporten.Domain.csproj", "src/Digdir.Domain.Dialogporten.Domain/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Domain/packages.lock.json", "src/Digdir.Domain.Dialogporten.Domain/"]
+COPY ["vendor/src/Digdir.Library.Entity.Abstractions/Digdir.Library.Entity.Abstractions.csproj", "src/Digdir.Library.Entity.Abstractions/"]
+COPY ["vendor/src/Digdir.Library.Entity.Abstractions/packages.lock.json", "src/Digdir.Library.Entity.Abstractions/"]
+COPY ["vendor/src/Digdir.Library.Entity.EntityFrameworkCore/Digdir.Library.Entity.EntityFrameworkCore.csproj", "src/Digdir.Library.Entity.EntityFrameworkCore/"]
+COPY ["vendor/src/Digdir.Library.Entity.EntityFrameworkCore/packages.lock.json", "src/Digdir.Library.Entity.EntityFrameworkCore/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Infrastructure/Digdir.Domain.Dialogporten.Infrastructure.csproj", "src/Digdir.Domain.Dialogporten.Infrastructure/"]
+COPY ["vendor/src/Digdir.Domain.Dialogporten.Infrastructure/packages.lock.json", "src/Digdir.Domain.Dialogporten.Infrastructure/"]
+COPY ["vendor/src/Digdir.Library.Utils.AspNet/Digdir.Library.Utils.AspNet.csproj", "src/Digdir.Library.Utils.AspNet/"]
+COPY ["vendor/src/Digdir.Library.Utils.AspNet/packages.lock.json", "src/Digdir.Library.Utils.AspNet/"]
+
+# Restore
+RUN dotnet restore "src/Digdir.Domain.Dialogporten.GraphQL/Digdir.Domain.Dialogporten.GraphQL.csproj" --locked-mode
+
+# Copy rest of source
+COPY ["vendor/src/", "src/"]
+
+# Publish
+WORKDIR "/src/vendor/src/Digdir.Domain.Dialogporten.GraphQL"
+RUN dotnet publish "Digdir.Domain.Dialogporten.GraphQL.csproj" -c Release -o /app/publish /p:UseAppHost=false --no-restore
+
+FROM base AS final
+WORKDIR /app
+USER $APP_UID
+COPY --from=build /app/publish .
+# localtest: the settings production gets from its deployment (Development selects the in-process bus, the migrator at
+# start and the LocalDevelopment section). No HEALTHCHECK: podman builds OCI images, which drop the instruction.
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENTRYPOINT ["dotnet", "Digdir.Domain.Dialogporten.GraphQL.dll"]
