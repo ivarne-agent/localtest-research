@@ -38,6 +38,12 @@ One per host, right after `var builder = WebApplication.CreateBuilder(args);` in
 configuration defaults below the environment variables and above the JSON files, and (2) installs a service-provider factory that applies the replacements to the
 finished service collection, so they win over production's registrations whatever their order.
 
+One `#if !LOCALTEST` block (added with the Dialogporten adapter, task 10): the Application project's `IsValidHttpsUrl` validators
+(`FluentValidationStringExtensions.cs`) accept `http` as well as `https`. The stack is plain http, so the links in the adapter's dialogs
+(go-to and delete actions, the read API action, attachments, transmission attachments) are `http://local.altinn.cloud:8000/...`, and
+production's rule refused every such dialog with a 400. A service owner may therefore also create dialogs with http links locally, which
+production refuses: a difference testers should know about.
+
 ## Fakes (`fakes/`)
 
 | Replaces / adds | With |
@@ -197,11 +203,17 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
   after every app push and `POST dialogporten/api/v1/localtest/caches/clear` clears them at any time (`../../README.md`, "Where localtest is faster than
   production"). Production waits for them to expire.
 - ID-porten, Maskinporten and Authentication are the localtest stack's (http metadata); the Idporten scheme points at the fake ID-porten.
+- URLs in dialogs may be `http` as well as `https` (the one `#if !LOCALTEST` site above); production refuses `http`.
 
 ## Memory
 
 `podman stats --no-stream` (2026-10-20, idle after the smoke test): `dialogporten-webapi` 214 MB, `dialogporten-graphql` 139 MB, `dialogporten-service` 120 MB,
 `redis` 3.9 MB, about 477 MB together.
+
+## Verified (2026-10-20, task 10: the http links)
+
+With the `IsValidHttpsUrl` site, images built from this tree (`--dev dialogporten`): `./smoke-test.sh` 60 of 60; the Dialogporten
+adapter's smoke test (`../dialogporten-adapter/`) creates, updates and deletes dialogs with `http://local.altinn.cloud:8000/...` links.
 
 ## Verified (2026-10-20, task 9b)
 

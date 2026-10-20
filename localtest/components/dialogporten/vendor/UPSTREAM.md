@@ -34,16 +34,22 @@ The hook goes there, and not before `Build()` as the planning report had it, bec
 registering (the JWT schemes' metadata addresses, the health probes, the Infrastructure settings), so the configuration defaults must be in
 before the first registration. The service replacements (the two `ITokenIssuerCache`s, `IMaskinportenService`) must come after the production
 `AddSingleton`s, so the hook installs an `IServiceProviderFactory` (`fakes/Infrastructure/LocaltestOverrides.cs`) that applies them to the finished
-service collection: one site per host instead of two. No `#if !LOCALTEST` block was needed.
+service collection: one site per host instead of two.
+
+One `#if !LOCALTEST` block, added with the Dialogporten adapter (task 10):
+
+| File | Site |
+| --- | --- |
+| `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs:29-34`, `:39-44` | Both `IsValidHttpsUrl` overloads (string and `Uri`) require `https`; `#else` accepts `http` too. The stack is plain http on `http://local.altinn.cloud:8000`, so every link the adapter puts in a dialog (GUI actions, API action endpoints, attachment and transmission URLs) is http, and Dialogporten refused the dialog with 400 `'Url' is not a well-formatted HTTPS URL.` The rule is a validator inside the Application project's FluentValidation rules, not reachable through DI, hence a directive. The HTML content rule (`<a href>` must start with `https://`) is unchanged |
 
 ## Syncing to a newer upstream commit
 
 1. In a clone of `Altinn/dialogporten` with both commits, re-pin with the shared script, which takes upstream's new version of every file that is
-   unchanged locally, three-way merges the three Program.cs files, adds and deletes files, and reports conflicts:
+   unchanged locally, three-way merges the three Program.cs files and `FluentValidationStringExtensions.cs`, adds and deletes files, and reports conflicts:
    `../../tools/repin-vendor.py <clone> <pin> <new> vendor Directory.Build.props .editorconfig global.json src/Digdir.Domain.Dialogporten.WebApi ... `
    (every path of the list above).
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md` and the three
-   `Program.cs` files may differ.
+2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md`, the three
+   `Program.cs` files and `FluentValidationStringExtensions.cs` may differ.
 3. **Keep `../Dockerfile.webapi`, `.graphql` and `.service` as equal to upstream's three per-host Dockerfiles as possible.** When
    `git diff <pin> <new> -- src/Digdir.Domain.Dialogporten.*/Dockerfile` shows a change (a base image digest, a step), make the same change in all three.
 4. Fix the fakes (`../fakes/`) for upstream's changes (a new `LocalDevelopment` flag goes into `LocaltestConfiguration`; the two

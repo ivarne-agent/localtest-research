@@ -26,12 +26,22 @@ internal static partial class FluentValidationStringExtensions
 
     public static IRuleBuilderOptions<T, string?> IsValidHttpsUrl<T>(this IRuleBuilder<T, string?> ruleBuilder) =>
         ruleBuilder
+#if !LOCALTEST
             .Must(x => x is null || (Uri.TryCreate(x, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps))
+#else
+            // localtest: the stack is plain http (http://local.altinn.cloud:8000), so its links are accepted as well.
+            .Must(x => x is null || (Uri.TryCreate(x, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)))
+#endif
             .WithMessage("'{PropertyName}' is not a well-formatted HTTPS URL.");
 
     public static IRuleBuilderOptions<T, Uri?> IsValidHttpsUrl<T>(this IRuleBuilder<T, Uri?> ruleBuilder) =>
         ruleBuilder
+#if !LOCALTEST
             .Must(x => x is null || (x.IsAbsoluteUri && x.Scheme == Uri.UriSchemeHttps))
+#else
+            // localtest: the stack is plain http (http://local.altinn.cloud:8000), so its links are accepted as well.
+            .Must(x => x is null || (x.IsAbsoluteUri && (x.Scheme == Uri.UriSchemeHttps || x.Scheme == Uri.UriSchemeHttp)))
+#endif
             .WithMessage("'{PropertyName}' is not a well-formatted HTTPS URL.");
 
     public static IRuleBuilderOptions<T, LocalizationDto> ContainsValidHtml<T>(
