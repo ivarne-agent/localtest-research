@@ -47,6 +47,9 @@ static void BuildAndRun(string[] args)
         .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", true, true)
         .AddJsonFile("appsettings.local.json", true, true)
         .AddEnvironmentVariables();
+#if LOCALTEST
+    Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(builder.Configuration);
+#endif
     StartupAppSettingsLogging.LogConfigurationKeys(builder.Configuration, bootstrapLogger, false);
     ConfigureServices(builder.Services, builder.Configuration, builder.Environment, bootstrapLogger);
 
@@ -161,6 +164,9 @@ static void ConfigureServices(IServiceCollection services, IConfiguration config
     services.AddScoped<StatisticsApiKeyFilter>();
 
     services.ConfigureHangfire(config);
+#if LOCALTEST
+    Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, config);
+#endif
 
     services.Configure<KestrelServerOptions>(options =>
     {

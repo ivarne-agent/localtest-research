@@ -11,4 +11,5 @@ COPY components/events/postgres-init/30-events.sh /docker-entrypoint-initdb.d/30
 COPY components/resource-registry/postgres-init/40-resource-registry.sh /docker-entrypoint-initdb.d/40-resource-registry.sh
 COPY components/dialogporten/postgres-init/50-dialogporten.sh /docker-entrypoint-initdb.d/50-dialogporten.sh
 COPY components/notifications/postgres-init/60-notifications.sh /docker-entrypoint-initdb.d/60-notifications.sh
+COPY components/correspondence/postgres-init/70-correspondence.sh /docker-entrypoint-initdb.d/70-correspondence.sh
 CMD ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]

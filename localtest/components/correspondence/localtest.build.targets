@@ -1,0 +1,16 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+
+  <!--
+    The localtest fakes implement interfaces that live in the Core project and use the host's types (the authentication
+    constants, the EF context), so they are compiled into the host from the adjacent fakes/ folder instead of being a
+    separate project.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Correspondence.API'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+  </ItemGroup>
+</Project>
