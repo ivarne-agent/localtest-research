@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Altinn.Studio.EnvTopology;
 using Altinn.Studio.StudioctlServer.Discovery;
 using Altinn.Studio.StudioctlServer.Proxy;
 
@@ -26,7 +27,8 @@ internal sealed record AppProvisionerOptions(Uri? PlatformUri, bool Enabled)
 /// <summary>
 /// Deploys a discovered app to the localtest-v2 platform the way Altinn Studio deploys one: the application
 /// metadata and texts go to Storage, the authorization policy to the PDP, the test users to the Register, and
-/// Access Management is told the Register changed. The old localtest pulled all of this from the running app
+/// Access Management is told the Register changed; with the optional Dialogporten group up, Dialogporten then syncs
+/// the Resource Registry's subjects and policies. The old localtest pulled all of this from the running app
 /// on every request; the production components want it pushed once, and the app is the source, so apps
 /// started from an IDE are provisioned exactly like apps started by `studioctl run`.
 /// </summary>
@@ -34,21 +36,35 @@ internal sealed class AppProvisioner
 {
     public const string HttpClientName = "app-provisioner";
 
+    /// <summary>
+    /// The route `env up --with dialogporten` adds (studioctl's components.go); without the group it is not in the
+    /// route table.
+    /// </summary>
+    internal const string DialogportenComponent = "dialogporten-webapi";
+
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly AppProvisionerOptions _options;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly BoundTopologyIndexAccessor _topology;
     private readonly ILogger<AppProvisioner> _logger;
     private readonly Dictionary<string, Uri> _provisioned = new(StringComparer.OrdinalIgnoreCase);
+
+    // Whether the running Dialogporten has synced since the last app was provisioned, and whether the last attempt failed
+    // (logged once, then retried quietly on every refresh until it answers).
+    private bool _dialogportenSynced;
+    private bool _dialogportenSyncFailing;
 
     public AppProvisioner(
         AppProvisionerOptions options,
         IHttpClientFactory httpClientFactory,
+        BoundTopologyIndexAccessor topology,
         ILogger<AppProvisioner> logger
     )
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
+        _topology = topology;
         _logger = logger;
     }
 
@@ -109,6 +125,13 @@ internal sealed class AppProvisioner
             }
             _provisioned.Remove(appId);
         }
+
+        // The group can come up after the apps were provisioned (`env up --with dialogporten` on a running environment),
+        // and the first sync can find Dialogporten still starting: either way the next refresh syncs.
+        if (!DialogportenRunning(_topology.Current))
+            _dialogportenSynced = false;
+        else if (!_dialogportenSynced && _provisioned.Count > 0)
+            await SyncDialogporten("the provisioned apps", cancellationToken);
     }
 
     private async Task Provision(string appId, Uri appBaseUri, CancellationToken cancellationToken)
@@ -218,6 +241,13 @@ internal sealed class AppProvisioner
             cancellationToken
         );
 
+        // 5. Dialogporten (optional group): the Janitor's two Resource Registry syncs and a cache clear, so the app's
+        // resource and subjects are known at once instead of after the 20-minute resource cache. After step 4 because the
+        // clear also drops the authorized-parties cache, which then reads the test users Access Management has just
+        // refreshed; after 3b because the subject sync reads what the registry derived from the policy.
+        _dialogportenSynced = false;
+        await SyncDialogporten(appId, cancellationToken);
+
         if (_logger.IsEnabled(LogLevel.Information))
             _logger.LogInformation(
                 "Provisioned {AppId} from {BaseUri}: metadata, {TextCount} text resource(s), policy {HasPolicy}, test data {HasTestData}",
@@ -227,6 +257,77 @@ internal sealed class AppProvisioner
                 policy is not null,
                 testData is not null
             );
+    }
+
+    /// <summary>
+    /// Runs Dialogporten's localtest sync when the `dialogporten` group is up. The group is read from the route table
+    /// `env up` writes together with the state file's group list (and which this server already watches for the proxy):
+    /// the WebApi's route exists exactly when the group is on, so there is no probe and no second copy of the group list.
+    /// A failure does not fail the provisioning, since Dialogporten is optional; the next refresh tries again.
+    /// </summary>
+    private async Task SyncDialogporten(string reason, CancellationToken cancellationToken)
+    {
+        if (!DialogportenRunning(_topology.Current))
+        {
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "Dialogporten sync for {Reason} skipped: the dialogporten group is not running",
+                    reason
+                );
+            return;
+        }
+
+        var platform = _options.PlatformUri ?? throw new InvalidOperationException("platform uri is required");
+        var uri = new Uri(platform, "/dialogporten/api/v1/localtest/sync");
+        using var client = _httpClientFactory.CreateClient(HttpClientName);
+        try
+        {
+            using var response = await client.PostAsync(uri, null, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"POST {uri} returned {(int)response.StatusCode}: {Truncate(body)}");
+            _dialogportenSynced = true;
+            _dialogportenSyncFailing = false;
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "Dialogporten synced the Resource Registry for {Reason}: {Summary}",
+                    reason,
+                    DialogportenSyncSummary(body)
+                );
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (!_dialogportenSyncFailing)
+                _logger.LogWarning(
+                    ex,
+                    "Dialogporten sync for {Reason} failed; retrying on the next refresh (by hand: POST {Uri})",
+                    reason,
+                    uri
+                );
+            _dialogportenSyncFailing = true;
+        }
+    }
+
+    internal static bool DialogportenRunning(BoundTopologyIndex topology) =>
+        topology.TryGetComponentRoute(DialogportenComponent) is not null;
+
+    private static string DialogportenSyncSummary(string body)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(body);
+            var root = json.RootElement;
+            return $"{root.GetProperty("subjectResources").GetInt32()} subject-resource pair(s), "
+                + $"{root.GetProperty("resourcePolicyInformation").GetInt32()} resource policies, caches cleared";
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            return Truncate(body);
+        }
     }
 
     private async Task Deprovision(string appId, CancellationToken cancellationToken)
