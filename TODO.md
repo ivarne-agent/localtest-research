@@ -27,7 +27,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
-| 6 | [Notifications](#6-notifications) | in progress (2026-10-20, agent `task6-notifications`, worktree `.worktrees/task6-notifications`, branch `task/notifications`; phase 1 code, phase 2 images and stack after 9a) | medium | yes |
+| 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 90e89e7..ec4ae05, pin ec333e4); 9b approved, not yet dispatched | large | yes |
@@ -39,7 +39,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | unapproved | medium | yes |
 
-Suggested order: 6 phase 2 (running), 9b, 10, then 7 and 8 as capacity allows, then 9 to 11 in that
+Suggested order: 9b, 10, then 7 and 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -216,7 +216,14 @@ recorded under `notifications/api/localtest/`, the production status machinery r
 directive sites (one additive, one `#if !LOCALTEST`), about 1 400 lines of fakes, 6 to 7 days including the Profile
 contact-point lookups the Register component must gain (four endpoints) and the studioctl wiring. Verified with a
 scratch build and start of the host; the 104 migration folders have not been run on Postgres 18. The capture fake
-must apply send results after the claim transaction commits (section 6.4). Open questions in section 6.14.
+must apply send results after the claim transaction commits (section 6.4).
+
+**Follow-up found while verifying (2026-10-20), unapproved.** Production Notifications rejects bare eight-digit SMS
+numbers (direct recipients: 400; Profile contact points: dropped, `Failed_RecipientNotIdentified`) and adds `+47` only
+to numbers starting with 4 or 9, so the seed numbers of users 1337, 1002, 1003 and 12345 (`87654321`-style) never
+receive an SMS. Organisation recipients always get 422 at registration because the seed has no official organisation
+addresses. Both are seed-data changes in the Register component (`testdata/`), not fakes; the old localtest's apps read
+the same seed, so check what else depends on those numbers before changing them. Open questions in section 6.14.
 
 **Decisions (2026-10-20).** Option A as planned. Every captured e-mail and SMS is marked **Delivered** for now
 (section 6.14 question 1). The capture is modelled as **inboxes**: one per e-mail address or phone number, each
@@ -231,6 +238,13 @@ condition-check client keeps the shared Maskinporten fake (question 6, consisten
 orders captured like the rest, attachments by reference (question 7). Correspondence does not share the capture
 GUI (question 8). The send result is applied after the claim transaction commits, through an in-process channel
 (section 6.4).
+
+**Follow-up found while verifying (2026-10-20), unapproved.** Production Notifications rejects bare eight-digit SMS
+numbers (direct recipients: 400; Profile contact points: dropped, `Failed_RecipientNotIdentified`) and adds `+47` only
+to numbers starting with 4 or 9, so the seed numbers of users 1337, 1002, 1003 and 12345 (`87654321`-style) never
+receive an SMS. Organisation recipients always get 422 at registration because the seed has no official organisation
+addresses. Both are seed-data changes in the Register component (`testdata/`), not fakes; the old localtest's apps read
+the same seed, so check what else depends on those numbers before changing them.
 
 ## 7. Correspondence
 
