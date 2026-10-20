@@ -13,6 +13,24 @@ Maskinporten, Profile and the old localtest's `/Home` helpers. Those moved out: 
 (configuration, key providers, the level table, three in-memory repositories), and its own OIDC client, token
 validation, Profile client and token exchanges run.
 
+## Update 2026-10-20: OIDC provider for registered clients (TODO.md task 2)
+
+- Four more in-memory repositories (`IOidcServerClientRepository`, `ILoginTransactionRepository`,
+  `IAuthorizationCodeRepository`, `IRefreshTokenRepository`) mirror production's SQL, so `authorize` for a registered
+  client, the code exchange, refresh and logout run production code. Two clients are seeded from configuration
+  (`localtest-smoke`, `arbeidsflate-localtest`; `fakes/LocaltestOidcClients.cs`). No new directive site.
+- Fixed: `GeneralSettings:OidcRefreshTokenPepper` was not base64, so every client-secret check failed with
+  `invalid_client` and no refresh token was issued. Now `bG9jYWx0ZXN0LXBlcHBlcg==`.
+- Fixed: `openid/logout` answered 500 (`OidcProviders:idporten:LogoutEndpoint` unset). The fake ID-porten has an
+  `endsession` endpoint, listed in its discovery, and the logout round trip ends at `logout/handleloggedout`.
+- The code-flow tokens carry `pid`; the cookie JWT does not, by production design. The "pid is lost" finding in
+  `planned-components/dialogporten/arbeidsflate.md` section 3.4 was made on the cookie JWT.
+- Open, production behaviour mirrored: logout takes the session from the cookie only (Authentication cannot use its
+  own `id_token_hint`); `post_logout_redirect_uri` is never honoured; a refresh family revoked by reuse detection
+  cannot be recreated for the same session (500 at the token endpoint). See the component README, "Differences from
+  production and known gaps".
+- Verification: `../components/authentication/smoke-test.sh` (new).
+
 ## Vendored code
 
 - Pin: `Altinn/altinn-auth` `392f9578`. `main` is 6 commits ahead, none touching the vendored paths (checked
