@@ -1,0 +1,40 @@
+@instanceId = 51261145/fac5545a-bb9d-45ab-bc97-d42346b24ee3
+
+### Log into maskinporten
+// @no-log
+GET  https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterpriseToken?org=digdir&env={{env}}&scopes=altinn:storage/instances.syncadapter&ttl=86400
+Authorization: Basic {{username}} {{password}}
+
+> {% client.global.set("maskinportenToken", response.body) %}
+
+### Get instance data
+// @no-log
+GET {{altinnPlatformBaseUri}}/storage/api/v1/instances/{{instanceId}}
+Authorization: Bearer {{maskinportenToken}}
+
+> {%
+    const idParts = response.body.id.split('/');
+    client.global.set("syncDialogDto", JSON.stringify({
+        "appId": response.body.appId,
+        "partyId": idParts[0],
+        "instanceId": idParts[1],
+        "instanceCreatedAt": response.body.created,
+        "isMigration": true
+    }))
+ %}
+
+### Sync
+// @no-log
+POST {{baseUri}}/api/v1/syncDialog
+Authorization: Bearer {{maskinportenToken}}
+Content-Type: application/json
+
+{{syncDialogDto}}
+
+> {%
+    if (response.status < 200 || response.status >= 300) {
+        client.test("Request failed with status: " + response.status, function() {
+            throw new Error("HTTP " + response.status + ": " + response.body);
+        });
+    }
+%}
