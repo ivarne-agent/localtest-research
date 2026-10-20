@@ -1,0 +1,34 @@
+using Digdir.Domain.Dialogporten.WebApi.Common.Extensions;
+using Digdir.Domain.Dialogporten.WebApi.Common.Swagger;
+using Digdir.Domain.Dialogporten.WebApi.Endpoints.V1.Common.Headers;
+using FastEndpoints;
+using static Digdir.Domain.Dialogporten.WebApi.Common.Swagger.AuthorizationFailureMessageBuilder;
+using static Microsoft.AspNetCore.Http.StatusCodes;
+using Constants = Digdir.Domain.Dialogporten.WebApi.Common.Constants;
+
+namespace Digdir.Domain.Dialogporten.WebApi.Endpoints.V1.ServiceOwner.Dialogs.Commands.Freeze;
+
+public sealed class FreezeDialogEndpointSummary : Summary<FreezeDialogEndpoint>
+{
+    public FreezeDialogEndpointSummary()
+    {
+        Summary = "Freezes a dialog";
+        Description = """
+                      Freezes a given dialog.
+                      The dialog cannot be updated/deleted by the service owner (but can still be altered via admin-scope) when frozen
+                      """;
+        ResponseHeaders = [HttpResponseHeaderExamples.NewDialogETagHeader(Status204NoContent)];
+        Responses[Status204NoContent] = Constants.SwaggerSummary.Frozen.FormatInvariant("aggregate");
+        Responses[Status401Unauthorized] = Constants.SwaggerSummary.AuthenticationFailure;
+        Responses[Status403Forbidden] = DefaultForbiddenFor<FreezeDialogEndpoint>()
+            .Or(Constants.SwaggerSummary.AccessDeniedToDialog.FormatInvariant("freeze"))
+            .Build();
+        Responses[Status404NotFound] = Constants.SwaggerSummary.DialogNotFound;
+        Responses[Status409Conflict] = new ConflictMessageBuilder()
+            .ConcurrentOperationRejected()
+            .Build();
+        Responses[Status410Gone] = Constants.SwaggerSummary.DialogDeleted;
+        Responses[Status412PreconditionFailed] = Constants.SwaggerSummary.RevisionMismatch;
+    }
+
+}

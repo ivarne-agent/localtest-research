@@ -1,0 +1,40 @@
+using Digdir.Domain.Dialogporten.Domain.Dialogs.Entities.AuthorizationContexts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Digdir.Domain.Dialogporten.Infrastructure.Persistence.Configurations.Dialogs.AuthorizationContexts;
+
+internal sealed class AuthorizationContextConfiguration : IEntityTypeConfiguration<AuthorizationContext>
+{
+    public void Configure(EntityTypeBuilder<AuthorizationContext> builder)
+    {
+        // Insert-heavy table: native UUIDv7 (PG18+) keeps b-tree insert locality, unlike the
+        // library-wide gen_random_uuid() (v4) default this overrides.
+        builder.Property(x => x.Id).HasDefaultValueSql("uuidv7()");
+
+        // Smallint mapped to the enum in code only — deliberately no lookup table/FK/index
+        // (see AuthorizationContextUnauthorizedPresentation).
+        builder.Property(x => x.UnauthorizedPresentation).HasConversion<short>();
+
+        // Emitted verbatim into the dialog token, so kept deliberately shorter than the default string length.
+        builder.Property(x => x.TokenReference).HasMaxLength(AuthorizationContext.MaxTokenReferenceLength);
+
+        // String conventions (max length) do not apply to primitive collection elements.
+        builder.PrimitiveCollection(x => x.Parties)
+            .ElementType(e => e.HasMaxLength(Domain.Common.Constants.DefaultMaxStringLength));
+
+        // A single jsonb column rather than a child table: the checks are only ever read and written together
+        // with their context, and a child table would add an insert per check on this insert-heavy table plus
+        // an include on every query loading contexts. Element lengths are enforced by the write-side validator.
+        builder.ComplexCollection(x => x.DialogPartyChecks, checks => checks.ToJson());
+
+        // Superseded by DialogPartyChecks, but kept in the database until every pod runs a version that no longer
+        // selects it, so a rolling deploy cannot crash pods on the previous version. Mapped as a shadow property
+        // with a database default so inserts from this version satisfy its NOT NULL. Removing this mapping drops
+        // the column; see #4480.
+        builder.Property<bool>(LegacyIncludeDialogPartyColumn)
+            .HasDefaultValue(false);
+    }
+
+    internal const string LegacyIncludeDialogPartyColumn = "IncludeDialogParty";
+}
