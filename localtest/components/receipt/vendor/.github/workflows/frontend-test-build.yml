@@ -1,0 +1,65 @@
+name: Frontend Typecheck, Lint, Test and Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/frontend/**'
+      - '.github/workflows/frontend-test-build.yml'
+  pull_request:
+    paths:
+      - 'src/frontend/**'
+      - '.github/workflows/frontend-test-build.yml'
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+  workflow_call:
+
+jobs:
+  test-and-build:
+    name: Test and Build Frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: 'src/frontend/yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Run tests
+        run: yarn test --coverage
+
+      - name: Build
+        run: yarn build
+
+      - name: Upload test coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: frontend-coverage
+          path: src/frontend/coverage
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: frontend-build
+          path: src/frontend/dist

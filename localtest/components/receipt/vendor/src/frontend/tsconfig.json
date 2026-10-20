@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "paths": {
+      "src/*": ["./src/*"],
+      "testConfig/*": ["./testConfig/*"]
+    },
+    "outDir": "compiled",
+    "module": "commonjs",
+    "target": "es6",
+    "lib": ["es6", "dom", "es7", "esnext"],
+    "sourceMap": true,
+    "allowJs": true,
+    "jsx": "react",
+    "moduleResolution": "node",
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true,
+    "strictNullChecks": false,
+    "noUnusedLocals": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

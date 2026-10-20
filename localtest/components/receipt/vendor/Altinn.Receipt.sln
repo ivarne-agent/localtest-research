@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32616.157
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Altinn.Platform.Receipt.Tests", "test\Altinn.Platform.Receipt.Tests.csproj", "{BFF2B21B-629E-4952-A021-F7CDCB3DAF08}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Altinn.Platform.Receipt", "src\backend\Altinn.Receipt\Altinn.Platform.Receipt.csproj", "{3E337964-095D-467D-ABD3-964798848144}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution items", "{3D25BA0D-131C-4EAB-9EB8-FF968F51D391}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		Dockerfile = Dockerfile
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BFF2B21B-629E-4952-A021-F7CDCB3DAF08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFF2B21B-629E-4952-A021-F7CDCB3DAF08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFF2B21B-629E-4952-A021-F7CDCB3DAF08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFF2B21B-629E-4952-A021-F7CDCB3DAF08}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E337964-095D-467D-ABD3-964798848144}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E337964-095D-467D-ABD3-964798848144}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E337964-095D-467D-ABD3-964798848144}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E337964-095D-467D-ABD3-964798848144}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3AD03C8F-E4D6-4CEB-AF7E-0166B03F718E}
+	EndGlobalSection
+EndGlobal

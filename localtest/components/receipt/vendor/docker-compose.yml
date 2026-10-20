@@ -1,0 +1,30 @@
+version: '3.4'
+
+networks:
+  altinnplatform_network:
+    external: false
+
+services:
+  altinn_platform_receipt:
+    container_name: altinn-platform-receipt
+    image: altinn-platform-receipt:latest
+    restart: always
+    networks:
+      - altinnplatform_network
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5060
+      - PlatformSettings:ApiProfileEndpoint=http://host.docker.internal:5101/profile/api/v1/
+      - PlatformSettings:ApiAuthenticationEndpoint=http://host.docker.internal:5101//authentication/api/v1/
+      - PlatformSettings:ApiRegisterEndpoint=http://host.docker.internal:5101/register/api/v1/
+      - PlatformSettings:ApiStorageEndpoint=http://host.docker.internal:5101/storage/api/v1/
+      - GeneralSettings:OpenIdWellKnownEndpoint=http://host.docker.internal:5101/authentication/api/v1/openid/
+      - GeneralSettings:Hostname=at22.altinn.cloud
+      - GeneralSettings:RuntimeCookieName=AltinnStudioRuntime
+    ports:
+      - "5060:5060"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile

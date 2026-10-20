@@ -1,0 +1,11 @@
+export { default as AltinnIcon } from 'src/components/AltinnIcon';
+export { default as AltinnCollapsibleAttachments } from 'src/components/molecules/AltinnCollapsibleAttachments';
+export { default as AltinnContentLoader } from 'src/components/molecules/AltinnContentLoader';
+export { default as AltinnContentIcon } from 'src/components/atoms/AltinnContentIcon';
+export { default as AltinnInformationPaper } from 'src/components/AltinnInformationPaper';
+export { default as AltinnSubstatusPaper } from 'src/components/molecules/AltinnSubstatusPaper';
+export { default as AltinnAttachment } from 'src/components/atoms/AltinnAttachment';
+export { default as AltinnReceipt } from 'src/components/organisms/AltinnReceipt';
+export { default as AltinnModal } from 'src/components/molecules/AltinnModal';
+export { default as AltinnAppHeader } from 'src/components/organisms/AltinnAppHeader';
+export { default as AltinnLogo } from 'src/components/AltinnLogo';

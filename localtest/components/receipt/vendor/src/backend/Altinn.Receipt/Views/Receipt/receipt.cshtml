@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="no">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  @* The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags *@
+
+  <title>Kvittering</title>
+
+  <link rel="icon" href="https://altinncdn.no/favicon.ico">
+
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"
+    integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+  <script src="https://use.fortawesome.com/ed31cded.js"></script>
+  <script src="https://use.fortawesome.com/df832575.js"></script>
+  <script src="https://use.fortawesome.com/bdabc5c1.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
+
+  @{
+    // Comment this link in when running locally
+    // <link rel="stylesheet" type="text/css" href="http://localhost:8080/receipt.css" crossorigin="anonymous">
+  }
+  @* Comment this link out when running locally *@
+  <link rel="stylesheet" type="text/css" href="~/receipt/css/receipt.css">
+
+
+  <style>
+    html {
+      font-size: 10px;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="flex-column d-flex media-body">
+    <div id="root" class="media-body flex-column d-flex"></div>
+  </div>
+  @{
+    // Comment this script in when running locally
+    //<script src="http://localhost:8080/receipt.js" crossorigin="anonymous"></script>
+  }
+  @* Comment this script out when running locally *@
+  <script src="~/receipt/js/react/receipt.js"></script>
+
+</body>
+
+</html>

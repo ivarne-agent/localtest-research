@@ -1,0 +1,75 @@
+name: Code test and analysis
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+jobs:
+  build-and-test:
+    name: Build and Test
+    if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            10.0.x
+      - name: Build & Test
+        run: |
+          dotnet build Altinn.Receipt.sln -v m
+          dotnet test Altinn.Receipt.sln -v m
+
+  frontend-test:
+    uses: ./.github/workflows/frontend-test-build.yml
+  analyze:
+    name: Analyze
+    needs: [build-and-test, frontend-test]
+    if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            10.0.x
+      - name: Set up JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'microsoft'
+          java-version: 17
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Download frontend coverage
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: frontend-coverage
+          path: src/frontend/coverage/
+      - name: Install SonarCloud scanner
+        shell: powershell
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+      - name: Analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
+          dotnet-sonarscanner begin /k:"Altinn_altinn-receipt" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.coverage.exclusions="src/backend/Altinn.Receipt/Program.cs" /d:sonar.javascript.lcov.reportPaths="src/frontend/coverage/lcov.info" /d:sonar.typescript.lcov.reportPaths="src/frontend/coverage/lcov.info"
+
+          dotnet build Altinn.Receipt.sln
+          dotnet test Altinn.Receipt.sln `
+          --no-build `
+          --results-directory TestResults/ `
+          --collect:"XPlat Code Coverage" `
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+          dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"

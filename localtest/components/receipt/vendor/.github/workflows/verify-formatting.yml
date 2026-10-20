@@ -1,0 +1,36 @@
+name: Verify formatting
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'src/backend/**'
+      - 'test/**'
+      - '.csharpierrc.yaml'
+      - '.csharpierignore'
+      - '.config/dotnet-tools.json'
+      - 'Directory.Build.props'
+      - '.github/workflows/verify-formatting.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  verify-no-changes:
+    if: github.event.pull_request.user.login != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            10.0.x
+      - name: Install csharpier
+        run: dotnet tool restore
+      - name: Run csharpier
+        run: dotnet csharpier check .
