@@ -65,12 +65,12 @@ public static class LocaltestOidcClients
             yield return new(p + nameof(c.ClientId), c.ClientId);
             yield return new(p + nameof(c.ClientName), c.ClientName);
             yield return new(p + nameof(c.ClientSecret), c.ClientSecret);
-            yield return new(p + nameof(c.ClientType), "Confidential");
-            yield return new(p + nameof(c.TokenEndpointAuthMethod), "ClientSecretBasic");
+            yield return new(p + nameof(c.ClientType), c.ClientType.ToString());
+            yield return new(p + nameof(c.TokenEndpointAuthMethod), c.TokenEndpointAuthMethod.ToString());
             yield return new(p + nameof(c.FrontchannelLogoutUri), c.FrontchannelLogoutUri);
-            yield return new(p + nameof(c.RequirePkce), "true");
-            yield return new(p + nameof(c.RequireNonce), "true");
-            yield return new(p + nameof(c.SubjectType), "Pairwise");
+            yield return new(p + nameof(c.RequirePkce), c.RequirePkce.ToString());
+            yield return new(p + nameof(c.RequireNonce), c.RequireNonce.ToString());
+            yield return new(p + nameof(c.SubjectType), c.SubjectType.ToString());
             foreach (var entry in List(p + nameof(c.RedirectUris), c.RedirectUris))
             {
                 yield return entry;

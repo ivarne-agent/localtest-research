@@ -11,7 +11,8 @@
 # event in the Events component, queries GraphQL through the /dialogporten/graphql rewrite with the org token, checks CORS for
 # Arbeidsflate's origin, and lists and finally deletes the dialogs through the localtest endpoints.
 # NOTE: the last step, DELETE dialogporten/api/v1/localtest/dialogs, removes EVERY dialog in the stack, not only the test's.
-# The end-user API is not covered: it needs a token with a `pid` claim, which no token in the stack carries yet (TODO.md task 2).
+# The end-user API is not covered here: with the code-flow token (which carries `pid`) it is the last check of
+# ../authentication/smoke-test.sh.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 # DIALOGPORTEN_GRAPHQL_URL and DIALOGPORTEN_SERVICE_URL override the host-port URLs (default http://127.0.0.1:8031 and :8032).
 set -uo pipefail
