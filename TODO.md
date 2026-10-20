@@ -125,6 +125,19 @@ number; refresh rotates; `GET openid/logout?id_token_hint=…` answers 302 and a
 `dialogporten-core.md` section 7, the vendored `OidcServerService.cs`, `TokenService.cs`, `ClaimsPrincipalBuilder.cs`,
 `PersistanceDependencyInjection.cs`; `localtest/reviews/authentication.md`.
 
+**Phase 1 (2026-10-20, branch `task/authentication-oidc-provider`, e494026..ade5849, reviewed).** Four in-memory
+repositories, the pepper, both seeded clients, `endsession` in the fake ID-porten, and the helper under
+`localtest/api/authentication/` (`code`, `token`, `refresh`, `callback`). New `components/authentication/smoke-test.sh`,
+30 ok as plain processes with a stub Register and Profile. Findings, all production behaviour and mirrored, not fixed:
+logout only ends the session found through the `AltinnStudioRuntime` cookie (Authentication cannot validate its own
+`id_token_hint`); `post_logout_redirect_uri` is never honoured; a refresh family revoked by reuse detection cannot be
+recreated for the same session (500 at `token`); the access token's `scope` is the session's, and includes
+`digdir:dialogporten.noconsent`. Nits for phase 2: `LocaltestOidcClients.ConfigurationDefaults` emits hard-coded
+`ClientType`, `TokenEndpointAuthMethod` and `SubjectType` strings (`Pairwise`, while the class defaults to `Public`)
+instead of the object's values; the Dialogporten smoke-test header still says no token carries `pid` (after 9b merges).
+Phase 2 (on the stack, after 9b): `pid` against the real Register, the Dialogporten end-user API check, the
+localtest-app and root smoke tests, `run-platform-regression.sh`.
+
 ## 3. Local altinncdn.no
 
 **Goal.** Nothing in the stack needs internet access. Today Authentication's `exchange/maskinporten` reads
