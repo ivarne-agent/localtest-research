@@ -23,7 +23,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
 | 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
-| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | deferred (2026-10-20: until a relying party in the stack needs the code flow, i.e. task 11 or a Dialogporten end-user test) | medium | yes |
+| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | in progress (undeferred 2026-10-20 for the adapter's dialog-token steps and the Dialogporten end-user API; Opus agent `task2-oidc-provider`, worktree `.worktrees/task2-oidc-provider`, branch `task/authentication-oidc-provider`; phase 1 code, phase 2 stack after 9b) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
@@ -107,10 +107,12 @@ question whether the issued tokens carry `pid` is answered empirically.
 5. If the code-flow access token still lacks `pid`: trace `IdentifyOrCreateAltinnUser` (Profile lookup by SSN,
    `UserProfile.Party.SSN` deserialisation in `ProfileService.cs:51`) and report before adding any directive site.
 
-**Open.** Should the Arbeidsflate client (`arbeidsflate-localtest`, redirect `http://af.local.altinn.cloud:8000/api/cb`,
-front-channel logout URL) be seeded now, so task 11 only adds the containers? Where does the helper live:
-`/Home` (old contract, grows) or `localtest/api/idporten/` (new API)? Is a third directive site in Authentication
-acceptable if step 5 finds the loss inside vendored code?
+**Decisions (2026-10-20).** Seed two clients: `localtest-smoke` for tests and `arbeidsflate-localtest` with the
+redirect, post-logout and front-channel-logout URLs from `planned-components/dialogporten/arbeidsflate.md` section
+3.4, so task 11 only adds containers. The headless code-flow helper is a new localtest-app feature,
+`localtest/api/authentication/` (not `/Home`, whose contract is the old localtest's and does not grow), e.g.
+`GET localtest/api/authentication/token?client=&userId=&partyId=&authenticationLevel=` returning the token response.
+A third directive site in Authentication is not acceptable without a report first.
 
 **Verification.** `components/authentication` smoke test extended: discovery lists `end_session_endpoint`; the code flow
 for the seeded client (authorize → picker → callback → `POST token` with `client_secret_basic` and PKCE) returns
