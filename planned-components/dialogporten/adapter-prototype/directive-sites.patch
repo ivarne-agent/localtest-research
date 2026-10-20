@@ -1,0 +1,109 @@
+--- /home/agent/code/.reference/altinn-dialogporten-adapter/src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs	2026-10-18 22:39:18.810304308 +0200
++++ Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs	2026-10-20 10:21:13.318760185 +0200
+@@ -1,4 +1,4 @@
+-﻿using System.Net;
++using System.Net;
+ using Altinn.ApiClients.Dialogporten;
+ using Altinn.ApiClients.Maskinporten.Extensions;
+ using Altinn.ApiClients.Maskinporten.Services;
+@@ -60,11 +60,19 @@
+ 
+             services.AddWolverine(opts =>
+             {
++#if !LOCALTEST
+                 opts.ConfigureAdapterDefaults(
+                     environment,
+                     settings.WolverineSettings.ServiceBusConnectionString,
+                     settings.WolverineSettings.ManagementConnectionString
+                 );
++#else
++                // localtest: no Azure Service Bus. The handler runs on Wolverine's in-process local queue, which the
++                // localtest enqueue endpoint (fakes/) publishes to, so the error policies below still apply.
++                opts.EnableAutomaticFailureAcks = false;
++                opts.EnableRemoteInvocation = false;
++                opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
++#endif
+                 opts.Policies.AllListeners(x => x.ProcessInline());
+                 opts.Policies.AllSenders(x => x.SendInline());
+ 
+@@ -168,12 +176,18 @@
+ 
+                 //.AndPauseProcessing(clock.Seconds(30)); // Give some time for upstream to recover before processing more messages
+ 
++#if !LOCALTEST
+                 opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
+                     .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
+ 
+                 // Also listen to the history queue with a fewer number of listeners.
+                 opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
+                     .ListenerCount(30.PercentOf(settings.WolverineSettings.ListenerCount));
++#else
++                // localtest: one sequential local queue, so two syncs of the same instance never race into a 412.
++                opts.LocalQueue(ContractConstants.AdapterQueueName).Sequential();
++                opts.PublishMessage<SyncInstanceCommand>().ToLocalQueue(ContractConstants.AdapterQueueName);
++#endif
+             });
+ 
+             services.AddMemoryCache();
+--- /home/agent/code/.reference/altinn-dialogporten-adapter/src/Altinn.DialogportenAdapter.WebApi/Settings.cs	2026-10-18 22:39:18.810304308 +0200
++++ Altinn.DialogportenAdapter.WebApi/Settings.cs	2026-10-20 10:21:13.318760185 +0200
+@@ -40,8 +40,14 @@
+ 
+ public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndpoint, Uri InternalRegisterEndpoint, string SubscriptionKey, Uri AltinnCdn)
+ {
++#if !LOCALTEST
+     public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}/{appId}");
+     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");
++#else
++    // localtest: one origin for apps and platform (http://local.altinn.cloud:8000), no org or platform sub-domains.
++    public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.ToString().TrimEnd('/')}/{appId}");
++    public Uri GetPlatformUri() => new(BaseUri.ToString().TrimEnd('/'));
++#endif
+ }
+ 
+ public sealed record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);
+--- /home/agent/code/.reference/altinn-dialogporten-adapter/src/Altinn.DialogportenAdapter.WebApi/Program.cs	2026-10-18 22:39:18.810304308 +0200
++++ Altinn.DialogportenAdapter.WebApi/Program.cs	2026-10-20 10:21:13.318760185 +0200
+@@ -43,10 +43,16 @@
+     builder.Services
+         .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new Clock())
+         .ReplaceLocalDevelopmentResources(builder.Configuration, builder.Environment);
++#if LOCALTEST
++    Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.AddLocaltestAdapter(builder);
++#endif
+ 
+     using var app = builder
+         .Build()
+         .RegisterRoutes();
++#if LOCALTEST
++    Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.MapLocaltestRoutes(app);
++#endif
+ 
+     app.Run();
+ }
+--- /home/agent/code/.reference/altinn-dialogporten-adapter/src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs	2026-10-18 22:39:18.810304308 +0200
++++ Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs	2026-10-20 10:21:13.318760185 +0200
+@@ -363,7 +363,11 @@
+         AttachmentDto CreateAttachmentDto(DataElement element)
+         {
+             var consumerType = attachmentVisibility.GetConsumerType(element);
++#if !LOCALTEST
+             var platformUrl = element.SelfLinks.Platform;
++#else
++            var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platform, _settings);
++#endif
+ 
+             var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                 ? ToPortalUri(platformUrl)
+@@ -390,7 +394,11 @@
+         TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
+         {
+             var consumerType = attachmentVisibility.GetConsumerType(element);
++#if !LOCALTEST
+             var platformUrl = element.SelfLinks.Platform;
++#else
++            var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platform, _settings);
++#endif
+ 
+             var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                 ? ToPortalUri(platformUrl)
