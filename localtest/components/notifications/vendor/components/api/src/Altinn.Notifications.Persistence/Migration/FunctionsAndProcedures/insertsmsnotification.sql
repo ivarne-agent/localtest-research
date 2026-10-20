@@ -1,0 +1,50 @@
+CREATE OR REPLACE PROCEDURE notifications.insertsmsnotification_v2(
+    _orderid uuid,
+    _alternateid uuid,
+    _recipientorgno TEXT,
+    _recipientnin TEXT,
+    _mobilenumber TEXT,
+    _customizedbody TEXT,
+    _result TEXT,
+    _resulttime timestamptz,
+    _expirytime timestamptz
+)
+LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    __orderid BIGINT;
+    __sendingtimepolicy SMALLINT;
+BEGIN
+    SELECT
+        _id,
+        CASE WHEN sendingtimepolicy = 2 OR sendingtimepolicy IS NULL THEN 2 ELSE 1 END
+        INTO __orderid, __sendingtimepolicy
+    FROM notifications.orders
+    WHERE alternateid = _orderid;
+
+    INSERT INTO notifications.smsnotifications(
+        _orderid,
+        alternateid,
+        recipientorgno,
+        recipientnin,
+        mobilenumber,
+        customizedbody,
+        result,
+        resulttime,
+        expirytime,
+        sendingtimepolicy
+    )
+    VALUES (
+        __orderid,
+        _alternateid,
+        _recipientorgno,
+        _recipientnin,
+        _mobilenumber,
+        _customizedbody,
+        _result::smsnotificationresulttype,
+        _resulttime,
+        _expirytime,
+        __sendingtimepolicy
+    );
+END;
+$BODY$;

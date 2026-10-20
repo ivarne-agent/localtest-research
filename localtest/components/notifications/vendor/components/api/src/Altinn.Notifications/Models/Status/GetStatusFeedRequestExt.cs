@@ -1,0 +1,27 @@
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
+namespace Altinn.Notifications.Models.Status;
+
+/// <summary>
+/// Request model for fetching status feed entries
+/// </summary>
+public class GetStatusFeedRequestExt
+{
+    /// <summary>
+    /// The sequence number to start fetching status feed entries from
+    /// </summary>
+    [Range(0, long.MaxValue)]
+    public long Seq { get; set; } = 0;
+
+    /// <summary>
+    /// The number of items to return in one page. The default value is set by the API
+    /// </summary>
+    public int? PageSize { get; set; }
+
+    /// <summary>
+    /// The order in which the status feed entries should be returned. The default value is "Asc" for ascending order
+    /// </summary>
+    [DefaultValue(OrderByDirection.Asc)]
+    public OrderByDirection OrderBy { get; set; } = OrderByDirection.Asc;
+}

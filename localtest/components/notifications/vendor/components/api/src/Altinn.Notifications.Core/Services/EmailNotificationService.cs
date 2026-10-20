@@ -1,0 +1,189 @@
+using System.Diagnostics;
+using Altinn.Notifications.Core.Enums;
+using Altinn.Notifications.Core.Integrations;
+using Altinn.Notifications.Core.Models;
+using Altinn.Notifications.Core.Models.Address;
+using Altinn.Notifications.Core.Models.Notification;
+using Altinn.Notifications.Core.Models.Recipients;
+using Altinn.Notifications.Core.Persistence;
+using Altinn.Notifications.Core.Services.Interfaces;
+using Altinn.Notifications.Core.Shared;
+using Microsoft.Extensions.Logging;
+
+namespace Altinn.Notifications.Core.Services;
+
+/// <summary>
+/// Implementation of <see cref="IEmailNotificationService"/>.
+/// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="EmailNotificationService"/> class.
+/// </remarks>
+public class EmailNotificationService(
+    IGuidService guidService,
+    IDateTimeService dateTimeService,
+    IEmailCommandPublisher emailCommandPublisher,
+    IEmailNotificationRepository emailNotificationRepository,
+    IComposedEmailCommandPublisher composedEmailCommandPublisher,
+    IUnitOfWorkRepository unitOfWorkRepository,
+    ILogger<EmailNotificationService> logger) : IEmailNotificationService
+{
+    private static readonly ActivitySource _activitySource = new(BackgroundActivitySource.Name);
+    private readonly IGuidService _guidService = guidService;
+    private readonly IDateTimeService _dateTimeService = dateTimeService;
+    private readonly IEmailCommandPublisher _emailCommandPublisher = emailCommandPublisher;
+    private readonly IEmailNotificationRepository _emailNotificationRepository = emailNotificationRepository;
+    private readonly IComposedEmailCommandPublisher _composedEmailCommandPublisher = composedEmailCommandPublisher;
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<EmailNotification>> CreateNotification(Guid orderId, DateTime requestedSendTime, List<EmailAddressPoint> emailAddresses, EmailRecipient emailRecipient, bool ignoreReservation = false)
+    {
+        var notifications = new List<EmailNotification>();
+
+        if (emailRecipient.IsReserved.HasValue && emailRecipient.IsReserved.Value && !ignoreReservation)
+        {
+            emailRecipient.ToAddress = string.Empty;
+            notifications.Add(CreateNotificationForRecipient(orderId, requestedSendTime, emailRecipient, EmailNotificationResultType.Failed_RecipientReserved));
+            return Task.FromResult<IReadOnlyList<EmailNotification>>(notifications);
+        }
+
+        if (emailAddresses.Count == 0)
+        {
+            notifications.Add(CreateNotificationForRecipient(orderId, requestedSendTime, emailRecipient, EmailNotificationResultType.Failed_RecipientNotIdentified));
+            return Task.FromResult<IReadOnlyList<EmailNotification>>(notifications);
+        }
+
+        foreach (EmailAddressPoint addressPoint in emailAddresses)
+        {
+            var recipientForAddress = new EmailRecipient
+            {
+                IsReserved = emailRecipient.IsReserved,
+                OrganizationNumber = emailRecipient.OrganizationNumber,
+                NationalIdentityNumber = emailRecipient.NationalIdentityNumber,
+                CustomizedBody = emailRecipient.CustomizedBody,
+                CustomizedSubject = emailRecipient.CustomizedSubject,
+                ToAddress = addressPoint.EmailAddress
+            };
+            notifications.Add(CreateNotificationForRecipient(orderId, requestedSendTime, recipientForAddress, EmailNotificationResultType.New));
+        }
+
+        return Task.FromResult<IReadOnlyList<EmailNotification>>(notifications);
+    }
+
+    /// <inheritdoc/>
+    public async Task TerminateExpiredNotifications()
+    {
+        // process hanging notifications that have been set to succeeded, but never reached a final stage
+        await _emailNotificationRepository.TerminateExpiredNotifications();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> SendNotification(CancellationToken cancellationToken)
+    {
+        return SendClaimedNotification(
+            (unitOfWork, token) => _emailNotificationRepository.GetNewNotificationAsync(unitOfWork, token),
+            (notification, token) => _emailCommandPublisher.PublishAsync(notification, token),
+            nameof(SendNotification),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> SendComposedNotification(CancellationToken cancellationToken)
+    {
+        return SendClaimedNotification(
+            (unitOfWork, token) => _emailNotificationRepository.GetNewComposedNotificationAsync(unitOfWork, token),
+            (notification, token) => _composedEmailCommandPublisher.PublishAsync(notification, token),
+            nameof(SendComposedNotification),
+            cancellationToken);
+    }
+
+    private async Task<bool> SendClaimedNotification<TNotification>(
+        Func<UnitOfWork, CancellationToken, Task<TNotification?>> getNewNotification,
+        Func<TNotification, CancellationToken, Task> publishNotification,
+        string operationName,
+        CancellationToken cancellationToken)
+        where TNotification : class
+    {
+        using Activity? activity = _activitySource.StartActivity("SendNotification")?.SetTag("Kind", operationName);
+        UnitOfWork unitOfWork;
+        try
+        {
+            unitOfWork = await unitOfWorkRepository.StartUnitOfWork();
+        }
+        catch (Exception e)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogError(e, "Failed to start a unit of work for {OperationName}.", operationName);
+            }
+
+            return false;
+        }
+
+        try
+        {
+            TNotification? claimedNotification = await getNewNotification(unitOfWork, cancellationToken);
+            activity?.SetTag("Count", claimedNotification == null ? 0 : 1);
+            if (claimedNotification is null)
+            {
+                await unitOfWorkRepository.RollbackUnitOfWork(unitOfWork);
+                return false;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await publishNotification(claimedNotification, cancellationToken);
+            await unitOfWorkRepository.CommitUnitOfWork(unitOfWork);
+            return true;
+        }
+        catch (Exception e)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogError(e, "An error occurred while processing {OperationName}.", operationName);
+            }
+
+            try
+            {
+                await unitOfWorkRepository.RollbackUnitOfWork(unitOfWork);
+            }
+            catch (Exception)
+            {
+                // Ignore rollback exceptions to avoid masking the original exception
+            }
+
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateSendStatus(EmailSendOperationResult sendOperationResult)
+    {
+        // set to new to allow new iteration of regular processing if transient error
+        if (sendOperationResult.SendResult == EmailNotificationResultType.Failed_TransientError)
+        {
+            sendOperationResult.SendResult = EmailNotificationResultType.New;
+        }
+
+        await _emailNotificationRepository.UpdateSendStatus(
+            sendOperationResult.NotificationId,
+            (EmailNotificationResultType)sendOperationResult.SendResult!,
+            sendOperationResult.OperationId,
+            sendOperationResult.DeliveryReport,
+            sendOperationResult.TotalAttachmentSizeBytes);
+    }
+
+    /// <summary>
+    /// Builds an in-memory email notification for a single recipient. Does not persist.
+    /// </summary>
+    private EmailNotification CreateNotificationForRecipient(Guid orderId, DateTime requestedSendTime, EmailRecipient recipient, EmailNotificationResultType result)
+    {
+        return new EmailNotification()
+        {
+            OrderId = orderId,
+            Id = _guidService.NewGuid(),
+            Recipient = recipient,
+            RequestedSendTime = requestedSendTime,
+            SendResult = new(result, _dateTimeService.UtcNow())
+        };
+    }
+}

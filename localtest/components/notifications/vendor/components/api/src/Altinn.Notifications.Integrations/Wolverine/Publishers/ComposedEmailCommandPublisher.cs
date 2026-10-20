@@ -1,0 +1,46 @@
+using Altinn.Notifications.Core.Integrations;
+using Altinn.Notifications.Core.Models;
+using Altinn.Notifications.Shared.Commands;
+using Altinn.Notifications.Shared.Publishers;
+
+namespace Altinn.Notifications.Integrations.Wolverine.Publishers;
+
+/// <summary>
+/// Wolverine-based implementation of <see cref="IComposedEmailCommandPublisher"/> that publishes
+/// composed email notifications to a dedicated Azure Service Bus queue via <see cref="IMessageBusPublisher"/>.
+/// </summary>
+public class ComposedEmailCommandPublisher(IMessageBusPublisher messageBusPublisher) : IComposedEmailCommandPublisher
+{
+    private readonly IMessageBusPublisher _messageBusPublisher = messageBusPublisher;
+
+    /// <inheritdoc/>
+    public Task PublishAsync(ComposedEmail email, CancellationToken cancellationToken)
+    {
+        return _messageBusPublisher.PublishCommandAsync(CreateCommand(email), cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="SendComposedEmailCommand"/> from a <see cref="ComposedEmail"/>.
+    /// </summary>
+    /// <param name="email">The composed email to convert.</param>
+    /// <returns>The command to publish to the message bus.</returns>
+    private static SendComposedEmailCommand CreateCommand(ComposedEmail email)
+    {
+        return new SendComposedEmailCommand
+        {
+            Body = email.Body,
+            Subject = email.Subject,
+            ToAddress = email.ToAddress,
+            FromAddress = email.FromAddress,
+            NotificationId = email.NotificationId,
+            ContentType = email.ContentType.ToString(),
+            Attachments = [.. email.Attachments
+                .Select(a => new SasFileAttachment
+                {
+                    Filename = a.Filename,
+                    MimeType = a.MimeType,
+                    SasUrl = a.SasUrl.ToString()
+                })]
+        };
+    }
+}

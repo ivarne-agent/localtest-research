@@ -1,0 +1,72 @@
+using Altinn.Notifications.Core.Configuration;
+using Altinn.Notifications.Core.Services;
+using Altinn.Notifications.Core.Services.Interfaces;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace Altinn.Notifications.Core.Extensions;
+
+/// <summary>
+/// Extension class for <see cref="IServiceCollection"/>
+/// </summary>
+public static class ServiceCollectionExtensions
+{
+    /// <summary>
+    /// Adds core services and configurations to DI container.
+    /// </summary>
+    /// <param name="services">service collection.</param>
+    /// <param name="config">the configuration collection</param>
+    public static void AddCoreServices(this IServiceCollection services, IConfiguration config)
+    {
+        _ = config.GetSection("NotificationConfig")
+            .Get<NotificationConfig>()
+            ?? throw new ArgumentNullException(nameof(config), "Required NotificationConfig is missing from application configuration");
+
+        services
+            .Configure<NotificationConfig>(config.GetSection("NotificationConfig"));
+
+        services
+            .AddOptions<SmsSenderSubstitutionConfig>()
+            .Bind(config.GetSection("SmsSenderSubstitution"))
+            .ValidateOnStart();
+
+        services
+            .AddSingleton<IValidateOptions<SmsSenderSubstitutionConfig>, SmsSenderSubstitutionConfigValidator>();
+
+        services
+            .AddHostedService<ProcessItemsBackgroundService>();
+
+        services
+            .AddSingleton<IGuidService, GuidService>()
+            .AddSingleton<IMetricsService, MetricsService>()
+            .AddSingleton<IKeywordsService, KeywordsService>()
+            .AddSingleton<IDateTimeService, DateTimeService>()
+            .AddSingleton<IGetOrderService, GetOrderService>()
+            .AddSingleton<IDashboardService, DashboardService>()
+            .AddSingleton<IStatusFeedService, StatusFeedService>()
+            .AddSingleton<ICancelOrderService, CancelOrderService>()
+            .AddSingleton<IContactPointService, ContactPointService>()
+            .AddSingleton<IOrderRequestService, OrderRequestService>()
+            .AddSingleton<INotificationLogService, NotificationLogService>()
+            .AddSingleton<ISmsNotificationService, SmsNotificationService>()
+            .AddSingleton<IOrderProcessingService, OrderProcessingService>()
+            .AddSingleton<IEmailNotificationService, EmailNotificationService>()
+            .AddSingleton<IDeadDeliveryReportService, DeadDeliveryReportService>()
+            .AddSingleton<ISmsOrderProcessingService, SmsOrderProcessingService>()
+            .AddSingleton<IInstantOrderRequestService, InstantOrderRequestService>()
+            .AddSingleton<IAltinnServiceUpdateService, AltinnServiceUpdateService>()
+            .AddSingleton<INotificationScheduleService, NotificationScheduleService>()
+            .AddSingleton<IEmailOrderProcessingService, EmailOrderProcessingService>()
+            .AddSingleton<ISmsSenderSubstitutionService, SmsSenderSubstitutionService>()
+            .AddSingleton<ISmsNotificationSummaryService, SmsNotificationSummaryService>()
+            .AddSingleton<ITerminateExpiredNotificationsService, TerminateExpiredService>()
+            .AddSingleton<IEmailNotificationSummaryService, EmailNotificationSummaryService>()
+            .AddSingleton<IComposedEmailOrderRequestService, ComposedEmailOrderRequestService>()
+            .AddSingleton<IPreferredChannelProcessingService, PreferredChannelProcessingService>()
+            .AddSingleton<IEmailAndSmsOrderProcessingService, EmailAndSmsOrderProcessingService>()
+            .AddSingleton<INotificationDeliveryManifestService, NotificationDeliveryManifestService>()
+            .AddSingleton<INotificationsEmailServiceUpdateService, NotificationsEmailServiceUpdateService>();
+    }
+}
