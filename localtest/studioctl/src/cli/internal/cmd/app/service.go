@@ -1,0 +1,167 @@
+// Package app contains command-specific app application logic.
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+
+	"altinn.studio/studioctl/internal/auth"
+	"altinn.studio/studioctl/internal/config"
+	repocontext "altinn.studio/studioctl/internal/context"
+	"altinn.studio/studioctl/internal/studio"
+)
+
+// ErrNotLoggedIn indicates missing credentials for the requested environment.
+var ErrNotLoggedIn = errors.New("not logged in")
+
+// Service contains app command logic.
+type Service struct {
+	cfg *config.Config
+}
+
+// NewService creates a new app command service.
+func NewService(cfg *config.Config) *Service {
+	return &Service{cfg: cfg}
+}
+
+// UpdateResult contains detected app location for update flow.
+type UpdateResult struct {
+	AppPath string
+}
+
+// ResolveUpdateTarget resolves the app path for the update command.
+func (s *Service) ResolveUpdateTarget(ctx context.Context, appPath string) (UpdateResult, error) {
+	detection, err := s.ResolveTarget(ctx, appPath)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+
+	return UpdateResult{AppPath: detection.AppRoot}, nil
+}
+
+// ResolveTarget detects a target app directory.
+func (s *Service) ResolveTarget(ctx context.Context, appPath string) (repocontext.Detection, error) {
+	detection, err := repocontext.DetectFromCwd(ctx, appPath)
+	if err != nil {
+		return repocontext.Detection{}, fmt.Errorf("detect app: %w", err)
+	}
+	if !detection.InAppRepo {
+		return repocontext.Detection{}, repocontext.ErrAppNotFound
+	}
+	return detection, nil
+}
+
+// CloneRequest contains clone inputs.
+type CloneRequest struct {
+	Destination string
+	Env         string
+	Org         string
+	Repo        string
+}
+
+// CloneResult contains clone output metadata.
+type CloneResult struct {
+	AbsPath string
+}
+
+// SearchRequest contains repository search inputs.
+type SearchRequest struct {
+	Env   string
+	Query string
+	Sort  string
+	Order string
+	Page  int
+	Limit int
+}
+
+// SearchResult contains repositories found by app search.
+type SearchResult struct {
+	Repositories []studio.Repository
+	TotalCount   int
+	TotalPages   int
+}
+
+// ResolveHost resolves the configured host for an environment.
+func (s *Service) ResolveHost(env string) (string, error) {
+	creds, err := auth.LoadCredentials(s.cfg.Home)
+	if err != nil {
+		return "", fmt.Errorf("load credentials: %w", err)
+	}
+
+	envCreds, err := creds.Get(env)
+	if err != nil {
+		if errors.Is(err, auth.ErrNotLoggedIn) {
+			return "", fmt.Errorf("%w: %s", ErrNotLoggedIn, env)
+		}
+		return "", fmt.Errorf("get credentials for %s: %w", env, err)
+	}
+
+	return envCreds.Host, nil
+}
+
+// Clone clones an app repository and returns destination metadata.
+func (s *Service) Clone(ctx context.Context, req CloneRequest) (CloneResult, error) {
+	creds, err := auth.LoadCredentials(s.cfg.Home)
+	if err != nil {
+		return CloneResult{}, fmt.Errorf("load credentials: %w", err)
+	}
+
+	envCreds, err := creds.Get(req.Env)
+	if err != nil {
+		if errors.Is(err, auth.ErrNotLoggedIn) {
+			return CloneResult{}, fmt.Errorf("%w: %s", ErrNotLoggedIn, req.Env)
+		}
+		return CloneResult{}, fmt.Errorf("get credentials for %s: %w", req.Env, err)
+	}
+
+	client := studio.NewClientForEnv(req.Env, s.cfg.Home, envCreds, s.cfg.Version)
+	cloneErr := client.CloneRepo(ctx, req.Org, req.Repo, req.Destination)
+	if cloneErr != nil {
+		return CloneResult{}, fmt.Errorf("clone repo: %w", cloneErr)
+	}
+
+	absPath, err := filepath.Abs(req.Destination)
+	if err != nil {
+		absPath = req.Destination
+	}
+
+	return CloneResult{
+		AbsPath: absPath,
+	}, nil
+}
+
+// Search searches app repositories visible in the selected environment.
+func (s *Service) Search(ctx context.Context, req SearchRequest) (SearchResult, error) {
+	creds, err := auth.LoadCredentials(s.cfg.Home)
+	if err != nil {
+		return SearchResult{}, fmt.Errorf("load credentials: %w", err)
+	}
+
+	envCreds, err := creds.Get(req.Env)
+	if err != nil {
+		if errors.Is(err, auth.ErrNotLoggedIn) {
+			return SearchResult{}, fmt.Errorf("%w: %s", ErrNotLoggedIn, req.Env)
+		}
+		return SearchResult{}, fmt.Errorf("get credentials for %s: %w", req.Env, err)
+	}
+
+	client := studio.NewClientForEnv(req.Env, s.cfg.Home, envCreds, s.cfg.Version)
+	result, err := client.SearchApps(ctx, studio.SearchAppsRequest{
+		Query: req.Query,
+		Sort:  req.Sort,
+		Order: req.Order,
+		Page:  req.Page,
+		Limit: req.Limit,
+	})
+	if err != nil {
+		return SearchResult{}, fmt.Errorf("search repos: %w", err)
+	}
+
+	return SearchResult{
+		Repositories: result.Data,
+		TotalCount:   result.TotalCount,
+		TotalPages:   result.TotalPages,
+	}, nil
+}

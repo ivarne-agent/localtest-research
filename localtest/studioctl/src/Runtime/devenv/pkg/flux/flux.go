@@ -1,0 +1,619 @@
+//nolint:revive // Public Flux API names intentionally mirror Flux resource terminology.
+package flux
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"github.com/fluxcd/flux2/v2/pkg/manifestgen/install"
+	helmv2 "github.com/fluxcd/helm-controller/api/v2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	"github.com/fluxcd/pkg/apis/meta"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"altinn.studio/devenv/pkg/cabundle"
+	"altinn.studio/devenv/pkg/kubernetes"
+)
+
+var (
+	// Flux GVRs - constructed directly from API packages to avoid discovery issues.
+	helmRepositoryGVR = sourcev1.GroupVersion.WithResource("helmrepositories")
+	// HelmReleaseGVR is used by callers that need to watch Flux HelmRelease readiness.
+	HelmReleaseGVR   = helmv2.GroupVersion.WithResource("helmreleases")
+	kustomizationGVR = kustomizev1.GroupVersion.WithResource("kustomizations")
+	ociRepositoryGVR = sourcev1.GroupVersion.WithResource("ocirepositories")
+
+	errKubeClientRequired       = errors.New("kubeClient is required")
+	errUnknownSourceKind        = errors.New("unknown source kind")
+	errFluxBuildInfoUnavailable = errors.New("resolve flux install version: Go build info unavailable")
+	errFluxVersionUnavailable   = errors.New(
+		"resolve flux install version: github.com/fluxcd/flux2/v2 version unavailable in Go build info",
+	)
+	errFluxModuleNotFound = errors.New(
+		"resolve flux install version: github.com/fluxcd/flux2/v2 not found in Go build info",
+	)
+)
+
+const (
+	fluxInstallConcurrency      = 8
+	fluxInstallGenerateAttempts = 3
+	fluxModulePath              = "github.com/fluxcd/flux2/v2"
+	yamlDecoderBufferSize       = 4096
+	fluxCABundleConfigMap       = cabundle.KubernetesConfigMapName
+	fluxCABundleKey             = cabundle.KubernetesConfigMapKey
+	fluxCABundleVolume          = cabundle.KubernetesVolumeName
+	fluxCABundleDigestAnno      = "altinn.studio/devenv-ca-bundle-digest"
+)
+
+var (
+	installGenerate               = install.Generate
+	fluxInstallGenerateRetryDelay = 2 * time.Second
+)
+
+// FluxClient provides Flux operations using native Go packages.
+type FluxClient struct {
+	kubeClient *kubernetes.KubernetesClient
+}
+
+// New creates a new FluxClient with the given KubernetesClient.
+func New(kubeClient *kubernetes.KubernetesClient) (*FluxClient, error) {
+	if kubeClient == nil {
+		return nil, errKubeClientRequired
+	}
+
+	return &FluxClient{
+		kubeClient: kubeClient,
+	}, nil
+}
+
+// ReconcileOptions configures how a reconcile operation should be executed.
+type ReconcileOptions struct {
+	// ShouldWait determines if the operation should block until completion (true)
+	// or run asynchronously in a goroutine with logging (false)
+	ShouldWait bool
+
+	// Timeout specifies the maximum duration for the operation.
+	// A value of 0 means no timeout.
+	Timeout time.Duration
+}
+
+// DefaultReconcileOptions returns ReconcileOptions with sensible defaults
+// (blocking with no timeout).
+func DefaultReconcileOptions() ReconcileOptions {
+	return ReconcileOptions{
+		ShouldWait: true,
+		Timeout:    0,
+	}
+}
+
+// InstallOptions configures Flux controller behavior during installation.
+type InstallOptions struct {
+	Concurrent        int
+	RequeueDependency time.Duration
+	LeaderElection    bool
+	OptimizeProbes    bool
+}
+
+// LocalInstallOptions returns InstallOptions optimized for local provisioning.
+func LocalInstallOptions() InstallOptions {
+	return InstallOptions{
+		LeaderElection:    false,
+		Concurrent:        fluxInstallConcurrency,
+		RequeueDependency: 2 * time.Second,
+		OptimizeProbes:    true,
+	}
+}
+
+// Install installs Flux to the cluster with the specified components and options using ctx.
+func (c *FluxClient) Install(
+	ctx context.Context,
+	components []string,
+	installOpts InstallOptions,
+) error {
+	opts, err := defaultInstallOptions(components)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := generateInstallManifest(ctx, opts)
+	if err != nil {
+		return fmt.Errorf("failed to generate flux install manifests: %w", err)
+	}
+
+	objects, err := parseManifestYAML(manifest)
+	if err != nil {
+		return fmt.Errorf("failed to parse flux manifests: %w", err)
+	}
+
+	caPatch, caConfigured, err := newCABundleInstallPatch()
+	if err != nil {
+		return fmt.Errorf("resolve Flux CA bundle patch: %w", err)
+	}
+	if caConfigured {
+		objects = insertCABundleConfigMap(objects, caPatch.configMap())
+	}
+
+	patchDeployments(objects, installOpts, caPatch)
+
+	if _, err := c.kubeClient.ApplyObjects(ctx, objectsToRuntime(objects)...); err != nil {
+		return fmt.Errorf("failed to apply flux install manifests: %w", err)
+	}
+
+	return nil
+}
+
+func generateInstallManifest(ctx context.Context, opts install.Options) (string, error) {
+	var lastErr error
+	for attempt := 1; attempt <= fluxInstallGenerateAttempts; attempt++ {
+		manifest, err := installGenerate(opts, "")
+		if err == nil {
+			return manifest.Content, nil
+		}
+		lastErr = err
+		if attempt == fluxInstallGenerateAttempts || !isRetryableInstallGenerateError(err) {
+			return "", err
+		}
+		if err := waitForInstallGenerateRetry(ctx); err != nil {
+			return "", err
+		}
+	}
+	return "", lastErr
+}
+
+func waitForInstallGenerateRetry(ctx context.Context) error {
+	timer := time.NewTimer(fluxInstallGenerateRetryDelay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("wait before retrying Flux install manifest generation: %w", ctx.Err())
+	case <-timer.C:
+		return nil
+	}
+}
+
+func isRetryableInstallGenerateError(err error) bool {
+	message := strings.ToLower(err.Error())
+	retryableFragments := []string{
+		"status: 429",
+		"status: 500",
+		"status: 502",
+		"status: 503",
+		"status: 504",
+		"connection reset",
+		"i/o timeout",
+		"temporary failure",
+		"timeout",
+		"tls handshake timeout",
+	}
+	for _, fragment := range retryableFragments {
+		if strings.Contains(message, fragment) {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultInstallOptions(components []string) (install.Options, error) {
+	version, err := fluxInstallVersion()
+	if err != nil {
+		return install.Options{}, err
+	}
+
+	opts := install.MakeDefaultOptions()
+	opts.Version = version
+	opts.Components = components
+	return opts, nil
+}
+
+func fluxInstallVersion() (string, error) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "", errFluxBuildInfoUnavailable
+	}
+
+	for _, dep := range info.Deps {
+		if dep.Path != fluxModulePath {
+			continue
+		}
+
+		version := dep.Version
+		if dep.Replace != nil && dep.Replace.Version != "" {
+			version = dep.Replace.Version
+		}
+		if version == "" || version == "(devel)" {
+			return "", errFluxVersionUnavailable
+		}
+		return version, nil
+	}
+
+	return "", errFluxModuleNotFound
+}
+
+func parseManifestYAML(content string) ([]*unstructured.Unstructured, error) {
+	decoder := utilyaml.NewYAMLOrJSONDecoder(strings.NewReader(content), yamlDecoderBufferSize)
+	var objects []*unstructured.Unstructured
+
+	for {
+		var obj unstructured.Unstructured
+		if err := decoder.Decode(&obj); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, fmt.Errorf("decode manifest yaml: %w", err)
+		}
+		if len(obj.Object) == 0 {
+			continue
+		}
+		objects = append(objects, &obj)
+	}
+	return objects, nil
+}
+
+func objectsToRuntime(objects []*unstructured.Unstructured) []runtime.Object {
+	result := make([]runtime.Object, len(objects))
+	for i, obj := range objects {
+		result[i] = obj
+	}
+	return result
+}
+
+type caBundleInstallPatch struct {
+	data   string
+	digest string
+}
+
+func newCABundleInstallPatch() (*caBundleInstallPatch, bool, error) {
+	bundle, configured, err := cabundle.FromEnv()
+	if err != nil {
+		return nil, true, fmt.Errorf("resolve CA bundle: %w", err)
+	}
+	if !configured {
+		return nil, false, nil
+	}
+
+	return &caBundleInstallPatch{data: string(bundle.Data), digest: bundle.Digest}, true, nil
+}
+
+func (p *caBundleInstallPatch) configMap() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      fluxCABundleConfigMap,
+				"namespace": "flux-system",
+			},
+			"data": map[string]any{
+				fluxCABundleKey: p.data,
+			},
+		},
+	}
+}
+
+func insertCABundleConfigMap(
+	objects []*unstructured.Unstructured,
+	configMap *unstructured.Unstructured,
+) []*unstructured.Unstructured {
+	out := make([]*unstructured.Unstructured, 0, len(objects)+1)
+	inserted := false
+	for _, obj := range objects {
+		out = append(out, obj)
+		if !inserted && obj.GetKind() == "Namespace" && obj.GetName() == "flux-system" {
+			out = append(out, configMap)
+			inserted = true
+		}
+	}
+	if !inserted {
+		out = append([]*unstructured.Unstructured{configMap}, out...)
+	}
+	return out
+}
+
+func patchDeployments(objects []*unstructured.Unstructured, opts InstallOptions, caPatch *caBundleInstallPatch) {
+	for _, obj := range objects {
+		if obj.GetKind() != "Deployment" || obj.GetNamespace() != "flux-system" {
+			continue
+		}
+		containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+		if err != nil || !found || len(containers) == 0 {
+			continue
+		}
+
+		container, ok := containers[0].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if obj.GetName() != "notification-controller" {
+			patchContainerArgs(container, opts)
+			if opts.OptimizeProbes {
+				patchProbes(container)
+			}
+		}
+		if caPatch != nil {
+			patchCABundleDigestAnnotation(obj, caPatch.digest)
+			patchCABundleVolume(obj)
+			patchContainerCABundle(container)
+		}
+
+		containers[0] = container
+		if err := unstructured.SetNestedSlice(
+			obj.Object,
+			containers,
+			"spec",
+			"template",
+			"spec",
+			"containers",
+		); err != nil {
+			continue
+		}
+	}
+}
+
+func patchCABundleDigestAnnotation(obj *unstructured.Unstructured, digest string) {
+	annotations, found, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+	if err != nil || !found {
+		annotations = map[string]string{}
+	}
+	annotations[fluxCABundleDigestAnno] = digest
+	if err := unstructured.SetNestedStringMap(
+		obj.Object,
+		annotations,
+		"spec",
+		"template",
+		"metadata",
+		"annotations",
+	); err != nil {
+		return
+	}
+}
+
+func patchCABundleVolume(obj *unstructured.Unstructured) {
+	volumes, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "volumes")
+	if err != nil || !found {
+		volumes = []any{}
+	}
+
+	out := make([]any, 0, len(volumes)+1)
+	for _, volume := range volumes {
+		volumeMap, ok := volume.(map[string]any)
+		if !ok || volumeMap["name"] != fluxCABundleVolume {
+			out = append(out, volume)
+		}
+	}
+	out = append(out, cabundle.KubernetesConfigMapVolume(fluxCABundleVolume, fluxCABundleConfigMap, fluxCABundleKey))
+
+	if err := unstructured.SetNestedSlice(obj.Object, out, "spec", "template", "spec", "volumes"); err != nil {
+		return
+	}
+}
+
+func patchContainerCABundle(container map[string]any) {
+	patchContainerCABundleEnv(container)
+	patchContainerCABundleVolumeMount(container)
+}
+
+func patchContainerCABundleEnv(container map[string]any) {
+	env, found, err := unstructured.NestedSlice(container, "env")
+	if err != nil || !found {
+		env = []any{}
+	}
+
+	container["env"] = cabundle.ApplyKubernetesEnv(env)
+}
+
+func patchContainerCABundleVolumeMount(container map[string]any) {
+	mounts, found, err := unstructured.NestedSlice(container, "volumeMounts")
+	if err != nil || !found {
+		mounts = []any{}
+	}
+
+	container["volumeMounts"] = cabundle.ApplyKubernetesVolumeMount(mounts, fluxCABundleVolume, fluxCABundleKey)
+}
+
+func patchContainerArgs(container map[string]any, opts InstallOptions) {
+	argsRaw, found, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil || !found {
+		argsRaw = []string{}
+	}
+
+	// Filter out args we want to control
+	var args []string
+	for _, arg := range argsRaw {
+		if strings.HasPrefix(arg, "--enable-leader-election") ||
+			strings.HasPrefix(arg, "--concurrent") ||
+			strings.HasPrefix(arg, "--requeue-dependency") {
+			continue
+		}
+		args = append(args, arg)
+	}
+
+	// Add our settings
+	if opts.LeaderElection {
+		args = append(args, "--enable-leader-election")
+	}
+	if opts.Concurrent > 0 {
+		args = append(args, fmt.Sprintf("--concurrent=%d", opts.Concurrent))
+	}
+	if opts.RequeueDependency > 0 {
+		args = append(args, fmt.Sprintf("--requeue-dependency=%s", opts.RequeueDependency))
+	}
+
+	container["args"] = toInterfaceSlice(args)
+}
+
+func patchProbes(container map[string]any) {
+	if probe, ok := container["readinessProbe"].(map[string]any); ok {
+		probe["periodSeconds"] = int64(2)
+	}
+	if probe, ok := container["livenessProbe"].(map[string]any); ok {
+		//nolint:mnd // Five-second liveness probes keep controller startup responsive in local dev.
+		probe["periodSeconds"] = int64(5)
+	}
+}
+
+func toInterfaceSlice(s []string) []any {
+	result := make([]any, len(s))
+	for i, v := range s {
+		result[i] = v
+	}
+	return result
+}
+
+// ReconcileHelmRepository reconciles a HelmRepository source.
+// For OCI-type repositories, this is a no-op since they don't have reconciliation status.
+func (c *FluxClient) ReconcileHelmRepository(
+	ctx context.Context,
+	name,
+	namespace string,
+	opts ReconcileOptions,
+) error {
+	// Check if this is an OCI-type repository - they don't have Ready status
+	repoType, err := c.kubeClient.GetFieldString(ctx, helmRepositoryGVR, name, namespace, "spec", "type")
+	if err == nil && repoType == "oci" {
+		// OCI repositories are static references, no reconciliation needed
+		return nil
+	}
+	return c.reconcile(ctx, helmRepositoryGVR, name, namespace, opts)
+}
+
+// ReconcileHelmRelease reconciles a HelmRelease resource.
+func (c *FluxClient) ReconcileHelmRelease(
+	ctx context.Context,
+	name,
+	namespace string,
+	withSource bool,
+	opts ReconcileOptions,
+) error {
+	if withSource {
+		if err := c.reconcileSource(ctx, HelmReleaseGVR, name, namespace, opts); err != nil {
+			return err
+		}
+	}
+	return c.reconcile(ctx, HelmReleaseGVR, name, namespace, opts)
+}
+
+// ReconcileKustomization reconciles a Kustomization resource.
+func (c *FluxClient) ReconcileKustomization(
+	ctx context.Context,
+	name,
+	namespace string,
+	withSource bool,
+	opts ReconcileOptions,
+) error {
+	if withSource {
+		if err := c.reconcileSource(ctx, kustomizationGVR, name, namespace, opts); err != nil {
+			return err
+		}
+	}
+	return c.reconcile(ctx, kustomizationGVR, name, namespace, opts)
+}
+
+// reconcileSource reconciles the source referenced by a HelmRelease or Kustomization.
+func (c *FluxClient) reconcileSource(
+	ctx context.Context,
+	gvr schema.GroupVersionResource,
+	name, namespace string,
+	opts ReconcileOptions,
+) error {
+	sourceRef, err := c.kubeClient.GetSourceRef(ctx, gvr, name, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get sourceRef for %s/%s: %w", gvr.Resource, name, err)
+	}
+
+	sourceGVR := kindToGVR(sourceRef.Kind)
+	if sourceGVR.Resource == "" {
+		return fmt.Errorf("%w: %s", errUnknownSourceKind, sourceRef.Kind)
+	}
+	if sourceRef.Kind == sourcev1.HelmRepositoryKind {
+		return c.ReconcileHelmRepository(ctx, sourceRef.Name, sourceRef.Namespace, opts)
+	}
+
+	return c.reconcile(ctx, sourceGVR, sourceRef.Name, sourceRef.Namespace, opts)
+}
+
+// reconcile triggers reconciliation of a Flux resource by setting the reconcile annotation.
+func (c *FluxClient) reconcile(
+	ctx context.Context,
+	gvr schema.GroupVersionResource,
+	name,
+	namespace string,
+	opts ReconcileOptions,
+) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+
+	if err := c.kubeClient.Annotate(
+		ctx,
+		gvr,
+		name,
+		namespace,
+		meta.ReconcileRequestAnnotation,
+		timestamp,
+	); err != nil {
+		return fmt.Errorf("failed to annotate %s/%s: %w", gvr.Resource, name, err)
+	}
+
+	if !opts.ShouldWait {
+		go func() {
+			if err := c.waitForReady(ctx, gvr, name, namespace, opts.Timeout); err != nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"Flux reconcile for %s/%s (namespace: %s) failed: %v\n",
+					gvr.Resource,
+					name,
+					namespace,
+					err,
+				)
+			}
+		}()
+		return nil
+	}
+
+	return c.waitForReady(ctx, gvr, name, namespace, opts.Timeout)
+}
+
+// waitForReady watches until the resource's Ready condition is True or timeout.
+func (c *FluxClient) waitForReady(
+	ctx context.Context,
+	gvr schema.GroupVersionResource,
+	name, namespace string,
+	timeout time.Duration,
+) error {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	if err := c.kubeClient.WatchCondition(ctx, gvr, name, namespace, meta.ReadyCondition, "True"); err != nil {
+		return fmt.Errorf("watch ready condition for %s/%s: %w", gvr.Resource, name, err)
+	}
+	return nil
+}
+
+// kindToGVR maps Flux kinds to GVRs.
+func kindToGVR(kind string) schema.GroupVersionResource {
+	switch kind {
+	case sourcev1.HelmRepositoryKind:
+		return helmRepositoryGVR
+	case sourcev1.OCIRepositoryKind:
+		return ociRepositoryGVR
+	case helmv2.HelmReleaseKind:
+		return HelmReleaseGVR
+	case kustomizev1.KustomizationKind:
+		return kustomizationGVR
+	default:
+		return schema.GroupVersionResource{}
+	}
+}

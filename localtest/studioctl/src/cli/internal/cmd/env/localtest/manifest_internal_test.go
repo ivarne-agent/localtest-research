@@ -1,0 +1,608 @@
+package localtest
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	containertypes "altinn.studio/devenv/pkg/container/types"
+	"altinn.studio/devenv/pkg/resource"
+	"altinn.studio/studioctl/internal/cmd/env/localtest/components"
+	"altinn.studio/studioctl/internal/config"
+	"altinn.studio/studioctl/internal/envtopology"
+	"altinn.studio/studioctl/internal/osutil"
+)
+
+func TestCoreContainers_ServiceCallbacksUseLocaltestNetworkAlias(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	dataDir := t.TempDir()
+	resources := localtestResources(t, dataDir, false, true)
+
+	assertLocaltestContainerConfig(t, mustContainerSpec(t, resources, components.ContainerLocaltest), dataDir)
+	assertPdf3ContainerConfig(t, mustContainerSpec(t, resources, components.ContainerPDF3))
+	assertWorkflowEngineDbContainerConfig(t, mustContainerSpec(t, resources, components.ContainerWorkflowEngineDb))
+	assertWorkflowEngineContainerConfig(t, mustContainerSpec(t, resources, components.ContainerWorkflowEngine))
+}
+
+func TestCoreContainers_ServiceContainersUseImageUser(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	opts := newResourceBuildOptions(t.TempDir(), false)
+	opts.RuntimeUser = "501:20"
+	opts.RuntimeUsernsMode = "keep-id"
+
+	resources := mustManifest(t, opts).Resources
+	for _, name := range []string{components.ContainerPDF3, components.ContainerWorkflowEngine} {
+		container := findResource(resources, resource.ContainerID(name))
+		if container == nil {
+			t.Fatalf("manifest missing %q", name)
+		}
+		if container.User != "" {
+			t.Fatalf("%s.User = %q, want image default", name, container.User)
+		}
+		if container.UsernsMode != "" {
+			t.Fatalf("%s.UsernsMode = %q, want image default", name, container.UsernsMode)
+		}
+	}
+}
+
+func assertLocaltestContainerConfig(t *testing.T, localtest components.ContainerSpec, dataDir string) {
+	t.Helper()
+	topology := testTopology()
+	assertLocaltestCoreContainer(t, localtest, topology, dataDir)
+}
+
+func assertPdf3ContainerConfig(t *testing.T, pdf3 components.ContainerSpec) {
+	t.Helper()
+	wantPort := containertypes.PortMapping{
+		HostPort:      "5300",
+		ContainerPort: "5031",
+		HostIP:        "127.0.0.1",
+		Protocol:      "",
+	}
+	if got := pdf3.Ports; len(got) != 1 || got[0] != wantPort {
+		t.Fatalf("pdf3.Ports = %v, want [5300:5031]", got)
+	}
+	for _, host := range pdf3.ExtraHosts {
+		if strings.HasPrefix(host, "local.altinn.cloud:") {
+			t.Fatalf("pdf3.ExtraHosts unexpectedly contains local.altinn.cloud host override: %v", pdf3.ExtraHosts)
+		}
+	}
+
+	if got := pdf3.Environment["PDF3_LOCALTEST_PUBLIC_BASE_URL"]; got != "http://local.altinn.cloud:8000" {
+		t.Fatalf(
+			"pdf3.Environment[PDF3_LOCALTEST_PUBLIC_BASE_URL] = %q, want %q",
+			got,
+			"http://local.altinn.cloud:8000",
+		)
+	}
+}
+
+func assertWorkflowEngineDbContainerConfig(t *testing.T, workflowEngineDb components.ContainerSpec) {
+	t.Helper()
+	if got := workflowEngineDb.Ports; got != nil {
+		t.Fatalf("workflowEngineDb.Ports = %v, want nil", got)
+	}
+	if workflowEngineDb.HealthCheck == nil {
+		t.Fatal("workflowEngineDb.HealthCheck = nil, want postgres healthcheck")
+	}
+	if !slices.Equal(
+		workflowEngineDb.HealthCheck.Test,
+		[]string{"CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres"},
+	) {
+		t.Fatalf("workflowEngineDb.HealthCheck.Test = %v, want pg_isready", workflowEngineDb.HealthCheck.Test)
+	}
+	if got := workflowEngineDb.HealthCheck.Interval; got != 10*time.Second {
+		t.Fatalf("workflowEngineDb.HealthCheck.Interval = %s, want 10s", got)
+	}
+	if got := workflowEngineDb.HealthCheck.Timeout; got != 5*time.Second {
+		t.Fatalf("workflowEngineDb.HealthCheck.Timeout = %s, want 5s", got)
+	}
+	if got := workflowEngineDb.HealthCheck.Retries; got != 9 {
+		t.Fatalf("workflowEngineDb.HealthCheck.Retries = %d, want 9", got)
+	}
+	if got := workflowEngineDb.HealthCheck.StartPeriod; got != 30*time.Second {
+		t.Fatalf("workflowEngineDb.HealthCheck.StartPeriod = %s, want 30s", got)
+	}
+	wantDbVolume := containertypes.VolumeMount{
+		HostPath:      "localtest-workflow-engine-db-data",
+		ContainerPath: "/var/lib/postgresql",
+		ReadOnly:      false,
+		Type:          containertypes.VolumeMountTypeVolume,
+	}
+	if !slices.Contains(workflowEngineDb.Volumes, wantDbVolume) {
+		t.Fatalf("workflowEngineDb.Volumes missing named data volume: %v", workflowEngineDb.Volumes)
+	}
+	for _, volume := range workflowEngineDb.Volumes {
+		if volume.ContainerPath == "/var/lib/postgresql" && volume.Type != containertypes.VolumeMountTypeVolume {
+			t.Fatalf("workflowEngineDb data volume Type = %q, want named volume", volume.Type)
+		}
+	}
+}
+
+func TestResourceBuilder_DevWorkflowEngineExposesDbAndDisablesEngine(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	opts := newResourceBuildOptions(t.TempDir(), false)
+	opts.DevWorkflowEngine = true
+	resources := mustManifest(t, opts).Resources
+
+	engine := findResource(resources, resource.ContainerID(components.ContainerWorkflowEngine))
+	if engine == nil {
+		t.Fatalf("manifest missing %q", components.ContainerWorkflowEngine)
+	}
+	if resource.IsEnabled(engine) {
+		t.Fatalf("workflow-engine enabled = true, want false")
+	}
+
+	workflowEngineDb := mustContainerSpec(t, resources, components.ContainerWorkflowEngineDb)
+	wantPort := containertypes.PortMapping{
+		HostPort:      "9543",
+		ContainerPort: "5432",
+		HostIP:        "127.0.0.1",
+		Protocol:      "",
+	}
+	if got := workflowEngineDb.Ports; len(got) != 1 || got[0] != wantPort {
+		t.Fatalf("workflowEngineDb.Ports = %v, want [%v]", got, wantPort)
+	}
+}
+
+func assertWorkflowEngineContainerConfig(t *testing.T, workflowEngine components.ContainerSpec) {
+	t.Helper()
+	assertWorkflowEngineHealthCheck(t, workflowEngine)
+	if got := workflowEngine.Ports; got != nil {
+		t.Fatalf("workflowEngine.Ports = %v, want nil", got)
+	}
+	if got := workflowEngine.ExtraHosts; got != nil {
+		t.Fatalf("workflowEngine.ExtraHosts = %v, want nil", got)
+	}
+	if got := workflowEngine.Environment["ConnectionStrings__WorkflowEngine"]; !strings.Contains(
+		got,
+		"Host=localtest-workflow-engine-db;",
+	) {
+		t.Fatalf(
+			"workflowEngine.Environment[ConnectionStrings__WorkflowEngine] = %q, want localtest-workflow-engine-db host",
+			got,
+		)
+	}
+	if got := workflowEngine.Environment["ASPNETCORE_HTTP_PORTS"]; got != "9090" {
+		t.Fatalf("workflowEngine.Environment[ASPNETCORE_HTTP_PORTS] = %q, want 9090", got)
+	}
+	if got := workflowEngine.Environment["ASPNETCORE_ENVIRONMENT"]; got != "Development" {
+		t.Fatalf("workflowEngine.Environment[ASPNETCORE_ENVIRONMENT] = %q, want Development", got)
+	}
+	if !slices.Equal(
+		workflowEngine.Dependencies,
+		[]string{components.ContainerWorkflowEngineDb, components.ContainerLocaltest},
+	) {
+		t.Fatalf(
+			"workflowEngine.Dependencies = %v, want [%s %s]",
+			workflowEngine.Dependencies,
+			components.ContainerWorkflowEngineDb,
+			components.ContainerLocaltest,
+		)
+	}
+	if got := workflowEngine.Environment["AppCommandSettings__CommandEndpoint"]; got != "http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/" {
+		t.Fatalf(
+			"workflowEngine.Environment[AppCommandSettings__CommandEndpoint] = %q, want localtest network callback URL",
+			got,
+		)
+	}
+}
+
+func TestResourceBuilder_AddsPgAdminOnlyWhenRequested(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	tests := map[string]struct {
+		includePgAdmin bool
+		wantEnabled    bool
+	}{
+		"default": {
+			includePgAdmin: false,
+			wantEnabled:    false,
+		},
+		"requested": {
+			includePgAdmin: true,
+			wantEnabled:    true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			resources := localtestResources(t, t.TempDir(), false, tt.includePgAdmin)
+			pgAdmin := findResource(resources, resource.ContainerID(components.ContainerPgAdmin))
+			if pgAdmin == nil {
+				t.Fatalf("manifest missing %q", components.ContainerPgAdmin)
+			}
+			if got := resource.IsEnabled(pgAdmin); got != tt.wantEnabled {
+				t.Fatalf("pgAdmin enabled = %v, want %v", got, tt.wantEnabled)
+			}
+		})
+	}
+}
+
+func TestResourceBuilder_LocaltestAliasesDoNotChangeWithPgAdmin(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	withoutPgAdmin := localtestResources(t, t.TempDir(), false, false)
+	withPgAdmin := localtestResources(t, t.TempDir(), false, true)
+
+	without := findResource(withoutPgAdmin, resource.ContainerID(components.ContainerLocaltest))
+	with := findResource(withPgAdmin, resource.ContainerID(components.ContainerLocaltest))
+	if without == nil || with == nil {
+		t.Fatalf("manifest missing %q", components.ContainerLocaltest)
+	}
+	if !slices.Equal(without.NetworkAliases, with.NetworkAliases) {
+		t.Fatalf(
+			"localtest aliases changed with pgadmin: without=%v with=%v",
+			without.NetworkAliases,
+			with.NetworkAliases,
+		)
+	}
+}
+
+func TestMonitoringContainers_OtelUsesLocalDomainAlias(t *testing.T) {
+	resources := localtestResources(t, t.TempDir(), true)
+	container := mustContainerSpec(t, resources, components.ContainerOtelCollector)
+
+	want := []string{testTopology().OTelHost()}
+	if got := container.NetworkAliases; !slices.Equal(got, want) {
+		t.Fatalf("otel.NetworkAliases = %v, want %v", got, want)
+	}
+}
+
+func TestMonitoringContainers_OtelPublishesOTLPGRPCAndHTTP(t *testing.T) {
+	resources := localtestResources(t, t.TempDir(), true)
+	container := mustContainerSpec(t, resources, components.ContainerOtelCollector)
+
+	want := []containertypes.PortMapping{
+		{HostIP: "127.0.0.1", HostPort: "4317", ContainerPort: "4317", Protocol: ""},
+		{HostIP: "127.0.0.1", HostPort: "4318", ContainerPort: "4318", Protocol: ""},
+	}
+	if got := container.Ports; !slices.Equal(got, want) {
+		t.Fatalf("otel.Ports = %v, want %v", got, want)
+	}
+}
+
+func TestMonitoringContainers_UseVictoriaStack(t *testing.T) {
+	resources := localtestResources(t, t.TempDir(), true)
+
+	victoriaMetrics := mustContainerSpec(t, resources, components.ContainerVictoriaMetrics)
+	if want := []string{
+		"-storageDataPath=/tmp/victoria-metrics-data",
+		"-retentionPeriod=1d",
+	}; !slices.Equal(
+		victoriaMetrics.Command,
+		want,
+	) {
+		t.Fatalf("victoriaMetrics.Command = %v, want %v", victoriaMetrics.Command, want)
+	}
+
+	victoriaTraces := mustContainerSpec(t, resources, components.ContainerVictoriaTraces)
+	if want := []string{
+		"-storageDataPath=/tmp/victoria-traces-data",
+		"-retentionPeriod=1d",
+	}; !slices.Equal(
+		victoriaTraces.Command,
+		want,
+	) {
+		t.Fatalf("victoriaTraces.Command = %v, want %v", victoriaTraces.Command, want)
+	}
+
+	victoriaLogs := mustContainerSpec(t, resources, components.ContainerVictoriaLogs)
+	if want := []string{
+		"-storageDataPath=/tmp/victoria-logs-data",
+		"-retentionPeriod=1d",
+	}; !slices.Equal(
+		victoriaLogs.Command,
+		want,
+	) {
+		t.Fatalf("victoriaLogs.Command = %v, want %v", victoriaLogs.Command, want)
+	}
+
+	otel := mustContainerSpec(t, resources, components.ContainerOtelCollector)
+	wantOtelDeps := []string{
+		components.ContainerVictoriaMetrics,
+		components.ContainerVictoriaTraces,
+		components.ContainerVictoriaLogs,
+	}
+	if !slices.Equal(otel.Dependencies, wantOtelDeps) {
+		t.Fatalf("otel.Dependencies = %v, want %v", otel.Dependencies, wantOtelDeps)
+	}
+
+	grafana := mustContainerSpec(t, resources, components.ContainerGrafana)
+	wantGrafanaDeps := []string{
+		components.ContainerOtelCollector,
+		components.ContainerVictoriaMetrics,
+		components.ContainerVictoriaTraces,
+		components.ContainerVictoriaLogs,
+	}
+	if !slices.Equal(grafana.Dependencies, wantGrafanaDeps) {
+		t.Fatalf("grafana.Dependencies = %v, want %v", grafana.Dependencies, wantGrafanaDeps)
+	}
+
+	for _, name := range []string{
+		"monitoring_tempo",
+		"monitoring_mimir",
+		"monitoring_loki",
+		"monitoring_otel_collector",
+		"monitoring_grafana",
+	} {
+		if findResource(resources, resource.ContainerID(name)) != nil {
+			t.Fatalf("manifest unexpectedly contains retired monitoring container %q", name)
+		}
+	}
+}
+
+func TestResourceBuilder_FailsForUnknownContainerDependency(t *testing.T) {
+	t.Setenv(config.EnvCI, "true")
+
+	image := &resource.PulledImage{Ref: "example.local/dependent:latest"}
+	network := resource.Ref(&resource.Network{Name: components.NetworkName})
+	containerResource := &resource.Container{
+		Name:      "localtest-dependent",
+		Image:     resource.Ref(image),
+		Networks:  []resource.ResourceRef{network},
+		DependsOn: []resource.ResourceRef{resource.RefID(resource.ContainerID("missing-container"))},
+	}
+
+	graph := resource.NewGraph(resource.GraphID(graphID))
+	if err := graph.Add(&resource.Network{Name: components.NetworkName}); err != nil {
+		t.Fatalf("graph.Add(network) error = %v", err)
+	}
+	if err := graph.Add(image); err != nil {
+		t.Fatalf("graph.Add(image) error = %v", err)
+	}
+	if err := graph.Add(containerResource); err != nil {
+		t.Fatalf("graph.Add(container) error = %v", err)
+	}
+
+	if err := graph.Validate(); err == nil {
+		t.Fatalf("graph.Validate() error = nil, want missing dependency error")
+	}
+}
+
+func TestCoreContainers_PgAdminUsesImportedPassfile(t *testing.T) {
+	t.Setenv(config.EnvCI, "")
+
+	dataDir := t.TempDir()
+	opts := newResourceBuildOptions(dataDir, false, true)
+	resources := mustManifest(t, opts).Resources
+	pgAdmin := mustContainerSpec(t, resources, components.ContainerPgAdmin)
+	if got := pgAdmin.Ports; got != nil {
+		t.Fatalf("pgAdmin.Ports = %v, want nil", got)
+	}
+	if got := pgAdmin.Environment["PGPASS_FILE"]; got != components.PgAdminConnectionSource {
+		t.Fatalf("pgAdmin.Environment[PGPASS_FILE] = %q, want %q", got, components.PgAdminConnectionSource)
+	}
+	if _, ok := pgAdmin.Environment["PGPASSWORD"]; ok {
+		t.Fatalf("pgAdmin.Environment unexpectedly contains PGPASSWORD")
+	}
+	hasPgpassMount := false
+	for _, volume := range pgAdmin.Volumes {
+		if volume.HostPath == components.WorkflowEngineInfraFilePath(opts.Paths.InfraDir, "pgpass") &&
+			volume.ContainerPath == components.PgAdminConnectionSource &&
+			volume.ReadOnly {
+			hasPgpassMount = true
+			break
+		}
+	}
+	if !hasPgpassMount {
+		t.Fatalf("pgAdmin.Volumes missing read-only pgpass mount: %v", pgAdmin.Volumes)
+	}
+}
+
+func TestManifestPrepareWritesLocalFiles(t *testing.T) {
+	dataDir := t.TempDir()
+	opts := newResourceBuildOptions(dataDir, false, true)
+	manifest := mustManifest(t, opts)
+
+	if err := manifest.Prepare(t.Context()); err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	storagePath := filepath.Join(dataDir, "AltinnPlatformLocal")
+	storageInfo, err := os.Stat(storagePath)
+	if err != nil {
+		t.Fatalf("stat localtest storage directory: %v", err)
+	}
+	if !storageInfo.IsDir() {
+		t.Fatalf("localtest storage path is not a directory: %s", storagePath)
+	}
+
+	path := components.WorkflowEngineInfraFilePath(opts.Paths.InfraDir, "pgpass")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read pgpass: %v", err)
+	}
+	want := "localtest-workflow-engine-db:5432:*:postgres:postgres\n"
+	if string(content) != want {
+		t.Fatalf("pgpass content = %q, want %q", string(content), want)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat pgpass: %v", err)
+	}
+	if runtime.GOOS != osutil.OSWindows && info.Mode().Perm() != osutil.FilePermDefault {
+		got := info.Mode().Perm()
+		t.Fatalf("pgpass mode = %v, want %v", got, osutil.FilePermDefault)
+	}
+}
+
+func newResourceBuildOptions(dataDir string, includeMonitoring bool, includePgAdmin ...bool) *components.Options {
+	pgAdmin := false
+	if len(includePgAdmin) > 0 {
+		pgAdmin = includePgAdmin[0]
+	}
+	return &components.Options{
+		Paths:             components.NewPaths(dataDir),
+		Topology:          testTopology(),
+		IncludeMonitoring: includeMonitoring,
+		IncludePgAdmin:    pgAdmin,
+	}
+}
+
+func localtestResources(
+	t *testing.T,
+	dataDir string,
+	includeMonitoring bool,
+	includePgAdmin ...bool,
+) []resource.Resource {
+	t.Helper()
+	return mustManifest(t, newResourceBuildOptions(dataDir, includeMonitoring, includePgAdmin...)).Resources
+}
+
+func mustManifest(t *testing.T, opts *components.Options) *components.Manifest {
+	t.Helper()
+	return components.NewManifest(opts)
+}
+
+func testTopology() envtopology.Local {
+	return envtopology.NewLocal("8000")
+}
+
+func assertEnvValue(t *testing.T, env map[string]string, key, want string) {
+	t.Helper()
+	if got := env[key]; got != want {
+		t.Fatalf("env[%s] = %q, want %q", key, got, want)
+	}
+}
+
+func assertEnvMissing(t *testing.T, env map[string]string, key string) {
+	t.Helper()
+	if got, ok := env[key]; ok {
+		t.Fatalf("env[%s] unexpectedly present with value %q", key, got)
+	}
+}
+
+func assertLocaltestCoreContainer(
+	t *testing.T,
+	spec components.ContainerSpec,
+	topology envtopology.Local,
+	dataDir string,
+) {
+	t.Helper()
+
+	wantAliases := topology.LocaltestIngressHosts()
+	if got := spec.NetworkAliases; !slices.Equal(got, wantAliases) {
+		t.Fatalf("localtest.NetworkAliases = %v, want %v", got, wantAliases)
+	}
+
+	assertEnvValue(t, spec.Environment, "ASPNETCORE_URLS", "http://*:5101/;http://*:8000/")
+	assertEnvValue(t, spec.Environment, "DOTNET_ENVIRONMENT", "Development")
+	assertEnvMissing(t, spec.Environment, envtopology.BoundTopologyOptionsBaseConfigPathEnv)
+	assertEnvValue(
+		t,
+		spec.Environment,
+		envtopology.BoundTopologyOptionsConfigPathEnv,
+		envtopology.BoundTopologyConfigContainerPath,
+	)
+	assertEnvMissing(t, spec.Environment, "LocalPlatformSettings__LocalGrafanaUrl")
+
+	wantMount := containertypes.VolumeMount{
+		HostPath:      envtopology.BoundTopologyHostDir(dataDir),
+		ContainerPath: envtopology.BoundTopologyContainerDir,
+		ReadOnly:      true,
+		Type:          containertypes.VolumeMountTypeBind,
+	}
+	if !slices.Contains(spec.Volumes, wantMount) {
+		t.Fatalf("localtest.Volumes missing bound topology config mount: %v", spec.Volumes)
+	}
+}
+
+func findResource(resources []resource.Resource, id resource.ResourceID) *resource.Container {
+	for _, res := range resources {
+		if res.ID() == id {
+			containerResource, ok := res.(*resource.Container)
+			if !ok {
+				return nil
+			}
+			return containerResource
+		}
+	}
+	return nil
+}
+
+func mustContainerSpec(t *testing.T, resources []resource.Resource, name string) components.ContainerSpec {
+	t.Helper()
+	container := findResource(resources, resource.ContainerID(name))
+	if container == nil {
+		t.Fatalf("manifest missing %q", name)
+	}
+	return components.ContainerSpec{
+		HealthCheck:    container.HealthCheck,
+		Name:           container.Name,
+		Ports:          container.Ports,
+		Environment:    envMap(container.Env),
+		Volumes:        container.Volumes,
+		ExtraHosts:     container.ExtraHosts,
+		NetworkAliases: container.NetworkAliases,
+		Dependencies:   dependencyNames(container.DependsOn),
+		Command:        container.Command,
+		UseDefaultUser: false,
+	}
+}
+
+func envMap(env []string) map[string]string {
+	result := make(map[string]string, len(env))
+	for _, entry := range env {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		result[key] = value
+	}
+	return result
+}
+
+func dependencyNames(deps []resource.ResourceRef) []string {
+	if len(deps) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(deps))
+	for _, dep := range deps {
+		id := dep.ID().String()
+		name, ok := strings.CutPrefix(id, "container:")
+		if !ok {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+// The engine reports ready as soon as its process is launched unless a health check says otherwise,
+// which used to let `env up` return before an enqueue would be accepted. The probe has to target the
+// versioned readiness endpoint: /health/ready is a 301 redirect and would pass while the engine was
+// still starting.
+func assertWorkflowEngineHealthCheck(t *testing.T, workflowEngine components.ContainerSpec) {
+	t.Helper()
+	hc := workflowEngine.HealthCheck
+	if hc == nil {
+		t.Fatal("workflowEngine.HealthCheck = nil, want a readiness probe")
+	}
+	if len(hc.Test) != 2 || hc.Test[0] != "CMD-SHELL" {
+		t.Fatalf("workflowEngine.HealthCheck.Test = %v, want a CMD-SHELL probe", hc.Test)
+	}
+	probe := hc.Test[1]
+	if !strings.Contains(probe, "/api/v1/health/ready") {
+		t.Fatalf("workflowEngine.HealthCheck probe = %q, want it to request /api/v1/health/ready", probe)
+	}
+	if !strings.Contains(probe, "/dev/tcp/127.0.0.1/9090") {
+		t.Fatalf("workflowEngine.HealthCheck probe = %q, want it to connect to port 9090", probe)
+	}
+	if got := hc.Interval; got != 500*time.Millisecond {
+		t.Fatalf("workflowEngine.HealthCheck.Interval = %s, want 500ms", got)
+	}
+	// Interval * Retries has to cover a slow cold start (migrations plus warm-up) without letting a
+	// genuinely broken engine hold `env up` for long.
+	if budget := time.Duration(hc.Retries) * hc.Interval; budget < 20*time.Second {
+		t.Fatalf("workflowEngine.HealthCheck retry budget = %s, want at least 20s", budget)
+	}
+}

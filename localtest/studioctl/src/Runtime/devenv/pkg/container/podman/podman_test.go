@@ -1,0 +1,262 @@
+package podman
+
+import (
+	"errors"
+	"slices"
+	"testing"
+
+	"altinn.studio/devenv/pkg/container/types"
+)
+
+func TestBuildCreateArgs_UserNamespaceAndRelabelBind(t *testing.T) {
+	t.Parallel()
+
+	args := buildCreateArgs(types.ContainerConfig{
+		Name:       "localtest",
+		Image:      "alpine",
+		User:       "1000:1000",
+		UsernsMode: "keep-id",
+		Volumes: []types.VolumeMount{{
+			HostPath:       "/tmp/config.sql",
+			ContainerPath:  "/docker-entrypoint-initdb.d/01-tuning.sql",
+			Type:           types.VolumeMountTypeBind,
+			SELinuxRelabel: types.SELinuxRelabelShared,
+			ReadOnly:       true,
+		}},
+	})
+
+	for _, want := range []string{
+		"/tmp/config.sql:/docker-entrypoint-initdb.d/01-tuning.sql:ro,z",
+		"--userns",
+		"keep-id",
+		"--user",
+		"1000:1000",
+	} {
+		if !slices.Contains(args, want) {
+			t.Fatalf("buildCreateArgs() missing %q in %#v", want, args)
+		}
+	}
+}
+
+func TestParsePodmanVersionIgnoresNonStringFields(t *testing.T) {
+	t.Parallel()
+
+	version, err := parsePodmanVersion([]byte(`{
+  "Client": {
+    "Version": "5.8.1",
+    "APIVersion": 5.8,
+    "Built": 1780000000
+  },
+  "Server": {
+    "Version": "5.8.2",
+    "APIVersion": 5.8,
+    "Built": 1780000001
+  }
+}`))
+	if err != nil {
+		t.Fatalf("parsePodmanVersion() error = %v", err)
+	}
+	if version.ClientVersion != "5.8.1" {
+		t.Fatalf("ClientVersion = %q, want 5.8.1", version.ClientVersion)
+	}
+	if version.ServerVersion != "5.8.2" {
+		t.Fatalf("ServerVersion = %q, want 5.8.2", version.ServerVersion)
+	}
+}
+
+func TestParseContainerInspect_ImageIDUsesImageNotDigest(t *testing.T) {
+	t.Parallel()
+
+	output := []byte(`[
+  {
+    "Id": "container-id",
+    "Name": "my-container",
+    "Image": "sha256:image-id",
+    "ImageDigest": "sha256:manifest-digest",
+    "Config": { "Labels": { "k": "v" } },
+    "State": { "Status": "running", "Running": true, "Paused": false, "ExitCode": 0 }
+  }
+]`)
+
+	info, err := parseContainerInspect(output)
+	if err != nil {
+		t.Fatalf("parseContainerInspect() error: %v", err)
+	}
+	if info.ImageID != "sha256:image-id" {
+		t.Fatalf("ImageID = %q, want %q", info.ImageID, "sha256:image-id")
+	}
+}
+
+func TestParseContainerInspect_HealthStatus(t *testing.T) {
+	t.Parallel()
+
+	output := []byte(`[
+  {
+    "Id": "container-id",
+    "Name": "my-container",
+    "Image": "sha256:image-id",
+    "Config": {
+      "Labels": {},
+      "Healthcheck": { "Test": [ "CMD-SHELL", "wget -nv -t1 --spider http://localhost:5101/health || exit 1" ] }
+    },
+    "State": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "ExitCode": 0,
+      "Healthcheck": { "Status": "healthy" }
+    }
+  }
+]`)
+
+	info, err := parseContainerInspect(output)
+	if err != nil {
+		t.Fatalf("parseContainerInspect() error: %v", err)
+	}
+	if info.State.HealthStatus != "healthy" {
+		t.Fatalf("HealthStatus = %q, want healthy", info.State.HealthStatus)
+	}
+}
+
+func TestParseContainerInspect_IgnoresHealthStatusWithoutConfiguredHealthcheck(t *testing.T) {
+	t.Parallel()
+
+	output := []byte(`[
+  {
+    "Id": "container-id",
+    "Name": "my-container",
+    "Image": "sha256:image-id",
+    "Config": {
+      "Labels": {},
+      "Healthcheck": {}
+    },
+    "State": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "ExitCode": 0,
+      "Health": { "Status": "starting", "FailingStreak": 0, "Log": null }
+    }
+  }
+]`)
+
+	info, err := parseContainerInspect(output)
+	if err != nil {
+		t.Fatalf("parseContainerInspect() error: %v", err)
+	}
+	if info.State.HealthStatus != "" {
+		t.Fatalf("HealthStatus = %q, want empty", info.State.HealthStatus)
+	}
+}
+
+func TestParseContainerInspect_IgnoresHealthStatusForDisabledHealthcheck(t *testing.T) {
+	t.Parallel()
+
+	output := []byte(`[
+  {
+    "Id": "container-id",
+    "Name": "my-container",
+    "Image": "sha256:image-id",
+    "Config": {
+      "Labels": {},
+      "Healthcheck": { "Test": [ "NONE" ] }
+    },
+    "State": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "ExitCode": 0,
+      "Health": { "Status": "starting", "FailingStreak": 0, "Log": null }
+    }
+  }
+]`)
+
+	info, err := parseContainerInspect(output)
+	if err != nil {
+		t.Fatalf("parseContainerInspect() error: %v", err)
+	}
+	if info.State.HealthStatus != "" {
+		t.Fatalf("HealthStatus = %q, want empty", info.State.HealthStatus)
+	}
+}
+
+func TestParseContainerInspect_Empty_ReturnsNotFound(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseContainerInspect([]byte(`[]`))
+	if !errors.Is(err, types.ErrContainerNotFound) {
+		t.Fatalf("error = %v, want ErrContainerNotFound", err)
+	}
+}
+
+func TestIsContainerNotFoundOutput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		output []byte
+		want   bool
+	}{
+		{
+			name:   "docker style no such container",
+			output: []byte("Error: No such container: monitoring_mimir"),
+			want:   true,
+		},
+		{
+			name:   "container does not exist",
+			output: []byte("Error: container does not exist: monitoring_mimir"),
+			want:   true,
+		},
+		{
+			name:   "non-not-found error",
+			output: []byte("Error: permission denied"),
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isContainerNotFoundOutput(tt.output)
+			if got != tt.want {
+				t.Fatalf("isContainerNotFoundOutput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsVolumeNotFoundOutput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		output []byte
+		want   bool
+	}{
+		{
+			name:   "no such volume",
+			output: []byte("Error: no such volume localtest-workflow-engine-db-data"),
+			want:   true,
+		},
+		{
+			name:   "volume does not exist",
+			output: []byte("Error: volume does not exist"),
+			want:   true,
+		},
+		{
+			name:   "non-not-found error",
+			output: []byte("Error: volume is being used by container"),
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isVolumeNotFoundOutput(tt.output)
+			if got != tt.want {
+				t.Fatalf("isVolumeNotFoundOutput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
