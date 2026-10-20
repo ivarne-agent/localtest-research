@@ -27,10 +27,10 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
-| 6 | [Notifications](#6-notifications) | unapproved | medium | yes |
+| 6 | [Notifications](#6-notifications) | research in progress (2026-10-20, agent `task6-notifications-plan`, worktree `.worktrees/task6-notifications-plan`, branch `plan/notifications`; implementation unapproved) | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
-| 9 | [Dialogporten core](#9-dialogporten-core) | unapproved | large | yes |
+| 9 | [Dialogporten core](#9-dialogporten-core) | approved 2026-10-20 (two steps; 9a dispatch pending the image pin bump after task 5) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
@@ -213,6 +213,9 @@ vendoring rule says (a) when the build chain allows it; the Kafka dependency dec
 under `planned-components/notifications/` (consumers in app-lib, the orders API surface, the build chain, Kafka
 coupling, effort), then the implementation as a second task.
 
+**Status.** Research dispatched 2026-10-20 (report under `planned-components/notifications/`); implementation waits
+for the report and approval.
+
 **Open.** Everything above; whether Correspondence (task 7) should share the capture GUI.
 
 ## 7. Correspondence
@@ -241,10 +244,32 @@ today: instances by app would need one, or pgAdmin stays the answer)?
 ## 9. Dialogporten core
 
 Vendor the WebApi, GraphQL and Service hosts per `planned-components/dialogporten/dialogporten-core.md`: build chain,
-Dockerfile, the thirteen `LocalDevelopment` flags, three additive `Program.cs` hooks and two directive sites, Redis,
-Postgres 18 init script, proxy routes, smoke test on the service-owner API with the org token. Needs tasks 4 and 5
-(boots with `UseLocalDevelopmentResourceRegister=true` for its own smoke test before 5, but no dialog-creating test
-until 5 exists). End-user smoke needs the `pid` token from task 2.
+Dockerfiles, the thirteen `LocalDevelopment` flags, three additive `Program.cs` hooks and two directive sites, Redis,
+a database on the shared Postgres 18, routes, smoke test on the service-owner API with the org token. Tasks 4 and 5
+are done, so dialogs for `app_ttd_testapp` can be created from the start. End-user smoke needs the `pid` token from
+task 2 (deferred).
+
+**Decisions (2026-10-20).**
+
+- Opt-in: the three hosts and Redis form an optional component group in the studioctl runtime, started with a flag
+  (`env up -r localtest-v2 --with dialogporten`); the provisioner's Dialogporten step is skipped when the group is off.
+  Apps never call Dialogporten, so the default stack is unchanged (about 1 GB RAM saved).
+- Maskinporten: task 4's shared fake (`localtest/components/shared/fakes/Maskinporten/`) copied into the component's
+  fakes, production semantics (`UseAltinnTestOrg` false, Dialogporten acts as `digdir`; `ttd` shares Digdir's number
+  in the registry so the owner check passes). Not the report's `/Home/GetTestOrgToken` variant.
+- Database: `dialogporten` with its own role on the shared Postgres 18 (no `uuidv7()` shim), reset on every start as
+  the Events component does.
+- The `/dialogporten/graphql` → `/graphql` rewrite is a path-rewrite option on the route type in studioctl-server's
+  proxy (vendored source), the only route that needs it.
+- Fresh pin of upstream `main`; three images from one vendored tree (Dockerfiles mirroring upstream's), three matrix
+  entries in the image workflow.
+- Steps. **9a**: vendor, build chain, Dockerfiles, Postgres and Redis, hooks and fakes, the optional group in
+  studioctl, boot to healthy, the service-owner smoke (create a dialog for `app_ttd_testapp` with the org token,
+  read, search, delete; wrong scope and foreign resource refused). **9b**: the provisioner's `sync` step, the cache
+  and reset endpoints, the Service host's events into the Events component, GraphQL through the rewrite, CORS for
+  `http://af.local.altinn.cloud:8000`, and what Events does with Dialogporten's sources (plan question 9).
+- As the report: the thirteen `LocalDevelopment` flags set explicitly, warmup off, committed Ed25519 test key pairs,
+  Serilog at Information, the CDN read from the internet, no Janitor and no migration image.
 
 ## 10. Dialogporten adapter and the Storage outbox
 
