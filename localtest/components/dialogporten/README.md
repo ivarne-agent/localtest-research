@@ -242,7 +242,9 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
 - The `ttd`/`digdir` search mismatch (see "Differences from production"): production behaviour, not fixed here.
 - The Events component's `AppsDomain` heuristic files Dialogporten's sources under `.../dialogporten/api` (see "Events"); the fix is proposed, not made.
 - `DELETE localtest/dialogs` leaves the MassTransit outbox: events of dialogs created just before the truncate can still be published, and the Service host's
-  search indexer can log a failure for a dialog that is gone.
+  search indexer can log a failure for a dialog that is gone. The same outbox makes `components/events/smoke-test.sh` fail
+  when it runs right after this smoke test (seen 2026-10-20: its event list had one dialog event more than the two it
+  expects): run the Events smoke test first, or wait a few seconds.
 - GraphQL subscriptions (server-sent events or WebSockets through the proxy) are untested; they need an end-user dialog token (task 2, task 11).
 - The Events inspection API shows `registeredTime` two hours behind the actual UTC time (seen on Dialogporten's events: `time` 19:44:05Z,
   `registeredTime` 17:44:13+00:00); not investigated, it is the Events component's.
