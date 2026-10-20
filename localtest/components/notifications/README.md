@@ -126,12 +126,12 @@ which return the seed's addresses and numbers exactly as stored. Production then
 
 - **SMS numbers are validated.** Direct SMS recipients must be E.164 (`+4799123456`): a bare eight-digit number is
   answered `400`. For contact points from Profile, Notifications adds `+47` itself to a bare eight-digit number that
-  starts with 4 or 9, and then validates it with libphonenumber; a number that fails is dropped. The seed has every
-  number in `+47` form since schema v3 ([`../../testdata/`](../../testdata/README.md)), but `+4787654321` (Sophie Salt,
-  1337, and 1002, 1003, 12345) is still not a valid Norwegian number: her e-mail goes out
-  (`1337@altinnstudiotestusers.com`), her SMS notification ends `Failed_RecipientNotIdentified` and nothing is
-  captured. Users with valid numbers get both: Kari Nordvik (2002, `kari.nordvik@test.com` and `+4791234567`),
-  Pengelens Partner (1001, `test@test.com` and `+4799315829`) and MultiParty Prompt (2001).
+  starts with 4 or 9, and then validates it with libphonenumber; a number that fails is dropped
+  (`Failed_RecipientNotIdentified`, nothing captured). Before schema v3 that was the seed's `87654321` for Sophie Salt
+  (1337) and 1002, 1003, 12345 (`+4787654321` is not valid either). Since v3 ([`../../testdata/`](../../testdata/README.md))
+  every seeded person has a valid `+47` number and gets both e-mail and SMS: Sophie Salt
+  (`1337@altinnstudiotestusers.com`, `+4799001337`), Kari Nordvik (2002, `kari.nordvik@test.com` and `+4791234567`),
+  Pengelens Partner (1001, `test@test.com` and `+4799315829`).
 - A recipient without any contact point (a national identity number not in the seed) answers `422` with the problem code
   `NOT-00001`.
 - **Organisation recipients** get the organisation's official addresses, the seed's `notificationAddresses` (schema v3):

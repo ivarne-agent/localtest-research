@@ -71,8 +71,10 @@ unchanged. Organisation numbers are the nearest valid mod-11 number that is not 
 Field definitions are in [`../../../testdata/README.md`](../../../testdata/README.md); this is what the seed sets.
 
 - **Mobile numbers** in international form: `+47` added to every number without a country code, digits kept
-  (persons 1002, 1003, 1337, 12345: `87654321` → `+4787654321`; organisations: `9201000x` → `+479201000x`, Kari
-  Consulting `1234578` → `+471234578`). Fixed-line `telephoneNumber` and `faxNumber` are unchanged.
+  (organisations: `9201000x` → `+479201000x`, Kari Consulting `1234578` → `+471234578`), except the old
+  `87654321` of persons 1002, 1003, 1337 and 12345: `+4787654321` is not a valid Norwegian number for libphonenumber,
+  so production Notifications would drop it. They get valid mobile numbers made from the user id: `+4799001002`,
+  `+4799001003`, `+4799001337`, `+4799012345`. Fixed-line `telephoneNumber` and `faxNumber` are unchanged.
 - **`reserved: true`** on Rik Forelder (1003, 08829698278) only. Nothing in the Cypress suite logs in as him or reads
   him from the stack (the person-lookup tests that name him intercept the lookup with canned answers), and he holds no
   role for an organisation, so his reservation cannot change an organisation recipient's result.

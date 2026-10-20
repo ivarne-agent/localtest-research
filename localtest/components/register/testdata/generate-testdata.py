@@ -50,6 +50,10 @@ NOTIFICATION_ADDRESSES = {
     500006: [{"email": "varsling@digdir.no"}, {"mobileNumber": "+4799500006"}],
 }
 
+# Mobile numbers that are not valid numbers for libphonenumber, which production Notifications validates with:
+# the old data's 87654321 (+4787654321 is not a Norwegian number). Replaced by valid mobile numbers made from the user id.
+MOBILE_NUMBERS = {1002: "+4799001002", 1003: "+4799001003", 1337: "+4799001337", 12345: "+4799012345"}
+
 SCHEMA = "../../../testdata/test-users.schema.v3.json"
 
 # Access packages (schema v2), which the old data did not have, keyed by user id, then by the party id they are held for.
@@ -246,7 +250,7 @@ def main():
             "preSelectedPartyId": ci(prefs, "preSelectedPartyId"),
             "doNotPromptForParty": ci(prefs, "doNotPromptForParty"),
             "telephoneNumber": ci(details, "telephoneNumber"),
-            "mobileNumber": international(ci(details, "mobileNumber") or ci(profile, "phoneNumber")),
+            "mobileNumber": MOBILE_NUMBERS.get(user_id) or international(ci(details, "mobileNumber") or ci(profile, "phoneNumber")),
             "reserved": True if user_id in RESERVED_USER_IDS else None,
             "addressStreetName": ci(details, "addressStreetName"),
             "addressHouseNumber": ci(details, "addressHouseNumber"),

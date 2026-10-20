@@ -103,13 +103,11 @@ RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"12889898044","c
 expect "POST future/orders, person (through Profile contactpoint/lookup)" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in the person's inbox, delivered" "$LOCAL/inboxes/kari.nordvik@test.com" 'd["messages"][0]["subject"] == "Person" and d["messages"][0]["outcome"] == "Delivered"'
 okwait "the SMS lands in the person's phone inbox, delivered" "$LOCAL/inboxes/%2B4791234567" 'd["messages"][0]["body"] == "To a person by SMS" and d["messages"][0]["outcome"] == "Delivered"'
-# Sophie Salt (1337, 01839012345): the seed has +4787654321, which libphonenumber does not accept as a Norwegian number,
-# so the SMS contact point is dropped: the e-mail is sent, the SMS is not (production behaviour).
+# Sophie Salt (1337, 01839012345): the seed's +4799001337 (until schema v3 the bare, invalid 87654321) gets both.
 RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"01839012345","channelSchema":"EmailAndSms","emailSettings":{"subject":"Sophie","body":"B"},"smsSettings":{"body":"Sophie sms"}}}' "" "${bearer[@]}")
-expect "POST future/orders, person with an invalid seed number" 201 "${RESPONSE##*$'\n'}"
-okwait "the e-mail lands in Sophie's inbox" "$LOCAL/inboxes/1337@altinnstudiotestusers.com" 'd["messages"][0]["subject"] == "Sophie" and d["messages"][0]["outcome"] == "Delivered"'
-expect "no SMS inbox for 87654321" 404 "$(code "$LOCAL/inboxes/87654321")"
-expect "no SMS inbox for +4787654321" 404 "$(code "$LOCAL/inboxes/%2B4787654321")"
+expect "POST future/orders, Sophie Salt" 201 "${RESPONSE##*$'\n'}"
+okwait "the e-mail lands in Sophie's inbox" "$LOCAL/inboxes/1337@altinnstudiotestusers.com" 'any(m["subject"] == "Sophie" and m["outcome"] == "Delivered" for m in d["messages"])'
+okwait "the SMS lands on Sophie's number" "$LOCAL/inboxes/%2B4799001337" 'any(m["body"] == "Sophie sms" and m["outcome"] == "Delivered" for m in d["messages"])'
 RESPONSE=$(future '{"recipientExternalIdentity":{"externalIdentity":"urn:altinn:person:idporten-email:selvregistrert.bruker@example.com","channelSchema":"Email","emailSettings":{"subject":"Self-identified","body":"B"}}}' "" "${bearer[@]}")
 expect "POST future/orders, self-identified user (through Profile contactpoint/lookupsi)" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in the self-identified user's inbox" "$LOCAL/inboxes/selvregistrert.bruker@example.com" 'd["messages"][0]["subject"] == "Self-identified" and d["messages"][0]["outcome"] == "Delivered"'

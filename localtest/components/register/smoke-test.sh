@@ -11,7 +11,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REGISTER=${1:-http://127.0.0.1:5020}
 AUTH=${AUTH:-http://local.altinn.cloud:8000}
 OLA_SSN=01817512212   # Ola Nordmann (12345), see testdata/README.md
-SOPHIE_MOBILE=+4787654321   # Sophie Salt (1337), as stored in testdata/testData.json
+SOPHIE_MOBILE=+4799001337   # Sophie Salt (1337), as stored in testdata/testData.json
 
 APP_DATA='{ "persons": [ { "userId": 3001, "partyId": 513001, "ssn": "24917440014", "firstName": "Stub", "lastName": "Appbruker",
                  "partyRoles": { "513001": [ { "type": "altinn", "value": "regna" } ] } } ] }'
