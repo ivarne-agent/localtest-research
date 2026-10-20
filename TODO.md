@@ -23,7 +23,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
 | 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
-| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | in progress (undeferred 2026-10-20 for the adapter's dialog-token steps and the Dialogporten end-user API; Opus agent `task2-oidc-provider`, worktree `.worktrees/task2-oidc-provider`, branch `task/authentication-oidc-provider`; phase 1 code, phase 2 stack after 9b) | medium | yes |
+| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | done (2026-10-20, commits 4ff3721..ddd0ecf; code-flow tokens carry `pid`, Dialogporten end-user API 200; pin bump pending the images workflow) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
@@ -39,7 +39,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | unapproved (research done 2026-10-20: plan in `planned-components/receipt/`, proposed brief in its README: vendor at babc0ed into the default stack, two directive sites and one fake, host port 8034, route `/receipt`; 2 to 3 days; scratch build rendered the production receipt against the stack; 6 open questions to discuss) | medium | yes |
 
-Suggested order: task 2 phase 2 (next), 10, then 7, 8 and 16 from their research plans, then 9 to 11 in that
+Suggested order: 10 (next), then 8a and 16 (small, independent), 8b, then 7 once its prerequisites are settled, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
