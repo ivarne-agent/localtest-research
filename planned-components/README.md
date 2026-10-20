@@ -7,7 +7,7 @@ the rollout order. Background research is in [`../localtest-components/`](../loc
 | Component | Status | Plan |
 | --- | --- | --- |
 | All (MVP model) | sketch | [`mvp-vendoring-model.md`](mvp-vendoring-model.md): compose root, one folder per component with Dockerfile + vendored subtree + build props/targets + adjacent fakes |
-| All: studioctl | plan | [`studioctl-integration.md`](studioctl-integration.md): what changes in the monorepo, the images, studioctl and studioctl-server to replace today's localtest with this stack |
+| All: studioctl | plan | [`studioctl-integration.md`](studioctl-integration.md): what changes in the monorepo, the images, studioctl and studioctl-server to replace today's localtest with this stack; [`studioctl-integration-options.md`](studioctl-integration-options.md): the alternatives at each decision point |
 | Register | MVP implemented in [`../localtest/components/register/`](../localtest/components/register/) | [`register/README.md`](register/README.md) (plan), [`register/production-register-analysis.md`](register/production-register-analysis.md) (analysis with scratch build) |
 
 ## Conventions for vendored production code
