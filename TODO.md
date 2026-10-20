@@ -14,7 +14,11 @@ change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first) / 
 else goes in `fakes/`; a component's Dockerfile mirrors upstream's with `localtest:` deviations; the old localtest in
 `altinn-studio/src/Runtime/localtest` is reference only, never a basis; one image build or AOT publish at a time on
 this machine (7.8 GB RAM), never next to a Cypress run; extend the component's `smoke-test.sh`; update the component
-README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers.
+README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers. The studioctl side of a
+component (container spec, image pin, proxy prefix, provisioning calls, health) is changed in the vendored studioctl
+source under `localtest/studioctl/src/cli/` (ordinary commits on top of the baseline, see
+`localtest/studioctl/UPSTREAM.md`), built with `make dev-install` there and verified with
+`studioctl env up -r localtest-v2 --dev <component>`; nothing is edited in an altinn-studio checkout.
 
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
@@ -172,8 +176,24 @@ the PDP carry today (section 3.9); the app runner (studioctl-server's `AppProvis
 upstream, init script added to `localtest/postgres/`, proxy prefix `/resourceregistry/`, image added to
 `.github/workflows/images.yml`, a runtime component in the studioctl patch (`localtest/studioctl/`).
 
-**Open.** Section 6.5 of the report (seeding of non-app resources, the `updated` feed's start, ownership of the Access
-Management change). Which of the stand-ins can be removed in the same change without breaking the six platform specs?
+**Decisions (2026-10-20).**
+
+- The production 10-minute application cache in `GetResourceList` goes away locally: a fake replaces the Storage
+  applications client (or the cache) so `resourcelist` reflects a pushed app at once. Prefer a replaced service in
+  `fakes/` over a directive; no `api/localtest/refresh` endpoint is needed for the cache.
+- Non-app resources (today the PDP's `policies/resourceregistry/` seed) are a built-in seed in the registry's fakes,
+  applied at start through the production service layer, like the Register's built-in seed. The provisioner does
+  not push platform seed data. Correspondence resources wait for task 7.
+- A separate `resourceregistrydb` on the shared Postgres (18); the Yuniql run on 18 is the first thing to verify.
+- The org list is read from altinncdn.no as in production (task 3 is won't do).
+- The registry is the only source for `urn:altinn:resource` policies; the PDP's `resourceregistry/` policy folder moves
+  into the seed and its fallback goes.
+- The provisioner (studioctl-server `AppProvisioner`, in `localtest/studioctl/src/cli/`) calls
+  `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true` after the policy push,
+  as Designer does; the runtime gets the component spec, image and proxy prefix there too.
+
+**Open.** Which of the Access Management and PDP stand-ins can be removed in the same change without breaking the six
+platform specs (or do they go in a second step)? The `updated` feed's start for Access Management's sync.
 
 **Verification.** `components/resource-registry/smoke-test.sh` as planned in section 6.4; `run-platform-regression.sh`
 still passes; Access Management's refresh still produces the same `app_{org}_{app}` resources.
@@ -249,12 +269,14 @@ Small items from `localtest/reviews/` and the components' "Known gaps", each its
 
 ## 13. studioctl integration leftovers
 
-From `planned-components/studioctl-integration.md`, sections 1, 4, 5, 6 and its open questions, against the copy in
-`localtest/studioctl/`: moving the stack into the monorepo (`src/Runtime/localtest-v2/`) with its image workflow, the
+From `planned-components/studioctl-integration.md`, sections 1, 4, 5, 6 and its open questions, against the vendored
+studioctl in `localtest/studioctl/src/cli/` (upstreamed later as one patch, see `localtest/studioctl/UPSTREAM.md`): moving the stack into the monorepo (`src/Runtime/localtest-v2/`) with its image workflow, the
 `/health` body (`ok` versus the integration tests' `Healthy` snapshot), docs and the bundled skill, Cypress and
 `StudioctlEnvironment` tests in CI against the new runtime, the rollout and the default flip, re-push on app change
-(watch, restart or `studioctl app sync`), frontend version override and cookie-domain rewriting (port or drop). The
-maintainer's; not for a subagent until split into pieces.
+(watch, restart or `studioctl app sync`), frontend version override and cookie-domain rewriting (port or drop), and
+two front-door gaps seen on 2026-10-20: studioctl-server answers 404 for a platform prefix without its trailing slash
+(`/storage`), where the localtest app redirects, and for `/app-frontend/`. The maintainer's; not for a subagent until
+split into pieces.
 
 ## 14. Profile beyond the Register
 
