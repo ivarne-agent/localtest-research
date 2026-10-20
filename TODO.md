@@ -5,7 +5,8 @@ the components' "Known gaps", [`localtest/reviews/`](localtest/reviews/README.md
 [`planned-components/`](planned-components/). Each task is written so it can become a subagent's brief once approved.
 
 Status values: **unapproved** (not yet discussed, or discussed and not yet released to an agent), **approved**
-(design settled, an agent may be dispatched), **in progress** (agent name, worktree, branch), **done** (commit).
+(design settled, an agent may be dispatched), **deferred** (discussed, parked until something needs it),
+**in progress** (agent name, worktree, branch), **done** (commit).
 Nothing is dispatched while it is unapproved.
 
 Rules every brief inherits: work in a worktree of this repository under `/home/agent/code/.worktrees/<task>/`; a
@@ -18,7 +19,7 @@ README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers.
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
 | 1 | [Vendor sync check](#1-vendor-sync-check) | unapproved | small | no |
-| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | unapproved | medium | yes |
+| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | deferred (2026-10-20: until a relying party in the stack needs the code flow, i.e. task 11 or a Dialogporten end-user test) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | unapproved | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | unapproved | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | unapproved | large | yes |
@@ -32,7 +33,7 @@ README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers.
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 
-Suggested order: 1 and 2 in parallel, then 3 and 4, then 5, then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 1, then 3 and 4, then 5, then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
