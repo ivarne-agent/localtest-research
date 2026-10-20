@@ -51,6 +51,7 @@ A path matching no route still falls through to the localtest app.
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task16-receipt`, branch `task/receipt`; phase 1 code incl. the group table, phase 2 stack after 10) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
+| 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task18-testdata`, branch `task/testdata-format`; phase 1 docs, schema and seed, phase 2 stack) | small | yes |
 
 Suggested order: 10, 16 and 7 run in parallel as code (phase 1); the stack goes to 10 first, then 16, then 7 (phase 2). 8 is deferred pending 17., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
@@ -472,4 +473,17 @@ the stack as an optional group (`admin`, implying whatever it needs) is straight
 inclusion as a follow-on task once 10, 16 and 7 are finished and verified, without a further round of discussion;
 the brief is the plan's "Proposed brief" plus the inherited rules. If it is not straightforward (Designer backend
 coupling, Gitea or Kubernetes dependencies, auth model), report back and 8 is reconsidered instead.
+
+## 18. Test data format: docs, JSON schema, extended baseline
+
+**Goal (2026-10-20).** One folder documenting the `testData.json` format the stack reads (the Register component's
+seed `components/register/testdata/testData.json` and every app's `App/wwwroot/testData.json`): a Markdown
+reference of every field with its consumer, and a JSON Schema the files declare in `$schema`. The schema includes
+the extensions decided so far: persons' `reserved` flag (KRR reservation; Notifications plan question 5, task 7's
+stand-in), mobile numbers in full international form (`+47…`, because production adds `+47` only to numbers starting
+with 4 or 9 and rejects bare eight-digit numbers), organisations' official notification addresses (e-mail and SMS, for
+Notifications' organisation recipients, 422 today), and an extension point for the Profile data task 14 identifies.
+The baseline seed is modified to use them (ids, names and `userId.partyId` pairs unchanged: Cypress depends on
+them), `generate-testdata.py` follows, and the Register fakes load the new fields. The KRR stand-in reads
+`reserved` once task 7 has merged.
 
