@@ -26,7 +26,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | deferred (2026-10-20: until a relying party in the stack needs the code flow, i.e. task 11 or a Dialogporten end-user test) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
-| 5 | [Resource Registry component](#5-resource-registry-component) | unapproved | large | yes |
+| 5 | [Resource Registry component](#5-resource-registry-component) | in progress (2026-10-20, step 5a: agent `task5-resource-registry`, worktree `.worktrees/task5-resource-registry`, branch `task/resource-registry`; step 5b, the stand-in removal, follows) | large | yes |
 | 6 | [Notifications](#6-notifications) | unapproved | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
@@ -38,7 +38,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 
-Suggested order: 5, then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 5 (running), then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -192,8 +192,11 @@ upstream, init script added to `localtest/postgres/`, proxy prefix `/resourcereg
   `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true` after the policy push,
   as Designer does; the runtime gets the component spec, image and proxy prefix there too.
 
-**Open.** Which of the Access Management and PDP stand-ins can be removed in the same change without breaking the six
-platform specs (or do they go in a second step)? The `updated` feed's start for Access Management's sync.
+**Steps (decided 2026-10-20).** 5a: the component, its seed, the studioctl runtime integration (spec, image, proxy
+prefix, health, provisioning call) and the smoke test, with the Access Management and PDP stand-ins untouched. 5b: the
+stand-ins removed, Access Management and the PDP on the production clients, the six platform specs re-run.
+
+**Open.** The `updated` feed's start for Access Management's sync (5b).
 
 **Verification.** `components/resource-registry/smoke-test.sh` as planned in section 6.4; `run-platform-regression.sh`
 still passes; Access Management's refresh still produces the same `app_{org}_{app}` resources.
