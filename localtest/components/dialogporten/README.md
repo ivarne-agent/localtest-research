@@ -29,6 +29,7 @@ the catch-all route to the localtest app (404, "No app is registered for this pa
 | `fakes/` | The hook, the configuration defaults, the issuer caches and the Maskinporten fake (below) |
 | `postgres-init/50-dialogporten.sh` | Postgres init script: role `dialogporten` (password `localtest`), database `dialogporten` owned by it, `pg_trgm` and `btree_gin`. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/dialogporten/postgres-init/50-dialogporten.sh` |
 | `smoke-test.sh` | Against the running stack, see "Verified" |
+| `.dockerignore` | Keeps host `bin/` and `obj/` out of the build context (a host build of the vendored projects leaves `project.assets.json` with host paths, which breaks the image's locked restore) |
 
 ## Directive sites
 
@@ -46,6 +47,88 @@ finished service collection, so they win over production's registrations whateve
 | `JwtBearerOptions.RequireHttpsMetadata` (true) | `ConfigureAll<JwtBearerOptions>` in the hook. It has to be a `Configure`, not a `PostConfigure`: `JwtBearerPostConfigureOptions` builds the metadata manager from the value and post-configure callbacks run in registration order |
 | `Localtest:Dialogporten` options and the defaults | `Infrastructure/LocaltestDialogportenOptions.cs`, `LocaltestConfiguration.cs`: see below |
 | Service-provider factory | `Infrastructure/LocaltestOverrides.cs` (a copy of the host's Development default, validating scopes and the build, that runs the replacements first) |
+| nothing (adds the localtest endpoints below) | `WebApi/Localtest/LocaltestEndpoints.cs`: four FastEndpoints in a `LocaltestGroup` (anonymous, version 1, left out of the OpenAPI documents), found by the WebApi's own assembly scan, so no second hook; `Infrastructure/LocaltestCaches.cs` names the named caches by upstream's own constants (a rename upstream breaks the build) and clears them |
+
+## Localtest endpoints (`dialogporten/api/v1/localtest/`, anonymous, WebApi only)
+
+None of them exists in production, where the Janitor runs the two Resource Registry syncs on a schedule, the caches expire on their
+own and only a purge removes a dialog.
+
+| Call | What it does |
+| --- | --- |
+| `POST sync[?since=]` | Sends the Janitor's two commands through `ISender`, `SyncSubjectMapCommand` (the registry's `resource/updated` feed since the newest synced row, or `since`) then `SyncPolicyCommand`, then clears every named cache (below). Answers `{ subjectResources, subjectResourcesByResource: { urn: count }, resourcePolicyInformation, cachesCleared, durationMs }`, totals after the sync; a validation error of either command is a 400. Startup's own sync stays off (`DisableSubjectResourceSyncOnStartup`): it would run in all three hosts and block their start, and the provisioner calls this endpoint instead |
+| `POST caches/clear` | `ClearAsync(allowFailSafe: false)` on all fourteen named FusionCaches (`NameRegistry`, `ResourceRegistry` 20 min, `OrganizationRegistry`, `Authorization` 15 min, `AuthorizedPartiesResult` 15 min, `SubjectResource` 20 min, the feature-metric, party-resource, referenced-resources, referenced-party-resources, minimum-authentication-level, Access Management metadata, service-resource catalogue and authorized-service-resources caches): the entries are removed, not only expired, so no stale value comes back as a fail-safe fallback. Answers `{ cachesCleared }` |
+| `DELETE dialogs` | `TRUNCATE "Dialog", partyresource."PartyResource", search."DialogSearchRebuildQueue" CASCADE`: every dialog and, by cascade, every table referencing one (contents, activities, transmissions, actors, seen log, labels, the search index, ...), plus the two tables production maintains by row trigger or queue, which a truncate does not fire. The synced registry data, lookup tables and the MassTransit outbox stay. Then the caches are cleared. Answers `{ dialogsDeleted, cachesCleared }`. For a fresh test run without a restart; otherwise dialogs persist and only `studioctl env reset` wipes them (with Storage) |
+| `GET dialogs?party=&resource=&after=&limit=` | Plain reads of the dialog table for the inspection GUI and tests, past authorization and including soft-deleted dialogs, in creation order: `{ items: [{ id, org, serviceResource, party, status, extendedStatus, externalReference, process, title: { lang: text }, createdAt, updatedAt, deleted, deletedAt }], next }` (`next` is the `after` of the next page, left out on the last). `resource` takes `app_ttd_testapp` or the full urn; `limit` 100 by default, at most 1000 |
+
+**The clear reaches the other hosts.** Every named cache has Redis as its distributed tier and backplane. `ClearAsync` records the
+clear in Redis (a marker entry, `__fc:t:!`, that makes older distributed entries count as gone) and publishes it on the cache's
+backplane channel. Checked on 2026-10-20 with `redis-cli`: `PUBSUB NUMSUB ResourceRegistry.Backplane:v2` is 3 (WebApi, GraphQL and
+Service all hold that cache), and a `SUBSCRIBE` on the channel received the clear message when `caches/clear` was called. A host
+subscribes to a cache's channel when it first uses the cache (`Authorization.Backplane:v2` had one subscriber, the WebApi); a host
+that has not used it holds nothing to clear and reads the marker from Redis when it does. Upstream sets no `CacheKeyPrefix`, so
+the fourteen caches share one marker key in Redis (FusionCache warns about this at start); since the endpoint clears all of them
+together, nothing is cleared that would not be anyway.
+
+## Provisioning: studioctl-server's step 5
+
+studioctl-server's `AppProvisioner` deploys each app it discovers (`../../README.md`, "What the app runner pushes"). With the group
+up it adds **step 5, `POST dialogporten/api/v1/localtest/sync`**, after step 4 (Access Management's refresh): the subject sync reads
+what step 3b made the registry derive from the pushed policy, and the cache clear also drops the authorized-parties cache, which
+then reads the test users Access Management has just refreshed. A freshly pushed app is therefore known to Dialogporten at once
+instead of after the 20-minute resource cache (the gap 9a documented).
+
+- **Whether the group runs** comes from the route table `env up` writes together with the state file's `groups` (the
+  bound-topology file studioctl-server already watches for its proxy): the `dialogporten-webapi` route exists exactly when the
+  group is on. No probe and no second copy of the group list; the server is not restarted when only the groups change, so the
+  state file is not part of its start configuration either. Without the group the log says
+  `Dialogporten sync for ttd/stateless-app skipped: the dialogporten group is not running`.
+- **The group can come later.** When `env up --with dialogporten` runs while apps are provisioned, the next refresh syncs once for
+  all of them (`Dialogporten synced the Resource Registry for the provisioned apps: ...`).
+- **A failure does not fail the provisioning** (Dialogporten is optional): it is logged once as a warning and retried on every
+  refresh until it answers, which is what happens while the hosts are still starting.
+
+## Events
+
+The Service host's outbox consumer publishes every dialog event (`dialogporten.dialog.created.v1`, `.updated`, `.deleted`,
+`.seen`, transmission and activity events) to `events/api/v1/events`, the generic-events endpoint, with Dialogporten's
+Maskinporten token exchanged by Authentication; the Events component registers it like any other event. The source is
+`{platform}dialogporten/api/v1/enduser/dialogs/{id}`, the resource the dialog's service resource, the subject the party. The smoke
+test finds the created event in `events/api/localtest/events?resource=...&type=dialogporten.dialog.created.v1` (about 8 seconds
+after the create, the time the Service host's outbox and in-process bus take; not compared with production).
+
+How the Events component classifies them (plan question 9):
+
+- **Nothing in the stack subscribes** (`events/api/localtest/subscriptions` is empty), so no event is delivered; the classification
+  only matters once a tester adds a subscription.
+- **The inspection API** derives `org` and `app` from the resource, so a dialog event for `app_ttd_testapp` is listed with `org: ttd,
+  app: testapp` next to the app's own instance events (`?org=ttd&app=testapp` returns both; `type` or `source` tells them apart).
+  Events for other resources (`altinn_keyrole_access`) have no org or app. This is the inspection API's choice, not production
+  behaviour, and is harmless.
+- **Production's own code treats an event as an app event by its resource** (`urn:altinn:resource:app_`), as in production: a dialog
+  for an app's resource is authorized as an app event in both. The difference is the source filter the authorization result is
+  cached under: `GetSourceFilter` cuts every source on the `AppsDomain` host to its first two path segments. In production
+  `platform.altinn.no` is not under `apps.altinn.no`, so the whole dialog URL is the key; here `AppsDomain` is the platform host and
+  every dialog event becomes `http://local.altinn.cloud:8000/dialogporten/api`, so one consumer's cached decision for one app's dialog
+  events is reused for every other app's for the cache lifetime (5 seconds here). Likewise a subscription whose source filter is
+  `.../dialogporten/...` without a resource filter counts as an app subscription for "org" `dialogporten`, app `api`, where
+  production would refuse it (generic subscriptions need a resource filter and the subscribe scope).
+- **Proposed fix (not made in this step):** an `#if LOCALTEST` in the Events component's `OutboundService.GetSourceFilter` and
+  `SubscriptionController.IsAppSubscription` that treats a source on the platform host as an app source only when its first path
+  segment is not a platform prefix (`dialogporten`, later `correspondence`), or, closer to production, serving apps on their own
+  host (`{org}.apps.local.altinn.cloud`) and setting `AppsDomain` to it, which is larger (studioctl routes, app-lib URLs). Until
+  then a tester subscribing to Dialogporten's events should give a resource filter and no source filter, which behaves as in
+  production.
+
+## GraphQL and CORS
+
+`/dialogporten/graphql[/...]` is forwarded to the GraphQL host's `/graphql[/...]` (the proxy's `rewritePrefix`, as APIM does). The
+endpoint requires an authenticated caller of any accepted scheme, so the **org token** reaches it: the schema
+(`GET /dialogporten/graphql?sdl`) and introspection (`{ __typename }` is `Queries`) work. Every query field carries the end-user
+policy (scope `digdir:dialogporten` and a person), so `{ parties { party } }` with the org token answers `AUTH_NOT_AUTHORIZED`: a real
+query **waits for the `pid` token of task 2**. CORS: a preflight from `http://af.local.altinn.cloud:8000` (`OPTIONS`, `POST`,
+`authorization,content-type`) is answered 204 with `Access-Control-Allow-Origin` for that origin and the requested method and headers;
+the actual POST from it carries the allow-origin header; another origin gets none.
 
 ## Configuration
 
@@ -65,7 +148,7 @@ everything else is a default that the real setting overrides (`Infrastructure__D
 | `WebApi:OpenApi:*` | try-it-out on, the fake ID-porten's authorize, token and logout URLs, the fake Maskinporten's token URL, client id `localtest` (validated non-empty; only Swagger UI and Scalar use them) |
 | `GraphQl:Cors:AllowedOrigins:0` | `http://af.local.altinn.cloud:8000` (Arbeidsflate, task 11; at least one entry is required) |
 | `Serilog:MinimumLevel:Default` | `Information` |
-| `LocalDevelopment:*` | all fourteen explicit: `UseLocalDevelopmentUser`, `DisableAuth`, `UseLocalDevelopmentAltinnAuthorization`, `UseLocalDevelopmentResourceRegister`, `UseLocalDevelopmentCloudEventBus`, `UseLocalDevelopmentNameRegister`, `UseLocalDevelopmentPartyNameRegistry`, `UseLocalDevelopmentOrganizationRegister` (read nowhere), `UseLocalDevelopmentCompactJwsGenerator`, `UseLocalMetricsAggregationStorage` (Janitor only) false; `DisableCache` true (replaces only the unused default `IFusionCache`, the authorization caches are named and unaffected), `UseInMemoryServiceBusTransport` true (the outbox stays in Postgres, the Service host drains it into its in-process bus), `DisableSubjectResourceSyncOnStartup` and `DisablePolicyInformationSyncOnStartup` true (task 9b adds the sync) |
+| `LocalDevelopment:*` | all fourteen explicit: `UseLocalDevelopmentUser`, `DisableAuth`, `UseLocalDevelopmentAltinnAuthorization`, `UseLocalDevelopmentResourceRegister`, `UseLocalDevelopmentCloudEventBus`, `UseLocalDevelopmentNameRegister`, `UseLocalDevelopmentPartyNameRegistry`, `UseLocalDevelopmentOrganizationRegister` (read nowhere), `UseLocalDevelopmentCompactJwsGenerator`, `UseLocalMetricsAggregationStorage` (Janitor only) false; `DisableCache` true (replaces only the unused default `IFusionCache`, the authorization caches are named and unaffected), `UseInMemoryServiceBusTransport` true (the outbox stays in Postgres, the Service host drains it into its in-process bus), `DisableSubjectResourceSyncOnStartup` and `DisablePolicyInformationSyncOnStartup` true (the sync is `localtest/sync`, which the provisioner calls) |
 
 `ASPNETCORE_ENVIRONMENT=Development` is set by the Dockerfiles: it selects the in-process bus, the migrator at start and the `LocalDevelopment`
 section. The Altinn CDN (`altinn-orgs.json`) is read from the internet, as in Authentication and the Resource Registry; Azure App
@@ -109,9 +192,10 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
   organisation number in the Resource Registry, so a `ttd` app passes the owner check, but the caller's organisation short name is the first the
   registry lists for that number (`digdir`) while a dialog for a `ttd` app gets the org `ttd`: it is read by id but a service-owner search (which only returns
   the caller's own org) does not find it. A dialog for a Digdir-owned resource (the seeded `altinn_keyrole_access`) is found. The smoke test checks both.
-- The Resource Registry caches (20 minutes) in Dialogporten's FusionCache: an app pushed after the first dialog request is unknown to Dialogporten for up to
-  20 minutes. Task 9b adds the sync and cache-clear endpoints; until then restart `dialogporten-webapi` and flush Redis
-  (`podman exec localtest-v2-redis redis-cli flushall`).
+  **Production behaviour, not fixed here** (`ttd` has no organisation number and the registry substitutes Digdir's; TODO.md, task 9): a pain point testers will meet.
+- The named caches (the Resource Registry's list for 20 minutes, authorization for 15) are the production ones, but the provisioner's sync clears them
+  after every app push and `POST dialogporten/api/v1/localtest/caches/clear` clears them at any time (`../../README.md`, "Where localtest is faster than
+  production"). Production waits for them to expire.
 - ID-porten, Maskinporten and Authentication are the localtest stack's (http metadata); the Idporten scheme points at the fake ID-porten.
 
 ## Memory
@@ -119,7 +203,25 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
 `podman stats --no-stream` (2026-10-20, idle after the smoke test): `dialogporten-webapi` 214 MB, `dialogporten-graphql` 139 MB, `dialogporten-service` 120 MB,
 `redis` 3.9 MB, about 477 MB together.
 
-## Verified (2026-10-20)
+## Verified (2026-10-20, task 9b)
+
+- `./smoke-test.sh`: 60 ok, 0 FAIL, twice in a row. It now counts every check: `... | check` ran in a subshell before (`shopt -s lastpipe`
+  fixes it), so 9a's "22 ok" undercounted its own checks (they were 30, all passing) and a failing piped check did not fail the script. New: `sync` after the fixture
+  push (non-zero subject pairs for `app_ttd_testapp`, policy information, the caches cleared); an app pushed after the resource list was cached is refused
+  (422) until `sync`, then created (201) without a restart, and the same with `caches/clear` (both apps removed from Storage again); the
+  `dialogporten.dialog.created.v1` event for the dialog in the Events inspection API (source, subject, org/app, no deliveries); GraphQL with the org
+  token (schema, `{ __typename }`, an end-user query refused); CORS (preflight, allow headers, another origin, the actual POST); `GET localtest/dialogs`
+  (the deleted smoke dialog with its title, paging); `DELETE localtest/dialogs` (count, the party's service-owner search empty, the live dialog 404,
+  the list empty).
+- Provisioning with a real app (`studioctl run -d` of `src/test/apps/stateless-app`): the studioctl-server log shows `Dialogporten synced the Resource
+  Registry for ttd/stateless-app: 17 subject-resource pair(s), 3 resource policies, caches cleared`, and a dialog for `app_ttd_stateless-app` was created
+  (201) right after. After `env up` without the group: `Dialogporten sync for ttd/stateless-app skipped: the dialogporten group is not running`. After
+  `env up --with dialogporten` with the app running: one warning while the WebApi was starting, then `... for the provisioned apps: ...` 11 seconds later.
+- The cache clear on the backplane, see "Localtest endpoints".
+- No regression: root `smoke-test.sh` 23 ok, `components/resource-registry/smoke-test.sh` 35 ok, `components/events/smoke-test.sh` 22 ok (0 FAIL each),
+  studioctl `go test ./...` and the studioctl-server tests (983 passed, 2 skipped).
+
+## Verified (2026-10-20, task 9a)
 
 - The three images build from a clean cache (about 1 minute each; the NSwag step of the WebApi build runs) with `--locked-mode` restore and the fakes
   compiled in; with `env reset` and `--dev postgres` the baked-in init script creates the database and the 70 migrations ran on Postgres 18.3, healthy in about 30 seconds.
@@ -128,7 +230,7 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
   `01839012345` gives 201 and a UUIDv7; a token without the scope 403, no token 401, a resource owned by `skd` 403 ("Not allowed to reference the following unowned resources"); read by id; search by party and
   external reference (for the Digdir resource, see above); DELETE 204 and the soft-delete marker; `/dialogporten/graphql` answers 401 as the GraphQL host does on `/graphql`, so the rewrite reached it.
 - The Service host's outbox consumer published the created event to the Events component with the faked Maskinporten token (`POST events/api/v1/events` 200 after a
-  token request and an exchange in the log). Not asserted by the smoke test (task 9b).
+  token request and an exchange in the log). Asserted by the smoke test since 9b.
 - Dialogs survive `env up` after `env up` (no reset); `env up` without the flag removes the four containers and their routes and the stack is healthy.
 - No regression: root `smoke-test.sh` 23 ok, `components/resource-registry/smoke-test.sh` 35 ok (one run in three failed the `grep -q` after a `curl` pipe on its seeded-policy check, a SIGPIPE under `pipefail`
   that predates this component; it passed twice more).
@@ -136,8 +238,14 @@ upstream's compose runs), pinned by digest, no persistence (`--save "" --appendo
 ## Known gaps
 
 - **The end-user API is untested: no `pid` token until task 2.** No token the stack issues carries `pid` (the cookie token omits it by design, and the OIDC `token` endpoint needs
-  the authorization-code client of task 2), so `enduser/*` and GraphQL queries are untested; the GraphQL test is the 401.
-- The sync of subjects and policies, the cache-clear, reset and inspection endpoints, GraphQL with a token and CORS, and what Events does with Dialogporten's event sources are task 9b.
+  the authorization-code client of task 2), so `enduser/*` and GraphQL queries are untested; GraphQL is checked with the org token (schema, introspection, the refusal).
+- The `ttd`/`digdir` search mismatch (see "Differences from production"): production behaviour, not fixed here.
+- The Events component's `AppsDomain` heuristic files Dialogporten's sources under `.../dialogporten/api` (see "Events"); the fix is proposed, not made.
+- `DELETE localtest/dialogs` leaves the MassTransit outbox: events of dialogs created just before the truncate can still be published, and the Service host's
+  search indexer can log a failure for a dialog that is gone.
+- GraphQL subscriptions (server-sent events or WebSockets through the proxy) are untested; they need an end-user dialog token (task 2, task 11).
+- The Events inspection API shows `registeredTime` two hours behind the actual UTC time (seen on Dialogporten's events: `time` 19:44:05Z,
+  `registeredTime` 17:44:13+00:00); not investigated, it is the Events component's.
 - The group's images are not pinned in `config/images.go` to a build that exists: `localtest-dialogporten-*` appear on ghcr after this branch is on main, and the
   pinned tag is bumped by hand afterwards; until then use `--dev dialogporten` or `STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_*`.
 - A host that fails its start (a failed migration) stays up at high CPU without listening instead of exiting, as upstream's host does; look at `env logs --component dialogporten-webapi`.
