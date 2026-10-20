@@ -73,6 +73,7 @@ type LocaltestV2Images struct {
 	AccessManagement ImageSpec
 	Storage          ImageSpec
 	Events           ImageSpec
+	ResourceRegistry ImageSpec
 	Postgres         ImageSpec
 }
 
@@ -86,6 +87,7 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.AccessManagement,
 		&i.Storage,
 		&i.Events,
+		&i.ResourceRegistry,
 		&i.Postgres,
 	}
 }
@@ -145,6 +147,7 @@ func DefaultImages() ImagesConfig {
 			AccessManagement: localtestV2Image("access-management"),
 			Storage:          localtestV2Image("storage"),
 			Events:           localtestV2Image("events"),
+			ResourceRegistry: localtestV2Image("resource-registry"),
 			Postgres:         localtestV2Image("postgres"),
 		},
 	}
@@ -178,6 +181,7 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_ACCESS_MANAGEMENT": &c.LocaltestV2.AccessManagement,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_STORAGE":           &c.LocaltestV2.Storage,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_EVENTS":            &c.LocaltestV2.Events,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_RESOURCE_REGISTRY": &c.LocaltestV2.ResourceRegistry,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_POSTGRES":          &c.LocaltestV2.Postgres,
 	}
 }

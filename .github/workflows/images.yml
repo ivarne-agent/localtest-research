@@ -35,6 +35,7 @@ jobs:
           - { name: access-management, context: localtest/components/access-management, file: localtest/components/access-management/Dockerfile }
           - { name: storage, context: localtest/components/storage, file: localtest/components/storage/Dockerfile }
           - { name: events, context: localtest/components/events, file: localtest/components/events/Dockerfile }
+          - { name: resource-registry, context: localtest/components/resource-registry, file: localtest/components/resource-registry/Dockerfile }
           - { name: postgres, context: localtest, file: localtest/postgres/Dockerfile }
         platform:
           - { os: ubuntu-24.04, arch: amd64 }
@@ -74,7 +75,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [localtest, register, authentication, authorization, access-management, storage, events, postgres]
+        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, postgres]
     steps:
       - uses: actions/download-artifact@v4
         with:

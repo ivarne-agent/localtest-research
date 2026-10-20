@@ -191,6 +191,23 @@ internal sealed class AppProvisioner
             );
         }
 
+        // 3b. The Resource Registry derives the app's subjects from the pushed policy, as Designer does on deploy
+        // (anonymous endpoint; the app's own resource is computed from Storage's application list).
+        if (!string.IsNullOrWhiteSpace(policy))
+        {
+            await Send(
+                client,
+                HttpMethod.Get,
+                new Uri(
+                    platform,
+                    $"/resourceregistry/api/v1/resource/app_{Uri.EscapeDataString(org)}_{Uri.EscapeDataString(app)}/policy/subjects?reloadFromXacml=true"
+                ),
+                null,
+                null,
+                cancellationToken
+            );
+        }
+
         // 4. Access Management keeps its own copy of parties, roles and resources.
         await Send(
             client,

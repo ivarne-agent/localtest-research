@@ -22,6 +22,7 @@ const (
 	componentAccessManagement = "access-management"
 	componentStorage          = "storage"
 	componentEvents           = "events"
+	componentResourceRegistry = "resource-registry"
 	componentLocaltest        = "localtest"
 	componentPDF              = "pdf3"
 	componentWorkflowEngine   = "workflow-engine"
@@ -36,6 +37,7 @@ const (
 	hostPortAccessManagement = "8023"
 	hostPortStorage          = "8024"
 	hostPortEvents           = "8025"
+	hostPortResourceRegistry = "8027"
 	hostPortLocaltest        = "8026"
 	hostPortWorkflowEngine   = "8028"
 	hostPortPDF              = "5300"
@@ -179,6 +181,7 @@ func components(opts *Options) []component {
 		storageComponent(opts, platform),
 		accessManagementComponent(opts, platform),
 		eventsComponent(opts, platform),
+		resourceRegistryComponent(opts, platform),
 		localtestComponent(opts, platform),
 		pdfComponent(opts),
 		workflowEngineComponent(opts),
@@ -343,6 +346,32 @@ func eventsComponent(opts *Options, platform string) component {
 		containerOf(componentAuthorization),
 	}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/events"}}
+	return c
+}
+
+func resourceRegistryComponent(opts *Options, platform string) component {
+	c := newComponent(
+		opts,
+		componentResourceRegistry,
+		opts.Images.LocaltestV2.ResourceRegistry,
+		"components/resource-registry",
+		"5100",
+		hostPortResourceRegistry,
+	)
+	c.healthPath = healthPath
+	c.env = map[string]string{
+		certSettingEnv: certContainerPath,
+		"Localtest__ResourceRegistry__PlatformEndpoint": platform,
+		"PostgreSQLSettings__AdminConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
+		"PostgreSQLSettings__ConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True",
+	}
+	// App policies are read where the PDP's policy endpoint writes them; resource policies are written there.
+	c.volumes = []types.VolumeMount{certMount(opts), namedVolume(volumePolicyStore, "/policy-store")}
+	// App resources come from Storage's application list.
+	c.deps = []string{containerOf(componentPostgres), containerOf(componentStorage)}
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/resourceregistry"}}
 	return c
 }
 
