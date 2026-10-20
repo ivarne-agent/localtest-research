@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the localtest register: seeded users (with the schema v3 reserved flag and organisations' notification
-# addresses), party list with sub-units, profile endpoints and app
-# registration with posted test data (the register fetches nothing). Start the register, then run
+# addresses), party list with sub-units, profile endpoints (with the contact point lookups of Notifications and
+# Correspondence), the KRR stand-in and app registration with posted test data (the register fetches nothing). Start the
+# register, then run
 #   ./smoke-test.sh [REGISTER_URL]
 # The Profile checks need a user token from the authentication component (AUTH, default the ingress); the register
 # must validate it against the same component (GeneralSettings__OpenIdWellKnownEndpoint).
@@ -75,6 +76,23 @@ post "$REGISTER/profile/api/v1/organizations/notificationaddresses/lookup" -d '{
   'd["contactPointsList"] == [{"organizationNumber": "897069644", "addressOrigin": "897069644", "partyId": 0, "mobileNumberList": ["+4799500000"], "emailList": ["varsling@ddgfitness.no"]}, {"organizationNumber": "991825827", "addressOrigin": "991825827", "partyId": 0, "mobileNumberList": ["+4799500006"], "emailList": ["varsling@digdir.no"]}, {"organizationNumber": "897069660", "addressOrigin": "897069644", "partyId": 0, "mobileNumberList": ["+4799500000"], "emailList": ["varsling@ddgfitness.no"]}]'
 post "$REGISTER/profile/api/v1/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644"],"resourceId":"urn:altinn:resource:app_ttd_x"}' | check "units/contactpoint/lookup: users holding something at DDG Fitness (500000), e-mail and mobile as stored" \
   'd["contactPointsList"][0]["partyId"] == 500000 and {u["userId"]: (u["email"], u["mobileNumber"]) for u in d["contactPointsList"][0]["userContactPoints"]}[1337] == ("1337@altinnstudiotestusers.com", "'"$SOPHIE_MOBILE"'") and 1004 not in {u["userId"] for u in d["contactPointsList"][0]["userContactPoints"]}'
+
+# Profile's correspondence/ lookups, as Altinn Correspondence calls them: a token with the production scope is required.
+CORR_SCOPE=altinn:profile/correspondence.notificationsettings.read
+ORG_CORR=$(curl -sS "$AUTH/Home/GetTestOrgToken?scopes=$CORR_SCOPE" | tr -d '"')
+ORG_OTHER=$(curl -sS "$AUTH/Home/GetTestOrgToken?scopes=altinn:serviceowner/instances.read" | tr -d '"')
+echo "$(pcode -H Content-Type:application/json -X POST "$REGISTER/profile/api/v1/correspondence/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644"],"resourceId":"x"}')" | check "correspondence/units/contactpoint/lookup without a token is 401" 'd == 401'
+echo "$(pcode -H "Authorization: Bearer $ORG_OTHER" -H Content-Type:application/json -X POST "$REGISTER/profile/api/v1/correspondence/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644"],"resourceId":"x"}')" | check "correspondence/units/contactpoint/lookup without the scope is 403" 'd == 403'
+post -H "Authorization: Bearer $ORG_CORR" "$REGISTER/profile/api/v1/correspondence/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644","123456785"],"resourceId":"urn:altinn:resource:ttd-localtest-correspondence"}' | check "correspondence/units/contactpoint/lookup with the scope: DDG Fitness users as the anonymous lookup" \
+  'len(d["contactPointsList"]) == 1 and d["contactPointsList"][0]["organizationNumber"] == "897069644" and d["contactPointsList"][0]["partyId"] == 500000 and {u["userId"]: (u["email"], u["mobileNumber"]) for u in d["contactPointsList"][0]["userContactPoints"]}[1337] == ("1337@altinnstudiotestusers.com", "87654321")'
+echo "$(pcode -H "Authorization: Bearer $ORG_OTHER" -H Content-Type:application/json -X POST "$REGISTER/profile/api/v1/correspondence/organizations/notificationaddresses/lookup" -d '{"organizationNumbers":["897069644"]}')" | check "correspondence/organizations/notificationaddresses/lookup without the scope is 403" 'd == 403'
+post -H "Authorization: Bearer $ORG_CORR" "$REGISTER/profile/api/v1/correspondence/organizations/notificationaddresses/lookup" -d '{"organizationNumbers":["897069644"]}' | check "correspondence/organizations/notificationaddresses/lookup with the scope: no official addresses in the seed" \
+  'd["contactPointsList"] == [{"organizationNumber": "897069644", "partyId": 500000, "mobileNumberList": [], "emailList": [], "userContactPoints": []}]'
+
+# KRR stand-in, as Correspondence's production client calls it (anonymous): every seeded person is not reserved.
+post "$REGISTER/register/api/localtest/krr/rest/v2/personer" -d '{"personidentifikatorer":["01839012345","00000000000"]}' | check "krr personer: Sophie Salt not reserved, unknown number absent" \
+  'd["personer"] == [{"personidentifikator": "01839012345", "reservasjon": "NEI", "status": "AKTIV", "varslingsstatus": "KAN_VARSLES", "kontaktinformasjon": {"epostadresse": "1337@altinnstudiotestusers.com", "mobiltelefonnummer": "87654321"}}]'
+post "$REGISTER/register/api/localtest/krr/rest/v2/personer" -d '{"personidentifikatorer":[]}' | check "krr personer: empty lookup" 'd["personer"] == []'
 
 put() { curl -sS -H Content-Type:application/json -X PUT "$@"; }
 put "$REGISTER/register/api/localtest/apps/ttd/smoke-app" -d "$APP_DATA" | check "register app with posted test data (apps only)" \

@@ -9,7 +9,7 @@ Production Altinn Register (`vendor/`, see `UPSTREAM.md`) running on an in-memor
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, link the fakes project |
 | `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, localtest-only and Profile controllers, DI composition |
 | `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and what v3 added). The format, shared with apps' `testData.json`, is documented in [`../../testdata/`](../../testdata/README.md) with its JSON Schema (v3) |
-| `smoke-test.sh` | Curl checks against a running register (and the authentication component for a user token), with a stub app for registration |
+| `smoke-test.sh` | Curl checks against a running register (and the authentication component for user and org tokens), with a stub app for registration; includes the contact point lookups of Notifications and Correspondence and the KRR stand-in |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned Alpine images, build and publish, tzdata, non-root `dotnet` user); each difference is marked `localtest:` |
 
 Directive sites in `vendor/`: one, in `RegisterHost.cs` (`AddLocaltestRegister(builder)` after the production
@@ -32,6 +32,7 @@ Localtest-only (anonymous), under `register/api/localtest/`:
 | `PUT apps/{org}/{app}` with the app's `testData.json` as the body (empty body: no test data) | Register an app with the posted test data (replaces earlier data) and rebuild; a body that does not parse is a 400 and changes nothing |
 | `DELETE apps/{org}/{app}` | Unregister and rebuild |
 | `POST apps/refresh` | Re-read the seed and rebuild with the posted app data |
+| `POST krr/rest/v2/personer` | The KRR stand-in for Correspondence (below) |
 
 Per user in `test-users`:
 
@@ -77,6 +78,28 @@ Notifications does with them is production behaviour (see the Notifications READ
 | `POST users/contactpoint/lookupsi`, `{ externalIdentities }` | one entry per `urn:altinn:person:idporten-email:{email}` that matches a self-identified user (`externalIdentity`, `email`, `mobileNumber` empty). Legacy username identities are not modelled |
 | `POST organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | as Profile's `OrgNotificationAddressController`: one entry per organisation with `notificationAddresses` in the test data, `{ organizationNumber, addressOrigin, partyId: 0, mobileNumberList, emailList }`; a sub-unit without addresses gets its main unit's (`addressOrigin` = the main unit's number); organisations without addresses either way, and unknown numbers, are left out. Seeded: DDG Fitness (897069644, and through it its sub-units) and Digitaliseringsdirektoratet (991825827) |
 | `POST units/contactpoint/lookup`, `{ organizationNumbers, resourceId }` | one entry per organisation in the register, `userContactPoints` = every test user that holds roles or access packages at that party. The seed has no per-resource registrations, so `resourceId` is not used here; Notifications filters the users by the PDP's decision for the resource, as in production |
+
+Profile's `CorrespondenceController` (`profile/api/v1/correspondence/`, `LocaltestProfileCorrespondenceController`): the two
+lookups Altinn Correspondence makes, with the same answers as the organisation rows above. As in Profile they require a token
+whose `scope` contains `altinn:profile/correspondence.notificationsettings.read` (401 without a token, 403 without the scope);
+Correspondence's token, exchanged from the fake Maskinporten by production Authentication, carries it.
+
+| Endpoint | Answer |
+| --- | --- |
+| `POST correspondence/units/contactpoint/lookup`, `{ organizationNumbers, resourceId }` | as `units/contactpoint/lookup` |
+| `POST correspondence/organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | as `organizations/notificationaddresses/lookup` (the test data's official addresses, the main unit's as fallback) |
+
+## KRR stand-in
+
+`POST register/api/localtest/krr/rest/v2/personer` (`LocaltestKrrController`, anonymous) answers in the shape of the contact
+and reservation register (`kontaktregisteret.no`) for Altinn Correspondence's production client, which checks every person
+recipient against it and fails without an answer (`GeneralSettings:ContactReservationRegistryBaseUrl` points here). Body
+`{ "personidentifikatorer": [...] }`; answer `{ "personer": [{ personidentifikator, reservasjon, status: "AKTIV",
+varslingsstatus, kontaktinformasjon: { epostadresse, mobiltelefonnummer } }] }`, one entry per seeded person with the test
+data's e-mail and number as stored. `reservasjon` is `"JA"` (and `varslingsstatus` `"KAN_IKKE_VARSLES"`) for a person with
+`reserved: true` (Rik Forelder, 1003, in the seed), `"NEI"` (`"KAN_VARSLES"`) otherwise, the same flag Profile's `isReserved`
+mirrors; national identity numbers not in the test data get no entry, which the client reads as not reserved. Production KRR
+wants a raw Maskinporten token with `krr:global/kontaktinformasjon.read`; nothing checks it here.
 
 ## Verified (schema v3)
 

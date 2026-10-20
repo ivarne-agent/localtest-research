@@ -69,6 +69,11 @@ public static class LocaltestRegisterExtensions
         services.AddTransient<LocaltestTestUsersController>();
         services.AddTransient<LocaltestAppsController>();
         services.AddTransient<LocaltestProfileController>();
+        services.AddTransient<LocaltestProfileCorrespondenceController>();
+        services.AddTransient<LocaltestKrrController>();
+
+        // Profile's CorrespondenceAccess policy for the two lookups Altinn Correspondence makes.
+        LocaltestProfileCorrespondenceController.AddPolicy(services.AddAuthorizationBuilder());
 
         return builder;
     }
