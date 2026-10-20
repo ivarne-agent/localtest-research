@@ -8,4 +8,5 @@ COPY components/storage/postgres-init/10-storage.sh /docker-entrypoint-initdb.d/
 COPY components/storage/vendor/infra/postgres_init.sql /storage-init/postgres_init.sql
 COPY postgres-init/20-workflow-engine.sh /docker-entrypoint-initdb.d/20-workflow-engine.sh
 COPY components/events/postgres-init/30-events.sh /docker-entrypoint-initdb.d/30-events.sh
+COPY components/resource-registry/postgres-init/40-resource-registry.sh /docker-entrypoint-initdb.d/40-resource-registry.sh
 CMD ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]

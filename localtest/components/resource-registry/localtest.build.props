@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Altinn Resource Registry source, selected through the
+    DirectoryBuildPropsPath environment variable (see Dockerfile). The nearest vendored props above the project is
+    imported first (what MSBuild itself would have found: the host folder's, which imports src/Directory.Build.props),
+    then LOCALTEST is layered on top.
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+    <LocaltestVendoredBuildProps Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildProps>
+  </PropertyGroup>
+
+  <Import Project="$(LocaltestVendoredBuildProps)" Condition="'$(LocaltestVendoredBuildProps)' != '' And Exists('$(LocaltestVendoredBuildProps)')" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- The host generates XML documentation; the localtest sources compiled into it are not documented. -->
+    <NoWarn>$(NoWarn);CS1591;SA1600;SA1633</NoWarn>
+  </PropertyGroup>
+</Project>

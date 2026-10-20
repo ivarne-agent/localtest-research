@@ -1,0 +1,33 @@
+{
+  "identifier": "altinn_keyrole_access",
+  "title": {
+    "en": "Altinn key roles",
+    "nb": "Altinn nøkkelroller",
+    "nn": "Altinn nøkkelroller"
+  },
+  "description": {
+    "en": "Access for the roles Altinn defines as key roles",
+    "nb": "Tilgang for rollene Altinn definerer som nøkkelroller",
+    "nn": "Tilgang for rollene Altinn definerer som nøkkelroller"
+  },
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "localtest@altinn.cloud",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "organization": "991825827",
+    "orgcode": "digdir",
+    "name": {
+      "en": "Digitaliseringsdirektoratet",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    }
+  },
+  "resourceType": "GenericAccessResource"
+}

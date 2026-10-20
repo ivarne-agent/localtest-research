@@ -1,0 +1,18 @@
+<Project>
+  <!-- Evaluated after each vendored project file (DirectoryBuildTargetsPath); item changes belong here. -->
+  <PropertyGroup>
+    <LocaltestVendoredBuildTargets Condition="'$(LocaltestIsVendoredProject)' == 'true'">$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildProjectDirectory)'))</LocaltestVendoredBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(LocaltestVendoredBuildTargets)" Condition="'$(LocaltestVendoredBuildTargets)' != '' And Exists('$(LocaltestVendoredBuildTargets)')" />
+
+  <!--
+    The localtest fakes implement interfaces that live in the Core project (IPolicyRepository, IApplications) and are
+    resolved by the host's DI, so they are compiled into the host from the adjacent fakes/ folder instead of being a
+    separate project. The seed (fakes/Seed/{id}/resource.json and policy.xml) is embedded as Localtest.Seed/{id}/{file}.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.ResourceRegistry'">
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)fakes/Seed/**/*.*" Exclude="$(MSBuildThisFileDirectory)fakes/Seed/**/*.cs" LinkBase="Localtest/Seed"
+                      LogicalName="Localtest.Seed/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

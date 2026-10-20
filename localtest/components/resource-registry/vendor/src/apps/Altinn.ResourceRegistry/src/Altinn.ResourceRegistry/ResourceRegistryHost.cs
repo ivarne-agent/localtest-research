@@ -43,6 +43,10 @@ internal static class ResourceRegistryHost
     public static WebApplication Create(string[] args)
     {
         var builder = AltinnHost.CreateWebApplicationBuilder("resource-registry", args);
+#if LOCALTEST
+        // PostgreSQLSettings is read eagerly by MapPostgreSqlConfiguration below, so the localtest defaults go in first.
+        Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);
+#endif
         var services = builder.Services;
         var config = builder.Configuration;
 
@@ -183,6 +187,10 @@ internal static class ResourceRegistryHost
                 return string.Join(".", chain);
             };
         });
+
+#if LOCALTEST
+        Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);
+#endif
 
         return builder.Build();
     }
