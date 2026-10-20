@@ -85,6 +85,20 @@ curl -s "$RR/altinn_keyrole_access/policy/rights" | check "policy/rights of the 
   '{a["value"].lower() for r in d for s in r["subjects"] for a in s["subjectAttributes"]} >= {"dagl", "lede", "repr", "bobe"}'
 curl -s "$RR/altinn_keyrole_access/policy" | grep -q 'urn:altinn:resource:altinn_keyrole_access:policyid:1' && echo "ok   policy of the seeded resource is its XACML" || { echo "FAIL seeded policy"; FAIL=1; }
 
+echo "== correspondence resources (seed)"
+curl -s "$RR/apps-correspondence-integrasjon4" | check "apps-correspondence-integrasjon4: a CorrespondenceService of TTD (991825827), as in tt02" \
+  'd["resourceType"] == "CorrespondenceService" and d["hasCompetentAuthority"]["organization"] == "991825827" and d["hasCompetentAuthority"]["orgcode"] == "TTD"'
+curl -s "$RR/apps-correspondence-integrasjon2" | check "apps-correspondence-integrasjon2: a GenericAccessResource, as in tt02" \
+  'd["resourceType"] == "GenericAccessResource" and d["hasCompetentAuthority"]["organization"] == "991825827"'
+curl -s "$RR/ttd-localtest-correspondence" | check "ttd-localtest-correspondence: a CorrespondenceService of ttd" \
+  'd["resourceType"] == "CorrespondenceService" and d["hasCompetentAuthority"]["orgcode"] == "ttd"'
+for id in apps-correspondence-integrasjon4 apps-correspondence-integrasjon2; do
+  curl -s "$RR/$id/policy/rights" | check "policy/rights of $id: digdir and ttd (localtest deviation), dagl, priv" \
+    '{a["value"].lower() for r in d for s in r["subjects"] for a in s["subjectAttributes"]} >= {"digdir", "ttd", "dagl", "priv"}'
+done
+curl -s "$RR/ttd-localtest-correspondence/policy/rights" | check "policy/rights of ttd-localtest-correspondence: ttd writes, dagl and priv read" \
+  '{((r["action"]["value"] if isinstance(r["action"], dict) else str(r["action"]).split(":")[-1]).lower(), a["value"].lower()) for r in d for s in r["subjects"] for a in s["subjectAttributes"]} >= {("write", "ttd"), ("read", "dagl"), ("read", "priv")}'
+
 echo "== the updated feed"
 ALL=$(feed 1000); ONE=$(feed 1)
 echo "$ONE" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d))' | { read -r n; echo "     ($n pairs paged one at a time)"; }

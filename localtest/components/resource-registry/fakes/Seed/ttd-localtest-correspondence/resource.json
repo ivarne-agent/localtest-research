@@ -1,0 +1,39 @@
+{
+  "identifier": "ttd-localtest-correspondence",
+  "title": {
+    "en": "Localtest correspondence",
+    "nb": "Localtest-melding",
+    "nn": "Localtest-melding"
+  },
+  "description": {
+    "en": "Correspondence resource for the localtest smoke test",
+    "nb": "Meldingsressurs for localtest sin røyktest",
+    "nn": "Meldingsressurs for røyktesten i localtest"
+  },
+  "rightDescription": {
+    "en": "",
+    "nb": "",
+    "nn": ""
+  },
+  "status": "Active",
+  "contactPoints": [],
+  "isPartOf": "Altinn",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Testdepartementet",
+      "nb": "Testdepartementet",
+      "nn": "Testdepartementet"
+    },
+    "organization": "991825827",
+    "orgcode": "ttd"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": false,
+  "resourceType": "CorrespondenceService",
+  "isOneTimeConsent": false
+}

@@ -56,10 +56,14 @@ endpoints and the Register client for access lists.
 `fakes/Seed/{id}/resource.json` (the `ServiceResource` JSON) and `policy.xml`, embedded in the host and applied at every
 start: a resource that is missing is created, and its policy is stored with `StorePolicy`, which derives the subject
 pairs of the `updated` feed. An existing resource keeps its row, and its policy is stored again only if the policy store
-has none, so a restart changes nothing. Today it holds `altinn_keyrole_access`, the resource the PDP stand-in's
-`policies/resourceregistry/` folder carried (its `policy.xml` is a copy; the `resource.json` is new, written to match
-the policy: type `GenericAccessResource`, owner Digdir, not delegable). Correspondence resources wait for the
-Correspondence component. The provisioner does not push platform seed data.
+has none, so a restart changes nothing. The provisioner does not push platform seed data.
+
+| Resource | Type | Owner | Source |
+| --- | --- | --- | --- |
+| `altinn_keyrole_access` | `GenericAccessResource` | Digdir, not delegable | the resource the PDP stand-in's `policies/resourceregistry/` folder carried (its `policy.xml` is a copy; the `resource.json` is new, written to match the policy) |
+| `apps-correspondence-integrasjon4` | `CorrespondenceService` | `TTD`, 991825827 (as tt02 writes it) | tt02, fetched 2026-10-20 (`createdAt`, `updatedAt`, `versionId` dropped): `signering-brukerstyrt`'s first signing task sends its correspondence to it. **Localtest deviation in the policy:** `ttd` beside `digdir` in the service-owner rule (read, write, subscribe, publish), marked with an XML comment. An app's correspondence token says `urn:altinn:org` `ttd` (`/Home/GetTestOrgToken` exchanges with `test=true`) and lacks `altinn:serviceowner`, so Correspondence asks the PDP, which would deny it with tt02's rule. The other rules (`dagl` read/write/publish, `dagl` and `priv` read/write) are tt02's |
+| `apps-correspondence-integrasjon2` | `GenericAccessResource` | as above | tt02, with the same `ttd` deviation. Kept a `GenericAccessResource` as tt02 has it: Correspondence refuses it for a new correspondence, in production as well, so `signering-brukerstyrt`'s second task gets the production error rather than a 404 |
+| `ttd-localtest-correspondence` | `CorrespondenceService` | `ttd`, 991825827 | written for `../correspondence/smoke-test.sh`, modelled on the tt02 policy: `ttd` reads, writes, subscribes and publishes; `dagl` and `priv` read and write (a recipient's read and confirm, also through a dialog token) |
 
 ## Used by
 
@@ -104,7 +108,8 @@ brings the developer exception page and Swagger (`/swagger`).
   endpoint drops the fixture's byte order mark), `policy/subjects?reloadFromXacml=true` (dagl, regna, `urn:altinn:org:ttd`),
   the `updated` feed paged one row at a time (14 pairs, every pair once, equal to the unpaged feed), a re-pushed policy
   without regna giving `deleted: true` with a newer `updatedAt` and back again, `resource/orgs`, `bysubjects`,
-  `policy/rights` of the seeded resource, a platform access token accepted (and a missing or tampered one refused)
+  `policy/rights` of the seeded resource, the three Correspondence resources (types, owner, the `ttd` deviation in the
+  rights), a platform access token accepted (and a missing or tampered one refused)
   on `access-lists/get-by-member`, and writes needing a token.
 - A restart of the container leaves the seed and the 14 feed rows untouched (`already present`, same `updatedAt`).
 - `studioctl run` of `signing-test` (built from the monorepo checkout): the provisioner's step 3b (`GET …/policy/subjects?reloadFromXacml=true`,

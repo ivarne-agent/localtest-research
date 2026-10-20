@@ -1,0 +1,35 @@
+{
+  "identifier": "apps-correspondence-integrasjon2",
+  "title": {
+    "en": "Apps correspondence client",
+    "nb": "Apps correspondence client",
+    "nn": "Apps correspondence client"
+  },
+  "description": {
+    "en": "Apps correspondence resource",
+    "nb": "Apps correspondence resource",
+    "nn": "Apps correspondence resource"
+  },
+  "homepage": "https://www.digdir.no/",
+  "status": "Active",
+  "contactPoints": [],
+  "isPartOf": "Altinn",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Testdepartementet",
+      "nb-no": "Testdepartementet",
+      "nn-no": "Testdepartementet"
+    },
+    "organization": "991825827",
+    "orgcode": "TTD"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": false,
+  "resourceType": "GenericAccessResource",
+  "isOneTimeConsent": false
+}
