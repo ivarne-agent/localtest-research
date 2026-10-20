@@ -462,3 +462,9 @@ could be pointed at the localtest stack instead of building a separate page. Res
 `planned-components/admin-running-services/`: what the admin frontend shows and calls today, what it would need
 from the stack, what task 8 would still add, and a recommendation.
 
+**Conditional approval (2026-10-20).** If the research finds that vendoring the admin frontend and its backend into
+the stack as an optional group (`admin`, implying whatever it needs) is straightforward, dispatch that vendoring and
+inclusion as a follow-on task once 10, 16 and 7 are finished and verified, without a further round of discussion;
+the brief is the plan's "Proposed brief" plus the inherited rules. If it is not straightforward (Designer backend
+coupling, Gitea or Kubernetes dependencies, auth model), report back and 8 is reconsidered instead.
+
