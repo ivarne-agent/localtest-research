@@ -8,5 +8,7 @@ question; its `README.md` lists the files and `summary.md` holds the conclusions
 | [`localtest-components/`](localtest-components/) | What does localtest consist of, where does the production code live, and which component is easiest to replace with a real container in `studioctl env up`? | 2026-10-16 |
 | [`planned-components/`](planned-components/) | Plans for replacing localtest emulations with vendored production code, starting with Register | 2026-10-16 |
 
+Open work, with its status and the design decisions made so far, is in [`TODO.md`](TODO.md).
+
 Everything here comes from reading code in the public Altinn repositories; nothing was run against
 production, and each report has a "not verified" section.
