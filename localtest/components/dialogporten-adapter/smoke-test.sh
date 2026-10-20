@@ -70,9 +70,11 @@ create_instance() {
 if ((OFF)); then
   echo "== the default stack: the dialogporten group is off"
   expect "no adapter on its host port" 000 "$(code --max-time 3 "$ADAPTER_DIRECT/health")"
-  # The adapter's prefix is not routed, so the longest matching prefix is Storage's /storage, which has no such route.
-  expect "POST storage/dialogporten/api/localtest/enqueue is a 404 (Storage under /storage)" 404 \
-    "$(code -X POST -H 'Content-Type: application/json' -d x "$ADP/api/localtest/enqueue")"
+  # Today the adapter's prefix is not routed, so the longest matching prefix is Storage's /storage, which has no such
+  # route (404); once the front door answers for components that are not running (TODO task 16) it is a 503. Storage's
+  # handler takes either for "not running".
+  OFF_CODE=$(code -X POST -H 'Content-Type: application/json' -d x "$ADP/api/localtest/enqueue")
+  expect "POST storage/dialogporten/api/localtest/enqueue is a 404 or 503" yes "$([[ "$OFF_CODE" == 404 || "$OFF_CODE" == 503 ]] && echo yes || echo "$OFF_CODE")"
   SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   R=$(create_instance)
   expect "instance created as usual" 201 "${R##*$'\n'}"

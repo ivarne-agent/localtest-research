@@ -129,7 +129,8 @@ the Register, Authentication and Dialogporten's WebApi, with `Localtest__Adapter
 origin, published on host port 8035 (`/health` is polled there) and routed under `/storage/dialogporten` on the platform
 host. The proxy matches the longest prefix, so the adapter's paths win over Storage's `/storage`. Without the group there
 is no container and no route: `/storage/dialogporten/...` reaches Storage under `/storage` and is a 404, which Storage's
-handler takes for "not running". Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter`, override
+handler takes for "not running" (once the front door answers 503 for components that are not running, TODO task 16, it
+is a 503, which the handler takes the same way). Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter`, override
 with `STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER`; `--dev dialogporten-adapter` builds it from this folder.
 
 ## Smoke test
@@ -149,7 +150,7 @@ receipt is the adapter's; the code-flow token for user 1337 → the end-user dia
 `text/markdown` (401 without a token or with a user token); `syncDialog/simple` twice 204 with the revision unchanged;
 the delete with the dialog token 204 → Storage `isSoftDeleted` → the dialog's `deletedAt` within 10 s.
 
-Without the group: no adapter on 8035, the enqueue path a 404, an instance created as usual without `dialog.id`, and
+Without the group: no adapter on 8035, the enqueue path a 404 (503 after task 16's front door), an instance created as usual without `dialog.id`, and
 (through `podman logs`) exactly one "adapter is not running" line in Storage's log for it and no outbox warning.
 
 ## Verified
