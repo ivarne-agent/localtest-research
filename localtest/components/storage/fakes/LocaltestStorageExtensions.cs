@@ -103,7 +103,10 @@ public static class LocaltestStorageExtensions
 
         // Dialogporten: the outbox's commands reach LocaltestDialogportenSyncHandler on Wolverine's local queue (found by
         // Wolverine in this assembly), which posts them to the adapter with this client.
-        services.AddHttpClient<LocaltestDialogportenAdapterClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient(
+            LocaltestDialogportenAdapterClient.HttpClientName,
+            client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddSingleton<LocaltestDialogportenAdapterClient>();
 
         // Application metadata and texts: production repositories on Postgres only. The app runner pushes them through
         // the production endpoints (POST/PUT applications, POST/PUT applications/{org}/{app}/texts), as Designer does.

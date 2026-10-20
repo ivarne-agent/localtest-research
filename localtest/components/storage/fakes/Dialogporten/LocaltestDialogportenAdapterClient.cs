@@ -24,11 +24,15 @@ namespace Altinn.Platform.Storage.Localtest.Dialogporten;
 /// </para>
 /// </summary>
 public sealed partial class LocaltestDialogportenAdapterClient(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IOptions<LocaltestStorageOptions> options,
     ILogger<LocaltestDialogportenAdapterClient> logger
 )
 {
+    /// <summary>The named client (30 s timeout). A singleton by type with a plain constructor, so Wolverine's generated
+    /// handler code builds it without service location.</summary>
+    public const string HttpClientName = "localtest-dialogporten-adapter";
+
     public async Task Enqueue(SyncInstanceToDialogportenCommand command, CancellationToken cancellationToken)
     {
         var url = options.Value.DialogportenAdapterEndpoint.TrimEnd('/') + "/api/localtest/enqueue";
@@ -46,6 +50,7 @@ public sealed partial class LocaltestDialogportenAdapterClient(
         HttpResponseMessage response;
         try
         {
+            using var httpClient = httpClientFactory.CreateClient(HttpClientName);
             response = await httpClient.PostAsJsonAsync(url, body, cancellationToken);
         }
         catch (HttpRequestException e)
