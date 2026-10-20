@@ -30,6 +30,16 @@ SUB_UNITS = {500800: 500600, 500801: 500600, 500802: 500600}
 # "EAS Health Consulting Svolvær" record (910423185) is a duplicate of party 500802 and is dropped.
 EXTRA_ORG_PARTY_IDS = {"900000001": 500900}
 
+# Unit types the old data had wrong or left out; the production Register always has one (Access Management's import
+# rejects an organisation without it).
+UNIT_TYPES = {500004: "ENK", 500005: "STAT", 500800: "BEDR", 500801: "BEDR", 500802: "BEDR"}
+
+# Self-identified users are ID-porten e-mail registrations: no name, no username, identified by a unique e-mail.
+SELF_IDENTIFIED_EMAILS = {1004: "selvregistrert.bruker@example.com"}
+
+# Access packages (schema v2), which the old data did not have, keyed by user id, then by the party id they are held for.
+ACCESS_PACKAGES = {1001: {"500000": ["regnskapsforer-med-signeringsrettighet", "lonn"]}}
+
 FNR_K1 = [3, 7, 6, 1, 8, 9, 4, 5, 2]
 FNR_K2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
 ORG_W = [3, 2, 7, 6, 5, 4, 3, 2]
@@ -163,7 +173,7 @@ def main():
             "orgNumber": org_numbers[old],
             "parentPartyId": parent_of.get(pid),
             "name": name,
-            "unitType": ci(p, "unitType") or ci(details, "unitType"),
+            "unitType": UNIT_TYPES.get(pid) or ci(p, "unitType") or ci(details, "unitType"),
             "unitStatus": ci(details, "unitStatus") or "N",
             "businessAddress": ci(details, "businessAddress"),
             "businessPostalCode": ci(details, "businessPostalCode"),
@@ -199,15 +209,16 @@ def main():
             if ppid != pid:
                 party_roles.setdefault(str(ppid), [])
 
+        self_identified = not old_ssn
         persons.append({"ssn": new_ssn} | drop_empty({
             "userId": user_id,
             "partyId": pid,
             "partyUuid": ci(party, "partyUuid"),
-            "firstName": ci(details, "firstName") or first,
-            "middleName": ci(details, "middleName"),
-            "lastName": ci(details, "lastName") or last,
-            "userName": ci(profile, "userName"),
-            "email": ci(profile, "email"),
+            "firstName": None if self_identified else ci(details, "firstName") or first,
+            "middleName": None if self_identified else ci(details, "middleName"),
+            "lastName": None if self_identified else ci(details, "lastName") or last,
+            "userName": None if self_identified else ci(profile, "userName"),
+            "email": SELF_IDENTIFIED_EMAILS.get(user_id) or ci(profile, "email"),
             "language": ci(prefs, "language"),
             "preSelectedPartyId": ci(prefs, "preSelectedPartyId"),
             "doNotPromptForParty": ci(prefs, "doNotPromptForParty"),
@@ -224,6 +235,7 @@ def main():
             "mailingPostalCode": ci(details, "mailingPostalCode"),
             "mailingPostalCity": ci(details, "mailingPostalCity"),
             "partyRoles": party_roles,
+            "accessPackages": ACCESS_PACKAGES.get(user_id),
             "customClaims": claims.get(user_id),
         }))
         # doNotPromptForParty=false is meaningful; drop_empty keeps False (only None/""/[]/{} are dropped).
