@@ -53,7 +53,7 @@ A path matching no route still falls through to the localtest app.
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task18-testdata`, branch `task/testdata-format`; phase 1 docs, schema and seed, phase 2 stack) | small | yes |
 
-Suggested order: 10, 16 and 7 run in parallel as code (phase 1); the stack goes to 10 first, then 16, then 7 (phase 2). 8 is deferred pending 17., then 9 to 11 in that
+Suggested order (stack, one at a time): 10 (running), 16, 18, 7 (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -486,4 +486,15 @@ Notifications' organisation recipients, 422 today), and an extension point for t
 The baseline seed is modified to use them (ids, names and `userId.partyId` pairs unchanged: Cypress depends on
 them), `generate-testdata.py` follows, and the Register fakes load the new fields. The KRR stand-in reads
 `reserved` once task 7 has merged.
+
+**Phase 1 (2026-10-20, branch `task/testdata-format`).** Folder `localtest/testdata/` with `README.md` and
+`test-users.schema.v3.json` (2020-12, `additionalProperties: false`, `$id` in the altinncdn.no line but unpublished;
+v2 was never published, the v1 URL is used by the old localtest's exports and the docs, nothing validates at run time).
+Seed on v3: `+47` on every number, `reserved: true` on Rik Forelder (1003) only, official addresses for DDG Fitness
+and Digitaliseringsdirektoratet, generator back in step with the file. Kept deviation: the four persons whose numbers
+were `87654321`-style get valid Norwegian numbers (`+4799001337` etc.), because libphonenumber in production
+Notifications rejects `+4787654321` and the seed would still never receive an SMS; nothing in Cypress or the apps
+uses the old digits. Open for phase 2: mirror `reserved` into `isReserved` of `users/contactpoint/lookup`
+(production does). 7 must rebase onto this: its KRR stand-in answers `JA` for reserved persons, its
+`correspondence/organizations/notificationaddresses/lookup` calls the official addresses, its smoke expectations change.
 
