@@ -30,7 +30,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 6 | [Notifications](#6-notifications) | plan done (2026-10-20, `planned-components/notifications/`); implementation unapproved | medium | yes |
 | 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
-| 9 | [Dialogporten core](#9-dialogporten-core) | approved 2026-10-20, design under discussion (reset, routing, Redis); 9a not yet dispatched | large | yes |
+| 9 | [Dialogporten core](#9-dialogporten-core) | 9a in progress (2026-10-20, agent `task9a-dialogporten`, worktree `.worktrees/task9a-dialogporten`, branch `task/dialogporten-core`); 9b follows | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
@@ -38,7 +38,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 
-Suggested order: 9a, 9b, then 6 to 8 as capacity allows, then 9 to 11 in that
+Suggested order: 9a (running), 9b, then 6 to 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -258,10 +258,19 @@ task 2 (deferred).
 - Maskinporten: task 4's shared fake (`localtest/components/shared/fakes/Maskinporten/`) copied into the component's
   fakes, production semantics (`UseAltinnTestOrg` false, Dialogporten acts as `digdir`; `ttd` shares Digdir's number
   in the registry so the owner check passes). Not the report's `/Home/GetTestOrgToken` variant.
-- Database: `dialogporten` with its own role on the shared Postgres 18 (no `uuidv7()` shim), reset on every start as
-  the Events component does.
+- Database: `dialogporten` with its own role on the shared Postgres 18 (no `uuidv7()` shim). **No reset on start**:
+  dialogs persist across restarts like Storage's instances, and the only reset is `studioctl env reset -r localtest-v2`,
+  which deletes the shared Postgres volume and therefore cleans Storage and Dialogporten together (decided
+  2026-10-20; instances and their dialogs must never get out of step).
 - The `/dialogporten/graphql` → `/graphql` rewrite is a path-rewrite option on the route type in studioctl-server's
-  proxy (vendored source), the only route that needs it.
+  proxy (vendored source), the only route that needs it; it mirrors APIM in production. **Note for task 11
+  (Arbeidsflate):** the browser-side GraphQL subscription stream and the BFF's `DIALOGPORTEN_URL` go through this
+  route; if WebSockets or the URL shape turn out not to fit, the rewrite (or a dedicated host) may have to change.
+- Redis stays, inside the opt-in group (one container, about 10 MB): upstream connects to it eagerly at start in all
+  three hosts for HotChocolate GraphQL subscriptions (the Service host publishes, the GraphQL host subscribes, so an
+  in-memory transport would never deliver a live update), and uses it as FusionCache's distributed tier and
+  backplane and as a health check. Removing it would cost two directive sites in the shared Infrastructure project
+  (subscriptions to in-memory, cache registration off) and lose live inbox updates. The component README must say this.
 - Fresh pin of upstream `main`; three images from one vendored tree (Dockerfiles mirroring upstream's), three matrix
   entries in the image workflow.
 - Steps. **9a**: vendor, build chain, Dockerfiles, Postgres and Redis, hooks and fakes, the optional group in
