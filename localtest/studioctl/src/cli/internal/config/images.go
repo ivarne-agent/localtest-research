@@ -31,6 +31,11 @@ const (
 	tagLocaltestV2         = "sha-6baeab6"
 	tagLatest              = "latest"
 
+	// The Redis of the optional Dialogporten group: 7.2 is the last BSD-licensed Redis (7.4 moved to RSALv2/SSPL), and
+	// the nearest to the 6.0 upstream's own compose file runs. Pinned by digest; no build of ours is involved.
+	imageRedis = "docker.io/library/redis"
+	tagRedis   = "7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0"
+
 	// EnvLocaltestV2Tag overrides the tag every localtest-v2 image runs ("latest" follows main).
 	EnvLocaltestV2Tag = "STUDIOCTL_LOCALTEST_V2_TAG"
 )
@@ -75,6 +80,13 @@ type LocaltestV2Images struct {
 	Events           ImageSpec
 	ResourceRegistry ImageSpec
 	Postgres         ImageSpec
+
+	// The optional Dialogporten group: three hosts built from one vendored tree, and the Redis they share,
+	// which is a third-party image and so is not one of the research repository's builds (not in All).
+	DialogportenWebApi  ImageSpec
+	DialogportenGraphQL ImageSpec
+	DialogportenService ImageSpec
+	Redis               ImageSpec
 }
 
 // All returns every localtest-v2 image, for applying one tag to the set.
@@ -89,6 +101,9 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.Events,
 		&i.ResourceRegistry,
 		&i.Postgres,
+		&i.DialogportenWebApi,
+		&i.DialogportenGraphQL,
+		&i.DialogportenService,
 	}
 }
 
@@ -149,6 +164,11 @@ func DefaultImages() ImagesConfig {
 			Events:           localtestV2Image("events"),
 			ResourceRegistry: localtestV2Image("resource-registry"),
 			Postgres:         localtestV2Image("postgres"),
+
+			DialogportenWebApi:  localtestV2Image("dialogporten-webapi"),
+			DialogportenGraphQL: localtestV2Image("dialogporten-graphql"),
+			DialogportenService: localtestV2Image("dialogporten-service"),
+			Redis:               ImageSpec{Image: imageRedis, Tag: tagRedis, Floating: false},
 		},
 	}
 	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag)); tag != "" {
@@ -183,6 +203,11 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_EVENTS":            &c.LocaltestV2.Events,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_RESOURCE_REGISTRY": &c.LocaltestV2.ResourceRegistry,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_POSTGRES":          &c.LocaltestV2.Postgres,
+
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_WEBAPI":  &c.LocaltestV2.DialogportenWebApi,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_GRAPHQL": &c.LocaltestV2.DialogportenGraphQL,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_SERVICE": &c.LocaltestV2.DialogportenService,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
 	}
 }
 

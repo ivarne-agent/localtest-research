@@ -295,6 +295,8 @@ func (c *EnvCommand) withContainerClient(
 type envUpFlags struct {
 	runtime           string
 	devComponents     []string
+	with              []string
+	without           []string
 	detach            bool
 	devWorkflowEngine bool
 	latestImages      bool
@@ -305,6 +307,7 @@ type envUpFlags struct {
 }
 
 func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
+	groupNames := strings.Join(envlocaltestv2.GroupNames(), ", ")
 	fs := flag.NewFlagSet("env up", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.Usage = func() {
@@ -324,6 +327,8 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --open           Open localtest in browser after starting",
 			"  --latest         Run the localtest-v2 images at :latest instead of the pinned build",
 			"  --dev NAME       Build a localtest-v2 component from "+envlocaltestv2.EnvSourceRoot+" (repeatable; 'all')",
+			"  --with GROUP     Start an optional localtest-v2 component group ("+groupNames+"; repeatable)",
+			"  --without GROUP  Leave out an optional localtest-v2 component group that is on by default (repeatable)",
 			"  --json           Output as JSON",
 		))
 	}
@@ -340,6 +345,14 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 images at :latest")
 	fs.Func("dev", "Build a localtest-v2 component from source (repeatable)", func(value string) error {
 		f.devComponents = append(f.devComponents, strings.TrimSpace(value))
+		return nil
+	})
+	fs.Func("with", "Start an optional localtest-v2 component group (repeatable)", func(value string) error {
+		f.with = append(f.with, strings.TrimSpace(value))
+		return nil
+	})
+	fs.Func("without", "Leave out an optional localtest-v2 component group (repeatable)", func(value string) error {
+		f.without = append(f.without, strings.TrimSpace(value))
 		return nil
 	})
 
@@ -388,6 +401,8 @@ func (c *EnvCommand) runLocaltestV2Up(
 	env := envlocaltestv2.NewEnv(c.cfg, commandOutput(c.out, flags.jsonOutput), client)
 	upOpts := envtypes.UpOptions{
 		DevComponents:     flags.devComponents,
+		With:              flags.with,
+		Without:           flags.without,
 		Detach:            flags.detach,
 		DevWorkflowEngine: false,
 		LatestImages:      flags.latestImages,
@@ -405,7 +420,11 @@ func (c *EnvCommand) runLocaltestV2Up(
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)
 	}
-	if status.Running && len(flags.devComponents) == 0 {
+	groupsChanged, err := env.GroupsChanged(upOpts)
+	if err != nil {
+		return fmt.Errorf("compare component groups: %w", err)
+	}
+	if status.Running && len(flags.devComponents) == 0 && !groupsChanged {
 		return envUpOutput{
 			Runtime:        runtimeLocaltestV2,
 			Running:        true,
@@ -435,6 +454,8 @@ func (c *EnvCommand) runLocaltestUp(
 
 	upOpts := envtypes.UpOptions{
 		DevComponents:     nil,
+		With:              nil,
+		Without:           nil,
 		Detach:            flags.detach,
 		DevWorkflowEngine: flags.devWorkflowEngine,
 		LatestImages:      false,

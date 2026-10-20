@@ -6,9 +6,10 @@ namespace Altinn.Studio.StudioctlServer.Proxy;
 /// <summary>
 /// What the localtest ingress always did for the platform behind it: the request keeps the browser-facing Host
 /// (the components build their public links and validate issuers from it), and <c>Secure</c> is stripped from
-/// every cookie, because the production components set it and the local origin is plain http.
+/// every cookie, because the production components set it and the local origin is plain http. A route with a
+/// <see cref="PathRewrite"/> is forwarded under its replacement path.
 /// </summary>
-internal sealed class PlatformTransformer : HttpTransformer
+internal sealed class PlatformTransformer(PathRewrite? rewrite = null) : HttpTransformer
 {
     public override async ValueTask TransformRequestAsync(
         HttpContext httpContext,
@@ -19,6 +20,15 @@ internal sealed class PlatformTransformer : HttpTransformer
     {
         await base.TransformRequestAsync(httpContext, proxyRequest, destinationPrefix, cancellationToken);
         proxyRequest.Headers.Host = httpContext.Request.Host.Value;
+
+        if (rewrite is { } pathRewrite)
+        {
+            proxyRequest.RequestUri = RequestUtilities.MakeDestinationAddress(
+                destinationPrefix,
+                pathRewrite.Apply(httpContext.Request.Path),
+                httpContext.Request.QueryString
+            );
+        }
     }
 
     public override async ValueTask<bool> TransformResponseAsync(

@@ -14,7 +14,7 @@ func boundTopologyConfig(opts *Options) envtopology.BoundTopologyConfig {
 	var routes []envtopology.BoundTopologyRoute
 	for _, c := range components(opts) {
 		for _, r := range c.routes {
-			routes = append(routes, hostRoute(c.name, r.host, r.prefix, c.hostURL()))
+			routes = append(routes, hostRoute(c.name, r.host, r.prefix, c.hostURL(), r.rewrite))
 		}
 	}
 	routes = append(routes, hostRoute(
@@ -22,6 +22,7 @@ func boundTopologyConfig(opts *Options) envtopology.BoundTopologyConfig {
 		opts.Topology.FrontendDevServerHostName(),
 		"",
 		"http://"+loopback+":"+frontendDevServerHostPort,
+		"",
 	))
 
 	return envtopology.BoundTopologyConfig{
@@ -34,7 +35,15 @@ func boundTopologyConfig(opts *Options) envtopology.BoundTopologyConfig {
 	}
 }
 
-func hostRoute(component, host, prefix, url string) envtopology.BoundTopologyRoute {
+// rewriteMetadataKey is the route metadata studioctl-server's proxy reads as the path to forward in place of the
+// route's prefix (Altinn.Studio.EnvTopology.BoundTopologyMetadataKeys.RewritePrefix).
+const rewriteMetadataKey = "rewritePrefix"
+
+func hostRoute(component, host, prefix, url, rewrite string) envtopology.BoundTopologyRoute {
+	var metadata []envtopology.BoundTopologyMetadata
+	if rewrite != "" {
+		metadata = []envtopology.BoundTopologyMetadata{{Key: rewriteMetadataKey, Value: rewrite}}
+	}
 	return envtopology.BoundTopologyRoute{
 		Destination: envtopology.BoundTopologyDestination{
 			Location: envtopology.DestinationLocationHost,
@@ -43,7 +52,7 @@ func hostRoute(component, host, prefix, url string) envtopology.BoundTopologyRou
 		},
 		Match:     envtopology.BoundTopologyRouteMatch{Host: host, PathPrefix: prefix},
 		Component: envtopology.ComponentID(component),
-		Metadata:  nil,
+		Metadata:  metadata,
 		Enabled:   true,
 	}
 }

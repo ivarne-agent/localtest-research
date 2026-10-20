@@ -70,7 +70,9 @@ internal static class PlatformProxy
         }
 
         var forwarder = context.RequestServices.GetRequiredService<IHttpForwarder>();
-        var transformer = context.RequestServices.GetRequiredService<PlatformTransformer>();
+        var transformer = PathRewrite.From(match.Route) is { } rewrite
+            ? new PlatformTransformer(rewrite)
+            : context.RequestServices.GetRequiredService<PlatformTransformer>();
         var error = await forwarder.SendAsync(context, destination.ToString(), _client, _requestConfig, transformer);
         if (error == ForwarderError.None || context.Response.HasStarted)
             return;

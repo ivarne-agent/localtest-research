@@ -84,7 +84,26 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if _, err := devComponents(opts.DevComponents); err != nil {
 		return err
 	}
+	if _, err := ResolveGroups(opts.With, opts.Without); err != nil {
+		return err
+	}
 	return nil
+}
+
+// GroupsChanged reports whether the optional component groups `env up` asks for differ from those the running
+// environment was started with, in which case an environment that is already healthy still has to be converged.
+func (e *Env) GroupsChanged(opts envtypes.UpOptions) (bool, error) {
+	want, err := ResolveGroups(opts.With, opts.Without)
+	if err != nil {
+		return false, err
+	}
+	state, _, err := localtestv2.ReadState(e.cfg)
+	if err != nil {
+		return false, fmt.Errorf("read localtest-v2 state: %w", err)
+	}
+	have := slices.Clone(state.Groups)
+	slices.Sort(have)
+	return !slices.Equal(want, have), nil
 }
 
 // Up starts the environment: writes the certificate and the proxy's route table, (re)starts
@@ -97,6 +116,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err != nil {
 		return err
 	}
+	groups := groupNames(opts.Groups)
 	if err := ensureCertificate(opts.CertDir); err != nil {
 		return err
 	}
@@ -109,6 +129,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
 		ProxyPorts:     studioctlserver.LocaltestV2ProxyPorts(opts.Topology.IngressPort()),
+		Groups:         groups,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
 	}
@@ -151,7 +172,7 @@ func (e *Env) Down(ctx context.Context) error {
 	if !hasResources {
 		return e.forgetState(ctx, envtypes.ErrAlreadyStopped)
 	}
-	if err := e.destroyResources(ctx, resources(e.defaultOptions()), stoppingMessage); err != nil {
+	if err := e.destroyResources(ctx, resources(e.teardownOptions()), stoppingMessage); err != nil {
 		return fmt.Errorf("stop environment: %w", err)
 	}
 	if err := e.forgetState(ctx, nil); err != nil {
@@ -168,7 +189,7 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	if hasResources {
-		if err := e.destroyResources(ctx, resources(e.defaultOptions()), stoppingMessage); err != nil {
+		if err := e.destroyResources(ctx, resources(e.teardownOptions()), stoppingMessage); err != nil {
 			return fmt.Errorf("stop environment: %w", err)
 		}
 	}
@@ -192,7 +213,11 @@ func (e *Env) Reset(ctx context.Context) error {
 
 // Logs streams the containers' logs.
 func (e *Env) Logs(ctx context.Context, opts envtypes.LogsOptions) error {
-	streamer := envlocaltest.NewLogStreamer(e.client, e.out, containerNames(e.defaultOptions()))
+	current, err := e.currentOptions()
+	if err != nil {
+		return err
+	}
+	streamer := envlocaltest.NewLogStreamer(e.client, e.out, containerNames(current))
 	component := opts.Component
 	if component != "" && !strings.HasPrefix(component, containerPrefix) {
 		component = containerPrefix + component
@@ -205,7 +230,11 @@ func (e *Env) Logs(ctx context.Context, opts envtypes.LogsOptions) error {
 
 // Status returns the environment's container status.
 func (e *Env) Status(ctx context.Context) (*envlocaltest.Status, error) {
-	graph, err := buildResourceGraph(resources(e.defaultOptions()))
+	current, err := e.currentOptions()
+	if err != nil {
+		return nil, err
+	}
+	graph, err := buildResourceGraph(resources(current))
 	if err != nil {
 		return nil, err
 	}
@@ -293,12 +322,37 @@ func (e *Env) defaultOptions() *Options {
 	return defaultOptions(e.cfg.Images, localtestv2.CertificateDir(e.cfg))
 }
 
+// currentOptions are the options of the environment as it was started: the optional groups come from the state file,
+// so status and logs cover the containers that exist and do not report a group that was never started as missing.
+func (e *Env) currentOptions() (*Options, error) {
+	opts := e.defaultOptions()
+	state, _, err := localtestv2.ReadState(e.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
+	}
+	opts.Groups = groupSet(state.Groups)
+	return opts, nil
+}
+
+// teardownOptions include every optional group, so that stopping or resetting finds the containers of whichever were
+// started, even when the state file is gone.
+func (e *Env) teardownOptions() *Options {
+	opts := e.defaultOptions()
+	opts.Groups = allGroups()
+	return opts
+}
+
 func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
 	opts.RuntimeUser, opts.UsernsMode, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
 	if upOpts.LatestImages {
 		opts.Images.LocaltestV2.UseTag("latest")
 	}
+	groups, err := ResolveGroups(upOpts.With, upOpts.Without)
+	if err != nil {
+		return nil, err
+	}
+	opts.Groups = groupSet(groups)
 	dev, err := devComponents(upOpts.DevComponents)
 	if err != nil {
 		return nil, err
@@ -315,6 +369,17 @@ func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 		opts.DevComponents = dev
 	}
 	return opts, nil
+}
+
+func groupNames(set map[string]bool) []string {
+	var names []string
+	for name, on := range set {
+		if on {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
 }
 
 // devComponents validates --dev names; "all" selects every component that has a dev build.
@@ -356,7 +421,7 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 	teardownCtx, cancel := context.WithTimeout(context.Background(), teardownTimeout)
 	defer cancel()
 	//nolint:contextcheck // intentionally using new context for cleanup after cancellation
-	if err := e.destroyResources(teardownCtx, resources(opts), ""); err != nil {
+	if err := e.destroyResources(teardownCtx, resources(e.teardownOptions()), ""); err != nil {
 		e.out.Warningf("Failed to stop environment cleanly: %v", err)
 		return err
 	}
@@ -369,7 +434,7 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 }
 
 func (e *Env) hasManagedResources(ctx context.Context) (bool, error) {
-	graph, err := buildResourceGraph(resources(e.defaultOptions()))
+	graph, err := buildResourceGraph(resources(e.teardownOptions()))
 	if err != nil {
 		return false, err
 	}

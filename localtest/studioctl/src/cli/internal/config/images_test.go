@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"altinn.studio/studioctl/internal/config"
@@ -145,5 +147,30 @@ func TestLocaltestV2ImagesArePinnedUnlessTold(t *testing.T) {
 	images.LocaltestV2.UseTag("sha-abc1234")
 	if images.LocaltestV2.Storage.Floating {
 		t.Error("a named build does not float")
+	}
+}
+
+func TestDialogportenImagesFollowTheResearchBuildsAndRedisStaysPinned(t *testing.T) {
+	t.Parallel()
+	images := config.DefaultImages().LocaltestV2
+	want := map[string]*config.ImageSpec{
+		"localtest-dialogporten-webapi":  &images.DialogportenWebApi,
+		"localtest-dialogporten-graphql": &images.DialogportenGraphQL,
+		"localtest-dialogporten-service": &images.DialogportenService,
+	}
+	for name, spec := range want {
+		if !strings.HasSuffix(spec.Image, "/"+name) {
+			t.Errorf("%s: image %s", name, spec.Image)
+		}
+		if !slices.Contains(images.All(), spec) {
+			t.Errorf("%s is not in All, so --latest and the tag override would skip it", name)
+		}
+	}
+	if slices.Contains(images.All(), &images.Redis) {
+		t.Error("Redis is a third-party image: a research build tag does not apply to it")
+	}
+	images.UseTag("latest")
+	if images.Redis.Floating || !strings.Contains(images.Redis.Tag, "@sha256:") {
+		t.Errorf("Redis must stay pinned by digest, got %s:%s floating %v", images.Redis.Image, images.Redis.Tag, images.Redis.Floating)
 	}
 }

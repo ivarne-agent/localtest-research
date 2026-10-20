@@ -6,7 +6,7 @@ internal static class ServiceCollectionExtensions
     {
         services.AddSingleton(ProxyOptions.FromConfiguration(configuration));
         services.AddHttpForwarder();
-        services.AddSingleton<PlatformTransformer>();
+        services.AddSingleton(new PlatformTransformer());
         return services;
     }
 }

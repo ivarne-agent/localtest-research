@@ -32,7 +32,10 @@ type Resetter interface {
 type UpOptions struct {
 	// DevComponents names localtest-v2 components to build from the research checkout
 	// (EnvLocaltestV2Source) instead of pulling.
-	DevComponents     []string
+	DevComponents []string
+	// With and Without name the optional localtest-v2 component groups to start or leave out, over their defaults.
+	With              []string
+	Without           []string
 	Detach            bool
 	DevWorkflowEngine bool
 	// LatestImages runs the localtest-v2 images at "latest" instead of the pinned build.

@@ -29,6 +29,8 @@ type State struct {
 	CertificateDir string `json:"certificateDir"`
 	// ProxyPorts are the host ports studioctl-server serves the platform on.
 	ProxyPorts []string `json:"proxyPorts"`
+	// Groups are the optional component groups the environment was started with.
+	Groups []string `json:"groups,omitempty"`
 }
 
 // CertificatePath is the host path of the shared test certificate.
@@ -63,7 +65,7 @@ func ReadState(cfg *config.Config) (State, bool, error) {
 }
 
 func noState() State {
-	return State{CertificateDir: "", ProxyPorts: nil}
+	return State{CertificateDir: "", ProxyPorts: nil, Groups: nil}
 }
 
 // WriteState records that the runtime is up.

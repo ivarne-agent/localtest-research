@@ -26,6 +26,12 @@ const (
 	componentLocaltest        = "localtest"
 	componentPDF              = "pdf3"
 	componentWorkflowEngine   = "workflow-engine"
+
+	// The optional Dialogporten group (see groups.go): Redis and the three hosts built from one vendored tree.
+	componentRedis               = "redis"
+	componentDialogportenWebApi  = "dialogporten-webapi"
+	componentDialogportenGraphQL = "dialogporten-graphql"
+	componentDialogportenService = "dialogporten-service"
 )
 
 // Host ports, loopback only. The proxy in studioctl-server forwards to these; 5300 is also what app-lib's
@@ -40,6 +46,9 @@ const (
 	hostPortResourceRegistry = "8027"
 	hostPortLocaltest        = "8026"
 	hostPortWorkflowEngine   = "8028"
+	hostPortDialogportenWeb  = "8030"
+	hostPortDialogportenGQL  = "8031"
+	hostPortDialogportenSvc  = "8032"
 	hostPortPDF              = "5300"
 )
 
@@ -68,6 +77,15 @@ const (
 	postgresHealthRetries     = 30
 	postgresHealthStartPeriod = 5 * time.Second
 
+	dialogportenHealthInterval    = 2 * time.Second
+	dialogportenHealthTimeout     = 5 * time.Second
+	dialogportenHealthRetries     = 60
+	dialogportenHealthStartPeriod = 5 * time.Second
+
+	redisHealthInterval = 2 * time.Second
+	redisHealthTimeout  = 3 * time.Second
+	redisHealthRetries  = 15
+
 	certContainerDir  = "/certs"
 	certContainerPath = certContainerDir + "/" + localtestv2.CertificateFileName
 	certSettingEnv    = "AccessTokenSettings__AccessTokenSigningCertificateFullPath"
@@ -82,12 +100,22 @@ const (
 	frontendDevServerHostPort = "8080"
 	loopback                  = "127.0.0.1"
 	healthPath                = "/health"
+
+	redisPort = "6379"
+	// dialogportenPort is the port the .NET images listen on (ASPNETCORE_HTTP_PORTS), all three hosts.
+	dialogportenPort = "8080"
+	// dialogportenHealthPath is the Altinn health convention Dialogporten's hosts serve: ready once the database is
+	// migrated and the hosts' own checks pass. The WebApi serves it under its path base too.
+	dialogportenHealthPath = "/health/readiness"
 )
 
 // route is one public host-and-prefix the proxy forwards to a component; an empty prefix matches the whole host.
+// rewrite, when set, is the path the proxy forwards in place of the matched prefix (the rest of the path is kept), for a
+// component that serves itself under another path than the public one.
 type route struct {
-	host   string
-	prefix string
+	host    string
+	prefix  string
+	rewrite string
 }
 
 // component is one container of the environment and how the proxy and the health wait reach it.
@@ -95,7 +123,13 @@ type component struct {
 	healthCheck *types.HealthCheck
 	env         map[string]string
 	name        string
-	image       config.ImageSpec
+	// group is the optional component group the component belongs to; empty for the always-on ones.
+	group string
+	image config.ImageSpec
+	// dockerfile is the Dockerfile name in devContext when it is not "Dockerfile" (one per host for Dialogporten).
+	dockerfile string
+	// command overrides the image's command.
+	command []string
 	// devContext is the build context under the research checkout for a dev build; empty when the component
 	// is not built from that checkout (the PDF generator and the workflow engine come from the monorepo).
 	devContext    string
@@ -128,7 +162,9 @@ type Options struct {
 	UsernsMode    string
 	Images        config.ImagesConfig
 	Topology      envtopology.Local
-	RelabelBinds  bool
+	// Groups are the optional component groups in the environment (names from groups.go).
+	Groups       map[string]bool
+	RelabelBinds bool
 }
 
 // ingressHostEntries maps every public hostname to the host, where studioctl-server serves them.
@@ -152,7 +188,10 @@ func newComponent(
 		healthCheck:    nil,
 		env:            nil,
 		name:           name,
+		group:          "",
 		image:          image,
+		dockerfile:     "",
+		command:        nil,
 		devContext:     devContext,
 		containerPort:  containerPort,
 		hostPort:       hostPort,
@@ -170,8 +209,20 @@ func containerOf(name string) string {
 	return containerPrefix + name
 }
 
-// components returns the environment's containers in start order.
+// components returns the environment's containers in start order: the always-on ones, then those of the enabled groups.
 func components(opts *Options) []component {
+	var out []component
+	for _, c := range allComponents(opts) {
+		if c.group == "" || opts.Groups[c.group] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// allComponents is every component, whether or not its group is enabled; teardown uses it so that nothing a previous
+// start left behind is orphaned.
+func allComponents(opts *Options) []component {
 	platform := opts.Topology.LocaltestBaseURL() + "/"
 	return []component{
 		postgresComponent(opts),
@@ -185,6 +236,10 @@ func components(opts *Options) []component {
 		localtestComponent(opts, platform),
 		pdfComponent(opts),
 		workflowEngineComponent(opts),
+		redisComponent(opts),
+		dialogportenWebApiComponent(opts, platform),
+		dialogportenGraphQLComponent(opts, platform),
+		dialogportenServiceComponent(opts, platform),
 	}
 }
 
@@ -437,15 +492,132 @@ func workflowEngineComponent(opts *Options) component {
 	return c
 }
 
+// redisComponent is the cache, backplane and subscription transport of Dialogporten's three hosts (see the component
+// README for why it stays). No persistence and no published port: only the hosts on the network use it.
+func redisComponent(opts *Options) component {
+	c := newComponent(opts, componentRedis, opts.Images.LocaltestV2.Redis, "", redisPort, "")
+	c.group = groupDialogporten
+	c.command = []string{"redis-server", "--save", "", "--appendonly", "no"}
+	c.aliases = []string{componentRedis}
+	c.extraHosts = nil
+	c.healthCheck = &types.HealthCheck{
+		Test:        []string{"CMD", "redis-cli", "ping"},
+		Interval:    redisHealthInterval,
+		Timeout:     redisHealthTimeout,
+		Retries:     redisHealthRetries,
+		StartPeriod: 0,
+	}
+	return c
+}
+
+// dialogportenComponent is what the three hosts share: the platform endpoint the localtest hook derives every other
+// setting from (configuration defaults, see the component README), the database and Redis on the network, and a build
+// from the component folder with one Dockerfile per host.
+func dialogportenComponent(
+	opts *Options,
+	platform, name, dockerfile string,
+	image config.ImageSpec,
+	hostPort string,
+) component {
+	c := newComponent(opts, name, image, "components/dialogporten", dialogportenPort, hostPort)
+	c.group = groupDialogporten
+	c.dockerfile = dockerfile
+	c.healthPath = dialogportenHealthPath
+	c.env = map[string]string{"Localtest__Dialogporten__PlatformEndpoint": platform}
+	return c
+}
+
+func dialogportenWebApiComponent(opts *Options, platform string) component {
+	c := dialogportenComponent(
+		opts,
+		platform,
+		componentDialogportenWebApi,
+		"Dockerfile.webapi",
+		opts.Images.LocaltestV2.DialogportenWebApi,
+		hostPortDialogportenWeb,
+	)
+	// It migrates the database at start (production's DevelopmentMigratorHostedService in Development, before the host
+	// listens), and so does each of the others, so a second host starting at the same time makes the migrations collide.
+	// A container health check, which the runtime waits for before it starts what depends on it, keeps them apart. The
+	// aspnet image has no curl or wget, so the check is a GET over bash's /dev/tcp.
+	c.healthCheck = &types.HealthCheck{
+		// The runtime hands the string to a shell (dash, which has no /dev/tcp), hence the explicit bash.
+		Test: []string{
+			"CMD-SHELL",
+			`bash -c "exec 3<>/dev/tcp/127.0.0.1/` + dialogportenPort + ` || exit 1; ` +
+				`printf 'GET ` + dialogportenHealthPath + ` HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 || exit 1; ` +
+				`head -n 1 <&3 | grep -q ' 200 '"`,
+		},
+		Interval:    dialogportenHealthInterval,
+		Timeout:     dialogportenHealthTimeout,
+		Retries:     dialogportenHealthRetries,
+		StartPeriod: dialogportenHealthStartPeriod,
+	}
+	// Its first authorization and party lookups need the platform services, which start before it.
+	c.deps = []string{
+		containerOf(componentPostgres),
+		containerOf(componentRedis),
+		containerOf(componentRegister),
+		containerOf(componentAuthentication),
+		containerOf(componentAuthorization),
+		containerOf(componentAccessManagement),
+		containerOf(componentEvents),
+		containerOf(componentResourceRegistry),
+	}
+	// The host serves everything under UsePathBase("/dialogporten"), so the path passes unchanged. The GraphQL route
+	// below is longer and wins for its own prefix.
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/dialogporten", rewrite: ""}}
+	return c
+}
+
+func dialogportenGraphQLComponent(opts *Options, platform string) component {
+	c := dialogportenComponent(
+		opts,
+		platform,
+		componentDialogportenGraphQL,
+		"Dockerfile.graphql",
+		opts.Images.LocaltestV2.DialogportenGraphQL,
+		hostPortDialogportenGQL,
+	)
+	c.deps = []string{containerOf(componentDialogportenWebApi)}
+	// The host serves /graphql with no path base; APIM maps /dialogporten/graphql to it in production, the proxy does here.
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/dialogporten/graphql", rewrite: "/graphql"}}
+	return c
+}
+
+func dialogportenServiceComponent(opts *Options, platform string) component {
+	c := dialogportenComponent(
+		opts,
+		platform,
+		componentDialogportenService,
+		"Dockerfile.service",
+		opts.Images.LocaltestV2.DialogportenService,
+		hostPortDialogportenSvc,
+	)
+	c.deps = []string{containerOf(componentDialogportenWebApi)}
+	// No public route: it consumes the in-process bus and publishes to the other hosts through Redis.
+	return c
+}
+
 // DevBuildable lists the components a dev build can produce from the research checkout.
+// "dialogporten" selects the group's three images, which are built from one folder.
 func DevBuildable() []string {
 	var names []string
-	for _, c := range components(defaultOptions(config.DefaultImages(), "")) {
+	for _, c := range allComponents(defaultOptions(config.DefaultImages(), "")) {
 		if c.devContext != "" {
-			names = append(names, c.name)
+			names = append(names, devName(c))
 		}
 	}
-	return names
+	return slices.Compact(names)
+}
+
+// devName is what `--dev` calls a component: its own name, or the group's for one that is built together with the rest
+// of its group.
+func devName(c component) string {
+	if c.group != "" && c.devContext != "" {
+		return c.group
+	}
+	return c.name
 }
 
 func defaultOptions(images config.ImagesConfig, certDir string) *Options {
@@ -453,6 +625,7 @@ func defaultOptions(images config.ImagesConfig, certDir string) *Options {
 		DevComponents: nil,
 		Images:        images,
 		Topology:      envtopology.NewLocal(envtopology.DefaultIngressPortString()),
+		Groups:        nil,
 		CertDir:       certDir,
 		DevSourceRoot: "",
 		RuntimeUser:   "",
@@ -509,9 +682,12 @@ func resources(opts *Options) []resource.Resource {
 }
 
 func componentImage(opts *Options, c component) resource.ImageResource {
-	if opts.DevComponents[c.name] && c.devContext != "" && opts.DevSourceRoot != "" {
+	if opts.DevComponents[devName(c)] && c.devContext != "" && opts.DevSourceRoot != "" {
 		buildContext := filepath.Join(opts.DevSourceRoot, c.devContext)
 		dockerfile := filepath.Join(buildContext, "Dockerfile")
+		if c.dockerfile != "" {
+			dockerfile = filepath.Join(buildContext, c.dockerfile)
+		}
 		if c.name == componentPostgres {
 			dockerfile = filepath.Join(opts.DevSourceRoot, "postgres", "Dockerfile")
 		}
@@ -577,7 +753,7 @@ func componentContainer(
 		Volumes:     volumes,
 		Env:         env,
 		Labels:      nil,
-		Command:     nil,
+		Command:     c.command,
 		ExtraHosts:  c.extraHosts,
 		Lifecycle: resource.ContainerLifecycleOptions{
 			LifecycleOptions: resource.LifecycleOptions{
