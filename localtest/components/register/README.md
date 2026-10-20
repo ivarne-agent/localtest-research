@@ -8,7 +8,7 @@ Production Altinn Register (`vendor/`, see `UPSTREAM.md`) running on an in-memor
 | `vendor/` | Unmodified upstream copy except `#if LOCALTEST` blocks (`git diff` against the baseline commit shows them all); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, link the fakes project |
 | `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, localtest-only and Profile controllers, DI composition |
-| `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and the schema v2 fields) |
+| `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and what v3 added). The format, shared with apps' `testData.json`, is documented in [`../../testdata/`](../../testdata/README.md) with its JSON Schema (v3) |
 | `smoke-test.sh` | Curl checks against a running register (and the authentication component for a user token), with a stub app for registration |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned Alpine images, build and publish, tzdata, non-root `dotnet` user); each difference is marked `localtest:` |
 
@@ -26,8 +26,8 @@ Localtest-only (anonymous), under `register/api/localtest/`:
 
 | Endpoint | What |
 | --- | --- |
-| `GET test-users` | Every user: ids, `ssn` (`""` for self-identified), `displayName`, `userUuid`, `partyType`, `profile` (`language`, `preSelectedPartyId`, `doNotPromptForParty`, `userType`, `userTypeName`), `customClaims`, `selfRoleCodes`, `parties` and `actingFor` (below) |
-| `GET organizations` | Every organisation with `parentPartyId` and `unitType` (a missing `unitType` in a testData.json becomes `AS`, `BEDR` for sub-units, with a load warning: the production Register always has one and Access Management's import rejects an organisation without it) |
+| `GET test-users` | Every user: ids, `ssn` (`""` for self-identified), `displayName`, `userUuid`, `partyType`, `profile` (`language`, `preSelectedPartyId`, `doNotPromptForParty`, `userType`, `userTypeName`), `customClaims`, `selfRoleCodes`, `parties` and `actingFor` (below), `reserved` (the test data's KRR reservation, default false) |
+| `GET organizations` | Every organisation with `parentPartyId`, `unitType` (a missing `unitType` in a testData.json becomes `AS`, `BEDR` for sub-units, with a load warning: the production Register always has one and Access Management's import rejects an organisation without it) and `notificationAddresses` (`{ email, mobileNumber }`, one of them set, as in the test data) |
 | `GET apps` | Registered apps, their test-data status (`TestData`, `NoTestData`), merge conflicts and load warnings |
 | `PUT apps/{org}/{app}` with the app's `testData.json` as the body (empty body: no test data) | Register an app with the posted test data (replaces earlier data) and rebuild; a body that does not parse is a 400 and changes nothing |
 | `DELETE apps/{org}/{app}` | Unregister and rebuild |
@@ -65,15 +65,17 @@ checked against the shared certificate) on the lookups apps make, which app-lib 
 
 Contact point lookups, the four calls Altinn Notifications makes on Profile (`LocaltestProfileContactPointsController`).
 All four are anonymous, as Profile's internal controllers are, because Notifications sends no credential; the answers
-have the shape Notifications' `ProfileClient` deserialises (`contactPointsList`). Sources are the seed's e-mail and mobile
-data; nobody is reserved. Numbers and addresses are returned exactly as stored (a bare `87654321` stays `87654321`);
-what Notifications does with them is production behaviour (see the Notifications README).
+have the shape Notifications' `ProfileClient` deserialises (`contactPointsList`). Sources are the test data's e-mail and
+mobile numbers and organisations' `notificationAddresses`. `isReserved` is always false: a person's `reserved` flag is for
+task 7's KRR stand-in only, once that has merged (see [`../../testdata/README.md`](../../testdata/README.md#reserved)). Numbers and addresses are
+returned exactly as stored (a bare `87654321` would stay `87654321`; the seed has `+47…` numbers since v3); what
+Notifications does with them is production behaviour (see the Notifications README).
 
 | Endpoint | Answer |
 | --- | --- |
 | `POST users/contactpoint/lookup`, `{ nationalIdentityNumbers, useStaleContactInfo }` | one entry per person found (`userId`, `nationalIdentityNumber`, `isReserved` false, `mobileNumber`, `email`); unknown numbers are left out |
 | `POST users/contactpoint/lookupsi`, `{ externalIdentities }` | one entry per `urn:altinn:person:idporten-email:{email}` that matches a self-identified user (`externalIdentity`, `email`, `mobileNumber` empty). Legacy username identities are not modelled |
-| `POST organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | one entry per organisation in the register, with empty `emailList`/`mobileNumberList`/`userContactPoints`: the seed has no official organisation addresses |
+| `POST organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | as Profile's `OrgNotificationAddressController`: one entry per organisation with `notificationAddresses` in the test data, `{ organizationNumber, addressOrigin, partyId: 0, mobileNumberList, emailList }`; a sub-unit without addresses gets its main unit's (`addressOrigin` = the main unit's number); organisations without addresses either way, and unknown numbers, are left out. Seeded: DDG Fitness (897069644, and through it its sub-units) and Digitaliseringsdirektoratet (991825827) |
 | `POST units/contactpoint/lookup`, `{ organizationNumbers, resourceId }` | one entry per organisation in the register, `userContactPoints` = every test user that holds roles or access packages at that party. The seed has no per-resource registrations, so `resourceId` is not used here; Notifications filters the users by the PDP's decision for the resource, as in production |
 
 ## App test data

@@ -13,7 +13,9 @@ What it does (see README.md in this folder for the result):
 - partyRoles from authorization/roles (codes kept verbatim; Register decides which are CCR roles),
   plus empty role lists for parties a user may act for without roles (authorization/partylist),
 - customClaims from authorization/claims, systems from authorization/systems,
-- every fødselsnummer and organisation number is replaced by a valid mod-11 synthetic number.
+- every fødselsnummer and organisation number is replaced by a valid mod-11 synthetic number,
+- schema v3: mobile numbers in +47 form, the reserved flag and organisations' official notification addresses
+  (the tables below).
 """
 import glob
 import json
@@ -36,6 +38,19 @@ UNIT_TYPES = {500004: "ENK", 500005: "STAT", 500800: "BEDR", 500801: "BEDR", 500
 
 # Self-identified users are ID-porten e-mail registrations: no name, no username, identified by a unique e-mail.
 SELF_IDENTIFIED_EMAILS = {1004: "selvregistrert.bruker@example.com"}
+
+# Schema v3: persons reserved in KRR (the contact and reservation register). Rik Forelder (1003) has no dependency
+# in the Cypress suite (its person-lookup tests intercept the lookup) and holds no role for an organisation.
+RESERVED_USER_IDS = {1003}
+
+# Schema v3: official notification addresses (Profile's organizations/notificationaddresses/lookup) for the
+# organisations the Notifications smoke test and the Cypress suite use; their sub-units fall back to them.
+NOTIFICATION_ADDRESSES = {
+    500000: [{"email": "varsling@ddgfitness.no"}, {"mobileNumber": "+4799500000"}],
+    500006: [{"email": "varsling@digdir.no"}, {"mobileNumber": "+4799500006"}],
+}
+
+SCHEMA = "../../../testdata/test-users.schema.v3.json"
 
 # Access packages (schema v2), which the old data did not have, keyed by user id, then by the party id they are held for.
 ACCESS_PACKAGES = {1001: {"500000": ["regnskapsforer-med-signeringsrettighet", "lonn"]}}
@@ -118,6 +133,13 @@ def synthetic_orgnr(old, taken, reserved):
     raise ValueError(f"no valid organisation number near {old}")
 
 
+def international(number):
+    """Schema v3: mobile numbers in full international form. A number without a country code is Norwegian."""
+    if not number or number.startswith("+"):
+        return number
+    return "+47" + number
+
+
 def drop_empty(d):
     return {k: v for k, v in d.items() if v not in (None, "", [], {})}
 
@@ -184,8 +206,9 @@ def main():
             "eMailAddress": ci(details, "eMailAddress"),
             "internetAddress": ci(details, "internetAddress"),
             "telephoneNumber": ci(details, "telephoneNumber"),
-            "mobileNumber": ci(details, "mobileNumber"),
+            "mobileNumber": international(ci(details, "mobileNumber")),
             "faxNumber": ci(details, "faxNumber"),
+            "notificationAddresses": NOTIFICATION_ADDRESSES.get(pid),
         }))
         mapping["orgs"].append((pid, name, old, org_numbers[old]))
 
@@ -223,7 +246,8 @@ def main():
             "preSelectedPartyId": ci(prefs, "preSelectedPartyId"),
             "doNotPromptForParty": ci(prefs, "doNotPromptForParty"),
             "telephoneNumber": ci(details, "telephoneNumber"),
-            "mobileNumber": ci(details, "mobileNumber") or ci(profile, "phoneNumber"),
+            "mobileNumber": international(ci(details, "mobileNumber") or ci(profile, "phoneNumber")),
+            "reserved": True if user_id in RESERVED_USER_IDS else None,
             "addressStreetName": ci(details, "addressStreetName"),
             "addressHouseNumber": ci(details, "addressHouseNumber"),
             "addressHouseLetter": ci(details, "addressHouseLetter"),
@@ -256,7 +280,7 @@ def main():
         assert org_valid(o["orgNumber"]), o
 
     data = {
-        "$schema": "https://altinncdn.no/schemas/json/test-users/test-users.schema.v2.json",
+        "$schema": SCHEMA,
         "persons": persons,
         "orgs": orgs,
         "systems": systems,

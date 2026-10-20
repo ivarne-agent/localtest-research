@@ -16,7 +16,7 @@ Nothing leaves the machine.
 | `fakes/` | Compiled into the host assembly (namespace `Altinn.Notifications.Localtest`): configuration defaults, the capturing publishers, the responder, the instant endpoints, signing keys, the Maskinporten fake, startup scripts, the inspection API |
 | `postgres-init/60-notifications.sh` | Postgres init script: `notificationsdb` and the roles upstream's migrations expect (`platform_notifications_admin` superuser, `platform_notifications`), password `Password`. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/notifications/postgres-init/60-notifications.sh` |
 | `Dockerfile` | Mirrors upstream's `vendor/components/api/Dockerfile` (pinned Alpine images, layered restore, `tzdata`, `Migration/` and `Views/`, non-root `dotnet`); each difference is marked `localtest:` |
-| `smoke-test.sh` | Against the running stack: authentication, direct, person and self-identified recipients, order chains, idempotency, instant orders, cancel, the inboxes, reset |
+| `smoke-test.sh` | Against the running stack: authentication, direct, person, self-identified and organisation recipients, order chains, idempotency, instant orders, cancel, the inboxes, reset |
 
 ## Directive sites in `vendor/`
 
@@ -126,23 +126,27 @@ which return the seed's addresses and numbers exactly as stored. Production then
 
 - **SMS numbers are validated.** Direct SMS recipients must be E.164 (`+4799123456`): a bare eight-digit number is
   answered `400`. For contact points from Profile, Notifications adds `+47` itself to a bare eight-digit number that
-  starts with 4 or 9, and then validates it with libphonenumber; a number that fails (the seed's `87654321` for Sophie
-  Salt, 1337, and 1002, 1003, 12345) is dropped. Her e-mail goes out (`1337@altinnstudiotestusers.com`), her SMS
-  notification ends `Failed_RecipientNotIdentified` and nothing is captured. Users with valid numbers get both: Kari
-  Nordvik (2002, `kari.nordvik@test.com` and `+4791234567`), Pengelens Partner (1001, `test@test.com` and `+4799315829`)
-  and MultiParty Prompt (2001). The fix for the others is the seed data, not a fake.
+  starts with 4 or 9, and then validates it with libphonenumber; a number that fails is dropped. The seed has every
+  number in `+47` form since schema v3 ([`../../testdata/`](../../testdata/README.md)), but `+4787654321` (Sophie Salt,
+  1337, and 1002, 1003, 12345) is still not a valid Norwegian number: her e-mail goes out
+  (`1337@altinnstudiotestusers.com`), her SMS notification ends `Failed_RecipientNotIdentified` and nothing is
+  captured. Users with valid numbers get both: Kari Nordvik (2002, `kari.nordvik@test.com` and `+4791234567`),
+  Pengelens Partner (1001, `test@test.com` and `+4799315829`) and MultiParty Prompt (2001).
 - A recipient without any contact point (a national identity number not in the seed) answers `422` with the problem code
   `NOT-00001`.
-- **Organisation recipients answer `422` `NOT-00001`.** The seed has no official organisation addresses. Notifications
-  adds the user-registered contact points (the Profile `units/contactpoint/lookup` users, filtered by the PDP for the
-  `resourceId`, which must be written `urn:altinn:resource:…`) only while *processing* an order, not when registering it,
-  so registration fails whatever the policy says (checked with DDG Fitness, 897069644, against `altinn_keyrole_access`,
-  which Sophie Salt's DAGL role permits, and against the pushed `ttd/testapp` policy). Giving organisations official
-  addresses is a change to the Profile fake or the seed, not done here.
+- **Organisation recipients** get the organisation's official addresses, the seed's `notificationAddresses` (schema v3):
+  DDG Fitness (897069644, `varsling@ddgfitness.no` and `+4799500000`, also for its sub-units through Profile's main-unit
+  fallback) and Digitaliseringsdirektoratet (991825827, `varsling@digdir.no` and `+4799500006`). An organisation without
+  official addresses (every other seeded one) answers `422` `NOT-00001`: Notifications adds the user-registered contact
+  points (the Profile `units/contactpoint/lookup` users, filtered by the PDP for the `resourceId`, which must be written
+  `urn:altinn:resource:…`) only while *processing* an order, not when registering it, so registration fails whatever the
+  policy says (checked before v3 with DDG Fitness against `altinn_keyrole_access`, which Sophie Salt's DAGL role permits,
+  and against the pushed `ttd/testapp` policy).
 
 ## Known gaps
 
-- No per-inbox reception switch (planned, see above), no failure simulation, no reserved recipients.
+- No per-inbox reception switch (planned, see above), no failure simulation, no reserved recipients (the seed's
+  `reserved` flag is read by the KRR stand-in only; Profile's `isReserved` stays false).
 - Correspondence (task 7) is not in the stack; it will appear in this capture under its own creator.
 - Attachments of composed e-mail are recorded by reference only.
 - The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake; checked against the production sink `notifications/api/v1/tests/sendcondition?conditionMet=`. That the Maskinporten token it carries is accepted by a real consumer is not checked.

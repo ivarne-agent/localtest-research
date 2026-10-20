@@ -2,13 +2,15 @@
 
 `testData.json` is the old localtest's built-in test data (`src/Runtime/localtest/testdata` in altinn-studio:
 `Profile/User`, `Register/Party|Org|Person`, `authorization/partylist|roles|claims|systems`) converted to the
-test-users format, with valid synthetic identifiers. Regenerate it with:
+test-users format, with valid synthetic identifiers, then extended to schema v3. The format (every field, who reads it,
+the JSON Schema) is documented in [`../../../testdata/`](../../../testdata/README.md). Regenerate the file with:
 
 ```sh
 python3 -I generate-testdata.py /home/agent/code/altinn-studio/src/Runtime/localtest/testdata
 ```
 
-The script is deterministic and prints the mapping below.
+The script is deterministic (a run reproduces the committed file byte for byte) and prints the mapping below. Hand edits
+belong in its tables, not in the JSON.
 
 ## What was kept
 
@@ -64,14 +66,20 @@ unchanged. Organisation numbers are the nearest valid mod-11 number that is not 
 | 500802 | EAS Health Consulting Svolvær | 910423495 | 910423495 (unchanged) |
 | 500900 | Kari Consulting | 900000001 | 900000006 |
 
-## Schema v2 fields (persons)
+## Schema v3 data
 
-| Field | Meaning |
-| --- | --- |
-| `language` | Profile language (`nb`, `nn`, `en`); default `nb` (v1 already had it) |
-| `preSelectedPartyId` | Profile: party preselected in the party picker; default 0 |
-| `doNotPromptForParty` | Profile: skip the party picker; default false |
-| `accessPackages` | Access packages per party id (see the component README) |
+Field definitions are in [`../../../testdata/README.md`](../../../testdata/README.md); this is what the seed sets.
+
+- **Mobile numbers** in international form: `+47` added to every number without a country code, digits kept
+  (persons 1002, 1003, 1337, 12345: `87654321` → `+4787654321`; organisations: `9201000x` → `+479201000x`, Kari
+  Consulting `1234578` → `+471234578`). Fixed-line `telephoneNumber` and `faxNumber` are unchanged.
+- **`reserved: true`** on Rik Forelder (1003, 08829698278) only. Nothing in the Cypress suite logs in as him or reads
+  him from the stack (the person-lookup tests that name him intercept the lookup with canned answers), and he holds no
+  role for an organisation, so his reservation cannot change an organisation recipient's result.
+- **`notificationAddresses`** on DDG Fitness (500000, 897069644: `varsling@ddgfitness.no`, `+4799500000`) and
+  Digitaliseringsdirektoratet (500006, 991825827: `varsling@digdir.no`, `+4799500006`): the organisations the
+  Notifications smoke test and the Cypress suite use. DDG Fitness's sub-units (500001-500003) get its addresses through
+  Profile's main-unit fallback. Every other organisation has none.
 
 The Profile `userType` is not a field: it is set when the persons are loaded, `SSNIdentified` with an `ssn` and
 `SelfIdentified` without, as Profile reports them. A `userType` in an app's `testData.json` is ignored.

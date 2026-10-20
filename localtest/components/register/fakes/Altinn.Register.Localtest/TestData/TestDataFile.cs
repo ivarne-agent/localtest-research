@@ -4,8 +4,10 @@ using System.Text.Json.Serialization;
 namespace Altinn.Register.Localtest.TestData;
 
 /// <summary>
-/// The <c>testData.json</c> contract: persons, organisations and systems. Schema v1 plus the v2 fields
-/// (<c>accessPackages</c>, profile preferences and <c>userType</c> on persons), all optional.
+/// The <c>testData.json</c> contract: persons, organisations and systems, as documented in
+/// <c>localtest/testdata/README.md</c> and <c>test-users.schema.v3.json</c>. Schema v1 plus the v2 fields
+/// (<c>accessPackages</c> and profile preferences on persons) and the v3 fields (<c>reserved</c> on persons,
+/// <c>notificationAddresses</c> on organisations), all optional. Unknown properties are ignored.
 /// </summary>
 public sealed class TestDataFile
 {
@@ -109,9 +111,16 @@ public sealed class TestPerson
     /// <summary>Profile: skip the party picker and use the preselected or own party (schema v2).</summary>
     public bool? DoNotPromptForParty { get; set; }
 
+    /// <summary>Mobile number, in full international form (<c>+47...</c>) from schema v3 on; returned as stored.</summary>
     public string? MobileNumber { get; set; }
 
     public string? TelephoneNumber { get; set; }
+
+    /// <summary>
+    /// Reserved in KRR (the contact and reservation register) against digital contact from the public sector (schema v3).
+    /// Absent or null is false. Exposed in <c>test-users</c>; read by the KRR stand-in.
+    /// </summary>
+    public bool? Reserved { get; set; }
 
     public string? AddressCity { get; set; }
 
@@ -244,6 +253,28 @@ public sealed class TestOrg
     public string? MobileNumber { get; set; }
 
     public string? FaxNumber { get; set; }
+
+    private List<TestNotificationAddress> _notificationAddresses = [];
+
+    /// <summary>
+    /// Official notification addresses (schema v3), what Profile's <c>organizations/notificationaddresses/lookup</c>
+    /// returns for Notifications' and Correspondence's organisation recipients. Each entry is an e-mail or a mobile number.
+    /// </summary>
+    /// <remarks>A JSON <c>null</c> is read as empty.</remarks>
+    public List<TestNotificationAddress> NotificationAddresses
+    {
+        get => _notificationAddresses;
+        set => _notificationAddresses = value ?? [];
+    }
+}
+
+/// <summary>One official notification address of an organisation: <see cref="Email"/> or <see cref="MobileNumber"/>.</summary>
+public sealed class TestNotificationAddress
+{
+    public string? Email { get; set; }
+
+    /// <summary>Full international form (<c>+47...</c>), as Profile stores the full address.</summary>
+    public string? MobileNumber { get; set; }
 }
 
 public sealed class TestSystem

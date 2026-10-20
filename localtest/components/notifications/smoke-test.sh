@@ -103,10 +103,10 @@ RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"12889898044","c
 expect "POST future/orders, person (through Profile contactpoint/lookup)" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in the person's inbox, delivered" "$LOCAL/inboxes/kari.nordvik@test.com" 'd["messages"][0]["subject"] == "Person" and d["messages"][0]["outcome"] == "Delivered"'
 okwait "the SMS lands in the person's phone inbox, delivered" "$LOCAL/inboxes/%2B4791234567" 'd["messages"][0]["body"] == "To a person by SMS" and d["messages"][0]["outcome"] == "Delivered"'
-# Sophie Salt (1337, 01839012345): the seed has the bare mobile number 87654321. Notifications adds +47 only to bare 4xx/9xx
-# numbers and then validates with libphonenumber, so this one is dropped: the e-mail is sent, the SMS is not (production behaviour).
+# Sophie Salt (1337, 01839012345): the seed has +4787654321, which libphonenumber does not accept as a Norwegian number,
+# so the SMS contact point is dropped: the e-mail is sent, the SMS is not (production behaviour).
 RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"01839012345","channelSchema":"EmailAndSms","emailSettings":{"subject":"Sophie","body":"B"},"smsSettings":{"body":"Sophie sms"}}}' "" "${bearer[@]}")
-expect "POST future/orders, person with a bare invalid seed number" 201 "${RESPONSE##*$'\n'}"
+expect "POST future/orders, person with an invalid seed number" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in Sophie's inbox" "$LOCAL/inboxes/1337@altinnstudiotestusers.com" 'd["messages"][0]["subject"] == "Sophie" and d["messages"][0]["outcome"] == "Delivered"'
 expect "no SMS inbox for 87654321" 404 "$(code "$LOCAL/inboxes/87654321")"
 expect "no SMS inbox for +4787654321" 404 "$(code "$LOCAL/inboxes/%2B4787654321")"
@@ -117,11 +117,16 @@ RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"11111111111","c
 expect "a person without contact points: 422" 422 "${RESPONSE##*$'\n'}"
 echo "${RESPONSE%$'\n'*}" | check "... with the NOT-00001 problem details (Authentication, Access Management and Correspondence branch on it)" 'd["code"] == "NOT-00001" and d["status"] == 422'
 
-# Organisation recipients: the seed has no official organisation addresses, and Notifications adds the user-registered
-# contact points (the PDP-filtered role holders) only when processing an order, not when registering it, so registration
-# answers 422 whatever the policy says. That is production behaviour with this seed.
-RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069644","channelSchema":"Email","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Org","body":"B"}}}' "" "${bearer[@]}")
-expect "an organisation without official addresses (DDG Fitness): 422" 422 "${RESPONSE##*$'\n'}"
+# Organisation recipients: official addresses come from the seed's notificationAddresses (Profile's
+# organizations/notificationaddresses/lookup). DDG Fitness has an e-mail address and a mobile number. An organisation
+# without any (EAS Health Consulting) is 422 at registration whatever the policy says: Notifications adds the
+# user-registered contact points (the PDP-filtered role holders) only when processing an order. Production behaviour.
+RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069644","channelSchema":"EmailAndSms","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Org","body":"B"},"smsSettings":{"body":"Org sms"}}}' "" "${bearer[@]}")
+expect "POST future/orders, organisation with official addresses (DDG Fitness)" 201 "${RESPONSE##*$'\n'}"
+okwait "the e-mail lands in the organisation's official inbox" "$LOCAL/inboxes/varsling@ddgfitness.no" 'any(m["subject"] == "Org" and m["outcome"] == "Delivered" for m in d["messages"])'
+okwait "the SMS lands on the organisation's official number" "$LOCAL/inboxes/%2B4799500000" 'any(m["body"] == "Org sms" and m["outcome"] == "Delivered" for m in d["messages"])'
+RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069628","channelSchema":"Email","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Org","body":"B"}}}' "" "${bearer[@]}")
+expect "an organisation without official addresses (EAS Health Consulting): 422" 422 "${RESPONSE##*$'\n'}"
 echo "${RESPONSE%$'\n'*}" | check "... NOT-00001" 'd["code"] == "NOT-00001"'
 
 echo "== condition endpoint (the production client with the Maskinporten fake; the production sink answers conditionMet)"

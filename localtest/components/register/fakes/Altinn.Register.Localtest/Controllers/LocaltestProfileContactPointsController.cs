@@ -11,8 +11,9 @@ namespace Altinn.Register.Localtest.Controllers;
 /// register's test data in the shapes Notifications deserialises (<c>ProfileClient</c>, <c>contactPointsList</c> in
 /// every answer). All four are anonymous, as Profile's internal controllers are (<c>UserContactPointController</c>,
 /// <c>UnitContactPointController</c>, <c>OrgNotificationAddressController</c>); Notifications sends no credential.
-/// Numbers and addresses are returned exactly as the seed stores them (nothing is normalised; Notifications decides what
-/// it accepts). Nobody is reserved, and the seed has no official organisation addresses.
+/// Numbers and addresses are returned exactly as the test data stores them (nothing is normalised; Notifications decides
+/// what it accepts). <c>isReserved</c> is always false: a person's <c>reserved</c> flag is read by the KRR stand-in only.
+/// Organisations' official addresses are their <c>notificationAddresses</c> in the test data.
 /// </summary>
 [ApiController]
 [AllowAnonymous]
@@ -59,10 +60,15 @@ public sealed class LocaltestProfileContactPointsController(RegisterStoreProvide
         return Ok(new ContactPointsList<ExternalIdentityContactPoints>(found));
     }
 
-    /// <summary>The official notification addresses of organisations. The seed has none: every organisation found answers with empty lists.</summary>
+    /// <summary>
+    /// The official notification addresses of organisations (<c>notificationAddresses</c> in the test data), as Profile's
+    /// <c>OrgNotificationAddressController</c> answers: one entry per organisation with addresses; an organisation without
+    /// any gets its main unit's (<c>addressOrigin</c> = the main unit's number), otherwise no entry. Profile never sets
+    /// <c>partyId</c> here, so it is 0.
+    /// </summary>
     [HttpPost("organizations/notificationaddresses/lookup")]
-    public ActionResult<ContactPointsList<OrganizationContactPoints>> LookupOrganizations([FromBody] OrganizationLookup lookup)
-        => Ok(new ContactPointsList<OrganizationContactPoints>([.. OrganizationEntries(lookup.OrganizationNumbers, withUsers: false, resourceId: null)]));
+    public ActionResult<ContactPointsList<OrganizationNotificationAddresses>> LookupOrganizations([FromBody] OrganizationLookup lookup)
+        => Ok(new ContactPointsList<OrganizationNotificationAddresses>([.. OfficialAddresses(provider.Current, lookup.OrganizationNumbers)]));
 
     /// <summary>
     /// The contact points users registered for an organisation and a resource. The seed has no such registrations, so
@@ -71,12 +77,48 @@ public sealed class LocaltestProfileContactPointsController(RegisterStoreProvide
     /// </summary>
     [HttpPost("units/contactpoint/lookup")]
     public ActionResult<ContactPointsList<OrganizationContactPoints>> LookupUnits([FromBody] UnitLookup lookup)
-        => Ok(new ContactPointsList<OrganizationContactPoints>([.. OrganizationEntries(lookup.OrganizationNumbers, withUsers: true, lookup.ResourceId)]));
+        => Ok(new ContactPointsList<OrganizationContactPoints>([.. OrganizationEntries(provider.Current, lookup.OrganizationNumbers, withUsers: true, lookup.ResourceId)]));
 
-    private IEnumerable<OrganizationContactPoints> OrganizationEntries(IEnumerable<string> organizationNumbers, bool withUsers, string? resourceId)
+    /// <summary>
+    /// The official addresses of each organisation found, falling back to the main unit's when it has none
+    /// (Profile's <c>useAddressFromMainUnitIfEmpty</c>); organisations with no addresses either way are left out.
+    /// </summary>
+    internal static IEnumerable<OrganizationNotificationAddresses> OfficialAddresses(RegisterStore store, IEnumerable<string> organizationNumbers)
+    {
+        foreach (var organizationNumber in organizationNumbers)
+        {
+            if (!store.OrgsByOrganizationNumber.TryGetValue(organizationNumber, out var org))
+            {
+                continue;
+            }
+
+            var origin = org;
+            if (origin.NotificationAddresses.Count == 0)
+            {
+                var mainUnit = store.ByOrganizationIdentifier.TryGetValue(organizationNumber, out var party)
+                    ? store.MainUnitsOf(party.PartyUuid.Value).FirstOrDefault()
+                    : null;
+                if (mainUnit is null
+                    || !store.OrgsByOrganizationNumber.TryGetValue(mainUnit.OrganizationIdentifier.Value!.ToString(), out origin)
+                    || origin.NotificationAddresses.Count == 0)
+                {
+                    continue;
+                }
+            }
+
+            yield return new OrganizationNotificationAddresses(
+                organizationNumber,
+                origin.OrgNumber,
+                0,
+                [.. origin.NotificationAddresses.Where(a => !string.IsNullOrWhiteSpace(a.MobileNumber)).Select(a => a.MobileNumber!)],
+                [.. origin.NotificationAddresses.Where(a => !string.IsNullOrWhiteSpace(a.Email)).Select(a => a.Email!)]);
+        }
+    }
+
+    /// <summary>The organisation entries of the unit lookups: every organisation found, with the users holding something there when <paramref name="withUsers"/>.</summary>
+    internal static IEnumerable<OrganizationContactPoints> OrganizationEntries(RegisterStore store, IEnumerable<string> organizationNumbers, bool withUsers, string? resourceId)
     {
         _ = resourceId; // The PDP, not Profile, decides per resource; the seed holds no per-resource registrations.
-        var store = provider.Current;
         foreach (var organizationNumber in organizationNumbers)
         {
             if (!store.ByOrganizationIdentifier.TryGetValue(organizationNumber, out var party))
@@ -94,7 +136,7 @@ public sealed class LocaltestProfileContactPointsController(RegisterStoreProvide
         }
     }
 
-    private static UserContactPoints ToUserContactPoints(TestUser user)
+    internal static UserContactPoints ToUserContactPoints(TestUser user)
     {
         var person = user.Person;
         return new UserContactPoints(
@@ -106,6 +148,14 @@ public sealed class LocaltestProfileContactPointsController(RegisterStoreProvide
     }
 
     public sealed record ContactPointsList<T>([property: JsonPropertyName("contactPointsList")] IReadOnlyList<T> Items);
+
+    /// <summary>Profile's <c>OrgNotificationAddressesResponse.NotificationAddresses</c>.</summary>
+    public sealed record OrganizationNotificationAddresses(
+        string OrganizationNumber,
+        string AddressOrigin,
+        int PartyId,
+        IReadOnlyList<string> MobileNumberList,
+        IReadOnlyList<string> EmailList);
 
     public sealed record UserContactPoints(int UserId, string NationalIdentityNumber, bool IsReserved, string? MobileNumber, string? Email);
 

@@ -181,6 +181,9 @@ public sealed class RegisterStore
         }
 
         var byPartyId = parties.ToDictionary(p => p.PartyId.Value);
+        OrgsByOrganizationNumber = orgByPartyId.Values
+            .Where(o => byPartyId.ContainsKey(checked((uint)o.Org.PartyId)) && byPartyId[checked((uint)o.Org.PartyId)] is OrganizationRecord)
+            .ToDictionary(o => o.Org.OrgNumber, o => o.Org);
 
         // Roles and access packages, after all parties exist so roles may point at any party.
         var users = new List<TestUser>();
@@ -329,6 +332,9 @@ public sealed class RegisterStore
     public IReadOnlyDictionary<string, PartyRecord> ByPersonIdentifier { get; }
 
     public IReadOnlyDictionary<string, PartyRecord> ByOrganizationIdentifier { get; }
+
+    /// <summary>The test data of the organisations that loaded, by organisation number (for their notification addresses).</summary>
+    public IReadOnlyDictionary<string, TestOrg> OrgsByOrganizationNumber { get; }
 
     public IReadOnlyDictionary<uint, PartyRecord> ByUserId { get; }
 

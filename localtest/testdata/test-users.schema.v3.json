@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://altinncdn.no/schemas/json/test-users/test-users.schema.v3.json",
+  "title": "Altinn localtest test data (testData.json), v3",
+  "description": "Test users, organisations and systems for local testing of Altinn apps: the Register component's built-in seed and every app's App/wwwroot/testData.json. v3 of the test-users line (v1 is published at altinncdn.no; v2 was a localtest-only name). Not published to the CDN: this copy lives in localtest/testdata/ of the localtest research repository. Field reference: localtest/testdata/README.md. The loader is more lenient than this schema: unknown properties are ignored and property names are case-insensitive.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "title": "Schema",
+      "description": "The schema this file follows. The loader ignores it; editors use it for completion and validation.",
+      "type": "string"
+    },
+    "persons": {
+      "title": "Persons",
+      "description": "Test users: persons with a national identity number, or self-identified users (empty ssn, identified by e-mail). Each person is a Register party, a Profile user and a login in the picker.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/person" }
+    },
+    "orgs": {
+      "title": "Organisations",
+      "description": "Organisations (main units and sub-units) as Register parties from the Central Coordinating Register.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/org" }
+    },
+    "systems": {
+      "title": "Systems",
+      "description": "Systems (end-user systems) with their system users; each system user becomes a Register system-user party owned by an organisation in this or another loaded file. null is read as an empty list.",
+      "type": ["array", "null"],
+      "default": [],
+      "items": { "$ref": "#/$defs/system" }
+    }
+  },
+  "required": ["persons", "orgs"],
+  "additionalProperties": false,
+  "$defs": {
+    "partyId": {
+      "title": "Party id",
+      "description": "Altinn 2 party id (a positive integer), unique across persons and organisations of all loaded files.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "partyUuid": {
+      "title": "Party UUID",
+      "description": "The party's UUID. Default when absent or null: the party id zero-padded into a UUID (00000000-0000-0000-0000-000000510001 for 510001). Must be a real UUID when the party is used for instance delegation (for example parallel signing).",
+      "type": ["string", "null"],
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "organisationNumber": {
+      "title": "Organisation number",
+      "description": "Nine-digit Norwegian organisation number. The Register also checks the mod-11 control digit and skips an organisation that fails it, with a load warning.",
+      "type": "string",
+      "pattern": "^[0-9]{9}$",
+      "examples": ["897069644"]
+    },
+    "mobileNumber": {
+      "title": "Mobile number",
+      "description": "Mobile number in full international form: '+', the country code and the number, 8 to 15 digits in all (E.164), such as +4799315829. Production Notifications rejects a bare eight-digit number as a direct SMS recipient and adds +47 to Profile contact points only when they start with 4 or 9; the number must also be valid for libphonenumber (Norwegian mobile numbers start with 4 or 9). Returned by the Profile lookups exactly as written.",
+      "type": ["string", "null"],
+      "pattern": "^\\+[0-9]{8,15}$",
+      "examples": ["+4799315829"]
+    },
+    "email": {
+      "title": "E-mail address",
+      "description": "E-mail address, returned by the Profile lookups exactly as written.",
+      "type": ["string", "null"],
+      "format": "email",
+      "pattern": "^[^@\\s]+@[^@\\s]+$"
+    },
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "role": {
+      "title": "Role",
+      "description": "One role a person holds for a party.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Role type",
+          "description": "Role source as the old localtest wrote it (altinn or Altinn). Kept for compatibility; not read.",
+          "type": "string",
+          "examples": ["altinn"]
+        },
+        "value": {
+          "title": "Role code",
+          "description": "Altinn role code (DAGL, REGNA, PRIV, A0239, ...) or a CCR role identifier (daglig-leder). CCR codes held for an organisation become external role assignments in the Register; every code is passed verbatim to Access Management as an Altinn 2 role code.",
+          "type": "string",
+          "examples": ["DAGL", "REGNA", "priv", "daglig-leder"]
+        }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "customClaim": {
+      "title": "Custom claim",
+      "description": "An extra claim for the user's tokens (old localtest). Exposed by the Register's test-users endpoint; no component of the new stack adds it to tokens yet.",
+      "type": "object",
+      "properties": {
+        "type": { "title": "Claim type", "description": "Claim type (name).", "type": "string", "examples": ["some:extra:claim"] },
+        "value": { "title": "Claim value", "description": "Claim value.", "type": "string" },
+        "valueType": {
+          "title": "Claim value type",
+          "description": "XML Schema value type URI.",
+          "type": "string",
+          "examples": ["http://www.w3.org/2001/XMLSchema#string"]
+        }
+      },
+      "required": ["type", "value", "valueType"],
+      "additionalProperties": false
+    },
+    "notificationAddress": {
+      "title": "Official notification address",
+      "description": "One official notification address of an organisation (varslingsadresse in the contact register for organisations), either an e-mail address or a mobile number. Production Profile stores one record per address; its lookup splits them into emailList and mobileNumberList.",
+      "oneOf": [
+        {
+          "title": "E-mail notification address",
+          "type": "object",
+          "properties": {
+            "email": {
+              "title": "E-mail",
+              "description": "Official notification e-mail address.",
+              "type": "string",
+              "format": "email",
+              "pattern": "^[^@\\s]+@[^@\\s]+$",
+              "examples": ["varsling@ddgfitness.no"]
+            }
+          },
+          "required": ["email"],
+          "additionalProperties": false
+        },
+        {
+          "title": "SMS notification address",
+          "type": "object",
+          "properties": {
+            "mobileNumber": {
+              "title": "Mobile number",
+              "description": "Official notification mobile number in full international form (+47...), what Profile stores as the full address (country code plus number).",
+              "type": "string",
+              "pattern": "^\\+[0-9]{8,15}$",
+              "examples": ["+4799500000"]
+            }
+          },
+          "required": ["mobileNumber"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "person": {
+      "title": "Person",
+      "description": "A test user. With an 11-digit ssn: a person from the national population register. With an empty ssn: a self-identified user registered by e-mail through ID-porten (email required; names and userName are not used).",
+      "type": "object",
+      "properties": {
+        "ssn": {
+          "title": "National identity number",
+          "description": "Eleven-digit Norwegian national identity number (fødselsnummer or D-number; synthetic Tenor numbers have month + 80), or an empty string for a self-identified user. The Register checks the mod-11 control digits and skips a person that fails them, with a load warning.",
+          "type": "string",
+          "pattern": "^([0-9]{11})?$",
+          "examples": ["01839012345", ""]
+        },
+        "userId": {
+          "title": "User id",
+          "description": "Altinn user id, unique across all loaded files. The login picker, tokens (urn:altinn:userid) and Profile use it.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "partyId": { "$ref": "#/$defs/partyId" },
+        "partyUuid": { "$ref": "#/$defs/partyUuid" },
+        "firstName": {
+          "title": "First name",
+          "description": "First name. The display name is first, middle and last name joined by spaces.",
+          "$ref": "#/$defs/nullableString"
+        },
+        "middleName": { "title": "Middle name", "description": "Middle name.", "$ref": "#/$defs/nullableString" },
+        "lastName": {
+          "title": "Last name",
+          "description": "Last name. Person lookups by national identity number and last name match on it.",
+          "$ref": "#/$defs/nullableString"
+        },
+        "userName": {
+          "title": "User name",
+          "description": "Altinn user name; Profile can look a user up by it.",
+          "$ref": "#/$defs/nullableString"
+        },
+        "email": {
+          "$ref": "#/$defs/email",
+          "title": "E-mail address",
+          "description": "The person's e-mail address (Profile; the contact point Notifications and the KRR stand-in use). For a self-identified user it is the identity: urn:altinn:person:idporten-email:<email>, stored lower-case, and the display name."
+        },
+        "language": {
+          "title": "Language",
+          "description": "Profile language preference. Default nb.",
+          "enum": ["nb", "nn", "en", null],
+          "default": "nb"
+        },
+        "preSelectedPartyId": {
+          "title": "Preselected party (v2)",
+          "description": "Profile: the party preselected in the party picker. Default 0 (none).",
+          "type": ["integer", "null"],
+          "default": 0
+        },
+        "doNotPromptForParty": {
+          "title": "Do not prompt for party (v2)",
+          "description": "Profile: skip the party picker and use the preselected or own party. Default false.",
+          "type": ["boolean", "null"],
+          "default": false
+        },
+        "telephoneNumber": {
+          "title": "Telephone number",
+          "description": "Fixed-line telephone number. Profile's users endpoints return it as phoneNumber when set (before mobileNumber); the contact point lookups use it only when mobileNumber is absent.",
+          "$ref": "#/$defs/nullableString"
+        },
+        "mobileNumber": {
+          "$ref": "#/$defs/mobileNumber",
+          "description": "The person's mobile number in full international form (+47...), the SMS contact point Notifications gets from Profile's users/contactpoint/lookup. Tightened in v3: v1 accepted any string."
+        },
+        "reserved": {
+          "title": "Reserved against digital contact (v3)",
+          "description": "The person is reserved in KRR, the contact and reservation register, against digital communication from the public sector. Default false. Read by the Register's KRR stand-in for Correspondence; Profile's isReserved and Notifications do not use it yet. Has no meaning for a self-identified user.",
+          "type": ["boolean", "null"],
+          "default": false
+        },
+        "addressStreetName": { "title": "Street name", "description": "Residential address: street name.", "$ref": "#/$defs/nullableString" },
+        "addressHouseNumber": { "title": "House number", "description": "Residential address: house number.", "$ref": "#/$defs/nullableString" },
+        "addressHouseLetter": { "title": "House letter", "description": "Residential address: house letter.", "$ref": "#/$defs/nullableString" },
+        "addressPostalCode": { "title": "Postal code", "description": "Residential address: postal code.", "$ref": "#/$defs/nullableString" },
+        "addressCity": { "title": "City", "description": "Residential address: postal city.", "$ref": "#/$defs/nullableString" },
+        "addressMunicipalNumber": { "title": "Municipal number", "description": "Residential address: municipality number.", "$ref": "#/$defs/nullableString" },
+        "addressMunicipalName": { "title": "Municipal name", "description": "Residential address: municipality name.", "$ref": "#/$defs/nullableString" },
+        "mailingAddress": { "title": "Mailing address", "description": "Mailing address line.", "$ref": "#/$defs/nullableString" },
+        "mailingPostalCode": { "title": "Mailing postal code", "description": "Mailing address: postal code.", "$ref": "#/$defs/nullableString" },
+        "mailingPostalCity": { "title": "Mailing postal city", "description": "Mailing address: postal city.", "$ref": "#/$defs/nullableString" },
+        "partyRoles": {
+          "title": "Party roles",
+          "description": "Roles the person holds, keyed by the party id they are held for: an organisation, another person, or the person's own party (PRIV, REGNA, DAGL on oneself, which policies grant on). An empty list means the person may act for the party without any role.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]+$" },
+          "additionalProperties": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/role" }
+          }
+        },
+        "accessPackages": {
+          "title": "Access packages (v2)",
+          "description": "Access packages (tilgangspakker) the person holds, keyed by the party id of the organisation they are held for. Values are package identifiers or full URNs (urn:altinn:accesspackage:...). Applied by Access Management's refresh; the PDP reads them from there.",
+          "type": ["object", "null"],
+          "propertyNames": { "pattern": "^[0-9]+$" },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(urn:altinn:accesspackage:)?[a-z0-9-]+$",
+              "examples": ["regnskapsforer-med-signeringsrettighet", "urn:altinn:accesspackage:lonn"]
+            }
+          },
+          "default": {}
+        },
+        "customClaims": {
+          "title": "Custom claims",
+          "description": "Extra claims for the user's tokens (old localtest). Exposed by the Register's test-users endpoint; not added to tokens by the new stack yet.",
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/customClaim" },
+          "default": []
+        },
+        "profile": {
+          "title": "Profile data (reserved, v3)",
+          "description": "Reserved for the Profile data task 14 identifies (favourites, notification settings, professional notification addresses). No fields are defined yet; only an empty object validates. The loader ignores it.",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      "required": ["partyId", "userId", "ssn", "partyRoles"],
+      "additionalProperties": false
+    },
+    "org": {
+      "title": "Organisation",
+      "description": "An organisation (enhet) from the Central Coordinating Register, a main unit or a sub-unit (parentPartyId set).",
+      "type": "object",
+      "properties": {
+        "partyId": { "$ref": "#/$defs/partyId" },
+        "partyUuid": { "$ref": "#/$defs/partyUuid" },
+        "orgNumber": { "$ref": "#/$defs/organisationNumber" },
+        "parentPartyId": {
+          "title": "Main unit",
+          "description": "For a sub-unit: the party id of its main unit (an organisation in this or another loaded file). The Register links them with the CCR hovedenhet role, so the main unit's roles reach the sub-unit.",
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "name": { "title": "Name", "description": "Organisation name; the display name. Default: the organisation number.", "$ref": "#/$defs/nullableString" },
+        "unitType": {
+          "title": "Unit type",
+          "description": "CCR organisation form (AS, ENK, STAT, BRL, ...; BEDR for a sub-unit). Default when absent: AS for a main unit, BEDR for a sub-unit, with a load warning: the production Register always has one and Access Management's import rejects an organisation without it.",
+          "$ref": "#/$defs/nullableString",
+          "examples": ["AS", "ENK", "STAT", "BRL", "BEDR"]
+        },
+        "unitStatus": { "title": "Unit status", "description": "CCR unit status. Default N (normal).", "$ref": "#/$defs/nullableString", "default": "N" },
+        "businessAddress": { "title": "Business address", "description": "Business address line.", "$ref": "#/$defs/nullableString" },
+        "businessPostalCode": { "title": "Business postal code", "description": "Business address: postal code.", "$ref": "#/$defs/nullableString" },
+        "businessPostalCity": { "title": "Business postal city", "description": "Business address: postal city.", "$ref": "#/$defs/nullableString" },
+        "mailingAddress": { "title": "Mailing address", "description": "Mailing address line.", "$ref": "#/$defs/nullableString" },
+        "mailingPostalCode": { "title": "Mailing postal code", "description": "Mailing address: postal code.", "$ref": "#/$defs/nullableString" },
+        "mailingPostalCity": { "title": "Mailing postal city", "description": "Mailing address: postal city.", "$ref": "#/$defs/nullableString" },
+        "eMailAddress": {
+          "$ref": "#/$defs/email",
+          "title": "Registered e-mail address",
+          "description": "The e-mail address registered in the CCR (Register's organisation record). Not a notification address: Notifications uses notificationAddresses."
+        },
+        "internetAddress": { "title": "Web address", "description": "Web address.", "$ref": "#/$defs/nullableString" },
+        "telephoneNumber": { "title": "Telephone number", "description": "Telephone number registered in the CCR.", "$ref": "#/$defs/nullableString" },
+        "mobileNumber": {
+          "$ref": "#/$defs/mobileNumber",
+          "description": "Mobile number registered in the CCR (Register's organisation record), in full international form (+47...). Not a notification address: Notifications uses notificationAddresses."
+        },
+        "faxNumber": { "title": "Fax number", "description": "Fax number registered in the CCR.", "$ref": "#/$defs/nullableString" },
+        "notificationAddresses": {
+          "title": "Official notification addresses (v3)",
+          "description": "The organisation's official notification addresses (contact register for organisations), returned by Profile's organizations/notificationaddresses/lookup for Notifications' and Correspondence's organisation recipients. A sub-unit without any falls back to its main unit's addresses, as Profile does. Default: none, so an order to the organisation alone is rejected (422) unless users registered contact points.",
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/notificationAddress" },
+          "default": []
+        }
+      },
+      "required": ["partyId", "orgNumber"],
+      "additionalProperties": false
+    },
+    "system": {
+      "title": "System",
+      "description": "An end-user system (sluttbrukersystem) with its system users.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "title": "System id",
+          "description": "System id, conventionally <vendor organisation number>_<name>.",
+          "type": "string",
+          "examples": ["913312465_sbs"]
+        },
+        "name": { "title": "System name", "description": "System name; the system users' display name in the Register.", "type": "string" },
+        "systemUsers": {
+          "title": "System users",
+          "description": "The system's users, one per organisation that uses the system.",
+          "type": ["array", "null"],
+          "items": {
+            "title": "System user",
+            "type": "object",
+            "properties": {
+              "id": {
+                "title": "System user id",
+                "description": "The system user's UUID, also its Register party UUID (urn:altinn:systemuser:uuid).",
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "orgNumber": {
+                "$ref": "#/$defs/organisationNumber",
+                "description": "The organisation that owns the system user; must be an organisation in a loaded file, or the system user is skipped with a load warning."
+              },
+              "actions": {
+                "title": "Actions",
+                "description": "Actions delegated to the system user (read, write, instantiate, ...). Kept from the old localtest; not read by the new stack yet.",
+                "type": ["array", "null"],
+                "items": { "type": "string", "examples": ["read", "write", "instantiate"] }
+              }
+            },
+            "required": ["id", "orgNumber", "actions"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["id", "name", "systemUsers"],
+      "additionalProperties": false
+    }
+  }
+}

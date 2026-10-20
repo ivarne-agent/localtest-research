@@ -1,5 +1,5 @@
 {
-  "$schema": "https://altinncdn.no/schemas/json/test-users/test-users.schema.v2.json",
+  "$schema": "../../../testdata/test-users.schema.v3.json",
   "persons": [
     {
       "ssn": "01899699552",
@@ -72,7 +72,7 @@
       "language": "nb",
       "doNotPromptForParty": true,
       "telephoneNumber": "12345678",
-      "mobileNumber": "87654321",
+      "mobileNumber": "+4787654321",
       "addressStreetName": "Ørneveien",
       "addressHouseNumber": "36",
       "addressPostalCode": "1640",
@@ -121,7 +121,8 @@
       "language": "nb",
       "doNotPromptForParty": true,
       "telephoneNumber": "12345678",
-      "mobileNumber": "87654321",
+      "mobileNumber": "+4787654321",
+      "reserved": true,
       "addressStreetName": "Bjønnkamvegen",
       "addressHouseNumber": "14",
       "addressPostalCode": "3735",
@@ -176,7 +177,7 @@
       "language": "nn",
       "doNotPromptForParty": true,
       "telephoneNumber": "12345678",
-      "mobileNumber": "87654321",
+      "mobileNumber": "+4787654321",
       "addressStreetName": "Grev Wedels Plass",
       "addressHouseNumber": "9",
       "addressPostalCode": "0151",
@@ -860,7 +861,7 @@
       "language": "nb",
       "doNotPromptForParty": true,
       "telephoneNumber": "12345678",
-      "mobileNumber": "87654321",
+      "mobileNumber": "+4787654321",
       "addressStreetName": "Blåbærveien",
       "addressHouseNumber": "7",
       "addressPostalCode": "8450",
@@ -912,8 +913,16 @@
       "eMailAddress": "central@ddgfitness.no",
       "internetAddress": "http://ddgfitness.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
-      "faxNumber": "92110000"
+      "mobileNumber": "+4792010000",
+      "faxNumber": "92110000",
+      "notificationAddresses": [
+        {
+          "email": "varsling@ddgfitness.no"
+        },
+        {
+          "mobileNumber": "+4799500000"
+        }
+      ]
     },
     {
       "partyId": 500001,
@@ -932,7 +941,7 @@
       "eMailAddress": "oslo@ddgfitness.no",
       "internetAddress": "http://ddgfitness.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010001",
+      "mobileNumber": "+4792010001",
       "faxNumber": "92110001"
     },
     {
@@ -952,7 +961,7 @@
       "eMailAddress": "bergen@ddgfitness.no",
       "internetAddress": "http://ddgfitness.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010002",
+      "mobileNumber": "+4792010002",
       "faxNumber": "92110002"
     },
     {
@@ -972,7 +981,7 @@
       "eMailAddress": "trondheim@ddgfitness.no",
       "internetAddress": "http://ddgfitness.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010003",
+      "mobileNumber": "+4792010003",
       "faxNumber": "92110003"
     },
     {
@@ -991,7 +1000,7 @@
       "eMailAddress": "epost@fjellet.no",
       "internetAddress": "http://fjellbrl.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92011000",
+      "mobileNumber": "+4792011000",
       "faxNumber": "92110100"
     },
     {
@@ -1010,7 +1019,7 @@
       "eMailAddress": "localtest@digdir.no",
       "internetAddress": "http://digdir.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1027,7 +1036,15 @@
       "mailingPostalCode": "0114",
       "mailingPostalCity": "Oslo",
       "eMailAddress": "postmottak@digdir.no",
-      "internetAddress": "https://digdir.no"
+      "internetAddress": "https://digdir.no",
+      "notificationAddresses": [
+        {
+          "email": "varsling@digdir.no"
+        },
+        {
+          "mobileNumber": "+4799500006"
+        }
+      ]
     },
     {
       "partyId": 500600,
@@ -1045,7 +1062,7 @@
       "eMailAddress": "epost@setra.no",
       "internetAddress": "http://setrabrl.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1064,7 +1081,7 @@
       "eMailAddress": "epost@setra.no",
       "internetAddress": "http://setrabrl.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1084,7 +1101,7 @@
       "eMailAddress": "sortland@eashealt.no",
       "internetAddress": "http://setrabrl.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1104,7 +1121,7 @@
       "eMailAddress": "sortland@eashealt.no",
       "internetAddress": "http://setrabrl.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1123,7 +1140,7 @@
       "eMailAddress": "lofoten@eashealt.no",
       "internetAddress": "http://eashealt.no",
       "telephoneNumber": "12345678",
-      "mobileNumber": "92010000",
+      "mobileNumber": "+4792010000",
       "faxNumber": "92110000"
     },
     {
@@ -1142,7 +1159,7 @@
       "eMailAddress": "email@email.com",
       "internetAddress": "http://example.com",
       "telephoneNumber": "12345678",
-      "mobileNumber": "1234578",
+      "mobileNumber": "+471234578",
       "faxNumber": "12345678"
     }
   ],

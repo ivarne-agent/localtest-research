@@ -34,7 +34,14 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
             .Select(o =>
             {
                 var party = store.ByPartyId[checked((uint)o.PartyId)];
-                return new TestOrgDto(party.PartyId.Value, party.PartyUuid.Value, o.OrgNumber, party.DisplayName.Value!, o.ParentPartyId, UnitType(party));
+                return new TestOrgDto(
+                    party.PartyId.Value,
+                    party.PartyUuid.Value,
+                    o.OrgNumber,
+                    party.DisplayName.Value!,
+                    o.ParentPartyId,
+                    UnitType(party),
+                    [.. o.NotificationAddresses.Select(a => new TestNotificationAddressDto(a.Email, a.MobileNumber))]);
             })
             .ToList());
     }
@@ -107,7 +114,8 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
                 (int)UserType(p),
                 UserType(p).ToString()),
             user.SelfRoleCodes,
-            actingFor);
+            actingFor,
+            p.Reserved ?? false);
     }
 
     internal static ProfileUserType UserType(TestPerson person)
@@ -148,6 +156,7 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
     /// <param name="Profile">Profile preferences, as the profile endpoints return them.</param>
     /// <param name="SelfRoleCodes">Altinn role codes for the user's own party, verbatim (<c>PRIV</c>, <c>regna</c>, <c>SELN</c>, ...).</param>
     /// <param name="ActingFor">Every party the user may act for: self first, then <paramref name="Parties"/>, then the sub-units of those.</param>
+    /// <param name="Reserved">Reserved in KRR against digital contact (the test data's <c>reserved</c>, default false).</param>
     public sealed record TestUserDto(
         int UserId,
         uint PartyId,
@@ -163,7 +172,8 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
         string PartyType,
         TestUserProfileDto Profile,
         IReadOnlyList<string> SelfRoleCodes,
-        IReadOnlyList<ActingForPartyDto> ActingFor);
+        IReadOnlyList<ActingForPartyDto> ActingFor,
+        bool Reserved);
 
     /// <param name="UserType">The <c>Altinn.Platform.Profile.Enums.UserType</c> number; <paramref name="UserTypeName"/> is its name.</param>
     public sealed record TestUserProfileDto(string Language, int PreSelectedPartyId, bool DoNotPromptForParty, int UserType, string UserTypeName);
@@ -178,7 +188,10 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
     /// <param name="RoleCodes">Altinn role codes held directly for this party, verbatim.</param>
     public sealed record ActingForPartyDto(uint PartyId, Guid PartyUuid, string PartyType, string? OrgNumber, string? Ssn, string DisplayName, string? UnitType, uint? ParentPartyId, IReadOnlyList<string> Roles, IReadOnlyList<string> RoleCodes, IReadOnlyList<string> AccessPackages);
 
-    public sealed record TestOrgDto(uint PartyId, Guid PartyUuid, string OrgNumber, string DisplayName, int? ParentPartyId, string? UnitType);
+    /// <param name="NotificationAddresses">Official notification addresses from the test data (Profile's organisation lookup).</param>
+    public sealed record TestOrgDto(uint PartyId, Guid PartyUuid, string OrgNumber, string DisplayName, int? ParentPartyId, string? UnitType, IReadOnlyList<TestNotificationAddressDto> NotificationAddresses);
+
+    public sealed record TestNotificationAddressDto(string? Email, string? MobileNumber);
 
     public sealed record TestClaimDto(string Type, string Value, string? ValueType);
 }

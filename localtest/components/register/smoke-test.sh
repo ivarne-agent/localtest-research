@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Smoke test for the localtest register: seeded users, party list with sub-units, profile endpoints and app
+# Smoke test for the localtest register: seeded users (with the schema v3 reserved flag and organisations' notification
+# addresses), party list with sub-units, profile endpoints and app
 # registration with posted test data (the register fetches nothing). Start the register, then run
 #   ./smoke-test.sh [REGISTER_URL]
 # The Profile checks need a user token from the authentication component (AUTH, default the ingress); the register
@@ -10,6 +11,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REGISTER=${1:-http://127.0.0.1:5020}
 AUTH=${AUTH:-http://local.altinn.cloud:8000}
 OLA_SSN=01817512212   # Ola Nordmann (12345), see testdata/README.md
+SOPHIE_MOBILE=+4787654321   # Sophie Salt (1337), as stored in testdata/testData.json
 
 APP_DATA='{ "persons": [ { "userId": 3001, "partyId": 513001, "ssn": "24917440014", "firstName": "Stub", "lastName": "Appbruker",
                  "partyRoles": { "513001": [ { "type": "altinn", "value": "regna" } ] } } ] }'
@@ -36,6 +38,10 @@ for _ in $(seq 1 30); do curl -sf "$REGISTER/health" >/dev/null && break; sleep 
 
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "seeded Cypress users" \
   '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "selvregistrert.bruker@example.com"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
+curl -sS "$REGISTER/register/api/localtest/test-users" | check "reserved (schema v3): only Rik Forelder (1003)" \
+  '{u["userId"] for u in d if u["reserved"]} == {1003} and all(isinstance(u["reserved"], bool) for u in d)'
+curl -sS "$REGISTER/register/api/localtest/organizations" | check "organizations carry their notification addresses" \
+  '[{k: v for k, v in a.items() if v is not None} for a in {o["partyId"]: o["notificationAddresses"] for o in d}[500000]] == [{"email": "varsling@ddgfitness.no"}, {"mobileNumber": "+4799500000"}] and {o["partyId"]: o["notificationAddresses"] for o in d}[500600] == []'
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "self-party role codes and acting-for list" \
   'any(u["userId"] == 12345 and u["parties"][0]["partyId"] == 512345 and "regna" in u["parties"][0]["roleCodes"] for u in d) and any(u["userId"] == 1337 and {500000, 500001, 500800}.issubset({a["partyId"] for a in u["actingFor"]}) for u in d)'
 post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist?fetchSubUnits=true" -d '[500000]' | check "partylist [500000] with sub-units" \
@@ -57,13 +63,18 @@ echo "$(pcode -H "Authorization: Bearer $USR" -H Content-Type:application/json -
 
 # Profile contact points, as Altinn Notifications calls them: anonymous, answers under contactPointsList.
 post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["01839012345","00000000000"],"useStaleContactInfo":false}' | check "contactpoint/lookup: Sophie Salt found, unknown number absent, mobile number as stored" \
-  'd["contactPointsList"] == [{"userId": 1337, "nationalIdentityNumber": "01839012345", "isReserved": False, "mobileNumber": "87654321", "email": "1337@altinnstudiotestusers.com"}]'
+  'd["contactPointsList"] == [{"userId": 1337, "nationalIdentityNumber": "01839012345", "isReserved": False, "mobileNumber": "'"$SOPHIE_MOBILE"'", "email": "1337@altinnstudiotestusers.com"}]'
+post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["08829698278"],"useStaleContactInfo":false}' | check "contactpoint/lookup: isReserved stays false for a reserved person (only the KRR stand-in reads the flag)" \
+  'd["contactPointsList"][0]["userId"] == 1003 and d["contactPointsList"][0]["isReserved"] is False'
 post "$REGISTER/profile/api/v1/users/contactpoint/lookupsi" -d '{"externalIdentities":["urn:altinn:person:idporten-email:selvregistrert.bruker@example.com","urn:altinn:person:idporten-email:ukjent@example.com"]}' | check "contactpoint/lookupsi: the self-identified e-mail, no mobile" \
   'd["contactPointsList"] == [{"externalIdentity": "urn:altinn:person:idporten-email:selvregistrert.bruker@example.com", "email": "selvregistrert.bruker@example.com", "mobileNumber": ""}]'
-post "$REGISTER/profile/api/v1/organizations/notificationaddresses/lookup" -d '{"organizationNumbers":["897069644","123456785"]}' | check "notificationaddresses/lookup: no official addresses in the seed" \
-  'd["contactPointsList"] == [{"organizationNumber": "897069644", "partyId": 500000, "mobileNumberList": [], "emailList": [], "userContactPoints": []}]'
+# Official addresses (schema v3 notificationAddresses): DDG Fitness and Digitaliseringsdirektoratet have their own; the
+# DDG Fitness Oslo sub-unit has none and gets its main unit's (addressOrigin); EAS Health Consulting has none and is left
+# out, as is an unknown number. Profile never sets partyId in this answer.
+post "$REGISTER/profile/api/v1/organizations/notificationaddresses/lookup" -d '{"organizationNumbers":["897069644","991825827","897069660","897069628","123456785"]}' | check "notificationaddresses/lookup: seeded addresses, main-unit fallback, none for the rest" \
+  'd["contactPointsList"] == [{"organizationNumber": "897069644", "addressOrigin": "897069644", "partyId": 0, "mobileNumberList": ["+4799500000"], "emailList": ["varsling@ddgfitness.no"]}, {"organizationNumber": "991825827", "addressOrigin": "991825827", "partyId": 0, "mobileNumberList": ["+4799500006"], "emailList": ["varsling@digdir.no"]}, {"organizationNumber": "897069660", "addressOrigin": "897069644", "partyId": 0, "mobileNumberList": ["+4799500000"], "emailList": ["varsling@ddgfitness.no"]}]'
 post "$REGISTER/profile/api/v1/units/contactpoint/lookup" -d '{"organizationNumbers":["897069644"],"resourceId":"urn:altinn:resource:app_ttd_x"}' | check "units/contactpoint/lookup: users holding something at DDG Fitness (500000), e-mail and mobile as stored" \
-  'd["contactPointsList"][0]["partyId"] == 500000 and {u["userId"]: (u["email"], u["mobileNumber"]) for u in d["contactPointsList"][0]["userContactPoints"]}[1337] == ("1337@altinnstudiotestusers.com", "87654321") and 1004 not in {u["userId"] for u in d["contactPointsList"][0]["userContactPoints"]}'
+  'd["contactPointsList"][0]["partyId"] == 500000 and {u["userId"]: (u["email"], u["mobileNumber"]) for u in d["contactPointsList"][0]["userContactPoints"]}[1337] == ("1337@altinnstudiotestusers.com", "'"$SOPHIE_MOBILE"'") and 1004 not in {u["userId"] for u in d["contactPointsList"][0]["userContactPoints"]}'
 
 put() { curl -sS -H Content-Type:application/json -X PUT "$@"; }
 put "$REGISTER/register/api/localtest/apps/ttd/smoke-app" -d "$APP_DATA" | check "register app with posted test data (apps only)" \
