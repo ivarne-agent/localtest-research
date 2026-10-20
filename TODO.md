@@ -28,8 +28,8 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | unapproved | medium | yes |
-| 8 | [Inspection GUI](#8-inspection-gui) | unapproved | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | research in progress (2026-10-20, Opus research agent, branch `research/correspondence`; plan under `planned-components/correspondence/`, then a brief to approve) | medium | yes |
+| 8 | [Inspection GUI](#8-inspection-gui) | research in progress (2026-10-20, Opus research agent, branch `research/inspection-gui`; plan under `planned-components/inspection-gui/`, then a brief to approve) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b in progress (2026-10-20, agent `task9b-dialogporten`, worktree `.worktrees/task9b-dialogporten`, branch `task/dialogporten-integration`) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | unapproved | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
@@ -37,7 +37,7 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | unapproved | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
-| 16 | [Receipt](#16-receipt) | unapproved | medium | yes |
+| 16 | [Receipt](#16-receipt) | research in progress (2026-10-20, Opus research agent, branch `research/receipt`; plan under `planned-components/receipt/`, then a brief to approve) | medium | yes |
 
 Suggested order: 9b (running), 10, then 7 and 8 as capacity allows, then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
@@ -352,9 +352,17 @@ local queue so the production sync handler and its retry and error policies run 
   10 s with the right resource, party and go-to URL, `dataValues["dialog.id"]` on the instance; process start and a
   data upload → attachment and activity; process end → status change (and a transmission); soft delete → `deleted:
   true` for the service owner; manual `syncDialog/simple` idempotent; the default stack with the group off: an instance
-  created produces one log line and nothing else, and `run-platform-regression.sh` stays green. **Not in 10:** the
-  steps that need a dialog token from the end-user API (reading the receipt as the user, deleting through the
-  adapter with the dialog token); they need the `pid` token of deferred task 2.
+  created produces one log line and nothing else, and `run-platform-regression.sh` stays green. **Dialog-token steps
+  are in 10 (decided 2026-10-20, task 2 lands first):** the smoke test takes a code-flow access token for user 1337
+  from `GET localtest/api/authentication/token`, reads the dialog through `GET dialogporten/api/v1/enduser/dialogs/{id}`
+  for its `dialogToken`, and runs the adapter's two token-validated endpoints with it: the receipt
+  (`GET storage/dialogporten/api/v1/receipt/{dialogId}/{transmissionId}`, whose body stays a 404 until task 16, so
+  the check is that the token is accepted and the 404 comes from the missing receipt app, not from validation) and
+  the delete (`DELETE storage/dialogporten/api/v1/instance/{owner}/{guid}` → Storage soft delete → outbox → dialog
+  deleted). No localtest source mints dialog tokens.
+- **Organisation list.** The adapter reads `altinn-orgs.json` from the real CDN, as Dialogporten does (task 3 is
+  won't do); no committed copy.
+- **Re-sync button** per instance (`syncDialog/simple`) is an input to task 8, not part of 10.
 
 **Known pain point, not ours to fix (decided 2026-10-20).** Dialogporten's service-owner search names the caller's
 organisation by the first short name the Resource Registry lists for 991825827 (`digdir`), while dialogs for `ttd`
