@@ -54,6 +54,7 @@ A path matching no route still falls through to the localtest app.
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
+| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | unapproved (2026-10-21, design under discussion; sub-items 21a to 21f) | large | yes |
 
 Suggested order: 11b (running, owns the stack); 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -560,4 +561,52 @@ sets, the front door that studioctl-server provides, the provisioning steps, tes
 (the Unix-socket server, the app runner's provisioning), how app-lib or the app template would reference it, and
 whether this competes with or complements studioctl. Research only, under `planned-components/aspire/`, with a
 recommendation and a proposed brief.
+
+## 21. Aspire host package for apps
+
+**Goal (2026-10-21, owner's direction).** A separate Aspire hosting package that an app imports in a single-file AppHost
+(`var localtest = builder.AddAltinnLocaltest(); builder.AddAltinnApp<App>(localtest);`) to get the platform
+components as container resources beside the app, with the same images, settings and provisioning as studioctl. Both
+runtimes read one **common manifest** (image tags, ports, environment, mounts, dependencies, groups, routes, init
+scripts) and share the **setup functions** (the provisioning steps). The front door no longer strips `Secure` from
+cookies: the components that set `Secure` cookies get `#if !LOCALTEST` blocks instead, so a plain YARP (or the localtest
+app's proxy) can be the front door. The AppHost package reads the app's `testData.json`, policy, metadata and texts and
+coordinates the registration in Storage, the PDP, the Resource Registry, the Register, Access Management and
+Dialogporten, as the provisioner does today. Research: `planned-components/aspire/` (its option 2, the generated
+layer).
+
+**Sub-items (each its own brief once approved).**
+
+- **21a, the manifest.** Define `localtest/manifest.json` with a JSON schema as the single source of truth: components
+  (name, image repository and tag, container port, host port, environment with templated references such as
+  `{platform}` and `{postgres}`, mounts, dependencies and health, group), groups with implications, routes (host,
+  prefix, rewrite), Postgres init scripts, the certificate. studioctl embeds it (`go:embed`) and `components.go`
+  becomes a loader with a test that the two agree during the transition; the pin `tagLocaltestV2` moves into it.
+  Decide templating and secrets handling.
+- **21b, cookies without the proxy.** Inventory every `Secure` cookie the components set (Authentication's
+  `AltinnStudioRuntime` and session cookies, Correspondence's OIDC cookies, the Arbeidsflate BFF's session cookie
+  (Node: a patch), the localtest app's own cookies, app-lib's XSRF cookie if any), add `#if !LOCALTEST` blocks or fake
+  configuration so they are not `Secure` on plain http, then remove the stripping from studioctl-server and the
+  localtest app's proxy. Report before each new directive site, as the model requires.
+- **21c, the shared provisioning library.** Extract `AppProvisioner`'s steps (register, Storage metadata and texts, PDP
+  policy, Resource Registry subject reload, Access Management refresh, Dialogporten sync) into a .NET library both
+  studioctl-server and the Aspire package reference, reading the app's `testData.json`, policy, metadata and texts from
+  the app folder or the running app, as today.
+- **21d, the front door for Aspire.** Decide between `Aspire.Hosting.Yarp` with routes generated from the manifest
+  (host + prefix, path rewrite, a 503 answer for groups that are off) and the localtest app's proxy as the front-door
+  container reading the manifest routes; the app routes the provisioner adds; `local.altinn.cloud:8000` reachable from
+  the containers (Aspire network aliases, `--add-host` under Podman).
+- **21e, the package.** `Altinn.Localtest.Aspire` (name to decide): `AddAltinnLocaltest(options)` adds the containers
+  from the embedded manifest with groups, Postgres and Redis, the certificate, waits and health; `AddAltinnApp<T>()`
+  sets the app's environment (platform URLs, test certificate), runs the provisioning after the app is healthy, and
+  exposes a dashboard command to rerun it; `env reset` as a command; a sample single-file AppHost for a test app; the
+  app-lib `studioctl app env --json` import (app-lib v9 in Development, overrides AppHost values unless
+  `STUDIOCTL_APP_RUN` is set) handled; Podman verified. Published to GitHub Packages from this repo for the prototype.
+- **21f, docs and parity.** A CI check that the manifest, studioctl and the package agree; docs in `localtest/README.md`
+  and, when adopted, altinn-studio-docs; the smoke tests runnable against an Aspire-hosted stack.
+
+**Open for discussion.** Source of truth (manifest first, studioctl reads it; or generated from `components.go`);
+manifest templating; the front door choice (21d); whether the Aspire package or app-lib owns the app's localtest
+environment; the test certificate's distribution; package name and publishing; prototype scope (default stack plus
+`dialogporten`, one sample app).
 
