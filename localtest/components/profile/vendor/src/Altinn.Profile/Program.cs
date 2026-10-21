@@ -55,6 +55,9 @@ var builder = WebApplication.CreateBuilder(args);
 ConfigureWebHostCreationLogging();
 
 SetConfigurationProviders(builder.Configuration);
+#if LOCALTEST
+Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.Configuration);
+#endif
 
 ConfigureApplicationLogging(builder.Logging);
 
@@ -218,6 +221,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services.SetupLeasing();
     services.AddSyncJobs(config);
+#if LOCALTEST
+    Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);
+#endif
 }
 
 static void AddAzureMonitorTelemetryExporters(IServiceCollection services, IConfiguration config)
