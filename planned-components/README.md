@@ -33,6 +33,7 @@ commits on `main` where a range there names a commit from before a rebase. Smoke
 | [`profile/README.md`](profile/README.md) | **implemented**, task 14 (2026-10-21, `f7b7f50..097b474`), default stack | [`../localtest/components/profile/`](../localtest/components/profile/), smoke 52 |
 | [`inspection-gui/README.md`](inspection-gui/README.md) | **deferred**: task 8 (2026-10-20), pending the owner's decision after task 17 | none |
 | [`admin-running-services/README.md`](admin-running-services/README.md) | **research done**, task 17 (2026-10-20); its recommendation (build task 8, do not reuse admin) stands, task 8 stays deferred | none |
+| [`aspire/README.md`](aspire/README.md), [`aspire/aspire.md`](aspire/aspire.md) | **research done**, task 20 (2026-10-21): the components map to Aspire container resources, but the front door (Aspire's YARP cannot strip `Secure`), provisioning and the app environment are studioctl's; recommends documenting an AppHost running the app next to `studioctl env up`, and a hosting package generated from studioctl's component table only if Aspire becomes a supported way in | none |
 
 
 ## Conventions for vendored production code
