@@ -95,6 +95,9 @@ type LocaltestV2Images struct {
 	Receipt ImageSpec
 	// The optional Correspondence group.
 	Correspondence ImageSpec
+	// The optional Arbeidsflate group: the SPA's nginx and the BFF, built from one vendored tree.
+	Arbeidsflate    ImageSpec
+	ArbeidsflateBFF ImageSpec
 }
 
 // All returns every localtest-v2 image, for applying one tag to the set.
@@ -117,6 +120,8 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.DialogportenAdapter,
 		&i.Receipt,
 		&i.Correspondence,
+		&i.Arbeidsflate,
+		&i.ArbeidsflateBFF,
 	}
 }
 
@@ -188,6 +193,9 @@ func DefaultImages() ImagesConfig {
 
 			Receipt:        localtestV2Image("receipt"),
 			Correspondence: localtestV2Image("correspondence"),
+
+			Arbeidsflate:    localtestV2Image("arbeidsflate"),
+			ArbeidsflateBFF: localtestV2Image("arbeidsflate-bff"),
 		},
 	}
 	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag)); tag != "" {
@@ -233,6 +241,9 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
 
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_RECEIPT": &c.LocaltestV2.Receipt,
+
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE":     &c.LocaltestV2.Arbeidsflate,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE_BFF": &c.LocaltestV2.ArbeidsflateBFF,
 	}
 }
 

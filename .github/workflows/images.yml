@@ -44,6 +44,8 @@ jobs:
           - { name: profile, context: localtest/components/profile, file: localtest/components/profile/Dockerfile }
           - { name: receipt, context: localtest/components/receipt, file: localtest/components/receipt/Dockerfile }
           - { name: correspondence, context: localtest/components/correspondence, file: localtest/components/correspondence/Dockerfile }
+          - { name: arbeidsflate, context: localtest/components/arbeidsflate, file: localtest/components/arbeidsflate/Dockerfile.frontend }
+          - { name: arbeidsflate-bff, context: localtest/components/arbeidsflate, file: localtest/components/arbeidsflate/Dockerfile.bff }
           - { name: postgres, context: localtest, file: localtest/postgres/Dockerfile }
         platform:
           - { os: ubuntu-24.04, arch: amd64 }
@@ -83,7 +85,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, notifications, profile, dialogporten-webapi, dialogporten-graphql, dialogporten-service, dialogporten-adapter, receipt, correspondence, postgres]
+        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, notifications, profile, dialogporten-webapi, dialogporten-graphql, dialogporten-service, dialogporten-adapter, receipt, correspondence, arbeidsflate, arbeidsflate-bff, postgres]
     steps:
       - uses: actions/download-artifact@v4
         with:

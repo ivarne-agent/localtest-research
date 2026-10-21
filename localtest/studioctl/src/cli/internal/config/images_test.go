@@ -175,3 +175,33 @@ func TestDialogportenImagesFollowTheResearchBuildsAndRedisStaysPinned(t *testing
 		t.Errorf("Redis must stay pinned by digest, got %s:%s floating %v", images.Redis.Image, images.Redis.Tag, images.Redis.Floating)
 	}
 }
+
+func TestArbeidsflateImagesFollowTheResearchBuildsAndCanBeOverridden(t *testing.T) {
+	t.Setenv("STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE", "localhost/localtest-v2-arbeidsflate:dev")
+	t.Setenv("STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE_BFF", "localhost/localtest-v2-arbeidsflate-bff:dev")
+	defaults := config.DefaultImages().LocaltestV2
+	for _, spec := range []*config.ImageSpec{&defaults.Arbeidsflate, &defaults.ArbeidsflateBFF} {
+		if !slices.Contains(defaults.All(), spec) {
+			t.Errorf("%s is not in All, so --latest and the tag override would skip it", spec.Image)
+		}
+		if spec.Tag != "dev" || spec.Floating || !strings.HasPrefix(spec.Image, "localhost/localtest-v2-arbeidsflate") {
+			t.Errorf("override not applied: %s:%s floating %v", spec.Image, spec.Tag, spec.Floating)
+		}
+	}
+	if defaults.Arbeidsflate.Image == defaults.ArbeidsflateBFF.Image {
+		t.Error("the SPA's nginx and the BFF are two images")
+	}
+}
+
+func TestArbeidsflateImagesAreTheResearchBuilds(t *testing.T) {
+	t.Parallel()
+	images := config.DefaultImages().LocaltestV2
+	for name, spec := range map[string]config.ImageSpec{
+		"localtest-arbeidsflate":     images.Arbeidsflate,
+		"localtest-arbeidsflate-bff": images.ArbeidsflateBFF,
+	} {
+		if !strings.HasSuffix(spec.Image, "/"+name) || spec.Tag != images.Storage.Tag {
+			t.Errorf("%s: image %s:%s, want the research build at the stack's tag %s", name, spec.Image, spec.Tag, images.Storage.Tag)
+		}
+	}
+}

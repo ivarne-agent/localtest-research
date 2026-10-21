@@ -17,6 +17,9 @@ const (
 	groupReceipt = "receipt"
 	// groupCorrespondence is Correspondence, which cannot run without Dialogporten (its publish needs a dialog).
 	groupCorrespondence = "correspondence"
+	// groupArbeidsflate is Arbeidsflate, the Altinn inbox (the SPA's nginx and the BFF): it shows Dialogporten's dialogs,
+	// which come from the adapter (apps' instances) as well as from Correspondence, so it implies Dialogporten only.
+	groupArbeidsflate = "arbeidsflate"
 	// groupEverything owns no components and implies every other group.
 	groupEverything = "everything"
 )
@@ -39,6 +42,7 @@ func groupTable() map[string]group {
 		groupDialogporten:   {implies: nil, onByDefault: false},
 		groupReceipt:        {implies: nil, onByDefault: false},
 		groupCorrespondence: {implies: []string{groupDialogporten}, onByDefault: false},
+		groupArbeidsflate:   {implies: []string{groupDialogporten}, onByDefault: false},
 	}
 	table[groupEverything] = group{implies: slices.Sorted(maps.Keys(table)), onByDefault: false}
 	return table

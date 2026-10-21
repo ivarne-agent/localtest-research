@@ -42,6 +42,11 @@ const (
 
 	// The optional Correspondence group (see groups.go), which implies the Dialogporten group.
 	componentCorrespondence = "correspondence"
+
+	// The optional Arbeidsflate group (see groups.go), which implies the Dialogporten group: the SPA's nginx, which serves
+	// the af.local.altinn.cloud host and proxies /api/ to the BFF, both built from one vendored tree.
+	componentArbeidsflate    = "arbeidsflate"
+	componentArbeidsflateBFF = "arbeidsflate-bff"
 )
 
 // Host ports, loopback only. The proxy in studioctl-server forwards to these; 5300 is also what app-lib's
@@ -64,6 +69,8 @@ const (
 	hostPortReceipt          = "8034"
 	hostPortProfile          = "8036"
 	hostPortCorrespondence   = "8033"
+	hostPortArbeidsflate     = "8037"
+	hostPortArbeidsflateBFF  = "8038"
 	hostPortPDF              = "5300"
 )
 
@@ -124,6 +131,16 @@ const (
 	// dialogportenHealthPath is the Altinn health convention Dialogporten's hosts serve: ready once the database is
 	// migrated and the hosts' own checks pass. The WebApi serves it under its path base too.
 	dialogportenHealthPath = "/health/readiness"
+
+	// arbeidsflatePort is the port both Arbeidsflate images listen on (nginx, and the BFF's PORT).
+	arbeidsflatePort = "80"
+	// arbeidsflateBFFAlias is the BFF's name on the network, which the SPA's nginx proxies /api/ to (nginx/nginx.conf).
+	arbeidsflateBFFAlias = "arbeidsflate-bff"
+	// arbeidsflateOIDCClient is the OIDC client Authentication seeds for Arbeidsflate's BFF.
+	arbeidsflateOIDCClient = "arbeidsflate-localtest"
+	// arbeidsflateRedisDatabase is the BFF's database in the Dialogporten group's Redis: Dialogporten uses 0 and
+	// Correspondence 1.
+	arbeidsflateRedisDatabase = "2"
 )
 
 // route is one public host-and-prefix the proxy forwards to a component; an empty prefix matches the whole host.
@@ -262,6 +279,8 @@ func allComponents(opts *Options) []component {
 		dialogportenAdapterComponent(opts, platform),
 		receiptComponent(opts, platform),
 		correspondenceComponent(opts, platform),
+		arbeidsflateBFFComponent(opts, platform),
+		arbeidsflateComponent(opts),
 	}
 }
 
@@ -800,6 +819,96 @@ func correspondenceComponent(opts *Options, platform string) component {
 	}
 	// The host's own paths start with /correspondence/api/v1, so nothing is rewritten.
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/correspondence", rewrite: ""}}
+	return c
+}
+
+// arbeidsflateComponent is the SPA of Arbeidsflate, the Altinn inbox, served by nginx on its own host,
+// af.local.altinn.cloud: the SPA and the BFF use absolute paths (/, /assets, /api/...), so they cannot live under a
+// prefix of the platform host. nginx proxies /api/ to the BFF with X-Forwarded-Proto https, without which the BFF's
+// Secure-only session is never saved (see the component README). The browser opens Dialogporten's subscription stream
+// on the platform host directly, as in production.
+func arbeidsflateComponent(opts *Options) component {
+	c := newComponent(
+		opts,
+		componentArbeidsflate,
+		opts.Images.LocaltestV2.Arbeidsflate,
+		"components/arbeidsflate",
+		arbeidsflatePort,
+		hostPortArbeidsflate,
+	)
+	c.group = groupArbeidsflate
+	c.dockerfile = "Dockerfile.frontend"
+	// The SPA's index.html; /api/ would make the BFF's readiness the SPA's, which is polled on its own.
+	c.healthPath = "/"
+	// Upstream's start.sh writes these into index.html (envsubst); the two Application Insights values stay empty.
+	c.env = map[string]string{
+		"DIALOGPORTEN_STREAM_URL": opts.Topology.LocaltestBaseURL() + "/dialogporten/graphql/stream",
+	}
+	// nginx resolves the BFF's alias when it starts.
+	c.deps = []string{containerOf(componentArbeidsflateBFF)}
+	c.routes = []route{{host: opts.Topology.ArbeidsflateHostName(), prefix: "", rewrite: ""}}
+	return c
+}
+
+// arbeidsflateBFFComponent is Arbeidsflate's backend for frontend: the OIDC client of production Authentication (the
+// seeded client arbeidsflate-localtest, whose redirect, post-logout and front-channel URLs are on the Arbeidsflate host),
+// the GraphQL proxy to Dialogporten with the user's access token, Profile for the profile page, and its own Postgres
+// database and Redis database. It has no public route of its own: the browser reaches it through the SPA's nginx.
+func arbeidsflateBFFComponent(opts *Options, platform string) component {
+	c := newComponent(
+		opts,
+		componentArbeidsflateBFF,
+		opts.Images.LocaltestV2.ArbeidsflateBFF,
+		"components/arbeidsflate",
+		arbeidsflatePort,
+		hostPortArbeidsflateBFF,
+	)
+	c.group = groupArbeidsflate
+	c.dockerfile = "Dockerfile.bff"
+	// Answers once the server listens, which is after the migrations and the database connection.
+	c.healthPath = "/api/readiness"
+	c.aliases = []string{arbeidsflateBFFAlias}
+	base := opts.Topology.LocaltestBaseURL()
+	c.env = map[string]string{
+		// redirect_uri is HOSTNAME + /api/cb, which must equal the seeded client's byte for byte.
+		"HOSTNAME": opts.Topology.PublicBaseURL(envtopology.ComponentArbeidsflate),
+		// With a scheme, which patch 0001 keeps (upstream prefixes https://).
+		"OIDC_PLATFORM_URL": platform + "authentication/api/v1/openid",
+		// The client Authentication seeds for it (components/authentication, LocaltestOidcClients); its secret is the
+		// client id with "-secret".
+		"OIDC_CLIENT_ID":     arbeidsflateOIDCClient,
+		"OIDC_CLIENT_SECRET": arbeidsflateOIDCClient + "-secret",
+		// Profile, Register, Correspondence, Notifications, the Resource Registry and the Maskinporten exchange.
+		"PLATFORM_BASEURL": base,
+		// /graphql and /health under it; the front door forwards /dialogporten/graphql to the GraphQL host's /graphql.
+		"DIALOGPORTEN_URL": base + "/dialogporten",
+		"DB_CONNECTION_STRING": "postgres://arbeidsflate:localtest@" + postgresAlias + ":" + postgresPort +
+			"/arbeidsflate",
+		"REDIS_CONNECTION_STRING": "redis://" + componentRedis + ":" + redisPort + "/" + arbeidsflateRedisDatabase,
+		"SESSION_SECRET":          "localtest-arbeidsflate-session-secret-not-a-secret",
+		// The domain of the cookies the BFF writes for the apps (the language in altinnPersistentContext).
+		"AUTH_CONTEXT_COOKIE_DOMAIN": opts.Topology.AppHostName(),
+		"ENVIRONMENT":                "test",
+		"NODE_ENV":                   "production",
+		// Upstream enables both everywhere but production: GraphiQL at /api/graphiql with the browser's session, and
+		// /api/init-session for tests that bring a token instead of signing in.
+		"ENABLE_GRAPHIQL":              "true",
+		"ENABLE_INIT_SESSION_ENDPOINT": "true",
+		// The localtest app's fake Maskinporten (the BFF posts to {issuer}token); a nine-digit client id is the
+		// organisation number (Digdir's). The image's start script supplies a client key when MASKINPORTEN_JWK is unset.
+		"MASKINPORTEN_ISSUER":    platform + "localtest/api/maskinporten/",
+		"MASKINPORTEN_CLIENT_ID": "991825827",
+	}
+	// Its start reads Authentication's discovery (twice) and connects to Postgres and Redis; the GraphQL proxy, the
+	// health check and the profile page need Dialogporten, Profile and the Register.
+	c.deps = []string{
+		containerOf(componentPostgres),
+		containerOf(componentRedis),
+		containerOf(componentRegister),
+		containerOf(componentProfile),
+		containerOf(componentAuthentication),
+		containerOf(componentDialogportenGraphQL),
+	}
 	return c
 }
 

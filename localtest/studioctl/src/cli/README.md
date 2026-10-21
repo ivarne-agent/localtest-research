@@ -117,8 +117,9 @@ then pick up the app's resource, policy subjects and test users.
 
 Optional component groups are off by default: `--with dialogporten` adds Dialogporten and its adapter,
 which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;
-`--with correspondence` Correspondence, which also starts `dialogporten`; `--with everything` all of
-them. `--without <group>` leaves one out. A request for a component whose group is off answers
+`--with correspondence` Correspondence, which also starts `dialogporten`; `--with arbeidsflate` the
+Altinn inbox on `http://af.local.altinn.cloud:8000` (also `dialogporten`; `studioctl env hosts add` adds the
+hostname); `--with everything` all of them. `--without <group>` leaves one out. A request for a component whose group is off answers
 `503` with the `env up` command that starts it.
 
 Only one runtime runs at a time. `env up` records which one it started, and `env down`, `env status`,

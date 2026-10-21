@@ -282,7 +282,12 @@ func TestResolveGroups(t *testing.T) {
 		{
 			name: "everything",
 			with: []string{"everything"},
-			want: []string{"correspondence", "dialogporten", "everything", "receipt"},
+			want: []string{"arbeidsflate", "correspondence", "dialogporten", "everything", "receipt"},
+		},
+		{
+			name: "arbeidsflate brings in dialogporten only",
+			with: []string{"arbeidsflate"},
+			want: []string{"arbeidsflate", "dialogporten"},
 		},
 		{
 			name:    "everything without one of its groups is an error",
@@ -329,7 +334,7 @@ func TestEveryGroupIsOffByDefaultAndImpliesOnlyKnownGroups(t *testing.T) {
 	if got := table[groupEverything].implies; len(got) != len(table)-1 {
 		t.Errorf("everything implies %v, want every other group", got)
 	}
-	if want := []string{"correspondence", "dialogporten", "everything", "receipt"}; !slices.Equal(GroupNames(), want) {
+	if want := []string{"arbeidsflate", "correspondence", "dialogporten", "everything", "receipt"}; !slices.Equal(GroupNames(), want) {
 		t.Errorf("GroupNames() = %v, want %v", GroupNames(), want)
 	}
 }
@@ -656,6 +661,7 @@ func TestTheComponentsThatCallProfileStartAfterIt(t *testing.T) {
 		componentNotifications:    true,
 		componentReceipt:          true,
 		componentCorrespondence:   true,
+		componentArbeidsflateBFF:  true,
 	}
 	for _, c := range components(opts) {
 		if callers[c.name] {
@@ -708,5 +714,184 @@ func TestDepsNameKnownContainersWithoutCycles(t *testing.T) {
 	}
 	for _, name := range slices.Sorted(maps.Keys(deps)) {
 		visit(name, nil)
+	}
+}
+
+func arbeidsflateOptions(t *testing.T) *Options {
+	t.Helper()
+	groups, err := ResolveGroups([]string{groupArbeidsflate}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	opts.Groups = groupSet(groups)
+	return opts
+}
+
+func componentNamed(t *testing.T, opts *Options, name string) component {
+	t.Helper()
+	for _, c := range components(opts) {
+		if c.name == name {
+			return c
+		}
+	}
+	t.Fatalf("no %s container", name)
+	return component{}
+}
+
+func TestTheArbeidsflateGroupIsOffByDefaultAndItsHostAnswers503(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	for _, name := range containerNamesOf(opts) {
+		if name == componentArbeidsflate || name == componentArbeidsflateBFF {
+			t.Errorf("%s is part of the default environment", name)
+		}
+	}
+	var found []envtopology.BoundTopologyRoute
+	for _, route := range boundTopologyConfig(opts).Routes {
+		if route.Match.Host == "af.local.altinn.cloud" {
+			found = append(found, route)
+		}
+	}
+	if len(found) != 1 || found[0].Enabled || found[0].Match.PathPrefix != "" ||
+		metadataValue(found[0], groupMetadataKey) != groupArbeidsflate {
+		t.Errorf("af.local.altinn.cloud routes = %+v, want one for the whole host, disabled and naming its group", found)
+	}
+}
+
+func TestTheArbeidsflateGroupStartsDialogportenAndTheBFFBeforeTheSPA(t *testing.T) {
+	t.Parallel()
+	opts := arbeidsflateOptions(t)
+	if !maps.Equal(opts.Groups, groupSet([]string{groupArbeidsflate, groupDialogporten})) {
+		t.Errorf("groups = %v, want arbeidsflate and dialogporten only", opts.Groups)
+	}
+	names := containerNamesOf(opts)
+	for _, want := range []string{componentArbeidsflate, componentArbeidsflateBFF, componentRedis, componentDialogportenGraphQL} {
+		if !slices.Contains(names, want) {
+			t.Errorf("components = %v, want %s", names, want)
+		}
+	}
+	if slices.Index(names, componentArbeidsflate) < slices.Index(names, componentArbeidsflateBFF) {
+		t.Errorf("the SPA's nginx starts before the BFF it resolves: %v", names)
+	}
+	spa := componentNamed(t, opts, componentArbeidsflate)
+	if spa.containerPort != "80" || !slices.Equal(spa.deps, []string{containerOf(componentArbeidsflateBFF)}) ||
+		spa.env["DIALOGPORTEN_STREAM_URL"] != "http://local.altinn.cloud:8000/dialogporten/graphql/stream" {
+		t.Errorf("SPA = port %s, deps %v, env %v", spa.containerPort, spa.deps, spa.env)
+	}
+}
+
+func TestTheArbeidsflateHostIsRoutedToTheSPAAndBothArePolled(t *testing.T) {
+	t.Parallel()
+	opts := arbeidsflateOptions(t)
+	var routes []envtopology.BoundTopologyRoute
+	for _, route := range boundTopologyConfig(opts).Routes {
+		if route.Component == componentArbeidsflate || route.Component == componentArbeidsflateBFF {
+			routes = append(routes, route)
+		}
+	}
+	if len(routes) != 1 || routes[0].Component != componentArbeidsflate || routes[0].Match.Host != "af.local.altinn.cloud" ||
+		routes[0].Match.PathPrefix != "" || !routes[0].Enabled ||
+		routes[0].Destination.URL != "http://127.0.0.1:"+hostPortArbeidsflate || metadataValue(routes[0], rewriteMetadataKey) != "" {
+		t.Errorf("routes = %+v, want only the whole af.local.altinn.cloud host to the SPA's nginx on %s", routes, hostPortArbeidsflate)
+	}
+	health := map[string]string{}
+	for _, target := range healthTargets(opts) {
+		health[target.name] = target.url
+	}
+	if health[componentArbeidsflate] != "http://127.0.0.1:"+hostPortArbeidsflate+"/" ||
+		health[componentArbeidsflateBFF] != "http://127.0.0.1:"+hostPortArbeidsflateBFF+"/api/readiness" {
+		t.Errorf("health = %v", health)
+	}
+}
+
+func TestTheArbeidsflateBFFIsTheSeededOIDCClientOnItsOwnDatabases(t *testing.T) {
+	t.Parallel()
+	bff := componentNamed(t, arbeidsflateOptions(t), componentArbeidsflateBFF)
+	if bff.containerPort != "80" || !slices.Equal(bff.aliases, []string{"arbeidsflate-bff"}) || len(bff.routes) != 0 {
+		t.Errorf("BFF = port %s, aliases %v, routes %v; want port 80, the alias nginx proxies to, no public route",
+			bff.containerPort, bff.aliases, bff.routes)
+	}
+	want := map[string]string{
+		// The seeded client's redirect URI is this plus /api/cb (components/authentication, LocaltestOidcClients).
+		"HOSTNAME":                "http://af.local.altinn.cloud:8000",
+		"OIDC_PLATFORM_URL":       "http://local.altinn.cloud:8000/authentication/api/v1/openid",
+		"OIDC_CLIENT_ID":          "arbeidsflate-localtest",
+		"OIDC_CLIENT_SECRET":      "arbeidsflate-localtest-secret",
+		"PLATFORM_BASEURL":        "http://local.altinn.cloud:8000",
+		"DIALOGPORTEN_URL":        "http://local.altinn.cloud:8000/dialogporten",
+		"DB_CONNECTION_STRING":    "postgres://arbeidsflate:localtest@postgres:5432/arbeidsflate",
+		"REDIS_CONNECTION_STRING": "redis://redis:6379/2",
+		"MASKINPORTEN_ISSUER":     "http://local.altinn.cloud:8000/localtest/api/maskinporten/",
+	}
+	for key, value := range want {
+		if bff.env[key] != value {
+			t.Errorf("%s = %q, want %q", key, bff.env[key], value)
+		}
+	}
+	if len(bff.env["SESSION_SECRET"]) < 32 {
+		t.Error("the BFF refuses a SESSION_SECRET under 32 characters")
+	}
+	for _, dep := range []string{componentPostgres, componentRedis, componentAuthentication, componentProfile, componentDialogportenGraphQL} {
+		if !slices.Contains(bff.deps, containerOf(dep)) {
+			t.Errorf("BFF deps %v lack %s", bff.deps, dep)
+		}
+	}
+}
+
+func TestTheGroupsUseDistinctRedisDatabases(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	opts.Groups = allGroups()
+	correspondence := componentNamed(t, opts, componentCorrespondence)
+	bff := componentNamed(t, opts, componentArbeidsflateBFF)
+	// Dialogporten's hosts use database 0 (their default connection string has none).
+	if !strings.HasSuffix(correspondence.env["GeneralSettings__RedisConnectionString"], "defaultDatabase=1") ||
+		!strings.HasSuffix(bff.env["REDIS_CONNECTION_STRING"], "/2") {
+		t.Errorf("Redis: correspondence %q, arbeidsflate %q", correspondence.env["GeneralSettings__RedisConnectionString"],
+			bff.env["REDIS_CONNECTION_STRING"])
+	}
+}
+
+func TestEveryContainerResolvesTheArbeidsflateHost(t *testing.T) {
+	t.Parallel()
+	// Authentication calls the BFF's front-channel logout URI server-side, on af.local.altinn.cloud.
+	for _, c := range components(arbeidsflateOptions(t)) {
+		if c.name == componentPostgres || c.name == componentRedis {
+			continue
+		}
+		if !slices.Contains(c.extraHosts, "af.local.altinn.cloud:host-gateway") {
+			t.Errorf("%s: extra hosts %v lack af.local.altinn.cloud", c.name, c.extraHosts)
+		}
+	}
+}
+
+func TestArbeidsflateIsBuiltAsOneDevComponentFromTwoDockerfiles(t *testing.T) {
+	t.Parallel()
+	selected, err := devComponents([]string{groupArbeidsflate})
+	if err != nil || !selected[groupArbeidsflate] {
+		t.Fatalf("--dev arbeidsflate = %v, %v", selected, err)
+	}
+	if _, err := devComponents([]string{componentArbeidsflateBFF}); err == nil {
+		t.Error("the BFF is built together with the SPA as the group, not on its own")
+	}
+	opts := arbeidsflateOptions(t)
+	opts.DevSourceRoot = "/src/localtest"
+	opts.DevComponents = selected
+	dockerfiles := map[string]string{}
+	for _, c := range components(opts) {
+		if built, ok := componentImage(opts, c).(*resource.BuiltImage); ok {
+			dockerfiles[c.name] = built.Dockerfile
+			if built.ContextPath != "/src/localtest/components/arbeidsflate" {
+				t.Errorf("%s context = %s", c.name, built.ContextPath)
+			}
+		}
+	}
+	want := map[string]string{
+		componentArbeidsflate:    "/src/localtest/components/arbeidsflate/Dockerfile.frontend",
+		componentArbeidsflateBFF: "/src/localtest/components/arbeidsflate/Dockerfile.bff",
+	}
+	if !maps.Equal(dockerfiles, want) {
+		t.Errorf("built images = %v, want %v", dockerfiles, want)
 	}
 }

@@ -108,6 +108,11 @@ func (l Local) PublicRouteURL(id ComponentID) string {
 	return l.url(component.Host()) + component.PathPrefix()
 }
 
+// ArbeidsflateHostName returns the local Arbeidsflate (inbox) host name.
+func (l Local) ArbeidsflateHostName() string {
+	return l.MustComponent(ComponentArbeidsflate).Host()
+}
+
 // LocaltestIngressHosts returns the hostnames routed through localtest.
 func (l Local) LocaltestIngressHosts() []string {
 	return slicesClone([]string{
@@ -116,6 +121,7 @@ func (l Local) LocaltestIngressHosts() []string {
 		l.MustComponent(ComponentWorkflowEngine).Host(),
 		l.MustComponent(ComponentPgAdmin).Host(),
 		l.MustComponent(ComponentFrontendDevServer).Host(),
+		l.MustComponent(ComponentArbeidsflate).Host(),
 	})
 }
 
@@ -127,6 +133,7 @@ func (l Local) HostFileHostnames() []string {
 		ComponentWorkflowEngine,
 		ComponentPgAdmin,
 		ComponentFrontendDevServer,
+		ComponentArbeidsflate,
 		ComponentOTel,
 	)
 }
