@@ -71,7 +71,7 @@ the read API's 30-second delay never held anything back. studioctl now runs the 
 `postgresComponent`), which also covers a data volume created under the old setting. The same default is in Profile
 (`created_date_time`) and Dialogporten (`current_timestamp at time zone 'utc'`), which this fixes as well; no init
 script or fake in the stack relies on Oslo time in the database. The smoke test checks `registeredTime` against the
-clock and that the read API holds back the newest event.
+clock and that the read API holds back an event published after one older than 30 seconds.
 
 ## Fakes (`fakes/`, namespace `Altinn.Platform.Events.Localtest`)
 
@@ -103,7 +103,9 @@ client's `AccessTokenSettings`, so the production `SigningCredentialsResolver` r
 The list and detail calls read the production tables with plain SQL. The production read endpoints
 (`GET events/api/v1/app/{org}/{app}`, `GET events/api/v1/events`) work as well, with their tokens and PDP filtering.
 Their 30-second delay (`registeredtime <= now() - interval '30 second'`) holds back the newest events as in production,
-since the stack's Postgres runs in UTC (see Postgres; before 2026-10-21 it held back nothing).
+since the stack's Postgres runs in UTC (see Postgres; before 2026-10-21 it held back nothing). As upstream's
+`getappevents_v2` is written, the limit is the newest event at least 30 seconds old, and while no event is that old
+(just after a reset or a start) there is no limit at all and every event is returned.
 
 ## Configuration
 
@@ -130,6 +132,11 @@ Information (`Logging__LogLevel__Default`).
 
 ## Verified (2026-10-19)
 
+- 2026-10-21 (task 12, pin `sha-735e5d2` with `--dev events`, `--with everything`, Postgres in UTC): `./smoke-test.sh`
+  27 of 27, again 27 of 27 on the default stack. Negative control on the pinned Events image, which predates directive
+  sites 4 and 5: 25 of 27, the two Dialogporten-source checks fail as they should (the other app's dialog event was
+  delivered on the first one's cached Permit; the `.../dialogporten/api` source filter took the app path). The
+  `registeredTime` check passes on both, since it depends on Postgres only.
 - `./smoke-test.sh`: 22 ok (2026-10-20, after the Dockerfile mirrored upstream); again 22 of 22 on 2026-10-21 with the
   dialogporten group up (task 10, run before the Dialogporten and adapter smoke tests,
   `../dialogporten-adapter/README.md`).

@@ -99,9 +99,10 @@ Again on 2026-10-21 (task 14, `internal/user` from the profile component): 30 of
 
 The "store:" listing (`podman exec`) and the closing check on the log (`podman logs` since the start of the run) read
 studioctl's container `localtest-v2-authorization` (`CONTAINER=` overrides it). The log check is the 31st check: it
-expects no `fail:` or `exception` lines and prints the first ones when there are. Without podman or the container both
+expects no `fail:`/`crit:` entry other than the three the run provokes itself (the unknown instance's 404, logged
+twice, and the app without a policy) and prints the first ones when there are. Without podman or the container both
 say "skipped" and do not fail the run (changed 2026-10-21, task 12; the compose-era name made them show nothing and 0
-before). The full log: `studioctl env logs -r localtest-v2 --component authorization`.
+before). 31 of 31 on 2026-10-21 (pin `sha-735e5d2`, `--with everything`). The full log: `studioctl env logs -r localtest-v2 --component authorization`.
 
 ## Run a changed component
 

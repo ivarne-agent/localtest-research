@@ -134,7 +134,7 @@ for the three Correspondence resources: types, owner, the `ttd` deviation in the
 - Access lists work against the Register but there is no seed or test for them.
 - `policy/rules` and `policy/rights` answer 500 for an app whose policy puts matches of two categories in one `AnyOf`
   (`All matches in a all must have the same category ruleId …`, thrown by production's `PolicyHelper.FlattenXacmlRule`,
-  which both endpoints use). Seen by the inspection-GUI research for `app_ttd_stateless-app`; 8 of the 13 monorepo test
-  apps have such a rule (the template's `delete` rule), listed in [`../../reviews/test-apps.md`](../../reviews/test-apps.md).
+  which both endpoints use). Confirmed on the stack on 2026-10-21 (task 12) for all 8 of the 13 monorepo test
+  apps that have such a rule (the template's `delete` rule), listed in [`../../reviews/test-apps.md`](../../reviews/test-apps.md).
   Production behaviour, not fixed here; the policy XML (`policy`) is what to read instead. `policy/subjects` (the
   provisioner's step 3b) does not use that parser and answers 200 for them.

@@ -49,3 +49,6 @@ stack; its Dockerfile mirrors the monorepo's, so the two images match apart from
 podman build -t localtest-workflow-engine:dev .                 # from this folder
 IMAGE=localhost/localtest-workflow-engine:dev ./smoke-test.sh --image
 ```
+
+`./smoke-test.sh --image` with the default image passed 3 of 3 on 2026-10-21 (task 12) beside the running stack
+(Postgres 18.3 in UTC, 9 migrations, health after 4 s). The `dotnet` mode was not run that day.

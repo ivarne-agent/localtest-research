@@ -227,7 +227,11 @@ activities in Dialogporten, the recipient's purge (`PurgedByRecipient`, the dial
 correspondence the recipient's `details` (the fetch) and then `markasread` (200, `Read`). Then a publish 5 minutes ahead
 (`ReadyForPublish`, its job under `jobs?state=Scheduled`), purged by the sender (`PurgedByAltinn`); the inspection API's paging
 and job list. `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
-64 checks, 67 with the restart; a `FAIL` makes it exit 1.
+64 checks, 67 with the restart; a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
+correspondence to `Published` 180 s, the notification 120 s, the activity jobs and the dialog's activities 90 s; each
+returns as soon as it holds): Hangfire polls every 5 s and the first jobs after `env up` are slow, and with the earlier
+limits one check failed on each of two first runs. With them the first run after a fresh `env up --with everything`
+passed 64 of 64 on 2026-10-21 (task 12, after the authorization, events, Dialogporten and adapter tests).
 
 Two orderings matter and are production behaviour: `markasread` needs a `Fetched` status first (`details` or `content` set it)
 and answers 400 once the correspondence is `Read`; and a `confirm` sent while one of the opened or download-started activity

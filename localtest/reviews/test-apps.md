@@ -19,7 +19,7 @@ as intended. Only the registry's flattened views fail.
 **Not affected:** `policy/subjects?reloadFromXacml=true` (studioctl's provisioning step 3b) collects subject attributes
 with `GetAttributeDictionaryByCategory`, not the flattener, so it answers 200 for these policies (seen for
 `signing-test` in `../components/resource-registry/README.md`, "Verified"). `v2/resource/{id}/policy/rights` uses
-`DelegationCheckHelper.DecomposePolicy`, which skips what it cannot read instead of throwing (read, not run).
+`DelegationCheckHelper.DecomposePolicy`, which skips what it cannot read instead of throwing (200 on the stack).
 
 **The rule.** In every failing app it is the same template rule, "user with role REGNA or DAGL can delete instances":
 its second `AnyOf` has one `AllOf` with the resource matches `urn:altinn:org`, `urn:altinn:app` and the action match
@@ -28,22 +28,24 @@ of the same files. The fix upstream is to move the `delete` match into a third `
 
 | App | File (`App/config/authorization/policy.xml`) | Rule | Production's reason | What the stack shows |
 | --- | --- | --- | --- | --- |
-| `stateless-app` | line 160 | `urn:altinn:example:ruleid:3` (delete) | action and resource in one `AnyOf`: `ArgumentException` in `FlattenXacmlRule`, 500 | `policy/rules` 500 for `app_ttd_stateless-app` (seen by the inspection-GUI research, 2026-10-20) |
-| `anonymous-stateless-app` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 expected, not run |
-| `component-library` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 expected, not run |
-| `expression-validation-test` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 expected, not run |
-| `payment-test` | line 200 | `urn:altinn:example:ruleid:4` (delete) | same | 500 expected, not run |
-| `signering-brukerstyrt` | line 158 | `urn:altinn:org:ttd:signering-brukerstyrt:ruleid:3` (delete) | same | 500 expected, not run |
-| `signing-test` | line 263 | `urn:altinn:example:ruleid:3` (delete) | same | 500 expected, not run; step 3b 200 |
-| `subform-test` | line 124 | `urn:altinn:example:ruleid:3` (delete) | same | 500 expected, not run |
+| `stateless-app` | line 160 | `urn:altinn:example:ruleid:3` (delete) | action and resource in one `AnyOf`: `ArgumentException` in `FlattenXacmlRule`, 500 | 500 and 500 (rules, rights; `ArgumentException … ruleid:3` in the registry's log); `policy/subjects` 200 |
+| `anonymous-stateless-app` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `component-library` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `expression-validation-test` | line 118 | `urn:altinn:example:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `payment-test` | line 200 | `urn:altinn:example:ruleid:4` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `signering-brukerstyrt` | line 158 | `urn:altinn:org:ttd:signering-brukerstyrt:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `signing-test` | line 263 | `urn:altinn:example:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
+| `subform-test` | line 124 | `urn:altinn:example:ruleid:3` (delete) | same | 500 and 500 (rules, rights); `policy/subjects` 200 |
 
 Pass: `frontend-test`, `multiple-datamodels-test`, `navigation-test-subform`, `process-transition-test`,
 `service-task`.
 
 How it was checked: a replay of `FlattenXacmlRule`'s checks (categories per `AnyOf`, the three categories present,
-one match per action `AllOf`) in Python over all 13 `policy.xml` files. "500 expected" rows are from that replay and
-the code above; `GET http://local.altinn.cloud:8000/resourceregistry/api/v1/resource/app_ttd_<app>/policy/rules` (and
-`/policy/rights`) on the stack with the app provisioned confirms them.
+one match per action `AllOf`) in Python over all 13 `policy.xml` files, then on the stack (2026-10-21, pin
+`sha-735e5d2`): each policy pushed with the Studio token as the provisioner does (200), and `GET
+resourceregistry/api/v1/resource/app_ttd_<app>/policy/rules`, `/policy/rights`, `/policy/subjects?reloadFromXacml=true`
+and `api/v2/resource/app_ttd_<app>/policy/rights`. The stack agrees with the replay for all 13: the eight apps above
+answer 500 on `rules` and `rights` and 200 on the other two; the five that pass answer 200 on all four.
 
 **Provisioning is not affected.** studioctl-server's `AppProvisioner` (step 3b, `GET …/policy/subjects?reloadFromXacml=true`)
 does not reach the flattener, so it succeeds for all of these. Were it to fail, `Send` throws, the rest of that app's
