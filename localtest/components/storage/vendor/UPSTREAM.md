@@ -5,11 +5,14 @@
 - Copied paths, relative layout preserved: `src/Storage/` (the host, including `Migration/`), `src/DbTools/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
   `Directory.Build.props`, `.editorconfig`, `.csharpierignore`, `.config/dotnet-tools.json`; plus
-  `infra/postgres_init.sql` (database, schema and role setup used by the compose init script) and the upstream
+  `infra/postgres_init.sql` (database, schema and role setup run by `../postgres-init/10-storage.sh` in the stack's
+  Postgres image) and the upstream
   `Dockerfile` for reference. There is no `global.json`, `Directory.Packages.props` or ruleset upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition.
+  `#if LOCALTEST … #endif` addition. The three sites (line numbers checked 2026-10-21): `src/Storage/Program.cs:71-73`
+  (after `ConfigureWolverine`, pure addition) and `:137-141` (`SetConfigurationProviders`), and
+  `src/Storage/Controllers/InstancesController.cs:1465-1471` (`BuildRequestLink`).
 
 ## Syncing to a newer upstream commit
 
@@ -26,4 +29,4 @@
    `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in `../Dockerfile`; never
    let it drift into a different build.
 5. Update the commit line above, build the image (`podman build -t localtest-storage:dev ..`) and run
-   `../../../smoke-test.sh` against it. Commit the sync on its own, separate from localtest changes.
+   `../../../smoke-test.sh` against it (with `studioctl env up -r localtest-v2 --dev storage`). Commit the sync on its own, separate from localtest changes.
