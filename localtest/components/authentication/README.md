@@ -168,7 +168,8 @@ exchange with its secret and verifier; the helper's tokens for user 1337 (`pid` 
 identity number, `nonce`, `sid`, `aud`); `invalid_client` for a wrong secret, `invalid_grant` for a spent code;
 refresh rotation and reuse detection; logout through `endsession` and `handleloggedout`, after which the session's
 refresh token is refused; and, with the dialogporten group up, Dialogporten's end-user dialog list with the code-flow
-access token (the cookie JWT, without `pid`, is refused with 403).
+access token (the cookie JWT, without `pid`, is refused with 403). That is 32 checks with the group and 30 without it,
+where the last two are skipped.
 
 On the stack (2026-10-20, `env up -r localtest-v2 --with dialogporten --dev authentication --dev localtest`): 32 ok,
 none failing. User 1337's access token carries `pid` `01839012345`, the Register's national identity number for
@@ -177,6 +178,10 @@ with her dialogs (without `party` or a service resource it is a 400 validation e
 Regressions on the same stack: root `smoke-test.sh` 23 ok; the localtest app's smoke test with `PROXY_CHECKS=0` 64 ok,
 every `identity providers` and `home` check passing; `run-platform-regression.sh --no-apps` 44 tests, all specs
 passed.
+
+2026-10-21 (task 14, production Profile from the profile component answering `internal/user`): 30 ok on the default
+stack and 32 with `--with everything` (the other two need Dialogporten), as recorded in `../profile/README.md` and
+`../../README.md`.
 
 ## Run a changed component
 

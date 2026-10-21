@@ -8,7 +8,10 @@
   at the root, `src/`, `src/apps/` and `src/pkgs/` levels where they exist.
 - Copied with `rsync` of a clean checkout, no subtree yet; identical to `git archive` of the commit (checked
   2026-10-19). The first commit holds the files unmodified; every later change inside this
-  folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first.
+  folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
+  The two sites (line numbers checked 2026-10-21), under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:
+  `AuthenticationHost.cs:293-295` (pure addition, `AddLocaltestAuthentication(builder)` before `AddPersistanceLayer()`)
+  and `Controllers/AuthenticationController.cs:1057-1070` (`IsSafeSameOrSubdomainHttps`, `#else` also accepts http).
 
 ## Syncing to a newer upstream commit
 

@@ -2,8 +2,9 @@
 # Smoke test for production Authentication in the running stack, through the front door: the browser sign-in (goTo),
 # and Authentication as an OpenID Connect provider for the seeded clients (authorize, picker, callback, token with
 # client_secret_basic and PKCE, refresh rotation, logout through the fake ID-porten's end-session endpoint), mostly through
-# the localtest app's headless code-flow helper (localtest/api/authentication/). The last check, Dialogporten's end-user
-# API with the code-flow access token, runs only when the dialogporten group is up (`--with dialogporten`).
+# the localtest app's headless code-flow helper (localtest/api/authentication/). The last two checks, Dialogporten's
+# end-user API with the cookie JWT (refused) and with the code-flow access token, run only when the dialogporten group is
+# up (`--with dialogporten`): 32 checks with the group, 30 without.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -u
 BASE=${1:-${BASE:-http://local.altinn.cloud:8000}}
