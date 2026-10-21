@@ -54,10 +54,10 @@ A path matching no route still falls through to the localtest app.
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
-| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | design settled 2026-10-21, awaiting dispatch of 21a, 21b and 21c (sub-items 21a to 21f) | large | yes |
+| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | in progress (dispatched 2026-10-21: 21a Opus `.worktrees/task21a-manifest` branch `task/manifest`, 21b Opus `.worktrees/task21b-cookies` branch `task/secure-cookies`, 21c Opus `.worktrees/task21c-provisioning` branch `task/provisioning-library`; phase 1 code, phase 2 stack in the order 21a, 21c, 21b; 21d to 21f later) | large | yes |
 | 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21) | small | no |
 
-Suggested order: 21a, 21b, 21c on "dispatch"; 8 when decided. 13 stays with the maintainer; 12 is a filler.
+Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -617,8 +617,7 @@ environment) is filed as a follow-up (task 22). 21b runs as one agent: inventory
 component in its README, then the stripping removed from both proxies; the owner reviews the inventory in the report
 before merge. Prototype scope: default stack plus `dialogporten`, one sample test app, the smoke tests against the
 Aspire-hosted stack, Podman verified; package `Altinn.Localtest.Aspire` published to GitHub Packages from this repo.
-Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f last. Status: design settled, awaiting
-"dispatch" for 21a, 21b and 21c.
+Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f last. Dispatched 2026-10-21 (21a, 21b, 21c).
 
 ## 22. app-lib honours an explicit localtest environment
 
