@@ -6,7 +6,7 @@ namespace Digdir.Domain.Dialogporten.Infrastructure.Localtest;
 
 /// <summary>
 /// The configuration defaults of a localtest host: the settings upstream's <c>appsettings.Development.json</c> carries
-/// "TODO: Add to local secrets" or at23 values for, plus the thirteen <c>LocalDevelopment</c> flags, which default to
+/// "TODO: Add to local secrets" or at23 values for, plus the fourteen <c>LocalDevelopment</c> flags, which default to
 /// <c>true</c> and are set explicitly here so no flag depends on a default or a development file.
 /// </summary>
 public static class LocaltestConfiguration

@@ -179,7 +179,7 @@ expect "/dialogporten/graphql/schema.graphql is rewritten to /graphql/schema.gra
 expect "a POST of a query through the rewrite is 401 as well" 401 "$(code -X POST -H 'Content-Type: application/json' "$DP/graphql" -d '{"query":"{ __typename }"}')"
 expect "the WebApi's paths are not rewritten (/dialogporten/api/v1/metadata/limits answers anonymously)" 200 "$(code "$DP/api/v1/metadata/limits")"
 # Any authenticated caller reaches the endpoint (the schema and introspection); every query field needs the end-user policy
-# (scope digdir:dialogporten and a person), so a real query waits for a pid token (task 2).
+# (scope digdir:dialogporten and a person), so a real query needs a token with pid (the code-flow token of task 2, not used here).
 gql() { curl -s -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X POST "$DP/graphql" -d "$1"; }
 curl -s -H "Authorization: Bearer $ORG" "$DP/graphql?sdl" | grep -q '^type Queries' \
   && pass "the schema (GET /dialogporten/graphql?sdl) with the org token" || fail "the schema with the org token"

@@ -1,8 +1,10 @@
 # dialogporten
 
 Production Dialogporten (`vendor/`, see `vendor/UPSTREAM.md`): the WebApi, GraphQL and Service hosts on a `dialogporten`
-database in the shared Postgres 18, with a Redis, as an **optional component group** of the `localtest-v2` runtime. It is off
-by default (apps never call Dialogporten, and the group costs about 0.5 GB of memory) and started with
+database in the shared Postgres 18, with a Redis, as an **optional component group** of the `localtest-v2` runtime. The group
+also holds the Dialogporten adapter (`../dialogporten-adapter/`, host port 8035), and the `correspondence` group implies it. It
+is off by default (apps never call Dialogporten, and the three hosts and Redis cost about 0.5 GB of memory, the adapter about
+0.26 GB more) and started with
 
 ```sh
 studioctl env up -r localtest-v2 --with dialogporten      # --dev dialogporten builds the three images from this folder
@@ -18,12 +20,13 @@ studioctl env up -r localtest-v2 --with dialogporten      # --dev dialogporten b
 The WebApi, GraphQL and Service hosts all migrate the database at start (production's `DevelopmentMigratorHostedService`, active in
 `Development`), and two of them at once collide on the schema ("column ... already exists"). The runtime therefore waits for the WebApi's container health
 check (a GET of `/health/readiness` over bash's `/dev/tcp`, the aspnet image has no curl) before it starts the other two.
-Without `--with dialogporten` none of the four containers or health checks exists, and the proxy answers `/dialogporten/...`
+Without `--with dialogporten` (or `--with correspondence`, `--with everything`) none of the group's five containers (these four
+and the adapter) or their health checks exists, and the proxy answers `/dialogporten/...`
 with `503` problem details ("Component not running", `group` `dialogporten`, the `--with dialogporten` command).
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except three one-line `LOCALTEST` hooks, one per host's `Program.cs` |
+| `vendor/` | Unmodified upstream copy except three one-line `LOCALTEST` hooks, one per host's `Program.cs`, and one `#if !LOCALTEST` block (http URLs, below) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import upstream's `Directory.Build.props`, define `LOCALTEST`, relax warnings-as-errors for the vendored projects, compile `fakes/Infrastructure` into the Infrastructure project and `fakes/{WebApi,GraphQL,Service}` into the host. No `ProjectReference` or `PackageReference` is added: upstream restores with `--locked-mode` and that fails with NU1004 |
 | `Dockerfile.webapi`, `.graphql`, `.service` | Mirror upstream's three per-host Dockerfiles (pinned `aspnet:10.0.12` and `sdk:10.0.401`, locked restore of the closure, publish without the apphost, non-root `$APP_UID`); each difference is marked `localtest:` |
 | `fakes/` | The hook, the configuration defaults, the issuer caches and the Maskinporten fake (below) |
@@ -121,7 +124,7 @@ How the Events component classifies them (plan question 9):
   production would refuse it (generic subscriptions need a resource filter and the subscribe scope).
 - **Proposed fix (not made in this step):** an `#if LOCALTEST` in the Events component's `OutboundService.GetSourceFilter` and
   `SubscriptionController.IsAppSubscription` that treats a source on the platform host as an app source only when its first path
-  segment is not a platform prefix (`dialogporten`, later `correspondence`), or, closer to production, serving apps on their own
+  segment is not a platform prefix (`dialogporten`, `correspondence`), or, closer to production, serving apps on their own
   host (`{org}.apps.local.altinn.cloud`) and setting `AppsDomain` to it, which is larger (studioctl routes, app-lib URLs). Until
   then a tester subscribing to Dialogporten's events should give a resource filter and no source filter, which behaves as in
   production.
@@ -132,7 +135,8 @@ How the Events component classifies them (plan question 9):
 endpoint requires an authenticated caller of any accepted scheme, so the **org token** reaches it: the schema
 (`GET /dialogporten/graphql?sdl`) and introspection (`{ __typename }` is `Queries`) work. Every query field carries the end-user
 policy (scope `digdir:dialogporten` and a person), so `{ parties { party } }` with the org token answers `AUTH_NOT_AUTHORIZED`: a real
-query **waits for the `pid` token of task 2**. CORS: a preflight from `http://af.local.altinn.cloud:8000` (`OPTIONS`, `POST`,
+query needs the code-flow token of task 2, which carries `pid` (`../authentication/README.md`); a GraphQL query with it is not
+tested yet. CORS: a preflight from `http://af.local.altinn.cloud:8000` (`OPTIONS`, `POST`,
 `authorization,content-type`) is answered 204 with `Access-Control-Allow-Origin` for that origin and the requested method and headers;
 the actual POST from it carries the allow-origin header; another origin gets none.
 
@@ -170,7 +174,7 @@ The two Ed25519 pairs are test-only, like `../../certs/`, committed in `fakes/In
 | Primary | `localtest-primary` | `Xg0SfHY0oNB6M3om3bY6jJ6JFE16gP4JY6mQeL-1FR4` |
 | Secondary | `localtest-secondary` | `wzuM7xyqsySfrhbWomQh_cfa3HETBjleagfPZQwLva8` |
 
-The adapter and Correspondence (later tasks) validate dialog tokens against `{platform}dialogporten/api/v1/.well-known/jwks.json`.
+The adapter and Correspondence validate dialog tokens against `{platform}dialogporten/api/v1/.well-known/jwks.json`.
 
 ## Postgres and data
 
@@ -249,8 +253,10 @@ adapter's smoke test (`../dialogporten-adapter/`) creates, updates and deletes d
 
 ## Known gaps
 
-- **The end-user API is untested: no `pid` token until task 2.** No token the stack issues carries `pid` (the cookie token omits it by design, and the OIDC `token` endpoint needs
-  the authorization-code client of task 2), so `enduser/*` and GraphQL queries are untested; GraphQL is checked with the org token (schema, introspection, the refusal).
+- **The end-user API is barely tested.** Since task 2 the code-flow token carries `pid` (the cookie token omits it by design); the last check of
+  `../authentication/smoke-test.sh` lists Sophie Salt's dialogs with it (`enduser/dialogs`, 200) when this group is up. The rest of `enduser/*` and
+  GraphQL queries are untested; this smoke test checks GraphQL with the org token only (schema, introspection, the refusal).
+  Superseded 2026-10-21: until task 2 no token the stack issued carried `pid`, so the end-user API was unreachable.
 - The `ttd`/`digdir` search mismatch (see "Differences from production"): production behaviour, not fixed here.
 - The Events component's `AppsDomain` heuristic files Dialogporten's sources under `.../dialogporten/api` (see "Events"); the fix is proposed, not made.
 - `DELETE localtest/dialogs` leaves the MassTransit outbox: events of dialogs created just before the truncate can still be published, and the Service host's
@@ -260,7 +266,5 @@ adapter's smoke test (`../dialogporten-adapter/`) creates, updates and deletes d
 - GraphQL subscriptions (server-sent events or WebSockets through the proxy) are untested; they need an end-user dialog token (task 2, task 11).
 - The Events inspection API shows `registeredTime` two hours behind the actual UTC time (seen on Dialogporten's events: `time` 19:44:05Z,
   `registeredTime` 17:44:13+00:00); not investigated, it is the Events component's.
-- The group's images are not pinned in `config/images.go` to a build that exists: `localtest-dialogporten-*` appear on ghcr after this branch is on main, and the
-  pinned tag is bumped by hand afterwards; until then use `--dev dialogporten` or `STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_*`.
 - A host that fails its start (a failed migration) stays up at high CPU without listening instead of exiting, as upstream's host does; look at `env logs --component dialogporten-webapi`.
 - Npgsql logs "libgssapi_krb5.so.2" at start (Kerberos probe); harmless.
