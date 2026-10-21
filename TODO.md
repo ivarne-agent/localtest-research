@@ -54,8 +54,8 @@ A path matching no route still falls through to the localtest app.
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
-| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | in progress (2026-10-21: phase 1 done and reviewed for 21a `task/manifest` cb92c927, 21b `task/secure-cookies` 1601fc3d, 21c `task/provisioning-library` 902556c4; 21a in phase 2 on the stack, then 21c, then 21b; 21b's inventory `localtest/reviews/cookies.md` awaits the owner's review (cookie-policy fake instead of twelve directive sites in Authentication; app routes keep the stripping because app-lib's `keepAlive` hard-codes `Secure`); 21d to 21f later) | large | yes |
-| 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21) | small | no |
+| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | in progress (2026-10-21: phase 1 done and reviewed for 21a `task/manifest` cb92c927, 21b `task/secure-cookies` 1601fc3d, 21c `task/provisioning-library` 902556c4; 21a in phase 2 on the stack, then 21c, then 21b; 21b's inventory `localtest/reviews/cookies.md` approved by the owner 2026-10-21 (cookie-policy fake instead of twelve directive sites in Authentication; app routes keep the stripping until task 22 fixes app-lib's `keepAlive`); 21d to 21f later) | large | yes |
+| 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21; two items: the explicit environment, and `keepAlive`'s `Secure` from the request, decided 2026-10-21) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -625,4 +625,15 @@ Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f las
 override the process environment unless `STUDIOCTL_APP_RUN` is set. Propose an app-lib change (and template if needed)
 so that an explicitly configured localtest environment, as an Aspire AppHost sets it, is honoured without the
 variable. Upstream work in `Altinn/app-lib-dotnet`; unapproved.
+
+**Second item (decided 2026-10-21 under 21b).** `AuthenticationController.KeepAlive` (monorepo `src/App/backend`,
+`app-lib-dotnet` v8) re-issues `AltinnStudioRuntime` with `Secure = true` hard-coded in every environment, so an app
+behind a plain-http front door loses its ten-minute token refresh: the browser refuses the cookie and the session fails
+when the old token expires. Change it to take `Secure` from the request (`Request.IsHttps`, or
+`CookieSecurePolicy.SameAsRequest` through a `CookieBuilder`); production behind TLS is unchanged. This is the one
+cookie that still makes both front doors strip `Secure`, scoped to app routes since 21b (`localtest/reviews/cookies.md`
+rows 19 and A2). When it ships, the app-route stripping goes from studioctl-server and the localtest app's proxy, and
+the Aspire front door (21d) can be a plain YARP with no cookie transform; until then 21d carries the same app-route
+stripping as a bridge for apps on older app-lib versions. Decision: the components fix their own cookies (21b as
+built) rather than keeping the proxy stripping everywhere, because the end state has no front door rewriting cookies.
 
