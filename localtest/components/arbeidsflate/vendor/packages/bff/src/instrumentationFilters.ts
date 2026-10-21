@@ -1,0 +1,23 @@
+const appConfigurationHostIdentifier = 'appconfiguration.azconfig.io';
+const graphqlSpansExcludedFromExport = new Set([
+  'graphql.parse',
+  'graphql.validate',
+  'graphql.parseSchema',
+  'graphql.validateSchema',
+]);
+
+// EVAL arguments contain the serialized session, including bearer and refresh tokens.
+export const serializeRedisCommand = (command: string, _args: unknown[]): string => command;
+
+export const filterGraphQLSpans = (spanName: string): boolean => {
+  return graphqlSpansExcludedFromExport.has(spanName);
+};
+
+export const filterAppConfigSpans = (attributes: Record<string, unknown>): boolean => {
+  const httpHost = attributes['http.host'];
+  if (typeof httpHost !== 'string') {
+    return false;
+  }
+
+  return httpHost.toLowerCase().includes(appConfigurationHostIdentifier);
+};

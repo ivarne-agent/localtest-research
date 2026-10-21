@@ -1,0 +1,8 @@
+query getServiceResources($ids: [String!], $resourceType: [String], $org: [String], $lang: String) {
+  serviceResources: RRServiceResourcesList(resourceType: $resourceType, ids: $ids, org: $org, lang: $lang) {
+    id
+    title
+    org
+    deprecated
+  }
+}
