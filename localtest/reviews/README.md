@@ -15,6 +15,7 @@ changed is marked with a dated "Superseded" note at the top of the review; the r
 | Access Management | [`access-management.md`](access-management.md) | Reviewed 2026-10-20; all findings handled (two documented as known gaps) |
 | Events | [`events.md`](events.md) | Reviewed 2026-10-20; all findings handled (four documented as known gaps) |
 | Workflow engine and PDF | [`workflow-engine.md`](workflow-engine.md) | Reviewed 2026-10-20; handled except the state reset (left as decided) |
+| Test apps (monorepo `src/test/apps`) | [`test-apps.md`](test-apps.md) | Checked 2026-10-21: 8 of 13 policies fail the Resource Registry's `policy/rules` and `policy/rights` (one template `delete` rule); test data valid. Not fixed here, for upstream |
 
 ## Across components
 
