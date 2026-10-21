@@ -2,9 +2,9 @@
 
 ## Status (2026-10-21)
 
-- **In progress**: task 11, phase 1 done 2026-10-21 (code only): [`../../localtest/components/arbeidsflate/`](../../localtest/components/arbeidsflate/README.md)
+- **Implemented**: task 11, 2026-10-21: [`../../localtest/components/arbeidsflate/`](../../localtest/components/arbeidsflate/README.md)
   vendors `bb74dff` with the two patches applied at image build, the group `arbeidsflate` in studioctl; phase 2 (images,
-  the stack, the browser) follows. Questions 1 to 5 were decided on 2026-10-21 (`TODO.md` task 11): the host, the
+  the stack, the browser) done the same day, results in the component README's "Verified". Questions 1 to 5 were decided on 2026-10-21 (`TODO.md` task 11): the host, the
   profile page against production Profile, internet dependencies kept, patches not proposed upstream, images built
   locally. The component README supersedes this plan where they differ (list below).
 
