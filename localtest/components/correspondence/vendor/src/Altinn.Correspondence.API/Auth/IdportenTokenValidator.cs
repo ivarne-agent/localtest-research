@@ -23,7 +23,12 @@ public class IdportenTokenValidator
         var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(
             options.Configuration?.AuthorizationEndpoint ?? options.Authority + "/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
+#if !LOCALTEST
             new HttpDocumentRetriever());
+#else
+            // localtest: Authentication's discovery document and JWKS are on plain http (http://local.altinn.cloud:8000).
+            new HttpDocumentRetriever { RequireHttps = false });
+#endif
 
         var config = await configManager.GetConfigurationAsync(CancellationToken.None);
         var tokenHandler = new JwtSecurityTokenHandler();

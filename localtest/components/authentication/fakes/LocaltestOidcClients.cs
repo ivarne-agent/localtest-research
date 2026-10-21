@@ -13,8 +13,11 @@ namespace Altinn.Platform.Authentication.Localtest;
 ///   (<c>localtest/localtest/Authentication/SeededClients.cs</c>); keep the two in step.</item>
 ///   <item><c>arbeidsflate-localtest</c>: Arbeidsflate's BFF, with the URLs it will run on
 ///   (<c>planned-components/dialogporten/arbeidsflate.md</c> section 3.4).</item>
+///   <item><c>correspondence-localtest</c>: Correspondence's own OIDC client, which its attachment download challenges
+///   when a browser follows an inbox link without a token (<c>DependencyInjection.cs</c>, <c>AddOpenIdConnect</c>); it
+///   asks for <c>openid profile</c> only and gets the session's scope in the access token.</item>
 /// </list>
-/// Both may use the four scopes Arbeidsflate's BFF requests, lower-case.
+/// The first two may use the four scopes Arbeidsflate's BFF requests, lower-case.
 /// </summary>
 public static class LocaltestOidcClients
 {
@@ -23,6 +26,8 @@ public static class LocaltestOidcClients
     public const string ArbeidsflateClientId = "arbeidsflate-localtest";
     public const string ArbeidsflateClientSecret = "arbeidsflate-localtest-secret";
     public const string ArbeidsflateOrigin = "http://af.local.altinn.cloud:8000/";
+    public const string CorrespondenceClientId = "correspondence-localtest";
+    public const string CorrespondenceClientSecret = "correspondence-localtest-secret";
 
     private static readonly string[] Scopes =
     [
@@ -55,6 +60,15 @@ public static class LocaltestOidcClients
                 PostLogoutRedirectUris = [ArbeidsflateOrigin],
                 FrontchannelLogoutUri = ArbeidsflateOrigin + "api/frontchannel-logout",
                 AllowedScopes = [.. Scopes],
+            },
+            new LocaltestOidcClient
+            {
+                ClientId = CorrespondenceClientId,
+                ClientName = "Correspondence attachment download (localtest)",
+                ClientSecret = CorrespondenceClientSecret,
+                // Correspondence forces the redirect URI to {CorrespondenceBaseUrl}/correspondence/api/v1/idporten-callback.
+                RedirectUris = [platform + "correspondence/api/v1/idporten-callback"],
+                AllowedScopes = ["openid", "profile"],
             },
         };
 

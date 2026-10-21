@@ -45,6 +45,11 @@ public static class LocaltestCorrespondence
             // The dialog token's iss, as the stack's Dialogporten writes it (no trailing slash).
             ["DialogportenSettings:Issuer"] = platform + "dialogporten/api/v1",
             ["IdportenSettings:Issuer"] = platform + "localtest/api/idporten",
+            // The OIDC client the attachment download challenges a browser with (Authentication's seeded
+            // correspondence-localtest, components/authentication/fakes/LocaltestOidcClients.cs); upstream's Development
+            // file has the placeholders clientId/clientSecret.
+            ["AltinnIdProviderSettings:ClientId"] = "correspondence-localtest",
+            ["AltinnIdProviderSettings:ClientSecret"] = "correspondence-localtest-secret",
             // A client id is what makes Integrations register the production clients instead of upstream's dev stubs.
             // Nine digits: the fake Maskinporten takes it as Digdir's organisation number, and without UseAltinnTestOrg
             // the exchange names digdir, as Dialogporten's client does. EncodedJwk is never read (the fake replaces

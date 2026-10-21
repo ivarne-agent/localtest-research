@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 namespace Altinn.Correspondence.Localtest.Auth;
 
 /// <summary>
-/// The three changes token validation needs against the stack. All are <c>Configure</c> actions registered after
+/// The four changes authentication needs against the stack. All are <c>Configure</c> actions registered after
 /// upstream's <c>ConfigureAuthentication</c>, so they run after its <c>AddJwtBearer</c>/<c>AddOpenIdConnect</c> lambdas
 /// and before the post-configure step that builds each scheme's metadata manager (a <c>PostConfigure</c> would be too
 /// late, see the Dialogporten README).
@@ -18,6 +18,11 @@ namespace Altinn.Correspondence.Localtest.Auth;
 /// fetches Dialogporten's JWKS again when a token names an unknown key, instead of upstream's list loaded at start and every
 /// 12 hours (<c>EdDsaSecurityKeysCacheService</c>, still running but no longer read): a Correspondence started before
 /// Dialogporten serves its keys would otherwise refuse every dialog token for 12 hours.</item>
+/// <item>The OpenID Connect scheme's correlation and nonce cookies (the browser download of an attachment, task 11b) are
+/// <c>SameSite=Lax</c> and <c>SecurePolicy=SameAsRequest</c> instead of upstream's <c>None</c>/<c>Always</c> (and the
+/// framework's default for the nonce): over http a browser drops a <c>Secure</c> cookie, and a <c>SameSite=None</c> cookie
+/// without <c>Secure</c>, so the callback failed with "Correlation failed". Lax is enough: the callback is a top-level GET
+/// redirect from Authentication on the same site, and Lax cookies go with top-level GET navigations even cross-site.</item>
 /// </list>
 /// </summary>
 public static class LocaltestAuthentication
@@ -31,6 +36,14 @@ public static class LocaltestAuthentication
 
         services.Configure<JwtBearerOptions>(AuthorizationConstants.MaskinportenScheme, o =>
             o.MetadataAddress = platform + "localtest/api/maskinporten/.well-known/oauth-authorization-server");
+
+        services.Configure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, o =>
+        {
+            o.CorrelationCookie.SameSite = SameSiteMode.Lax;
+            o.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            o.NonceCookie.SameSite = SameSiteMode.Lax;
+            o.NonceCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        });
 
         services.AddSingleton<LocaltestDialogTokenKeys>();
         services.AddOptions<JwtBearerOptions>(AuthorizationConstants.DialogportenScheme)
