@@ -621,7 +621,10 @@ Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f las
 
 **21d decisions (2026-10-22, discussed one by one).** Front door: stock `Aspire.Hosting.Yarp`, accepting that it cannot
 strip `Secure` from app-lib's `keepAlive` cookie (no cookie transform in the stock image): apps on the Aspire host lose
-the ten-minute token refresh over http until task 22 ships; documented in the sample AppHost.
+the ten-minute token refresh over http until task 22 ships; documented in the sample AppHost. Reachability: `--add-host <host>:host-gateway`
+on every component as studioctl does (the manifest's `ingressHosts` and `extraHostGatewayNames`), the front door's host
+port published on 8000; network aliases on the YARP container are the fallback if `WithContainerRuntimeArgs` fails
+under Podman (reported, not silently switched).
 
 ## 22. app-lib honours an explicit localtest environment
 
