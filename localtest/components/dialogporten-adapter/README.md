@@ -191,6 +191,10 @@ Stack: `studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten 
     queue after the production policy. Production apps always send it.
 - Production behaviour the smoke test asserts as such: the receipt and the delete endpoint bind the `Authorization` header
   as a required parameter, so without one they answer 400, not 401; a token that is not a valid dialog token gives 401.
+- Order matters the other way too: run straight after `../dialogporten/smoke-test.sh`, whose last step deletes every dialog and
+  clears Dialogporten's caches, the first service-owner `GET dialogs/{id}` of this test answered 404 once (2026-10-21, the
+  coordinator's run; the next four checks failed with it); the rerun on its own passed 39 of 39. Run this test first, or wait a
+  few seconds after the Dialogporten one.
 - Order matters for `../events/smoke-test.sh`: right after this smoke test, Dialogporten's events for the test's dialog
   (`dialogporten.dialog.updated.v1`, `...transmission.created.v1`, `...deleted.v1` and others, six in all) arrive in the
   Events component a few seconds later, after its reset, and its "stored once" check fails; run on its own it passes 22 of 22.
