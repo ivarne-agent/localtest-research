@@ -188,7 +188,7 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
     /// <param name="RoleCodes">Altinn role codes held directly for this party, verbatim.</param>
     public sealed record ActingForPartyDto(uint PartyId, Guid PartyUuid, string PartyType, string? OrgNumber, string? Ssn, string DisplayName, string? UnitType, uint? ParentPartyId, IReadOnlyList<string> Roles, IReadOnlyList<string> RoleCodes, IReadOnlyList<string> AccessPackages);
 
-    /// <param name="NotificationAddresses">Official notification addresses from the test data (Profile's organisation lookup).</param>
+    /// <param name="NotificationAddresses">Official notification addresses from the test data (what the Profile component seeds its brreg mirror with).</param>
     public sealed record TestOrgDto(uint PartyId, Guid PartyUuid, string OrgNumber, string DisplayName, int? ParentPartyId, string? UnitType, IReadOnlyList<TestNotificationAddressDto> NotificationAddresses);
 
     public sealed record TestNotificationAddressDto(string? Email, string? MobileNumber);

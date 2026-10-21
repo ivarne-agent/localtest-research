@@ -5,7 +5,6 @@ using Altinn.Register.Core.RateLimiting;
 using Altinn.Register.Localtest.Auth;
 using Altinn.Register.Localtest.Controllers;
 using Altinn.Register.Localtest.Persistence;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Memory;
@@ -68,12 +67,7 @@ public static class LocaltestRegisterExtensions
         services.AddControllers().AddApplicationPart(typeof(LocaltestTestUsersController).Assembly);
         services.AddTransient<LocaltestTestUsersController>();
         services.AddTransient<LocaltestAppsController>();
-        services.AddTransient<LocaltestProfileController>();
-        services.AddTransient<LocaltestProfileCorrespondenceController>();
         services.AddTransient<LocaltestKrrController>();
-
-        // Profile's CorrespondenceAccess policy for the two lookups Altinn Correspondence makes.
-        LocaltestProfileCorrespondenceController.AddPolicy(services.AddAuthorizationBuilder());
 
         return builder;
     }
