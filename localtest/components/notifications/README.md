@@ -1,8 +1,8 @@
 # notifications
 
 Production Altinn Notifications (the orders API host, `vendor/`, see `vendor/UPSTREAM.md`) on the shared Postgres,
-without Azure. Apps, Authentication and later Correspondence order notifications at `notifications/api/v1/…` exactly as
-against production: orders, order chains, idempotency, recipient resolution through Profile, Register and the PDP,
+without Azure. Apps, Authentication and Correspondence (the optional `correspondence` group) order notifications at
+`notifications/api/v1/…` exactly as against production: orders, order chains, idempotency, recipient resolution through Profile, Register and the PDP,
 status, shipments and the 422 problem details are production code with its own repositories and Yuniql migrations. Only
 the transport to the Email and SMS hosts is replaced: every e-mail and SMS the production code would put on the Service
 Bus is **captured instead, in inboxes**, and then delivered by an in-process responder that applies the production
@@ -16,7 +16,7 @@ Nothing leaves the machine.
 | `fakes/` | Compiled into the host assembly (namespace `Altinn.Notifications.Localtest`): configuration defaults, the capturing publishers, the responder, the instant endpoints, signing keys, the Maskinporten fake, startup scripts, the inspection API |
 | `postgres-init/60-notifications.sh` | Postgres init script: `notificationsdb` and the roles upstream's migrations expect (`platform_notifications_admin` superuser, `platform_notifications`), password `Password`. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/notifications/postgres-init/60-notifications.sh` |
 | `Dockerfile` | Mirrors upstream's `vendor/components/api/Dockerfile` (pinned Alpine images, layered restore, `tzdata`, `Migration/` and `Views/`, non-root `dotnet`); each difference is marked `localtest:` |
-| `smoke-test.sh` | Against the running stack: authentication, direct, person, self-identified and organisation recipients, order chains, idempotency, instant orders, cancel, the inboxes, reset |
+| `smoke-test.sh` | Against the running stack: authentication, direct, person, reserved-person, self-identified and organisation recipients, order chains, idempotency, the condition endpoint, composed e-mail, instant orders, cancel, the inboxes, reset (64 checks) |
 
 ## Directive sites in `vendor/`
 
@@ -110,7 +110,8 @@ working directory, hence `PostgreSQLSettings__MigrationScriptPath=app/Migration`
 
 - No Service Bus, Email or SMS host, Azure Communication Services or Link Mobility. Wolverine's retry and dead-letter
   behaviour for results is not exercised; a result is applied once, in process.
-- Every message is delivered; there is no failure, bounce or reservation (the seed has no reserved flag).
+- Every message that is sent is delivered; there is no failure or bounce simulation. Reserved persons fail as in
+  production (`Email_Failed_RecipientReserved`, see "Recipients and the seed").
 - Process loops run 1 task each with a 1 s idle delay, and SMS is sent at any hour.
 - Profile's contact points come from the test data through Profile's KRR and brreg stand-ins (below,
   `../profile/README.md`), Dialogporten is off, Key Vault and Application Insights are off.
@@ -165,7 +166,7 @@ and numbers exactly as stored. Production Notifications then decides what it acc
 ## Known gaps
 
 - No per-inbox reception switch (planned, see above), no failure simulation.
-- Correspondence (task 7, the optional `correspondence` group) orders through `future/orders` with a condition endpoint on itself; its messages appear in this capture. Not yet run on the stack.
+- Correspondence (task 7, the optional `correspondence` group) orders through `future/orders` with a condition endpoint on itself; its messages appear in this capture (run on the stack 2026-10-21, see `../correspondence/README.md`).
 - Attachments of composed e-mail are recorded by reference only.
 - The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake; checked against the production sink `notifications/api/v1/tests/sendcondition?conditionMet=`. That the Maskinporten token it carries is accepted by a real consumer is not checked.
 - The support dashboard and `metrics` endpoints are production code and untested here.
@@ -210,6 +211,9 @@ after `env reset`, Postgres 18.3:
   `capturedAt`, and the log has no "applying the result anyway" (claim not committed in 30 s) and no "could not deliver"
   line; over all runs the database holds only `Delivered` and the three expected `Failed_RecipientNotIdentified` (Sophie's
   bare `87654321`), nothing left in `New` or `Sending`.
+- Superseded 2026-10-21 (schema v3 seed, task 18): Sophie's bare `87654321` and the organisation's 422 were seed data
+  (eight-digit numbers, no official addresses); every seeded person now has a valid `+47` number and DDG Fitness and
+  Digitaliseringsdirektoratet have official addresses (see "Recipients and the seed").
 - Restart: `podman restart` of the container keeps the 40 captured messages and the production tables (`ResetOnStart` is off).
 - Memory: `podman stats --no-stream` 133 MB, 5 % CPU idle with the six process loops at a 1 s delay.
 - Regressions with the component running: root `smoke-test.sh` 23 ok, `components/register/smoke-test.sh` 24 ok (20 before
