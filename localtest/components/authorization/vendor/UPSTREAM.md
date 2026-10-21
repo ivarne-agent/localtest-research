@@ -13,6 +13,8 @@
     and `src/pkgs/README.md` (package readme fallback).
 - Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
+  There is one site, a pure addition: `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs:60-64`
+  (`AddLocaltestAuthorization(builder)` after `ConfigureServices`; line numbers checked 2026-10-21).
 
 ## Syncing to a newer upstream commit
 

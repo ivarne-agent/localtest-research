@@ -94,6 +94,14 @@ requests built from the token claims as the PEP does, roles and packages from Ac
 - Authorized parties from Access Management: Sophie's five top-level parties with sub-units, `dagl` on DDG Fitness and
   its sub-units with `includeRoles=true`; 401 without a token; the PDP's `parties?userid=1337` returns the same ids.
 
+Again on 2026-10-21 (task 14, `internal/user` from the profile component): 30 of 30, as recorded in
+`../profile/README.md` and `../../README.md`.
+
+Two lines of the smoke test's output are not checks and read the compose-era container name `localtest_authorization_1`
+(`podman exec` for the "store:" listing, `podman logs` for the closing "PDP log errors" count); studioctl names the
+container `localtest-v2-authorization`, so under studioctl the listing is empty and the error count is always 0
+(TODO.md task 12). Read the log with `studioctl env logs -r localtest-v2 --component authorization` instead.
+
 ## Run a changed component
 
 The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`), which pulls this component's image

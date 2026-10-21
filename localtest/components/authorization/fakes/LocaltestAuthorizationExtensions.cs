@@ -26,10 +26,10 @@ namespace Altinn.Platform.Authorization.Localtest;
 
 /// <summary>
 /// Localtest composition for the vendored PDP, called from the single <c>#if LOCALTEST</c> block in <c>Program.cs</c>
-/// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the Resource Registry and
-/// OED PIPs, the audit queue and the Key Vault backed token handling. Register (v1 parties), Profile
-/// (<c>internal/user</c>, answered by the register component), Storage (instance authinfo) and Access Management
-/// (roles, access packages, delegations) stay production HTTP clients pointed at the localtest platform.
+/// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the OED PIP, the audit queue
+/// and the Key Vault backed token handling. Register (v1 parties), Profile (<c>internal/user</c>, answered by the profile
+/// component), Storage (instance authinfo), Access Management (roles, access packages, delegations) and the Resource
+/// Registry (resources, resource policies, access lists) stay production HTTP clients pointed at the localtest platform.
 /// </summary>
 public static class LocaltestAuthorizationExtensions
 {
