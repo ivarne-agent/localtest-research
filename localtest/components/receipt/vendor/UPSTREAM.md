@@ -15,10 +15,10 @@
 
 Both in `src/backend/Altinn.Receipt/Program.cs`:
 
-1. After `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
+1. Lines 46-48, after `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
    `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Configuration);` `#endif`
    (the hook into `../fakes/`).
-2. In `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
+2. Lines 259-265, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
    `https://platform.{GeneralSettings:Hostname}{path}{query}` `#else` the request's own scheme and host `#endif`. There
    is no `platform.` host and no TLS locally, and the proxy keeps the browser's `Host`.
 

@@ -51,7 +51,12 @@ Open the receipt on `local.altinn.cloud`, never on `localhost:<port>` or `127.0.
 `localhost` to `platform.at22.altinn.cloud`. Signed out, it redirects to the sign-in picker and back. With the group
 off, `/receipt/...` answers `503` problem details naming the group and the `--with receipt` command.
 
-## Verified (2026-10-21, task 16)
+## Verified
+
+2026-10-21, task 14: `smoke-test.sh` 27 of 27 with `--with everything` against production Profile (the profile
+component answers `users/current`; `../profile/README.md`, "Verified").
+
+2026-10-21, task 16 (Profile was still the Register's fake):
 
 Stack: `studioctl env up -r localtest-v2 --with receipt --dev receipt` (the rest at the pinned `sha-a3f62a8`), the
 receipt image built from this folder by podman through studioctl (Node stage with `corepack` and `yarn --immutable`
@@ -84,4 +89,5 @@ bundle in `wwwroot/receipt/js/react/`); the whole `env up`, build included, took
 - The fixture has no PDF, so the PDF link is not exercised (it goes through the same decorator).
 - The localtest app's own pre-studioctl proxy (`run-app.sh`, `Proxy/PlatformRoutes.cs`) has no `/receipt/` route.
 - Upstream's xUnit tests are not run.
-- Once tasks 10 and 11 are in, the smoke test should follow an archived dialog's go-to URL to the receipt.
+- The smoke test does not follow an archived dialog's go-to URL to the receipt: task 10's adapter emits it (with the
+  `dialogporten` group as well), but no test chains the two yet; Arbeidsflate (task 11) is not in the stack.
