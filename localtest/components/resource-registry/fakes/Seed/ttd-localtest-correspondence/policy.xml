@@ -4,7 +4,9 @@
   xmlns:xacml="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17">
   <!-- Written for the localtest smoke test (components/correspondence/smoke-test.sh), modelled on the tt02 policy of
        apps-correspondence-integrasjon4: the service owner ttd (the org of the stack's org tokens) reads, writes, subscribes
-       and publishes; DAGL and PRIV of the recipient read and write (read and confirm through a dialog token). -->
+       and publishes; DAGL and PRIV of the recipient read and write (read and confirm through a dialog token). Unlike the tt02
+       copies, each rule's actions are alternatives in one AnyOf: tt02's rules 1b to 3 put each action in its own AnyOf, which
+       XACML reads as "all of them at once", so a single read by DAGL or PRIV matches nothing there. -->
   <xacml:Target />
   <xacml:Rule RuleId="urn:altinn:resource:ttd-localtest-correspondence:ruleid:1a" Effect="Permit">
     <xacml:Description>Skrivetilgang for ttd med org token</xacml:Description>
@@ -146,8 +148,6 @@
               DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="false" />
           </xacml:Match>
         </xacml:AllOf>
-      </xacml:AnyOf>
-      <xacml:AnyOf>
         <xacml:AllOf>
           <xacml:Match MatchId="urn:oasis:names:tc:xacml:3.0:function:string-equal-ignore-case">
             <xacml:AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">write</xacml:AttributeValue>
@@ -191,8 +191,6 @@
               DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="false" />
           </xacml:Match>
         </xacml:AllOf>
-      </xacml:AnyOf>
-      <xacml:AnyOf>
         <xacml:AllOf>
           <xacml:Match MatchId="urn:oasis:names:tc:xacml:3.0:function:string-equal-ignore-case">
             <xacml:AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">write</xacml:AttributeValue>
