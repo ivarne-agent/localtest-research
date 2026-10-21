@@ -1,12 +1,14 @@
 # localtest
 
-The localtest app: the stack's front door, and the home of the localtest features that are not a platform component.
+The localtest app: the home of the localtest features that are not a platform component, and the front door when the
+stack runs without studioctl. Under studioctl's `localtest-v2` runtime studioctl-server is the front door and sends this
+app only what no component route claims (see "Proxy" below).
 A small ASP.NET app published with Native AOT: one 16 MB binary on `runtime-deps`, a 34 MB image, no .NET runtime.
 Each feature keeps its own code folder and its own API under `localtest/api/{feature}/`.
 
 | Feature | Folder | API |
 | --- | --- | --- |
-| Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform components and the apps the app runner has registered. Replaced the nginx ingress on 2026-10-19 with the same contract | `Proxy/` | `localtest/api/proxy/` |
+| Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform components and the apps the app runner has registered. Replaced the nginx ingress on 2026-10-19 with the same contract. Not the front door under studioctl | `Proxy/` | `localtest/api/proxy/` |
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
@@ -26,7 +28,7 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | `Proxy/AppRoutes.cs`, `Proxy/AppRoutesApi.cs` | The app routes and the API the app runner pushes them through |
 | `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (the forwarding core the old localtest also uses), and the transform (original `Host`, cookies without `Secure`) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`) |
-| `smoke-test.sh` | Against the running stack: the proxy's routing contract and its app route API, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers) |
+| `smoke-test.sh` | Against the running stack: the proxy's routing contract and its app route API, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 75 checks; `PROXY_CHECKS=0` skips the 9 app-route checks, for studioctl (below) |
 
 ## Proxy
 
@@ -43,17 +45,25 @@ In order:
 4. **App routes**: `/{org}/{app}/…` → the registered upstream, path unchanged.
 5. **Platform routes** on the main host, path unchanged: `/authentication/` → authentication; `/register/` → register; `/profile/` → profile; `/authorization/` → the PDP; `/accessmanagement/` → Access
    Management; `/storage/` → Storage; `/events/` → Events.
-6. Anything else: `404` with a hint to start the app with `run-app.sh`.
+6. Anything else: `404` with the text "No app is registered for this path. Start it with studioctl run (or, with this
+   app as the proxy, run-app.sh <app-dir> <port>)."
 
 A prefix requested without its trailing slash (`/storage`, `/ttd/app?x=1`) is redirected with `301` to the slashed
 path, query kept, as nginx did. Matching is ordinal and case-sensitive, like the nginx locations.
 
 Upstreams default to the container names of the compose file the stack used to run from (`register:5020`,
 `profile:5030`, `authentication:5101`, `authorization:5070`, `access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`,
-`workflow-engine:9090`). Override one with `Proxy__Upstreams__<name>`. Behind studioctl's `localtest-v2` runtime
-studioctl-server is the front door and this proxy is not used; studioctl sets `Proxy__Upstreams__register` and
-`__authentication` to the public origin, because the identity features and `/Home` call those two. `GET
-localtest/api/proxy/upstreams` lists the effective ones.
+`workflow-engine:9090`). Override one with `Proxy__Upstreams__<name>`. `GET localtest/api/proxy/upstreams` lists the
+effective ones.
+
+Behind studioctl's `localtest-v2` runtime studioctl-server is the front door, with its own route table (the component
+routes in the vendored studioctl's `localtestv2/components.go`, served by `studioctl-server/Proxy/`), and this app's
+route table is not used: studioctl-server sends it only the paths no component claims, so here only steps 3 and 6
+apply (the start page, `/Home`, `localtest/api/…`, and the 404 for an app path studioctl has not routed). App routes
+come from studioctl, not from this app's API; `/app-frontend/` is not served, because studioctl mounts nothing at
+`/frontend`; and studioctl-server does not redirect a prefix without its trailing slash. studioctl sets
+`Proxy__Upstreams__register` and `__authentication` to the public origin, because the identity features and `/Home`
+call those two.
 
 ### What it does to a request
 
@@ -76,7 +86,8 @@ localtest/api/proxy/upstreams` lists the effective ones.
 | `GET apps` | Every route with its upstream and registration time |
 | `GET upstreams` | The platform upstreams in effect |
 
-`../run-app.sh` registers each app it starts; `../stop-apps.sh` removes them. Routes are saved to
+`../run-app.sh` registers each app it starts; `../stop-apps.sh` removes them. Both only work with this app as the
+front door. Routes are saved to
 `/data/app-routes.json` (`Proxy__AppRoutesFile`) on the `localtest-data` volume and read at start, so a recreated
 container keeps routing the apps that still run. Nothing watches the file, and nothing reloads.
 
@@ -191,6 +202,11 @@ the requested ones), which is what Dialogporten's end-user API needs; `/Home/Get
 - The AOT publish is memory-hungry; don't run it alongside a Cypress run on a small machine.
 
 ## Verified (2026-10-20): identity features and Home
+
+Update 2026-10-21: the script has had 75 checks since task 4 added the Maskinporten token checks (2026-10-20, 798f18e).
+Under studioctl with `PROXY_CHECKS=0` (66 checks) it passed 64 on 2026-10-20 (`../components/authentication/README.md`),
+every identity provider and Home check among them. The run did not record which two failed; the two platform-route
+checks studioctl's front door cannot pass are the trailing-slash redirect and `/app-frontend/` (`../../TODO.md` task 13).
 
 - `./smoke-test.sh`, 65 checks: the proxy, the fake ID-porten on its own (picker page, `state` and `iss` in the
   redirect, off-platform `redirect_uri` and unknown levels refused, a wrong `redirect_uri` or PKCE verifier and a spent
