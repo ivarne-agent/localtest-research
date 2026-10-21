@@ -17,11 +17,11 @@
 
 Two, both in `src/Altinn.Profile/Program.cs`, both pure additions (no `#if !LOCALTEST`):
 
-1. After `SetConfigurationProviders(builder.Configuration);`:
+1. Lines 58-60, after `SetConfigurationProviders(builder.Configuration);`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
    It must come before `ConfigureServices`: `AddRegisterService` reads the connection string, `AddMaskinportenClient`
    binds its settings and `AddSyncJobs` reads `JobSettings` at registration time.
-2. After `services.AddSyncJobs(config);` in `ConfigureServices`:
+2. Lines 224-226, after `services.AddSyncJobs(config);` in `ConfigureServices`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);` … `#endif`.
    It must come after `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
 

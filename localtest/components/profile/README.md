@@ -12,6 +12,11 @@ so test users' contact details and organisations' official addresses reach Profi
 Until task 14 the Register component answered `/profile` with three fake controllers; they are deleted, and the route is
 this component's (host port 8036, container port 5030).
 
+In the default stack it starts after Postgres and the Register (its only deps: the database, and the test data for the
+seed). Authentication, Authorization, Access Management and Notifications, and Receipt and Correspondence in their
+optional groups, list Profile among their deps; the PDP, Authentication's OpenID metadata and Notifications are
+request-time dependencies of Profile only, so they cannot be its deps.
+
 | Path | What |
 | --- | --- |
 | `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.editorconfig`, `stylecop.json`) except two additive `LOCALTEST` sites, below |
@@ -41,13 +46,13 @@ Two, both in `src/Altinn.Profile/Program.cs`, both pure additions; there is no `
 | `Auth/LocaltestPublicSigningKeyProvider.cs` | 40 | Key Vault signing keys | the shared test certificate validates the apps' platform access tokens through the production handler (copy of Notifications') |
 | `Register/LocaltestRegisterTestData.cs` | 77 | | reads the Register's anonymous `register/api/localtest/` API: `test-users`, `organizations`, the KRR stand-in |
 | `Krr/LocaltestContactRegisterClient.cs` | 111 | `IContactRegisterHttpClient`: KRR's change log `hentEndringer` with a Maskinporten token | the Register's KRR stand-in's answer for every test person, as one change log entry per person (below) |
-| `Brreg/LocaltestOrganizationNotificationAddressRegistry.cs` | 172 | `IOrganizationNotificationAddressUpdateClient` and `IOrganizationNotificationAddressSyncClient`: brreg's `kof-reception` and `kof-sync` (KoFuVi), Maskinporten | writes get a local registry id; the change log seeds organisations' official addresses from the test data and reports Profile's own writes back as accepted (below) |
+| `Brreg/LocaltestOrganizationNotificationAddressRegistry.cs` | 173 | `IOrganizationNotificationAddressUpdateClient` and `IOrganizationNotificationAddressSyncClient`: brreg's `kof-reception` and `kof-sync` (KoFuVi), Maskinporten | writes get a local registry id; the change log seeds organisations' official addresses from the test data and reports Profile's own writes back as accepted (below) |
 | `Seed/LocaltestProfileSettingsSeeder.cs` | 103 | nothing (users set their own) | `profile_settings` once per test user without a row, and its recurring job |
 | `Startup/LocaltestDatabaseStartup.cs` | 126 | `--run-db-migrations`, a Kubernetes pre-upgrade hook | the same EF migrations with the admin connection string before anything starts, then one seed run |
 | `Startup/LocaltestSync.cs` | 75 | | runs the KRR sync, the organisation sync (each under its job's lease) and the settings seed, at start and on demand |
-| `Inspection/LocaltestProfileController.cs` | 127 | nothing | `profile/api/localtest/` (below) |
+| `Inspection/LocaltestProfileController.cs` | 139 | nothing | `profile/api/localtest/` (below) |
 
-974 lines in all (the plan estimated about 660 without the organisation address seed and the brreg echo).
+987 lines in all (the plan estimated about 660 without the organisation address seed and the brreg echo).
 
 ## The seed: what is written when, and what wins
 
@@ -160,6 +165,11 @@ Anonymous, under `profile/api/localtest/`; nothing here is a Profile contract.
   `authenticationLevel=3`.
 - No sync call from the app runner (plan question 5); testers who need an app user's contact details at once call
   `POST profile/api/localtest/sync`.
+- While the Register does not answer, the start waits up to `StartupSyncWaitSeconds` (90 s) before the host listens and
+  logs nothing in that time; only when the wait runs out does it log "the Register did not answer" (read from
+  `Startup/LocaltestDatabaseStartup.cs`). A first start that seems to hang without a log line is this wait.
+- The smoke test's `PERSIST=set` / `PERSIST=check` mode (a favourite and a setting across `env down` and `env up`) has
+  no recorded run ("Verified" below covers the 52 checks only).
 
 ## Smoke test
 
