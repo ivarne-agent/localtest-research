@@ -1,5 +1,22 @@
 # Production Authentication vendored for localtest: analysis
 
+## Status (2026-10-21)
+
+- **Implemented** (2026-10-17, `b642ef3`, `0e5dbb3` and following) in
+  [`../../localtest/components/authentication/`](../../localtest/components/authentication/README.md) with the two
+  directive sites recommended here (the host hook and the `goto` guard over http). Re-pinned to altinn-auth `3d51810`
+  on 2026-10-20. Smoke test 30 ok on 2026-10-21 (32 with the `dialogporten` group).
+- Since then: the fake upstream providers moved out of Authentication into the localtest app
+  ([`localtest-app-identity.md`](localtest-app-identity.md), 2026-10-20), and task 2 (2026-10-20, `4b9b5f7..ddd0ecf`)
+  made Authentication an OIDC provider for registered clients (four in-memory repositories, a base64 pepper, two
+  seeded clients, logout through the fake ID-porten's `endsession`); its code-flow access tokens carry `pid`.
+
+Superseded statements:
+
+- The in-place override of the upstream-provider step inside Authentication (sections 2 to 5): replaced by the fake
+  ID-porten in the localtest app, which production Authentication signs in against as a normal OIDC provider.
+- Postgres 16 for the scratch run: the component keeps its state in memory, and the shared server is Postgres 18.
+
 Status: research, 2026-10-17. Source: `Altinn/altinn-auth` at `392f9578` (shallow clone in
 `/home/agent/code/.reference/altinn-auth`). Paths below are relative to
 `src/apps/Altinn.Authentication/src/` unless they start with another root. Line numbers refer to that commit.

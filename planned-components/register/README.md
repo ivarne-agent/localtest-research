@@ -1,6 +1,27 @@
 # Register: vendor the production Register into localtest
 
-Status: planned (2026-10-16). Background: [`production-register-analysis.md`](production-register-analysis.md)
+## Status (2026-10-21)
+
+- **Implemented, differently** (2026-10-17, `ffe60ff`, `c84a68e..0dddadc`), in
+  [`../../localtest/components/register/`](../../localtest/components/register/README.md): production Register as its
+  own container in this research repository's stack, not compiled into the old localtest's `LocalTest.csproj`. Smoke
+  test 14 ok on 2026-10-21 (through the proxy).
+- As built: the vendored copy is `git archive`-equivalent with `vendor/UPSTREAM.md` (no subtree), the production host
+  runs with one additive `#if LOCALTEST` hook in `RegisterHost.cs`, the in-memory persistence is a fakes project
+  (`fakes/Altinn.Register.Localtest/`) linked by `localtest.build.targets`, and the seed is
+  `components/register/testdata/testData.json` (schema v3 since task 18) plus the `testData.json` each app runner posts.
+- Since then: the KRR stand-in (task 7), and task 14 deleted the Register's Profile controllers (production Profile
+  is its own component).
+
+Superseded statements:
+
+- "Approach in one paragraph", steps 0 to 2: subtrees in the monorepo, the allowlist compiled into `LocalTest.csproj`,
+  localtest's `Startup.cs`, the `PersonsController.cs:96` directive. None of it applies to the component as built.
+- Step 4: the neighbours are separate production components that call the Register over HTTP; Profile is production
+  Profile (task 14).
+- Step 5: rollout through the monorepo's localtest image; the stack is run by studioctl's `localtest-v2` runtime.
+
+Status: planned (2026-10-16); see "Status (2026-10-21)" above. Background: [`production-register-analysis.md`](production-register-analysis.md)
 (includes a verified scratch build of localtest with the production controllers compiled in) and the strand
 report [`../../localtest-components/authn-profile-register.md`](../../localtest-components/authn-profile-register.md).
 

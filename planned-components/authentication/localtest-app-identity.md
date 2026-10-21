@@ -1,5 +1,13 @@
 # Plan: fake ID-porten, fake Maskinporten and the /Home contract move into the localtest app
 
+## Status (2026-10-21)
+
+- **Implemented** (2026-10-20, steps 1 to 4, `1485935`, `180fd3c`), as its own status line below says. Since then the
+  localtest app gained the fake ID-porten's `endsession` and the headless code-flow helper
+  `localtest/api/authentication/token` (task 2), and the Maskinporten token endpoint (task 4).
+- Under studioctl the front door is studioctl-server, so the localtest app's `Proxy/PlatformRoutes.cs` (the
+  "Ownership" question below) is not on the studioctl path; the open questions here are not tracked in `TODO.md`.
+
 Status: done 2026-10-20 (steps 1-4). Approved by the user 2026-10-19, with "as much production code as possible,
 still no Service Bus or other Azure services". See the verification section at the end.
 

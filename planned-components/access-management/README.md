@@ -1,5 +1,19 @@
 # Access Management: vendor the production service
 
+## Status (2026-10-21)
+
+- **Implemented**: steps 1 to 6 (2026-10-17 to 2026-10-18, `05c82c1` to `74bc8b1`) in
+  [`../../localtest/components/access-management/`](../../localtest/components/access-management/README.md); re-pinned
+  with the other altinn-auth components to `3d51810` on 2026-10-20.
+- Since then: task 5b (2026-10-20, `9b7278d..aaa099e`) points the production resource sync at the Resource Registry
+  component and removes the stand-in; the shared Postgres is 18 (`84514a3`); the refresh is studioctl-server's
+  provisioning step 4, not `run-app.sh`.
+
+Superseded statements:
+
+- Decisions, "the stack's shared Postgres 16": Postgres 18.
+- Step 5, "the local Resource Registry stand-in": the Resource Registry component since task 5b.
+
 Status: steps 1 to 6 done (2026-10-18). The plan is complete. Working mode agreed with the product owner: one step at a time, each verified and
 reported before the next starts.
 
