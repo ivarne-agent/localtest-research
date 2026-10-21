@@ -2,7 +2,18 @@
 
 Source for fakes that more than one .NET consumer component needs. Nothing here is built into an image.
 
-Consumers of the Maskinporten fake (copies in their own `fakes/`): `components/dialogporten/fakes/Infrastructure/Maskinporten/` (compiled into Dialogporten's Infrastructure project, so all three hosts use it). Re-copy after changing the canonical files here.
+Consumers of the Maskinporten fake (copies in their own `fakes/`, identical to the files here; checked with `diff -r` on
+2026-10-21). None of them sets `UseAltinnTestOrg`, so each acts as Digdir:
+
+| Copy | Used by | Client id | Acts as |
+| --- | --- | --- | --- |
+| `components/dialogporten/fakes/Infrastructure/Maskinporten/` | Dialogporten's Infrastructure project, so all three hosts (events, party names, authorization clients) | `localtest-dialogporten` | `digdir` (exchanged) |
+| `components/notifications/fakes/Maskinporten/` | Notifications' condition-check client (`SendConditionClient`) | `localtest-notifications` | Digdir's raw Maskinporten token (991825827, no exchange) |
+| `components/dialogporten-adapter/fakes/Maskinporten/` | every client of the adapter (Storage, Register, Dialogporten); its `.editorconfig` silences two `Recommended` analyzer rules for the copy | `localtest-dialogporten-adapter` | `digdir` (exchanged) |
+| `components/correspondence/fakes/Maskinporten/` | every platform client of Correspondence, and KRR (raw token) | `991825827` | `digdir` (exchanged) |
+
+Profile has no copy: its two Maskinporten clients (KRR and brreg) are replaced whole by its own fakes. The Resource
+Registry and Receipt have none either. Re-copy after changing the canonical files here.
 
 | Path | What |
 | --- | --- |
@@ -14,7 +25,7 @@ Consumers of the Maskinporten fake (copies in their own `fakes/`): `components/d
 
 **Copy these files into a consumer's own `fakes/` folder when that consumer is vendored; do not reference this folder
 from a build.** A component's Docker build context is its own folder, so there is no shared build context for now
-(TODO.md task 15 is the long-term replacement). Change the canonical copy here, then re-copy it into each consumer. Consumers so far: `components/notifications/fakes/Maskinporten/` (the condition-check client), `components/dialogporten-adapter/fakes/Maskinporten/` (all of the adapter's clients; its `.editorconfig` silences two `Recommended` analyzer rules for the copy), `components/correspondence/fakes/Maskinporten/` (every platform client and KRR).
+(TODO.md task 15 is the long-term replacement). Change the canonical copy here, then re-copy it into each consumer (the table above).
 
 ## `IMaskinportenService` fake
 
