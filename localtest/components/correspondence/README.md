@@ -49,7 +49,8 @@ lines):
    It comes after the organisation-number and national-identity-number branches, so only ids production never issues are treated
    differently. `IsPartyId` stays upstream's, see "Differences from production".
 
-A fourth site (the browser download of attachments through OIDC, `IdportenTokenValidator.cs:26`) is task 11's and needs a report first.
+A fourth site (the browser download of attachments through OIDC, `IdportenTokenValidator.cs:26`) is task 11's and needs a report first;
+the report is `../arbeidsflate/README.md`, "Correspondence attachments (11b, not implemented)".
 
 ## What is faked, and why
 
@@ -199,7 +200,7 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
 - The browser download of attachments from Arbeidsflate (the OIDC branch of the `AllSchemes` cascade) does not work: a third
-  directive site, an OIDC client and a cookie decision, task 11. A download with a dialog token as `Authorization` header works
+  directive site, an OIDC client and a cookie decision (researched in `../arbeidsflate/README.md`, 11b, not implemented). A download with a dialog token as `Authorization` header works
   (the smoke test).
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
 - The image is not pinned in `config/images.go` to a build that exists until this branch is on main and the tag is bumped; until

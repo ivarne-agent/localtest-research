@@ -146,9 +146,9 @@ design (`isAuthCookie`). Dialogporten's end-user API identifies a person by `pid
   sends the cookie; scripts take it from the helper (which sets it as `/Home/GetTestUserToken` does).
 - **`post_logout_redirect_uri` is not honoured.** With a session the redirect is always the upstream logout; production
   never reads the client's post-logout URIs (its repository does not even map them). They are seeded for completeness.
-- **Front-channel logout is server-side**, so `authentication` must resolve the client's host:
-  `af.local.altinn.cloud` from inside the container needs an extra host entry when Arbeidsflate runs (task 11). A
-  failed call is logged and logout continues.
+- **Front-channel logout is server-side**, so `authentication` must resolve the client's host: `af.local.altinn.cloud`
+  is an ingress host of studioctl's topology since task 11, which every container maps to the host gateway. A failed
+  call is logged and logout continues.
 - **A revoked family is never replaced** for the same (client, subject, session): production's unique constraint keeps
   it and `GetOrCreateFamilyAsync` throws, so after reuse detection a code issued from the same session (browser session
   reuse at `authorize`) fails at the token endpoint with a 500. Mirrored, not fixed.

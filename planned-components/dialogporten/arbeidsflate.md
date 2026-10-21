@@ -2,11 +2,11 @@
 
 ## Status (2026-10-21)
 
-- **Open**: task 11, unapproved. Nothing of Arbeidsflate is vendored. Its prerequisites are in place: Authentication
-  as an OIDC provider with the seeded client `arbeidsflate-localtest` and its redirect, post-logout and front-channel
-  logout URLs (task 2), Dialogporten with GraphQL under `/dialogporten/graphql` and CORS for
-  `http://af.local.altinn.cloud:8000` (task 9), the adapter (task 10), production Profile for the profile page
-  (task 14). Open questions 4 and 5 (patches upstream, build or pull) and the app-frontend link stay with task 11.
+- **In progress**: task 11, phase 1 done 2026-10-21 (code only): [`../../localtest/components/arbeidsflate/`](../../localtest/components/arbeidsflate/README.md)
+  vendors `bb74dff` with the two patches applied at image build, the group `arbeidsflate` in studioctl; phase 2 (images,
+  the stack, the browser) follows. Questions 1 to 5 were decided on 2026-10-21 (`TODO.md` task 11): the host, the
+  profile page against production Profile, internet dependencies kept, patches not proposed upstream, images built
+  locally. The component README supersedes this plan where they differ (list below).
 
 Superseded statements:
 
@@ -18,6 +18,13 @@ Superseded statements:
 - Section 7.7 question 2: the profile page's endpoints are served by production Profile since task 14; nothing grows
   in the Register.
 - The altinncdn.no stub (question 3): the stack keeps the internet dependency (task 3 won't do).
+- As implemented in task 11 (phase 1): the pin is `bb74dff` (main, 2026-10-21; Node 24 for the BFF image), not `0011d95`;
+  the files are `Dockerfile.bff`, `Dockerfile.frontend`, `nginx/nginx.conf`, `postgres-init/90-arbeidsflate.sh` (not 40);
+  no `maskinporten-client.json` (`bff-start.sh` generates a throwaway key, the fake Maskinporten ignores signatures) and no
+  migrate service (`bff-start.sh` runs the migrations before the server); the BFF uses Redis database 2 (Correspondence has 1);
+  `DIALOGPORTEN_STREAM_URL` is production's `/dialogporten/graphql/stream`; the init-session seam takes a code-flow token
+  (`localtest/api/authentication/token`), which has `pid`; the install-size mitigation is applied to the SPA image only
+  (a pure build-time change there); the host is a topology component in studioctl, not a proxy tuple in the localtest app.
 
 Research date: 2026-10-20. Read-only against the pinned clones; the running stack was probed over HTTP (sign-in,
 discovery, token endpoint, Profile, logout) until it was restarted by another session mid-way (see "Not verified").
