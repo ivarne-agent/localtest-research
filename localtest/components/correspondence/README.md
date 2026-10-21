@@ -222,14 +222,14 @@ migration runs again. The summary line counts `ok` and `KNOWN`; a `FAIL` makes i
 - Image build and start: on a fresh Postgres volume (`env reset`) the baked-in `70-correspondence.sh` created the role and
   database and the host applied all 69 EF migrations on Postgres 18.3 as the non-superuser owner; Hangfire created its schema.
   On the earlier volume the host failed with `28P01` until the script ran (see "Known gaps").
-- `smoke-test.sh` with `CORRESPONDENCE_RESTART=1`: 46 ok, 2 `KNOWN` (the party-id gap), 0 FAIL, three times (before and after the
-  machine restart, the last after the `ttd-localtest-correspondence` policy fix). Seen on the way: the publish needs the dialog
+- `smoke-test.sh` with `CORRESPONDENCE_RESTART=1`: 46 ok, 2 `KNOWN` (the party-id gap), 0 FAIL, twice (before and after a
+  machine restart, the second after the `ttd-localtest-correspondence` policy fix). Seen on the way: the publish needs the dialog
   job first (statuses Initialized, ReadyForPublish, Published within seconds); the notification goes to Notifications as
   `future/orders` with creator `digdir`, `sendersReference` `corr-…`, and is captured and `Delivered`; the dialog-token keys are
   fetched on the first token (`localtest-primary`, `localtest-secondary`).
 - With the group on: `../register/smoke-test.sh` 34 ok (27 + 7 for KRR and the `correspondence/` lookups),
   `../resource-registry/smoke-test.sh` 41 ok (35 + 6), `../notifications/smoke-test.sh` 64 ok, `../dialogporten/smoke-test.sh`
-  60 ok, the root `../../smoke-test.sh` 23 ok.
+  60 ok (before the machine restart, same code), the root `../../smoke-test.sh` 23 ok.
 - With the group off: `/correspondence/...` answers `503` problem details (`component` and `group` `correspondence`, the `--with`
   command) and, for `Accept: text/html`, the same as an HTML page; `../../run-platform-regression.sh --no-apps` 44 of 44
   (apps with `studioctl run --dev-frontend`, the monorepo's built frontend served on 8080 with `Access-Control-Allow-Origin: *`,
