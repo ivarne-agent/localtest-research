@@ -419,7 +419,7 @@ attachments as plain links with cookies; Correspondence then signs the user in t
 provider and validates the token with `IdportenTokenValidator`, whose document retriever requires https
 (`IdportenTokenValidator.cs:26`), so plain http loops. Fix: one `#if !LOCALTEST` site (`RequireHttps = false`), a
 seeded `correspondence-localtest` OIDC client with scopes `openid profile`, and `SameSite=Lax` /
-`SecurePolicy=SameAsRequest` correlation and nonce cookies in Correspondence's fakes. **Done 2026-10-21** (commits 0432fc95..326425a6: the site at `IdportenTokenValidator.cs:26-31`, the seeded client
+`SecurePolicy=SameAsRequest` correlation and nonce cookies in Correspondence's fakes. **Done 2026-10-21** (commits 789edcd3..8e510e91: the site at `IdportenTokenValidator.cs:26-31`, the seeded client
 `correspondence-localtest`, Lax cookies in the fakes; the Correspondence smoke test has 76 checks, 79 with the restart;
 the download clicked in Chromium from the inbox; pin bump pending the images workflow).
 
