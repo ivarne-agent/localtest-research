@@ -26,7 +26,7 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts, exact paths and path prefixes, and the upstream addresses |
 | `Proxy/AppRoutes.cs`, `Proxy/AppRoutesApi.cs` | The app routes and the API the app runner pushes them through |
-| `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (the forwarding core the old localtest also uses), and the transform (original `Host`, cookies without `Secure`) |
+| `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (the forwarding core the old localtest also uses), and the transform (original `Host`; `Secure` removed from an app's cookies) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`) |
 | `smoke-test.sh` | Against the running stack: the proxy's routing contract and its app route API, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 75 checks; `PROXY_CHECKS=0` skips the 9 app-route checks, for studioctl (below) |
 
@@ -71,8 +71,11 @@ call those two.
   upstream writes them; WebSocket upgrades are passed on.
 - **Headers**: YARP's default transform (all headers copied, `X-Forwarded-For`, `-Proto` and `-Host` set), plus the
   original `Host`, because the components and apps build their own links from it.
-- **Cookies**: the `Secure` attribute is removed from every `Set-Cookie`, because the browser talks plain http to this
-  origin while the production services set it (the nginx ingress did the same with `proxy_cookie_flags ~ nosecure`).
+- **Cookies**: a platform component's `Set-Cookie` passes unchanged; the components set no `Secure` cookie over plain
+  http themselves (task 21b, [`reviews/cookies.md`](../reviews/cookies.md)). On an app's route (one the app runner
+  registered) the `Secure` attribute is still removed, because app-lib's `keepAlive` sets the runtime cookie `Secure` in
+  every environment and the browser refuses it from this plain-http origin (the nginx ingress removed it everywhere,
+  with `proxy_cookie_flags ~ nosecure`).
 - **Limits**: request bodies up to 200 MB; an upstream may stay silent for 5 minutes (PDF generation, big uploads)
   before the request fails; connect timeout 5 seconds. A failed upstream is a `502` naming the route and address.
 - Connections to an upstream are recycled every 30 seconds, so a recreated container's new address is picked up.
@@ -148,7 +151,7 @@ its production exchanges. Calls to Authentication go straight to its upstream wi
 | Endpoint | Behaviour |
 | --- | --- |
 | `GET /`, `/Home`, `/Home/Index` | Start page: `<select id="UserSelect">` with `userId.partyId` options (`Name`, and `Name for Org` for each party in the user's register `parties`), `AuthenticationLevel` 0-4 (default 2), optional `AppPathSelection`; `?goto=` becomes `RedirectUrl` |
-| `POST /Home/LogInTestUser` | Form or JSON: `UserSelect`, `AuthenticationLevel` (-1 skips the login), `action`, `RedirectUrl`, `AppPathSelection`. Runs the production sign-in headlessly (production `authentication?goTo=`, a code from the fake ID-porten for the chosen user, production `upstream/callback`), appends its cookies with `AltinnPartyId`/`AltinnPartyUuid` replaced by the selected party and `Secure` removed (the JWT keeps the user's own party, as in production). `action=reauthenticate` answers 204; otherwise redirects to `RedirectUrl` (same origin only), else `/{AppPathSelection}/`, else `/` |
+| `POST /Home/LogInTestUser` | Form or JSON: `UserSelect`, `AuthenticationLevel` (-1 skips the login), `action`, `RedirectUrl`, `AppPathSelection`. Runs the production sign-in headlessly (production `authentication?goTo=`, a code from the fake ID-porten for the chosen user, production `upstream/callback`), appends its cookies with `AltinnPartyId`/`AltinnPartyUuid` replaced by the selected party (Authentication sets them without `Secure` over http; the JWT keeps the user's own party, as in production). `action=reauthenticate` answers 204; otherwise redirects to `RedirectUrl` (same origin only), else `/{AppPathSelection}/`, else `/` |
 | `GET /Home/Localtest/Version` | `8` (`application/json`), the version `LocaltestValidation` in app-lib probes |
 | `GET /Home/GetTestUserToken[/{userId}]?userId&partyId&authenticationLevel` | Same headless sign-in; returns the JWT and sets the cookies (party cookies on `partyId` when given). Default level 2 |
 | `GET /Home/GetTestOrgToken[/{org}]?org&orgNumber&authenticationLevel&scopes` | A fake Maskinporten token for `orgNumber` (default 991825827, Digdir) and `scopes` (default the service-owner instance scopes), exchanged through production `exchange/maskinporten?test=true`, which answers level 3 and turns Digdir into `ttd`. `org` and `authenticationLevel` are accepted and ignored, as before |
@@ -173,7 +176,7 @@ its seeded secret (`SeededClients.cs`, kept in step with `components/authenticat
 
 | Endpoint (`localtest/api/authentication/`, anonymous) | What |
 | --- | --- |
-| `GET token?client&userId&partyId&authenticationLevel&scope` | The whole flow; production's token response (`access_token`, `id_token`, `token_type`, `expires_in`, `scope`, `refresh_token`, `refresh_token_expires_in`) plus `pid`, the access token's `pid` claim (null when absent). Defaults as `/Home/GetTestUserToken`: `userId` required, level 2, the user's own party. Sets the session cookies production's callback set (`Secure` removed, party cookies on `partyId`), so an `openid/logout` with them ends that session. Production's error status and body are passed through; a failure before the token call is a `502` problem naming the step |
+| `GET token?client&userId&partyId&authenticationLevel&scope` | The whole flow; production's token response (`access_token`, `id_token`, `token_type`, `expires_in`, `scope`, `refresh_token`, `refresh_token_expires_in`) plus `pid`, the access token's `pid` claim (null when absent). Defaults as `/Home/GetTestUserToken`: `userId` required, level 2, the user's own party. Sets the session cookies production's callback set (party cookies on `partyId`; no `Secure` over http), so an `openid/logout` with them ends that session. Production's error status and body are passed through; a failure before the token call is a `502` problem naming the step |
 | `GET code?…` (same parameters) | Steps 1-3 only: `{client_id, code, code_verifier, redirect_uri, state, nonce}`, for a test that redeems the code itself (wrong secret, spent code). Sets the cookies too |
 | `POST refresh` (form or query: `client`, `refresh_token`) | Production's `refresh_token` grant as the client; the response as for `token` |
 | `GET callback` | `localtest-smoke`'s registered redirect URI: answers its query parameters as JSON (`code`, `state`, or `error`, `error_description`), for a browser that drives the picker itself |

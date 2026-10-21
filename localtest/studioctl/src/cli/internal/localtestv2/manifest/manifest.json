@@ -643,7 +643,7 @@
     },
     {
       "name": "arbeidsflate",
-      "description": "The SPA of Arbeidsflate, the Altinn inbox, served by nginx on its own host: the SPA and the BFF use absolute paths (/, /assets, /api/...), so they cannot live under a prefix of the platform host. nginx proxies /api/ to the BFF with X-Forwarded-Proto https, without which the BFF's Secure-only session is never saved (see the component README). The browser opens Dialogporten's subscription stream on the platform host directly, as in production.",
+      "description": "The SPA of Arbeidsflate, the Altinn inbox, served by nginx on its own host: the SPA and the BFF use absolute paths (/, /assets, /api/...), so they cannot live under a prefix of the platform host. nginx proxies /api/ to the BFF, whose cookies are Secure only over https (patch 0003), so it sets them without Secure on the stack's http (see the component README). The browser opens Dialogporten's subscription stream on the platform host directly, as in production.",
       "notes": [
         "Upstream's start.sh writes DIALOGPORTEN_STREAM_URL into index.html (envsubst); the two Application Insights values stay empty.",
         "The health path is the SPA's index.html; /api/ would make the BFF's readiness the SPA's, which is polled on its own.",

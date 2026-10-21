@@ -12,7 +12,7 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`) |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`), cookies without `Secure` on http (`Cookies/`, a copy of `../shared/fakes/Cookies/`) |
 | `smoke-test.sh` | Against the running stack: the browser sign-in, and the OIDC provider for the seeded clients (see [Verified](#verified)) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
@@ -23,6 +23,17 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 2. `AuthenticationController.cs`, `IsSafeSameOrSubdomainHttps`: the `goto` guard accepts plain http as well,
    because localtest serves `local.altinn.cloud` without TLS.
 
+**Cookies without `Secure` (task 21b): no site, reported here first.** Production hard-codes `Secure = true` on every
+cookie it writes: `AltinnPartyId`, `AltinnPartyUuid`, `AltinnStudioRuntime` and `altinnsession` at sign-in and on
+re-issue (`OidcServerService.cs`, `AuthenticationController.cs`), their expiries at logout and on a failed refresh, and
+the deletions of `AltinnLogoutInfo` and `AltinnStudioRuntime` (`LogoutController.cs`); twelve places in four files. The
+stack is plain http, where a browser refuses a `Secure` cookie, so the front doors used to remove the flag. Instead of
+twelve `#if !LOCALTEST` blocks, `fakes/Cookies/LocaltestCookiePolicy.cs` (a copy of `../shared/fakes/Cookies/`) adds
+ASP.NET Core's cookie policy middleware in front of the host's pipeline through an `IStartupFilter`, registered from
+`AddLocaltestAuthentication`: on a request that is not https every cookie appended or deleted loses `Secure`, and a
+`SameSite=None` one becomes `Lax` (none of Authentication's is `None`). On https nothing changes. The antiforgery cookie
+`AS-XSRF-TOKEN` was never `Secure`. Inventory and decision: [`../../reviews/cookies.md`](../../reviews/cookies.md).
+
 ## What the fakes replace
 
 | Production | Localtest |
@@ -32,6 +43,7 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 | Postgres health check | Removed from the health checks; the service's own stays |
 | Key Vault: keys for incoming platform access tokens | `Keys/LocaltestKeyProviders.cs`, `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`) for every issuer |
 | `SigningKeysRetriever` (provider metadata and JWKS over https only, cached 12 h) | `LocaltestSigningKeysRetriever`: over plain http, no cache, so a restarted localtest app's new keys are picked up at once |
+| Hard-coded `Secure` on every cookie it writes | `Cookies/LocaltestCookiePolicy.cs`: on plain http the cookie policy middleware removes it (above, "Directive sites") |
 
 Everything else is configuration (`fakes/LocaltestAuthenticationExtensions.cs`):
 
@@ -83,8 +95,8 @@ production claim shaping turns the acr into `urn:altinn:authlevel`:
 | 3 | `idporten-loa-substantial` | `Sensitive` |
 | 4 | `idporten-loa-high` | `VerySensitive` |
 
-Cookies are `Secure`; the localtest app removes the flag from every `Set-Cookie` (forwarded or from `/Home`), so a
-browser on plain http keeps them.
+Cookies are `Secure` in production; on the stack's plain http they come without it (the cookie policy in `fakes/Cookies/`,
+see "Directive sites"), so a browser keeps them and the front door passes them unchanged.
 
 ## As an OpenID Connect provider
 
@@ -174,8 +186,9 @@ exchange with its secret and verifier; the helper's tokens for user 1337 (`pid` 
 identity number, `nonce`, `sid`, `aud`); `invalid_client` for a wrong secret, `invalid_grant` for a spent code;
 refresh rotation and reuse detection; logout through `endsession` and `handleloggedout`, after which the session's
 refresh token is refused; and, with the dialogporten group up, Dialogporten's end-user dialog list with the code-flow
-access token (the cookie JWT, without `pid`, is refused with 403). That is 32 checks with the group and 30 without it,
-where the last two are skipped.
+access token (the cookie JWT, without `pid`, is refused with 403). Since task 21b also the sign-in's callback straight on
+Authentication's host port 8021: its four cookies without `Secure`, and the same attributes through the front door. That
+is 34 checks with the group and 32 without it, where the last two are skipped.
 
 On the stack (2026-10-20, `env up -r localtest-v2 --with dialogporten --dev authentication --dev localtest`): 32 ok,
 none failing. User 1337's access token carries `pid` `01839012345`, the Register's national identity number for

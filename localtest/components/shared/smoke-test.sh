@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Smoke test of the shared IMaskinportenService fake (fakes/Maskinporten/), compiled against Altinn.ApiClients.Maskinporten
+# Smoke test of the shared cookie policy (fakes/Cookies/, in memory in Cookies.Smoke, no stack) and of the shared
+# IMaskinportenService fake (fakes/Maskinporten/), compiled against Altinn.ApiClients.Maskinporten
 # 10.1.0 into Maskinporten.Smoke and run against the running stack: a token from the localtest Maskinporten token endpoint,
 # exchanged through production Authentication. UseAltinnTestOrg=true must give urn:altinn:org=ttd, false digdir.
 # Needs the stack (Authentication reads altinncdn.no for the organisation code) and a NuGet cache or nuget.org.
@@ -8,6 +9,12 @@ set -uo pipefail
 BASE=${1:-http://local.altinn.cloud:8000}
 HERE=$(cd "$(dirname "$0")" && pwd)
 FAIL=0
+# The cookie policy (fakes/Cookies/) in memory, no stack needed.
+if dotnet run --project "$HERE/Cookies.Smoke"; then
+  echo "ok   cookie policy: no Secure and no SameSite=None over http, unchanged over https"
+else
+  echo "FAIL cookie policy (fakes/Cookies/)"; FAIL=1
+fi
 for flow in "true ttd" "false digdir"; do
   read -r test_org org <<<"$flow"
   if dotnet run --project "$HERE/Maskinporten.Smoke" -- "$BASE" "$test_org" "$org"; then

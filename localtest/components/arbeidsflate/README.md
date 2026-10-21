@@ -25,7 +25,7 @@ organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisio
 | Path | What |
 | --- | --- |
 | `vendor/` | Upstream's whole repository at the pin, byte for byte (its tree id is upstream's), plus `UPSTREAM.md` |
-| `patches/0001-bff-oidc-discovery-scheme.patch`, `patches/0002-frontend-cookie-domain-localtest.patch` | The two `localtest:` changes to upstream's code, applied at image build (below) |
+| `patches/0001-bff-oidc-discovery-scheme.patch`, `patches/0002-frontend-cookie-domain-localtest.patch`, `patches/0003-bff-cookies-secure-auto.patch` | The three `localtest:` changes to upstream's code, applied at image build (below) |
 | `Dockerfile.bff`, `Dockerfile.frontend` | Mirror `vendor/packages/bff/Dockerfile` and `vendor/packages/frontend/Dockerfile`; every difference is marked `localtest:` |
 | `bff-start.sh` | The BFF image's command: a throwaway Maskinporten client key when none is set, the TypeORM migrations, then upstream's `pnpm --filter bff run start` |
 | `nginx/nginx.conf` | Upstream's `packages/frontend/nginx.conf` plus the `/api/` proxy and the http CSP; every change commented |
@@ -40,7 +40,7 @@ organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisio
 **The patches, applied at build, not committed onto `vendor/`.** Both Dockerfiles start with the same `source` stage: the
 pinned Node image with `git`, `COPY vendor/`, `COPY patches/`, `git apply --check` and `git apply` of every patch. The
 build stage then copies the patched tree where upstream has `COPY . .`. This keeps `vendor/` reviewable as upstream's
-tree (checkable by tree id, see `vendor/UPSTREAM.md`), puts the whole localtest change in two small files, and makes a
+tree (checkable by tree id, see `vendor/UPSTREAM.md`), puts the whole localtest change in three small files, and makes a
 patch that no longer applies after a re-pin fail the image build at once. TypeScript has no `#if`, so this is the
 component's form of a directive site.
 
@@ -48,6 +48,7 @@ component's form of a directive site.
 | --- | --- |
 | 0001: `OIDC_PLATFORM_URL` may carry a scheme (`config.oidcDiscoveryUrl`, read by the OIDC plugin, the token verifier and `/api/health`) | Upstream writes `https://${OIDC_PLATFORM_URL}/.well-known/openid-configuration` in three places; Authentication is plain http here, so the BFF would not start. A value without a scheme behaves as upstream |
 | 0002: `getCookieDomain()` is `local.altinn.cloud` on `*.local.altinn.cloud` | The SPA writes `AltinnPartyId` and `AltinnPartyUuid` when the user changes party; upstream maps unknown hosts to prod and the browser rejects `Domain=.altinn.no`. With the patch the inbox and the apps share the party cookies Authentication sets for `local.altinn.cloud` |
+| 0003: the BFF's session cookie (`server.ts`) and `altinnPersistentContext` (`graphql/profile/queries.ts`, `mutations.ts`) are `secure: 'auto'` instead of `true` (task 21b) | Upstream hard-codes `Secure`; a browser refuses it over http, and `@fastify/session` refuses to save a `secure: true` session on an http request. `'auto'` (both `@fastify/session` and `@fastify/cookie`) sets `Secure` exactly when `request.protocol` is https, as behind production's TLS ingress; on http the session cookie gets `SameSite=Lax` (unset upstream, which browsers read as Lax). The front door no longer removes `Secure`, so this replaces that, and nginx no longer claims https. Reported first in `../../reviews/cookies.md` (A1), the task 21b inventory |
 
 **The Dockerfiles** (each `localtest:` line explains itself):
 
@@ -75,10 +76,11 @@ or Azure's ingress. Ours adds `location ^~ /api/` to `http://arbeidsflate-bff:80
 request (through a variable and the `resolver` that `nginx-start.sh` writes, cached 10 s): a literal host is resolved once
 at start, and in phase 2 a restarted BFF container had a new address and nginx answered 502 until it was restarted too.
 
-- `proxy_set_header X-Forwarded-Proto https`. The BFF's session cookie is hard-coded `secure: true`, and `@fastify/session`
-  saves a session only when `request.protocol` is https (Fastify, `trustProxy: true`, takes it from this header).
-  Without it `/api/login` stores no state, `/api/cb` sends the browser back to `/api/login`, and the login loops. The cookie
-  then carries `Secure`, which studioctl-server removes on the way to the browser, as for every component.
+- No `X-Forwarded-Proto` of its own (until task 21b it sent `https`: with upstream's hard-coded `secure: true`,
+  `@fastify/session` saved a session only when `request.protocol` was https, and studioctl-server removed the cookie's
+  `Secure` on the way back). With patch 0003 the cookies are `secure: 'auto'`, so the BFF (Fastify, `trustProxy: true`)
+  sees the stack's http, saves the session and sets its cookies without `Secure`; a forged `https` would turn `Secure`
+  back on, also through upstream's hook in `graphql/fastifyHeaders.ts`.
 - The CSP's `connect-src` and `img-src` also allow `http://local.altinn.cloud:8000` (upstream allows `'self'` and
   `https:`): the SPA's subscription stream, dialog content and transmission receipts it fetches with the dialog token,
   and images on the platform host.
@@ -89,9 +91,9 @@ at start, and in phase 2 a restarted BFF container had a new address and nginx a
 ## Hosting shape
 
 ```
-browser ── http://af.local.altinn.cloud:8000/* ──► studioctl-server (the front door, keeps Host, strips Secure)
+browser ── http://af.local.altinn.cloud:8000/* ──► studioctl-server (the front door, keeps Host and Set-Cookie)
                                                    └► 127.0.0.1:8037  arbeidsflate (nginx)
-                                                        ├ /api/*  ──► arbeidsflate-bff:80 (X-Forwarded-Proto: https)
+                                                        ├ /api/*  ──► arbeidsflate-bff:80 (no forged X-Forwarded-Proto)
                                                         └ /*      ──► the SPA (index.html for every client route)
 browser ── http://local.altinn.cloud:8000/dialogporten/graphql/stream ──► Dialogporten GraphQL (SSE, CORS for af.)
 BFF     ── http://local.altinn.cloud:8000/{authentication,dialogporten,profile,register,resourceregistry,localtest}/...
@@ -135,8 +137,8 @@ The BFF's environment, set by studioctl (the `arbeidsflate-bff` component in the
 The BFF is a confidential client of production Authentication's OpenID Connect provider (task 2), with the seeded client
 `arbeidsflate-localtest`; Authentication signs the user in through the localtest app's fake ID-porten picker.
 
-1. `GET /api/login`: the BFF stores the PKCE verifier, `state` and `nonce` in a new session (saved because of
-   `X-Forwarded-Proto: https`) and redirects to `authentication/api/v1/authorize/` with `response_type=code`,
+1. `GET /api/login`: the BFF stores the PKCE verifier, `state` and `nonce` in a new session (saved over http
+   because its cookie is `secure: 'auto'`, patch 0003) and redirects to `authentication/api/v1/authorize/` with `response_type=code`,
    `redirect_uri=http://af.local.altinn.cloud:8000/api/cb`, scopes `digdir:dialogporten.noconsent openid
    altinn:portal/enduser altinn:correspondence.forward.check`, `acr_values=idporten-loa-substantial`, S256.
 2. Authentication checks the client binding and, without a live session, sends the browser to the picker
@@ -166,9 +168,9 @@ httpOnly: true }])`, then `page.goto('http://af.local.altinn.cloud:8000/')`.
 
 ## Differences from production
 
-1. Plain http on `af.local.altinn.cloud:8000`; the BFF believes it is behind https (`X-Forwarded-Proto`), and the front
-   door strips `Secure` from its cookie.
-2. The two patches: discovery over http, the party cookies' domain.
+1. Plain http on `af.local.altinn.cloud:8000`; the BFF knows it (no forged `X-Forwarded-Proto`) and sets its cookies
+   without `Secure` (patch 0003).
+2. The three patches: discovery over http, the party cookies' domain, the BFF's cookies `secure: 'auto'`.
 3. The SPA's environment detection maps `af.local.altinn.cloud` to `prod` (upstream's default): links out of the inbox
    (help, Altinn's information pages, access management) go to production sites. Dialogs' own links (go-to, attachments,
    receipts) are what the adapter and Correspondence write, on the stack's origin.
@@ -308,14 +310,15 @@ click its attachment.
 
 `./smoke-test.sh [BASE]` needs `--with arbeidsflate` (the `dialogporten` group comes with it) and goes through the front
 door: readiness and the BFF's `/api/health` (Postgres, Redis, OIDC over http, Dialogporten); the SPA (the stream URL in
-`index.html`, an asset with its cache headers, the CSP and no HSTS on a deep link, GraphiQL behind `/api/`); the login
+`index.html`, an asset with its cache headers, the CSP and no HSTS on a deep link, GraphiQL behind `/api/`); the BFF's
+session cookie without `Secure` straight from nginx's host port 8037 and unchanged through the front door (task 21b); the login
 round trip with a cookie jar as user 1337 (picker, `/api/cb`, the session cookie without `Secure`,
 `/api/isAuthenticated`); the fixture app pushed and an instance of it for party 500000 followed to its dialog; GraphQL
 through the BFF (parties, the dialog in `searchDialogs`, `dialogById` with a dialog token, no CORS headers on the
 same-origin call, the stream URL's preflight and 401 on Dialogporten); the profile page against production Profile (the
-user, a favourite added, read back from Profile and removed, `showClientUnits` changed and restored); the init-session
+user, `altinnPersistentContext` set without `Secure`, a favourite added, read back from Profile and removed, `showClientUnits` changed and restored); the init-session
 seam; the refusals; logout through the BFF to `handleloggedout`; and the front-channel logout of a second session by
-Authentication's server-side call: 56 checks. Its header lists what it leaves behind.
+Authentication's server-side call: 59 checks (56 before task 21b). Its header lists what it leaves behind.
 
 ## Verified
 

@@ -28,7 +28,8 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
     // Long enough for PDF generation and big uploads; streams send keep-alives well within it.
     private static readonly ForwarderRequestConfig RequestConfig = new() { ActivityTimeout = TimeSpan.FromMinutes(5) };
 
-    private static readonly HttpTransformer Transformer = new LocaltestTransformer();
+    private static readonly HttpTransformer PlatformTransformer = new LocaltestTransformer(stripSecure: false);
+    private static readonly HttpTransformer AppTransformer = new LocaltestTransformer(stripSecure: true);
 
     public async Task Forward(HttpContext context)
     {
@@ -45,7 +46,7 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
                 return;
             }
 
-            route = new Route($"{app.Org}/{app.App}", app.Upstream);
+            route = new Route($"{app.Org}/{app.App}", app.Upstream, IsApp: true);
         }
         else if (PlatformRoutes.IsPrefixWithoutSlash(path))
         {
@@ -71,7 +72,8 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
     /// <summary>Forwards to the route, or answers 502 when the upstream does not.</summary>
     public async Task Send(HttpContext context, Route route)
     {
-        var error = await forwarder.SendAsync(context, route.Destination, Client, RequestConfig, Transformer);
+        var transformer = route.IsApp ? AppTransformer : PlatformTransformer;
+        var error = await forwarder.SendAsync(context, route.Destination, Client, RequestConfig, transformer);
         if (error != ForwarderError.None)
         {
             var exception = context.GetForwarderErrorFeature()?.Exception;
@@ -96,12 +98,13 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
     }
 
     /// <summary>
-    /// YARP's default transform (headers copied, <c>X-Forwarded-For/Proto/Host</c> set) plus the two things the nginx
-    /// ingress did: the original <c>Host</c> goes upstream, because the components and apps build their own links from
-    /// it, and the <c>Secure</c> flag is removed from cookies, because the browser talks plain http to this origin
-    /// while the production services set it.
+    /// YARP's default transform (headers copied, <c>X-Forwarded-For/Proto/Host</c> set) plus what the nginx ingress did:
+    /// the original <c>Host</c> goes upstream, because the components and apps build their own links from it. The
+    /// platform components set no <c>Secure</c> cookie over plain http, so their <c>Set-Cookie</c> headers pass unchanged;
+    /// on an app's route (<paramref name="stripSecure"/>) <c>Secure</c> is still removed, because app-lib's
+    /// <c>keepAlive</c> sets the runtime cookie <c>Secure</c> in every environment (localtest/reviews/cookies.md).
     /// </summary>
-    private sealed partial class LocaltestTransformer : HttpTransformer
+    private sealed partial class LocaltestTransformer(bool stripSecure) : HttpTransformer
     {
         public override async ValueTask TransformRequestAsync(HttpContext httpContext, HttpRequestMessage proxyRequest, string destinationPrefix, CancellationToken cancellationToken)
         {
@@ -113,7 +116,7 @@ public sealed partial class Forwarder(IHttpForwarder forwarder, PlatformRoutes p
         {
             bool result = await Default.TransformResponseAsync(httpContext, proxyResponse, cancellationToken);
             var cookies = httpContext.Response.Headers.SetCookie;
-            if (cookies.Count > 0)
+            if (stripSecure && cookies.Count > 0)
             {
                 httpContext.Response.Headers.SetCookie = cookies.Select(c => SecureAttribute().Replace(c ?? string.Empty, string.Empty)).ToArray();
             }

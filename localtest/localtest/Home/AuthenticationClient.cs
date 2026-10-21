@@ -98,14 +98,14 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
 
     /// <summary>
     /// The production cookies for the browser: the party cookies set to the selected party (the old localtest's
-    /// <c>UserSelect=userId.partyId</c>; the JWT keeps the user's own party), and <c>Secure</c> removed, as the proxy
-    /// removes it from forwarded responses, because the browser talks plain http to the stack.
+    /// <c>UserSelect=userId.partyId</c>; the JWT keeps the user's own party). Their other attributes are Authentication's:
+    /// it sets no <c>Secure</c> over the stack's plain http (localtest/reviews/cookies.md).
     /// </summary>
     public static IEnumerable<string> ForBrowser(IEnumerable<string> setCookies, int partyId, Guid partyUuid)
     {
         foreach (var setCookie in setCookies)
         {
-            var parts = setCookie.Split(';').Select(p => p.Trim()).Where(p => !string.Equals(p, "secure", StringComparison.OrdinalIgnoreCase)).ToList();
+            var parts = setCookie.Split(';').Select(p => p.Trim()).ToList();
             var name = parts[0].Split('=', 2)[0];
             parts[0] = name switch
             {

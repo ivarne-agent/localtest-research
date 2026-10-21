@@ -29,6 +29,10 @@ the files with `LOCALTEST` sites and reports conflicts).
    three-way merge: take the upstream file and put the directive blocks back unchanged.
 3. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
    `UPSTREAM.md` and the two files with `LOCALTEST` sites may differ.
+   Then grep the new tree for cookies written other than through `Response.Cookies` (a raw `Set-Cookie` header):
+   `grep -rn 'Set-Cookie\|HeaderNames.SetCookie' src/apps/Altinn.Authentication/src`. The cookie policy in
+   `../fakes/Cookies/` removes `Secure` on http only from cookies appended or deleted through `Response.Cookies`
+   (`../../../reviews/cookies.md`, task 21b); none is written otherwise at this pin.
 4. **Keep `../Dockerfile` as equal to `src/apps/Altinn.Authentication/Dockerfile` as possible.** It mirrors the upstream
    file line for line (base images and digests, publish, the `dotnet` user), and every deviation is a line or block
    marked `localtest:`. When `git diff <pin> <new> -- src/apps/Altinn.Authentication/Dockerfile` shows a change, make

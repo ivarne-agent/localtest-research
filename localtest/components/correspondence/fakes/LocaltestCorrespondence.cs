@@ -4,6 +4,7 @@ using Altinn.Correspondence.Localtest.Auth;
 using Altinn.Correspondence.Localtest.AzureResources;
 using Altinn.Correspondence.Localtest.Inspection;
 using Altinn.Correspondence.Localtest.Storage;
+using Localtest.Shared.Cookies;
 using Localtest.Shared.Maskinporten;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Memory;
@@ -127,6 +128,11 @@ public static class LocaltestCorrespondence
         // Every Maskinporten-backed client (the Altinn platform clients and KRR), with production semantics
         // (a copy of components/shared/fakes/Maskinporten).
         services.AddLocaltestMaskinporten(config);
+
+        // Cookies on plain http without Secure, SameSite=None as Lax: upstream's best-effort expiry of the correlation and
+        // nonce cookies on the "Correlation failed" retry (DependencyInjection.cs, ExpireCookie) hard-codes both (a copy
+        // of components/shared/fakes/Cookies, see localtest/reviews/cookies.md).
+        services.AddLocaltestCookiePolicy();
 
         // correspondence/api/localtest/ reads the production tables and Hangfire's.
         services.AddScoped<LocaltestCorrespondenceQueries>();

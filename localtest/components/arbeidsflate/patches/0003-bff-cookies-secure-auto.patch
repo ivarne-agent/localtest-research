@@ -1,0 +1,43 @@
+localtest: the BFF's cookies are Secure only over https. Upstream hard-codes `secure: true` on the session cookie
+(@fastify/session) and on altinnPersistentContext (@fastify/cookie); the stack is plain http, where a browser refuses a
+Secure cookie, and @fastify/session refuses to save a `secure: true` session on an http request. `'auto'` (both
+libraries) sets Secure exactly when request.protocol is https, as behind production's TLS ingress, and on http gives the
+session cookie SameSite=Lax. See localtest/reviews/cookies.md (task 21b).
+Against Altinn/dialogporten-frontend bb74dff2c425f2aff48759ed9c6370e73436545d. Both Dockerfiles apply every patch in their source stage (git apply).
+
+--- a/packages/bff/src/graphql/profile/mutations.ts
++++ b/packages/bff/src/graphql/profile/mutations.ts
+@@ -98,7 +98,8 @@
+               path: '/',
+               expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+               httpOnly: true,
+-              secure: true,
++              // localtest: Secure only over https (the stack is plain http); upstream always sets it
++              secure: 'auto',
+               domain: config.authContextCookieDomain,
+               encode: (v: string) => v,
+             });
+--- a/packages/bff/src/graphql/profile/queries.ts
++++ b/packages/bff/src/graphql/profile/queries.ts
+@@ -34,7 +34,8 @@
+             path: '/',
+             expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+             httpOnly: true,
+-            secure: true,
++            // localtest: Secure only over https (the stack is plain http); upstream always sets it
++            secure: 'auto',
+             domain: config.authContextCookieDomain,
+             encode: (v: string) => v,
+           });
+--- a/packages/bff/src/server.ts
++++ b/packages/bff/src/server.ts
+@@ -63,7 +63,8 @@
+     cookieName: 'arbeidsflate',
+     saveUninitialized: false,
+     cookie: {
+-      secure: true,
++      // localtest: Secure only over https (the stack is plain http); upstream always sets it
++      secure: 'auto',
+       httpOnly: true,
+     },
+   };

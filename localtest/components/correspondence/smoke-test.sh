@@ -16,12 +16,13 @@
 # purge of a published correspondence, and the browser download from the inbox (task 11b: the attachment URL without a token,
 # Correspondence's OIDC challenge to Authentication's correspondence-localtest client, no picker with user 1337's session
 # cookie, idporten-callback, download?session= with the bytes; a reused session, no cookie, a code of another client and a
-# missing correlation cookie, every walk bounded). With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
+# missing correlation cookie, every walk bounded; task 21b: the challenge's cookies from the host port unchanged through the
+# front door, and the restart's expiry of them without Secure). With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
 # correspondences remain and no migration ran again.
 # The resources are the Resource Registry seed's ttd-localtest-correspondence (see ../resource-registry/README.md); KRR and
 # Profile's correspondence lookups are the Register component's fakes.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# CORRESPONDENCE_URL overrides the host-port URL for /health (default http://127.0.0.1:8033). CTR (default podman) and the
+# CORRESPONDENCE_URL overrides the host-port URL for /health and the cookie check (default http://127.0.0.1:8033). CTR (default podman) and the
 # container names localtest-v2-correspondence / localtest-v2-postgres are used for the database and restart checks; without a
 # container runtime those checks are skipped.
 set -uo pipefail
@@ -282,6 +283,18 @@ CHALLENGE=$(curl -s -b "$JAR" -c "$JAR" -D "$TMP/challenge.h" -o /dev/null -w '%
 COOKIES=$(grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$TMP/challenge.h" | tr '[:upper:]' '[:lower:]')
 [[ $(grep -c . <<<"$COOKIES") == 2 && $(grep -c 'samesite=lax' <<<"$COOKIES") == 2 && "$COOKIES" != *secure* ]] \
   && pass "  ... the correlation and nonce cookies are SameSite=Lax without Secure (the fakes' cookie decision)" || fail "  ... cookies: $COOKIES"
+# Task 21b: the same challenge straight from the host port (bypassing the front door, with the public Host) carries the
+# same cookie attributes, so the front door passes them unchanged and no longer has anything to strip.
+HOSTPORT=${BASE#http://}; HOSTPORT=${HOSTPORT%%/*}
+curl -s -b "$JAR" -H "Host: $HOSTPORT" -D "$TMP/challenge-direct.h" -o /dev/null "$DIRECT${DOWNLOAD#"$BASE"}"
+cookie_attrs() { # HEADERS: the correlation and nonce cookies' attributes, without names, values and Expires, sorted
+  grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$1" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | cut -d';' -f2- |
+    tr ';' '\n' | sed 's/^ *//' | grep -v '^expires=' | sort | paste -sd';'
+}
+DIRECT_COOKIES=$(cookie_attrs "$TMP/challenge-direct.h")
+[[ -n "$DIRECT_COOKIES" && "$DIRECT_COOKIES" != *secure* && "$DIRECT_COOKIES" == "$(cookie_attrs "$TMP/challenge.h")" ]] \
+  && pass "  ... from the host port ($DIRECT) the same cookies without Secure: the front door passes them unchanged (task 21b)" \
+  || fail "  ... host port: $DIRECT_COOKIES"
 STATE=$(qp "$CHALLENGE" state)
 walk "$JAR" "$CHALLENGE" 6 || fail "  ... the walk from authorize did not end within 6 redirects: ${HOPS[*]}"
 [[ "$(urlpath "$(hop 0)")" == /correspondence/api/v1/idporten-callback && -n "$(qp "$(hop 0)" code)" ]] \
@@ -314,6 +327,16 @@ if walk "$JAR" "$API/idporten-callback?code=$OTHER_CODE&state=$STATE" 8 && [[ "$
 else
   fail "wrong-client code: ${HOPS[*]}"
 fi
+# Upstream's restart expires the correlation and nonce cookies with a hard-coded Secure and SameSite=None
+# (DependencyInjection.cs, ExpireCookie); over http the cookie policy in fakes/Cookies sends them without Secure and Lax
+# (task 21b), so a browser applies the expiry.
+OTHER_CODE=$(curl -s "$BASE/localtest/api/authentication/code?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["code"]')
+STATE=$(qp "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$DOWNLOAD")" state)
+curl -s -b "$JAR" -D "$TMP/retry.h" -o /dev/null "$API/idporten-callback?code=$OTHER_CODE&state=$STATE"
+EXPIRED=$(grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$TMP/retry.h" | tr -d '\r' | tr '[:upper:]' '[:lower:]')
+[[ -n "$EXPIRED" && "$EXPIRED" != *secure* && "$EXPIRED" != *samesite=none* ]] \
+  && pass "  ... the restart expires the correlation and nonce cookies without Secure and not SameSite=None (task 21b)" \
+  || fail "  ... the restart's cookies: $EXPIRED"
 # The callback without the correlation cookie ("Correlation failed"): one restart, and a second failure ends in the inbox
 # (GeneralSettings:ArbeidsflateBaseUrl) instead of looping.
 callback_without_correlation() { # download URL -> where the callback sends the browser

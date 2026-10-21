@@ -4,7 +4,8 @@
 # client_secret_basic and PKCE, refresh rotation, logout through the fake ID-porten's end-session endpoint), mostly through
 # the localtest app's headless code-flow helper (localtest/api/authentication/). The last two checks, Dialogporten's
 # end-user API with the cookie JWT (refused) and with the code-flow access token, run only when the dialogporten group is
-# up (`--with dialogporten`): 32 checks with the group, 30 without.
+# up (`--with dialogporten`): 34 checks with the group, 32 without. The cookie checks (task 21b) also call
+# Authentication's host port directly (AUTHENTICATION_URL, default http://127.0.0.1:8021).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -u
 BASE=${1:-${BASE:-http://local.altinn.cloud:8000}}
@@ -36,6 +37,20 @@ check "callback redirects to goTo" "$BASE/ttd/testapp/" "$(grep -i '^Location:' 
 COOKIE=$(grep -i '^Set-Cookie: AltinnStudioRuntime=' "$T/h" | sed -E 's/^Set-Cookie: AltinnStudioRuntime=([^;]*).*/\1/I')
 check "the cookie JWT has no pid (production: isAuthCookie)" "" "$(claim "$COOKIE" pid)"
 check "refresh with the cookie JWT" "200" "$(code -H "Authorization: Bearer $COOKIE" "$AUTHN/refresh")"
+
+echo "== cookies over plain http (task 21b)"
+# The same sign-in, its callback sent straight to Authentication's host port (bypassing the front door, with the public
+# Host): the four cookies come without Secure as Authentication sends them (fakes/Cookies), and the front door's
+# callback above passed the same attributes unchanged.
+DIRECT=${AUTHENTICATION_URL:-http://127.0.0.1:8021}
+LOC=$(curl -s -o /dev/null -w '%{redirect_url}' "$AUTHN/authentication?goTo=$BASE/ttd/testapp/")
+CB=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$BASE/localtest/api/idporten/authorize" --data-urlencode "client_id=$(qp "$LOC" client_id)" --data-urlencode "state=$(qp "$LOC" state)" --data-urlencode "nonce=$(qp "$LOC" nonce)" --data-urlencode "redirect_uri=$(qp "$LOC" redirect_uri)" --data-urlencode "code_challenge=$(qp "$LOC" code_challenge)" --data-urlencode "code_challenge_method=S256" --data-urlencode "UserSelect=1337.501337" --data-urlencode "AuthenticationLevel=3")
+HOSTPORT=${BASE#http://}; HOSTPORT=${HOSTPORT%%/*}
+curl -s -H "Host: $HOSTPORT" -D "$T/hd" -o /dev/null "$DIRECT${CB#"$BASE"}"
+# cookie_attrs HEADERS: each Set-Cookie as "name attributes", lower case, sorted, without its value and Expires.
+cookie_attrs() { grep -i '^Set-Cookie:' "$1" | tr -d '\r' | sed -E 's/^Set-Cookie: ([^=]+)=[^;]*/\1/I' | python3 -c 'import sys; print("|".join(sorted(p[0] + " " + ";".join(sorted(a.strip().lower() for a in p[1:] if not a.strip().lower().startswith("expires="))) for p in (l.strip().split(";") for l in sys.stdin))))'; }
+check "the callback on the host port sets 4 cookies, none with Secure" "4 0" "$(grep -ci '^Set-Cookie:' "$T/hd") $(grep -ci '^Set-Cookie:.*;\s*secure' "$T/hd")"
+check "the front door passed the same cookie attributes unchanged" "$(cookie_attrs "$T/hd")" "$(cookie_attrs "$T/h")"
 
 echo "== discovery"
 curl -s "$AUTHN/openid/.well-known/openid-configuration" > "$T/disco.json"

@@ -8,6 +8,7 @@ using Altinn.Platform.Authentication.Localtest.Keys;
 using Altinn.Platform.Authentication.Localtest.Login;
 using Altinn.Platform.Authentication.Localtest.Persistence;
 using Altinn.Platform.Authentication.Services.Interfaces;
+using Localtest.Shared.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Memory;
@@ -135,6 +136,11 @@ public static class LocaltestAuthenticationExtensions
         services.AddSingleton<ILoginTransactionRepository, InMemoryLoginTransactionRepository>();
         services.AddSingleton<IAuthorizationCodeRepository, InMemoryAuthorizationCodeRepository>();
         services.AddSingleton<IRefreshTokenRepository, InMemoryRefreshTokenRepository>();
+
+        // Cookies: production hard-codes Secure on the runtime, party and session cookies (OidcServerService,
+        // AuthenticationController, LogoutController); on the stack's plain http they go without it (a copy of
+        // components/shared/fakes/Cookies, see localtest/reviews/cookies.md).
+        services.AddLocaltestCookiePolicy();
 
         // The Npgsql health check would report the missing database; the service's own check stays.
         services.PostConfigure<HealthCheckServiceOptions>(o =>

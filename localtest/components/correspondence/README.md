@@ -59,6 +59,15 @@ lines):
    by type, so no fake reaches it. Without the site the download looped between Correspondence and Authentication (below).
    Reported first in `../arbeidsflate/README.md`, "Correspondence attachments (11b, implemented)".
 
+**Cookies without `Secure` (task 21b): no site, reported here first.** The correlation and nonce cookies are already
+`SameAsRequest`/`Lax` in the fakes (11b). The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the
+expiry of those two on the "Correlation failed" retry path (`vendor/src/Altinn.Correspondence.API/Auth/DependencyInjection.cs:140-152`,
+`ExpireCookie`, a local function inside upstream's OIDC events, which no `Configure` reaches). Instead of a fifth site,
+`fakes/Cookies/LocaltestCookiePolicy.cs` (a copy of `../shared/fakes/Cookies/`, registered from `AddLocaltestServices`) puts
+ASP.NET Core's cookie policy middleware in front of the pipeline: on a request that is not https every cookie appended or deleted
+loses `Secure`, and `SameSite=None` becomes `Lax` (a browser refuses `None` without `Secure`). On https nothing changes.
+Inventory and decision: [`../../reviews/cookies.md`](../../reviews/cookies.md).
+
 ## The browser download of attachments (task 11b)
 
 A Correspondence dialog's attachment is a plain link in the inbox
@@ -83,8 +92,9 @@ bytes again). A callback that fails (a code of another client: `invalid_grant`; 
 once with `oidcRetry=1`, and a second failure ends at `GeneralSettings:ArbeidsflateBaseUrl`: upstream's loop guard, unchanged.
 The cookie decision: `SameSite=Lax` is enough because the callback is a top-level GET redirect on the same site
 (`local.altinn.cloud`), and Lax cookies go with top-level GET navigations even across sites; `SecurePolicy=SameAsRequest` keeps
-`Secure` off over http and would set it behind https. Upstream's best-effort expiry of the cookies on the retry path still sends
-`Secure`/`None`, which a browser ignores over http; harmless (the cookies expire after 15 minutes anyway). The download needs
+`Secure` off over http and would set it behind https. Upstream's best-effort expiry of the cookies on the retry path hard-codes
+`Secure`/`None`, which a browser ignored over http until task 21b; the cookie policy in `fakes/Cookies/` now sends it without
+`Secure` and as `Lax` on http, so the expiry works (see "Directive sites"). The download needs
 Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 
 ## What is faked, and why
@@ -97,6 +107,7 @@ Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 | `JwtBearerOptions` / `OpenIdConnectOptions` `RequireHttpsMetadata` (true) | `Auth/LocaltestAuthentication.cs`: `ConfigureAll` to false | Authentication, the fake Maskinporten and Dialogporten publish their metadata over http. A `Configure`, not a `PostConfigure`, see the Dialogporten README |
 | The Maskinporten scheme's metadata (hard-coded `https://test.maskinporten.no/...` outside Production) | The fake Maskinporten's `{origin}localtest/api/maskinporten/.well-known/oauth-authorization-server` | Notifications' condition check (`{id}/notification/check`) presents a raw fake-Maskinporten token |
 | The OIDC scheme's correlation cookie (`SecurePolicy=Always`, `SameSite=None`) and nonce cookie (the framework's same defaults) | `Auth/LocaltestAuthentication.cs`: both `SameSite=Lax`, `SecurePolicy=SameAsRequest` (a `Configure` for the named scheme after upstream's) | Over http a browser drops a `Secure` cookie, and a `SameSite=None` cookie without `Secure`: the callback failed with "Correlation failed". See "The browser download of attachments" |
+| Hard-coded `Secure`/`SameSite=None` on the retry path's cookie expiry (`ExpireCookie`) | `Cookies/LocaltestCookiePolicy.cs`, a copy of `../shared/fakes/Cookies/`: on http the cookie policy middleware drops `Secure` and turns `None` into `Lax` | The expiry is otherwise refused by a browser over http; the front door no longer removes `Secure` (task 21b) |
 | The dialog-token keys (`EdDsaSecurityKeysCacheService`: Dialogporten's JWKS at start and every 12 hours) | `Auth/LocaltestDialogTokenKeys.cs`: the Dialogporten scheme's `IssuerSigningKeyResolver` fetches the JWKS on the first token and again when a token names an unknown key, at most every 10 s (`Localtest:Correspondence:DialogTokenKeyRefreshSeconds`). Upstream's service still runs; its list is no longer read | A Correspondence that starts before Dialogporten serves its keys would refuse every dialog token for 12 hours |
 | Settings from the deployment | `LocaltestCorrespondence.AddLocaltestConfiguration`, below | |
 | nothing | `Inspection/`: `correspondence/api/localtest/`, below | A failing dependency shows up as a Hangfire job, not as an HTTP error |
@@ -265,11 +276,13 @@ and job list. Before the scheduled publish, **the browser download** (task 11b) 
 with only user 1337's session cookies (from the code-flow helper, as the browser has them after the inbox login), each redirect
 followed one at a time with a cookie jar and every walk bounded: the challenge to `authorize` for `correspondence-localtest` (exact
 redirect URI, `openid profile`, S256, upstream's `acr_values`), the correlation and nonce cookies `SameSite=Lax` without `Secure`,
+the same attributes from the host port 8033 directly (task 21b: the front door passes them unchanged),
 `authorize` straight to `idporten-callback?code=` (no picker), the callback to `download?session={guid}`, 200 with the bytes as an
 attachment; the reused `session` (a new challenge, no bytes); no cookie (the picker, no loop); a code issued to `localtest-smoke`
-at the callback (one restart with `oidcRetry=1`, then the bytes); the callback without the correlation cookie (one restart, then
+at the callback (one restart with `oidcRetry=1`, then the bytes); the restart's expiry of the two cookies without `Secure`
+and not `SameSite=None` (task 21b); the callback without the correlation cookie (one restart, then
 the inbox). `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
-76 checks, 79 with the restart; a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
+78 checks, 81 with the restart (76 and 79 before task 21b); a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
 correspondence to `Published` 180 s, the notification 120 s, the activity jobs and the dialog's activities 90 s; each
 returns as soon as it holds): Hangfire polls every 5 s and the first jobs after `env up` are slow, and with the earlier
 limits one check failed on each of two first runs. With them the first run after a fresh `env up --with everything`

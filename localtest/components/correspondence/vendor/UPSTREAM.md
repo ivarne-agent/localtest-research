@@ -28,7 +28,10 @@ Two pure additions, both in `src/Altinn.Correspondence.API/Program.cs`, and two 
 Considered and not used (see the plan, section 6.2): the Redis connect (`Program.cs:135-143`, configuration only: the group's Redis), the
 Development-only migrations (`Program.cs:71`) and the recurring jobs (`Program.cs:82`). For task 11b: the OIDC scheme's correlation
 cookie (`DependencyInjection.cs:103-107`, `SecurePolicy=Always`, `SameSite=None`) and the nonce cookie, set in the fakes after
-upstream's configuration instead (`../fakes/Auth/LocaltestAuthentication.cs`). A further site needs a report first.
+upstream's configuration instead (`../fakes/Auth/LocaltestAuthentication.cs`). For task 21b: the retry path's `ExpireCookie`
+(`DependencyInjection.cs:140-152`, hard-coded `Secure`, `SameSite=None`), handled by the cookie policy in `../fakes/Cookies/` instead,
+which covers every cookie written through `Response.Cookies` (none is written as a raw `Set-Cookie` header at this pin; grep for
+`Set-Cookie` after a re-pin). A further site needs a report first.
 
 ## Syncing to a newer upstream commit
 

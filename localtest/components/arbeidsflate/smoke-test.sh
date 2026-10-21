@@ -5,7 +5,8 @@
 #   ./smoke-test.sh [BASE]                                    (default http://local.altinn.cloud:8000; AF overrides the inbox)
 #
 # In order: readiness and the BFF's own health checks; the SPA (index.html with the stream URL start.sh wrote, an asset,
-# the CSP and no HSTS, a deep link, GraphiQL behind /api/); the login round trip as a browser does it, with a cookie jar
+# the CSP and no HSTS, a deep link, GraphiQL behind /api/); the BFF's session cookie without Secure from nginx's host
+# port (AF_NGINX, default http://127.0.0.1:8037) and unchanged through the front door; the login round trip as a browser does it, with a cookie jar
 # (/api/login -> Authentication authorize -> the fake ID-porten's picker as user 1337 -> upstream/callback -> /api/cb ->
 # the BFF's session cookie, which has no Secure flag); the fixture app pushed as the app runner does and one instance of
 # it for party PARTY_ID (default 500000, which user 1337 acts for) followed to its dialog; the GraphQL proxy (parties,
@@ -18,7 +19,8 @@
 # Leaves behind: the ttd/testapp fixture's metadata, texts and policy (as every platform smoke test), one instance of it
 # in Storage with its dialog in Dialogporten (both persist until `studioctl env reset`), user 1337's row in the BFF's
 # profile table (created on first use, as production does), an empty favourites group in Profile if there was none, and
-# Authentication sessions that the logout steps end. No BFF session survives the test.
+# Authentication sessions that the logout steps end. No signed-in BFF session survives the test (the two unfinished
+# logins of the cookie section stay in Redis until the session store expires them).
 #
 # af.local.altinn.cloud must resolve to this machine for a browser (`studioctl env hosts add`); when it does not, curl
 # is told with --resolve. PARTY_ID overrides the instance owner.
@@ -58,6 +60,11 @@ py() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)" 2>/dev/nu
 qp() { python3 -c 'import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[""])[0])' "$1" "$2"; }
 path() { python3 -c 'import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).path)' "$1"; }
 header() { grep -i "^$2:" "$1" | head -1 | cut -d' ' -f2- | tr -d '\r'; }
+# cookie_attrs HEADERS NAME: the attributes of NAME's Set-Cookie, lower case, sorted, without its value and Expires.
+cookie_attrs() {
+  grep -i "^Set-Cookie: $2=" "$1" | head -1 | tr -d '\r' | cut -d';' -f2- | tr ';' '\n' | sed 's/^ *//' |
+    grep -vi '^expires=' | tr '[:upper:]' '[:lower:]' | sort | paste -sd';'
+}
 status() { head -1 "$1" | awk '{print $2}'; }
 # gql JAR QUERY [VARIABLES-JSON]: POST /api/graphql with the jar's session, as the SPA does; the response in $T/g.json.
 gql() {
@@ -116,6 +123,17 @@ expect "  ... CSP allows the platform origin for connect-src and img-src" yes \
   "$(header "$T/dh" Content-Security-Policy | grep -qF "connect-src 'self' $BASE https:; img-src 'self' data: $BASE https:" && echo yes || echo no)"
 expect "  ... and no Strict-Transport-Security" "" "$(header "$T/dh" Strict-Transport-Security)"
 expect "GET /api/graphiql: the BFF's GraphiQL, not the SPA's .html or asset locations" 200 "$(code "$AF/api/graphiql")"
+
+echo "== cookies over plain http (task 21b)"
+# The BFF sets its session cookie on /api/login. Straight to the component's nginx on its host port (bypassing the front
+# door) it carries no Secure (patch 0003, no forged X-Forwarded-Proto), and the front door passes it unchanged.
+NGINX=${AF_NGINX:-http://127.0.0.1:8037}
+curl -s -o /dev/null -D "$T/direct" -H "Host: $AF_HOSTPORT" "$NGINX/api/login"
+c -o /dev/null -D "$T/front" "$AF/api/login"
+DIRECT=$(cookie_attrs "$T/direct" arbeidsflate)
+expect "the BFF's session cookie from nginx ($NGINX) directly: set, without Secure" "yes no" \
+  "$([[ -n "$DIRECT" ]] && echo yes || echo no) $(tr ';' '\n' <<<"$DIRECT" | grep -qx secure && echo yes || echo no)"
+expect "  ... through the front door with the same attributes" "$DIRECT" "$(cookie_attrs "$T/front" arbeidsflate)"
 
 echo "== login round trip (user 1337, level 3)"
 LAST=$(login "$T/jar")
@@ -187,6 +205,9 @@ expect "POST the stream URL without a token: Dialogporten's 401 (the path reache
 echo "== the profile page against production Profile"
 gql "$T/jar" 'query { profile { language groups { name isFavorite parties } user { userId partyId profileSettingPreference { showClientUnits } } } }'
 check "profile: user 1337 from Profile's users/current" 'd["data"]["profile"]["user"]["userId"] == 1337' <"$T/g.json"
+UL_COOKIE=$(cookie_attrs "$T/gh" altinnPersistentContext)
+expect "  ... sets altinnPersistentContext for local.altinn.cloud, without Secure (patch 0003)" "yes no" \
+  "$(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx 'domain=local.altinn.cloud' && echo yes || echo no) $(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx secure && echo yes || echo no)"
 SHOW=$(py 'str(d["data"]["profile"]["user"]["profileSettingPreference"]["showClientUnits"]).lower()' <"$T/g.json")
 [[ "$SHOW" == true ]] || SHOW=false
 gql "$T/jar" 'mutation($p: String!) { addFavoriteParty(partyId: $p) { success } }' "{\"p\": \"$PARTY_UUID\"}"

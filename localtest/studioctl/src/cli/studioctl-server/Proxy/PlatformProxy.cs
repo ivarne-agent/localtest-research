@@ -14,6 +14,7 @@ namespace Altinn.Studio.StudioctlServer.Proxy;
 internal static class PlatformProxy
 {
     private const long MaxRequestBodyBytes = 200L * 1024 * 1024;
+    private const string AppComponent = "app";
 
     private static readonly HttpMessageInvoker _client = new(
         new SocketsHttpHandler
@@ -72,9 +73,13 @@ internal static class PlatformProxy
         }
 
         var forwarder = context.RequestServices.GetRequiredService<IHttpForwarder>();
-        var transformer = PathRewrite.From(match.Route) is { } rewrite
-            ? new PlatformTransformer(rewrite)
-            : context.RequestServices.GetRequiredService<PlatformTransformer>();
+        // An app's cookies still need Secure removed (app-lib's keepAlive); the platform components' pass unchanged.
+        var isApp = string.Equals(match.Route.Component, AppComponent, StringComparison.Ordinal);
+        var rewrite = PathRewrite.From(match.Route);
+        var transformer =
+            rewrite is null && !isApp
+                ? context.RequestServices.GetRequiredService<PlatformTransformer>()
+                : new PlatformTransformer(rewrite, stripSecure: isApp);
         var error = await forwarder.SendAsync(
             context,
             destination.ToString(),

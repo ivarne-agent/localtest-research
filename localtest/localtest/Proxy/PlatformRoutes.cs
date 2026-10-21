@@ -99,5 +99,8 @@ public sealed class PlatformRoutes
         => Prefixes.Any(p => string.Equals(p.Prefix, path + "/", StringComparison.Ordinal));
 }
 
-/// <summary>A resolved destination: a name for logs and error pages, and the base URL the request path is appended to.</summary>
-public sealed record Route(string Name, string Destination);
+/// <summary>
+/// A resolved destination: a name for logs and error pages, the base URL the request path is appended to, and whether
+/// it is an app the runner registered (whose cookies still lose <c>Secure</c>, see <see cref="Forwarder"/>).
+/// </summary>
+public sealed record Route(string Name, string Destination, bool IsApp = false);
