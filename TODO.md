@@ -650,7 +650,10 @@ a failure logged with step and URL and shown as a warning on the app resource, n
 commands `provision` (again) and `deprovision`; no deprovision on stop (every step is idempotent; the Register keeps
 the last run's test users as Storage and the PDP keep the app, documented); `DialogportenRunning` from the AppHost's
 groups; a `reset` command on the localtest resource stops the persistent containers and removes the five named
-volumes through the runtime CLI; the package refuses to start when port 8000 is held and names the holder.
+volumes through the runtime CLI; the package refuses to start when port 8000 is held and names the holder. Sample: a self-contained app under `localtest/aspire/samples/` (the `smoke/apps/ttd/testapp` fixture
+completed with the template's `Program.cs`, a project on `Altinn.App.Api` from NuGet, `testData.json`, the template's
+`appsettings.json` and `launchSettings.json` unchanged) with the single-file `apphost.cs` beside it; the monorepo's
+`frontend-test` is a phase-2 verification target through a scratch AppHost only if a `net11.0` AppHost builds.
 
 ## 22. app-lib honours an explicit localtest environment
 
