@@ -3,12 +3,14 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Profile.Integrations.Extensions;
 using Altinn.Profile.Integrations.Persistence;
 using Altinn.Profile.Localtest.Register;
 using Altinn.Profile.Localtest.Startup;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Altinn.Profile.Localtest.Inspection;
 
@@ -24,19 +26,29 @@ namespace Altinn.Profile.Localtest.Inspection;
 public sealed class LocaltestProfileController(
     IDbContextFactory<ProfileDbContext> contextFactory,
     LocaltestSync sync,
-    LocaltestRegisterTestData register) : ControllerBase
+    LocaltestRegisterTestData register,
+    IConfiguration configuration) : ControllerBase
 {
     /// <summary>Applied migrations, the KRR change number, the organisation sync watermark and row counts.</summary>
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken cancellationToken)
     {
+        // The migration history belongs to the admin role, as in production (the runtime role has no grant on it).
+        var adminOptions = new DbContextOptionsBuilder<ProfileDbContext>()
+            .UseNpgsql(configuration.GetAdminDatabaseConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+        await using var admin = new ProfileDbContext(adminOptions);
+        var applied = (await admin.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
+        var pending = (await admin.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
+
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
         var krr = await db.Metadata.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
         var orgSync = await db.RegistrySyncMetadata.AsNoTracking().OrderByDescending(m => m.LastChangedDateTime).FirstOrDefaultAsync(cancellationToken);
         return Ok(new
         {
-            migrations = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList(),
-            pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToList(),
+            migrations = applied,
+            pendingMigrations = pending,
             krr = new { latestChangeNumber = krr?.LatestChangeNumber ?? 0, exported = krr?.Exported, persons = await db.People.CountAsync(cancellationToken) },
             organizationNotificationAddresses = new
             {

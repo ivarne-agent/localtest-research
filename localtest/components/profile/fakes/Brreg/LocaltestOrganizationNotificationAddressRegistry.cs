@@ -112,7 +112,8 @@ public sealed class LocaltestOrganizationNotificationAddressRegistry(
         return new NotificationAddressChangesLog { OrganizationNotificationAddressList = entries, Updated = now, NextPage = null };
     }
 
-    private static string NewRegistryId() => "lt-" + Guid.NewGuid().ToString("N");
+    // brreg's ids fit Profile's registry_id column (varchar 32): "lt-" and 29 hex digits.
+    private static string NewRegistryId() => "lt-" + Guid.NewGuid().ToString("N")[..29];
 
     private static Entry Live(string id, string orgNumber, DigitalContactPointModel contactPoint, DateTime now, string? title = null)
     {
