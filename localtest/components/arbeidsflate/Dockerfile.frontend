@@ -68,4 +68,7 @@ RUN chmod +x /start.sh
 EXPOSE 80
 
 # Use the custom entrypoint script
-CMD ["/start.sh"]
+# localtest: nginx-start.sh writes nginx's resolver (the container runtime's DNS server) for the BFF's alias, then runs
+# upstream's /start.sh.
+COPY nginx/nginx-start.sh /localtest/nginx-start.sh
+CMD ["sh", "/localtest/nginx-start.sh"]
