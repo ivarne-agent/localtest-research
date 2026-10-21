@@ -5,15 +5,18 @@
 # token (as the app runner does), gets user tokens from authentication, and asks the production decision endpoint what
 # an app's PEP would ask. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 30 checks. The "store:" and closing "PDP log errors" lines are not checks and still read the compose-era container
-# name localtest_authorization_1; under studioctl (localtest-v2-authorization) they show nothing and 0 (TODO.md task 12).
+# 31 checks. The "store:" listing and the closing "PDP log errors" check read studioctl's container
+# localtest-v2-authorization (override with CONTAINER=...) through podman; without podman or the container they say
+# "skipped" and are not counted as failures.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); Z=$HERE
 BASE=${1:-http://local.altinn.cloud:8000}; PDP=$BASE; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
 APPS=${APPS:-/home/agent/code/altinn-studio/src/test/apps}   # the frontend-test policy comes from the app itself
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+CONTAINER=${CONTAINER:-localtest-v2-authorization}
+HAVE_CONTAINER=0; command -v podman >/dev/null 2>&1 && podman container exists "$CONTAINER" 2>/dev/null && HAVE_CONTAINER=1
 
-for i in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
+for _ in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
 # The decisions below need the PIP's view of the register seed: re-import it, and drop the PDP's caches.
 echo "== access-management refresh: $(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/accessmanagement/api/localtest/refresh"), pdp cache refresh: $(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/authorization/api/localtest/refresh")"
 FAIL=0
@@ -72,7 +75,8 @@ echo "   push edited: $(pushpolicy ttd testapp "$EDITED")"; rm -f "$EDITED"
 decide NotApplicable  "Sophie read on 500000 after removing DAGL and REGNA"      "$SOPHIE" read ttd testapp 500000
 echo "   push original: $(pushpolicy ttd testapp "$TESTAPP_POLICY")"
 decide Permit         "Sophie (DAGL) read on 500000 after restoring"          "$SOPHIE" read ttd testapp 500000
-echo "   store: $(podman exec localtest_authorization_1 find /policy-store/metadata/ttd/testapp -type f | sort | tr '\n' ' ')"
+if [[ $HAVE_CONTAINER == 1 ]]; then echo "   store: $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -type f | sort | tr '\n' ' ')"
+else echo "   store: skipped (no podman or no container $CONTAINER)"; fi
 echo "== ttd/frontend-test (the app's own App/config/authorization/policy.xml: lower-case dagl/regna/seln; org ttd may write/complete)"
 helper() { # expected label userId partyId action [task]
   local expected=$1 label=$2 q="userId=$3&partyId=$4&org=ttd&app=frontend-test&action=$5${6:+&task=$6}"
@@ -123,6 +127,13 @@ echo "GET authorization/api/v1/parties?userid=1337 -> $(curl -s -H "Authorizatio
 echo "GET authorization/api/v1/parties/500000/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $SOPHIE" "$PDP/authorization/api/v1/parties/500000/validate?userid=1337" -w ' HTTP %{http_code}')"
 echo "GET authorization/api/v1/parties/500003/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $SOPHIE" "$PDP/authorization/api/v1/parties/500003/validate?userid=1337" -w ' HTTP %{http_code}')"
 echo "GET authorization/api/v1/parties?userid=1337 without token -> $(curl -s -o /dev/null -w 'HTTP %{http_code}' "$PDP/authorization/api/v1/parties?userid=1337")"
-podman logs --since "$STARTED" localtest_authorization_1 >"$LOGS/authorization.log" 2>&1
-echo "== PDP log errors: $(grep -ciE 'fail:|exception' "$LOGS/authorization.log")"; grep -iE 'fail:|exception' -A1 "$LOGS/authorization.log" | cut -c1-240 | head -8
+echo "== PDP log errors since the start of this run ($CONTAINER)"
+if [[ $HAVE_CONTAINER == 1 ]]; then
+  podman logs --since "$STARTED" "$CONTAINER" >"$LOGS/authorization.log" 2>&1
+  ERRORS=$(grep -ciE 'fail:|exception' "$LOGS/authorization.log")
+  check "error lines (fail:/exception) in the authorization log" "$ERRORS" "0"
+  [[ $ERRORS == 0 ]] || grep -iE 'fail:|exception' -A1 "$LOGS/authorization.log" | cut -c1-240 | head -20
+else
+  echo "skip error lines in the authorization log (no podman or no container $CONTAINER)"
+fi
 exit $FAIL

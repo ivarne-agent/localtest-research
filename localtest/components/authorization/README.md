@@ -97,10 +97,11 @@ requests built from the token claims as the PEP does, roles and packages from Ac
 Again on 2026-10-21 (task 14, `internal/user` from the profile component): 30 of 30, as recorded in
 `../profile/README.md` and `../../README.md`.
 
-Two lines of the smoke test's output are not checks and read the compose-era container name `localtest_authorization_1`
-(`podman exec` for the "store:" listing, `podman logs` for the closing "PDP log errors" count); studioctl names the
-container `localtest-v2-authorization`, so under studioctl the listing is empty and the error count is always 0
-(TODO.md task 12). Read the log with `studioctl env logs -r localtest-v2 --component authorization` instead.
+The "store:" listing (`podman exec`) and the closing check on the log (`podman logs` since the start of the run) read
+studioctl's container `localtest-v2-authorization` (`CONTAINER=` overrides it). The log check is the 31st check: it
+expects no `fail:` or `exception` lines and prints the first ones when there are. Without podman or the container both
+say "skipped" and do not fail the run (changed 2026-10-21, task 12; the compose-era name made them show nothing and 0
+before). The full log: `studioctl env logs -r localtest-v2 --component authorization`.
 
 ## Run a changed component
 
