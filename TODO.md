@@ -632,7 +632,11 @@ repository's own and not part of the studioctl upstream patch; it embeds the man
 path (`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`, single copy) and references the
 provisioning library's sources by relative `<Compile Include>` (as studioctl-server includes Runtime.Common), so the
 NuGet is one assembly with no unpublished dependency (owner, 2026-10-22); the C# manifest reader lives in the package
-and its test compares against the Go golden file by relative path.
+and its test compares against the Go golden file by relative path. Scope of 21d: the first slice of the package (skeleton, the
+C# manifest reader tested against the Go golden file, `AddAltinnLocaltest()` with the default stack plus the
+`dialogporten` group, the YARP front door), proven by `aspire run` under Podman and the root, authentication and
+dialogporten smoke tests through port 8000, no app yet; `aspire run` is proven with Postgres alone first, since Aspire
+has never run on this machine. 21e: `AddAltinnApp<T>()`, provisioning hook, commands, sample AppHost, publishing.
 
 ## 22. app-lib honours an explicit localtest environment
 
