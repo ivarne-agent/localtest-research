@@ -185,7 +185,6 @@ refreshed every 6 hours) are upstream's. The migrations at start are listed in `
 
 ## Known gaps
 
-- **Correspondence attachments do not open from the inbox** (11b, below).
 - The images are not in the pinned build (`images.go`) until this component is on `main`, the workflow has built it and
   the tag is bumped; until then use `--dev arbeidsflate` or `STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE` and
   `..._ARBEIDSFLATE_BFF`.
@@ -203,12 +202,42 @@ refreshed every 6 hours) are upstream's. The migrations at start are listed in `
   Fitness for party 500000) in the account menu to see the dialogs of the adapter's test instances.
 - `podman logs` once showed only the BFF's stderr for a container's first start (stdout, `pnpm`'s banner and the pino
   lines, missing); after a restart both streams appeared. Not investigated (the journald log driver, not this component).
-- Not verified: GraphiQL's assets in a browser (the page answers 200), a dialog from Correspondence in the inbox.
+- Not verified: GraphiQL's assets in a browser (the page answers 200).
 
-## Correspondence attachments (11b, not implemented)
+## Correspondence attachments (11b, implemented)
 
-Research only (2026-10-21, read from the code, nothing run). A Correspondence dialog's attachment cannot be opened from
-the inbox today.
+A Correspondence dialog's attachment clicked in the inbox downloads over plain http, without a picker when the user is
+signed in (2026-10-21). Nothing changed in this component: the inbox renders the link as before, and the change is one
+`#if !LOCALTEST` site in Correspondence, a third seeded client in Authentication and two cookie settings in Correspondence's
+fakes, as the research below proposed.
+
+**What changed.**
+
+1. `../correspondence/vendor/src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs:26-31`: `#if !LOCALTEST` production's
+   `new HttpDocumentRetriever()` `#else` `new HttpDocumentRetriever { RequireHttps = false }` `#endif`, with a `// localtest:`
+   comment (Correspondence's fourth directive site, listed in its `vendor/UPSTREAM.md` and README).
+2. `../authentication/fakes/LocaltestOidcClients.cs`: the seeded client `correspondence-localtest` (secret
+   `correspondence-localtest-secret`, `client_secret_basic`, PKCE S256, redirect URI exactly
+   `{PlatformEndpoint}correspondence/api/v1/idporten-callback`, allowed scopes `openid profile`, the two Correspondence's challenge
+   requests at the pin), in the component README's table. The localtest app's `SeededClients.cs` does not list it: its helper
+   never acts as Correspondence.
+3. `../correspondence/fakes/`: `AltinnIdProviderSettings:ClientId` and `ClientSecret` set to that client
+   (`LocaltestCorrespondence.cs`); the OIDC scheme's correlation and nonce cookies `SameSite=Lax`, `SecurePolicy=SameAsRequest`
+   (`Auth/LocaltestAuthentication.cs`, a `Configure` for the named scheme registered after upstream's `AddOpenIdConnect`). Lax
+   suffices: the callback is a top-level GET redirect from Authentication on the same site, and Lax cookies go with top-level GET
+   navigations even across sites.
+
+**Verification** (`--with arbeidsflate --with correspondence --dev correspondence --dev authentication`, pin `sha-16754da` for
+the rest): Correspondence's `smoke-test.sh` has a browser-download section (12 checks, 76 in all, every one passing): the
+challenge, the cookies, `authorize` straight to the callback with user 1337's session, `download?session=` with the bytes, the
+one-time session, no cookie (the picker, no loop), another client's code and a missing correlation cookie (upstream's one
+restart, then the bytes or the inbox), every walk bounded. In Chromium as user 1337: sign in through the picker, open the
+dialog "Localtest smoke smoke-main" (`docs/attachment.png`: "1 vedlegg", the link "Smoke"), click the attachment: `smoke.txt`
+downloaded, byte-equal to the blob, with no picker. This README's `smoke-test.sh` 56 of 56 with both groups on.
+
+### The research (2026-10-21, before the change)
+
+Read from the code, nothing run then; the line references are to the vendored Correspondence at its pin.
 
 **What the inbox does.** `getAttachmentLinks` (`vendor/packages/frontend/src/api/hooks/useDialogById.tsx`, lines 126-145)
 keeps the attachment URLs for the browser (`consumerType` Gui) and renders them as plain links (`target=_blank`): a
@@ -243,8 +272,8 @@ whose `RequireHttps` defaults to true: over plain http `GetConfigurationAsync` t
 challenge, and Authentication's live session hands out a new code at once: a redirect loop. The fakes' `RequireHttpsMetadata
 = false` (`fakes/Auth/LocaltestAuthentication.cs`, line 30) does not reach this retriever, and the validator is a concrete
 class injected by type, so a fake cannot replace it. The site: `#if !LOCALTEST` `new HttpDocumentRetriever()` `#else` `new
-HttpDocumentRetriever { RequireHttps = false }` `#endif` (Correspondence's fourth site counting task 7b's; the component
-README's "needs a report first" is this section).
+HttpDocumentRetriever { RequireHttps = false }` `#endif` (Correspondence's fourth site counting task 7b's and the two
+additive hooks; the component README's "needs a report first" was this section).
 
 **The OIDC client.** Production Authentication, as production does (going to the fake ID-porten directly would change the
 issuer, the claims and the authorization path); Authentication reuses the browser's session (`OidcServerService.cs`,
@@ -263,7 +292,7 @@ configuration, both cookies `SameSite=Lax` and `SecurePolicy=SameAsRequest`. No 
 callback is a top-level GET on the same site. Upstream's best-effort cookie expiry on the retry path keeps sending
 `Secure`/`None` and is ignored, which is harmless.
 
-**Proposed brief.** Goal: a Correspondence attachment clicked in the inbox downloads over plain http, without a picker
+**Proposed brief (followed).** Goal: a Correspondence attachment clicked in the inbox downloads over plain http, without a picker
 when the user is signed in. Steps: (1) the `#if !LOCALTEST` site at `IdportenTokenValidator.cs:26`, listed in
 `../correspondence/vendor/UPSTREAM.md` and README; (2) seed `correspondence-localtest` in the authentication component
 (`fakes/LocaltestOidcClients.cs` and its README table; `client_secret_basic`, PKCE, scopes `openid profile`, redirect

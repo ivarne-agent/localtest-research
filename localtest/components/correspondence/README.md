@@ -19,11 +19,14 @@ failed"). With the group, the signing flow messages its signees and sends its re
 
 **Status (2026-10-21):** runs on the stack (see "Verified"): the service-owner path, app-lib's credential and the recipient's
 dialog-token path end to end, and `signering-brukerstyrt`'s call-to-sign and receipt. The test data's 6-digit party ids pass
-the PDP request factory through one `#if !LOCALTEST` site (task 7b, see "Directive sites").
+the PDP request factory through one `#if !LOCALTEST` site (task 7b, see "Directive sites"). With the `arbeidsflate` group, an
+attachment clicked in the inbox downloads over plain http, without a picker when the user is signed in (task 11b: a second
+`#if !LOCALTEST` site, Authentication's seeded client `correspondence-localtest` and the OIDC cookies in the fakes, see "The browser
+download of attachments").
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except two additive `#if LOCALTEST` hooks in `Program.cs` and one `#if !LOCALTEST` block in `XacmlRequestFactory.cs` |
+| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except two additive `#if LOCALTEST` hooks in `Program.cs` and two `#if !LOCALTEST` blocks, in `XacmlRequestFactory.cs` and `IdportenTokenValidator.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
 | `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password `localtest`), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
@@ -33,7 +36,7 @@ the PDP request factory through one `#if !LOCALTEST` site (task 7b, see "Directi
 
 ## Directive sites
 
-Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and one `#if !LOCALTEST` block (`vendor/UPSTREAM.md` has the
+Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
 lines):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
@@ -49,8 +52,40 @@ lines):
    It comes after the organisation-number and national-identity-number branches, so only ids production never issues are treated
    differently. `IsPartyId` stays upstream's, see "Differences from production".
 
-A fourth site (the browser download of attachments through OIDC, `IdportenTokenValidator.cs:26`) is task 11's and needs a report first;
-the report is `../arbeidsflate/README.md`, "Correspondence attachments (11b, not implemented)".
+4. `vendor/src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs:26-31`, the document retriever in `ValidateTokenAsync`
+   (task 11b): `#if !LOCALTEST` production's `new HttpDocumentRetriever()` `#else` `new HttpDocumentRetriever { RequireHttps = false }`
+   with a `// localtest:` comment, `#endif`. The validator reads Authentication's discovery document and JWKS itself, with a
+   retriever it builds, not the scheme's (whose `RequireHttpsMetadata` the fakes turn off), and it is a concrete class injected
+   by type, so no fake reaches it. Without the site the download looped between Correspondence and Authentication (below).
+   Reported first in `../arbeidsflate/README.md`, "Correspondence attachments (11b, implemented)".
+
+## The browser download of attachments (task 11b)
+
+A Correspondence dialog's attachment is a plain link in the inbox
+(`{CorrespondenceBaseUrl}correspondence/api/v1/correspondence/{id}/attachment/{attachmentId}/download`, `target=_blank`): a
+top-level GET with cookies only. The download policy's `AllSchemes` cascade finds no bearer token, no dialog token and no
+`?session=`, and challenges Correspondence's own OIDC client, as in production:
+
+1. `download` answers 302 to `{PlatformGatewayUrl}authentication/api/v1/authorize` for `correspondence-localtest` (scopes
+   `openid profile`, PKCE, `acr_values=selfregistered-email idporten-loa-substantial`, the redirect URI forced to
+   `{CorrespondenceBaseUrl}correspondence/api/v1/idporten-callback`), with the correlation and nonce cookies (`SameSite=Lax`, no
+   `Secure`); the OIDC state is in Redis.
+2. Production Authentication finds the session of the `AltinnStudioRuntime` cookie and answers 302 to `idporten-callback?code=…`
+   at once (no picker); without the cookie the fake ID-porten's picker shows, and the flow goes on from there.
+3. The callback redeems the code (`client_secret_basic`, from the container through the front door), caches the access token for
+   5 minutes under a new GUID and answers 302 to `download?session={guid}`.
+4. The cascade takes the token out of the cache once, validates it with `IdportenTokenValidator` against Authentication's
+   discovery document and JWKS over http (directive site 4), and the download answers 200 with the bytes
+   (`Content-Disposition: attachment`); authorization goes through `AltinnTokenXacmlMapper` (the token's issuer is Altinn's).
+
+A reused `session` finds nothing in the cache and gets a new challenge (with a live session that ends in a new code and the
+bytes again). A callback that fails (a code of another client: `invalid_grant`; a missing correlation cookie) restarts the flow
+once with `oidcRetry=1`, and a second failure ends at `GeneralSettings:ArbeidsflateBaseUrl`: upstream's loop guard, unchanged.
+The cookie decision: `SameSite=Lax` is enough because the callback is a top-level GET redirect on the same site
+(`local.altinn.cloud`), and Lax cookies go with top-level GET navigations even across sites; `SecurePolicy=SameAsRequest` keeps
+`Secure` off over http and would set it behind https. Upstream's best-effort expiry of the cookies on the retry path still sends
+`Secure`/`None`, which a browser ignores over http; harmless (the cookies expire after 15 minutes anyway). The download needs
+Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 
 ## What is faked, and why
 
@@ -61,6 +96,7 @@ the report is `../arbeidsflate/README.md`, "Correspondence attachments (11b, not
 | `IMaskinportenService` (the package hard-codes `maskinporten.no`) | `Maskinporten/`, a copy of `../shared/fakes/Maskinporten/` | Production semantics: an unsigned assertion to the localtest app's Maskinporten token endpoint, then production Authentication's `exchange/maskinporten`. Client id `991825827` with `UseAltinnTestOrg` false, so Correspondence acts as `digdir`, as Dialogporten does. KRR gets the raw token (no exchange), as in production |
 | `JwtBearerOptions` / `OpenIdConnectOptions` `RequireHttpsMetadata` (true) | `Auth/LocaltestAuthentication.cs`: `ConfigureAll` to false | Authentication, the fake Maskinporten and Dialogporten publish their metadata over http. A `Configure`, not a `PostConfigure`, see the Dialogporten README |
 | The Maskinporten scheme's metadata (hard-coded `https://test.maskinporten.no/...` outside Production) | The fake Maskinporten's `{origin}localtest/api/maskinporten/.well-known/oauth-authorization-server` | Notifications' condition check (`{id}/notification/check`) presents a raw fake-Maskinporten token |
+| The OIDC scheme's correlation cookie (`SecurePolicy=Always`, `SameSite=None`) and nonce cookie (the framework's same defaults) | `Auth/LocaltestAuthentication.cs`: both `SameSite=Lax`, `SecurePolicy=SameAsRequest` (a `Configure` for the named scheme after upstream's) | Over http a browser drops a `Secure` cookie, and a `SameSite=None` cookie without `Secure`: the callback failed with "Correlation failed". See "The browser download of attachments" |
 | The dialog-token keys (`EdDsaSecurityKeysCacheService`: Dialogporten's JWKS at start and every 12 hours) | `Auth/LocaltestDialogTokenKeys.cs`: the Dialogporten scheme's `IssuerSigningKeyResolver` fetches the JWKS on the first token and again when a token names an unknown key, at most every 10 s (`Localtest:Correspondence:DialogTokenKeyRefreshSeconds`). Upstream's service still runs; its list is no longer read | A Correspondence that starts before Dialogporten serves its keys would refuse every dialog token for 12 hours |
 | Settings from the deployment | `LocaltestCorrespondence.AddLocaltestConfiguration`, below | |
 | nothing | `Inspection/`: `correspondence/api/localtest/`, below | A failing dependency shows up as a Hangfire job, not as an HTTP error |
@@ -84,6 +120,7 @@ Redis are set explicitly too. Everything else is a default the real setting over
 | `DatabaseOptions:ConnectionString` | `Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest` (a password keeps Entra ID out) |
 | `AttachmentStorageOptions:ConnectionString` | `UseDevelopmentStorage=true` (required by the options class, never read) |
 | `AltinnOptions:PlatformGatewayUrl`, `OpenIdWellKnown`, `ArbeidsflateOriginsCommaSeparated` | `{platform}`, Authentication's OpenID configuration, `http://af.local.altinn.cloud:8000` |
+| `AltinnIdProviderSettings:ClientId`, `ClientSecret` | `correspondence-localtest`, `correspondence-localtest-secret`: Authentication's seeded client for the browser download (upstream's Development file has the placeholders `clientId`/`clientSecret`) |
 | `DialogportenSettings:Issuer`, `IdportenSettings:Issuer` | `{platform}dialogporten/api/v1`, `{platform}localtest/api/idporten` (compared with the token's `iss` exactly) |
 | `MaskinportenSettings:ClientId`, `Environment`, `EncodedJwk`, `UseAltinnTestOrg`, `ExhangeToAltinnToken` | `991825827` (a client id is what selects the production clients instead of upstream's dev stubs), `test`, `e30=` (never read), `false`, `true`; `Scope` stays upstream's |
 | `Localtest:Maskinporten:Issuer`, `ExchangeEndpoint` | `{platform}localtest/api/maskinporten/`, `{platform}authentication/api/v1/exchange/maskinporten` |
@@ -199,9 +236,6 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
 - **An existing Postgres volume** predates `70-correspondence.sh`, which Postgres runs on an empty volume only: the host then fails
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
-- The browser download of attachments from Arbeidsflate (the OIDC branch of the `AllSchemes` cascade) does not work: a third
-  directive site, an OIDC client and a cookie decision (researched in `../arbeidsflate/README.md`, 11b, not implemented). A download with a dialog token as `Authorization` header works
-  (the smoke test).
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
 - The image is not pinned in `config/images.go` to a build that exists until this branch is on main and the tag is bumped; until
   then use `--dev correspondence` or `STUDIOCTL_IMAGE_LOCALTEST_V2_CORRESPONDENCE`.
@@ -227,8 +261,15 @@ two activity jobs have run, the status history (`Read`, `AttachmentsDownloaded`,
 activities in Dialogporten, the recipient's purge (`PurgedByRecipient`, the dialog deleted). On the service owner's
 correspondence the recipient's `details` (the fetch) and then `markasread` (200, `Read`). Then a publish 5 minutes ahead
 (`ReadyForPublish`, its job under `jobs?state=Scheduled`), purged by the sender (`PurgedByAltinn`); the inspection API's paging
-and job list. `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
-64 checks, 67 with the restart; a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
+and job list. Before the scheduled publish, **the browser download** (task 11b) of the service owner's correspondence's attachment
+with only user 1337's session cookies (from the code-flow helper, as the browser has them after the inbox login), each redirect
+followed one at a time with a cookie jar and every walk bounded: the challenge to `authorize` for `correspondence-localtest` (exact
+redirect URI, `openid profile`, S256, upstream's `acr_values`), the correlation and nonce cookies `SameSite=Lax` without `Secure`,
+`authorize` straight to `idporten-callback?code=` (no picker), the callback to `download?session={guid}`, 200 with the bytes as an
+attachment; the reused `session` (a new challenge, no bytes); no cookie (the picker, no loop); a code issued to `localtest-smoke`
+at the callback (one restart with `oidcRetry=1`, then the bytes); the callback without the correlation cookie (one restart, then
+the inbox). `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
+76 checks, 79 with the restart; a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
 correspondence to `Published` 180 s, the notification 120 s, the activity jobs and the dialog's activities 90 s; each
 returns as soon as it holds): Hangfire polls every 5 s and the first jobs after `env up` are slow, and with the earlier
 limits one check failed on each of two first runs. With them the first run after a fresh `env up --with everything`
@@ -240,6 +281,27 @@ and answers 400 once the correspondence is `Read`; and a `confirm` sent while on
 jobs patches the same dialog gets Dialogporten's 409 (optimistic concurrency) and answers 500, so the test waits for those jobs.
 
 ## Verified
+
+### Task 11b, the browser download of attachments (2026-10-21)
+
+On main fb43d7d (pin `sha-16754da`) with this branch on top, `studioctl env up -r localtest-v2 --with arbeidsflate --with
+correspondence --dev correspondence --dev authentication` on the existing volumes (the two images built one at a time first with
+`podman build`, 1 min 17 s and 36 s; the rest from the pinned images):
+
+- Build: scratch `dotnet build -c Release --no-incremental` of the API host with the fakes: 0 errors, the same 24 upstream
+  warnings, none in `fakes/`; the Authentication host: 0 errors, no warning in `fakes/`.
+- The curl walk worked on the first run: `download` 302 to `authorize`, 302 to `idporten-callback?code=`, 302 to
+  `download?session=`, 200 with the bytes; Correspondence logged "Successfully validated token for session" and "Authentication
+  succeeded with scheme: OpenIdConnect". A code of `localtest-smoke` at the callback: Authentication's `invalid_grant` "Code not
+  issued to this client", upstream's restart, then the bytes. A forged `state` is a 404 (`SkipUnrecognizedRequests`, upstream's).
+- `smoke-test.sh`: 76 ok (the 12 new checks first on their own, then the whole test).
+- Chromium (`playwright-cli --browser chromium`): `http://af.local.altinn.cloud:8000`, the picker as Sophie Salt at level 3, the
+  inbox, the dialog "Localtest smoke smoke-main" with "1 vedlegg" (`../arbeidsflate/docs/attachment.png`); a click on "Smoke"
+  downloaded `smoke.txt` (byte-equal to the blob) with no picker and no further page; Correspondence's log shows the OIDC
+  challenge and the validated session for it.
+- Regressions with both groups on: Authentication 32, Arbeidsflate 56, Dialogporten 60, root 26. On the default stack with `--dev
+  authentication`: the platform regression 44 of 44 (`run-platform-regression.sh --no-apps`, the three apps under `studioctl
+  run --dev-frontend`, the monorepo's `src/App/frontend/dist` served on 8080 with `Access-Control-Allow-Origin: *`).
 
 ### Task 7b, the party-id site (2026-10-21)
 

@@ -6,7 +6,7 @@ namespace Altinn.Platform.Authentication.Localtest;
 /// <summary>
 /// The registered OIDC clients seeded by default (<c>Localtest:Authentication:OidcClients</c>, lowest-priority
 /// configuration, so an environment variable such as <c>Localtest__Authentication__OidcClients__1__ClientSecret</c>
-/// overrides one value and <c>…__OidcClients__2__…</c> adds a client).
+/// overrides one value and <c>…__OidcClients__3__…</c> adds a client).
 /// <list type="bullet">
 ///   <item><c>localtest-smoke</c>: the localtest app's code-flow helper (<c>localtest/api/authentication/token</c>), which
 ///   redirects to the helper's own callback. The localtest app keeps the same id, secret and redirect URI

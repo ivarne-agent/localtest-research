@@ -14,32 +14,39 @@
 
 ## Directive sites
 
-Two pure additions, both in `src/Altinn.Correspondence.API/Program.cs`, and one `#if !LOCALTEST` / `#else` / `#endif` block in
-`src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` (task 7b).
+Two pure additions, both in `src/Altinn.Correspondence.API/Program.cs`, and two `#if !LOCALTEST` / `#else` / `#endif` blocks, in
+`src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` (task 7b) and
+`src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` (task 11b).
 
 | Lines | Adds | Why there |
 | --- | --- | --- |
 | `Program.cs:50-52`, right after the `.AddEnvironmentVariables();` that ends the `builder.Configuration` chain | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(builder.Configuration);` `#endif` | `Program.cs:45-49` adds the JSON files and the environment variables a second time, so the localtest defaults have to be inserted after that chain (just below its environment source, above `appsettings.Development.json`) and before `ConfigureServices`, which reads the settings eagerly |
 | `Program.cs:167-169`, right after `services.ConfigureHangfire(config);` in `ConfigureServices` | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, config);` `#endif` | after every production registration (the last but Kestrel's), so `RemoveAll`/`Add` win, and after `ConfigureAuthentication`, so the JWT and OIDC `Configure` actions run after upstream's |
 | `XacmlRequestFactory.cs:31-36`, the party-id branch of `CreateResourceCategory` | `#if !LOCALTEST` upstream's condition (`party.StartsWith(AltinnXacmlUrns.PartyId) \|\| partyWithoutPrefix.IsPartyId()`) `#else` the same `urn:altinn:partyid` prefix test, or a value that `long.TryParse` reads with `NumberStyles.None` and the invariant culture as a positive number `#endif` | Every PDP request names the party by its bare Register party id, and `IsPartyId` accepts only 8 or 10 digits, so the test data's 6-digit ids (Digdir 500006, Sophie Salt 501337, app-supplied 600000-700002) threw "RecipientId is not a valid organization number, person number or party id" (500). The branch comes after the organisation-number and national-identity-number branches, so 9- and valid 11-digit values are unchanged, and 8- and 10-digit ids pass as upstream. `IsPartyId` itself stays upstream's: `CreateDecisionRequest` and `WithUrnPrefix` use it to decide whether to resolve a party, and a looser rule there would change the production request shape (`planned-components/correspondence/party-ids.md`, option (b)). Delete it when upstream passes `urn:altinn:partyid:{id}` (option (c)) |
+| `IdportenTokenValidator.cs:26-31`, the document retriever of `ValidateTokenAsync`'s `ConfigurationManager` | `#if !LOCALTEST` upstream's `new HttpDocumentRetriever());` `#else` a `// localtest:` comment and `new HttpDocumentRetriever { RequireHttps = false });` `#endif` | The browser download of an attachment (an inbox link, no token) ends in the cascade's OIDC branch, which validates the access token it cached at the callback against the discovery document and JWKS at `{Authority}/.well-known/openid-configuration`, Authentication's on `http://local.altinn.cloud:8000`. The retriever's `RequireHttps` defaults to true, so `GetConfigurationAsync` threw, the cascade fell through to a new challenge, and Authentication's live session answered with a new code at once: a redirect loop. The fakes' `RequireHttpsMetadata = false` does not reach this retriever (built here, not from the scheme's options), and the validator is a concrete class injected by type, so no fake can replace it. Reported first in `../../arbeidsflate/README.md`, "Correspondence attachments (11b)" |
 
 Considered and not used (see the plan, section 6.2): the Redis connect (`Program.cs:135-143`, configuration only: the group's Redis), the
-Development-only migrations (`Program.cs:71`), the recurring jobs (`Program.cs:82`) and `API/Auth/IdportenTokenValidator.cs:26`
-(`new HttpDocumentRetriever()`, only needed for the browser download of attachments from Arbeidsflate, task 11). A fourth site needs a
-report first.
+Development-only migrations (`Program.cs:71`) and the recurring jobs (`Program.cs:82`). For task 11b: the OIDC scheme's correlation
+cookie (`DependencyInjection.cs:103-107`, `SecurePolicy=Always`, `SameSite=None`) and the nonce cookie, set in the fakes after
+upstream's configuration instead (`../fakes/Auth/LocaltestAuthentication.cs`). A further site needs a report first.
 
 ## Syncing to a newer upstream commit
 
 1. In a clone of `Altinn/altinn-correspondence` with both commits, re-pin with the shared script, which takes upstream's new version of
-   every file that is unchanged locally, three-way merges the two locally changed files (`Program.cs`, `XacmlRequestFactory.cs`), adds and deletes files, and reports conflicts:
+   every file that is unchanged locally, three-way merges the three locally changed files (`Program.cs`, `XacmlRequestFactory.cs`, `IdportenTokenValidator.cs`), adds and deletes files, and reports conflicts:
    `../../tools/repin-vendor.py <clone> <pin> <new> vendor src Dockerfile docker-compose.yml`.
 2. Check the result: `git archive <new> src Dockerfile docker-compose.yml` into an empty folder and `diff -rq` it against `vendor/`.
-   Only `UPSTREAM.md`, `src/Altinn.Correspondence.API/Program.cs` and
-   `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` may differ.
+   Only `UPSTREAM.md`, `src/Altinn.Correspondence.API/Program.cs`,
+   `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` and
+   `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` may differ.
    Check that the factory's `#if !LOCALTEST` branch is still upstream's party-id condition word for word; if
    upstream now passes `urn:altinn:partyid:{id}` from `AltinnAuthorizationService.CreateDecisionRequest` and
    `AltinnTokenXacmlMapper` (the issue drafted in `planned-components/correspondence/party-ids.md`, option (c)), delete the block
-   and the smoke test's app-lib and recipient checks prove the 6-digit ids still pass.
+   and the smoke test's app-lib and recipient checks prove the 6-digit ids still pass. Check that the validator's `#if !LOCALTEST`
+   branch is still upstream's retriever word for word; if upstream now builds it from the scheme's options (its
+   `RequireHttpsMetadata`, which the fakes set to false) or reads `options.Configuration`'s discovery, delete the block and the smoke
+   test's browser-download section proves the http metadata is still read. Check also that `ConfigureAuthentication` still names the
+   correlation cookie and the callback path the fakes and the smoke test rely on.
 3. **Keep `../Dockerfile` as equal to `Dockerfile` as possible.** It mirrors the upstream file (the six-project restore layer, publish,
    port 2525, the `dotnet` user, `/mnt/storage`), and every deviation is marked `localtest:`. When `git diff <pin> <new> -- Dockerfile`
    shows a change, make the same change in `../Dockerfile`; bump the two pinned base-image digests to what `10.0` points at then.

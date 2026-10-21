@@ -103,17 +103,23 @@ Rows are dropped a day after they expire (production keeps them or leaves them t
 
 ### Seeded clients
 
-Both are confidential, `client_secret_basic`, PKCE S256, and may request `openid digdir:dialogporten.noconsent
-altinn:portal/enduser altinn:correspondence.forward.check` (lower-case: production compares requested scopes as sent).
+All three are confidential, `client_secret_basic`, PKCE S256. The first two may request `openid digdir:dialogporten.noconsent
+altinn:portal/enduser altinn:correspondence.forward.check`, `correspondence-localtest` `openid profile`, what Correspondence's
+challenge asks for (lower-case: production compares requested scopes as sent, and every requested scope must be allowed).
+The access token's `scope` is the session's whatever the client asked for (task 2's finding), which is how
+Correspondence's token passes its download policy (`altinn:portal/enduser` or `altinn:correspondence.read` for an
+Altinn-issued token).
 
 | Client | Secret | Redirect URI | Post-logout / front-channel logout | For |
 | --- | --- | --- | --- | --- |
 | `localtest-smoke` | `localtest-smoke-secret` | `{PlatformEndpoint}localtest/api/authentication/callback` | `{PlatformEndpoint}` / – | The localtest app's headless code-flow helper (`localtest/api/authentication/`, see `../../localtest/README.md`), tests |
 | `arbeidsflate-localtest` | `arbeidsflate-localtest-secret` | `http://af.local.altinn.cloud:8000/api/cb` | `http://af.local.altinn.cloud:8000/` / `…/api/frontchannel-logout` | Arbeidsflate's BFF (`../../../planned-components/dialogporten/arbeidsflate.md` section 3.4) |
+| `correspondence-localtest` | `correspondence-localtest-secret` | `{PlatformEndpoint}correspondence/api/v1/idporten-callback` | – / – | Correspondence's own OIDC client: an attachment link clicked in the inbox carries no token, and Correspondence challenges this client and validates the access token itself (`../correspondence/README.md`, task 11b). With a session (the `AltinnStudioRuntime` cookie) `authorize` answers with a code at once, no picker |
 
 Override or add with `Localtest__Authentication__OidcClients__{n}__{Field}` (fields as in
 `LocaltestOidcClient`: `ClientId`, `ClientSecret`, `RedirectUris__{i}`, `AllowedScopes__{i}`, `FrontchannelLogoutUri`,
-…). The localtest app's helper keeps the same ids, secrets and redirect URIs (`Authentication/SeededClients.cs`).
+…). The localtest app's helper keeps the same ids, secrets and redirect URIs for the clients it acts as
+(`Authentication/SeededClients.cs`: the first two; `correspondence-localtest` is only ever Correspondence's).
 
 ### The flow
 
@@ -182,6 +188,12 @@ passed.
 2026-10-21 (task 14, production Profile from the profile component answering `internal/user`): 30 ok on the default
 stack and 32 with `--with everything` (the other two need Dialogporten), as recorded in `../profile/README.md` and
 `../../README.md`.
+
+2026-10-21 (task 11b, the third seeded client, `--with arbeidsflate --with correspondence --dev authentication --dev
+correspondence`): this test 32 ok; `correspondence-localtest` exercised by Correspondence's smoke test (its 12 browser-download
+checks: `authorize` with the session cookie answers a code at once, the token exchange from inside Correspondence, a code
+of `localtest-smoke` refused with `invalid_grant` "Code not issued to this client"); the platform regression 44 of 44 on
+the default stack with `--dev authentication`. Scratch `dotnet build -c Release` of the host: 0 errors, no warning in `fakes/`.
 
 ## Run a changed component
 
