@@ -40,7 +40,7 @@ A path matching no route still falls through to the localtest app.
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task7-correspondence`, branch `task/correspondence`; phase 1 code, phase 2 stack after 10 and 16) | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 043c483..e96f904; group `correspondence` implying `dialogporten`, port 8033; known gap: 6-digit party ids fail production\'s `IsPartyId` on every PDP-checked call, see `planned-components/correspondence/party-ids.md`; follow-up 7b below; pin bump pending the images workflow) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
@@ -53,7 +53,7 @@ A path matching no route still falls through to the localtest app.
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proof on the stack pending) | small | yes |
 
-Suggested order (stack, one at a time): 7 (running, rebased on 18) (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
+Suggested order (stack, one at a time): 14 (running), then 7b when approved (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -295,6 +295,14 @@ is seeded as tt02 has it (`GenericAccessResource`, refused by production too); b
 `localtest:` deviation; attachment download from Arbeidsflate goes to task 11; failure visibility is the inspection
 API's `jobs` view, no directive for Hangfire retries. Host port 8033, route `/correspondence`, Postgres init
 `70-correspondence.sh`.
+
+**7b, party ids (unapproved, 2026-10-21).** `planned-components/correspondence/party-ids.md`: production Correspondence
+names the party by id in every PDP request and guesses the id's type by length (8 or 10 digits), so the seed's 6-digit
+party ids give a 500 on app-lib's send and on the recipient's dialog-token path (two KNOWN checks in the smoke test;
+the service-owner token bypasses the PDP). Recommended: one `#if !LOCALTEST` site in `XacmlRequestFactory` accepting
+any unsigned 32-bit party id (the component's first directive), the two KNOWN checks turned into assertions, the
+`signering-brukerstyrt` call-to-sign verified; in parallel an upstream issue (draft in the report) so Correspondence
+sends `urn:altinn:partyid:{id}`. Not renumbering the seed. Needs the owner's approval of the directive.
 
 ## 8. Inspection GUI
 
