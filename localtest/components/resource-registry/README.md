@@ -132,9 +132,9 @@ for the three Correspondence resources: types, owner, the `ttd` deviation in the
 - The seed's `altinn_keyrole_access/resource.json` is written to fit the policy, not copied from production.
 - Npgsql logs "Error loading shared library libgssapi_krb5.so.2" at start (Kerberos probe on Alpine); harmless.
 - Access lists work against the Register but there is no seed or test for them.
-- `policy/rules` answers 500 for an app whose policy puts matches of two categories in one `AnyOf` (`All matches in a all
-  must have the same category ruleId …`, thrown by production's `PolicyHelper.FlattenXacmlRule`). Seen by the
-  inspection-GUI research for `app_ttd_stateless-app`; that test app's rule 3 mixes action and resource matches in one
-  `AnyOf` (checked in the monorepo's `src/test/apps/stateless-app` policy, not re-run). `policy/rights` goes through the same
-  parser (`ConvertToPolicyRight`), so it should fail the same way (not run). Production behaviour, not fixed here; the
-  policy XML (`policy`) is what to read instead.
+- `policy/rules` and `policy/rights` answer 500 for an app whose policy puts matches of two categories in one `AnyOf`
+  (`All matches in a all must have the same category ruleId …`, thrown by production's `PolicyHelper.FlattenXacmlRule`,
+  which both endpoints use). Seen by the inspection-GUI research for `app_ttd_stateless-app`; 8 of the 13 monorepo test
+  apps have such a rule (the template's `delete` rule), listed in [`../../reviews/test-apps.md`](../../reviews/test-apps.md).
+  Production behaviour, not fixed here; the policy XML (`policy`) is what to read instead. `policy/subjects` (the
+  provisioner's step 3b) does not use that parser and answers 200 for them.
