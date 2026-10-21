@@ -1,5 +1,40 @@
 # Plan: the new localtest in studioctl
 
+## Status (2026-10-21)
+
+Landed in the vendored studioctl ([`../localtest/studioctl/`](../localtest/studioctl/UPSTREAM.md), ordinary commits on
+the unmodified baseline `3ecc3fb`):
+
+| What | Commits |
+| --- | --- |
+| The `localtest-v2` runtime (`studioctl env up -r localtest-v2`), one container per component, images pinned in `config/images.go` (now `sha-0485d0a`), `--latest`, `--dev <component>`, `STUDIOCTL_IMAGE_LOCALTEST_V2_*` | `7e3f1cd`, then one commit per component and pin |
+| studioctl-server as the front door on `local.altinn.cloud:8000`, the `/dialogporten/graphql` path rewrite | `7e3f1cd`, `df84b0a` |
+| Provisioning in studioctl-server: steps 1 to 4 as section 3.4, step 3b (Resource Registry subject reload), step 5 (Dialogporten sync, only with the group) | `7e3f1cd`, `b6f4c47`, `70ea0e1` |
+| The group table (`dialogporten`, `receipt`, `correspondence` implying `dialogporten`, `everything`; `--with`, `--without`) | `6b41c96` (task 16) |
+| The `503` problem details for a component that is off or not answering | `adf6ee6` (task 16) |
+| `env logs -c <component>` shows a stopped container's log | `8bfdf16` |
+| Components since the first commit: Resource Registry, Dialogporten (three hosts and Redis), Notifications, the adapter, Receipt, Correspondence, Profile | `b6f4c47`, `df84b0a`, `6246fa5`, `b99492c`, `707766f`, `a4fed5c`, `894f7a7` |
+
+Still open, as task 13 (unapproved, the maintainer's): sections 1, 2 and 6 (the move to `src/Runtime/localtest-v2/`
+with its image workflow, the rollout and the default flip), the `/health` body (`ok` against the integration tests'
+`Healthy` snapshot, section 5), Cypress and `StudioctlEnvironment` tests in CI, the docs site, re-push on app change,
+the frontend version override and cookie-domain rewriting, and two front-door gaps (`/storage` without its trailing
+slash and `/app-frontend/` answer 404).
+
+The upstream branch exists on the fork: `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio` (21
+commits on Altinn/altinn-studio `main`, studioctl's README, CHANGELOG, AGENTS.md and bundled skill included). Its
+newest commit pins `sha-55ce57f` (2026-10-21), so it does not yet carry the Correspondence and Profile components
+(`a4fed5c`, `894f7a7`) or the two later pins. No pull request from it is recorded in this repository.
+
+Superseded statements, beyond the 2026-10-20 note below:
+
+- "What moves": the Register no longer answers Profile (production Profile, task 14), and Notifications is in the
+  default stack and Correspondence in a group; their prefixes are not 404s (a group that is off answers `503`).
+- Section 3.1, readiness through `GET /localtest/api/health` in the localtest app: studioctl polls each component's
+  `/health` on its host port.
+- Section 3.3, a certificate generated per installation: studioctl embeds the test certificate and mounts it at `/certs`.
+- Section 6 step 1, a flag inside the `localtest` runtime: a separate runtime, `-r localtest-v2`.
+
 Status: superseded in part, 2026-10-20. The integration was built differently on several points (studioctl branch
 `feat/studioctl-localtest-v2`, commit `43be33f73e`; the research repo's image workflow in `84514a3`). The choices are
 argued in [`studioctl-integration-options.md`](studioctl-integration-options.md). The source now lives in

@@ -1,5 +1,15 @@
 # Options: integrating the new localtest into studioctl
 
+## Status (2026-10-21)
+
+The picks as built in the vendored studioctl ([`studioctl-integration.md`](studioctl-integration.md), "Status
+(2026-10-21)"): **1a** (one component per container); **2b** (a second runtime, `-r localtest-v2`); for 3, none of the
+three: studioctl-server is the front door and reaches loopback-bound apps directly, so neither the host bridge nor
+`0.0.0.0` is needed; **4a**, not the recommended 4b (studioctl-server provisions, steps 1 to 5); **5b** (studioctl polls
+each component's `/health`); 6 open (task 13; images are built in this research repository for now). Smaller
+decisions: one shared Postgres 18 image with baked init scripts; the test certificate shipped (embedded in studioctl),
+not generated; the components listed per container and route, with optional groups.
+
 Status: decision material, 2026-10-20. [`studioctl-integration.md`](studioctl-integration.md) is a single-path plan;
 this note lists the alternatives at each decision point, with the trade-offs, so the path can be chosen deliberately.
 Evidence: `src/cli` and `src/Runtime/localtest` in altinn-studio `89b1d7bc70` (no changes since the `447e53eb`
