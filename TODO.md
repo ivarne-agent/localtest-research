@@ -45,7 +45,7 @@ A path matching no route still falls through to the localtest app.
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
-| 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
+| 12 | [Review leftovers](#12-review-leftovers) | in progress (dispatched 2026-10-21, Opus agent, worktree `.worktrees/task12-leftovers`, branch `task/review-leftovers`; phase 1 code, phase 2 stack after 7b; bad test-app policies are noted, not fixed) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
@@ -417,6 +417,9 @@ Small items from `localtest/reviews/` and the components' "Known gaps", each its
 - Authorization and Events: Debug logging is very noisy under `ASPNETCORE_ENVIRONMENT=Development`; a localtest
   logging override.
 - Workflow engine: state reset (left as decided; revisit only on request).
+- **Decision (2026-10-21):** work through the items below as one filler task. A test app's policy that production
+  code rejects (the `stateless-app` case) is not fixed here: it is recorded in `localtest/reviews/test-apps.md` with the
+  rule and the parser's reason, for an upstream fix in the monorepo later.
 - Found by the 2026-10-21 documentation audit (task 19):
   - Authorization smoke test: its "store:" line has the same compose-era container name as the "PDP log errors" line.
   - Storage's standalone `smoke-test.sh` cannot run since 2026-10-20: it calls the `/Home` token helpers on
