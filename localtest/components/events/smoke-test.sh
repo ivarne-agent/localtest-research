@@ -118,8 +118,11 @@ D2=$(dialog $OTHER)   # within the 5 s cache lifetime of the first decision
 waitfor "events/$D2" 'd["items"][0]["status"] == "processed" and any(t["activity"] == "Unauthorized" for t in d["traceLog"])' || true
 inspect "events/$D2" | check "the other app's dialog event is not authorized by the first one's cached decision" \
   'any(t["activity"] == "Unauthorized" for t in d["traceLog"]) and not any(t["activity"] == "OutboundQueue" for t in d["traceLog"]) and d["deliveries"] == []'
-expect "a .../dialogporten/api source filter is not an app subscription (no subscribe scope: 403)" 403 \
-  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $ORG" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"sourceFilter\":\"$BASE/dialogporten/api\"}")"
+# With the subscribe scope a generic subscription is refused for its missing resource filter; without sites 4 and 5
+# the filter took the app path (AppSubscriptionService: 400 "A valid subject to the authenticated identity is required").
+SUB=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&scopes=altinn:events.subscribe" | tr -d '"')
+expect "a .../dialogporten/api source filter is a generic subscription (400 'Resource filter is required.')" "400 Resource filter is required." \
+  "$(curl -s -w ' %{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $SUB" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"sourceFilter\":\"$BASE/dialogporten/api\"}" | python3 -I -c 'import sys; b,c=sys.stdin.read().rsplit(" ",1); print(c, b.strip().strip(chr(34)))')"
 curl -s -o /dev/null -X DELETE "$BASE/events/api/localtest/events?subscriptions=true"
 
 [[ $FAIL == 0 ]] && echo "all ok" || { echo "some checks failed"; exit 1; }
