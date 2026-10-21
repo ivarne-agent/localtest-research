@@ -619,6 +619,10 @@ before merge. Prototype scope: default stack plus `dialogporten`, one sample tes
 Aspire-hosted stack, Podman verified; package `Altinn.Localtest.Aspire` published to GitHub Packages from this repo.
 Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f last. Dispatched 2026-10-21 (21a, 21b, 21c).
 
+**21d decisions (2026-10-22, discussed one by one).** Front door: stock `Aspire.Hosting.Yarp`, accepting that it cannot
+strip `Secure` from app-lib's `keepAlive` cookie (no cookie transform in the stock image): apps on the Aspire host lose
+the ten-minute token refresh over http until task 22 ships; documented in the sample AppHost.
+
 ## 22. app-lib honours an explicit localtest environment
 
 **Goal (2026-10-21, follow-up of 21).** app-lib v9 in Development runs `studioctl app env --json` and lets its values
