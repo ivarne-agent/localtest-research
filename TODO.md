@@ -44,7 +44,7 @@ A path matching no route still falls through to the localtest app.
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
-| 11 | [Arbeidsflate](#11-arbeidsflate) | in progress (dispatched 2026-10-21, Opus agent, worktree `.worktrees/task11-arbeidsflate`, branch `task/arbeidsflate`; phase 1 code, phase 2 stack) | large | yes |
+| 11 | [Arbeidsflate](#11-arbeidsflate) | done (2026-10-21, commits dc1ae37..b136eabf; group `arbeidsflate` implying `dialogporten`, host `af.local.altinn.cloud:8000`, nginx 8037 and BFF 8038, two build-time patches on an unmodified vendor tree, 56-check smoke test, inbox verified in Chromium; 11b researched in the component README, not built; pin bump pending the images workflow) | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | done for the audit findings (2026-10-21, commits 6ba99ee..90c6bc4: Postgres in UTC, two Events directive sites for Dialogporten sources, authorization and root smoke tests fixed, Storage standalone test removed, `reviews/test-apps.md`; still open: HEAD on the localtest app, a WebSocket test, the Events reset not draining queues, Slack deliveries without their event, the Altinn 2 roles stub; pin sha-3143730, proven 2026-10-21 on plain images) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
@@ -55,7 +55,7 @@ A path matching no route still falls through to the localtest app.
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
 
-Suggested order: 11 (running: phase 1 code, then the stack); 20 research in parallel; 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
+Suggested order: nothing running; 8 and 11b when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
