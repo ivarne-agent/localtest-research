@@ -66,17 +66,24 @@ checked against the shared certificate) on the lookups apps make, which app-lib 
 Contact point lookups, the four calls Altinn Notifications makes on Profile (`LocaltestProfileContactPointsController`).
 All four are anonymous, as Profile's internal controllers are, because Notifications sends no credential; the answers
 have the shape Notifications' `ProfileClient` deserialises (`contactPointsList`). Sources are the test data's e-mail and
-mobile numbers and organisations' `notificationAddresses`. `isReserved` is always false: a person's `reserved` flag is for
-task 7's KRR stand-in only, once that has merged (see [`../../testdata/README.md`](../../testdata/README.md#reserved)). Numbers and addresses are
+mobile numbers and organisations' `notificationAddresses`. `isReserved` is the person's `reserved` flag, as production fills
+it from KRR (see [`../../testdata/README.md`](../../testdata/README.md#reserved)). Numbers and addresses are
 returned exactly as stored (a bare `87654321` would stay `87654321`; the seed has `+47…` numbers since v3); what
 Notifications does with them is production behaviour (see the Notifications README).
 
 | Endpoint | Answer |
 | --- | --- |
-| `POST users/contactpoint/lookup`, `{ nationalIdentityNumbers, useStaleContactInfo }` | one entry per person found (`userId`, `nationalIdentityNumber`, `isReserved` false, `mobileNumber`, `email`); unknown numbers are left out |
+| `POST users/contactpoint/lookup`, `{ nationalIdentityNumbers, useStaleContactInfo }` | one entry per person found (`userId`, `nationalIdentityNumber`, `isReserved` (the test data's `reserved`), `mobileNumber`, `email`); unknown numbers are left out |
 | `POST users/contactpoint/lookupsi`, `{ externalIdentities }` | one entry per `urn:altinn:person:idporten-email:{email}` that matches a self-identified user (`externalIdentity`, `email`, `mobileNumber` empty). Legacy username identities are not modelled |
 | `POST organizations/notificationaddresses/lookup`, `{ organizationNumbers }` | as Profile's `OrgNotificationAddressController`: one entry per organisation with `notificationAddresses` in the test data, `{ organizationNumber, addressOrigin, partyId: 0, mobileNumberList, emailList }`; a sub-unit without addresses gets its main unit's (`addressOrigin` = the main unit's number); organisations without addresses either way, and unknown numbers, are left out. Seeded: DDG Fitness (897069644, and through it its sub-units) and Digitaliseringsdirektoratet (991825827) |
 | `POST units/contactpoint/lookup`, `{ organizationNumbers, resourceId }` | one entry per organisation in the register, `userContactPoints` = every test user that holds roles or access packages at that party. The seed has no per-resource registrations, so `resourceId` is not used here; Notifications filters the users by the PDP's decision for the resource, as in production |
+
+## Verified (schema v3)
+
+2026-10-21, on main 902ddfc with this branch on top, `studioctl env up -r localtest-v2 --dev register` (the other
+components from the pinned `sha-3c9b03f` images; Notifications unchanged): `smoke-test.sh` 27 of 27; Notifications'
+smoke test 64 of 64 with person, reserved-person and organisation recipients resolved here; the platform regression 44 of
+44. Details in [`../../testdata/README.md`](../../testdata/README.md#verified).
 
 ## App test data
 

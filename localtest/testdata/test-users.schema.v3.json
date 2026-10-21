@@ -215,7 +215,7 @@
         },
         "reserved": {
           "title": "Reserved against digital contact (v3)",
-          "description": "The person is reserved in KRR, the contact and reservation register, against digital communication from the public sector. Default false. Read by the Register's KRR stand-in for Correspondence; Profile's isReserved and Notifications do not use it yet. Has no meaning for a self-identified user.",
+          "description": "The person is reserved in KRR, the contact and reservation register, against digital communication from the public sector. Default false. Profile's isReserved (users/contactpoint/lookup), so Notifications does not send to the person unless the order sets ignoreReservation; read by the Register's KRR stand-in for Correspondence once task 7 has merged. Has no meaning for a self-identified user.",
           "type": ["boolean", "null"],
           "default": false
         },

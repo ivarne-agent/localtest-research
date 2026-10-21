@@ -100,7 +100,7 @@ warning. Legacy username self-identified users are not modelled.
 | `doNotPromptForParty` | boolean | `false` | v2 | Profile `profileSettingPreference.doNotPromptForParty` |
 | `telephoneNumber` | string | none | v1 | Profile `phoneNumber` (preferred over `mobileNumber`); contact point lookups when `mobileNumber` is absent |
 | `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | Profile contact point lookups (Notifications' SMS), `phoneNumber` when no `telephoneNumber`; KRR stand-in |
-| `reserved` | boolean | `false` | v3 | `test-users`; the KRR stand-in once task 7 has merged. Nothing else yet (below) |
+| `reserved` | boolean | `false` | v3 | `test-users`; Profile's `isReserved` in `users/contactpoint/lookup` (Notifications); the KRR stand-in once task 7 has merged (below) |
 | `addressStreetName`, `addressHouseNumber`, `addressHouseLetter`, `addressPostalCode`, `addressCity`, `addressMunicipalNumber`, `addressMunicipalName` | string | none | v1 | Register (residential address) |
 | `mailingAddress`, `mailingPostalCode`, `mailingPostalCity` | string | none | v1 | Register (mailing address) |
 | `partyRoles` (required) | object: party id → array of role | | v1 | Register, Access Management, Profile `units/contactpoint/lookup`, login picker (below) |
@@ -124,9 +124,11 @@ Norwegian number for libphonenumber (Norwegian mobile numbers start with 4 or 9)
 Reservation in KRR, the contact and reservation register, against digital communication from the public sector.
 Production Correspondence checks every person recipient against KRR; task 7's KRR stand-in
 (`register/api/localtest/krr/rest/v2/personer`) answers `reservasjon: "NEI"` for everybody until it reads this flag
-(wired when task 7 has merged). Profile's `isReserved` in `users/contactpoint/lookup`, which Notifications reads, stays
-`false`: in production it also comes from KRR, but mirroring the flag there is a separate decision. The flag means
-nothing for a self-identified user.
+(wired when task 7 has merged). Profile's `isReserved` in `users/contactpoint/lookup` is this flag, as production
+Profile fills it from KRR, and the person's e-mail and mobile number are still returned. Production Notifications then
+accepts an order to the person (a reserved person is not "missing contact information") and ends the notification
+`Failed_RecipientReserved` without sending anything, unless the order sets `ignoreReservation`. The flag means nothing
+for a self-identified user.
 
 ### `partyRoles`
 
@@ -242,6 +244,26 @@ python3 -I localtest/components/register/testdata/generate-testdata.py /home/age
 The script converts the old localtest's built-in data and applies the tables at its top (unit types, the self-identified
 e-mail user, access packages, mobile numbers, the reserved person, notification addresses). It is deterministic: a run
 reproduces the committed file byte for byte, so `git diff` after a run shows only intended changes.
+
+## Verified
+
+2026-10-21, on main 902ddfc with this branch on top, `studioctl env up -r localtest-v2 --dev register` (the other
+components from the pinned `sha-3c9b03f` images; Notifications unchanged):
+
+- `components/register/smoke-test.sh`: 27 of 27 (reserved only on 1003, organisations' addresses, `isReserved` for 1003,
+  the organisation lookup with its main-unit fallback and left-out organisations).
+- `components/notifications/smoke-test.sh`: 64 of 64, twice: Sophie Salt's e-mail and SMS to `+4799001337`, Rik
+  Forelder's order accepted and failed `Email_Failed_RecipientReserved` with nothing captured (and delivered with
+  `ignoreReservation`), DDG Fitness's e-mail and SMS delivered to its official addresses, DDG Fitness Oslo through the
+  main-unit fallback, `422 NOT-00001` for EAS Health Consulting.
+- Root `smoke-test.sh` 23 of 23, `components/authorization/smoke-test.sh` 30 of 30 (Access Management has no smoke test
+  of its own; the PDP checks go through it).
+- `run-platform-regression.sh --no-apps`: 44 of 44 Cypress tests in the six specs, no retries (apps with `studioctl run
+  --dev-frontend`, the monorepo's built frontend served on 8080 with `Access-Control-Allow-Origin: *`).
+  `signering-brukerstyrt` registered its v1 file with nulls; the Register loaded it with three `unitType` warnings and
+  no conflicts.
+
+Not verified here: Correspondence and task 7's KRR stand-in reading `reserved` (the branch is not merged).
 
 ## History
 

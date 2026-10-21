@@ -134,6 +134,12 @@ which return the seed's addresses and numbers exactly as stored. Production then
   Pengelens Partner (1001, `test@test.com` and `+4799315829`).
 - A recipient without any contact point (a national identity number not in the seed) answers `422` with the problem code
   `NOT-00001`.
+- **Reserved persons.** A person with `reserved: true` in the test data (the seed: Rik Forelder, 1003, 08829698278)
+  comes back from Profile with `isReserved: true` and contact points, as production Profile answers from KRR. Production
+  Notifications accepts the order (`201`; reserved is not missing contact information; a v1 order answers
+  `recipientLookup: { status: "Failed", isReserved: ["08829698278"] }`), and the shipment ends with the recipient
+  `Email_Failed_RecipientReserved` (destination empty): nothing is captured. With
+  `ignoreReservation: true` on the recipient the message is sent as for anyone else.
 - **Organisation recipients** get the organisation's official addresses, the seed's `notificationAddresses` (schema v3):
   DDG Fitness (897069644, `varsling@ddgfitness.no` and `+4799500000`, also for its sub-units through Profile's main-unit
   fallback) and Digitaliseringsdirektoratet (991825827, `varsling@digdir.no` and `+4799500006`). An organisation without
@@ -145,8 +151,7 @@ which return the seed's addresses and numbers exactly as stored. Production then
 
 ## Known gaps
 
-- No per-inbox reception switch (planned, see above), no failure simulation, no reserved recipients (the seed's
-  `reserved` flag is read by the KRR stand-in only; Profile's `isReserved` stays false).
+- No per-inbox reception switch (planned, see above), no failure simulation.
 - Correspondence (task 7) is not in the stack; it will appear in this capture under its own creator.
 - Attachments of composed e-mail are recorded by reference only.
 - The condition-check callback (`conditionEndpoint`) is production code with the Maskinporten fake; checked against the production sink `notifications/api/v1/tests/sendcondition?conditionMet=`. That the Maskinporten token it carries is accepted by a real consumer is not checked.
@@ -168,6 +173,12 @@ likewise `platform_notifications`), `PostgreSQLSettings__MigrationScriptPath` as
 `AccessTokenSettings__AccessTokenSigningCertificateFullPath=…/certs/localtest-accesstoken.pfx`.
 
 ## Verified
+
+2026-10-21, schema v3 seed (task 18), `env up -r localtest-v2 --dev register` on the `sha-3c9b03f` images:
+`smoke-test.sh` 64 of 64, twice, now including Sophie Salt's SMS, the reserved person (accepted,
+`Email_Failed_RecipientReserved`, nothing captured; delivered with `ignoreReservation`), DDG Fitness's official e-mail
+and SMS, its sub-unit DDG Fitness Oslo through Profile's main-unit fallback, and 422 for an organisation without
+addresses.
 
 2026-10-20, on the rebased branch (main a04d0a5) with `studioctl env up -r localtest-v2 --dev notifications --dev register --dev postgres`
 after `env reset`, Postgres 18.3:

@@ -108,6 +108,18 @@ RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"01839012345","c
 expect "POST future/orders, Sophie Salt" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in Sophie's inbox" "$LOCAL/inboxes/1337@altinnstudiotestusers.com" 'any(m["subject"] == "Sophie" and m["outcome"] == "Delivered" for m in d["messages"])'
 okwait "the SMS lands on Sophie's number" "$LOCAL/inboxes/%2B4799001337" 'any(m["body"] == "Sophie sms" and m["outcome"] == "Delivered" for m in d["messages"])'
+# Rik Forelder (1003, 08829698278) is reserved in the seed (KRR); Profile says isReserved. Production accepts the order
+# (a reserved person is not "missing contact") and fails the notification with Failed_RecipientReserved; nothing is sent.
+# With ignoreReservation the e-mail goes out.
+RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"08829698278","channelSchema":"Email","emailSettings":{"subject":"Reserved","body":"B"}}}' "" "${bearer[@]}")
+expect "POST future/orders, a reserved person" 201 "${RESPONSE##*$'\n'}"
+RCHAIN=$(echo "${RESPONSE%$'\n'*}" | field '["notificationOrderId"]'); RSHIPMENT=$(echo "${RESPONSE%$'\n'*}" | field '["notification"]["shipmentId"]')
+okwait "... the notification fails as reserved" "$API/future/shipment/$RSHIPMENT" 'any("RecipientReserved" in r["status"] for r in d["recipients"])' "${bearer[@]}"
+expect "... nothing is captured for it" 0 "$(curl -s "$LOCAL/messages?orderId=$RCHAIN" | field '["items"].__len__()')"
+RESPONSE=$(future '{"recipientPerson":{"nationalIdentityNumber":"08829698278","channelSchema":"Email","ignoreReservation":true,"emailSettings":{"subject":"Reserved ignored","body":"B"}}}' "" "${bearer[@]}")
+expect "POST future/orders, a reserved person with ignoreReservation" 201 "${RESPONSE##*$'\n'}"
+RCHAIN=$(echo "${RESPONSE%$'\n'*}" | field '["notificationOrderId"]')
+okwait "... the e-mail is sent and delivered" "$LOCAL/messages?orderId=$RCHAIN" 'len(d["items"]) == 1 and d["items"][0]["address"] == "test@test.com"'
 RESPONSE=$(future '{"recipientExternalIdentity":{"externalIdentity":"urn:altinn:person:idporten-email:selvregistrert.bruker@example.com","channelSchema":"Email","emailSettings":{"subject":"Self-identified","body":"B"}}}' "" "${bearer[@]}")
 expect "POST future/orders, self-identified user (through Profile contactpoint/lookupsi)" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in the self-identified user's inbox" "$LOCAL/inboxes/selvregistrert.bruker@example.com" 'd["messages"][0]["subject"] == "Self-identified" and d["messages"][0]["outcome"] == "Delivered"'
@@ -123,6 +135,10 @@ RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069644","channelSch
 expect "POST future/orders, organisation with official addresses (DDG Fitness)" 201 "${RESPONSE##*$'\n'}"
 okwait "the e-mail lands in the organisation's official inbox" "$LOCAL/inboxes/varsling@ddgfitness.no" 'any(m["subject"] == "Org" and m["outcome"] == "Delivered" for m in d["messages"])'
 okwait "the SMS lands on the organisation's official number" "$LOCAL/inboxes/%2B4799500000" 'any(m["body"] == "Org sms" and m["outcome"] == "Delivered" for m in d["messages"])'
+# A sub-unit without addresses (DDG Fitness Oslo, 897069660) gets its main unit's through Profile's fallback.
+RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069660","channelSchema":"Email","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Sub-unit","body":"B"}}}' "" "${bearer[@]}")
+expect "POST future/orders, a sub-unit without addresses of its own (DDG Fitness Oslo)" 201 "${RESPONSE##*$'\n'}"
+okwait "the e-mail lands in the main unit's official inbox" "$LOCAL/inboxes/varsling@ddgfitness.no" 'any(m["subject"] == "Sub-unit" and m["outcome"] == "Delivered" for m in d["messages"])'
 RESPONSE=$(future '{"recipientOrganization":{"orgNumber":"897069628","channelSchema":"Email","resourceId":"urn:altinn:resource:altinn_keyrole_access","emailSettings":{"subject":"Org","body":"B"}}}' "" "${bearer[@]}")
 expect "an organisation without official addresses (EAS Health Consulting): 422" 422 "${RESPONSE##*$'\n'}"
 echo "${RESPONSE%$'\n'*}" | check "... NOT-00001" 'd["code"] == "NOT-00001"'

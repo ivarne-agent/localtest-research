@@ -64,8 +64,8 @@ echo "$(pcode -H "Authorization: Bearer $USR" -H Content-Type:application/json -
 # Profile contact points, as Altinn Notifications calls them: anonymous, answers under contactPointsList.
 post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["01839012345","00000000000"],"useStaleContactInfo":false}' | check "contactpoint/lookup: Sophie Salt found, unknown number absent, mobile number as stored" \
   'd["contactPointsList"] == [{"userId": 1337, "nationalIdentityNumber": "01839012345", "isReserved": False, "mobileNumber": "'"$SOPHIE_MOBILE"'", "email": "1337@altinnstudiotestusers.com"}]'
-post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["08829698278"],"useStaleContactInfo":false}' | check "contactpoint/lookup: isReserved stays false for a reserved person (only the KRR stand-in reads the flag)" \
-  'd["contactPointsList"][0]["userId"] == 1003 and d["contactPointsList"][0]["isReserved"] is False'
+post "$REGISTER/profile/api/v1/users/contactpoint/lookup" -d '{"nationalIdentityNumbers":["08829698278"],"useStaleContactInfo":false}' | check "contactpoint/lookup: a reserved person (Rik Forelder) has isReserved, contact points still returned" \
+  'd["contactPointsList"] == [{"userId": 1003, "nationalIdentityNumber": "08829698278", "isReserved": True, "mobileNumber": "+4799001003", "email": "test@test.com"}]'
 post "$REGISTER/profile/api/v1/users/contactpoint/lookupsi" -d '{"externalIdentities":["urn:altinn:person:idporten-email:selvregistrert.bruker@example.com","urn:altinn:person:idporten-email:ukjent@example.com"]}' | check "contactpoint/lookupsi: the self-identified e-mail, no mobile" \
   'd["contactPointsList"] == [{"externalIdentity": "urn:altinn:person:idporten-email:selvregistrert.bruker@example.com", "email": "selvregistrert.bruker@example.com", "mobileNumber": ""}]'
 # Official addresses (schema v3 notificationAddresses): DDG Fitness and Digitaliseringsdirektoratet have their own; the

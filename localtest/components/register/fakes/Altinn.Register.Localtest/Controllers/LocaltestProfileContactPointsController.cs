@@ -12,7 +12,8 @@ namespace Altinn.Register.Localtest.Controllers;
 /// every answer). All four are anonymous, as Profile's internal controllers are (<c>UserContactPointController</c>,
 /// <c>UnitContactPointController</c>, <c>OrgNotificationAddressController</c>); Notifications sends no credential.
 /// Numbers and addresses are returned exactly as the test data stores them (nothing is normalised; Notifications decides
-/// what it accepts). <c>isReserved</c> is always false: a person's <c>reserved</c> flag is read by the KRR stand-in only.
+/// what it accepts). <c>isReserved</c> is the person's <c>reserved</c> flag (KRR reservation), as production Profile fills
+/// it from KRR; contact points are returned for a reserved person too, as there.
 /// Organisations' official addresses are their <c>notificationAddresses</c> in the test data.
 /// </summary>
 [ApiController]
@@ -142,7 +143,7 @@ public sealed class LocaltestProfileContactPointsController(RegisterStoreProvide
         return new UserContactPoints(
             person.UserId,
             person.Ssn,
-            false,
+            person.Reserved ?? false,
             person.MobileNumber ?? person.TelephoneNumber,
             person.Email);
     }
