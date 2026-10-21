@@ -15,6 +15,11 @@ Links go to [`Altinn/altinn-correspondence@6dcf561`](https://github.com/Altinn/a
 without a link are relative to `src/` at that commit (`/home/agent/code/.reference/altinn-correspondence`, which is a
 shallow clone, so the history below comes from the GitHub API).
 
+**Outcome (task 7b, 2026-10-21):** option (b) is implemented, decided with a 64-bit range instead of the unsigned 32-bit one
+proposed below (`long.TryParse`, positive). The site is `XacmlRequestFactory.cs:31-36` in
+[`localtest/components/correspondence/vendor/`](../../localtest/components/correspondence/vendor/UPSTREAM.md); the results are
+in the component README's "Verified". Option (c), the upstream issue, is open question 2 below.
+
 ## Summary
 
 - **The rule is a format guess, not a guard.** `StringExtensions.IsPartyId` (`Altinn.Correspondence.Common/Helpers/StringExtensions.cs:54-61`)
