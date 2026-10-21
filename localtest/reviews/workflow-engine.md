@@ -1,5 +1,11 @@
 # Workflow engine and PDF review (2026-10-20)
 
+> **Superseded (2026-10-20):** compose was removed (`84514a3`). studioctl's `localtest-v2` runtime runs the monorepo's
+> own workflow-engine and pdf3 images, not one built from the vendored engine, so fix 1 ("compose builds the vendored
+> engine") and the compose references below are history; the vendored copy is built and tested on its own
+> (`../components/workflow-engine/README.md`). The database is the stack's `localtest-postgres` image (Postgres 18.3),
+> not `postgres:16-alpine`.
+
 > **Status (2026-10-20):** handled. Fixed: 1 (compose builds the vendored engine; `build-pdf3.sh` builds pdf3 from an altinn-studio checkout), 2, 3 and 4 (the Dockerfile mirrors upstream's line for line with `localtest:` markers, `.dockerignore` repeats upstream's exclusion of `Directory.*.props`, no HEALTHCHECK), 5 (the init script is idempotent), 6 (the README's hosts line has the PDF and workflow-engine names), 7 (sync instructions, the complete not-copied list), 8 (telemetry off, there is no collector), 10 (`build-pdf3.sh` labels the image with the commit and sets pdf3's service version), 12 (port 8000 bound to 127.0.0.1). Not changed: 9 (state is not reset, as decided) and 11 (specific to this sandbox's TLS interception). Verified: the engine is healthy on its non-root image; Cypress process-transition-test 19/19 and service-task 3/3 through it.
 
 ## Summary

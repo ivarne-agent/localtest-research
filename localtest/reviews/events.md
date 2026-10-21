@@ -1,5 +1,12 @@
 # Events review (2026-10-20)
 
+> **Superseded in part (2026-10-20, task 9b):** finding 10 says only apps publish, so `AppsDomain` = platform host has
+> no effect. Dialogporten now publishes to the generic endpoint, and the effect is real: its sources are cut to
+> `.../dialogporten/api` for the cached source filter (see `../components/dialogporten/README.md`, "Events", and the
+> Events README's known gaps; a fix is proposed, not made). Task 9b also saw `registeredTime` two hours behind UTC
+> (Events README, known gaps). Compose and the `localtest_events_1` container names below are from before studioctl
+> (2026-10-20).
+
 > **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors upstream's: pinned digests, the DbTools build, whose generated SQL equals the committed script, `Migration` from the build stage, non-root `dotnet`), 2 (sync instructions), 3 (no HEALTHCHECK), 4 (default log level Information), 5 (webhooks to `host.docker.internal` are delivered; `localhost` documented), 7 (a failure to record a delivery is logged, not thrown; `id`/`type` read only as strings), 9 (the dead Key Vault override removed, the comment corrected), 11 (the docs). Documented in the README's known gaps: 6, 8, 10, 12. Verified: events smoke 22/22, a receiver on the host got the subscription validation.
 
 ## Summary

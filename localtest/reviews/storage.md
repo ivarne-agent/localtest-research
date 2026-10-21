@@ -3,6 +3,13 @@
 Component: [`../components/storage/`](../components/storage/). Reviewer: Claude, on the user's request; fixes
 landed in `1dcb31e`, `9feefb2` and `2f577ae`.
 
+> **Superseded 2026-10-21 (task 10):** Wolverine is no longer switched off. The outbox runs in every stack
+> (`WolverineSettings:EnableSending=true`, delays 2 s / 0 s): a localtest handler posts each command to the Dialogporten
+> adapter's `api/localtest/enqueue`, and logs one "not running" line when the `dialogporten` group is off (the front door
+> answers 503). The summary's "Wolverine/Azure Service Bus switched off" and the "Dialogporten sync" row of the
+> differences table are history; see the component README, "Dialogporten outbox". The compose file finding 4 points at
+> was removed on 2026-10-20 (`84514a3`); the stack runs through studioctl's `localtest-v2` runtime.
+
 ## Summary
 
 The localtest Storage is production Altinn Storage with four pieces swapped out: blobs in files instead of Azure

@@ -1,5 +1,11 @@
 # Authorization (PDP) review (2026-10-20)
 
+> **Superseded (2026-10-21):** `internal/user` is answered by the profile component (production Profile, task 14), not
+> the register component, wherever this review says so (finding 4 and the status line). Compose was replaced by
+> studioctl's `localtest-v2` runtime on 2026-10-20, so finding 7's compose section is history (the README has a
+> studioctl section). The smoke test still reads the compose-era container `localtest_authorization_1` for its "store:"
+> and "PDP log errors" lines, which under studioctl show nothing and 0 (TODO.md task 12).
+
 > **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors upstream's, non-root), 2 (re-pinned to `3d518103`; the fake imports the moved namespaces), 3 (sync instructions), 4 (the Profile fake and the register client are gone: production `ProfileWrapper` calls the register component's `internal/user`), 5 and 6 (the policy-caching and class comments say what the code does), 7 (the README points at the compose service and has a run-from-an-IDE recipe), 8 (default log level Information in the image), 10 (the ignored `bin/`/`obj/` folders in `vendor/` deleted). 9 stays as described (the two policy stores do not overlap today). Verified: authorization smoke 30/30, root smoke 23/23, Cypress signing-test 4/4.
 
 > **Follow-up (task 5b, 2026-10-20):** `fakes/Pip/LocaltestResourceRegistry.cs` and the `policies/resourceregistry/` seed are deleted (so finding 2's fix for that file is moot). The production `ResourceRegistryWrapper` calls the Resource Registry component, which seeds `altinn_keyrole_access`, serves resource policies and answers the access-list endpoints with a platform access token.

@@ -1,5 +1,10 @@
 # Access Management review (2026-10-20)
 
+> **Superseded (2026-10-21):** compose was replaced by studioctl's `localtest-v2` runtime on 2026-10-20; finding 14's
+> start order is now studioctl's: Postgres, the Register, the Resource Registry and, since task 14, the profile
+> component, whose production Profile answers Access Management's `internal/user` calls. The one-time
+> `drop database authorizationdb` in the README concerns only Postgres volumes from before task 5b.
+
 > **Status (2026-10-20):** all findings handled. Fixed: 1 (the Dockerfile mirrors the release image's bake files; `/tmp` reset to 1777 because buildah applies the staged mode), 2 (no HEALTHCHECK), 3 (sync instructions; re-pinned to `3d518103`), 4 (the dead Application Insights override dropped; the comment says what the remaining two do), 5, 6, 7 and 8 (stale comments and docs), 9 (the Resource Registry stand-in throws `HttpRequestException` for an unknown resource, as production's client does), 11 (refreshes run one at a time), 12 (the service-owner numbers' convention stated), 14 (compose starts it after Storage). Documented in the README's known gaps: 10 (superuser roles) and 13 (the Altinn 2 bridge answers 404). Not changed, as decided: the database is not reset. Verified through the PDP and apps: authorization smoke 30/30, root smoke 23/23, Cypress signing-test 4/4.
 
 > **Follow-up (task 5b, 2026-10-20):** the three `ResourceRegistry/` stand-ins (findings 9 and 12 and the largest row of the fakes table) are deleted. The production `ResourceRegistryClient` and `AltinnResourceRegistryClient` call the Resource Registry component (`components/resource-registry/`); the refresh runs the production `ResourceSyncService` against its `updated` feed. Consent templates are fetched by the production client from GitHub, no longer stubbed to null.

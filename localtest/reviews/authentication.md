@@ -4,6 +4,12 @@ Component: [`../components/authentication/`](../components/authentication/). The
 [`../../planned-components/authentication/localtest-app-identity.md`](../../planned-components/authentication/localtest-app-identity.md);
 fixes and the move landed in `28d8fe1`, `1485935` and `180fd3c`.
 
+> **Superseded 2026-10-21:** Profile is no longer the register component's `internal/user`: since task 14 production
+> Profile (the profile component) answers it, so the "Profile" rows below and finding 4's "register component" are
+> history. The pin is `3d518103` since 2026-10-20 (re-pinned with the other altinn-auth components). The OIDC provider
+> (task 2, update below) adds four in-memory repositories, so the fakes are no longer 7 files. Finding 8's local copy of
+> the org list was decided against (TODO.md task 3, won't do, 2026-10-20: the stack may read altinncdn.no).
+
 ## Summary
 
 The localtest Authentication was production Authentication plus about 1,600 lines of fakes, most of them standing in

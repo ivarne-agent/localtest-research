@@ -1,5 +1,10 @@
 # Localtest app review (2026-10-20)
 
+> **Superseded in part (2026-10-21):** compose was replaced by studioctl's `localtest-v2` runtime on 2026-10-20 (the
+> container is `localtest-v2-localtest`). Added after this review and not covered by it: the fake ID-porten's
+> `endsession` and the headless code-flow helper `localtest/api/authentication/` (task 2), and the app's own proxy
+> routing `/profile` to the profile component (task 14).
+
 > **Status (2026-10-20):** handled. Fixed: 1 (`ProblemDetails` in the JSON context), 2 (400 on a non-form post),
 > 3 (the fake sends `iss`; Authentication's `ValidateCallbackIssuer` and `StrictIdTokenValidation` are on), 4 (control
 > characters and backslashes refused in `RedirectUrl`), 5 (`redirect_uri` must be on the platform origin), 6 (default log

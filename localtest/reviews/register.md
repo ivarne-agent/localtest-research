@@ -2,6 +2,13 @@
 
 Component: [`../components/register/`](../components/register/). Fixes landed in `0c6f093`, `d5c6b2d` and `7d7597d`.
 
+> **Superseded 2026-10-21 (task 14):** the Register no longer answers Profile. Production Profile is its own component
+> ([`../components/profile/`](../components/profile/README.md)) on `/profile`; the three Profile controllers were deleted
+> (`1f9941d`). The Profile rows in the tables below, findings 7 and 8 and the 20-check smoke test describe the removed
+> fakes; the Register's smoke test now has 14 checks. Added since this review: the KRR stand-in
+> `register/api/localtest/krr/rest/v2/personer` (task 7) and the schema v3 seed fields `reserved`,
+> `notificationAddresses` and `+47` numbers (task 18), see the component README.
+
 ## Summary
 
 The localtest Register is production Altinn Register with its Postgres persistence replaced by a read-only in-memory
