@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.App.Aspire;
 
@@ -48,7 +51,7 @@ public static class AltinnLocaltestExtensions
                     ],
                 }
             );
-        stack.Initialize(parent, options.Groups);
+        stack.Initialize(parent, options.Groups, options.OnlyComponents);
 
         // The certificate is written when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
@@ -84,26 +87,35 @@ public static class AltinnLocaltestExtensions
     private static async Task ReportWhenHealthyAsync(InitializeResourceEvent e, CancellationToken cancellationToken)
     {
         var resource = (AltinnLocaltestResource)e.Resource;
+        // The AppHost's console, besides the resource's own log in the dashboard.
+        var console = e.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Altinn.App.Aspire");
+        var started = Stopwatch.StartNew();
         await e
             .Notifications.PublishUpdateAsync(resource, s => s with { State = KnownResourceStates.Starting })
             .ConfigureAwait(false);
         try
         {
             await Task.WhenAll(
-                    resource.Stack.Children.Select(child =>
-                        e.Notifications.WaitForResourceHealthyAsync(child.Name, cancellationToken)
-                    )
+                    resource.Stack.Children.Select(async child =>
+                    {
+                        await e
+                            .Notifications.WaitForResourceHealthyAsync(child.Name, cancellationToken)
+                            .ConfigureAwait(false);
+                        console.LogComponentHealthy(child.Name, started.Elapsed.TotalSeconds);
+                    })
                 )
                 .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             e.Logger.LogLocaltestFailed(exception);
+            console.LogLocaltestFailed(exception);
             await e
                 .Notifications.PublishUpdateAsync(resource, s => s with { State = KnownResourceStates.FailedToStart })
                 .ConfigureAwait(false);
             return;
         }
+        console.LogLocaltestHealthy(resource.Name, started.Elapsed.TotalSeconds);
         await e
             .Notifications.PublishUpdateAsync(
                 resource,

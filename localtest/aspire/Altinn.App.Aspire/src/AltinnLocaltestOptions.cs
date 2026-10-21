@@ -23,4 +23,10 @@ public sealed class AltinnLocaltestOptions
     /// <see cref="AltinnLocaltestExtensions.WithGroup" />.
     /// </summary>
     public ICollection<string> Groups { get; } = [];
+
+    /// <summary>
+    /// For diagnosis: when not empty, only these components and what they depend on are added (with the front door),
+    /// for example <c>postgres</c> alone. Empty (the default) adds the whole selection.
+    /// </summary>
+    public ICollection<string> OnlyComponents { get; } = [];
 }

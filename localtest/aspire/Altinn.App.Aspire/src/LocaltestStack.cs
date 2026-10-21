@@ -30,6 +30,7 @@ internal sealed class LocaltestStack
     private readonly List<FrontDoorRoute> _routes = [];
     private IResourceBuilder<AltinnLocaltestResource>? _parent;
     private IResourceBuilder<YarpResource>? _frontDoor;
+    private HashSet<string>? _only;
 
     public LocaltestStack(
         IDistributedApplicationBuilder builder,
@@ -64,9 +65,14 @@ internal sealed class LocaltestStack
     public IEnumerable<IResource> Children => [FrontDoor.Resource, .. _components.Values.Select(c => c.Resource)];
 
     /// <summary>Adds the front door and the always-on components.</summary>
-    public void Initialize(IResourceBuilder<AltinnLocaltestResource> parent, IEnumerable<string> groups)
+    public void Initialize(
+        IResourceBuilder<AltinnLocaltestResource> parent,
+        IEnumerable<string> groups,
+        IEnumerable<string> onlyComponents
+    )
     {
         _parent = parent;
+        _only = DependencyClosure(onlyComponents);
         var port = _resolver.Topology.IngressPort;
         // The containers reach the front door as local.altinn.cloud:8000 through --add-host ...:host-gateway, so the
         // host port must listen on every interface: unproxied (DCP's proxy listens on loopback) with target host
@@ -100,8 +106,34 @@ internal sealed class LocaltestStack
         AddComponents(_resolver.Components(_groups).Where(c => !_components.ContainsKey(c.Name)).ToList());
     }
 
-    private void AddComponents(IReadOnlyList<ResolvedComponent> batch)
+    /// <summary>The named components and what they depend on, transitively; null for every component.</summary>
+    private HashSet<string>? DependencyClosure(IEnumerable<string> names)
     {
+        var pending = new Queue<string>(names);
+        if (pending.Count == 0)
+        {
+            return null;
+        }
+        var closure = new HashSet<string>(StringComparer.Ordinal);
+        while (pending.TryDequeue(out var name))
+        {
+            var component =
+                _resolver.Manifest.Component(name)
+                ?? throw new ArgumentException($"Unknown localtest component {name}.", nameof(names));
+            if (closure.Add(name))
+            {
+                foreach (var dependency in component.DependsOn)
+                {
+                    pending.Enqueue(dependency);
+                }
+            }
+        }
+        return closure;
+    }
+
+    private void AddComponents(IReadOnlyList<ResolvedComponent> components)
+    {
+        var batch = _only is null ? components : [.. components.Where(c => _only.Contains(c.Name))];
         foreach (var component in batch)
         {
             _components.Add(component.Name, AddContainer(component));
