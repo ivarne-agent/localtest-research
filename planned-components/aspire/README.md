@@ -1,8 +1,14 @@
 # Research: an Aspire host for the components
 
-## Status (2026-10-21)
+## Status (2026-10-22)
 
-- **Research done** as task 20 (2026-10-21). Nothing is built; the recommendation and the brief below are proposals.
+- **Research done** as task 20 (2026-10-21); the owner chose the hosting package (task 21 in [`TODO.md`](../../TODO.md)),
+  with the stock `Aspire.Hosting.Yarp` as the front door (the 21d decisions), not the localtest app this report
+  recommends in section 3.
+- **21d in progress** (2026-10-22, branch `task/aspire-frontdoor`): [`localtest/aspire/Altinn.App.Aspire/`](../../localtest/aspire/Altinn.App.Aspire/README.md)
+  is built: the C# manifest reader (compared with studioctl's golden file), `AddAltinnLocaltest()` with the default
+  stack and `WithGroup(...)`, the YARP front door with the manifest's routes, and a single-file sample AppHost. Not yet
+  run: phase 2 runs it under Podman with the smoke tests. 21e (the app, provisioning, commands, publishing) follows.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
