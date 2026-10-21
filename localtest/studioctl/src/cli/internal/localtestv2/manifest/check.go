@@ -9,13 +9,13 @@ import (
 )
 
 var (
-	errVersion    = errors.New("unsupported manifest version")
-	errDuplicate  = errors.New("duplicate")
-	errReference  = errors.New("unknown reference")
-	errCycle      = errors.New("dependency cycle")
-	errImage      = errors.New("image must name exactly one of research, thirdParty or core")
-	errMount      = errors.New("bad mount")
-	errGroup      = errors.New("bad group")
+	errVersion   = errors.New("unsupported manifest version")
+	errDuplicate = errors.New("duplicate")
+	errReference = errors.New("unknown reference")
+	errCycle     = errors.New("dependency cycle")
+	errImage     = errors.New("image must name exactly one of research, thirdParty or core")
+	errMount     = errors.New("bad mount")
+	errGroup     = errors.New("bad group")
 )
 
 // check verifies what the JSON Schema cannot express: that names are unique and every reference resolves, that the
@@ -28,12 +28,9 @@ func (m *Manifest) check() error {
 	if err := m.checkGroups(); err != nil {
 		return err
 	}
-	volumes := map[string]bool{}
-	for _, v := range m.Volumes {
-		if volumes[v.Name] {
-			return fmt.Errorf("%w volume %q", errDuplicate, v.Name)
-		}
-		volumes[v.Name] = true
+	volumes, err := m.volumeSet()
+	if err != nil {
+		return err
 	}
 	byName := map[string]Component{}
 	for _, c := range m.Components {
@@ -42,32 +39,58 @@ func (m *Manifest) check() error {
 		}
 		byName[c.Name] = c
 	}
-	routes := map[string]string{}
 	for _, c := range m.Components {
 		if err := m.checkComponent(c, byName, volumes); err != nil {
 			return fmt.Errorf("component %q: %w", c.Name, err)
-		}
-		for _, r := range c.Routes {
-			key := r.Host + r.Prefix
-			if other, dup := routes[key]; dup {
-				return fmt.Errorf("%w route %s%s (%s and %s)", errDuplicate, r.Host, r.Prefix, other, c.Name)
-			}
-			routes[key] = c.Name
 		}
 	}
 	if err := checkCycles(m.Components, byName); err != nil {
 		return err
 	}
+	if err := m.checkRoutes(); err != nil {
+		return err
+	}
+	if pg, ok := byName[m.Postgres.Component]; !ok || pg.Group != "" {
+		return fmt.Errorf("%w: postgres.component %q is not an always-on component", errReference, m.Postgres.Component)
+	}
+	return nil
+}
+
+func (m *Manifest) volumeSet() (map[string]bool, error) {
+	volumes := map[string]bool{}
+	for _, v := range m.Volumes {
+		if volumes[v.Name] {
+			return nil, fmt.Errorf("%w volume %q", errDuplicate, v.Name)
+		}
+		volumes[v.Name] = true
+	}
+	return volumes, nil
+}
+
+// checkRoutes refuses two routes, of components or to the host, on one host and prefix.
+func (m *Manifest) checkRoutes() error {
+	owners := map[string]string{}
+	claim := func(host, prefix, owner string) error {
+		if other, dup := owners[host+prefix]; dup {
+			return fmt.Errorf("%w route %s%s (%s and %s)", errDuplicate, host, prefix, other, owner)
+		}
+		owners[host+prefix] = owner
+		return nil
+	}
+	for _, c := range m.Components {
+		for _, r := range c.Routes {
+			if err := claim(r.Host, r.Prefix, c.Name); err != nil {
+				return err
+			}
+		}
+	}
 	for _, r := range m.FrontDoor.HostRoutes {
-		if other, dup := routes[r.Host+r.Prefix]; dup {
-			return fmt.Errorf("%w route %s%s (%s and %s)", errDuplicate, r.Host, r.Prefix, other, r.Name)
+		if err := claim(r.Host, r.Prefix, r.Name); err != nil {
+			return err
 		}
 		if err := checkPlaceholders(m, r.Host); err != nil {
 			return fmt.Errorf("host route %q: %w", r.Name, err)
 		}
-	}
-	if pg, ok := byName[m.Postgres.Component]; !ok || pg.Group != "" {
-		return fmt.Errorf("%w: postgres.component %q is not an always-on component", errReference, m.Postgres.Component)
 	}
 	return nil
 }

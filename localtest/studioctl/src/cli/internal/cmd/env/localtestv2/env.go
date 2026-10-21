@@ -197,9 +197,7 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	e.out.Println("Deleting persisted localtest-v2 data...")
-	for _, volume := range []string{
-		volumePostgresData, volumeStorageBlobs, volumePolicyStore, volumeLocaltestData, volumeCorrespondenceBlobs,
-	} {
+	for _, volume := range stack().VolumeNames() {
 		if err := e.client.VolumeRemove(
 			ctx,
 			volume,
@@ -221,8 +219,8 @@ func (e *Env) Logs(ctx context.Context, opts envtypes.LogsOptions) error {
 	}
 	streamer := envlocaltest.NewLogStreamer(e.client, e.out, containerNames(current))
 	component := opts.Component
-	if component != "" && !strings.HasPrefix(component, containerPrefix) {
-		component = containerPrefix + component
+	if component != "" && !strings.HasPrefix(component, stack().ContainerPrefix) {
+		component = containerOf(component)
 	}
 	if err := streamer.Stream(ctx, component, opts.Follow, opts.JSON); err != nil {
 		return fmt.Errorf("stream logs: %w", err)
@@ -348,7 +346,7 @@ func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
 	opts.RuntimeUser, opts.UsernsMode, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
 	if upOpts.LatestImages {
-		opts.Images.LocaltestV2.UseTag("latest")
+		opts.Images.LocaltestV2 = opts.Images.LocaltestV2.WithTag("latest")
 	}
 	groups, err := ResolveGroups(upOpts.With, upOpts.Without)
 	if err != nil {

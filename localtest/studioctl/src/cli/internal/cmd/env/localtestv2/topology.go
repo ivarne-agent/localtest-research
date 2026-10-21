@@ -1,9 +1,10 @@
 package localtestv2
 
-import "altinn.studio/studioctl/internal/envtopology"
+import (
+	"strconv"
 
-// frontendDevServerComponent is the route for `studioctl run --dev-frontend`: the Vite dev server on the host.
-const frontendDevServerComponent = "frontendDevServer"
+	"altinn.studio/studioctl/internal/envtopology"
+)
 
 // boundTopologyConfig is what studioctl-server proxies: every component route points at the component's
 // loopback-published port, and the server adds /{org}/{app} for each app it discovers. The prefixes are
@@ -20,15 +21,11 @@ func boundTopologyConfig(opts *Options) envtopology.BoundTopologyConfig {
 			routes = append(routes, hostRoute(c.name, r.host, r.prefix, c.hostURL(), r.rewrite, c.group, enabled))
 		}
 	}
-	routes = append(routes, hostRoute(
-		frontendDevServerComponent,
-		opts.Topology.FrontendDevServerHostName(),
-		"",
-		"http://"+loopback+":"+frontendDevServerHostPort,
-		"",
-		"",
-		true,
-	))
+	// The front door's routes to ports on the host itself, such as the Vite dev server of `studioctl run --dev-frontend`.
+	for _, r := range stack().FrontDoor.HostRoutes {
+		url := "http://" + loopback + ":" + strconv.Itoa(r.HostPort)
+		routes = append(routes, hostRoute(r.Name, expandTopology(opts, r.Host), r.Prefix, url, "", "", true))
+	}
 
 	return envtopology.BoundTopologyConfig{
 		AppRouteTemplate: envtopology.BoundTopologyAppRouteTemplate{

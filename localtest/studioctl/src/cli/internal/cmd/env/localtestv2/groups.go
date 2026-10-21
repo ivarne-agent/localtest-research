@@ -8,22 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	// groupDialogporten is Dialogporten: Redis, the WebApi, GraphQL and Service hosts, and the adapter that turns
-	// Storage's instances into dialogs. Apps never call Dialogporten, so the default stack leaves it out and saves
-	// about 0.75 GB of memory (about 0.5 GB for the hosts and Redis, 0.26 GB for the adapter).
-	groupDialogporten = "dialogporten"
-	// groupReceipt is the platform receipt for archived instances (`/receipt/{partyId}/{instanceGuid}`).
-	groupReceipt = "receipt"
-	// groupCorrespondence is Correspondence, which cannot run without Dialogporten (its publish needs a dialog).
-	groupCorrespondence = "correspondence"
-	// groupArbeidsflate is Arbeidsflate, the Altinn inbox (the SPA's nginx and the BFF): it shows Dialogporten's dialogs,
-	// which come from the adapter (apps' instances) as well as from Correspondence, so it implies Dialogporten only.
-	groupArbeidsflate = "arbeidsflate"
-	// groupEverything owns no components and implies every other group.
-	groupEverything = "everything"
-)
-
 var (
 	errUnknownGroup        = errors.New("unknown component group")
 	errImpliedGroupRemoved = errors.New("component group left out although an enabled group needs it")
@@ -36,15 +20,13 @@ type group struct {
 	onByDefault bool
 }
 
-// groupTable is the one place every optional group, its default and its implied groups are defined.
+// groupTable is every optional group, its default and the groups it implies directly, from the component manifest.
 func groupTable() map[string]group {
-	table := map[string]group{
-		groupDialogporten:   {implies: nil, onByDefault: false},
-		groupReceipt:        {implies: nil, onByDefault: false},
-		groupCorrespondence: {implies: []string{groupDialogporten}, onByDefault: false},
-		groupArbeidsflate:   {implies: []string{groupDialogporten}, onByDefault: false},
+	m := stack()
+	table := make(map[string]group, len(m.Groups))
+	for name, g := range m.Groups {
+		table[name] = group{implies: m.Implies(name), onByDefault: g.OnByDefault}
 	}
-	table[groupEverything] = group{implies: slices.Sorted(maps.Keys(table)), onByDefault: false}
 	return table
 }
 
@@ -83,7 +65,7 @@ func ResolveGroups(with, without []string) ([]string, error) {
 		if !requested[name] {
 			continue
 		}
-		for _, implied := range slices.Sorted(maps.Keys(closure(table, name))) {
+		for _, implied := range slices.Sorted(maps.Keys(stack().Closure(name))) {
 			enabled[implied] = true
 			if slices.Contains(without, implied) {
 				return nil, fmt.Errorf(
@@ -94,22 +76,6 @@ func ResolveGroups(with, without []string) ([]string, error) {
 		}
 	}
 	return slices.Sorted(maps.Keys(enabled)), nil
-}
-
-// closure is the group and every group it implies, transitively.
-func closure(table map[string]group, name string) map[string]bool {
-	seen := map[string]bool{}
-	pending := []string{name}
-	for len(pending) > 0 {
-		next := pending[0]
-		pending = pending[1:]
-		if seen[next] {
-			continue
-		}
-		seen[next] = true
-		pending = append(pending, table[next].implies...)
-	}
-	return seen
 }
 
 // groupSet is the Options form of a list of enabled groups.

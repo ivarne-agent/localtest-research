@@ -628,7 +628,8 @@ func TestProfileIsInTheDefaultStackAndOwnsTheProfileRoute(t *testing.T) {
 	if profile.group != "" || profile.hostPort != hostPortProfile || profile.containerPort != "5030" || profile.healthPath != healthPath {
 		t.Errorf("profile = group %q, ports %s:%s, health %q", profile.group, profile.hostPort, profile.containerPort, profile.healthPath)
 	}
-	if profile.devContext != "components/profile" || profile.image.Image != config.DefaultImages().LocaltestV2.Profile.Image {
+	profileImage, _ := config.DefaultImages().LocaltestV2.Image(componentProfile)
+	if profile.devContext != "components/profile" || profile.image.Image != profileImage.Image {
 		t.Errorf("profile image %v, dev context %q", profile.image, profile.devContext)
 	}
 	if got := profile.env[certSettingEnv]; got != certContainerPath {

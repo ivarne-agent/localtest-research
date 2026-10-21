@@ -43,6 +43,24 @@ func SchemaJSON() []byte {
 	return bytes.Clone(schemaJSON)
 }
 
+// Manifest is the parsed manifest. Field documentation is in manifest.schema.json.
+type Manifest struct {
+	Schema          string           `json:"$schema"`
+	Groups          map[string]Group `json:"groups"`
+	Images          Images           `json:"images"`
+	ContainerPrefix string           `json:"containerPrefix"`
+	Network         string           `json:"network"`
+	Certificate     Certificate      `json:"certificate"`
+	FrontDoor       FrontDoor        `json:"frontDoor"`
+	Postgres        Postgres         `json:"postgres"`
+	Volumes         []Volume         `json:"volumes"`
+	Components      []Component      `json:"components"`
+	Version         int              `json:"version"`
+}
+
+// loadDefault parses the embedded manifest on first use; the runtime asks for it many times per command.
+//
+//nolint:gochecknoglobals // A parse-once cache of embedded, immutable data.
 var loadDefault = sync.OnceValues(func() (*Manifest, error) {
 	return Parse(manifestJSON)
 })
@@ -60,21 +78,6 @@ func MustDefault() *Manifest {
 		panic(err)
 	}
 	return m
-}
-
-// Manifest is the parsed manifest. Field documentation is in manifest.schema.json.
-type Manifest struct {
-	Schema          string           `json:"$schema"`
-	Groups          map[string]Group `json:"groups"`
-	Images          Images           `json:"images"`
-	ContainerPrefix string           `json:"containerPrefix"`
-	Network         string           `json:"network"`
-	Certificate     Certificate      `json:"certificate"`
-	FrontDoor       FrontDoor        `json:"frontDoor"`
-	Postgres        Postgres         `json:"postgres"`
-	Volumes         []Volume         `json:"volumes"`
-	Components      []Component      `json:"components"`
-	Version         int              `json:"version"`
 }
 
 // Certificate is the shared test certificate.
@@ -282,7 +285,8 @@ func (m *Manifest) Component(name string) (Component, bool) {
 			return c, true
 		}
 	}
-	return Component{}, false
+	var zero Component
+	return zero, false
 }
 
 // GroupNames lists the groups, sorted.

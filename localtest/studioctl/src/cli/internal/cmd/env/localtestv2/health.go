@@ -37,7 +37,7 @@ func healthTargets(opts *Options) []healthTarget {
 	}
 	targets = append(targets, healthTarget{
 		name: "proxy",
-		url:  opts.Topology.LocaltestURL() + "/Home/Localtest/Version",
+		url:  opts.Topology.LocaltestURL() + stack().FrontDoor.HealthPath,
 	})
 	return targets
 }

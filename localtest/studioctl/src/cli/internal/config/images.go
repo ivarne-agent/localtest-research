@@ -59,12 +59,25 @@ type CoreImages struct {
 	PgAdmin          ImageSpec
 }
 
+// ByName returns a core image the localtest-v2 component manifest names (its images.core keys): the PDF generator and
+// the workflow engine, which both runtimes run.
+func (c CoreImages) ByName(name string) (ImageSpec, bool) {
+	switch name {
+	case "pdf3":
+		return c.PDF3, true
+	case "workflow-engine":
+		return c.WorkflowEngine, true
+	default:
+		return ImageSpec{Image: "", Tag: "", Floating: false}, false
+	}
+}
+
 // LocaltestV2Images holds the images of the localtest-v2 runtime by image name, as the component manifest
 // (internal/localtestv2/manifest) lists them: the research builds, one per component plus the localtest app and the
 // shared Postgres, pinned to the manifest's tag, and the third-party images (Redis), pinned by digest. The PDF
 // generator and the workflow engine are the ones the localtest runtime runs (CoreImages).
 //
-// The specs are shared between copies of the value until UseTag, which copies them first.
+// Copies of the value share the specs; WithTag returns a value with its own.
 type LocaltestV2Images struct {
 	specs    map[string]ImageSpec
 	research []string
@@ -86,16 +99,17 @@ func (i LocaltestV2Images) ResearchNames() []string {
 	return slices.Clone(i.research)
 }
 
-// UseTag runs every research image at one tag. "latest" moves with main, so it is re-pulled on every start; any other
-// tag names one build. Third-party images keep their pins.
-func (i *LocaltestV2Images) UseTag(tag string) {
-	i.specs = maps.Clone(i.specs)
+// WithTag returns the images with every research image at one tag. "latest" moves with main, so it is re-pulled on
+// every start; any other tag names one build. Third-party images keep their pins.
+func (i LocaltestV2Images) WithTag(tag string) LocaltestV2Images {
+	specs := maps.Clone(i.specs)
 	for _, name := range i.research {
-		spec := i.specs[name]
+		spec := specs[name]
 		spec.Tag = tag
 		spec.Floating = tag == tagLatest
-		i.specs[name] = spec
+		specs[name] = spec
 	}
+	return LocaltestV2Images{specs: specs, research: i.research}
 }
 
 // EnvLocaltestV2Tag is the variable that overrides the tag every localtest-v2 research image runs ("latest" follows
@@ -158,7 +172,7 @@ func DefaultImages() ImagesConfig {
 		LocaltestV2: defaultLocaltestV2Images(manifest.MustDefault()),
 	}
 	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag())); tag != "" {
-		images.LocaltestV2.UseTag(tag)
+		images.LocaltestV2 = images.LocaltestV2.WithTag(tag)
 	}
 	images.applyEnvOverrides(os.Getenv)
 	return images

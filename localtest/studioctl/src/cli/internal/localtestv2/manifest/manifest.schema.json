@@ -474,7 +474,7 @@
           "description": "The container's environment. Values may hold placeholders; single braces ({0}, {Org}) are the components' own and pass through unchanged.",
           "type": "object",
           "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": { "type": "string", "title": "Value", "description": "The variable's value, with placeholders resolved by the loader." }
         },
         "command": {
           "title": "Command",

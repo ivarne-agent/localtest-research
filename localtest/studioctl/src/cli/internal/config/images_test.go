@@ -11,6 +11,9 @@ import (
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
+// tagLatest is the tag that follows every build on main.
+const tagLatest = "latest"
+
 func TestDefaultImages(t *testing.T) {
 	t.Parallel()
 
@@ -146,22 +149,20 @@ func TestLocaltestV2ImagesArePinnedUnlessTold(t *testing.T) {
 	t.Parallel()
 	images := config.DefaultImages()
 	for _, name := range images.LocaltestV2.ResearchNames() {
-		if spec := localtestV2Image(t, images.LocaltestV2, name); spec.Floating || spec.Tag == "latest" {
+		if spec := localtestV2Image(t, images.LocaltestV2, name); spec.Floating || spec.Tag == tagLatest {
 			t.Errorf("%s: pinned by default, got tag %q floating %v", spec.Image, spec.Tag, spec.Floating)
 		}
 	}
-	latest := images.LocaltestV2
-	latest.UseTag("latest")
+	latest := images.LocaltestV2.WithTag(tagLatest)
 	for _, name := range latest.ResearchNames() {
-		if spec := localtestV2Image(t, latest, name); !spec.Floating || spec.Tag != "latest" {
+		if spec := localtestV2Image(t, latest, name); !spec.Floating || spec.Tag != tagLatest {
 			t.Errorf("%s: latest must float, got tag %q floating %v", spec.Image, spec.Tag, spec.Floating)
 		}
 	}
 	if localtestV2Image(t, images.LocaltestV2, "storage").Floating {
-		t.Error("UseTag changed the configuration it was copied from")
+		t.Error("WithTag changed the configuration it was called on")
 	}
-	named := images.LocaltestV2
-	named.UseTag("sha-abc1234")
+	named := images.LocaltestV2.WithTag("sha-abc1234")
 	if spec := localtestV2Image(t, named, "storage"); spec.Floating || spec.Tag != "sha-abc1234" {
 		t.Errorf("a named build does not float: %+v", spec)
 	}
@@ -199,7 +200,10 @@ func TestLocaltestV2ImagesAreThoseOfTheHandWrittenTable(t *testing.T) {
 		"arbeidsflate-bff":     "STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE_BFF",
 	}
 	images := config.DefaultImages().LocaltestV2
-	if got := images.ResearchNames(); !slices.Equal(slices.Sorted(slices.Values(got)), slices.Sorted(slices.Values(research))) {
+	if got := images.ResearchNames(); !slices.Equal(
+		slices.Sorted(slices.Values(got)),
+		slices.Sorted(slices.Values(research)),
+	) {
 		t.Errorf("research images = %v, want %v", got, research)
 	}
 	tag := manifest.MustDefault().Images.Tag
@@ -236,7 +240,7 @@ func TestRedisStaysPinnedWhenTheResearchTagMoves(t *testing.T) {
 	if slices.Contains(images.ResearchNames(), "redis") {
 		t.Error("Redis is a third-party image: a research build tag does not apply to it")
 	}
-	images.UseTag("latest")
+	images = images.WithTag(tagLatest)
 	if redis := localtestV2Image(t, images, "redis"); redis.Floating || !strings.Contains(redis.Tag, "@sha256:") {
 		t.Errorf("Redis must stay pinned by digest, got %s:%s floating %v", redis.Image, redis.Tag, redis.Floating)
 	}
@@ -256,16 +260,20 @@ func TestLocaltestV2ImagesCanBeOverriddenOneByOne(t *testing.T) {
 	if redis := localtestV2Image(t, images, "redis"); redis.Ref() != "localhost:5000/redis:7" {
 		t.Errorf("redis override = %s", redis.Ref())
 	}
-	if storage := localtestV2Image(t, images, "storage"); storage.Image != "ghcr.io/ivarne-agent/localtest-research/localtest-storage" {
+	if storage := localtestV2Image(
+		t,
+		images,
+		"storage",
+	); storage.Image != "ghcr.io/ivarne-agent/localtest-research/localtest-storage" {
 		t.Errorf("storage = %s, want the research build", storage.Image)
 	}
 }
 
 func TestTheTagVariableRunsEveryResearchImageAtOneTag(t *testing.T) {
-	t.Setenv("STUDIOCTL_LOCALTEST_V2_TAG", "latest")
+	t.Setenv("STUDIOCTL_LOCALTEST_V2_TAG", tagLatest)
 	t.Setenv("STUDIOCTL_IMAGE_LOCALTEST_V2_STORAGE", "localhost/storage:mine")
 	images := config.DefaultImages().LocaltestV2
-	if spec := localtestV2Image(t, images, "register"); spec.Tag != "latest" || !spec.Floating {
+	if spec := localtestV2Image(t, images, "register"); spec.Tag != tagLatest || !spec.Floating {
 		t.Errorf("register = %+v, want latest and floating", spec)
 	}
 	if spec := localtestV2Image(t, images, "storage"); spec.Ref() != "localhost/storage:mine" || spec.Floating {
@@ -277,7 +285,13 @@ func TestTheManifestMirrorsTheCoreImages(t *testing.T) {
 	t.Parallel()
 	core := config.DefaultImages().Core
 	mirrored := manifest.MustDefault().Images.Core
+	if len(mirrored) != 2 {
+		t.Errorf("manifest images.core = %v, want pdf3 and workflow-engine", slices.Sorted(maps.Keys(mirrored)))
+	}
 	for name, spec := range map[string]config.ImageSpec{"pdf3": core.PDF3, "workflow-engine": core.WorkflowEngine} {
+		if byName, ok := core.ByName(name); !ok || byName != spec {
+			t.Errorf("CoreImages.ByName(%q) = %+v, %v", name, byName, ok)
+		}
 		m := mirrored[name]
 		if m.Repository != spec.Image || m.Tag != spec.Tag || m.Floating != spec.Floating {
 			t.Errorf("manifest images.core.%s = %s:%s floating %v, want %s:%s floating %v",
