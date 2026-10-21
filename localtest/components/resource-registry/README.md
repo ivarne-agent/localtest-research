@@ -101,6 +101,8 @@ brings the developer exception page and Swagger (`/swagger`).
 
 ## Verified (2026-10-20)
 
+2026-10-21 (task 14): `smoke-test.sh` 43 of 43, including the 2 checks of the seeded `altinn-profil-api-varslingsdaresser-for-virksomheter`, whose policy the PDP applied to Profile's organisation address endpoints (read as DAGL at level 3, 403 without a role).
+
 - Yuniql ran all ten migrations on Postgres 18.3 against an empty volume with the init script baked into the `--dev`
   Postgres image (the volume was reset, `env reset`, so the script ran as the image's init step), and the host
   started healthy on the first start. Running the script by hand against the running database changes nothing.

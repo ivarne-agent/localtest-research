@@ -69,6 +69,8 @@ wants a raw Maskinporten token with `krr:global/kontaktinformasjon.read`; nothin
 
 ## Verified (schema v3)
 
+Task 14 (2026-10-21, with production Profile on `/profile`): `smoke-test.sh` through the proxy 14 of 14.
+
 Before task 14 (the Profile checks were still here), 2026-10-21, on main 902ddfc with this branch on top, `studioctl env up -r localtest-v2 --dev register` (the other
 components from the pinned `sha-3c9b03f` images; Notifications unchanged): `smoke-test.sh` 27 of 27; Notifications'
 smoke test 64 of 64 with person, reserved-person and organisation recipients resolved here; the platform regression 44 of
