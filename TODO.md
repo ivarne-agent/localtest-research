@@ -630,8 +630,9 @@ the documented fallback if the tunnel fails under Podman (reported). The package
 `localtest/aspire/Altinn.App.Aspire/` (owner, 2026-10-22), outside the vendored studioctl tree, so it is this
 repository's own and not part of the studioctl upstream patch; it embeds the manifest from the Go tree by relative
 path (`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`, single copy) and references the
-provisioning library by project across the trees; the NuGet has to carry the provisioning assembly (packed in, or a
-second package), decided in the 21e brief.
+provisioning library's sources by relative `<Compile Include>` (as studioctl-server includes Runtime.Common), so the
+NuGet is one assembly with no unpublished dependency (owner, 2026-10-22); the C# manifest reader lives in the package
+and its test compares against the Go golden file by relative path.
 
 ## 22. app-lib honours an explicit localtest environment
 
