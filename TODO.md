@@ -52,6 +52,7 @@ A path matching no route still falls through to the localtest app.
 | 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin sha-902ddfc, proven 2026-10-21) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
+| 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | in progress (2026-10-21, four Opus agents, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans`) | small each | no |
 
 Suggested order (stack, one at a time): 7b (running); 8 when decided (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
@@ -505,4 +506,17 @@ Notifications rejects `+4787654321` and the seed would still never receive an SM
 uses the old digits. Open for phase 2: mirror `reserved` into `isReserved` of `users/contactpoint/lookup`
 (production does). 7 must rebase onto this: its KRR stand-in answers `JA` for reserved persons, its
 `correspondence/organizations/notificationaddresses/lookup` calls the official addresses, its smoke expectations change.
+
+## 19. Documentation bookkeeping
+
+**Goal (2026-10-21).** Every README, review and plan states only what is true of the current behaviour: ports, routes,
+groups, which component serves what, smoke-test counts, known gaps, pins, "not yet" and "pending" remarks. Historical
+sections stay, dated, as history. Four agents by folder: the root and shared docs (`README.md`, `localtest/README.md`,
+`localtest/localtest/`, `localtest/testdata/`, `localtest/studioctl/`, `localtest/postgres/`, `localtest/certs/`,
+`localtest/smoke/`), the components of the default stack from before Dialogporten (register, authentication,
+authorization, access-management, storage, events, workflow-engine, shared, `localtest/reviews/`), the newer
+components (notifications, resource-registry, dialogporten, dialogporten-adapter, receipt, profile; correspondence is
+left to task 7b), and `planned-components/` (status headers saying what was implemented and which statements are
+superseded, never rewriting the research). Agents report what they could not verify and anything stale in `TODO.md`,
+which only the coordinator edits.
 
