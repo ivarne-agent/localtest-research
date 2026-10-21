@@ -1,0 +1,261 @@
+﻿using Altinn.Profile.Core.AddressVerifications;
+using Altinn.Profile.Core.Integrations;
+using Altinn.Profile.Core.User;
+
+using Microsoft.Extensions.Options;
+
+namespace Altinn.Profile.Core.ProfessionalNotificationAddresses
+{
+    /// <summary>
+    /// Service for handling professional notification addresses.
+    /// </summary>
+    public class ProfessionalNotificationsService(
+        IProfessionalNotificationsRepository professionalNotificationsRepository,
+        IUserProfileService userProfileService,
+        IRegisterClient registerClient,
+        IOptions<AddressMaintenanceSettings> addressMaintenanceSettings,
+        IAddressVerificationService addressVerificationService) : IProfessionalNotificationsService
+    {
+        private readonly IProfessionalNotificationsRepository _professionalNotificationsRepository = professionalNotificationsRepository;
+        private readonly IUserProfileService _userProfileService = userProfileService;
+        private readonly IRegisterClient _registerClient = registerClient;
+        private readonly AddressMaintenanceSettings _addressMaintenanceSettings = addressMaintenanceSettings.Value;
+        private readonly IAddressVerificationService _addressVerificationService = addressVerificationService;
+
+        /// <inheritdoc/>
+        public async Task<ExtendedUserPartyContactInfo?> GetNotificationAddressAsync(int userId, Guid partyUuid, CancellationToken cancellationToken)
+        {
+            var notificationSettings = await _professionalNotificationsRepository.GetNotificationAddressAsync(userId, partyUuid, cancellationToken);
+            if (notificationSettings == null)
+            {
+                return null;
+            }
+
+            var (emailVerificationStatus, smsVerificationStatus) = await _addressVerificationService.GetVerificationStatusAsync(notificationSettings.UserId, notificationSettings.EmailAddress, notificationSettings.PhoneNumber, cancellationToken);
+            var ignoreUnitProfileDateTime = await _userProfileService.GetIgnoreUnitProfileDateTime(userId, cancellationToken);
+
+            var needsConfirmation = NeedsConfirmation(notificationSettings, ignoreUnitProfileDateTime);
+            var extendedInfo = new ExtendedUserPartyContactInfo(
+                    notificationSettings,
+                    needsConfirmation,
+                    emailVerificationStatus,
+                    smsVerificationStatus);
+
+            return extendedInfo;
+        }
+
+        /// <inheritdoc/>
+        public async Task<ExtendedUserPartyContactInfo?> GetNotificationAddressByOrgNumberAsync(int userId, string orgNumber, CancellationToken cancellationToken)
+        {
+            var parties = await _registerClient.GetPartyUuids([orgNumber], cancellationToken);
+
+            if (parties == null || parties.Count == 0)
+            {
+                return null;
+            }
+
+            if (parties.Count > 1)
+            {
+                throw new InvalidOperationException("Indecisive organization result");
+            }
+
+            var partyUuid = parties[0].PartyUuid;
+
+            return await GetNotificationAddressAsync(userId, partyUuid, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<ExtendedUserPartyContactInfo>> GetAllNotificationAddressesAsync(int userId, CancellationToken cancellationToken)
+        {
+            var ignoreUnitProfileDateTime = await _userProfileService.GetIgnoreUnitProfileDateTime(userId, cancellationToken);
+
+            var notificationSettings = await _professionalNotificationsRepository.GetAllNotificationAddressesForUserAsync(userId, cancellationToken);
+
+            List<ExtendedUserPartyContactInfo> enrichedNotificationSettings = [];
+
+            foreach (var notificationSetting in notificationSettings)
+            {
+                var needsConfirmation = NeedsConfirmation(notificationSetting, ignoreUnitProfileDateTime);
+                var (emailVerificationStatus, smsVerificationStatus) = await _addressVerificationService.GetVerificationStatusAsync(notificationSetting.UserId, notificationSetting.EmailAddress, notificationSetting.PhoneNumber, cancellationToken);
+                enrichedNotificationSettings.Add(new ExtendedUserPartyContactInfo(
+                    notificationSetting,
+                    needsConfirmation,
+                    emailVerificationStatus,
+                    smsVerificationStatus));
+            }
+
+            return enrichedNotificationSettings;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> AddOrUpdateNotificationAddressAsync(UserPartyContactInfo contactInfo, CancellationToken cancellationToken)
+        {
+            var isAdded = await _professionalNotificationsRepository.AddOrUpdateNotificationAddressAsync(contactInfo, cancellationToken);
+
+            return isAdded;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> AddOrUpdateNotificationAddressAsync(PatchUserPartyContactInfo contactInfo, CancellationToken cancellationToken)
+        {
+            var existingContactInfo = await _professionalNotificationsRepository.GetNotificationAddressAsync(contactInfo.UserId, contactInfo.PartyUuid, cancellationToken);
+
+            var updatedContactInfo = new UserPartyContactInfo
+            {
+                UserId = contactInfo.UserId,
+                PartyUuid = contactInfo.PartyUuid,
+                EmailAddress = contactInfo.EmailAddress.HasValue ? contactInfo.EmailAddress.Value : existingContactInfo?.EmailAddress,
+                PhoneNumber = contactInfo.PhoneNumber.HasValue ? contactInfo.PhoneNumber.Value : existingContactInfo?.PhoneNumber,
+                UserPartyContactInfoResources = contactInfo.UserPartyContactInfoResources.HasValue ? contactInfo.UserPartyContactInfoResources.Value : existingContactInfo?.UserPartyContactInfoResources
+            };
+
+            var isAdded = await _professionalNotificationsRepository.AddOrUpdateNotificationAddressAsync(updatedContactInfo, cancellationToken);
+
+            return isAdded;
+        }
+
+        /// <inheritdoc/>
+        public Task<UserPartyContactInfo?> DeleteNotificationAddressAsync(int userId, Guid partyUuid, CancellationToken cancellationToken)
+        {
+            return _professionalNotificationsRepository.DeleteNotificationAddressAsync(userId, partyUuid, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<UserPartyContactInfoWithIdentity>?> GetContactInformationByOrganizationNumberAsync(string organizationNumber, CancellationToken cancellationToken)
+        {
+            // Step 1: Translate orgNumber to partyUuid
+            var parties = await _registerClient.GetPartyUuids([organizationNumber], cancellationToken);
+
+            if (parties == null || parties.Count == 0)
+            {
+                return [];
+            }
+
+            if (parties.Count > 1)
+            {
+                throw new InvalidOperationException("Indecisive organization result");
+            }
+
+            var partyUuid = parties[0].PartyUuid;
+
+            // Step 2: Get all user contact info for this party
+            var contactInfos = await _professionalNotificationsRepository
+                .GetAllNotificationAddressesForPartyAsync(partyUuid, cancellationToken) ?? [];
+
+            var results = new List<UserPartyContactInfoWithIdentity>();
+
+            // Sequential execution is acceptable here because:
+            // 1. This is a Support Dashboard endpoint (low traffic, not high-throughput)
+            // 2. Expected cardinality is small (typically few users per organization)
+            // 3. IUserProfileService.GetUser only supports individual lookups (no batch API for userId)
+            foreach (var contactInfo in contactInfos)
+            {
+                // Note: IUserProfileService.GetUser does not support cancellation token at this time
+                var userProfileResult = await _userProfileService.GetUser(contactInfo.UserId, cancellationToken);
+
+                userProfileResult.Match(
+                    profile =>
+                    {
+                        // Skip if Party data is missing or incomplete (consistent with FilterAndMapAddresses pattern)
+                        if (profile.Party == null || string.IsNullOrEmpty(profile.Party.Name))
+                        {
+                            return;
+                        }
+
+                        results.Add(new UserPartyContactInfoWithIdentity(contactInfo, profile.Party.Name, profile.Party.SSN, organizationNumber));
+                    },
+                    _ =>
+                    {
+                        // Failed to retrieve user profile - skip this user
+                    });
+            }
+
+            return results;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<UserPartyContactInfoWithIdentity>> GetContactInformationByEmailAddressAsync(string emailAddress, CancellationToken cancellationToken)
+        {
+            var listOfContactInfosForEmailAddress = await _professionalNotificationsRepository.GetAllContactInfoByEmailAddressAsync(emailAddress, cancellationToken) ?? new List<UserPartyContactInfo>();
+
+            if (listOfContactInfosForEmailAddress.Count == 0)
+            {
+                return [];
+            }
+
+            return await BuildContactInfosWithIdentityAsync(listOfContactInfosForEmailAddress, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<UserPartyContactInfoWithIdentity>> GetContactInformationByPhoneNumberAsync(string phoneNumber, string countryCode, CancellationToken cancellationToken)
+        {
+            var fullPhoneNumber = countryCode + phoneNumber;
+
+            var listOfContactInfosForPhoneNumber = await _professionalNotificationsRepository.GetAllContactInfoByPhoneNumberAsync(fullPhoneNumber, cancellationToken) ?? new List<UserPartyContactInfo>();
+
+            if (listOfContactInfosForPhoneNumber.Count == 0)
+            {
+                return [];
+            }
+
+            return await BuildContactInfosWithIdentityAsync(listOfContactInfosForPhoneNumber, cancellationToken);
+        }
+
+        /// <summary>
+        /// Build enriched contact info list by mapping repository contact infos to identity enriched objects.
+        /// </summary>
+        private async Task<List<UserPartyContactInfoWithIdentity>> BuildContactInfosWithIdentityAsync(IEnumerable<UserPartyContactInfo> contactInfos, CancellationToken cancellationToken)
+        {
+            var results = new List<UserPartyContactInfoWithIdentity>();
+
+            foreach (var contactInfo in contactInfos)
+            {
+                var orgNumber = await _registerClient.GetOrganizationNumberByPartyUuid(contactInfo.PartyUuid, cancellationToken);
+
+                // Note: IUserProfileService.GetUser does not support cancellation token at this time
+                var userProfileResult = await _userProfileService.GetUser(contactInfo.UserId, cancellationToken);
+
+                userProfileResult.Match(
+                    profile =>
+                    {
+                        // Skip if Party data is missing or incomplete 
+                        if (profile.Party == null || string.IsNullOrEmpty(profile.Party.Name))
+                        {
+                            return;
+                        }
+
+                        results.Add(new UserPartyContactInfoWithIdentity(contactInfo, profile.Party.Name, profile.Party.SSN, orgNumber));
+                    },
+                    _ =>
+                    {
+                        // Failed to retrieve user profile - skip this user
+                    });
+            }
+
+            return results;
+        }
+
+        private bool NeedsConfirmation(UserPartyContactInfo notificationAddress, DateTime? ignoreUnitProfileDateTime)
+        {
+            if (ignoreUnitProfileDateTime.HasValue)
+            {
+                TimeSpan daysSinceIgnore = (TimeSpan)(DateTime.UtcNow - ignoreUnitProfileDateTime);
+                if (daysSinceIgnore.TotalDays <= _addressMaintenanceSettings.IgnoreUnitProfileConfirmationDays)
+                {
+                    return false;
+                }
+            }
+
+            var lastModified = notificationAddress.LastChanged;
+
+            var daysSinceLastUserUnitProfileUpdate = (DateTime.UtcNow - lastModified).TotalDays;
+            if (daysSinceLastUserUnitProfileUpdate >= _addressMaintenanceSettings.ValidationReminderDays)
+            {
+                // Altinn2 checks if the user is the "innehaver" of an "ENK" type org unit. We do not have that info here,
+                return true;
+            }
+
+            return false;
+        }
+    }
+}

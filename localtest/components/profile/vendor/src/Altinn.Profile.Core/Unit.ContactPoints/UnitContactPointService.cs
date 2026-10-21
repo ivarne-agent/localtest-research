@@ -1,0 +1,95 @@
+﻿using Altinn.Profile.Core.Integrations;
+using Altinn.Profile.Core.ProfessionalNotificationAddresses;
+
+namespace Altinn.Profile.Core.Unit.ContactPoints
+{
+    /// <summary>
+    /// Implementation of the <see cref="IUnitContactPointsService"/> interface using an <see cref="IProfessionalNotificationsRepository"/> to retrieve profile data.
+    /// </summary>
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="UnitContactPointService"/> class.
+    /// </remarks>
+    public class UnitContactPointService(IProfessionalNotificationsRepository professionalNotificationsRepository, IRegisterClient registerClient) : IUnitContactPointsService
+    {
+        private readonly IProfessionalNotificationsRepository _professionalNotificationsRepository = professionalNotificationsRepository;
+        private readonly IRegisterClient _registerClient = registerClient;
+
+        /// <inheritdoc/>
+        public async Task<UnitContactPointsList> GetUserRegisteredContactPoints(
+            string[] orgNumbers, string resourceId, CancellationToken cancellationToken)
+        {
+            IEnumerable<string> organizationNumbers = orgNumbers.Where(
+                o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).Distinct();
+
+            if (!organizationNumbers.Any())
+            {
+                return new UnitContactPointsList { ContactPointsList = [] };
+            }
+            
+            IReadOnlyList<Party>? partyList = await _registerClient.GetPartyUuids(
+                [.. organizationNumbers], cancellationToken);
+
+            if (partyList == null)
+            {
+                throw new InvalidOperationException("Something went wrong when getting partyUuids from register");
+            }
+
+            var result = new UnitContactPointsList
+            {
+                ContactPointsList = []
+            };
+
+            if (partyList.Count == 0)
+            {
+                return result;
+            }
+
+            // Make sure the resourceId is simplified down to the resource ID by removing any urn:altinn:resource: prefix if it exists
+            resourceId = ResourceIdFormatter.GetSanitizedResourceId(resourceId);
+
+            foreach (var party in partyList)
+            {
+                var validContactPoints = await GetValidNotificationAddressesForParty(party.PartyUuid, resourceId, cancellationToken);
+                if (!validContactPoints.Any())
+                {
+                    continue;
+                }
+
+                result.ContactPointsList.Add(new UnitContactPoints
+                {
+                    OrganizationNumber = party.OrganizationIdentifier,
+                    PartyId = party.PartyId,
+                    UserContactPoints = [.. validContactPoints.Select(c => new UserRegisteredContactPoint { Email = c.EmailAddress, MobileNumber = c.PhoneNumber, UserId = c.UserId })],
+                });
+            }
+
+            return result;
+        }
+
+        private async Task<IEnumerable<UserPartyContactInfo>> GetValidNotificationAddressesForParty(Guid partyUuid, string resourceId, CancellationToken cancellationToken)
+        {
+            var contactPoints = await _professionalNotificationsRepository.GetAllNotificationAddressesForPartyAsync(partyUuid, cancellationToken);
+
+            var validContactPoints = contactPoints.Where(c => IsValidEndpoint(c, resourceId));
+
+            return validContactPoints;
+        }
+
+        private static bool IsValidEndpoint(UserPartyContactInfo contactInfo, string resourceId)
+        {
+            // This method is inverted compared to the one in SblBridge, and check for null/empty is moved to db query level
+            if (contactInfo.UserPartyContactInfoResources == null || contactInfo.UserPartyContactInfoResources.Count == 0)
+            {
+                return true;
+            }
+
+            // Check if any of the resourceIds match the resourceId of the request
+            if (contactInfo.UserPartyContactInfoResources.Any(x => x.ResourceId == resourceId))
+            {
+                return true;
+            }
+
+            return false;
+        }
+    }
+}

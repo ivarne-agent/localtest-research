@@ -1,0 +1,187 @@
+﻿using Altinn.Profile.Core.Integrations;
+using Altinn.Profile.Core.User.ProfileSettings;
+using Altinn.Profile.Models;
+using Altinn.Profile.Models.Enums;
+using Altinn.Register.Contracts;
+
+namespace Altinn.Profile.Core.User;
+
+/// <summary>
+/// Implementation of <see cref="IUserProfileService"/> that uses <see cref="IUserProfileClient"/> to fetch user profiles.
+/// </summary>
+public class UserProfileService : IUserProfileService
+{
+    private readonly IProfileSettingsRepository _profileSettingsRepository;
+    private readonly IPersonService _personRepository;
+    private readonly IRegisterClient _registerClient;
+    private readonly IUserContactInfoRepository _userContactInfoRepository;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UserProfileService"/> class.
+    /// </summary>
+    /// <param name="profileSettingsRepository">The profile settings repository available through DI</param>
+    /// <param name="personRepository">The person repository available through DI</param>
+    /// <param name="registerClient">The register client available through DI</param>
+    /// <param name="userContactInfoRepository">The user contact info repository available through DI</param>
+    public UserProfileService(IProfileSettingsRepository profileSettingsRepository, IPersonService personRepository, IRegisterClient registerClient, IUserContactInfoRepository userContactInfoRepository)
+    {
+        _profileSettingsRepository = profileSettingsRepository;
+        _personRepository = personRepository;
+        _registerClient = registerClient;
+        _userContactInfoRepository = userContactInfoRepository;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Result<UserProfile, bool>> GetUser(int userId, CancellationToken cancellationToken)
+    {
+        return await GetUserAndEnrich(
+            () => _registerClient.GetUserParty(userId, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Result<UserProfile, bool>> GetUser(string ssn, CancellationToken cancellationToken)
+    {
+        return await GetUserAndEnrich(
+            () => _registerClient.GetUserPartyBySsn(ssn, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Result<UserProfile, bool>> GetUserByUsername(string username, CancellationToken cancellationToken)
+    {
+        return await GetUserAndEnrich(
+            () => _registerClient.GetUserPartyByUsername(username, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Result<UserProfile, bool>> GetUserByUuid(Guid userUuid, CancellationToken cancellationToken)
+    {
+        return await GetUserAndEnrich(
+            () => _registerClient.GetUserParty(userUuid, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<string> GetPreferredLanguage(int userId, CancellationToken cancellationToken = default)
+    {
+        var profileSettings = await _profileSettingsRepository.GetProfileSettings(userId, cancellationToken);
+        return profileSettings?.LanguageType ?? LanguageType.NB;
+    }
+
+    /// <inheritdoc/>
+    public async Task<DateTime?> GetIgnoreUnitProfileDateTime(int userId, CancellationToken cancellationToken = default)
+    {
+        var profileSettings = await _profileSettingsRepository.GetProfileSettings(userId, cancellationToken);
+        return profileSettings?.IgnoreUnitProfileDateTime;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ProfileSettings.ProfileSettings> UpdateProfileSettings(ProfileSettings.ProfileSettings profileSettings, CancellationToken cancellationToken)
+    {
+        return await _profileSettingsRepository.UpdateProfileSettings(profileSettings, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ProfileSettings.ProfileSettings?> PatchProfileSettings(ProfileSettingsPatchModel profileSettings, CancellationToken cancellationToken)
+    {
+        return await _profileSettingsRepository.PatchProfileSettings(profileSettings, cancellationToken);
+    }
+
+    private async Task<Result<UserProfile, bool>> GetUserAndEnrich(
+       Func<Task<Party?>> getRegisterParty,
+       CancellationToken cancellationToken)
+    {
+        Party? registerParty;
+
+        try
+        {
+            registerParty = await getRegisterParty();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+        UserProfile? userProfile = UserProfileMapper.MapFromParty(registerParty);
+        if (userProfile is null)
+        {
+            return false;
+        }
+
+        userProfile = await EnrichWithProfileSettings(userProfile, cancellationToken);
+        userProfile = await EnrichWithKrrData(userProfile, cancellationToken);
+        userProfile = await EnrichWithSiUserContactSettings(userProfile, cancellationToken);
+
+        return userProfile;
+    }
+
+    private async Task<UserProfile> EnrichWithProfileSettings(UserProfile userProfile, CancellationToken cancellationToken)
+    {
+        ProfileSettings.ProfileSettings? profileSettings = await _profileSettingsRepository.GetProfileSettings(userProfile.UserId, cancellationToken);
+
+        // If there are no profile settings for the user, we initialize it with default values to ensure that the user profile always has valid profile settings.
+        profileSettings ??= ProfileSettings.ProfileSettings.GetDefaultValues();
+
+        userProfile.ProfileSettingPreference ??= new ProfileSettingPreference();
+        userProfile.ProfileSettingPreference.DoNotPromptForParty = profileSettings.DoNotPromptForParty;
+        userProfile.ProfileSettingPreference.Language = profileSettings.LanguageType;
+        userProfile.ProfileSettingPreference.PreselectedPartyUuid = profileSettings.PreselectedPartyUuid;
+        userProfile.ProfileSettingPreference.ShowClientUnits = profileSettings.ShowClientUnits;
+        userProfile.ProfileSettingPreference.ShouldShowSubEntities = profileSettings.ShouldShowSubEntities;
+        userProfile.ProfileSettingPreference.ShouldShowDeletedEntities = profileSettings.ShouldShowDeletedEntities;
+
+        if (userProfile.ProfileSettingPreference.PreselectedPartyUuid != null)
+        {
+            // If a preselected party UUID is provided, we need to fetch the corresponding party ID from the register to ensure data consistency.
+            int? partyId = await _registerClient.GetPartyId(userProfile.ProfileSettingPreference.PreselectedPartyUuid.Value, cancellationToken);
+            userProfile.ProfileSettingPreference.PreSelectedPartyId = partyId ?? 0;
+        }
+
+        return userProfile;
+    }
+
+    private async Task<UserProfile> EnrichWithKrrData(UserProfile userProfile, CancellationToken cancellationToken)
+    {
+        if (userProfile.Party == null || string.IsNullOrEmpty(userProfile.Party.SSN))
+        {
+            // If the user profile does not have a party or SSN, we cannot enrich it with KRR data, so we return the original user profile. 
+            // This is the case for self-identified users. 
+            return userProfile;
+        }
+
+        var contactPreferences = await _personRepository.GetContactPreferencesAsync([userProfile.Party.SSN], cancellationToken);
+        if (contactPreferences != null && contactPreferences.Count > 0)
+        {
+            userProfile.PhoneNumber = contactPreferences[0].MobileNumber;
+            userProfile.Email = contactPreferences[0].Email;
+            userProfile.IsReserved = contactPreferences[0].IsReserved;
+        }
+
+        return userProfile;
+    }
+
+    private async Task<UserProfile> EnrichWithSiUserContactSettings(UserProfile userProfile, CancellationToken cancellationToken)
+    {
+        if (userProfile.UserType is not UserType.SelfIdentified)
+        {
+            // If the user profile is not a self-identified user, we should not attempt to enrich it with SI contact info, as SI contact info is only relevant for self-identified users.
+            return userProfile;
+        }
+
+        var contactInfo = await _userContactInfoRepository.Get(userProfile.UserId, cancellationToken);
+        if (contactInfo != null)
+        {
+            userProfile.PhoneNumber = contactInfo.PhoneNumber;
+            userProfile.Email = contactInfo.EmailAddress;
+            userProfile.IsReserved = false; // SI users cannot be reserved, so we set this to false regardless of the value in the database.
+        }
+
+        return userProfile;
+    }
+}

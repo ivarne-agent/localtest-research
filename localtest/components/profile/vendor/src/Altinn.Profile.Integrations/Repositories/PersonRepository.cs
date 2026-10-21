@@ -1,0 +1,147 @@
+﻿#nullable enable
+
+using System.Collections.Immutable;
+
+using Altinn.Profile.Core.Integrations;
+using Altinn.Profile.Core.Person.ContactPreferences;
+using Altinn.Profile.Core.Telemetry;
+using Altinn.Profile.Integrations.ContactRegister;
+using Altinn.Profile.Integrations.ContactRegister.Models;
+using Altinn.Profile.Integrations.Entities;
+using Altinn.Profile.Integrations.Persistence;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Altinn.Profile.Integrations.Repositories;
+
+/// <summary>
+/// Defines a repository for handling person data operations.
+/// </summary>
+/// <seealso cref="IPersonUpdater" />
+/// <seealso cref="IPersonService" />
+/// <remarks>
+/// Initializes a new instance of the <see cref="PersonRepository"/> class.
+/// </remarks>
+/// <param name="contextFactory">The factory for creating database context instances.</param>
+/// <param name="telemetry">The application <see cref="Telemetry"/> instance.</param>
+public class PersonRepository(IDbContextFactory<ProfileDbContext> contextFactory, Telemetry? telemetry)
+    : IPersonUpdater, IPersonService
+{
+    private readonly IDbContextFactory<ProfileDbContext> _contextFactory = contextFactory;
+    private readonly Telemetry? _telemetry = telemetry;
+
+    /// <inheritdoc/>
+    public async Task<ImmutableList<PersonContactPreferences>> GetContactPreferencesAsync(
+        IEnumerable<string> nationalIdentityNumbers, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(nationalIdentityNumbers);
+
+        if (!nationalIdentityNumbers.Any())
+        {
+            return [];
+        }
+
+        using ProfileDbContext databaseContext = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<Person> people = await databaseContext.People.Where(e => nationalIdentityNumbers.Contains(e.FnumberAk)).ToListAsync(cancellationToken);
+
+        var asContactPreferences = people.Select(PersonContactPreferencesMapper.Map);
+        return asContactPreferences.ToImmutableList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<ImmutableList<PersonContactPreferences>> GetContactPreferencesByEmailAsync(
+        string emailAddress, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(emailAddress))
+        {
+            return [];
+        }
+
+        var emailAddressLower = emailAddress.ToLower();
+
+        using ProfileDbContext databaseContext = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<Person> people = await databaseContext.People.Where(e => e.EmailAddress.ToLower() == emailAddressLower).ToListAsync(cancellationToken);
+
+        var asContactPreferences = people.Select(PersonContactPreferencesMapper.Map);
+        return asContactPreferences.ToImmutableList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<ImmutableList<PersonContactPreferences>> GetContactPreferencesByPhoneNumberAsync(
+        string phoneNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return [];
+        }
+
+        using ProfileDbContext databaseContext = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<Person> people = await databaseContext.People
+            .Where(e => e.MobilePhoneNumber.Contains(phoneNumber))
+            .ToListAsync(cancellationToken);
+
+        var asContactPreferences = people.Select(PersonContactPreferencesMapper.Map);
+        return asContactPreferences.ToImmutableList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> SyncPersonContactPreferencesAsync(ContactRegisterChangesLog personContactPreferencesSnapshots)
+    {
+        ArgumentNullException.ThrowIfNull(personContactPreferencesSnapshots);
+        ArgumentNullException.ThrowIfNull(personContactPreferencesSnapshots.ContactPreferencesSnapshots);
+
+        ImmutableList<PersonContactPreferencesSnapshot> distinctContactPreferences =
+            GetDistinctContactPreferences(personContactPreferencesSnapshots.ContactPreferencesSnapshots);
+
+        using ProfileDbContext databaseContext = await _contextFactory.CreateDbContextAsync();
+
+        foreach (PersonContactPreferencesSnapshot contactPreferenceSnapshot in distinctContactPreferences)
+        {
+            Person person = PersonMapper.Map(contactPreferenceSnapshot);
+
+            Person? existingPerson = await databaseContext.People.FirstOrDefaultAsync(e => e.FnumberAk == person.FnumberAk);
+
+            if (existingPerson is null)
+            {
+                await databaseContext.People.AddAsync(person);
+                _telemetry?.PersonAdded();
+            }
+            else
+            {
+                existingPerson.Reservation = person.Reservation;
+                existingPerson.EmailAddress = person.EmailAddress;
+                existingPerson.EmailAddressLastUpdated = person.EmailAddressLastUpdated;
+                existingPerson.EmailAddressLastVerified = person.EmailAddressLastVerified;
+                existingPerson.MobilePhoneNumber = person.MobilePhoneNumber;
+                existingPerson.MobilePhoneNumberLastUpdated = person.MobilePhoneNumberLastUpdated;
+                existingPerson.MobilePhoneNumberLastVerified = person.MobilePhoneNumberLastVerified;
+                existingPerson.LanguageCode = person.LanguageCode;
+
+                databaseContext.People.Update(existingPerson);
+                _telemetry?.PersonUpdated();
+            }
+        }
+
+        return await databaseContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Finds distinct contact preferences by selecting the item with the largest values for the specified properties.
+    /// </summary>
+    /// <param name="contactPreferencesSnapshots">The collection of contact preferences snapshots.</param>
+    /// <returns>A list of distinct contact preferences.</returns>
+    private static ImmutableList<PersonContactPreferencesSnapshot> GetDistinctContactPreferences(IEnumerable<PersonContactPreferencesSnapshot> contactPreferencesSnapshots)
+    {
+        return contactPreferencesSnapshots.GroupBy(p => p.PersonIdentifier)
+                                          .Select(g => g.OrderByDescending(p => p.ContactDetailsSnapshot?.EmailLastUpdated)
+                                                        .ThenByDescending(p => p.ContactDetailsSnapshot?.MobileNumberLastUpdated)
+                                                        .ThenByDescending(p => p.ContactDetailsSnapshot?.EmailLastVerified)
+                                                        .ThenByDescending(p => p.ContactDetailsSnapshot?.MobileNumberLastVerified)
+                                                        .ThenByDescending(p => p.LanguageLastUpdated)
+                                                        .First())
+                                          .ToImmutableList();
+    }
+}

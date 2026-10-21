@@ -1,0 +1,84 @@
+﻿using Altinn.Profile.Core.AddressVerifications.Models;
+
+namespace Altinn.Profile.Core.AddressVerifications
+{
+    /// <summary>
+    /// Represents an implementation contract for a business service that can handle address verification,
+    /// including generating and sending verification codes, and managing verification state.
+    /// </summary>
+    public interface IAddressVerificationService
+    {
+        /// <summary>
+        /// Get verification status for the specified email address and phone number. If the email address or phone number is null or empty, the corresponding verification status will be returned as null.
+        /// </summary>
+        /// <param name="userId">The id of the user</param>
+        /// <param name="emailAddress">The email address to check the verification status for</param>
+        /// <param name="phoneNumber">The phone number to check the verification status for</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        Task<(VerificationType? EmailVerificationStatus, VerificationType? SmsVerificationStatus)> GetVerificationStatusAsync(int userId, string? emailAddress, string? phoneNumber, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Retrieves the verification status for an address if not null.
+        /// </summary>
+        /// <param name="userId">The id of the user</param>
+        /// <param name="addressType">If the address is for sms or email</param>
+        /// <param name="address">The address to check</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A Task containing the <see cref="VerificationType"/> or null if no address.</returns>
+        Task<VerificationType?> GetVerificationStatusAsync(int userId, AddressType addressType, string? address, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Checks if the address has been verified.
+        /// </summary>
+        /// <param name="userId">The id of the user</param>
+        /// <param name="addressType">If the address is for sms or email</param>
+        /// <param name="address">The address to check</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result is <c>true</c> if the address has been verified; otherwise, <c>false</c>.</returns>
+        Task<bool> IsAddressVerified(int userId, AddressType addressType, string address, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Generates a verification code, saves it to the database and sends it to the user via email or sms depending on the address type. The code is valid for 15 minutes.
+        /// Language resolution and notification delivery are delegated to <see cref="Integrations.IUserNotifier"/>.
+        /// </summary>
+        /// <param name="userid">The id of the user</param>
+        /// <param name="address">The address to verify</param>
+        /// <param name="addressType">The addresstype, sms or email</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        Task GenerateAndSendVerificationCodeAsync(int userid, string address, AddressType addressType, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets the verified addresses for a given user.
+        /// </summary>
+        /// <param name="userId">The ID of the user whose verified addresses are to be retrieved.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a list of verified addresses.</returns>
+        Task<List<VerifiedAddress>> GetVerifiedAddressesAsync(int userId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Submits a verification code for the given user and address. If the code is valid, the verification process completes, and the user's address becomes verified.
+        /// </summary>
+        /// <param name="userid">The id of the user</param>
+        /// <param name="address">The address to verify</param>
+        /// <param name="addressType">The addresstype, sms or email</param>
+        /// <param name="submittedCode">The verification code provided by the user</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result is <c>true</c> if the submitted code is valid and the address has been successfully verified; otherwise, <c>false</c>.</returns>
+        Task<bool> SubmitVerificationCodeAsync(int userid, string address, AddressType addressType, string submittedCode, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Starts the verification process and sends a verification code for/to the given user and address.
+        /// Also handles resend attempts by enforcing cooldown behavior.
+        /// </summary>
+        /// <param name="userId">The id of the user</param>
+        /// <param name="address">The address to verify</param>
+        /// <param name="addressType">The addresstype, sms or email</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>
+        /// A task that represents the asynchronous operation. The task result contains the send outcome,
+        /// the calculated cooldown value, and whether the notification provider accepted the send request.
+        /// </returns>
+        Task<SendVerificationCodeResult> SendVerificationCodeAsync(int userId, string address, AddressType addressType, CancellationToken cancellationToken);
+    }
+}

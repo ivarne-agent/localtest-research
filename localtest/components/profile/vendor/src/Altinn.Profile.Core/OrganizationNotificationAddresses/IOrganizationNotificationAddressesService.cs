@@ -1,0 +1,67 @@
+﻿namespace Altinn.Profile.Core.OrganizationNotificationAddresses;
+
+/// <summary>
+/// Defines a service which handles notification addresses for organizations
+/// </summary>
+public interface IOrganizationNotificationAddressesService
+{
+    /// <summary>
+    /// Method for creating a notification address for an organization.
+    /// </summary>
+    /// <param name="organizationNumber">An organization number to indicate which organization to add address for</param>
+    /// <param name="notificationAddress">The new notification address</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    Task<(NotificationAddress Address, bool IsNew)> CreateNotificationAddress(string organizationNumber, NotificationAddress notificationAddress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Method for updating a notification address for an organization. 
+    /// </summary>
+    /// <param name="organizationNumber">An organization number to indicate which organization to update address for</param>
+    /// <param name="notificationAddress">The notification address with updated data</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    /// <returns>A tuple containing the updated notification address (or null if not found) and a boolean indicating whether the update was rejected due to a duplicate address.</returns>
+    Task<(NotificationAddress? Address, bool IsDuplicate)> UpdateNotificationAddress(string organizationNumber, NotificationAddress notificationAddress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Method for retrieving notification addresses for multiple organizations.
+    /// </summary>
+    /// <param name="organizationNumbers">A list of organization numbers to lookup contact points for</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    /// <param name="useAddressFromMainUnitIfEmpty">Indicates whether to use the address from the main unit if no addresses are registered for the organization</param>
+    /// <returns>The notification addresses.</returns>
+    Task<IEnumerable<Organization>> GetOrganizationNotificationAddresses(List<string> organizationNumbers, CancellationToken cancellationToken, bool useAddressFromMainUnitIfEmpty = false);
+
+    /// <summary>
+    /// Method for retrieving notification addresses for an organization.
+    /// </summary>
+    /// <param name="organizationNumber">The organization number to lookup contact points for</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    /// <param name="useAddressFromMainUnitIfEmpty">Indicates whether to use the address from the main unit if no addresses are registered for the organization</param>
+    /// <returns>The organization with notification addresses</returns>
+    Task<Organization?> GetOrganizationNotificationAddress(string organizationNumber, CancellationToken cancellationToken, bool useAddressFromMainUnitIfEmpty = false);
+
+    /// <summary>
+    /// Method for retrieving notification addresses filtered by email address.
+    /// </summary>
+    /// <param name="emailAddress">The email address to search for in notification addresses</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    /// <returns>A collection of organizations that have notification addresses matching the specified email address.</returns>
+    Task<IEnumerable<Organization?>> GetOrganizationNotificationAddressesByEmailAddress(string emailAddress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Method for retrieving notification addresses filtered by phone number.
+    /// </summary>
+    /// <param name="phoneNumber">The phone number to search for in notification addresses</param>
+    /// <param name="countryCode">The country code prefix for the phone number (e.g., "+47" for Norway)</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    /// <returns>A collection of organizations that have notification addresses matching the specified phone number.</returns>
+    Task<IEnumerable<Organization?>> GetOrganizationNotificationAddressesByPhoneNumber(string phoneNumber, string countryCode, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Method for deleting a notification addresses for an organization
+    /// </summary>
+    /// <param name="organizationNumber">An organization number to indicate which organization to update addresses for</param>
+    /// <param name="notificationAddressId">The new notification address</param>
+    /// <param name="cancellationToken">To cancel the request before it is finished</param>
+    Task<NotificationAddress?> DeleteNotificationAddress(string organizationNumber, int notificationAddressId, CancellationToken cancellationToken);
+}

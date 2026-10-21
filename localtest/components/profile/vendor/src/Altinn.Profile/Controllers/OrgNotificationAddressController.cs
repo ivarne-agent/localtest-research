@@ -1,0 +1,52 @@
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Altinn.Profile.Core;
+using Altinn.Profile.Core.OrganizationNotificationAddresses;
+using Altinn.Profile.Models;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+using static Altinn.Profile.Models.OrgNotificationAddressesResponse;
+
+namespace Altinn.Profile.Controllers
+{
+    /// <summary>
+    /// Controller for organization notifications address API endpoints for internal consumption (e.g. Notifications) requiring neither authenticated user token nor access token authorization.
+    /// </summary>
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="OrgNotificationAddressController"/> class.
+    /// </remarks>
+    [Route("profile/api/v1/organizations/notificationaddresses")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    public class OrgNotificationAddressController(IOrganizationNotificationAddressesService notificationAddressService) : ControllerBase
+    {
+        private readonly IOrganizationNotificationAddressesService _notificationAddressService = notificationAddressService;
+
+        /// <summary>
+        /// Endpoint looking up the notification addresses for the organization provided in the lookup object in the request body.
+        /// If the organization has no notification addresses registered, the main unit address will be returned if it exists.
+        /// </summary>
+        /// <returns>Returns an overview of the user registered notification addresses for the provided organization</returns>
+        [HttpPost("lookup")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<OrgNotificationAddressesResponse>> PostLookup([FromBody][Required] OrgNotificationAddressRequest orgContactPointLookup, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var organizations = await _notificationAddressService.GetOrganizationNotificationAddresses(orgContactPointLookup.OrganizationNumbers, cancellationToken, true);
+
+            OrgNotificationAddressesResponse result = OrgNotificationAddressesResponse.Create(organizations);
+            return Ok(result);
+        }
+    }
+}

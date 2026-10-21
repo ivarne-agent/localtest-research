@@ -1,0 +1,53 @@
+﻿namespace Altinn.Profile.Authorization
+{
+    /// <summary>
+    /// Constants for authorization policies
+    /// </summary>
+    public static class AuthConstants
+    {
+        /// <summary>
+        /// Policy name for retrieving notification addresses for an organization
+        /// </summary>
+        public const string SupportDashboardAccess = "AltinnProfileSupportAdmin";
+
+        /// <summary>
+        /// Policy name for platform access
+        /// </summary>
+        public const string PlatformAccess = "PlatformAccess";
+
+        /// <summary>
+        /// Policy name for reading organization notification addresses
+        /// </summary>
+        public const string OrgNotificationAddress_Read = "OrgNotificationAddress_Read";
+
+        /// <summary>
+        /// Policy name for writing organization notification addresses
+        /// </summary>
+        public const string OrgNotificationAddress_Write = "OrgNotificationAddress_Write";
+
+        /// <summary>
+        /// Policy name for checking that a user has access to a given party
+        /// </summary>
+        public const string UserPartyAccess = "UserId_Party_Access";
+
+        /// <summary>
+        /// Policy name for end user access to the Altinn portal
+        /// </summary>
+        public const string PortalEndUserAccess = "PortalEndUserAccess";
+
+        /// <summary>
+        /// Policy name for either end user access to the Altinn portal or read access to notification settings
+        /// </summary>
+        public const string ScopeEnduserOrNotificationSettingsRead = "ScopeEnduserOrNotificationSettingsRead";
+
+        /// <summary>
+        /// Policy name for the policy that checks that the caller has included the correct Correspondence scope.
+        /// </summary>
+        public const string CorrespondenceAccess = "CorrespondenceAccess";
+
+        /// <summary>
+        /// Policy name for the policy that denies access to users authenticated with Idporten e-post.
+        /// </summary>
+        public const string DenyIdportenEpostAuthentication = "DenyIdportenEpostAuthentication";
+    }
+}

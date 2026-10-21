@@ -1,0 +1,111 @@
+﻿using Altinn.Profile.Models;
+
+namespace Altinn.Profile.Core.User.ProfileSettings
+{
+    /// <summary>
+    /// Represents user-specific portal settings and preferences.
+    /// </summary>
+    public class ProfileSettings
+    {
+        private string _languageType = string.Empty;
+
+        /// <summary>
+        /// The id of the user.
+        /// </summary>
+        public int UserId { get; set; }
+
+        /// <summary>
+        /// The language the user has selected in Altinn portal.
+        /// </summary>
+        public required string LanguageType
+        {
+            get => _languageType;
+            set => _languageType = value.ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Indicates whether the user should not be prompted for party selection.
+        /// Can be set without using PreselectedPartyUuid.
+        /// </summary>
+        public bool DoNotPromptForParty { get; set; }
+
+        /// <summary>
+        /// The UUID of the preselected party. Optional.
+        /// </summary>
+        public Guid? PreselectedPartyUuid { get; set; }
+
+        /// <summary>
+        /// Indicates whether client units should be shown.
+        /// </summary>
+        public bool ShowClientUnits { get; set; }
+
+        /// <summary>
+        /// Indicates whether sub-entities should be shown.
+        /// </summary>
+        public bool ShouldShowSubEntities { get; set; }
+
+        /// <summary>
+        /// Indicates whether deleted entities should be shown.
+        /// </summary>
+        public bool ShouldShowDeletedEntities { get; set; }
+
+        /// <summary>
+        /// The user's last timestamp for ignoring the UnitProfile update
+        /// </summary>
+        public DateTime? IgnoreUnitProfileDateTime { get; set; }
+
+        /// <summary>
+        /// Sets the properties of this instance to the values from another instance.
+        /// </summary>
+        public void UpdateFrom(ProfileSettings other)
+        {
+            LanguageType = other.LanguageType;
+            DoNotPromptForParty = other.DoNotPromptForParty;
+            PreselectedPartyUuid = other.PreselectedPartyUuid;
+            ShowClientUnits = other.ShowClientUnits;
+            ShouldShowSubEntities = other.ShouldShowSubEntities;
+            ShouldShowDeletedEntities = other.ShouldShowDeletedEntities;
+
+            // Only update IgnoreUnitProfileDateTime if the other instance has a value
+            if (other.IgnoreUnitProfileDateTime.HasValue)
+            {
+                IgnoreUnitProfileDateTime = other.IgnoreUnitProfileDateTime;
+            }
+        }
+
+        /// <summary>
+        /// Sets the properties of this instance to the values from a patch request with optional values.
+        /// </summary>
+        public void UpdateFrom(ProfileSettingsPatchModel other)
+        {
+            LanguageType = other.Language?.ToString() ?? LanguageType;
+            DoNotPromptForParty = other.DoNotPromptForParty ?? DoNotPromptForParty;
+            ShowClientUnits = other.ShowClientUnits ?? ShowClientUnits;
+            ShouldShowSubEntities = other.ShouldShowSubEntities ?? ShouldShowSubEntities;
+            ShouldShowDeletedEntities = other.ShouldShowDeletedEntities ?? ShouldShowDeletedEntities;
+
+            // Only update PreselectedPartyUuid if the other instance has a value (null or Guid)
+            if (other.PreselectedPartyUuid.HasValue)
+            {
+                PreselectedPartyUuid = other.PreselectedPartyUuid.Value;
+            }
+        }
+
+        /// <summary>
+        /// Create a new instance of ProfileSettings with default values.
+        /// </summary>
+        /// <returns>A new <see cref="ProfileSettings"/> instance initialized with default values.</returns>
+        public static ProfileSettings GetDefaultValues()
+        {
+            return new ProfileSettings
+            {
+                LanguageType = Language.Nb.ToString(),
+                DoNotPromptForParty = false,
+                PreselectedPartyUuid = null,
+                ShowClientUnits = false,
+                ShouldShowSubEntities = true,
+                ShouldShowDeletedEntities = false
+            };
+        }
+    }
+}
