@@ -28,7 +28,12 @@ public static class XacmlRequestFactory
             resourceCategory.Attribute.Add(
                 DecisionHelper.CreateXacmlJsonAttribute(UrnConstants.PersonIdAttribute, partyWithoutPrefix, DefaultType, issuer));
         }
+#if !LOCALTEST
         else if (party.StartsWith(AltinnXacmlUrns.PartyId) || partyWithoutPrefix.IsPartyId())
+#else
+        // localtest: the test data's party ids have 6 digits; production accepts only 8 or 10 (IsPartyId), so any positive 64-bit integer passes here.
+        else if (party.StartsWith(AltinnXacmlUrns.PartyId) || (long.TryParse(partyWithoutPrefix, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var localtestPartyId) && localtestPartyId > 0))
+#endif
         {
             resourceCategory.Attribute.Add(
                 DecisionHelper.CreateXacmlJsonAttribute(UrnConstants.Party, partyWithoutPrefix, DefaultType, issuer));

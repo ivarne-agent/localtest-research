@@ -33,7 +33,8 @@ recipient's dialog-token path blocked by the party-id gap.
 
 ## Directive sites
 
-Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` (`vendor/UPSTREAM.md` has the lines), no `#if !LOCALTEST`:
+Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and one `#if !LOCALTEST` block (`vendor/UPSTREAM.md` has the
+lines):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
    `Program.cs` adds the JSON files and the environment variables a second time after `CreateBuilder`, so the defaults are
@@ -42,7 +43,13 @@ Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` (`vendor
 2. After `services.ConfigureHangfire(config);`, the last registration but Kestrel's: `AddLocaltestServices(services, config)`, so
    its `RemoveAll`/`Add` win and its authentication `Configure` actions run after upstream's.
 
-A third site (the browser download of attachments through OIDC, `IdportenTokenValidator.cs:26`) is task 11's and needs a report first.
+3. `vendor/src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs:31-36`, the party-id branch of
+   `CreateResourceCategory` (task 7b): `#if !LOCALTEST` production's condition (`urn:altinn:partyid` prefix or `IsPartyId`, 8 or 10
+   digits), `#else` the prefix or any positive 64-bit integer (`long.TryParse`, `NumberStyles.None`, invariant culture), `#endif`.
+   It comes after the organisation-number and national-identity-number branches, so only ids production never issues are treated
+   differently. `IsPartyId` stays upstream's, see "Differences from production".
+
+A fourth site (the browser download of attachments through OIDC, `IdportenTokenValidator.cs:26`) is task 11's and needs a report first.
 
 ## What is faked, and why
 
