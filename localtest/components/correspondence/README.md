@@ -15,15 +15,15 @@ studioctl env up -r localtest-v2 --with correspondence      # --dev corresponden
 Apps reach it at `PlatformSettings:ApiCorrespondenceEndpoint` (`{origin}/correspondence/api/v1/`, which studioctl already
 gives them); today only the signing flow (`signering-brukerstyrt`) sends correspondence. Without the group the route answers
 `503` "Component not running" and the signing flow swallows the failed send, as it did before (the signee shows "notification
-failed"). **With the group, an app's own send still fails** (500) until the 6-digit party-id gap is closed (see "Known gaps"):
-the signing flow cannot message its signees yet.
+failed"). With the group, the signing flow messages its signees and sends its receipts through production Correspondence.
 
-**Status (2026-10-21):** runs on the stack (see "Verified"); the service-owner path end to end, app-lib's credential and the
-recipient's dialog-token path blocked by the party-id gap.
+**Status (2026-10-21):** runs on the stack (see "Verified"): the service-owner path, app-lib's credential and the recipient's
+dialog-token path end to end, and `signering-brukerstyrt`'s call-to-sign and receipt. The test data's 6-digit party ids pass
+the PDP request factory through one `#if !LOCALTEST` site (task 7b, see "Directive sites").
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except two additive `#if LOCALTEST` hooks in `Program.cs` |
+| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except two additive `#if LOCALTEST` hooks in `Program.cs` and one `#if !LOCALTEST` block in `XacmlRequestFactory.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
 | `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password `localtest`), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
@@ -164,7 +164,17 @@ reset is `studioctl env reset -r localtest-v2`, which removes the shared Postgre
 - Profile's two `correspondence/` lookups are production Profile since task 14 (`../profile/README.md`): unit contact
   points are only addresses users registered for the organisation, not every role holder; official addresses come from
   Profile's brreg mirror, seeded once per organisation from the test data. Run with this group on 2026-10-21 (task 14
-  phase 2): `smoke-test.sh` 43 ok and the 2 `KNOWN` party-id checks, unchanged.
+  phase 2, before task 7b): `smoke-test.sh` 43 ok and the 2 `KNOWN` party-id checks, unchanged.
+- **Party ids of any length.** Every PDP request Correspondence builds (`AltinnAuthorizationService.CreateDecisionRequest` →
+  `XacmlRequestFactory.CreateResourceCategory`) looks the party up in Register and names it by its bare party id; production
+  takes a bare number as a party id only when it has 8 or 10 digits (`StringExtensions.IsPartyId`) and otherwise throws
+  (500 "RecipientId is not a valid organization number, person number or party id"). The test data's party ids have 6 digits
+  (Digdir 500006, Sophie Salt 501337, `signering-brukerstyrt`'s 600000-700002), so the factory's party-id branch here accepts
+  any positive 64-bit integer (directive site 3). Organisation numbers (9 digits) and national identity numbers still take
+  their own branches first, and 8- and 10-digit ids behave as in production; only ids production never issues are treated
+  differently. `IsPartyId` itself is upstream's, so `CreateDecisionRequest` and `WithUrnPrefix` decide as in production. The
+  upstream fix (Correspondence passing `urn:altinn:partyid:{id}`, which removes the site) is drafted in
+  `../../../planned-components/correspondence/party-ids.md`, option (c).
 - Correspondence acts as `digdir`, apps as `ttd`; the seeded tt02 policies add `ttd` beside `digdir` in the service-owner rule
   (`../resource-registry/README.md`).
 - Dialog-token keys are fetched again on a key miss instead of every 12 hours.
@@ -185,28 +195,12 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
 
 ## Known gaps
 
-- **6-digit party ids (test data) against production's party-id rule.** Every PDP request Correspondence builds
-  (`AltinnAuthorizationService.CreateDecisionRequest` → `XacmlRequestFactory.CreateResourceCategory`) looks the party up in
-  Register and names it by its party id, and production accepts as a party id only an 8- or 10-digit number
-  (`StringExtensions.IsPartyId` in `Altinn.Correspondence.Common`). The test data's party ids have 6 digits (Digdir 500006,
-  Sophie Salt 501337), so the request throws and the caller gets **500** "RecipientId is not a valid organization number, person
-  number or party id: 500006". What fails:
-  - **app-lib's credential** (`/Home/GetTestOrgToken` with `altinn:correspondence.write` but without `altinn:serviceowner`) on
-    `POST correspondence` and `POST attachment`: the sender check goes to the PDP. So `signering-brukerstyrt`'s call-to-sign and
-    receipt cannot succeed until the gap is closed (the signee keeps "notification failed");
-  - **the recipient's dialog-token path**: the dialog token is accepted (the keys are fetched on the miss), then `content`,
-    the attachment download, `markasread`, `confirm` and the recipient's purge answer 500 (Sophie Salt's 501337).
-
-  Workaround in `smoke-test.sh`: the sender uses a service owner's direct token with `altinn:serviceowner` (as a service owner
-  calling with Maskinporten would), which production lets past the PDP when the token's consumer owns the resource
-  (`EvaluateBypassConditions`); the two blocked paths are reported as `KNOWN`. No directive and no seed change: the cause and the
-  fix are under research (the seed's party ids are used across the stack and the Cypress specs).
 - **An existing Postgres volume** predates `70-correspondence.sh`, which Postgres runs on an empty volume only: the host then fails
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
 - The browser download of attachments from Arbeidsflate (the OIDC branch of the `AllSchemes` cascade) does not work: a third
-  directive site, an OIDC client and a cookie decision, task 11. A download with a dialog token as `Authorization` header goes
-  through the token validation (and then meets the party-id gap).
+  directive site, an OIDC client and a cookie decision, task 11. A download with a dialog token as `Authorization` header works
+  (the smoke test).
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
 - The image is not pinned in `config/images.go` to a build that exists until this branch is on main and the tag is bumped; until
   then use `--dev correspondence` or `STUDIOCTL_IMAGE_LOCALTEST_V2_CORRESPONDENCE`.
@@ -216,19 +210,77 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
 `./smoke-test.sh [BASE]` needs the stack with `--with correspondence` and checks, in order: `/health` on the host port and all 69
 migrations (the `status` call, and in the database itself when `podman` reaches `localtest-v2-postgres`, plus the owner role
 being no superuser); 401 without a token, 403 without `altinn:correspondence.write`, 400 `CORR-01036` for an unknown resource;
-app-lib's credential (`KNOWN` while the party-id gap lasts); with a service owner's token: `POST attachment`, the upload with its
+with a service owner's token: `POST attachment`, the upload with its
 MD5, `Published` after the simulated scan, the bytes in `blobs/{id}`; a wrong checksum (400, `Failed` with "Checksum mismatch", no
 blob); `POST correspondence` to Sophie Salt with the attachment and an e-mail notification to `Published`, the dialog in
 Dialogporten (resource, party, content URL), the status history and Hangfire jobs; the e-mail captured and `Delivered`;
 `notification/check` with a raw fake-Maskinporten token (the Maskinporten scheme's metadata override) and without one; an unknown
 recipient (404); the reserved person Rik Forelder (KRR `JA`): alone 422 `CORR-01030`, with a second recipient `Reserved`; the
-recipient's path with a dialog token from task 2's code-flow token (`dialogToken` read; `content`, download, `markasread`,
-`confirm`, purge are `KNOWN` while the gap lasts); the sender's purge of a published correspondence refused (`CORR-01013`); a
-publish 5 minutes ahead (`ReadyForPublish`, its job under `jobs?state=Scheduled`), purged by the sender (`PurgedByAltinn`); the
-inspection API's paging and job list. `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no
-migration runs again. The summary line counts `ok` and `KNOWN`; a `FAIL` makes it exit 1.
+sender's purge of a published correspondence refused (`CORR-01013`). Then **app-lib's credential** (`/Home/GetTestOrgToken`
+without `altinn:serviceowner`, so every call goes to the PDP with Digdir's party id 500006): `POST attachment`, the upload,
+`GET attachment/{id}` to `Published`, `POST correspondence` to Sophie Salt with that attachment and an e-mail notification,
+`details` to `Published`, its dialog. Then **the recipient** of that correspondence with the dialog token from Dialogporten
+(task 2's code-flow token for user 1337, party 501337): `content` (which marks it `Read` and enqueues the opened activity), the
+attachment download (the bytes), `markasread` after that (production's 400, 1040 "already marked as read"), `confirm` once the
+two activity jobs have run, the status history (`Read`, `AttachmentsDownloaded`, `Confirmed`), the dialog's opened and confirmed
+activities in Dialogporten, the recipient's purge (`PurgedByRecipient`, the dialog deleted). On the service owner's
+correspondence the recipient's `details` (the fetch) and then `markasread` (200, `Read`). Then a publish 5 minutes ahead
+(`ReadyForPublish`, its job under `jobs?state=Scheduled`), purged by the sender (`PurgedByAltinn`); the inspection API's paging
+and job list. `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
+64 checks, 67 with the restart; a `FAIL` makes it exit 1.
+
+Two orderings matter and are production behaviour: `markasread` needs a `Fetched` status first (`details` or `content` set it)
+and answers 400 once the correspondence is `Read`; and a `confirm` sent while one of the opened or download-started activity
+jobs patches the same dialog gets Dialogporten's 409 (optimistic concurrency) and answers 500, so the test waits for those jobs.
 
 ## Verified
+
+### Task 7b, the party-id site (2026-10-21)
+
+On main 15813c3 (pin `sha-0485d0a`) with this branch on top, `studioctl env up -r localtest-v2 --with correspondence --dev
+correspondence` on the existing volumes (the rest from the pinned images):
+
+- Build: `dotnet build -c Release` of the API host with the fakes (the "Running without Docker" command, `--no-incremental`):
+  0 errors and the same 24 warnings as without the site (the warning lists compared). The image built in the `env up`.
+- `smoke-test.sh`: 64 ok; then with `CORRESPONDENCE_RESTART=1` 66 ok and 1 FAIL (the inspection API's job list showed a job
+  Hangfire was still creating, without a state; the check now tolerates that), then 67 ok, 67 ok, 67 ok. The first version of
+  the extended recipient path failed twice on production behaviour, both now part of the test: `markasread` after `content` is
+  400 1040 (the content call marks it `Read`), and a `confirm` within milliseconds of the download got Dialogporten's 409 on
+  the dialog patch (the opened and download-started activity jobs were writing the same dialog) and answered 500.
+- `signering-brukerstyrt` under `studioctl run --dev-frontend` (the monorepo's `src/App/frontend/dist` served on 8080 with
+  `Access-Control-Allow-Origin: *`; `frontend-test` running beside it, so the Register serves the seed and the apps' data),
+  driven with curl as Human Andrefiolin (user 10000, party 600000) with the `AltinnStudioRuntime` cookie and the XSRF header:
+  instance, form data with one person founder (himself) and one organisation founder (Sivilisert Avansert Isbjørn SA,
+  312405091), `process/next` through the PDF task to `SigningTask_Founders`. Both signees `delegationSuccessful`,
+  `notificationStatus` `Sent`: two correspondences on `apps-correspondence-integrasjon4` ("Oppgave - Signer
+  stiftelsesdokumenter", sender 991825827, recipients the national identity number and the organisation number), `Published`
+  within 3 s, each with a dialog, and each e-mail `Delivered` in the Notifications inbox (`human@example.com`,
+  `isbjorn@example.com`, creator `digdir`, `sendersReference` `corr-600000/{instance}`). Signing for himself and on behalf of
+  the organisation sent one receipt each ("Kvittering: Signering av stiftelsesdokumenter"), `Published` with the attachment
+  `Stiftelse av aksjeselskap.pdf` (103 596 bytes, `Published`). With an auditor (`HarRevisor` `ja`, Offisiell Virtuell Tiger
+  AS) the process moved on to `SigningTask_Auditor`, and the call-to-sign on `apps-correspondence-integrasjon2` got production's
+  400 `CORR-04010` ("Resource type is not supported", `GenericAccessResource`); the auditor's `notificationStatus` is
+  `Failed`. No Hangfire job failed.
+- Cypress `signering-brukerstyrt/signing.ts` with the group on (the same frontend setup, `MONOREPO` set, nothing else running):
+  1 of 1 passing (27 s). Its correspondences: call-to-sign for both persons and the organisation and two receipts, all
+  `Published`.
+- With the group on: `../register/smoke-test.sh` 14 ok, `../resource-registry/smoke-test.sh` 43 ok,
+  `../notifications/smoke-test.sh` 64 ok, the root `../../smoke-test.sh` 23 ok, `../dialogporten/smoke-test.sh` 60 ok (after
+  the Correspondence test; it deletes every dialog).
+- With the group off (`env up -r localtest-v2` without `--with`): `/correspondence/...` answers `503` "Component not
+  running"; `../../run-platform-regression.sh --no-apps` 44 of 44 (frontend-test, signering-brukerstyrt and
+  process-transition-test with `studioctl run --dev-frontend`, the static frontend as above, `MONOREPO` set). It took 50
+  minutes instead of about 6: `process-transition-test/workflow-status.ts` alone took 49 minutes, three of its tests passed
+  on Cypress's second attempt and one ("a session parked on Task_Service follows the process on to a signing task") took
+  12 minutes. The default stack has no Correspondence, so the site cannot be the cause; not investigated further.
+
+Seen on the way: `signering-brukerstyrt`'s PDF task needs `--dev-frontend` and the static frontend (the app's page loads
+`altinn-app-frontend.js` from the app-frontend host; without it the PDF generator times out on `#readyForPrint` and
+`process/next` answers 504, the instance waiting in the PDF task until the frontend is served). With `signering-brukerstyrt`
+the only app the Register serves only the apps' test data, without Digdir (991825827), and the app's page answered 500 on its
+party lookup for that organisation; that run was not isolated from the missing frontend.
+
+### Task 7 (2026-10-21)
 
 2026-10-21, on main cc84b1d (pin `sha-55ce57f`) with this branch on top, `studioctl env up -r localtest-v2 --with correspondence
 --dev correspondence --dev register --dev resource-registry --dev postgres` (the rest from the pinned images):
@@ -251,10 +303,12 @@ migration runs again. The summary line counts `ok` and `KNOWN`; a `FAIL` makes i
 - Memory: `podman stats --no-stream` 120 to 122 MB for the Correspondence container after the smoke test; the whole stack with
   the correspondence and dialogporten groups left about 3.2 to 4 GB of the machine's 7.8 GB available.
 
-Not verified: `signering-brukerstyrt`'s call-to-sign and receipt through Correspondence (blocked by the party-id gap; its Cypress
-spec passes with the group off, where the send is swallowed; with the group on one run failed before the signing step, on the
-party selection, and was not investigated further); organisation recipients; the Events component accepting Correspondence's
-events (the publish jobs succeeded, the events were not looked up); Swagger under the proxy.
+Not verified: organisation recipients reading their correspondence (the signing flow's organisation signee got its
+correspondence and e-mail; nobody read it); a signee other than the instance owner signing through the API (the Cypress spec
+skips it too, see its TODO); `signering-brukerstyrt` with only its own test data (apps-only Register, no Digdir); Altinn and
+ID-porten recipient tokens (the list, overview and attachment calls without a dialog token); the notification job's
+`AuthorizeUserIdsForResource` path; the Events component accepting Correspondence's events (the publish jobs succeeded, the
+events were not looked up); Swagger under the proxy.
 
 ## Running without Docker
 
