@@ -2,5 +2,3 @@
 **/obj/
 **/.vs/
 Dockerfile
-smoke/
-smoke-test.sh
