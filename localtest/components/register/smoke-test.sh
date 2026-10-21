@@ -2,7 +2,8 @@
 # Smoke test for the localtest register: seeded users (with the schema v3 reserved flag and organisations' notification
 # addresses), party list with sub-units, the KRR stand-in and app registration with posted test data (the register
 # fetches nothing). Start the register, then run
-#   ./smoke-test.sh [REGISTER_URL]
+#   ./smoke-test.sh [REGISTER_URL]   (default http://127.0.0.1:5020, a register run as a plain process; against the
+#                                     stack pass http://local.altinn.cloud:8000)
 # Profile is its own component since task 14 (../profile/smoke-test.sh has the Profile checks that used to be here).
 set -euo pipefail
 

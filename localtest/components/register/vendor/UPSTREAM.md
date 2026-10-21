@@ -8,7 +8,9 @@
   (added 2026-10-19, same commit) for reference.
 - Copied with `rsync` of a clean checkout, no subtree yet; identical to `git archive` of the commit (checked
   2026-10-19). The first commit holds the files unmodified; every later change inside this
-  folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first.
+  folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
+  There is one site, a pure addition: `src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs:249-251`
+  (`AddLocaltestRegister(builder)` after the production persistence block; line numbers checked 2026-10-21).
 
 ## Syncing to a newer upstream commit
 

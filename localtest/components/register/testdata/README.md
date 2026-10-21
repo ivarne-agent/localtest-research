@@ -84,4 +84,6 @@ Field definitions are in [`../../../testdata/README.md`](../../../testdata/READM
   Profile's main-unit fallback. Every other organisation has none.
 
 The Profile `userType` is not a field: it is set when the persons are loaded, `SSNIdentified` with an `ssn` and
-`SelfIdentified` without, as Profile reports them. A `userType` in an app's `testData.json` is ignored.
+`SelfIdentified` without, as Profile reports them, and listed under `profile` in `register/api/localtest/test-users`.
+Since task 14 the Register serves no Profile endpoint; production Profile (`../../profile/`) has its own user types. A
+`userType` in an app's `testData.json` is ignored.

@@ -153,7 +153,7 @@ public sealed class LocaltestTestUsersController(RegisterStoreProvider provider)
     /// <param name="Parties">Parties the user holds role codes, roles or access packages for directly: the own party first (role codes on oneself), then other parties. No derived sub-units.</param>
     /// <param name="UserUuid">The user's UUID (the person's party UUID).</param>
     /// <param name="PartyType"><c>person</c> or <c>self-identified</c>.</param>
-    /// <param name="Profile">Profile preferences, as the profile endpoints return them.</param>
+    /// <param name="Profile">Profile preferences from the test data (what the Profile component seeds its settings from).</param>
     /// <param name="SelfRoleCodes">Altinn role codes for the user's own party, verbatim (<c>PRIV</c>, <c>regna</c>, <c>SELN</c>, ...).</param>
     /// <param name="ActingFor">Every party the user may act for: self first, then <paramref name="Parties"/>, then the sub-units of those.</param>
     /// <param name="Reserved">Reserved in KRR against digital contact (the test data's <c>reserved</c>, default false).</param>

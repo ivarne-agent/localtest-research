@@ -188,7 +188,7 @@ public sealed class TestPerson
     }
 }
 
-/// <summary>The values of <c>Altinn.Platform.Profile.Enums.UserType</c>; the profile endpoints return the number.</summary>
+/// <summary>The values of <c>Altinn.Platform.Profile.Enums.UserType</c>; <c>test-users</c> lists the number and the name.</summary>
 public enum ProfileUserType
 {
     None = 0,
