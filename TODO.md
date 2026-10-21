@@ -624,7 +624,9 @@ strip `Secure` from app-lib's `keepAlive` cookie (no cookie transform in the sto
 the ten-minute token refresh over http until task 22 ships; documented in the sample AppHost. Reachability: `--add-host <host>:host-gateway`
 on every component as studioctl does (the manifest's `ingressHosts` and `extraHostGatewayNames`), the front door's host
 port published on 8000; network aliases on the YARP container are the fallback if `WithContainerRuntimeArgs` fails
-under Podman (reported, not silently switched).
+under Podman (reported, not silently switched). The app route: YARP routes to the app project resource and Aspire's
+container tunnel carries it to the host, the app stays on loopback; `host.docker.internal` with the app on `0.0.0.0` is
+the documented fallback if the tunnel fails under Podman (reported).
 
 ## 22. app-lib honours an explicit localtest environment
 
