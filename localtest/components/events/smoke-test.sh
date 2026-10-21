@@ -4,6 +4,8 @@
 # access token, an idempotency key), subscribes the way an integrator does, and reads the outcome back from the
 # localtest inspection API. Resets the component's data first. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
+# 22 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
+# would land after the reset and break "stored once".
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 BASE=${1:-http://local.altinn.cloud:8000}
