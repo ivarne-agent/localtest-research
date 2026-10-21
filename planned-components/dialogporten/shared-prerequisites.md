@@ -1,5 +1,28 @@
 # Shared prerequisites: Maskinporten token endpoint, `IMaskinportenService` fake, Authentication as OIDC provider, Postgres 18, Redis, altinncdn.no, inbox links
 
+## Status (2026-10-21)
+
+- **Partly implemented.** Section 1, the Maskinporten token endpoint, and section 2, the shared
+  `IMaskinportenService` fake: task 4 (2026-10-20, `798f18e`), in `localtest/localtest/` and
+  [`../../localtest/components/shared/fakes/Maskinporten/`](../../localtest/components/shared/README.md). Section 3,
+  Authentication as an OIDC provider: task 2 (2026-10-20, `4b9b5f7..ddd0ecf`; Authentication smoke 30, 32 with the
+  `dialogporten` group, on 2026-10-21). Section 4, Postgres 18: `84514a3` (`localtest/postgres/`). Section 5, Redis:
+  task 9, in the `dialogporten` group.
+- Section 6, the committed `altinn-orgs.json`: **not done**, task 3 is won't do; the stack reads altinncdn.no.
+- Section 7, the app-frontend link to the inbox: **open**, task 11.
+- Decided otherwise: client ids map to organisation numbers by `consumer_org`, then a nine-digit id, then 991825827,
+  with no client table (task 4); the fake's exchange keeps production semantics, `test=true` only with
+  `UseAltinnTestOrg` (task 4); the fake is **copied** into each consumer's `fakes/`, not shared through a build context
+  (task 4); two OIDC clients are seeded, `localtest-smoke` and `arbeidsflate-localtest`, and the code-flow helper is
+  `localtest/api/authentication/token`, not a `/Home` helper (task 2).
+
+Superseded statements:
+
+- Section 2, "exchanging with `test=true`" and Digdir becoming `ttd`: production semantics (task 4).
+- Section 2, the compose `additional_contexts` build wiring: each consumer carries a copy of the fake.
+- Section 3, the missing `pid`, the pepper and the logout 500: fixed by task 2.
+- Section 6: superseded by task 3's won't do.
+
 Research date: 2026-10-20. Read-only: nothing was built or started; the one scratch action was downloading and
 decompiling the `Altinn.ApiClients.Maskinporten` 10.1.0 NuGet package (deleted afterwards). Every behaviour below is
 "verified by reading" unless the Verified section says otherwise. This plan covers the cross-cutting pieces the

@@ -1,5 +1,26 @@
 # Resource Registry for the inbox stack
 
+## Status (2026-10-21)
+
+- **Implemented** as task 5 (2026-10-20): 5a `e0cba40..b6f4c47` (component, seed, studioctl runtime component and
+  provisioning call), 5b `9b7278d..aaa099e` (Access Management and the PDP on the production clients, stand-ins
+  removed), in [`../../localtest/components/resource-registry/`](../../localtest/components/resource-registry/README.md).
+  Smoke test 43 ok on 2026-10-21. Option A as recommended, with two additive hooks in `ResourceRegistryHost.cs`.
+- Decided otherwise (task 5): the 10-minute application cache is gone locally (a fake replaces the Storage
+  applications client) instead of a `POST resourceregistry/api/localtest/refresh` endpoint; non-app resources are a
+  built-in seed in the registry's fakes, applied at start, not pushed by the runner; a separate `resourceregistrydb` on
+  the shared Postgres 18; the org list read from altinncdn.no (task 3 won't do); the registry is the only source of
+  `urn:altinn:resource` policies. Later seed additions: Correspondence's resources (task 7) and Profile's
+  organisation-address resource (task 14).
+
+Superseded statements:
+
+- Sections 3.4 to 3.8: `LocaltestRefreshController`, the refresh call in `run-app.sh`, and compose services; the
+  provisioner is studioctl-server (step 3b, `localtest/README.md`, "What the app runner pushes").
+- Section 3.10, the 10-minute application cache row and Dialogporten's 20-minute cache "unless `DisableCache=true`":
+  no cache locally, and Dialogporten's caches are synced and cleared by provisioning step 5 (task 9b).
+- Postgres 16 throughout: the shared server is Postgres 18.
+
 Research date: 2026-10-20. Strand `resource-registry` of the Dialogporten vendoring plan (shared brief:
 `localtest-components/dialogporten-arbeidsflate.md`, 2026-10-18, re-verified here). Read-only: nothing was built or run;
 the only runtime evidence is read-only HTTP against the running stack and `podman ps`. Claims inferred from code but not
@@ -345,6 +366,8 @@ re-running the authorization and signing suites.
 | `JWTCookieAuthentication` http metadata | Same fix as Access Management, not verified for this package version; affects only the seed's write calls |
 | Upstream pace | Small repo, one Dockerfile, two host hooks far from active code; `ResourceController` changes often but holds no directive |
 | `orgs` gives `ttd` an empty `RefId` in Access Management | Production parity; unknown whether any path reads it |
+
+*2026-10-21: the 10-minute application cache row is superseded: no application cache locally (task 5), and Dialogporten's caches are synced and cleared by provisioning step 5 (task 9b).*
 
 ## 4. Option B: a fake-only HTTP Resource Registry
 

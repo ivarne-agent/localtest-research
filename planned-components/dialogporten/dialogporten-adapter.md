@@ -1,5 +1,33 @@
 # Vendoring plan: Dialogporten adapter (`localtest/components/dialogporten-adapter/`) and the Storage change that feeds it
 
+## Status (2026-10-21)
+
+- **Implemented** as task 10 (2026-10-21, `c940fd6..3c9b03f`) in
+  [`../../localtest/components/dialogporten-adapter/`](../../localtest/components/dialogporten-adapter/README.md), in the
+  optional group `dialogporten`; Storage's side in `../../localtest/components/storage/fakes/Dialogporten/`. Smoke test
+  39 ok on 2026-10-21 under `--with everything` (`--off`: 7 checks on the default stack).
+- Taken: the in-process Wolverine path (Storage's `Development` local queue, a handler in Storage's fakes posting to
+  the adapter's enqueue endpoint, the adapter's own local queue running the production handler and its retry
+  policies), the outbox delays 2 s / 0 s, the dialog-token steps in the smoke test, the CDN read from the internet.
+- Directive sites as built: four `#if !LOCALTEST` and three additive `Program.cs` hooks in the adapter, plus one
+  `#if !LOCALTEST` in Dialogporten's Application project so dialogs may carry http URLs (production refused every
+  dialog the adapter built with a 400).
+- Decided otherwise (task 10): **Storage always sends**, in the default stack too, independent of the group; **the
+  enqueue endpoint is anonymous**, so Storage fetches no token; an unreachable adapter (503 from the front door,
+  refused connection, 404, 502, 504) is **one log line and the command dropped, no retries**; the shared Maskinporten
+  fake keeps production semantics (no `test=true`), so the adapter acts as `digdir`.
+
+Superseded statements:
+
+- Section 2.3 items 1 and 3: the `TokenEndpoint` option, the cached `/Home/GetTestOrgToken` bearer with
+  `exchange/maskinporten?test=true`, the 1 s / 5 s / 15 s retries, and `DialogportenAdapterUrl` empty meaning "off".
+- Sections 3.2 and 13: the shared fake "exchanging with `test=true` so the token comes out as `ttd`".
+- Sections 3.3 and 9: the end-user token from `/Home/GetTestUserToken`; the smoke test takes a code-flow token from
+  `localtest/api/authentication/token` (task 2).
+- Section 7.1: compose services and `.env`; read the studioctl runtime and the `dialogporten` group.
+- Section 10, delivery guarantee: no retries in Storage's handler; a command lost while the adapter is down is synced
+  by the instance's next change or by `syncDialog/simple`.
+
 Research date: 2026-10-20. Scope: `Altinn/altinn-dialogporten-adapter` as a vendored component in the model of
 [`../mvp-vendoring-model.md`](../mvp-vendoring-model.md), plus the smallest Storage-side change that delivers
 `SyncInstanceCommand`s to it without Azure Service Bus. Dialogporten itself, the Resource Registry, Arbeidsflate and
@@ -269,6 +297,8 @@ adapter's queue is in-process.
 ### 2.3 The Storage-side change (fakes only, no directive)
 
 In [`components/storage/fakes/`](../../localtest/components/storage/fakes/LocaltestStorageExtensions.cs):
+
+*2026-10-21: items 1 and 3 superseded by task 10: the enqueue endpoint is anonymous (no token, no `test=true`), and an unreachable adapter is one log line and a dropped command, no retries (see the status above).*
 
 1. `LocaltestStorageOptions`: add `DialogportenAdapterUrl` (default empty) and `TokenEndpoint` (default
    `{PlatformEndpoint}Home/GetTestOrgToken`).

@@ -1,5 +1,24 @@
 # Arbeidsflate: vendoring plan for `localtest/components/arbeidsflate/`
 
+## Status (2026-10-21)
+
+- **Open**: task 11, unapproved. Nothing of Arbeidsflate is vendored. Its prerequisites are in place: Authentication
+  as an OIDC provider with the seeded client `arbeidsflate-localtest` and its redirect, post-logout and front-channel
+  logout URLs (task 2), Dialogporten with GraphQL under `/dialogporten/graphql` and CORS for
+  `http://af.local.altinn.cloud:8000` (task 9), the adapter (task 10), production Profile for the profile page
+  (task 14). Open questions 4 and 5 (patches upstream, build or pull) and the app-frontend link stay with task 11.
+
+Superseded statements:
+
+- Summary and section 3.3/3.4: "the tokens Authentication issues carry no `pid`", the `openid/logout` 500 and the
+  pepper bug. Task 2 fixed logout and the pepper; the cookie token lacks `pid` by production design, and the code-flow
+  access token carries it.
+- Section 3.4, what the shared-prerequisites strand must add: done by task 2.
+- Sections 7.1 to 7.3: compose services in a profile `inbox`; read studioctl runtime components in a group.
+- Section 7.7 question 2: the profile page's endpoints are served by production Profile since task 14; nothing grows
+  in the Register.
+- The altinncdn.no stub (question 3): the stack keeps the internet dependency (task 3 won't do).
+
 Research date: 2026-10-20. Read-only against the pinned clones; the running stack was probed over HTTP (sign-in,
 discovery, token endpoint, Profile, logout) until it was restarted by another session mid-way (see "Not verified").
 Nothing was built; no `pnpm install`. The two patches below were verified with `git apply --check` against a
@@ -400,6 +419,7 @@ Not in that plan yet; needed for this component:
    here; it needs a run with a debugger or a log line after `IdentifyOrCreateAltinnUser`. **Until it is fixed, the
    access token the BFF forwards is `Unknown` to Dialogporten and the inbox lists nothing.** The code path is shared
    with the registered-client flow, so the fix is in the authentication component, not here.
+   *2026-10-21: superseded by task 2: the cookie token lacks `pid` by production design; the code-flow access token carries it.*
 3. **Name resolution for the front-channel logout.** Authentication calls the client's `FrontchannelLogoutUri`
    server-side, so the `authentication` container needs `extra_hosts: af.local.altinn.cloud:10.200.0.10` (the
    localtest app) next to the existing `local.altinn.cloud` entry; otherwise the call fails (logged, logout
