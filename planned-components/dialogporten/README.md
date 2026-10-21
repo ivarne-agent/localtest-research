@@ -1,5 +1,35 @@
 # Plan: Dialogporten, the Dialogporten adapter and Arbeidsflate in the new localtest
 
+## Status (2026-10-21)
+
+Four of the five strands are implemented; Arbeidsflate is open. Answers to the collected questions below:
+[`../README.md`](../README.md), "Answers to the plans' open questions".
+
+| Strand | Status | Task, commits (`TODO.md`) | Where, smoke test on 2026-10-21 |
+| --- | --- | --- | --- |
+| Shared prerequisites | Partly implemented: Maskinporten token endpoint and shared fake (task 4, `798f18e`), Authentication as OIDC provider with `pid`, logout and the base64 pepper (task 2, `4b9b5f7..ddd0ecf`), Redis and Postgres 18 (task 9, `84514a3`). The committed `altinn-orgs.json` was dropped (task 3 won't do); the app-frontend inbox link is open (task 11) | 2, 4, 9 | `localtest/localtest/`, `components/shared/`, `components/authentication/` (30, 32 with the group) |
+| Resource Registry | Implemented | 5a `e0cba40..b6f4c47`, 5b `9b7278d..aaa099e` | `components/resource-registry/` (43) |
+| Dialogporten core | Implemented, optional group `dialogporten` | 9a `4ab03f0..76b8787`, 9b `4749bd7..d7827bf` | `components/dialogporten/` (60) |
+| Adapter and Storage outbox | Implemented, adapter in the `dialogporten` group, Storage's outbox on in the default stack | 10, `c940fd6..3c9b03f` | `components/dialogporten-adapter/` (39) |
+| Arbeidsflate | Open: task 11, unapproved | 11 | none |
+
+Decided otherwise than proposed here:
+
+- Maskinporten: the shared fake keeps production semantics (no `test=true`); Dialogporten and the adapter act as
+  `digdir`, and a `ttd` service owner's search does not find its own dialogs (a production pain point, kept; task 10).
+- No committed `altinn-orgs.json` and no CDN route: every consumer reads altinncdn.no (task 3 won't do).
+- Directive sites as built: Dialogporten three additive hooks and one `#if !LOCALTEST` (http URLs, added by task 10),
+  the adapter four `#if !LOCALTEST` and three additive hooks, the Resource Registry two additive hooks.
+- Opt-in "profile": a studioctl component group, `--with dialogporten`; Correspondence's group implies it.
+
+Superseded statements:
+
+- Headline findings, "no token Authentication issues carries `pid`" and the `openid/logout` 500: task 2 fixed both;
+  the cookie token lacks `pid` by production design, the code-flow access token carries it.
+- "Where the strands disagree", Maskinporten row, "exchanging with `test=true`": production semantics (task 4).
+- "Order", step 1, "the CDN file and route": not done (task 3 won't do).
+- "Not verified": everything except Arbeidsflate has since been built as images and run on the stack.
+
 Research date 2026-10-20. Five strands, each a report in this folder, written against the stack as it was that
 morning (commit `9f13cbb`). The question: how do we vendor the components an end-user inbox needs, so that a tester
 who runs an app locally can see what it does to the user's inbox? Earlier, read-only study:
@@ -41,6 +71,7 @@ platform dependency has been checked against the stack rather than inferred.
   `pid`. The fake ID-porten's id_token has `pid`; the loss is inside Authentication's identity step
   ([`arbeidsflate.md`](arbeidsflate.md) section 3, [`dialogporten-core.md`](dialogporten-core.md) section 7). Until
   it is fixed the inbox is empty for every user.
+  *2026-10-21: superseded by task 2; code-flow access tokens carry `pid` and logout works (see the status above).*
 - **Plain http needs one proxy header.** `@fastify/session` never saves a session when the cookie is `secure` and
   the request protocol is not https, and the BFF hard-codes `secure: true`; an `X-Forwarded-Proto: https` header from
   the nginx in front of it is the fix, not a patch.

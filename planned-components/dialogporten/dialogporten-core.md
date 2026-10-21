@@ -1,5 +1,31 @@
 # Dialogporten core: vendoring plan for `localtest/components/dialogporten/`
 
+## Status (2026-10-21)
+
+- **Implemented** as task 9: 9a (2026-10-20, `4ab03f0..76b8787`) and 9b (2026-10-20, `4749bd7..d7827bf`), in
+  [`../../localtest/components/dialogporten/`](../../localtest/components/dialogporten/README.md), optional group
+  `dialogporten` (`studioctl env up -r localtest-v2 --with dialogporten`). Smoke test 60 ok on 2026-10-21 under
+  `--with everything`.
+- Taken: three hosts from one vendored tree, the `LocalDevelopment` flags set explicitly, no Janitor and no migration
+  image, Redis kept, the localtest `sync`, cache-clear and dialog list/delete endpoints, the GraphQL path rewrite.
+- Decided otherwise (task 9): the shared Maskinporten fake from task 4 with production semantics (not a fake calling
+  `/Home/GetTestOrgToken`), so Dialogporten acts as `digdir`; Postgres 18 with no `uuidv7()` shim; **no reset on
+  start** (dialogs persist until `env reset` or the localtest delete); an optional studioctl group instead of a compose
+  profile; routes in studioctl-server, not in the localtest app's `PlatformRoutes.cs`. The hooks sit right after
+  `CreateBuilder` and replace services through a service-provider factory. One `#if !LOCALTEST` site was added by task
+  10 (http URLs in dialogs).
+
+Superseded statements:
+
+- Summary and section 6: the `uuidv7()` shim on Postgres 16 and the reset on start (Postgres 18, no reset).
+- Summary and section 7: the end-user API waiting for the OIDC client work; task 2 gives code-flow tokens with `pid`,
+  and the Authentication smoke test reads the end-user dialog list with one.
+- Sections 9, 11 and 12: compose services, the `dialogporten` compose profile, `run-app.sh` steps; read the studioctl
+  runtime component, the group, and provisioning step 5 (`localtest/README.md`, "What the app runner pushes").
+- Section 14, risk (4), the cached resource and subject data hiding a pushed app: closed by 9b's provisioning sync and
+  cache clear after every app push.
+- Section 4 and the Maskinporten fake in section 5.2: superseded by task 4's shared fake.
+
 Research date: 2026-10-20. Strand "dialogporten-core": the Dialogporten service itself (WebApi, GraphQL, Service, Janitor
 hosts; Domain, Application, Infrastructure libraries). The adapter, Arbeidsflate and the Resource Registry are other
 strands; this report only states what it needs from them (section 4 and the final summary).
@@ -61,6 +87,7 @@ Earlier research this builds on: [`../../localtest-components/dialogporten-arbei
   Reset on start: drop and recreate the `public` schema in a localtest `IHostedLifecycleService.StartingAsync`, then
   the production migrator rebuilds it. Redis is required (HotChocolate subscriptions connect eagerly through
   `ConnectionMultiplexer.Connect`); one `redis` compose service.
+  *2026-10-21: superseded by task 9: Postgres 18 without the shim, and no reset on start (dialogs persist until `env reset`).*
 - Effort: about 5 to 7 working days for the component alone (section 14), plus the Resource Registry strand, which
   gates every service-owner call that creates a dialog.
 
@@ -652,6 +679,8 @@ authorization needs the subject-resource mappings to use the same role codes Acc
 `urn:altinn:rolecode:dagl`, `urn:altinn:accesspackage:…`), which the RR strand must take from the pushed policies the
 way Access Management's stand-in does; (4) the 15-minute named caches hide test-data changes unless the cache
 endpoint is called (the runner can call it after each push).
+
+*2026-10-21: risk (4) closed by 9b; studioctl-server's provisioning step 5 runs the sync and clears the caches after every push.*
 
 ## 15. Open questions for the product owner
 
