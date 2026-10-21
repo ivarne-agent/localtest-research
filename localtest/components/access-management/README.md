@@ -74,8 +74,8 @@ PDP's PIP (`policyinformation/*`) and authorized parties (`enduser/authorizedpar
 `authorizedparties` for the PDP, which needs `FeatureManagement:RightsDelegationApi`, on as in production). The
 proxy routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers.
 The container listens on 5080; studioctl publishes it on the host as `127.0.0.1:8023` for debugging, and starts it
-after Postgres, the Register, the Resource Registry and the profile component (its startup refresh reads the first
-two; its production Profile client reads users through `profile/api/v1/internal/user`, served by production Profile
+after Postgres, the Register, the Resource Registry and the profile component (its startup refresh reads the Register
+and the Resource Registry; its production Profile client reads users through `profile/api/v1/internal/user`, served by production Profile
 since task 14).
 
 There is no smoke test in this folder: `../authorization/smoke-test.sh` exercises Access Management through the PDP
