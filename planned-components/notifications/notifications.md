@@ -391,6 +391,8 @@ migration run on every fresh volume is a first-start cost (not measured); a rese
 
 ### 6.7 What the stack must add outside the component: Profile contact points in the Register component
 
+*2026-10-21: superseded by task 14: the Register's Profile controllers are deleted and production Profile (`components/profile/`) serves these four lookups.*
+
 The Register component serves Profile's user endpoints today
 ([`localtest/components/register/README.md`](../../localtest/components/register/README.md), `LocaltestProfileController`)
 and `/profile` is already routed to it. Add the four anonymous internal endpoints Notifications calls, answered from
