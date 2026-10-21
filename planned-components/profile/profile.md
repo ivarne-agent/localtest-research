@@ -349,6 +349,8 @@ through the Register's localtest API, never from the file.
 | official organisation notification addresses | not seeded (unchanged from today: empty lists) | question 3 |
 | `reserved` | no seed field yet (task 6 decision: no reserved flag yet). When it comes, one optional `reserved` on persons is read by the Register's KRR stand-in, which feeds both Correspondence and Profile | |
 
+*2026-10-21: the "official organisation notification addresses" and "`reserved`" rows are superseded: both are seeded since tasks 18 and 14 (`components/profile/README.md`, "The seed").*
+
 App test data registered after start reaches Profile in one of two ways: at the next KRR job run (at most 1 minute
 later), or at once when the app runner calls `POST profile/api/localtest/sync` (question 5). Register lookups (names,
 ids) are live, so a newly registered app user can log in at once. Only their e-mail, phone number and settings can lag.

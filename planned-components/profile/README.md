@@ -1,5 +1,27 @@
 # Plan: Profile beyond the Register
 
+## Status (2026-10-21)
+
+- **Implemented** as task 14 (2026-10-21; `TODO.md` gives `ad2c094..097b474`, on `main` `f7b7f50..097b474`) in
+  [`../../localtest/components/profile/`](../../localtest/components/profile/README.md), default stack, host port 8036,
+  route `/profile` moved off the Register, whose three Profile controllers are deleted. Smoke test 52 ok on
+  2026-10-21; every other suite and the platform regression (44 of 44) passed on the same stack.
+- Taken: Option A at `d1f9871`, two additive hooks and no `#if !LOCALTEST`, migrations and seed at start, the KRR
+  stand-in feeding the production KRR sync, the Resource Registry seed for the organisation-address resource, and the
+  section 8 defaults for questions 1, 2, 4, 5, 6 and 7.
+- Decided otherwise: question 3. Organisations' official notification addresses **are seeded**: the test data has them
+  since task 18 (schema v3), and a brreg stand-in feeds them to Profile's own organisation sync once per organisation
+  (user changes win). Fakes came to 974 lines (estimated about 660), the difference being that seed and the brreg echo.
+  The KRR stand-in reads `reserved` (task 18), so Rik Forelder (1003) is reserved.
+
+Superseded statements:
+
+- Brief, "no seeded official organisation addresses", and report section 6.6 and section 7 items 2 to 4 ("nobody is
+  reserved", "official addresses only through endpoint 27", "no `OrgSyncJob`"): superseded by task 14's seed and task
+  18's test data.
+- Headline findings, "Correspondence's two on the task 7 branch" in the Register fakes: task 7 merged, and task 14
+  deleted those controllers.
+
 Research date 2026-10-20 (task 14 of [`../../TODO.md`](../../TODO.md)), written against this repository at `a3776b3`.
 Upstream pin: [`Altinn/altinn-profile@d1f9871`](https://github.com/Altinn/altinn-profile/tree/d1f9871c40bf00eda949338957ce4259e4ae5a24)
 (`origin/main`, 2026-10-19). The question: which Profile endpoints the stack's consumers need beyond what the Register
@@ -105,6 +127,7 @@ The Register component no longer answers `/profile`.
 - default stack
 - production semantics for unit contact points
 - no seeded official organisation addresses
+  *2026-10-21: decided otherwise: official addresses are seeded from the test data through a brreg stand-in (task 14, with task 18's fields).*
 - user changes win over the seed
 - no sync call from the app runner
 - `phoneNumber` from the seed's mobile number
