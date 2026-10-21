@@ -103,7 +103,7 @@ STUDIOCTL_IMAGE_WORKFLOW_ENGINE=ghcr.io/altinn/altinn-studio/runtime-workflow-en
 ## localtest-v2: the platform's own services
 
 `studioctl env up -r localtest-v2` runs the production platform services instead of localtest's
-emulation of them: Register (which also answers Profile), Authentication, the PDP, Access
+emulation of them: Register, Profile, Authentication, the PDP, Access
 Management, Storage and Events, built from the
 [localtest-research](https://github.com/ivarne-agent/localtest-research) repository with small
 local stand-ins for Azure, plus a localtest app for the test-user login and the token helpers, a

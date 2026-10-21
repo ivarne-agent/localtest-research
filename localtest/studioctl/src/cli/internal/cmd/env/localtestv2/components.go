@@ -24,6 +24,7 @@ const (
 	componentEvents           = "events"
 	componentResourceRegistry = "resource-registry"
 	componentNotifications    = "notifications"
+	componentProfile          = "profile"
 	componentLocaltest        = "localtest"
 	componentPDF              = "pdf3"
 	componentWorkflowEngine   = "workflow-engine"
@@ -61,6 +62,7 @@ const (
 	hostPortDialogportenAdpt = "8035"
 	hostPortNotifications    = "8029"
 	hostPortReceipt          = "8034"
+	hostPortProfile          = "8036"
 	hostPortCorrespondence   = "8033"
 	hostPortPDF              = "5300"
 )
@@ -242,6 +244,7 @@ func allComponents(opts *Options) []component {
 	return []component{
 		postgresComponent(opts),
 		registerComponent(opts, platform),
+		profileComponent(opts, platform),
 		authenticationComponent(opts, platform),
 		authorizationComponent(opts, platform),
 		storageComponent(opts, platform),
@@ -299,7 +302,7 @@ func registerComponent(opts *Options, platform string) component {
 	}
 	c.volumes = []types.VolumeMount{certMount(opts)}
 	appHost := opts.Topology.AppHostName()
-	c.routes = []route{{host: appHost, prefix: "/register"}, {host: appHost, prefix: "/profile"}}
+	c.routes = []route{{host: appHost, prefix: "/register"}}
 	return c
 }
 
@@ -318,7 +321,8 @@ func authenticationComponent(opts *Options, platform string) component {
 		"GeneralSettings__PlatformEndpoint": platform,
 	}
 	c.volumes = []types.VolumeMount{certMount(opts)}
-	c.deps = []string{containerOf(componentRegister)}
+	// Login resolves the user through Profile's internal/user.
+	c.deps = []string{containerOf(componentRegister), containerOf(componentProfile)}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/authentication"}}
 	return c
 }
@@ -338,7 +342,8 @@ func authorizationComponent(opts *Options, platform string) component {
 		"Localtest__Authorization__PlatformEndpoint": platform,
 	}
 	c.volumes = []types.VolumeMount{certMount(opts), namedVolume(volumePolicyStore, "/policy-store")}
-	c.deps = []string{containerOf(componentRegister)}
+	// The PDP reads the subject's profile through Profile's internal/user.
+	c.deps = []string{containerOf(componentRegister), containerOf(componentProfile)}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/authorization"}}
 	return c
 }
@@ -382,8 +387,14 @@ func accessManagementComponent(opts *Options, platform string) component {
 		"Localtest__AccessManagement__PlatformEndpoint": platform,
 	}
 	c.volumes = []types.VolumeMount{certMount(opts), namedVolume(volumePolicyStore, "/policy-store")}
-	// Its startup refresh reads the Register's streams and the Resource Registry's providers, resources and updated feed.
-	c.deps = []string{containerOf(componentPostgres), containerOf(componentRegister), containerOf(componentResourceRegistry)}
+	// Its startup refresh reads the Register's streams and the Resource Registry's providers, resources and updated feed;
+	// its Profile client reads users through internal/user.
+	c.deps = []string{
+		containerOf(componentPostgres),
+		containerOf(componentRegister),
+		containerOf(componentResourceRegistry),
+		containerOf(componentProfile),
+	}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/accessmanagement"}}
 	return c
 }
@@ -473,15 +484,39 @@ func notificationsComponent(opts *Options, platform string) component {
 		"/accesstoken/accesstokencredentials.pfx",
 	)
 	c.volumes = []types.VolumeMount{certMount(opts), notificationsCert}
-	// Orders call Profile and Register (the Register component), the PDP, and the apps' condition endpoints through
-	// the public origin (the default extraHosts map every ingress hostname to the host gateway).
+	// Orders call Profile, Register, the PDP, and the apps' condition endpoints through the public origin (the default
+	// extraHosts map every ingress hostname to the host gateway).
 	c.deps = []string{
 		containerOf(componentPostgres),
 		containerOf(componentRegister),
+		containerOf(componentProfile),
 		containerOf(componentAuthorization),
 		containerOf(componentAuthentication),
 	}
 	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/notifications"}}
+	return c
+}
+
+// profileComponent is production Altinn Profile on its own database: the user profiles apps, Authentication, Authorization
+// and Access Management read, the contact point lookups of Notifications and Correspondence, and Arbeidsflate's profile
+// endpoints. It migrates its database and seeds itself from the Register's localtest API at start (contact details through
+// its KRR sync, organisations' official addresses through its brreg sync, profile settings), so the Register comes first.
+// The PDP, Authentication's OpenID metadata and Notifications are request-time dependencies only; they list Profile among
+// their deps (Authentication and the PDP call it on every login), which rules out the reverse.
+func profileComponent(opts *Options, platform string) component {
+	c := newComponent(opts, componentProfile, opts.Images.LocaltestV2.Profile, "components/profile", "5030", hostPortProfile)
+	c.healthPath = healthPath
+	c.env = map[string]string{
+		certSettingEnv:                         certContainerPath,
+		"Localtest__Profile__PlatformEndpoint": platform,
+		"PostgreSqlSettings__AdminConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_profile_admin;Password={0};Database=profiledb",
+		"PostgreSqlSettings__ConnectionString": "Host=" + postgresAlias + ";Port=" + postgresPort +
+			";Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True",
+	}
+	c.volumes = []types.VolumeMount{certMount(opts)}
+	c.deps = []string{containerOf(componentPostgres), containerOf(componentRegister)}
+	c.routes = []route{{host: opts.Topology.AppHostName(), prefix: "/profile"}}
 	return c
 }
 
@@ -709,6 +744,7 @@ func receiptComponent(opts *Options, platform string) component {
 	// Request-time dependencies only: nothing is read at start (the OpenID metadata on the first cookie).
 	c.deps = []string{
 		containerOf(componentRegister),
+		containerOf(componentProfile),
 		containerOf(componentAuthentication),
 		containerOf(componentStorage),
 	}
@@ -744,6 +780,7 @@ func correspondenceComponent(opts *Options, platform string) component {
 	c.deps = []string{
 		containerOf(componentPostgres),
 		containerOf(componentRegister),
+		containerOf(componentProfile),
 		containerOf(componentAuthorization),
 		containerOf(componentResourceRegistry),
 		containerOf(componentNotifications),

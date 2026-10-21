@@ -31,7 +31,7 @@ func TestBoundTopologyConfigRoutesEveryComponentToLoopback(t *testing.T) {
 	}
 	want := map[string]string{
 		"local.altinn.cloud/storage":          "http://127.0.0.1:" + hostPortStorage,
-		"local.altinn.cloud/profile":          "http://127.0.0.1:" + hostPortRegister,
+		"local.altinn.cloud/profile":          "http://127.0.0.1:" + hostPortProfile,
 		"local.altinn.cloud":                  "http://127.0.0.1:" + hostPortLocaltest,
 		"pdf.local.altinn.cloud":              "http://127.0.0.1:" + hostPortPDF,
 		"workflow-engine.local.altinn.cloud":  "http://127.0.0.1:" + hostPortWorkflowEngine,
@@ -599,5 +599,114 @@ func TestTheCorrespondenceGroupStartsDialogportenAndRoutesToItsHost(t *testing.T
 		if len(c.volumes) != 1 || c.volumes[0].HostPath != volumeCorrespondenceBlobs || c.volumes[0].ContainerPath != "/mnt/storage" {
 			t.Errorf("volumes = %+v, want the blob volume at /mnt/storage", c.volumes)
 		}
+	}
+}
+
+func TestProfileIsInTheDefaultStackAndOwnsTheProfileRoute(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+
+	var profile *component
+	for _, c := range components(opts) {
+		if c.name == componentProfile {
+			profile = &c
+		}
+		for _, r := range c.routes {
+			if r.prefix == "/profile" && c.name != componentProfile {
+				t.Errorf("%s still routes /profile", c.name)
+			}
+		}
+	}
+	if profile == nil {
+		t.Fatal("profile is not in the default stack")
+	}
+	if profile.group != "" || profile.hostPort != hostPortProfile || profile.containerPort != "5030" || profile.healthPath != healthPath {
+		t.Errorf("profile = group %q, ports %s:%s, health %q", profile.group, profile.hostPort, profile.containerPort, profile.healthPath)
+	}
+	if profile.devContext != "components/profile" || profile.image.Image != config.DefaultImages().LocaltestV2.Profile.Image {
+		t.Errorf("profile image %v, dev context %q", profile.image, profile.devContext)
+	}
+	if got := profile.env[certSettingEnv]; got != certContainerPath {
+		t.Errorf("certificate = %q, want the shared one at %s", got, certContainerPath)
+	}
+	for key, want := range map[string]string{
+		"PostgreSqlSettings__AdminConnectionString": "Username=platform_profile_admin;Password={0};Database=profiledb",
+		"PostgreSqlSettings__ConnectionString":      "Username=platform_profile;Password={0};Database=profiledb",
+	} {
+		if !strings.Contains(profile.env[key], "Host="+postgresAlias) || !strings.Contains(profile.env[key], want) {
+			t.Errorf("%s = %q", key, profile.env[key])
+		}
+	}
+	if got := profile.env["Localtest__Profile__PlatformEndpoint"]; got != opts.Topology.LocaltestBaseURL()+"/" {
+		t.Errorf("platform endpoint = %q", got)
+	}
+	if !slices.Equal(profile.deps, []string{containerOf(componentPostgres), containerOf(componentRegister)}) {
+		t.Errorf("profile deps = %v, want postgres and register (its start-up seed reads the Register)", profile.deps)
+	}
+}
+
+func TestTheComponentsThatCallProfileStartAfterIt(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	opts.Groups = allGroups()
+	callers := map[string]bool{
+		componentAuthentication:   true,
+		componentAuthorization:    true,
+		componentAccessManagement: true,
+		componentNotifications:    true,
+		componentReceipt:          true,
+		componentCorrespondence:   true,
+	}
+	for _, c := range components(opts) {
+		if callers[c.name] {
+			delete(callers, c.name)
+			if !slices.Contains(c.deps, containerOf(componentProfile)) {
+				t.Errorf("%s deps %v lack profile", c.name, c.deps)
+			}
+		}
+	}
+	if len(callers) != 0 {
+		t.Errorf("components not found: %v", slices.Sorted(maps.Keys(callers)))
+	}
+}
+
+func TestDepsNameKnownContainersWithoutCycles(t *testing.T) {
+	t.Parallel()
+	opts := defaultOptions(config.DefaultImages(), t.TempDir())
+	opts.Groups = allGroups()
+	deps := map[string][]string{}
+	for _, c := range components(opts) {
+		deps[c.containerName()] = c.deps
+	}
+	for name, ds := range deps {
+		for _, d := range ds {
+			if _, ok := deps[d]; !ok {
+				t.Errorf("%s depends on unknown %s", name, d)
+			}
+		}
+	}
+	const (
+		unvisited = iota
+		visiting
+		done
+	)
+	state := map[string]int{}
+	var visit func(name string, path []string)
+	visit = func(name string, path []string) {
+		switch state[name] {
+		case visiting:
+			t.Errorf("dependency cycle: %s", strings.Join(append(path, name), " -> "))
+			return
+		case done:
+			return
+		}
+		state[name] = visiting
+		for _, d := range deps[name] {
+			visit(d, append(path, name))
+		}
+		state[name] = done
+	}
+	for _, name := range slices.Sorted(maps.Keys(deps)) {
+		visit(name, nil)
 	}
 }

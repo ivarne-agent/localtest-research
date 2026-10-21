@@ -80,6 +80,7 @@ type LocaltestV2Images struct {
 	Events           ImageSpec
 	ResourceRegistry ImageSpec
 	Notifications    ImageSpec
+	Profile          ImageSpec
 	Postgres         ImageSpec
 
 	// The optional Dialogporten group: three hosts built from one vendored tree, the adapter, and the Redis they share,
@@ -108,6 +109,7 @@ func (i *LocaltestV2Images) All() []*ImageSpec {
 		&i.Events,
 		&i.ResourceRegistry,
 		&i.Notifications,
+		&i.Profile,
 		&i.Postgres,
 		&i.DialogportenWebApi,
 		&i.DialogportenGraphQL,
@@ -175,6 +177,7 @@ func DefaultImages() ImagesConfig {
 			Events:           localtestV2Image("events"),
 			ResourceRegistry: localtestV2Image("resource-registry"),
 			Notifications:    localtestV2Image("notifications"),
+			Profile:          localtestV2Image("profile"),
 			Postgres:         localtestV2Image("postgres"),
 
 			DialogportenWebApi:  localtestV2Image("dialogporten-webapi"),
@@ -219,6 +222,7 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_EVENTS":            &c.LocaltestV2.Events,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_RESOURCE_REGISTRY": &c.LocaltestV2.ResourceRegistry,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_NOTIFICATIONS":     &c.LocaltestV2.Notifications,
+		"STUDIOCTL_IMAGE_LOCALTEST_V2_PROFILE":           &c.LocaltestV2.Profile,
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_POSTGRES":          &c.LocaltestV2.Postgres,
 
 		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_WEBAPI":  &c.LocaltestV2.DialogportenWebApi,
