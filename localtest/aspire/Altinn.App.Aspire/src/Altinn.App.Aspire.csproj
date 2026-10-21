@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Altinn.App.Aspire</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>Altinn.App.Aspire</PackageId>
+    <Version>0.1.0-alpha.1</Version>
+    <Authors>Altinn</Authors>
+    <PackageTags>altinn;aspire;localtest</PackageTags>
+    <Description>
+      Runs the Altinn localtest platform (the localtest-v2 component stack) as container resources of a .NET Aspire
+      AppHost, with a YARP front door on http://local.altinn.cloud:8000, from the same component manifest studioctl
+      runs.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Altinn.App.Aspire.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" />
+    <PackageReference Include="Aspire.Hosting.Yarp" />
+  </ItemGroup>
+
+  <!-- The shared provisioning library, compiled in so the package is one assembly with no unpublished dependency
+       (TODO.md task 21, the 21d decisions). Unused until 21e. -->
+  <ItemGroup>
+    <Compile
+      Include="../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/**/*.cs"
+      LinkBase="Provisioning"
+    />
+  </ItemGroup>
+
+  <!-- The component manifest and its schema from the Go tree (single copy), and the shared test certificate studioctl
+       embeds too. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.json"
+      LogicalName="Altinn.App.Aspire.manifest.json"
+      Link="Manifest/manifest.json"
+    />
+    <EmbeddedResource
+      Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.schema.json"
+      LogicalName="Altinn.App.Aspire.manifest.schema.json"
+      Link="Manifest/manifest.schema.json"
+    />
+    <EmbeddedResource
+      Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/assets/localtest-accesstoken.pfx"
+      LogicalName="Altinn.App.Aspire.localtest-accesstoken.pfx"
+      Link="Certificate/localtest-accesstoken.pfx"
+    />
+  </ItemGroup>
+</Project>
