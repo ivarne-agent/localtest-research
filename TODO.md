@@ -593,9 +593,8 @@ layer).
   policy, Resource Registry subject reload, Access Management refresh, Dialogporten sync) into a .NET library both
   studioctl-server and the Aspire package reference, reading the app's `testData.json`, policy, metadata and texts from
   the app folder or the running app, as today.
-- **21d, the front door for Aspire.** Decide between `Aspire.Hosting.Yarp` with routes generated from the manifest
-  (host + prefix, path rewrite, a 503 answer for groups that are off) and the localtest app's proxy as the front-door
-  container reading the manifest routes; the app routes the provisioner adds; `local.altinn.cloud:8000` reachable from
+- **21d, the front door for Aspire.** `Aspire.Hosting.Yarp` with routes generated from the manifest (host + prefix,
+  path rewrite) and the app routes the provisioner adds; the 503 answer for groups that are off is deferred; `local.altinn.cloud:8000` reachable from
   the containers (Aspire network aliases, `--add-host` under Podman).
 - **21e, the package.** `Altinn.Localtest.Aspire` (name to decide): `AddAltinnLocaltest(options)` adds the containers
   from the embedded manifest with groups, Postgres and Redis, the certificate, waits and health; `AddAltinnApp<T>()`
@@ -609,8 +608,9 @@ layer).
 **Decisions (2026-10-21, discussed one by one).** The checked-in `localtest/manifest.json` with a JSON schema is the
 source of truth; studioctl embeds it and `components.go` becomes a loader, with a transition test that the loader
 reproduces today's table; the pin moves into it. The Aspire front door is `Aspire.Hosting.Yarp` with routes generated
-from the manifest (host + prefix, rewrites), plus the custom pieces it lacks: the 503 for groups that are off and the
-app routes the provisioner adds. The shared provisioning library reads the app's files from disk first (the Aspire
+from the manifest (host + prefix, rewrites), plus the app routes the provisioner adds; the 503 for known components whose group is off is **deferred** for the
+Aspire front door (owner, 2026-10-21: low priority), so a request to one falls through to whatever YARP does by default,
+documented. The shared provisioning library reads the app's files from disk first (the Aspire
 package knows the project path) and falls back to the running app's API (studioctl-server's case). app-lib's import of
 studioctl's environment: the package sets `STUDIOCTL_APP_RUN` now, and an app-lib change (honour an explicit localtest
 environment) is filed as a follow-up (task 22). 21b runs as one agent: inventory, the sites with a report per
