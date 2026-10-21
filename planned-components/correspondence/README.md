@@ -9,6 +9,7 @@ in this folder.
 | Report | What it plans | Effort |
 | --- | --- | --- |
 | [`correspondence.md`](correspondence.md) | Consumer contract (app-lib, the signing flow, Arbeidsflate and dialog tokens, the Notifications condition check, the old localtest), production dependencies against what the stack has, build chain (verified with a scratch build and three scratch starts on a throwaway Postgres), three options, directive sites, fakes, configuration, Postgres, Dockerfile, studioctl group, test-data mapping, inspection API, smoke list, differences, faster-than-production rows, open questions | 7 to 8 days |
+| [`party-ids.md`](party-ids.md) | 2026-10-21, after task 7 met it on the stack: why production Correspondence accepts only 8- or 10-digit party ids (`IsPartyId`, history #1595/#1762/#2042/#2043), what breaks with the seed's 6-digit ids, which other components care (none), options (renumber the seed, one `#if !LOCALTEST` site in `XacmlRequestFactory`, an upstream fix, UUIDs). Recommends the site now and the upstream fix, no seed change | half a day (the site); upstream about an hour |
 
 ## Headline findings
 
