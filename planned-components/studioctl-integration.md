@@ -21,8 +21,8 @@ with its image workflow, the rollout and the default flip), the `/health` body (
 the frontend version override and cookie-domain rewriting, and two front-door gaps (`/storage` without its trailing
 slash and `/app-frontend/` answer 404).
 
-The upstream branch exists on the fork: `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio` (21
-commits on Altinn/altinn-studio `main`, studioctl's README, CHANGELOG, AGENTS.md and bundled skill included). Its
+The upstream branch exists on the fork: `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio`, with
+studioctl's README, CHANGELOG, AGENTS.md and bundled skill updated. Its
 newest commit pins `sha-55ce57f` (2026-10-21), so it does not yet carry the Correspondence and Profile components
 (`a4fed5c`, `894f7a7`) or the two later pins. No pull request from it is recorded in this repository.
 
