@@ -276,7 +276,7 @@
     },
     "components": {
       "title": "Components",
-      "description": "Every container, in start order: the always-on ones and those of the groups. A component's dependencies come before it.",
+      "description": "Every container: the always-on ones and those of the groups. The list order is the order of `env status`, `env logs` and the health wait; the runtime starts each component after its dependsOn, wherever they are in the list.",
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/component" }
@@ -491,7 +491,7 @@
         },
         "dependsOn": {
           "title": "Dependencies",
-          "description": "Components that must be running (and healthy, when they have a container health check) before this one starts. Each comes earlier in the list.",
+          "description": "Components that must be running (and healthy, when they have a container health check) before this one starts. They set the start order; Parse refuses a cycle.",
           "type": "array",
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/name" }

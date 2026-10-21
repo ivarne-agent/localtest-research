@@ -110,7 +110,8 @@ The SPA's three runtime values are written into `index.html` by upstream's `star
 `/dialogporten/graphql/stream`); the front door forwards it to the GraphQL host's `/graphql/stream`. The two Application
 Insights values stay empty, which turns telemetry off.
 
-The BFF's environment, set by studioctl (`arbeidsflateBFFComponent` in `components.go`):
+The BFF's environment, set by studioctl (the `arbeidsflate-bff` component in the component manifest,
+`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`):
 
 | Variable | Value | Why |
 | --- | --- | --- |

@@ -67,8 +67,8 @@ session's events.
 Postgres ran with `TZ=Europe/Oslo` (studioctl, and initdb copies `TZ` into `postgresql.conf`), so every event was stored
 two hours early in summer time (one in winter; seen in task 9b: `time` 19:44:05Z, `registeredTime` 17:44:13+00:00) and
 the read API's 30-second delay never held anything back. studioctl now runs the shared Postgres with `TZ=UTC` and
-`-c timezone=UTC -c log_timezone=UTC` (`localtest/studioctl/src/cli/internal/cmd/env/localtestv2/components.go`,
-`postgresComponent`), which also covers a data volume created under the old setting. The same default is in Profile
+`-c timezone=UTC -c log_timezone=UTC` (the `postgres` component in
+`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`), which also covers a data volume created under the old setting. The same default is in Profile
 (`created_date_time`) and Dialogporten (`current_timestamp at time zone 'utc'`), which this fixes as well; no init
 script or fake in the stack relies on Oslo time in the database. The smoke test checks `registeredTime` against the
 clock and that the read API holds back an event published after one older than 30 seconds.

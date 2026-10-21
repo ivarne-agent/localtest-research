@@ -69,9 +69,13 @@ Invariants:
   is older than the image it pulls. See the service's own `AGENTS.md`.
 - `STUDIOCTL_IMAGE_*` pins one reference for a session. It replaced a home-directory override file,
   which an update deletes.
-- The localtest-v2 images (`internal/config/images.go`, `LocaltestV2Images`) are pinned to one
-  `sha-<commit>` tag of the localtest-research repository and bumped by hand after a run against
-  that build; `env up --latest` follows main. The runtime lives in `internal/cmd/env/localtestv2/`
+- The localtest-v2 stack is described by one embedded component manifest
+  (`internal/localtestv2/manifest/manifest.json`, with its schema and README): containers, groups,
+  routes, and the image pin, one `sha-<commit>` tag of the localtest-research repository bumped by
+  hand after a run against that build (`images.tag`); `env up --latest` follows main.
+  `internal/config/images.go` (`LocaltestV2Images`) takes the images and override variables from it.
+  Change the manifest, not Go code, to change a component; the golden file in
+  `internal/cmd/env/localtestv2/testdata/` shows the effect. The runtime lives in `internal/cmd/env/localtestv2/`
   with its own setup, teardown, HTTP health wait and route table, and studioctl-server's
   `Proxy/` and `Provisioning/` folders serve the public origin and deploy discovered apps while it
   runs (`internal/localtestv2` holds the state file both sides read).

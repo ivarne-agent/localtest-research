@@ -57,7 +57,7 @@ Upstreams default to the container names of the compose file the stack used to r
 effective ones.
 
 Behind studioctl's `localtest-v2` runtime studioctl-server is the front door, with its own route table (the component
-routes in the vendored studioctl's `localtestv2/components.go`, served by `studioctl-server/Proxy/`), and this app's
+routes from the vendored studioctl's component manifest, `internal/localtestv2/manifest/manifest.json`, served by `studioctl-server/Proxy/`), and this app's
 route table is not used: studioctl-server sends it only the paths no component claims, so here only steps 3 and 6
 apply (the start page, `/Home`, `localtest/api/…`, and the 404 for an app path studioctl has not routed). App routes
 come from studioctl, not from this app's API; `/app-frontend/` is not served, because studioctl mounts nothing at

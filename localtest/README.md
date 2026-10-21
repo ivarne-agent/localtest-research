@@ -38,13 +38,20 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`); the stack runs studioctl's `runtime-pdf3-worker` image unless `STUDIOCTL_IMAGE_PDF3` names another |
 | `smoke-test.sh` | End-to-end check of the running stack through the front door |
 
-Host ports (loopback only; `localtestv2/components.go` in the vendored studioctl): Register 8020, Authentication 8021,
+**The component manifest** is the one description of the stack's containers:
+[`studioctl/src/cli/internal/localtestv2/manifest/manifest.json`](studioctl/src/cli/internal/localtestv2/manifest/manifest.json)
+(with its JSON Schema and a [README](studioctl/src/cli/internal/localtestv2/manifest/README.md) beside it) lists every
+component's image, ports, environment, mounts, dependencies, health check, group and front-door routes, the optional
+groups, the image pin and the Postgres init scripts. studioctl embeds it and builds the `localtest-v2` runtime from it;
+another runtime can read the same file. The ports and routes below are derived from it.
+
+Host ports (loopback only): Register 8020, Authentication 8021,
 Authorization 8022, Access Management 8023, Storage 8024, Events 8025, the localtest app 8026, Resource Registry 8027,
 the workflow engine 8028, Notifications 8029, Profile 8036, the PDF generator 5300; in the `dialogporten` group the
 WebApi 8030, GraphQL 8031, Service 8032 and the adapter 8035; Receipt 8034 (`receipt`); Correspondence 8033
 (`correspondence`); in the `arbeidsflate` group the SPA's nginx 8037 (the whole host `af.local.altinn.cloud`) and the
 BFF 8038 (no route). Postgres and Redis publish no port. Everything is reached through `http://local.altinn.cloud:8000`
-as well, by the route prefixes in the same file.
+as well, by the route prefixes in the manifest.
 
 Fakes are written fresh for this layout and reach the vendored services the way their production counterparts do: the
 picker resolves users through the Register API, and `testData.json` is Register seed data, not a file other
@@ -137,8 +144,8 @@ converges the environment to that choice.
 Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
 for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked
 in), tagged `sha-<commit>` and `latest`. studioctl runs the build pinned in
-[`studioctl/src/cli/internal/config/images.go`](studioctl/src/cli/internal/config/images.go) (`tagLocaltestV2`, today
-`sha-0485d0a`, the profile component's build), which is moved by hand after a run against it. To run a component from this checkout instead, `studioctl env up -r localtest-v2
+the component manifest (`images.tag`, today `sha-7f21882`, the build of task 11b), which is moved by hand
+after a run against it. To run a component from this checkout instead, `studioctl env up -r localtest-v2
 --dev <name>` builds it from `components/<name>` (`STUDIOCTL_LOCALTEST_V2_SRC` points at this `localtest/` folder; `--dev dialogporten`
 builds the group's three images from `components/dialogporten`). An existing Postgres volume predates a component's init script, which Postgres
 only runs on an empty volume: run the script by hand (see the component's README) or `studioctl env reset -r localtest-v2 --yes`.
