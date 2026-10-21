@@ -596,7 +596,7 @@ layer).
 - **21d, the front door for Aspire.** `Aspire.Hosting.Yarp` with routes generated from the manifest (host + prefix,
   path rewrite) and the app routes the provisioner adds; the 503 answer for groups that are off is deferred; `local.altinn.cloud:8000` reachable from
   the containers (Aspire network aliases, `--add-host` under Podman).
-- **21e, the package.** `Altinn.Localtest.Aspire` (name to decide): `AddAltinnLocaltest(options)` adds the containers
+- **21e, the package.** `Altinn.App.Aspire` (decided 2026-10-22, see the 21d decisions): `AddAltinnLocaltest(options)` adds the containers
   from the embedded manifest with groups, Postgres and Redis, the certificate, waits and health; `AddAltinnApp<T>()`
   sets the app's environment (platform URLs, test certificate), runs the provisioning after the app is healthy, and
   exposes a dashboard command to rerun it; `env reset` as a command; a sample single-file AppHost for a test app; the
@@ -616,7 +616,7 @@ studioctl's environment: the package sets `STUDIOCTL_APP_RUN` now, and an app-li
 environment) is filed as a follow-up (task 22). 21b runs as one agent: inventory, the sites with a report per
 component in its README, then the stripping removed from both proxies; the owner reviews the inventory in the report
 before merge. Prototype scope: default stack plus `dialogporten`, one sample test app, the smoke tests against the
-Aspire-hosted stack, Podman verified; package `Altinn.Localtest.Aspire` published to GitHub Packages from this repo.
+Aspire-hosted stack, Podman verified; package `Altinn.App.Aspire` published to GitHub Packages from this repo.
 Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f last. Dispatched 2026-10-21 (21a, 21b, 21c).
 
 **21d decisions (2026-10-22, discussed one by one).** Front door: stock `Aspire.Hosting.Yarp`, accepting that it cannot
@@ -626,7 +626,12 @@ on every component as studioctl does (the manifest's `ingressHosts` and `extraHo
 port published on 8000; network aliases on the YARP container are the fallback if `WithContainerRuntimeArgs` fails
 under Podman (reported, not silently switched). The app route: YARP routes to the app project resource and Aspire's
 container tunnel carries it to the host, the app stays on loopback; `host.docker.internal` with the app on `0.0.0.0` is
-the documented fallback if the tunnel fails under Podman (reported).
+the documented fallback if the tunnel fails under Podman (reported). The package is `Altinn.App.Aspire` at
+`localtest/aspire/Altinn.App.Aspire/` (owner, 2026-10-22), outside the vendored studioctl tree, so it is this
+repository's own and not part of the studioctl upstream patch; it embeds the manifest from the Go tree by relative
+path (`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`, single copy) and references the
+provisioning library by project across the trees; the NuGet has to carry the provisioning assembly (packed in, or a
+second package), decided in the 21e brief.
 
 ## 22. app-lib honours an explicit localtest environment
 
