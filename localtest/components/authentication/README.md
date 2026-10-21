@@ -41,8 +41,9 @@ Everything else is configuration (`fakes/LocaltestAuthenticationExtensions.cs`):
 - `MaskinportenWellKnownConfigEndpoint` (and the alternative) point at the fake Maskinporten
   (`localtest/api/maskinporten/.well-known/oauth-authorization-server`). The exchange accepts a token when that URL
   contains its `iss`, so the public URL is used.
-- `PlatformSettings:ApiProfileEndpoint` points at the register component, which answers Profile's `internal/user`
-  (`Localtest:Authentication:ProfileEndpoint` overrides it).
+- `PlatformSettings:ApiProfileEndpoint` points at the profile component (production Profile), which answers
+  `internal/user` (`Localtest:Authentication:ProfileEndpoint` overrides it). Until task 14 the register component
+  answered it.
 - Everything derived from `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22
   values); `PlatformEndpoint` itself comes from the environment. `Localtest:Authentication:InternalPlatformEndpoint`
   points the service's own calls elsewhere when the public host name is not reachable from where it runs.

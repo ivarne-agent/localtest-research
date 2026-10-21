@@ -19,7 +19,7 @@ production components see the population register, the CCR and Profile:
 | Reader | Through | Gets |
 | --- | --- | --- |
 | Register | the file | parties (persons, self-identified users, organisations, system users), CCR role assignments, sub-units |
-| Profile endpoints (served by the Register, `/profile`) | the Register's store | users (`users`, `internal/user`, `users/current`), preferences, contact point lookups |
+| Profile (production Profile, `components/profile/`, since task 14) | `test-users`, `organizations` and the KRR stand-in, through its KRR and brreg sync jobs and a settings seed | persons' e-mail, mobile number and reservation (KRR mirror), preferences (once per user), organisations' official addresses (once per organisation); names and ids live from the Register |
 | Authentication | Profile `internal/user`, Register | the signed-in user (user id, `pid`, party) |
 | Login picker (localtest app) | `register/api/localtest/test-users` | users, their parties |
 | Access Management | Register streams (production import), `test-users` (its refresh) | parties and CCR roles; Altinn 2 role codes and access packages |
@@ -95,15 +95,15 @@ warning. Legacy username self-identified users are not modelled.
 | `firstName`, `middleName`, `lastName` | string | `lastName` `""` | v1 | Register (name parts and display name = first, middle, last joined); Profile `party`; person lookups match `lastName` |
 | `userName` | string | none | v1 | Register (user name); Profile `userName` and lookup by user name |
 | `email` | string, e-mail | none | v1 | Profile `email` and the contact point lookups (Notifications); KRR stand-in; the identity of a self-identified user |
-| `language` | `nb`, `nn`, `en` | `nb` | v1 | Profile `profileSettingPreference.language` |
-| `preSelectedPartyId` | integer | `0` | v2 | Profile `profileSettingPreference.preSelectedPartyId` |
-| `doNotPromptForParty` | boolean | `false` | v2 | Profile `profileSettingPreference.doNotPromptForParty` |
-| `telephoneNumber` | string | none | v1 | Profile `phoneNumber` (preferred over `mobileNumber`); contact point lookups when `mobileNumber` is absent |
-| `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | Profile contact point lookups (Notifications' SMS), `phoneNumber` when no `telephoneNumber`; KRR stand-in |
+| `language` | `nb`, `nn`, `en` | `nb` | v1 | Profile `profileSettingPreference.language` (seeded once per user; a user's own change wins) |
+| `preSelectedPartyId` | integer | `0` | v2 | Profile `profileSettingPreference.preSelectedPartyId` (as above, stored by the party's UUID) |
+| `doNotPromptForParty` | boolean | `false` | v2 | Profile `profileSettingPreference.doNotPromptForParty` (as above) |
+| `telephoneNumber` | string | none | v1 | Register; the KRR stand-in's mobile number when `mobileNumber` is absent |
+| `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | KRR stand-in, and through it Profile's KRR mirror: `phoneNumber` in user profiles, the contact point lookups (Notifications' SMS) |
 | `reserved` | boolean | `false` | v3 | `test-users`; Profile's `isReserved` in `users/contactpoint/lookup` (Notifications); the KRR stand-in's `reservasjon` (Correspondence) |
 | `addressStreetName`, `addressHouseNumber`, `addressHouseLetter`, `addressPostalCode`, `addressCity`, `addressMunicipalNumber`, `addressMunicipalName` | string | none | v1 | Register (residential address) |
 | `mailingAddress`, `mailingPostalCode`, `mailingPostalCity` | string | none | v1 | Register (mailing address) |
-| `partyRoles` (required) | object: party id → array of role | | v1 | Register, Access Management, Profile `units/contactpoint/lookup`, login picker (below) |
+| `partyRoles` (required) | object: party id → array of role | | v1 | Register, Access Management, login picker (below). Not Profile's `units/contactpoint/lookup` since task 14: production answers only addresses users registered for the organisation |
 | `accessPackages` | object: party id → array of package | `{}` | v2 | `test-users` → Access Management refresh → PDP |
 | `customClaims` | array of claim | `[]` | v1 | `test-users` only; no component adds them to tokens yet |
 | `profile` | object, no fields | | v3 (reserved) | nothing (below) |
@@ -158,11 +158,12 @@ by the refresh.
 `{ "type", "value", "valueType" }`, all required (v1). Kept from the old localtest, which added them to the user's
 token. Exposed in `test-users`; no component of the new stack uses them yet.
 
-### `profile` (reserved for task 14)
+### `profile` (reserved)
 
-Task 14 researches which Profile data apps and the inbox use beyond what the Register serves today: favourites,
-notification settings, professional notification addresses. Their fields will go in this object on the person. Until
-then only `{}` validates and the loader ignores it. The existing preferences (`language`, `preSelectedPartyId`,
+Task 14 vendored production Profile and seeds only what the fields above carry. Favourites, party groups, professional
+notification settings and verified addresses are not seeded; testers create them through Arbeidsflate or Profile's API,
+and they persist in Profile's database. Fields for them would go in this object on the person. Until then only `{}`
+validates and the loader ignores it. The existing preferences (`language`, `preSelectedPartyId`,
 `doNotPromptForParty`) stay at the top level, where v1 and v2 put them.
 
 ## Organisations
@@ -181,7 +182,7 @@ then only `{}` validates and the loader ignores it. The existing preferences (`l
 | `eMailAddress` | string, e-mail | none | v1 | Register (CCR e-mail). Not a notification address |
 | `internetAddress`, `telephoneNumber`, `faxNumber` | string | none | v1 | Register |
 | `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | Register (CCR mobile). Not a notification address |
-| `notificationAddresses` | array of address | `[]` | v3 | Profile `organizations/notificationaddresses/lookup` (Notifications, and Correspondence's `correspondence/` variant); `register/api/localtest/organizations` |
+| `notificationAddresses` | array of address | `[]` | v3 | `register/api/localtest/organizations`, from which Profile seeds its mirror of official addresses once per organisation: `organizations/notificationaddresses/lookup` (Notifications, and Correspondence's `correspondence/` variant) |
 
 A sub-unit is an organisation with `parentPartyId`, conventionally with `unitType` `BEDR`. Roles held for the main unit
 reach its sub-units the way production derives them; roles can also be given for the sub-unit directly.

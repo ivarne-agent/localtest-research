@@ -206,12 +206,12 @@
         },
         "telephoneNumber": {
           "title": "Telephone number",
-          "description": "Fixed-line telephone number. Profile's users endpoints return it as phoneNumber when set (before mobileNumber); the contact point lookups use it only when mobileNumber is absent.",
+          "description": "Fixed-line telephone number. The KRR stand-in (and through it Profile's phoneNumber and contact point lookups) uses it only when mobileNumber is absent.",
           "$ref": "#/$defs/nullableString"
         },
         "mobileNumber": {
           "$ref": "#/$defs/mobileNumber",
-          "description": "The person's mobile number in full international form (+47...), the SMS contact point Notifications gets from Profile's users/contactpoint/lookup. Tightened in v3: v1 accepted any string."
+          "description": "The person's mobile number in full international form (+47...): through the KRR stand-in, Profile's phoneNumber and the SMS contact point Notifications gets from Profile's users/contactpoint/lookup. Tightened in v3: v1 accepted any string."
         },
         "reserved": {
           "title": "Reserved against digital contact (v3)",
@@ -263,7 +263,7 @@
         },
         "profile": {
           "title": "Profile data (reserved, v3)",
-          "description": "Reserved for the Profile data task 14 identifies (favourites, notification settings, professional notification addresses). No fields are defined yet; only an empty object validates. The loader ignores it.",
+          "description": "Reserved for Profile data that is not seeded yet (favourites, professional notification settings, verified addresses; task 14 seeds only the fields above). No fields are defined yet; only an empty object validates. The loader ignores it.",
           "type": "object",
           "properties": {},
           "additionalProperties": false

@@ -5,7 +5,7 @@ Production Altinn Receipt (`vendor/`, see `vendor/UPSTREAM.md`), the platform re
 link archived instances to. It is the **optional group `receipt`** (`studioctl env up -r localtest-v2 --with receipt`,
 or `--with everything`), implying no other group. It is stateless: no database, queue or blob store, and nothing is
 provisioned. Its backend reads the instance from Storage, the owner from Register and the user from Profile (the
-Register component) with the user's `AltinnStudioRuntime` cookie, adding a `platform`/`receipt` platform access token
+profile component) with the user's `AltinnStudioRuntime` cookie, adding a `platform`/`receipt` platform access token
 for Register and Profile; the browser reads Storage's application metadata and texts and altinncdn.no's org list.
 
 | Path | What |
@@ -35,8 +35,8 @@ string), graceful shutdown (skipped in Development), the subscription key header
 3. `Development`: the developer exception page and PII in token errors instead of ProblemDetails, the always-on trace
    sampler, no five-second shutdown delay, cookie metadata over http.
 4. No API Management: the subscription key is sent and ignored.
-5. No Altinn 2 portal, so no `altinnPersistentContext` cookie: the language comes from the user's profile (the
-   Register component's Profile data), as upstream's frontend falls back to it.
+5. No Altinn 2 portal, so no `altinnPersistentContext` cookie: the language comes from the user's profile (production
+   Profile, whose settings are seeded from the test data's `language`), as upstream's frontend falls back to it.
 6. "Tilbake til innboks" (back to the inbox) and "log out" go to the localtest start page, which is upstream's own
    behaviour for `local.altinn.cloud` (decided 2026-10-20: stays as upstream has it; to be raised upstream with
    Arbeidsflate, task 11).

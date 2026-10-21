@@ -2,8 +2,8 @@
 
 Production Altinn Authorization, the PDP (`vendor/`, see `UPSTREAM.md`), answering `authorization/api/v1/decision`,
 `parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the OED PIP, the
-audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`, answered by the register
-component), Storage, Access Management (roles, access packages, delegations, authorized parties) and the Resource
+audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`, answered by the profile
+component, production Profile), Storage, Access Management (roles, access packages, delegations, authorized parties) and the Resource
 Registry (resources, resource policies such as `altinn_keyrole_access`, access lists) stay production HTTP calls to the
 other localtest components.
 
@@ -48,7 +48,7 @@ are skipped by production code because `kvSetting` is empty.
 
 Kept production: `ContextHandler`, `DelegationContextHandler`, `DecisionController`, `PartiesController`, the ABAC
 engine, `RegisterService` (Register v1 `parties/partylist`, `partylistbyuuid`, `lookup`, served by the register
-component), `ProfileWrapper` (Profile `internal/user`, served by the register component), `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`), `AccessManagementWrapper`
+component), `ProfileWrapper` (Profile `internal/user`, served by the profile component), `InstanceMetadataRepository` (Storage `instances/{id}/process/authinfo`), `AccessManagementWrapper`
 (Access Management `policyinformation/roles-and-accesspackages`, `policyinformation/getdelegationchanges`,
 `authorizedparties`, `authorizedparty/{partyId}`, served by the access-management component) and `RolesWrapper` (the
 Altinn 2 `roles` endpoint over the SBL bridge, which does not exist locally: it answers an empty list, and nothing
@@ -67,10 +67,10 @@ test apps' policies and the Studio template uses `string-equal-ignore-case`, so 
 ## What the other components must provide
 
 - Proxy on the platform endpoint: `/authorization/` to this service, `/accessmanagement/` to Access Management (PIP
-  and authorized parties), `/register/` (v1 parties and the localtest endpoints), `/authentication/api/v1/openid/`
+  and authorized parties), `/register/` (v1 parties and the localtest endpoints), `/profile/` (`internal/user`), `/authentication/api/v1/openid/`
   (JWT validation for `parties`, `roles`), `/storage/api/v1/` (instance authinfo).
-- Register: v1 parties for the subject and resource party lookups, and Profile's `internal/user` for the user
-  profile.
+- Register: v1 parties for the subject and resource party lookups.
+- Profile (the profile component): `internal/user` for the user profile.
 - Caching: production PDP caches (user profile, party lookups) last 1 minute, including a "user not found" profile, so
   users and parties added by `PUT register/api/localtest/apps/{org}/{app}` are seen after a minute;
   `POST authorization/api/localtest/refresh` clears them all at once.

@@ -40,8 +40,8 @@ Both in `components/api/src/Altinn.Notifications/Program.cs`:
 | `IMaskinportenService` for the condition check (`SendConditionClient`) | `Maskinporten/`: a copy of `components/shared/fakes/Maskinporten/`, production semantics (token from the fake Maskinporten, exchanged through production Authentication) |
 | Settings from the deployment | `LocaltestNotificationsExtensions.AddLocaltestConfiguration`: platform endpoints, 1 task and a 1 s idle delay per process loop (production 30 tasks, 30 s), SMS send window 0 to 24 (production 09 to 17, Europe/Oslo), Dialogporten off |
 
-Unchanged production behaviour worth knowing: Profile, Register and the PDP are called for real (the Register component
-answers Profile's four contact point lookups, see `../register/README.md`); `trigger/*` endpoints are anonymous and
+Unchanged production behaviour worth knowing: Profile, Register and the PDP are called for real (production Profile, the
+profile component, answers the four contact point lookups, see `../profile/README.md`); `trigger/*` endpoints are anonymous and
 run one loop iteration on demand; Swagger is on at `/swagger` (Development).
 
 ## Inboxes and the capture
@@ -112,17 +112,19 @@ working directory, hence `PostgreSQLSettings__MigrationScriptPath=app/Migration`
   behaviour for results is not exercised; a result is applied once, in process.
 - Every message is delivered; there is no failure, bounce or reservation (the seed has no reserved flag).
 - Process loops run 1 task each with a 1 s idle delay, and SMS is sent at any hour.
-- Profile's contact point answers come from the Register component's seed (below), Dialogporten is off, Key Vault and
-  Application Insights are off.
+- Profile's contact points come from the test data through Profile's KRR and brreg stand-ins (below,
+  `../profile/README.md`), Dialogporten is off, Key Vault and Application Insights are off.
 - The vendored `Yuniql` trace logs every migration statement at start (`ConsoleTraceService` is always in debug mode); the
   first start of a fresh volume prints thousands of lines.
 
 ## Recipients and the seed
 
 Direct addresses (`recipientEmail`, `recipientSms`, v1 `recipients[]`) need no lookup. Person, organisation and
-self-identified recipients are resolved by production code through the Register component's Profile endpoints
-(`users/contactpoint/lookup`, `lookupsi`, `units/contactpoint/lookup`, `organizations/notificationaddresses/lookup`),
-which return the seed's addresses and numbers exactly as stored. Production then decides what it accepts:
+self-identified recipients are resolved by production code through production Profile (the profile component:
+`users/contactpoint/lookup`, `lookupsi`, `units/contactpoint/lookup`, `organizations/notificationaddresses/lookup`).
+Profile fills its KRR mirror (persons' e-mail, mobile number, reservation) and its mirror of organisations' official
+addresses from the test data through stand-ins for KRR and brreg and its production sync jobs, and returns the addresses
+and numbers exactly as stored. Production Notifications then decides what it accepts:
 
 - **SMS numbers are validated.** Direct SMS recipients must be E.164 (`+4799123456`): a bare eight-digit number is
   answered `400`. For contact points from Profile, Notifications adds `+47` itself to a bare eight-digit number that
@@ -135,12 +137,14 @@ which return the seed's addresses and numbers exactly as stored. Production then
 - A recipient without any contact point (a national identity number not in the seed) answers `422` with the problem code
   `NOT-00001`.
 - **Reserved persons.** A person with `reserved: true` in the test data (the seed: Rik Forelder, 1003, 08829698278)
-  comes back from Profile with `isReserved: true` and contact points, as production Profile answers from KRR. Production
+  comes back from Profile with `isReserved: true` and contact points, which production Profile takes from its KRR mirror. Production
   Notifications accepts the order (`201`; reserved is not missing contact information; a v1 order answers
   `recipientLookup: { status: "Failed", isReserved: ["08829698278"] }`), and the shipment ends with the recipient
   `Email_Failed_RecipientReserved` (destination empty): nothing is captured. With
   `ignoreReservation: true` on the recipient the message is sent as for anyone else.
-- **Organisation recipients** get the organisation's official addresses, the seed's `notificationAddresses` (schema v3):
+- **Organisation recipients** get the organisation's official addresses, the seed's `notificationAddresses` (schema v3),
+  which Profile seeds once per organisation into its brreg mirror (after that, changes made through Profile's
+  `organizations/{orgNumber}/notificationaddresses/mandatory` win):
   DDG Fitness (897069644, `varsling@ddgfitness.no` and `+4799500000`, also for its sub-units through Profile's main-unit
   fallback) and Digitaliseringsdirektoratet (991825827, `varsling@digdir.no` and `+4799500006`). An organisation without
   official addresses (every other seeded one) answers `422` `NOT-00001`: Notifications adds the user-registered contact
@@ -148,6 +152,15 @@ which return the seed's addresses and numbers exactly as stored. Production then
   `urn:altinn:resource:…`) only while *processing* an order, not when registering it, so registration fails whatever the
   policy says (checked before v3 with DDG Fitness against `altinn_keyrole_access`, which Sophie Salt's DAGL role permits,
   and against the pushed `ttd/testapp` policy).
+- **Behaviour change with production Profile (task 14): unit contact points are only self-registered addresses.**
+  Production Profile's `units/contactpoint/lookup` returns the addresses users registered for the organisation
+  themselves (professional notification settings: an address verified through Profile's verification code, then
+  registered for the party, optionally for given resources), not every holder of a role or access package there, which
+  the Register component's fake returned before. With the seed alone it returns no users, so an organisation order
+  reaches only the official addresses. A tester who wants a person's address on an organisation's orders registers it
+  through Arbeidsflate or with curl as that user (`users/current/verification/send` and `verify`, the code is in this
+  component's inbox for the address, then `PUT users/current/notificationsettings/parties/{partyUuid}`; the profile
+  component's smoke test does exactly this).
 
 ## Known gaps
 

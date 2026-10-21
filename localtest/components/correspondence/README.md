@@ -59,7 +59,9 @@ A third site (the browser download of attachments through OIDC, `IdportenTokenVa
 
 Not replaced, because production code serves them through the stack: Dialogporten (service-owner API, transmissions,
 activities, purge), Notifications (`future/orders`, status, shipments), Register (the `correspondence/parties/...` lookups),
-Profile's two `correspondence/` lookups (in the Register component's fakes), the PDP, the Resource Registry, Events, KRR (a
+Profile's two `correspondence/` lookups (production Profile, the profile component, with its scope check; since task 14
+they have production semantics: organisations' official addresses from Profile's brreg mirror, seeded from the test data,
+and unit contact points only for addresses users registered for the organisation, not every role holder), the PDP, the Resource Registry, Events, KRR (a
 stand-in in the Register component's fakes, through the production client), Slack (upstream's dev client logs).
 Malware scanning is upstream's own Development simulation ("No threats found", through the production
 `MalwareScanResultHandler`).

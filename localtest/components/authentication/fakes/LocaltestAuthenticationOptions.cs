@@ -16,7 +16,7 @@ public sealed class LocaltestAuthenticationOptions
 
     /// <summary>
     /// Base URL of the Profile API the production <c>ProfileService</c> calls (<c>internal/user</c>), answered by the
-    /// register component. Defaults to <c>{InternalPlatformEndpoint}profile/api/v1/</c>.
+    /// profile component. Defaults to <c>{InternalPlatformEndpoint}profile/api/v1/</c>.
     /// </summary>
     public string? ProfileEndpoint { get; set; }
 
