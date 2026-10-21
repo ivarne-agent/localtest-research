@@ -11,6 +11,7 @@ public sealed class PlatformRoutes
     private static readonly Dictionary<string, string> DefaultUpstreams = new()
     {
         ["register"] = "http://register:5020",
+        ["profile"] = "http://profile:5030",
         ["authentication"] = "http://authentication:5101",
         ["authorization"] = "http://authorization:5070",
         ["access-management"] = "http://access-management:5080",
@@ -31,7 +32,7 @@ public sealed class PlatformRoutes
     private static readonly (string Prefix, string Upstream)[] Prefixes =
     [
         ("/register/", "register"),
-        ("/profile/", "register"),
+        ("/profile/", "profile"),
         ("/authentication/", "authentication"),
         ("/authorization/", "authorization"),
         // Production Access Management: authorized parties, the PDP's PIP, the apps' instance delegations and the app

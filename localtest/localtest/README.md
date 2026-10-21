@@ -41,7 +41,7 @@ In order:
 3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), and the start page and `/Home/…`
    (Home).
 4. **App routes**: `/{org}/{app}/…` → the registered upstream, path unchanged.
-5. **Platform routes** on the main host, path unchanged: `/authentication/` → authentication; `/register/`, `/profile/` → register; `/authorization/` → the PDP; `/accessmanagement/` → Access
+5. **Platform routes** on the main host, path unchanged: `/authentication/` → authentication; `/register/` → register; `/profile/` → profile; `/authorization/` → the PDP; `/accessmanagement/` → Access
    Management; `/storage/` → Storage; `/events/` → Events.
 6. Anything else: `404` with a hint to start the app with `run-app.sh`.
 
@@ -49,7 +49,7 @@ A prefix requested without its trailing slash (`/storage`, `/ttd/app?x=1`) is re
 path, query kept, as nginx did. Matching is ordinal and case-sensitive, like the nginx locations.
 
 Upstreams default to the container names of the compose file the stack used to run from (`register:5020`,
-`authentication:5101`, `authorization:5070`, `access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`,
+`profile:5030`, `authentication:5101`, `authorization:5070`, `access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`,
 `workflow-engine:9090`). Override one with `Proxy__Upstreams__<name>`. Behind studioctl's `localtest-v2` runtime
 studioctl-server is the front door and this proxy is not used; studioctl sets `Proxy__Upstreams__register` and
 `__authentication` to the public origin, because the identity features and `/Home` call those two. `GET
