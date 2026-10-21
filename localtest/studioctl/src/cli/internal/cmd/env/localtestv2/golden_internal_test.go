@@ -1,0 +1,197 @@
+package localtestv2
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"altinn.studio/devenv/pkg/container/types"
+	"altinn.studio/devenv/pkg/resource"
+	"altinn.studio/studioctl/internal/config"
+	"altinn.studio/studioctl/internal/envtopology"
+)
+
+// envUpdateGolden regenerates the golden file: STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/env/localtestv2/.
+const envUpdateGolden = "STUDIOCTL_UPDATE_GOLDEN"
+
+var goldenPath = filepath.Join("testdata", "environment.golden.json") //nolint:gochecknoglobals // A test fixture path.
+
+// goldenEnvironment is what the runtime builds from the manifest: the snapshot that replaced the transition test, which
+// showed the loader building exactly what the hand-written component table it replaced built (task 21a).
+type goldenEnvironment struct {
+	Groups       map[string]goldenGroup `json:"groups"`
+	DevBuildable []string               `json:"devBuildable"`
+	Volumes      []string               `json:"volumes"`
+	// Default is `env up` with no flags: pulled images at the pin, no group.
+	Default goldenOptions `json:"default"`
+	// Everything is `env up --with everything --dev all` as a rootless runtime user with SELinux relabelling.
+	Everything goldenOptions `json:"everything"`
+}
+
+type goldenGroup struct {
+	Implies     []string `json:"implies"`
+	OnByDefault bool     `json:"onByDefault"`
+}
+
+type goldenOptions struct {
+	Resources     []goldenResource                `json:"resources"`
+	HealthTargets []string                        `json:"healthTargets"`
+	RouteTable    envtopology.BoundTopologyConfig `json:"routeTable"`
+}
+
+func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
+	t.Setenv("STUDIOCTL_LOCALTEST_V2_TAG", "")
+	for _, name := range config.DefaultImages().LocaltestV2.Names() {
+		t.Setenv(config.LocaltestV2OverrideEnv(name), "")
+	}
+	t.Setenv("STUDIOCTL_IMAGE_PDF3", "")
+	t.Setenv("STUDIOCTL_IMAGE_WORKFLOW_ENGINE", "")
+
+	images := config.DefaultImages()
+	everything := defaultOptions(images, "/home/dev/.altinn-studio/certs")
+	everything.Groups = allGroups()
+	everything.DevComponents = groupSet(DevBuildable())
+	everything.DevSourceRoot = devSourceRoot
+	everything.RuntimeUser, everything.UsernsMode, everything.RelabelBinds = "1000:1000", "keep-id", true
+
+	got := goldenEnvironment{
+		Groups:       map[string]goldenGroup{},
+		DevBuildable: DevBuildable(),
+		Volumes:      stack().VolumeNames(),
+		Default:      goldenOf(t, defaultOptions(images, "/home/dev/.altinn-studio/certs")),
+		Everything:   goldenOf(t, everything),
+	}
+	for name, g := range groupTable() {
+		got.Groups[name] = goldenGroup{Implies: g.implies, OnByDefault: g.onByDefault}
+	}
+	data, err := json.MarshalIndent(got, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, '\n')
+
+	if os.Getenv(envUpdateGolden) != "" {
+		if mkdirErr := os.MkdirAll(filepath.Dir(goldenPath), 0o755); mkdirErr != nil {
+			t.Fatal(mkdirErr)
+		}
+		if writeErr := os.WriteFile(goldenPath, data, 0o600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+		t.Logf("wrote %s", goldenPath)
+		return
+	}
+	want, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("%v (regenerate with %s=1)", err, envUpdateGolden)
+	}
+	if !bytes.Equal(data, want) {
+		t.Errorf(
+			"the environment differs from %s; when the change is intended, regenerate it with %s=1 and review the diff",
+			goldenPath,
+			envUpdateGolden,
+		)
+	}
+}
+
+func goldenOf(t *testing.T, opts *Options) goldenOptions {
+	t.Helper()
+	targets := healthTargets(opts)
+	urls := make([]string, 0, len(targets))
+	for _, target := range targets {
+		urls = append(urls, target.name+" "+target.url)
+	}
+	return goldenOptions{
+		Resources:     describeResources(t, resources(opts)),
+		RouteTable:    boundTopologyConfig(opts),
+		HealthTargets: urls,
+	}
+}
+
+// goldenResource is one resource of the graph in a form JSON can hold: references become the referenced IDs, and the
+// destroy-error handler only says whether there is one.
+type goldenResource struct {
+	Enabled             *bool                 `json:"enabled,omitempty"`
+	HealthCheck         *types.HealthCheck    `json:"healthCheck,omitempty"`
+	Labels              map[string]string     `json:"labels,omitempty"`
+	ID                  resource.ResourceID   `json:"id"`
+	Image               resource.ResourceID   `json:"image,omitempty"`
+	Ref                 string                `json:"ref,omitempty"`
+	PullPolicy          string                `json:"pullPolicy,omitempty"`
+	ContextPath         string                `json:"contextPath,omitempty"`
+	Dockerfile          string                `json:"dockerfile,omitempty"`
+	Tag                 string                `json:"tag,omitempty"`
+	Driver              string                `json:"driver,omitempty"`
+	User                string                `json:"user,omitempty"`
+	UsernsMode          string                `json:"usernsMode,omitempty"`
+	RestartPolicy       string                `json:"restartPolicy,omitempty"`
+	Build               *types.BuildOptions   `json:"build,omitempty"`
+	Networks            []resource.ResourceID `json:"networks,omitempty"`
+	DependsOn           []resource.ResourceID `json:"dependsOn,omitempty"`
+	Ports               []types.PortMapping   `json:"ports,omitempty"`
+	Volumes             []types.VolumeMount   `json:"volumes,omitempty"`
+	Env                 []string              `json:"env,omitempty"`
+	Command             []string              `json:"command,omitempty"`
+	ExtraHosts          []string              `json:"extraHosts,omitempty"`
+	NetworkAliases      []string              `json:"networkAliases,omitempty"`
+	HandlesDestroyError bool                  `json:"handlesDestroyError,omitempty"`
+	RetainOnDestroy     bool                  `json:"retainOnDestroy,omitempty"`
+	WaitForReady        bool                  `json:"waitForReady,omitempty"`
+}
+
+func describeResources(t *testing.T, resources []resource.Resource) []goldenResource {
+	t.Helper()
+	out := make([]goldenResource, 0, len(resources))
+	for _, r := range resources {
+		var g goldenResource
+		g.ID = r.ID()
+		switch v := r.(type) {
+		case *resource.Network:
+			g.Enabled, g.Labels, g.Driver = v.Enabled, v.Labels, v.Driver
+			g.HandlesDestroyError = v.Lifecycle.HandleDestroyError != nil
+			g.RetainOnDestroy = v.Lifecycle.RetainOnDestroy
+		case *resource.PulledImage:
+			g.Enabled, g.Ref, g.PullPolicy = v.Enabled, v.Ref, pullPolicyName(t, v.PullPolicy)
+		case *resource.BuiltImage:
+			build := v.Build
+			g.Enabled, g.ContextPath, g.Dockerfile, g.Tag, g.Build = v.Enabled, v.ContextPath, v.Dockerfile, v.Tag, &build
+		case *resource.Container:
+			g.Enabled, g.HealthCheck, g.Labels = v.Enabled, v.HealthCheck, v.Labels
+			g.Image, g.Networks, g.DependsOn = v.Image.ID(), refIDs(v.Networks), refIDs(v.DependsOn)
+			g.User, g.UsernsMode, g.RestartPolicy = v.User, v.UsernsMode, v.RestartPolicy
+			g.Ports, g.Volumes, g.Env, g.Command = v.Ports, v.Volumes, v.Env, v.Command
+			g.ExtraHosts, g.NetworkAliases = v.ExtraHosts, v.NetworkAliases
+			g.HandlesDestroyError = v.Lifecycle.HandleDestroyError != nil
+			g.RetainOnDestroy, g.WaitForReady = v.Lifecycle.RetainOnDestroy, v.Lifecycle.WaitForReady
+		default:
+			t.Fatalf("resource %s of type %T has no golden form", r.ID(), r)
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
+func pullPolicyName(t *testing.T, policy resource.PullPolicy) string {
+	t.Helper()
+	switch policy {
+	case resource.PullAlways:
+		return "always"
+	case resource.PullIfNotPresent:
+		return "ifNotPresent"
+	case resource.PullNever:
+		return "never"
+	case resource.PullAlwaysAllowStale:
+		return "alwaysAllowStale"
+	}
+	t.Fatalf("unknown pull policy %d", policy)
+	return ""
+}
+
+func refIDs(refs []resource.ResourceRef) []resource.ResourceID {
+	ids := make([]resource.ResourceID, 0, len(refs))
+	for _, ref := range refs {
+		ids = append(ids, ref.ID())
+	}
+	return ids
+}

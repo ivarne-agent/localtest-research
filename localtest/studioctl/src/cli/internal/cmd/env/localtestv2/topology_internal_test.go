@@ -88,7 +88,7 @@ func TestDevComponents(t *testing.T) {
 func TestDevComponentImageIsBuiltFromTheResearchCheckout(t *testing.T) {
 	t.Parallel()
 	opts := defaultOptions(config.DefaultImages(), t.TempDir())
-	opts.DevSourceRoot = "/src/localtest"
+	opts.DevSourceRoot = devSourceRoot
 	opts.DevComponents = map[string]bool{componentStorage: true, componentPostgres: true}
 	for _, c := range components(opts) {
 		img := componentImage(opts, c)
@@ -379,7 +379,7 @@ func TestDialogportenIsBuiltAsOneDevComponentFromThreeDockerfiles(t *testing.T) 
 		t.Error("the hosts are built together as the group, not one by one")
 	}
 	opts := dialogportenOptions(t)
-	opts.DevSourceRoot = "/src/localtest"
+	opts.DevSourceRoot = devSourceRoot
 	opts.DevComponents = selected
 	dockerfiles := map[string]string{}
 	for _, c := range components(opts) {
@@ -435,7 +435,7 @@ func TestTheDialogportenAdapterIsItsOwnDevComponent(t *testing.T) {
 		t.Fatalf("--dev %s = %v, %v", componentDialogportenAdapter, selected, err)
 	}
 	opts := dialogportenOptions(t)
-	opts.DevSourceRoot = "/src/localtest"
+	opts.DevSourceRoot = devSourceRoot
 	opts.DevComponents = selected
 	var built []string
 	for _, c := range components(opts) {
@@ -877,7 +877,7 @@ func TestArbeidsflateIsBuiltAsOneDevComponentFromTwoDockerfiles(t *testing.T) {
 		t.Error("the BFF is built together with the SPA as the group, not on its own")
 	}
 	opts := arbeidsflateOptions(t)
-	opts.DevSourceRoot = "/src/localtest"
+	opts.DevSourceRoot = devSourceRoot
 	opts.DevComponents = selected
 	dockerfiles := map[string]string{}
 	for _, c := range components(opts) {
