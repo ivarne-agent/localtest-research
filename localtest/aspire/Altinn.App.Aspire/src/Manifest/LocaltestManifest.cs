@@ -76,12 +76,18 @@ internal sealed record ManifestImages
     public required string OverrideEnvPrefix { get; init; }
 
     /// <summary>Third-party images, pinned by digest.</summary>
-    public IReadOnlyDictionary<string, ManifestExternalImage> ThirdParty { get; init; } =
-        new Dictionary<string, ManifestExternalImage>();
+    public IReadOnlyDictionary<string, ManifestExternalImage> ThirdParty
+    {
+        get => field ?? new Dictionary<string, ManifestExternalImage>();
+        init;
+    }
 
     /// <summary>The images studioctl's localtest runtime runs too.</summary>
-    public IReadOnlyDictionary<string, ManifestExternalImage> Core { get; init; } =
-        new Dictionary<string, ManifestExternalImage>();
+    public IReadOnlyDictionary<string, ManifestExternalImage> Core
+    {
+        get => field ?? new Dictionary<string, ManifestExternalImage>();
+        init;
+    }
 
     /// <summary>
     /// The per-image override variable of a research or third-party image: the prefix plus the name upper-cased with
@@ -132,7 +138,11 @@ internal sealed record ManifestPostgres
     public required string Password { get; init; }
 
     /// <summary>The init scripts baked into the image.</summary>
-    public IReadOnlyList<ManifestInitScript> InitScripts { get; init; } = [];
+    public IReadOnlyList<ManifestInitScript> InitScripts
+    {
+        get => field ?? [];
+        init;
+    }
 }
 
 /// <summary>One init script baked into the Postgres image.</summary>
@@ -152,7 +162,11 @@ internal sealed record ManifestFrontDoor
     public required string HealthPath { get; init; }
 
     /// <summary>Routes to ports on the host itself.</summary>
-    public IReadOnlyList<ManifestHostRoute> HostRoutes { get; init; } = [];
+    public IReadOnlyList<ManifestHostRoute> HostRoutes
+    {
+        get => field ?? [];
+        init;
+    }
 }
 
 /// <summary>A front-door route to a port on the host.</summary>
@@ -184,7 +198,11 @@ internal sealed record ManifestGroup
     public bool OnByDefault { get; init; }
 
     /// <summary>The groups this one cannot run without.</summary>
-    public IReadOnlyList<string> Implies { get; init; } = [];
+    public IReadOnlyList<string> Implies
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>Whether it implies every other group.</summary>
     public bool ImpliesAll { get; init; }
@@ -200,7 +218,11 @@ internal sealed record ManifestComponent
     public string? Description { get; init; }
 
     /// <summary>Why a setting is what it is; loaders ignore them.</summary>
-    public IReadOnlyList<string> Notes { get; init; } = [];
+    public IReadOnlyList<string> Notes
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>The optional group; null for the always-on components.</summary>
     public string? Group { get; init; }
@@ -224,31 +246,55 @@ internal sealed record ManifestComponent
     public ManifestHealthCheck? ContainerHealthCheck { get; init; }
 
     /// <summary>The environment, with placeholders.</summary>
-    public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> Environment
+    {
+        get => field ?? new Dictionary<string, string>();
+        init;
+    }
 
     /// <summary>The image's command replaced, with placeholders.</summary>
     public IReadOnlyList<string>? Command { get; init; }
 
     /// <summary>The mounts.</summary>
-    public IReadOnlyList<ManifestMount> Mounts { get; init; } = [];
+    public IReadOnlyList<ManifestMount> Mounts
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>Extra DNS names on the network.</summary>
-    public IReadOnlyList<string> NetworkAliases { get; init; } = [];
+    public IReadOnlyList<string> NetworkAliases
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>Whether the public host names resolve to the host gateway (default true).</summary>
     public bool? IngressHosts { get; init; }
 
     /// <summary>Extra names resolved to the host gateway.</summary>
-    public IReadOnlyList<string> ExtraHostGatewayNames { get; init; } = [];
+    public IReadOnlyList<string> ExtraHostGatewayNames
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>Whether the container runs as the developer's user.</summary>
     public bool HostUser { get; init; }
 
     /// <summary>The components that must be up first.</summary>
-    public IReadOnlyList<string> DependsOn { get; init; } = [];
+    public IReadOnlyList<string> DependsOn
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>The front-door routes to the component.</summary>
-    public IReadOnlyList<ManifestRoute> Routes { get; init; } = [];
+    public IReadOnlyList<ManifestRoute> Routes
+    {
+        get => field ?? [];
+        init;
+    }
 
     /// <summary>Whether the container resolves the public host names to the host gateway.</summary>
     public bool MapsIngressHosts => IngressHosts ?? true;
