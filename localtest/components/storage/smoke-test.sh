@@ -5,6 +5,8 @@
 # the production endpoints (../../smoke/apps/ttd/testapp), as the app runner does.
 # Usage: ./smoke-test.sh   (builds the three hosts first if they are not built; needs ports 5020, 8000, PG_PORT,
 # PDP_PORT and STORAGE_PORT free, and local.altinn.cloud resolving to 127.0.0.1)
+# Stale since 2026-10-20: the /Home token helpers it calls on port 8000 moved from Authentication to the localtest app,
+# and Authentication's sign-in needs Profile since task 14; see README.md, "Verified".
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd); CO=$(dirname "$HERE")
 A=$CO/authentication; R=$CO/register; S=$HERE
