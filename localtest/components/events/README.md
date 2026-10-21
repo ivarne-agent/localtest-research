@@ -13,7 +13,7 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 | `fakes/` | Compiled into the host assembly (the interfaces live there): publishers, signing keys, the startup scripts, change notifications, the webhook capture handler and the inspection API |
 | `postgres-init/30-events.sh` | Postgres init script: the `eventsdb` database and the roles upstream's README asks for (`platform_events_admin` superuser, `platform_events`), password `Password`. Copied into the stack's Postgres image (`../../postgres/Dockerfile`). Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/events/postgres-init/30-events.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (pinned Alpine images, the DbTools build that regenerates the latest migration's functions-and-procedures script, `Migration/` copied from the build stage, non-root `dotnet`); each difference is marked `localtest:` |
-| `smoke-test.sh` | Against the running stack: publish, idempotency, token checks, subscriptions with validation, delivery and capture, `registeredTime` in UTC, the production read API with its 30-second delay, reset |
+| `smoke-test.sh` | Against the running stack: publish, idempotency, token checks, subscriptions with validation, delivery and capture, `registeredTime` in UTC, the production read API with its 30-second delay, reset, Dialogporten sources of two apps authorized apart |
 
 ## Directive sites in `vendor/`
 
@@ -114,7 +114,7 @@ Defaults, inserted just below the environment variables, with `{platform}` = `Lo
 | --- | --- |
 | `GeneralSettings:OpenIdWellKnownEndpoint`, `GeneralSettings:BaseUri` | `{platform}authentication/api/v1/openid/`, `{platform}` |
 | `PlatformSettings:ApiAuthorizationEndpoint`, `RegisterApiBaseAddress`, `ApiEventsEndpoint`, `ApiProfileEndpoint` | `{platform}authorization/api/v1/`, `{platform}register/api/`, `{platform}events/api/v1/`, `{platform}profile/api/v1/` |
-| `PlatformSettings:AppsDomain` | the platform host. App sources (`http://local.altinn.cloud:8000/ttd/app/instances/…`) count as app events and are cut to `…/ttd/app` for source filters, as for `ttd.apps.altinn.no` |
+| `PlatformSettings:AppsDomain` | the platform host. App sources (`http://local.altinn.cloud:8000/ttd/app/instances/…`) count as app events and are cut to `…/ttd/app` for source filters, as for `ttd.apps.altinn.no`; sources under a platform component's prefix (`…/dialogporten/…`, `…/correspondence/…`) do not (directive sites 4 and 5) |
 | `PlatformSettings:SubscriptionCachingLifetimeInSeconds`, `MainUnitCachingLifetimeInSeconds` | 5, 30 (production 3600) |
 | `EventsProcessingSettings:PrimaryTaskIdleDelaySeconds` | 1 (production 2) |
 | `WolverineSettings:*QueuePolicy` | Cooldowns under 2 s; scheduled retries of 2 s to 60 s (outbound: ten retries over about seven minutes instead of 30 s to 12 h) |
@@ -158,13 +158,6 @@ Information (`Logging__LogLevel__Default`).
   the record has no event id and the event's delivery counts leave it out.
 - `localhost` in a subscription endpoint is the events container itself; use `host.docker.internal` for a receiver on
   the developer's machine.
-- `PlatformSettings:AppsDomain` is the platform host, so every source on `local.altinn.cloud` counts as an app source.
-  Apps are no longer the only publishers: Dialogporten's sources (`{platform}dialogporten/api/v1/enduser/dialogs/{id}`)
-  are cut to `.../dialogporten/api` for the source filter that caches authorization results, so one consumer's cached
-  decision for one app's dialog events is reused for every other app's for the cache lifetime, and a source filter on
-  `.../dialogporten/...` without a resource filter counts as an app subscription where production would refuse it
-  (task 9b, `../dialogporten/README.md`, "Events"; a fix is proposed there, not made). Correspondence's sources are on
-  the same host. Until then, subscribe to those events with a resource filter and no source filter.
 - `fakes/Startup/prepare.sql` creates yearly partitions ahead of upstream's; upstream's `events.create_logs_partition()`
   creates monthly ones and nothing calls it today. Re-check on each sync.
 

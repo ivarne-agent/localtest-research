@@ -122,12 +122,12 @@ How the Events component classifies them (plan question 9):
   events is reused for every other app's for the cache lifetime (5 seconds here). Likewise a subscription whose source filter is
   `.../dialogporten/...` without a resource filter counts as an app subscription for "org" `dialogporten`, app `api`, where
   production would refuse it (generic subscriptions need a resource filter and the subscribe scope).
-- **Proposed fix (not made in this step):** an `#if LOCALTEST` in the Events component's `OutboundService.GetSourceFilter` and
-  `SubscriptionController.IsAppSubscription` that treats a source on the platform host as an app source only when its first path
-  segment is not a platform prefix (`dialogporten`, `correspondence`), or, closer to production, serving apps on their own
-  host (`{org}.apps.local.altinn.cloud`) and setting `AppsDomain` to it, which is larger (studioctl routes, app-lib URLs). Until
-  then a tester subscribing to Dialogporten's events should give a resource filter and no source filter, which behaves as in
-  production.
+- **Fixed 2026-10-21 (task 12):** two `#if !LOCALTEST` sites in the Events component, `OutboundService.GetSourceFilter`
+  and `SubscriptionController.IsAppSubscription`, treat a source on the platform host as an app source only when its first
+  path segment is not a platform component's prefix (`dialogporten`, `correspondence`, ...). Dialogporten's events are
+  cached per dialog URL and a Dialogporten source filter is a generic subscription, as in production (report and sites in
+  `../events/README.md`, "Directive sites"; checked by `../events/smoke-test.sh`). The paragraph above describes the
+  behaviour before the fix.
 
 ## GraphQL and CORS
 
@@ -258,7 +258,6 @@ adapter's smoke test (`../dialogporten-adapter/`) creates, updates and deletes d
   GraphQL queries are untested; this smoke test checks GraphQL with the org token only (schema, introspection, the refusal).
   Superseded 2026-10-21: until task 2 no token the stack issued carried `pid`, so the end-user API was unreachable.
 - The `ttd`/`digdir` search mismatch (see "Differences from production"): production behaviour, not fixed here.
-- The Events component's `AppsDomain` heuristic files Dialogporten's sources under `.../dialogporten/api` (see "Events"); the fix is proposed, not made.
 - `DELETE localtest/dialogs` leaves the MassTransit outbox: events of dialogs created just before the truncate can still be published, and the Service host's
   search indexer can log a failure for a dialog that is gone. The same outbox makes `components/events/smoke-test.sh` fail
   when it runs right after this smoke test (seen 2026-10-20: its event list had one dialog event more than the two it

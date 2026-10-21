@@ -426,7 +426,13 @@ public class OutboundService : IOutboundService
     /// </summary>
     private Uri GetSourceFilter(Uri source)
     {
+#if !LOCALTEST
         if (source.DnsSafeHost.Contains(_platformSettings.AppsDomain))
+#else
+        // localtest: apps and platform components share one host; a platform component's source is not an app's.
+        if (source.DnsSafeHost.Contains(_platformSettings.AppsDomain) &&
+            !Altinn.Platform.Events.Localtest.LocaltestAppSources.IsPlatformComponentSource(source))
+#endif
         {
             // including schema in uri
             return new Uri(source.AbsoluteUri.Substring(0, source.AbsoluteUri.IndexOf(source.Segments[3]) - 1));

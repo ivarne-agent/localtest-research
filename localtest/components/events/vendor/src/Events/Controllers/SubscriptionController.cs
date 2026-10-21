@@ -210,8 +210,15 @@ namespace Altinn.Platform.Events.Controllers
             {
                 return true;
             }
+#if !LOCALTEST
             else if (!string.IsNullOrEmpty(subscription.SourceFilter?.ToString()) &&
                 subscription.SourceFilter.DnsSafeHost.EndsWith(_settings.AppsDomain))
+#else
+            // localtest: apps and platform components share one host; a platform component's source is not an app's.
+            else if (!string.IsNullOrEmpty(subscription.SourceFilter?.ToString()) &&
+                subscription.SourceFilter.DnsSafeHost.EndsWith(_settings.AppsDomain) &&
+                !Altinn.Platform.Events.Localtest.LocaltestAppSources.IsPlatformComponentSource(subscription.SourceFilter))
+#endif
             {
                 return true;
             }

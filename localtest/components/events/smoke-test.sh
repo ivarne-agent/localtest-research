@@ -4,7 +4,7 @@
 # access token, an idempotency key), subscribes the way an integrator does, and reads the outcome back from the
 # localtest inspection API. Resets the component's data first. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 24 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
+# 27 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
 # would land after the reset and break "stored once".
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -85,6 +85,30 @@ echo "== reset"
 expect "DELETE events keeps subscriptions" 204 "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/events/api/localtest/events")"
 inspect events | check "no events left" 'd["items"] == []'
 inspect subscriptions | check "subscriptions kept" 'len(d) == 2'
+
+echo "== Dialogporten sources are not one app (sites 4 and 5, task 12)"
+# Two dialogs on the platform host, one for ttd/testapp (its policy lets org ttd read) and one for an app with no policy.
+# Production caches org ttd's decision per dialog URL; cut to .../dialogporten/api, the second would reuse the first's Permit.
+curl -s -o /dev/null -X DELETE "$BASE/events/api/localtest/events?subscriptions=true"
+PUB=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&scopes=altinn:events.publish%20altinn:events.publish.admin" | tr -d '"')
+NOPOLICY=events-smoke-nopolicy
+resub() { curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $ORG" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"resourceFilter\":\"urn:altinn:resource:app_ttd_$1\"}"; }
+expect "org ttd subscribes to app_ttd_testapp and app_ttd_$NOPOLICY by resource" "201 201" "$(resub testapp) $(resub $NOPOLICY)"
+waitfor subscriptions 'len(d) == 2 and all(s["validated"] for s in d)' || { echo "FAIL subscriptions validated"; FAIL=1; }
+dialog() { # app -> event id
+  local id; id=$(uuid)
+  curl -s -o /dev/null -X POST "$BASE/events/api/v1/events" -H "Authorization: Bearer $PUB" -H 'Content-Type: application/cloudevents+json' \
+    -d "{\"specversion\":\"1.0\",\"id\":\"$id\",\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"type\":\"dialogporten.dialog.created.v1\",\"source\":\"$BASE/dialogporten/api/v1/enduser/dialogs/$(uuid)\",\"subject\":\"/party/500000\",\"resource\":\"urn:altinn:resource:app_ttd_$1\"}"
+  echo "$id"
+}
+D1=$(dialog testapp)
+waitfor "events/$D1" 'd["items"][0]["status"] == "processed" and len(d["deliveries"]) == 1' || { echo "FAIL dialog event for ttd/testapp delivered"; FAIL=1; }
+D2=$(dialog $NOPOLICY)   # within the 5 s cache lifetime of the first decision
+waitfor "events/$D2" 'd["items"][0]["status"] == "processed" and any(t["activity"] == "Unauthorized" for t in d["traceLog"])' || true
+inspect "events/$D2" | check "the other app's dialog event is not authorized by the first one's cached decision" \
+  'any(t["activity"] == "Unauthorized" for t in d["traceLog"]) and not any(t["activity"] == "OutboundQueue" for t in d["traceLog"]) and d["deliveries"] == []'
+expect "a .../dialogporten/api source filter is not an app subscription (no subscribe scope: 403)" 403 \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $ORG" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"sourceFilter\":\"$BASE/dialogporten/api\"}")"
 curl -s -o /dev/null -X DELETE "$BASE/events/api/localtest/events?subscriptions=true"
 
 [[ $FAIL == 0 ]] && echo "all ok" || { echo "some checks failed"; exit 1; }
