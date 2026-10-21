@@ -22,13 +22,15 @@ future sites follow the `#if !LOCALTEST` / `#else` convention. No fakes.
 
 ## Configuration
 
-Environment only; no localtest-specific keys.
+Environment only; no localtest-specific keys. What studioctl sets on the engine container (the monorepo's image, see
+[In the stack](#in-the-stack)):
 
 | Key | Value in the stack |
 | --- | --- |
-| `ASPNETCORE_ENVIRONMENT` | `Development` (image default). Selects `appsettings.Development.json`, and makes the host read an optional `appsettings.Local.json` instead of `/app/secrets/secrets.json` |
-| `ASPNETCORE_HTTP_PORTS` | `9090` (image default, as upstream) |
-| `ConnectionStrings__WorkflowEngine` | `Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres`. The database must exist: `../../postgres-init/20-workflow-engine.sh` creates it (and `pg_stat_statements`, preloaded by the postgres service's command); the engine migrates its `engine` schema itself |
+| `ASPNETCORE_ENVIRONMENT` | `Development` (also this Dockerfile's default). Selects `appsettings.Development.json`, and makes the host read an optional `appsettings.Local.json` instead of `/app/secrets/secrets.json` |
+| `ASPNETCORE_HTTP_PORTS` | `9090` (also the image default, as upstream) |
+| `EngineSettings__EnableTelemetry` | `false`: no collector runs, and the default exporter would fail against `localhost:4317` |
+| `ConnectionStrings__WorkflowEngine` | `Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres`. The database must exist: `../../postgres-init/20-workflow-engine.sh` creates it (and `pg_stat_statements`, preloaded by the `localtest-postgres` image's command, `../../postgres/Dockerfile`); the engine migrates its `engine` schema itself |
 | `AppCommandSettings__CommandEndpoint` | `http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/` (same as `appsettings.Development.json`; set explicitly so the callback route is visible) |
 
 The readiness endpoint is the versioned `/api/v1/health/ready`; the versionless `/health/ready` is a redirect. The
