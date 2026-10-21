@@ -27,6 +27,10 @@ build/dev-home/bin/studioctl env logs
 build/dev-home/bin/studioctl env down
 ```
 
+`env logs` streams the running containers; `env logs -c <component>` shows the named component's log even when its
+container has stopped (changed 2026-10-21 in the shared `internal/cmd/env/localtest/log_streamer.go`, which also serves
+the localtest runtime), so the front door's "Component not answering" hint works for a container that exited.
+
 `--dev` builds the named component (or all) from `localtest/components/<name>` instead of pulling the pinned image;
 `--with <group>` starts an optional component group and, transitively, the groups it implies; `--without <group>` leaves
 out only the named group. The groups are a table in `groups.go` (`groupTable`): each has a default (all off today) and the

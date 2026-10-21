@@ -51,6 +51,32 @@ Open the receipt on `local.altinn.cloud`, never on `localhost:<port>` or `127.0.
 `localhost` to `platform.at22.altinn.cloud`. Signed out, it redirects to the sign-in picker and back. With the group
 off, `/receipt/...` answers `503` problem details naming the group and the `--with receipt` command.
 
+## Verified (2026-10-21, task 16)
+
+Stack: `studioctl env up -r localtest-v2 --with receipt --dev receipt` (the rest at the pinned `sha-a3f62a8`), the
+receipt image built from this folder by podman through studioctl (Node stage with `corepack` and `yarn --immutable`
+from the npm registry, which succeeded behind the sandbox's TLS mediation (not checked whether through the Dockerfile's `NODE_EXTRA_CA_CERTS` line or the build's own CA configuration), SDK publish, chiseled runtime: 145 MB, user 1654, the 3.1 MB
+bundle in `wwwroot/receipt/js/react/`); the whole `env up`, build included, took 2 minutes.
+
+- `./smoke-test.sh`: 27 checks, all pass on the first run, the sign-in round trip through the real front door included.
+  The receipt's log has no access-token warning, only the expected ones (ASP.NET's `HTTP_PORTS` override by
+  `ASPNETCORE_URLS`, data-protection keys inside the container, and the deliberate 401s without a cookie).
+- Chromium through the front door (cookie of user 1337): "Testapp (pushed) er sendt inn" with sender, receiver,
+  reference number and "Vedlegg (1)"; the attachment link is relative
+  (`/storage/api/v1/instances/500000/{guid}/data/{id}`), "Tilbake til innboks" goes to `http://local.altinn.cloud:8000/`.
+- The front door's 503s: with the group off, `/receipt/...` answers `503 application/problem+json` "Component not
+  running" with `component` and `group` `receipt` and the `--with receipt` command, and a browser `Accept` gets the HTML
+  page; `/receipts` and other unmatched paths still get the localtest app's 404. With the group on and the container
+  stopped: "Component not answering" with the `env logs -r localtest-v2 -c receipt` and `env status` commands, both
+  shapes. That `env logs` command first failed for a stopped container ("no containers are running"); it now shows the
+  stopped container's log (`../../studioctl/README.md`).
+- `env up -r localtest-v2 --with correspondence --without dialogporten` (and `--with everything --without receipt`)
+  exits 1 in the preflight with the group error, before any container, image or proxy starts.
+- Regressions on the default stack (group off): the root `../../smoke-test.sh` 23 of 23 (its unregistered-path 404
+  included), `../../run-platform-regression.sh --no-apps` 44 of 44 Cypress tests in the six specs, no retries (apps
+  with `studioctl run --dev-frontend`, the monorepo's built `src/App/frontend/dist` served on 8080 with
+  `Access-Control-Allow-Origin: *`).
+
 ## Known gaps
 
 - Only an organisation-owned instance viewed by a user with a role (party 500000, user 1337) is in the smoke test;
