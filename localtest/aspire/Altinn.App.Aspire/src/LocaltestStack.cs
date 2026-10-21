@@ -31,13 +31,16 @@ internal sealed class LocaltestStack
     private IResourceBuilder<AltinnLocaltestResource>? _parent;
     private IResourceBuilder<YarpResource>? _frontDoor;
     private HashSet<string>? _only;
+    private readonly AltinnLocaltestOptions _options;
 
     public LocaltestStack(
         IDistributedApplicationBuilder builder,
         ManifestResolver resolver,
-        string certificateDirectory
+        string certificateDirectory,
+        AltinnLocaltestOptions options
     )
     {
+        _options = options;
         _builder = builder;
         _resolver = resolver;
         CertificateDirectory = certificateDirectory;
@@ -263,9 +266,17 @@ internal sealed class LocaltestStack
         {
             throw new NotSupportedException($"Component {component.Name} has routes but no host port.");
         }
-        // No published port in the manifest: a proxied TCP endpoint on a random loopback port, for the host-side probe.
-        container.WithEndpoint(targetPort: component.ContainerPort, scheme: "tcp", name: TcpEndpoint);
-        var protocol = ProbeOf(component);
+        // No published port in the manifest: an unproxied TCP endpoint on a fixed loopback port for the host-side probe.
+        // A proxied one would give the container a new random host port on every run, which changes a persistent
+        // container's configuration and recreates it on every AppHost start.
+        var (protocol, port) = ProbeOf(component);
+        container.WithEndpoint(
+            port: port,
+            targetPort: component.ContainerPort,
+            scheme: "tcp",
+            name: TcpEndpoint,
+            isProxied: false
+        );
         var key = $"{container.Resource.Name}_protocol_check";
         var endpoint = container.GetEndpoint(TcpEndpoint);
         _builder
@@ -275,15 +286,15 @@ internal sealed class LocaltestStack
     }
 
     /// <summary>The host-side probe that replaces a component's container health check.</summary>
-    private ProtocolHealthCheck.Protocol ProbeOf(ResolvedComponent component)
+    private (ProtocolHealthCheck.Protocol Protocol, int Port) ProbeOf(ResolvedComponent component)
     {
         if (component.Name == _resolver.Manifest.Postgres.Component)
         {
-            return ProtocolHealthCheck.Protocol.Postgres;
+            return (ProtocolHealthCheck.Protocol.Postgres, _options.PostgresHostPort);
         }
         if (component.Image.Image.EndsWith("/redis", StringComparison.Ordinal))
         {
-            return ProtocolHealthCheck.Protocol.Redis;
+            return (ProtocolHealthCheck.Protocol.Redis, _options.RedisHostPort);
         }
         throw new NotSupportedException(
             $"Component {component.Name} has no HTTP health path and no host-side probe in the Aspire package."

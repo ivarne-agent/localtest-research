@@ -29,4 +29,13 @@ public sealed class AltinnLocaltestOptions
     /// for example <c>postgres</c> alone. Empty (the default) adds the whole selection.
     /// </summary>
     public ICollection<string> OnlyComponents { get; } = [];
+
+    /// <summary>
+    /// The loopback host port Postgres is published on (studioctl publishes none). The package's health check needs a
+    /// port, and a fixed one keeps the persistent container from being recreated on every run. Default 15432.
+    /// </summary>
+    public int PostgresHostPort { get; set; } = 15432;
+
+    /// <summary>The loopback host port Redis is published on, for the same reasons. Default 16379.</summary>
+    public int RedisHostPort { get; set; } = 16379;
 }

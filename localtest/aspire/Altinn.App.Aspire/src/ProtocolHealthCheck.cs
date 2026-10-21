@@ -6,8 +6,8 @@ namespace Altinn.App.Aspire;
 
 /// <summary>
 /// A host-side health check for a component whose manifest health check runs in the container (Aspire has no exec
-/// health checks): a protocol handshake over the component's TCP endpoint. A bare TCP connect would not do, because
-/// DCP's proxy accepts the connection whether or not the container listens.
+/// health checks): a protocol handshake over the component's TCP endpoint. A bare TCP connect would not do: a port
+/// forwarder in front of the container (DCP's proxy, rootless Podman's) can accept before the server listens.
 /// </summary>
 internal sealed class ProtocolHealthCheck(EndpointReference endpoint, ProtocolHealthCheck.Protocol protocol)
     : IHealthCheck

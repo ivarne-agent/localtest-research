@@ -35,7 +35,8 @@ public static class AltinnLocaltestExtensions
         var stack = new LocaltestStack(
             builder,
             new ManifestResolver(manifest, certificateDirectory, options.Tag),
-            certificateDirectory
+            certificateDirectory,
+            options
         );
         var parent = builder
             .AddResource(new AltinnLocaltestResource(name, stack))

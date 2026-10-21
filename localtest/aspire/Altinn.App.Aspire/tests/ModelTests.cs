@@ -79,7 +79,8 @@ public sealed class ModelTests
             else
             {
                 Assert.Equal("tcp", endpoint.Name);
-                Assert.True(endpoint.IsProxied);
+                Assert.Equal(component.Name == "postgres" ? 15432 : 16379, endpoint.Port);
+                Assert.False(endpoint.IsProxied);
             }
             Assert.Single(container.Annotations.OfType<HealthCheckAnnotation>());
         }
