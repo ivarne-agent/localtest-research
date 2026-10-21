@@ -1,0 +1,8 @@
+<Project>
+  <!-- The package is a library, not a project resource: the file-based `#:project` directive cannot carry item metadata,
+       so it is set here (without it the Aspire SDK treats the reference as an app to run and does not compile
+       against it, ASPIRE004). -->
+  <ItemGroup>
+    <ProjectReference Update="@(ProjectReference)" IsAspireProjectResource="false" />
+  </ItemGroup>
+</Project>
