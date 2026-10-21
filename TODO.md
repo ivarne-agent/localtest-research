@@ -643,7 +643,9 @@ has never run on this machine. 21e: `AddAltinnApp<T>()`, provisioning hook, comm
 base URL, the OpenID well-known endpoint, the certificate variables, the secrets variables), `studioctl run` becomes a
 loader of it with a golden test that its generated environment is unchanged, and the package reads the same section;
 the development app-codes file stays something each runner writes, with a test that the package's bytes equal
-studioctl's.
+studioctl's. The app project: `AddProject<T>` with `ExcludeLaunchProfile` and `ExcludeKestrelEndpoints`, one HTTP
+endpoint with an Aspire-assigned port, proxied; no fixed 5005 under Aspire; the front door reaches the app through the
+project resource (the tunnel) and the Kestrel URL is the runner's, not the manifest's.
 
 ## 22. app-lib honours an explicit localtest environment
 
