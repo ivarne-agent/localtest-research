@@ -13,7 +13,6 @@ as in production and ends in a localtest handler that posts each command to the 
 | `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, signing-key provider, DI and configuration composition |
 | `postgres-init/10-storage.sh` | Postgres init script: creates `platform_storage_admin`, runs the vendored `infra/postgres_init.sql` unchanged, hands the database and schema to the admin role |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned images, DbTools step, chiseled non-root runtime); each difference is marked `localtest:` (see [Image](#image)) |
-| `smoke-test.sh`, `smoke/` | Standalone smoke test of the host build, not the image (fresh Postgres container, register, authentication, a PDP stub, Storage); not runnable as written since 2026-10-20, see [Verified](#verified) |
 
 ## Directive sites in `vendor/`
 
@@ -156,14 +155,13 @@ marked `localtest:`:
 
 ## Verified
 
-`./smoke-test.sh` (fresh `postgres:16-alpine` via podman, register on 5020, authentication on 8000, a Python stub on
-5050 that permits every PDP decision, Storage on 5010), as of the fetch-based version; the metadata rows below now
-describe the pushed flow verified by the root `../../smoke-test.sh`. **Not runnable as written since 2026-10-20**
-(found by reading, not run): it takes its tokens from `/Home/GetTest*Token` on the Authentication process on port 8000,
-but the `/Home` helpers moved to the localtest app that day (`180fd3c`), and Authentication's sign-in now also needs
-Profile (task 14); `Localtest__Authentication__RegisterLocaltestEndpoint`, which it sets, no longer exists. Storage in
-the stack is covered by the root smoke test and, for the outbox, by `../dialogporten-adapter/smoke-test.sh` (with
-`--off` for the default stack):
+Storage is checked by the root `../../smoke-test.sh` through the front door, and for the outbox by
+`../dialogporten-adapter/smoke-test.sh` (with `--off` for the default stack). The component's own standalone
+`smoke-test.sh` (host build, fresh Postgres, register, authentication and a PDP stub) was deleted on 2026-10-21 (task 12):
+it could not run since 2026-10-20, when the `/Home` token helpers it called moved from Authentication to the localtest
+app and the `Localtest__Authentication__RegisterLocaltestEndpoint` setting it set went away, and porting it would have
+meant a second stack. The checks the root test lacked moved there: texts read back, the org's application list, and no
+`fail`/`crit` lines in Storage's log. What it verified on 2026-10-17 and 2026-10-18, on the host build:
 
 - migrations to `v0.38` run on the fresh database at startup (16 tables);
 - `POST applications?appId=ttd/testapp` and `POST applications/ttd/testapp/texts` with a service-owner token
@@ -176,7 +174,7 @@ the stack is covered by the root smoke test and, for the outbox, by `../dialogpo
 The image (`podman build -t localtest-storage:dev .`) starts against a Postgres container on a podman network,
 migrates and answers `/health` 200 in about 3 s.
 
-The image built from upstream `9e72a9f1` (2026-10-19) passes the root `../../smoke-test.sh` (23 checks: real PDP
+The image built from upstream `9e72a9f1` (2026-10-19) passes the root `../../smoke-test.sh` (23 checks then, 26 since task 12: real PDP
 decisions, instance create, process start and end by the app, upload, read-back, file scan `Clean`, denial, service-owner
 listing) with a fresh Postgres and blob volume; blobs are written as uid 1654. The full app-lib lifecycle runs in the
 Cypress suite, see `../../README.md`.

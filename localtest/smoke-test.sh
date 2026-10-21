@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # End-to-end check of the stack through the front door: sign-in, tokens, PDP decisions and a full instance lifecycle on
 # production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
+# 26 checks, the last one (no errors in Storage's log, read with podman from localtest-v2-storage) skipped without
+# podman or the container.
 set -u
+STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 BASE=${BASE:-http://local.altinn.cloud:8000}
 FAIL=0
 check() { local label=$1 expected=$2 actual=$3; if [[ "$actual" == "$expected" ]]; then printf 'ok   %-60s %s\n' "$label" "$actual"; else printf 'FAIL %-60s %s (expected %s)\n' "$label" "$actual" "$expected"; FAIL=1; fi; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
-for i in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
+for _ in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
 
 # Sign-in through the picker, as a browser would.
 J=$(mktemp); LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/ttd/testapp/")
@@ -36,6 +39,8 @@ TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X
 [[ "$TC" == "201" ]] || TC=$(code -H "Authorization: Bearer $DES" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/applications/ttd/testapp/texts/nb" --data-binary @"$FX/texts/resource.nb.json")
 check "storage: runner pushes texts (POST or PUT)" "yes" "$([[ "$TC" == 20? ]] && echo yes || echo "$TC")"
 check "storage: pushed metadata is served" "attachment" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/applications/ttd/testapp" | python3 -c 'import sys,json; print("attachment" if any(d["id"] == "attachment" for d in json.load(sys.stdin)["dataTypes"]) else "missing")')"
+check "storage: pushed texts are served (texts/nb)" "Testapp (pushed)" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/applications/ttd/testapp/texts/nb" | python3 -c 'import sys,json; print(json.load(sys.stdin)["resources"][0]["value"])')"
+check "storage: GET applications/ttd lists ttd/testapp" "yes" "$(curl -s "$BASE/storage/api/v1/applications/ttd" | python3 -c 'import sys,json; print("yes" if "ttd/testapp" in [a["id"] for a in json.load(sys.stdin)["applications"]] else "no")')"
 PC=$(sed -e 's/\[ORG\]/ttd/g' -e 's/\[org\]/ttd/g' -e 's/\[APP\]/testapp/g' -e 's/\[app\]/testapp/g' "$FX/policy.xml" | curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $DES" -H 'Content-Type: application/xml' -X POST "$BASE/authorization/api/v1/policies?org=ttd&app=testapp" --data-binary @-)
 check "authorization: runner pushes the app policy" "200" "$PC"
 check "proxy: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-running/api/v1/applicationmetadata")"
@@ -57,5 +62,14 @@ check "storage: file scan result" "Clean" "$(curl -s -H "Authorization: Bearer $
 check "storage: user without the role cannot upload" "403" "$(code -H "Authorization: Bearer $U2" -H 'Content-Type: text/plain' -X POST --data-binary x "$BASE/storage/api/v1/instances/$ID/data?dataType=attachment")"
 check "storage: the app ends the process" "200" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/instances/$ID/process" -d '{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","ended":"2026-10-17T07:05:00Z","endEvent":"EndEvent_1"}')"
 check "storage: service owner lists instances" "200" "$(code -H "Authorization: Bearer $ORG" "$BASE/storage/api/v1/instances?org=ttd&appId=ttd/testapp")"
+# Storage's own log since the start of this run (what the removed standalone Storage smoke test checked).
+STORAGE_CONTAINER=${STORAGE_CONTAINER:-localtest-v2-storage}
+if command -v podman >/dev/null 2>&1 && podman container exists "$STORAGE_CONTAINER" 2>/dev/null; then
+  SL=$(mktemp); podman logs --since "$STARTED" "$STORAGE_CONTAINER" >"$SL" 2>&1
+  check "storage: no fail/crit/unhandled exception lines in its log" "0" "$(grep -ciE '^(fail|crit):|unhandled exception' "$SL")"
+  grep -iE '^(fail|crit):|unhandled exception' -A1 "$SL" | cut -c1-240 | head -8; rm -f "$SL"
+else
+  echo "skip storage: no errors in its log (no podman or no container $STORAGE_CONTAINER)"
+fi
 rm -f "$J" "$H"
 exit $FAIL
