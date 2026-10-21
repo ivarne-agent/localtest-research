@@ -1,8 +1,12 @@
 package config
 
 import (
+	"maps"
 	"os"
+	"slices"
 	"strings"
+
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // Container images used by the local environment.
@@ -23,21 +27,8 @@ const (
 	// runtime ring, which is what tt02 serves, is tagged.
 	tagTT02 = "tt02"
 
-	// The localtest-v2 components are built from the localtest-research repository, one image per
-	// component plus the localtest app and the shared Postgres, all tagged with the build's commit.
-	// They are pinned to one build studioctl was tested with; EnvLocaltestV2Tag runs another, and
-	// "latest" follows every build on main.
-	imageLocaltestV2Prefix = "ghcr.io/ivarne-agent/localtest-research/localtest-"
-	tagLocaltestV2         = "sha-7f21882"
-	tagLatest              = "latest"
-
-	// The Redis of the optional Dialogporten group: 7.2 is the last BSD-licensed Redis (7.4 moved to RSALv2/SSPL), and
-	// the nearest to the 6.0 upstream's own compose file runs. Pinned by digest; no build of ours is involved.
-	imageRedis = "docker.io/library/redis"
-	tagRedis   = "7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0"
-
-	// EnvLocaltestV2Tag overrides the tag every localtest-v2 image runs ("latest" follows main).
-	EnvLocaltestV2Tag = "STUDIOCTL_LOCALTEST_V2_TAG"
+	// tagLatest follows every build on main.
+	tagLatest = "latest"
 )
 
 // ImageSpec defines an image reference with repository and tag.
@@ -68,74 +59,66 @@ type CoreImages struct {
 	PgAdmin          ImageSpec
 }
 
-// LocaltestV2Images holds the images of the localtest-v2 runtime. The PDF generator and the
-// workflow engine are the ones the localtest runtime runs (CoreImages).
+// LocaltestV2Images holds the images of the localtest-v2 runtime by image name, as the component manifest
+// (internal/localtestv2/manifest) lists them: the research builds, one per component plus the localtest app and the
+// shared Postgres, pinned to the manifest's tag, and the third-party images (Redis), pinned by digest. The PDF
+// generator and the workflow engine are the ones the localtest runtime runs (CoreImages).
+//
+// The specs are shared between copies of the value until UseTag, which copies them first.
 type LocaltestV2Images struct {
-	Localtest        ImageSpec
-	Register         ImageSpec
-	Authentication   ImageSpec
-	Authorization    ImageSpec
-	AccessManagement ImageSpec
-	Storage          ImageSpec
-	Events           ImageSpec
-	ResourceRegistry ImageSpec
-	Notifications    ImageSpec
-	Profile          ImageSpec
-	Postgres         ImageSpec
-
-	// The optional Dialogporten group: three hosts built from one vendored tree, the adapter, and the Redis they share,
-	// which is a third-party image and so is not one of the research repository's builds (not in All).
-	DialogportenWebApi  ImageSpec
-	DialogportenGraphQL ImageSpec
-	DialogportenService ImageSpec
-	DialogportenAdapter ImageSpec
-	Redis               ImageSpec
-
-	// The optional receipt group.
-	Receipt ImageSpec
-	// The optional Correspondence group.
-	Correspondence ImageSpec
-	// The optional Arbeidsflate group: the SPA's nginx and the BFF, built from one vendored tree.
-	Arbeidsflate    ImageSpec
-	ArbeidsflateBFF ImageSpec
+	specs    map[string]ImageSpec
+	research []string
 }
 
-// All returns every localtest-v2 image, for applying one tag to the set.
-func (i *LocaltestV2Images) All() []*ImageSpec {
-	return []*ImageSpec{
-		&i.Localtest,
-		&i.Register,
-		&i.Authentication,
-		&i.Authorization,
-		&i.AccessManagement,
-		&i.Storage,
-		&i.Events,
-		&i.ResourceRegistry,
-		&i.Notifications,
-		&i.Profile,
-		&i.Postgres,
-		&i.DialogportenWebApi,
-		&i.DialogportenGraphQL,
-		&i.DialogportenService,
-		&i.DialogportenAdapter,
-		&i.Receipt,
-		&i.Correspondence,
-		&i.Arbeidsflate,
-		&i.ArbeidsflateBFF,
-	}
+// Image returns the named image.
+func (i LocaltestV2Images) Image(name string) (ImageSpec, bool) {
+	spec, ok := i.specs[name]
+	return spec, ok
 }
 
-// UseTag runs every localtest-v2 image at one tag. "latest" moves with main, so it is re-pulled on
-// every start; any other tag names one build.
+// Names lists every image, sorted.
+func (i LocaltestV2Images) Names() []string {
+	return slices.Sorted(maps.Keys(i.specs))
+}
+
+// ResearchNames lists the images built by the research repository, which one tag applies to, in manifest order.
+func (i LocaltestV2Images) ResearchNames() []string {
+	return slices.Clone(i.research)
+}
+
+// UseTag runs every research image at one tag. "latest" moves with main, so it is re-pulled on every start; any other
+// tag names one build. Third-party images keep their pins.
 func (i *LocaltestV2Images) UseTag(tag string) {
-	for _, spec := range i.All() {
+	i.specs = maps.Clone(i.specs)
+	for _, name := range i.research {
+		spec := i.specs[name]
 		spec.Tag = tag
 		spec.Floating = tag == tagLatest
+		i.specs[name] = spec
 	}
 }
 
-func localtestV2Image(name string) ImageSpec {
-	return ImageSpec{Image: imageLocaltestV2Prefix + name, Tag: tagLocaltestV2, Floating: false}
+// EnvLocaltestV2Tag is the variable that overrides the tag every localtest-v2 research image runs ("latest" follows
+// main), from the manifest.
+func EnvLocaltestV2Tag() string {
+	return manifest.MustDefault().Images.TagEnv
+}
+
+// LocaltestV2OverrideEnv is the variable that overrides one localtest-v2 image with a complete reference:
+// STUDIOCTL_IMAGE_LOCALTEST_V2_ plus the image name upper-cased with - turned into _.
+func LocaltestV2OverrideEnv(name string) string {
+	return manifest.MustDefault().Images.OverrideEnv(name)
+}
+
+func defaultLocaltestV2Images(m *manifest.Manifest) LocaltestV2Images {
+	images := LocaltestV2Images{specs: map[string]ImageSpec{}, research: m.ResearchNames()}
+	for _, name := range images.research {
+		images.specs[name] = ImageSpec{Image: m.Images.RepositoryPrefix + name, Tag: m.Images.Tag, Floating: false}
+	}
+	for name, external := range m.Images.ThirdParty {
+		images.specs[name] = ImageSpec{Image: external.Repository, Tag: external.Tag, Floating: external.Floating}
+	}
+	return images
 }
 
 // MonitoringImages holds image configuration for monitoring stack containers.
@@ -172,33 +155,9 @@ func DefaultImages() ImagesConfig {
 			OtelCollector:   ImageSpec{Image: "otel/opentelemetry-collector-contrib", Tag: "0.161.0", Floating: false},
 			Grafana:         ImageSpec{Image: "grafana/grafana", Tag: "12.4.8", Floating: false},
 		},
-		LocaltestV2: LocaltestV2Images{
-			Localtest:        localtestV2Image("localtest"),
-			Register:         localtestV2Image("register"),
-			Authentication:   localtestV2Image("authentication"),
-			Authorization:    localtestV2Image("authorization"),
-			AccessManagement: localtestV2Image("access-management"),
-			Storage:          localtestV2Image("storage"),
-			Events:           localtestV2Image("events"),
-			ResourceRegistry: localtestV2Image("resource-registry"),
-			Notifications:    localtestV2Image("notifications"),
-			Profile:          localtestV2Image("profile"),
-			Postgres:         localtestV2Image("postgres"),
-
-			DialogportenWebApi:  localtestV2Image("dialogporten-webapi"),
-			DialogportenGraphQL: localtestV2Image("dialogporten-graphql"),
-			DialogportenService: localtestV2Image("dialogporten-service"),
-			DialogportenAdapter: localtestV2Image("dialogporten-adapter"),
-			Redis:               ImageSpec{Image: imageRedis, Tag: tagRedis, Floating: false},
-
-			Receipt:        localtestV2Image("receipt"),
-			Correspondence: localtestV2Image("correspondence"),
-
-			Arbeidsflate:    localtestV2Image("arbeidsflate"),
-			ArbeidsflateBFF: localtestV2Image("arbeidsflate-bff"),
-		},
+		LocaltestV2: defaultLocaltestV2Images(manifest.MustDefault()),
 	}
-	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag)); tag != "" {
+	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag())); tag != "" {
 		images.LocaltestV2.UseTag(tag)
 	}
 	images.applyEnvOverrides(os.Getenv)
@@ -220,44 +179,27 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 		"STUDIOCTL_IMAGE_VICTORIA_LOGS":      &c.Monitoring.VictoriaLogs,
 		"STUDIOCTL_IMAGE_OTEL_COLLECTOR":     &c.Monitoring.OtelCollector,
 		"STUDIOCTL_IMAGE_GRAFANA":            &c.Monitoring.Grafana,
-
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_LOCALTEST":         &c.LocaltestV2.Localtest,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_REGISTER":          &c.LocaltestV2.Register,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_AUTHENTICATION":    &c.LocaltestV2.Authentication,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_AUTHORIZATION":     &c.LocaltestV2.Authorization,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_ACCESS_MANAGEMENT": &c.LocaltestV2.AccessManagement,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_STORAGE":           &c.LocaltestV2.Storage,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_EVENTS":            &c.LocaltestV2.Events,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_RESOURCE_REGISTRY": &c.LocaltestV2.ResourceRegistry,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_NOTIFICATIONS":     &c.LocaltestV2.Notifications,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_PROFILE":           &c.LocaltestV2.Profile,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_POSTGRES":          &c.LocaltestV2.Postgres,
-
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_WEBAPI":  &c.LocaltestV2.DialogportenWebApi,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_GRAPHQL": &c.LocaltestV2.DialogportenGraphQL,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_SERVICE": &c.LocaltestV2.DialogportenService,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER": &c.LocaltestV2.DialogportenAdapter,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_CORRESPONDENCE":       &c.LocaltestV2.Correspondence,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_REDIS":                &c.LocaltestV2.Redis,
-
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_RECEIPT": &c.LocaltestV2.Receipt,
-
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE":     &c.LocaltestV2.Arbeidsflate,
-		"STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE_BFF": &c.LocaltestV2.ArbeidsflateBFF,
 	}
 }
 
 func (c *ImagesConfig) applyEnvOverrides(getenv func(string) string) {
 	for envVar, spec := range c.imageOverrides() {
-		ref := strings.TrimSpace(getenv(envVar))
-		if ref == "" {
-			continue
+		if ref := strings.TrimSpace(getenv(envVar)); ref != "" {
+			*spec = overriddenSpec(ref)
 		}
-		image, tag := splitImageRef(ref)
-		spec.Image = image
-		spec.Tag = tag
-		spec.Floating = false
 	}
+	// The localtest-v2 images' variables follow a rule from the manifest (LocaltestV2OverrideEnv).
+	for _, name := range c.LocaltestV2.Names() {
+		if ref := strings.TrimSpace(getenv(LocaltestV2OverrideEnv(name))); ref != "" {
+			c.LocaltestV2.specs[name] = overriddenSpec(ref)
+		}
+	}
+}
+
+// overriddenSpec is the spec of an override reference: it names one build, so it does not follow a tag.
+func overriddenSpec(ref string) ImageSpec {
+	image, tag := splitImageRef(ref)
+	return ImageSpec{Image: image, Tag: tag, Floating: false}
 }
 
 // splitImageRef splits "repository:tag". A registry host may carry a port, so only a colon

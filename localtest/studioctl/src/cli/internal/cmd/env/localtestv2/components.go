@@ -239,6 +239,12 @@ func newComponent(
 	}
 }
 
+// localtestV2Image is the named localtest-v2 image from the image configuration.
+func localtestV2Image(opts *Options, name string) config.ImageSpec {
+	spec, _ := opts.Images.LocaltestV2.Image(name)
+	return spec
+}
+
 func containerOf(name string) string {
 	return containerPrefix + name
 }
@@ -285,7 +291,7 @@ func allComponents(opts *Options) []component {
 }
 
 func postgresComponent(opts *Options) component {
-	c := newComponent(opts, componentPostgres, opts.Images.LocaltestV2.Postgres, ".", postgresPort, "")
+	c := newComponent(opts, componentPostgres, localtestV2Image(opts, "postgres"), ".", postgresPort, "")
 	c.env = map[string]string{
 		"POSTGRES_USER":     postgresUser,
 		"POSTGRES_PASSWORD": postgresPassword,
@@ -318,7 +324,7 @@ func registerComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentRegister,
-		opts.Images.LocaltestV2.Register,
+		localtestV2Image(opts, "register"),
 		"components/register",
 		"5020",
 		hostPortRegister,
@@ -339,7 +345,7 @@ func authenticationComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentAuthentication,
-		opts.Images.LocaltestV2.Authentication,
+		localtestV2Image(opts, "authentication"),
 		"components/authentication",
 		"5101",
 		hostPortAuthentication,
@@ -360,7 +366,7 @@ func authorizationComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentAuthorization,
-		opts.Images.LocaltestV2.Authorization,
+		localtestV2Image(opts, "authorization"),
 		"components/authorization",
 		"5070",
 		hostPortAuthorization,
@@ -381,7 +387,7 @@ func storageComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentStorage,
-		opts.Images.LocaltestV2.Storage,
+		localtestV2Image(opts, "storage"),
 		"components/storage",
 		"5010",
 		hostPortStorage,
@@ -405,7 +411,7 @@ func accessManagementComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentAccessManagement,
-		opts.Images.LocaltestV2.AccessManagement,
+		localtestV2Image(opts, "access-management"),
 		"components/access-management",
 		"5080",
 		hostPortAccessManagement,
@@ -432,7 +438,7 @@ func eventsComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentEvents,
-		opts.Images.LocaltestV2.Events,
+		localtestV2Image(opts, "events"),
 		"components/events",
 		"5080",
 		hostPortEvents,
@@ -467,7 +473,7 @@ func resourceRegistryComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentResourceRegistry,
-		opts.Images.LocaltestV2.ResourceRegistry,
+		localtestV2Image(opts, "resource-registry"),
 		"components/resource-registry",
 		"5100",
 		hostPortResourceRegistry,
@@ -493,7 +499,7 @@ func notificationsComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentNotifications,
-		opts.Images.LocaltestV2.Notifications,
+		localtestV2Image(opts, "notifications"),
 		"components/notifications",
 		"5090",
 		hostPortNotifications,
@@ -533,7 +539,7 @@ func notificationsComponent(opts *Options, platform string) component {
 // The PDP, Authentication's OpenID metadata and Notifications are request-time dependencies only; they list Profile among
 // their deps (Authentication and the PDP call it on every login), which rules out the reverse.
 func profileComponent(opts *Options, platform string) component {
-	c := newComponent(opts, componentProfile, opts.Images.LocaltestV2.Profile, "components/profile", "5030", hostPortProfile)
+	c := newComponent(opts, componentProfile, localtestV2Image(opts, "profile"), "components/profile", "5030", hostPortProfile)
 	c.healthPath = healthPath
 	c.env = map[string]string{
 		certSettingEnv:                         certContainerPath,
@@ -553,7 +559,7 @@ func localtestComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentLocaltest,
-		opts.Images.LocaltestV2.Localtest,
+		localtestV2Image(opts, "localtest"),
 		"localtest",
 		"8000",
 		hostPortLocaltest,
@@ -614,7 +620,7 @@ func workflowEngineComponent(opts *Options) component {
 // redisComponent is the cache, backplane and subscription transport of Dialogporten's three hosts (see the component
 // README for why it stays). No persistence and no published port: only the hosts on the network use it.
 func redisComponent(opts *Options) component {
-	c := newComponent(opts, componentRedis, opts.Images.LocaltestV2.Redis, "", redisPort, "")
+	c := newComponent(opts, componentRedis, localtestV2Image(opts, "redis"), "", redisPort, "")
 	c.group = groupDialogporten
 	c.command = []string{"redis-server", "--save", "", "--appendonly", "no"}
 	c.aliases = []string{componentRedis}
@@ -652,7 +658,7 @@ func dialogportenWebApiComponent(opts *Options, platform string) component {
 		platform,
 		componentDialogportenWebApi,
 		"Dockerfile.webapi",
-		opts.Images.LocaltestV2.DialogportenWebApi,
+		localtestV2Image(opts, "dialogporten-webapi"),
 		hostPortDialogportenWeb,
 	)
 	// It migrates the database at start (production's DevelopmentMigratorHostedService in Development, before the host
@@ -695,7 +701,7 @@ func dialogportenGraphQLComponent(opts *Options, platform string) component {
 		platform,
 		componentDialogportenGraphQL,
 		"Dockerfile.graphql",
-		opts.Images.LocaltestV2.DialogportenGraphQL,
+		localtestV2Image(opts, "dialogporten-graphql"),
 		hostPortDialogportenGQL,
 	)
 	c.deps = []string{containerOf(componentDialogportenWebApi)}
@@ -710,7 +716,7 @@ func dialogportenServiceComponent(opts *Options, platform string) component {
 		platform,
 		componentDialogportenService,
 		"Dockerfile.service",
-		opts.Images.LocaltestV2.DialogportenService,
+		localtestV2Image(opts, "dialogporten-service"),
 		hostPortDialogportenSvc,
 	)
 	c.deps = []string{containerOf(componentDialogportenWebApi)}
@@ -725,7 +731,7 @@ func dialogportenAdapterComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentDialogportenAdapter,
-		opts.Images.LocaltestV2.DialogportenAdapter,
+		localtestV2Image(opts, "dialogporten-adapter"),
 		"components/dialogporten-adapter",
 		"5011",
 		hostPortDialogportenAdpt,
@@ -750,7 +756,7 @@ func dialogportenAdapterComponent(opts *Options, platform string) component {
 // Profile with the user's cookie, and is only the sign-in target and JWKS user of Authentication. Every endpoint is the
 // public origin, because the browser follows the sign-in redirect and the attachment links the receipt hands out.
 func receiptComponent(opts *Options, platform string) component {
-	c := newComponent(opts, componentReceipt, opts.Images.LocaltestV2.Receipt, "components/receipt", "5060", hostPortReceipt)
+	c := newComponent(opts, componentReceipt, localtestV2Image(opts, "receipt"), "components/receipt", "5060", hostPortReceipt)
 	c.group = groupReceipt
 	c.healthPath = healthPath
 	c.env = map[string]string{
@@ -789,7 +795,7 @@ func correspondenceComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentCorrespondence,
-		opts.Images.LocaltestV2.Correspondence,
+		localtestV2Image(opts, "correspondence"),
 		"components/correspondence",
 		"2525",
 		hostPortCorrespondence,
@@ -831,7 +837,7 @@ func arbeidsflateComponent(opts *Options) component {
 	c := newComponent(
 		opts,
 		componentArbeidsflate,
-		opts.Images.LocaltestV2.Arbeidsflate,
+		localtestV2Image(opts, "arbeidsflate"),
 		"components/arbeidsflate",
 		arbeidsflatePort,
 		hostPortArbeidsflate,
@@ -858,7 +864,7 @@ func arbeidsflateBFFComponent(opts *Options, platform string) component {
 	c := newComponent(
 		opts,
 		componentArbeidsflateBFF,
-		opts.Images.LocaltestV2.ArbeidsflateBFF,
+		localtestV2Image(opts, "arbeidsflate-bff"),
 		"components/arbeidsflate",
 		arbeidsflatePort,
 		hostPortArbeidsflateBFF,

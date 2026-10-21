@@ -1,0 +1,590 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://altinn.studio/schemas/localtest-v2/manifest.schema.json",
+  "title": "localtest-v2 component manifest",
+  "description": "The single source of truth for the localtest-v2 stack: every container (image, ports, environment, mounts, dependencies, health, group, front-door routes), the optional component groups, the image pin, the shared Postgres and the test certificate. studioctl embeds this file (internal/localtestv2/manifest) and builds its containers and its front door's route table from it. Strings in environment values, commands, container health checks and route hosts may hold {{placeholders}}; see README.md beside this file for the vocabulary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "containerPrefix",
+    "network",
+    "certificate",
+    "images",
+    "volumes",
+    "postgres",
+    "frontDoor",
+    "groups",
+    "components"
+  ],
+  "properties": {
+    "$schema": {
+      "title": "Schema",
+      "description": "Relative path of this schema, for editors.",
+      "type": "string"
+    },
+    "version": {
+      "title": "Format version",
+      "description": "The manifest format version. A loader refuses a version it does not know.",
+      "const": 1
+    },
+    "containerPrefix": {
+      "title": "Container name prefix",
+      "description": "Prepended to a component's name to form its container name (localtest-v2-storage). `studioctl env logs -c <name>` accepts either form.",
+      "type": "string",
+      "minLength": 1
+    },
+    "network": {
+      "title": "Container network",
+      "description": "The bridge network every container joins. Containers find Postgres and Redis on it by their network aliases; everything else they reach through the public origin on the host.",
+      "type": "string",
+      "minLength": 1
+    },
+    "certificate": {
+      "title": "Shared test certificate",
+      "description": "The test key pair every app and component signs platform access tokens with and validates them against (localtest/certs). The runtime writes it to a host directory and mounts it read-only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "containerDir"],
+      "properties": {
+        "fileName": {
+          "title": "File name",
+          "description": "The certificate's file name, the same on the host and in the containers.",
+          "type": "string",
+          "minLength": 1
+        },
+        "containerDir": {
+          "title": "Container directory",
+          "description": "Where a mount of kind certificateDir puts the host directory. {{certPath}} is this directory plus fileName.",
+          "type": "string",
+          "pattern": "^/"
+        }
+      }
+    },
+    "images": {
+      "title": "Images",
+      "description": "Where the components' images come from. A component names its image by one of three sources: research (built by this repository's image workflow and pinned by tag), thirdParty (a pinned external image) or core (an image studioctl's localtest runtime runs too).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repositoryPrefix", "tag", "tagEnv", "overrideEnvPrefix", "thirdParty", "core"],
+      "properties": {
+        "repositoryPrefix": {
+          "title": "Research repository prefix",
+          "description": "A research image's repository is this prefix plus its name (ghcr.io/ivarne-agent/localtest-research/localtest-storage).",
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "title": "Pinned tag",
+          "description": "The tag every research image runs: sha-<commit> of the build studioctl was tested with, bumped by hand after a run against that build. `env up --latest` and tagEnv replace it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "tagEnv": {
+          "title": "Tag override variable",
+          "description": "studioctl's environment variable that runs every research image at another tag (\"latest\" follows main and is re-pulled on every start).",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "overrideEnvPrefix": {
+          "title": "Per-image override variable prefix",
+          "description": "studioctl's per-image override for a research or third-party image is this prefix plus the image name upper-cased with - turned into _ (STUDIOCTL_IMAGE_LOCALTEST_V2_ACCESS_MANAGEMENT); it holds a complete reference (repository:tag) and stops the image from following a tag.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*_$"
+        },
+        "thirdParty": {
+          "title": "Third-party images",
+          "description": "Pinned external images by name. Their tag is not the research build's: --latest and tagEnv leave them alone.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "$ref": "#/$defs/externalImage" }
+        },
+        "core": {
+          "title": "Core images",
+          "description": "Images studioctl's localtest runtime runs too, by name. studioctl takes them from its own image configuration (internal/config/images.go, CoreImages), where they follow what tt02 runs; this section mirrors that configuration for other readers, and a studioctl test keeps the mirror right.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "$ref": "#/$defs/externalImage" }
+        }
+      }
+    },
+    "volumes": {
+      "title": "Named volumes",
+      "description": "Every named volume the components mount. They outlive `env down`; `env reset` deletes all of them.",
+      "type": "array",
+      "items": {
+        "title": "Volume",
+        "description": "One named volume.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "title": "Name",
+            "description": "The volume's name in the container runtime.",
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "title": "Description",
+            "description": "What the volume holds and which image user owns it.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "postgres": {
+      "title": "Shared Postgres",
+      "description": "The one Postgres server, with a database per component.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "user", "password", "initScripts"],
+      "properties": {
+        "component": {
+          "title": "Component",
+          "description": "The component that is the Postgres server.",
+          "$ref": "#/$defs/name"
+        },
+        "user": {
+          "title": "Superuser",
+          "description": "The superuser name ({{postgresUser}}). A fixed local test value.",
+          "type": "string",
+          "minLength": 1
+        },
+        "password": {
+          "title": "Superuser password",
+          "description": "The superuser password ({{postgresPassword}}). A fixed local test value, not a secret.",
+          "type": "string",
+          "minLength": 1
+        },
+        "initScripts": {
+          "title": "Init scripts",
+          "description": "The files baked into the Postgres image (localtest/postgres/Dockerfile): the scripts under /docker-entrypoint-initdb.d run on an empty data volume only, in name order, each creating its component's database and users idempotently. studioctl does not read this list (the image carries the files); it is here for runtimes that start a stock Postgres, and a studioctl test checks it against the Dockerfile.",
+          "type": "array",
+          "items": {
+            "title": "Init file",
+            "description": "One file copied into the image.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "target"],
+            "properties": {
+              "source": {
+                "title": "Source",
+                "description": "The file, relative to the localtest/ folder of the research repository.",
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "title": "Target",
+                "description": "Its path in the container.",
+                "type": "string",
+                "pattern": "^/"
+              }
+            }
+          }
+        }
+      }
+    },
+    "frontDoor": {
+      "title": "Front door",
+      "description": "What the front door (studioctl-server on the host, serving http://local.altinn.cloud:8000) needs beyond the components' own routes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["healthPath", "hostRoutes"],
+      "properties": {
+        "healthPath": {
+          "title": "Front-door health path",
+          "description": "Polled on the public origin after the components answer, which proves the front door forwards (it reaches the localtest app).",
+          "type": "string",
+          "pattern": "^/"
+        },
+        "hostRoutes": {
+          "title": "Routes to the host",
+          "description": "Routes to processes on the developer's machine rather than to a container.",
+          "type": "array",
+          "items": {
+            "title": "Host route",
+            "description": "One route to a loopback port on the host.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "host", "prefix", "hostPort"],
+            "properties": {
+              "name": {
+                "title": "Name",
+                "description": "The route's component name in the route table.",
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "title": "Description",
+                "description": "What listens there.",
+                "type": "string"
+              },
+              "host": {
+                "title": "Host",
+                "description": "The public host name; may hold placeholders.",
+                "type": "string",
+                "minLength": 1
+              },
+              "prefix": { "$ref": "#/$defs/prefix" },
+              "hostPort": {
+                "title": "Host port",
+                "description": "The loopback port the route forwards to.",
+                "$ref": "#/$defs/port"
+              }
+            }
+          }
+        }
+      }
+    },
+    "groups": {
+      "title": "Optional component groups",
+      "description": "`env up --with <group>` enables a group and, transitively, the groups it implies; `--without <group>` leaves out only the named group, and leaving out a group an enabled group implies is an error. A component with a group exists only while its group is enabled; its routes are written either way, disabled while the group is off, so the front door answers 503 with the command that starts it.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": {
+        "title": "Group",
+        "description": "One optional group.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "onByDefault", "implies"],
+        "properties": {
+          "description": {
+            "title": "Description",
+            "description": "What the group runs and why it is optional.",
+            "type": "string"
+          },
+          "onByDefault": {
+            "title": "On by default",
+            "description": "Whether `env up` enables the group when no flag names it.",
+            "type": "boolean"
+          },
+          "implies": {
+            "title": "Implied groups",
+            "description": "The groups that start with this one because its components cannot run without them.",
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/name" }
+          },
+          "impliesAll": {
+            "title": "Implies every group",
+            "description": "The group implies every other group (everything).",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "components": {
+      "title": "Components",
+      "description": "Every container, in start order: the always-on ones and those of the groups. A component's dependencies come before it.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/component" }
+    }
+  },
+  "$defs": {
+    "name": {
+      "title": "Name",
+      "description": "A lower-case name: letters, digits and dashes.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "port": {
+      "title": "Port",
+      "description": "A TCP port.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "prefix": {
+      "title": "Path prefix",
+      "description": "The path prefix the route matches on its host; empty matches the whole host. The longest matching prefix wins.",
+      "type": "string",
+      "pattern": "^(/.*)?$"
+    },
+    "duration": {
+      "title": "Duration",
+      "description": "A Go duration such as 2s or 500ms.",
+      "type": "string",
+      "pattern": "^([0-9]+(ns|us|ms|s|m|h))+$"
+    },
+    "externalImage": {
+      "title": "External image",
+      "description": "An image that is not one of the research builds.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag"],
+      "properties": {
+        "description": {
+          "title": "Description",
+          "description": "What the image is and why this tag.",
+          "type": "string"
+        },
+        "repository": {
+          "title": "Repository",
+          "description": "The full repository, registry included.",
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "title": "Tag",
+          "description": "The tag, optionally with @sha256:<digest>.",
+          "type": "string",
+          "minLength": 1
+        },
+        "floating": {
+          "title": "Floating",
+          "description": "The tag moves as new builds are published, so the image is re-pulled on every start (keeping the local copy when the registry is unreachable).",
+          "type": "boolean"
+        },
+        "overrideEnv": {
+          "title": "Override variable",
+          "description": "studioctl's environment variable that replaces the reference, when it is not the rule-derived one.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        }
+      }
+    },
+    "component": {
+      "title": "Component",
+      "description": "One container of the stack.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description", "image", "containerPort"],
+      "properties": {
+        "name": {
+          "title": "Name",
+          "description": "The component's name: the container is containerPrefix plus it, `env logs -c` and the route table use it, and other components' dependsOn and placeholders refer to it.",
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "title": "Description",
+          "description": "What the component is, in a sentence or two.",
+          "type": "string"
+        },
+        "notes": {
+          "title": "Notes",
+          "description": "Why a setting is what it is. Loaders ignore them.",
+          "type": "array",
+          "items": { "type": "string", "title": "Note", "description": "One note." }
+        },
+        "group": {
+          "title": "Group",
+          "description": "The optional group the component belongs to; absent for the always-on components.",
+          "$ref": "#/$defs/name"
+        },
+        "image": {
+          "title": "Image",
+          "description": "Where the image comes from: exactly one of research, thirdParty or core.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 1,
+          "properties": {
+            "research": {
+              "title": "Research image",
+              "description": "The image name under images.repositoryPrefix, at images.tag.",
+              "$ref": "#/$defs/name"
+            },
+            "thirdParty": {
+              "title": "Third-party image",
+              "description": "A key of images.thirdParty.",
+              "$ref": "#/$defs/name"
+            },
+            "core": {
+              "title": "Core image",
+              "description": "A key of images.core.",
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        "dev": {
+          "title": "Dev build",
+          "description": "How `env up --dev <selector>` builds the image from the research checkout instead of pulling it; absent when the image is not built from it (core and third-party images). The built image is tagged containerPrefix + name + :dev.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["context"],
+          "properties": {
+            "selector": {
+              "title": "Selector",
+              "description": "The --dev name that selects this build; defaults to the component's name. Components built from one folder share a selector (dialogporten builds its three hosts).",
+              "$ref": "#/$defs/name"
+            },
+            "context": {
+              "title": "Build context",
+              "description": "The build context, relative to the localtest/ folder (STUDIOCTL_LOCALTEST_V2_SRC).",
+              "type": "string",
+              "minLength": 1
+            },
+            "dockerfile": {
+              "title": "Dockerfile",
+              "description": "The Dockerfile, relative to the build context; defaults to Dockerfile.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "containerPort": {
+          "title": "Container port",
+          "description": "The port the service listens on inside the container ({{port:<name>}}).",
+          "$ref": "#/$defs/port"
+        },
+        "hostPort": {
+          "title": "Host port",
+          "description": "The port published on 127.0.0.1, which the front door forwards to and the health wait polls; absent for a container only others on the network reach (Postgres, Redis).",
+          "$ref": "#/$defs/port"
+        },
+        "healthPath": {
+          "title": "Health path",
+          "description": "Polled over HTTP on the host port until it answers 200, after the containers run; absent skips the poll.",
+          "type": "string",
+          "pattern": "^/"
+        },
+        "containerHealthCheck": {
+          "title": "Container health check",
+          "description": "A health check the container runtime runs inside the container. The runtime waits for it before starting what depends on the component.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["test", "interval", "timeout", "retries"],
+          "properties": {
+            "test": {
+              "title": "Test",
+              "description": "The check, in the runtime's form: [\"CMD\", ...] or [\"CMD-SHELL\", \"<command>\"]. May hold placeholders.",
+              "type": "array",
+              "minItems": 2,
+              "items": { "type": "string", "title": "Argument", "description": "One element." }
+            },
+            "interval": { "title": "Interval", "description": "Time between checks.", "$ref": "#/$defs/duration" },
+            "timeout": { "title": "Timeout", "description": "Time one check may take.", "$ref": "#/$defs/duration" },
+            "retries": {
+              "title": "Retries",
+              "description": "Consecutive failures before the container counts as unhealthy.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "startPeriod": {
+              "title": "Start period",
+              "description": "Time after start during which failures do not count; absent is none.",
+              "$ref": "#/$defs/duration"
+            }
+          }
+        },
+        "environment": {
+          "title": "Environment",
+          "description": "The container's environment. Values may hold placeholders; single braces ({0}, {Org}) are the components' own and pass through unchanged.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "additionalProperties": { "type": "string" }
+        },
+        "command": {
+          "title": "Command",
+          "description": "Replaces the image's command. May hold placeholders.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "title": "Argument", "description": "One argument." }
+        },
+        "mounts": {
+          "title": "Mounts",
+          "description": "What the container mounts. Binds are read-only.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/mount" }
+        },
+        "dependsOn": {
+          "title": "Dependencies",
+          "description": "Components that must be running (and healthy, when they have a container health check) before this one starts. Each comes earlier in the list.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "networkAliases": {
+          "title": "Network aliases",
+          "description": "Names other containers reach this one by on the network ({{alias:<name>}} is the first).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "title": "Alias", "description": "One DNS name." }
+        },
+        "ingressHosts": {
+          "title": "Map the ingress hosts",
+          "description": "Whether every public host name (local.altinn.cloud, pdf., workflow-engine., app-frontend., af. and the rest of the topology's ingress hosts) resolves to the host gateway in the container, so it reaches the front door. Defaults to true; false for containers that call nothing (Postgres, Redis).",
+          "type": "boolean"
+        },
+        "extraHostGatewayNames": {
+          "title": "More host-gateway names",
+          "description": "Further names mapped to the host gateway (host.docker.internal for Events' webhooks to the developer's machine).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "title": "Host name", "description": "One host name." }
+        },
+        "hostUser": {
+          "title": "Run as the developer",
+          "description": "Run as the developer's user (and user namespace) instead of the image's own user. Defaults to false; no component needs it today.",
+          "type": "boolean"
+        },
+        "routes": {
+          "title": "Routes",
+          "description": "Public host-and-prefix routes the front door forwards to the host port. They are written whether or not the group is on.",
+          "type": "array",
+          "items": {
+            "title": "Route",
+            "description": "One route.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host", "prefix"],
+            "properties": {
+              "host": {
+                "title": "Host",
+                "description": "The public host name, normally {{host:app}}; may hold placeholders.",
+                "type": "string",
+                "minLength": 1
+              },
+              "prefix": { "$ref": "#/$defs/prefix" },
+              "rewrite": {
+                "title": "Rewrite",
+                "description": "The path forwarded in place of the matched prefix, the rest of the path kept, for a component that serves itself under another path than the public one; absent passes the path unchanged.",
+                "type": "string",
+                "pattern": "^/"
+              }
+            }
+          }
+        }
+      }
+    },
+    "mount": {
+      "title": "Mount",
+      "description": "One mount, by kind.",
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "title": "Certificate directory",
+          "description": "The host directory holding the shared certificate, read-only at certificate.containerDir.",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "certificateDir", "title": "Kind", "description": "certificateDir" }
+          }
+        },
+        {
+          "title": "Certificate file",
+          "description": "The shared certificate file alone, read-only at a path of its own (for components that read a default path).",
+          "additionalProperties": false,
+          "required": ["target"],
+          "properties": {
+            "kind": { "const": "certificateFile", "title": "Kind", "description": "certificateFile" },
+            "target": { "title": "Target", "description": "The file's path in the container.", "type": "string", "pattern": "^/" }
+          }
+        },
+        {
+          "title": "Named volume",
+          "description": "A named volume from the volumes list, read-write.",
+          "additionalProperties": false,
+          "required": ["volume", "target"],
+          "properties": {
+            "kind": { "const": "volume", "title": "Kind", "description": "volume" },
+            "volume": { "title": "Volume", "description": "A name from the volumes list.", "type": "string", "minLength": 1 },
+            "target": { "title": "Target", "description": "The mount point in the container.", "type": "string", "pattern": "^/" }
+          }
+        }
+      ]
+    }
+  }
+}
