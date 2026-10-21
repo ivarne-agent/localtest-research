@@ -9,7 +9,7 @@
   },
   "images": {
     "repositoryPrefix": "ghcr.io/ivarne-agent/localtest-research/localtest-",
-    "tag": "sha-7f21882",
+    "tag": "sha-98e2bae",
     "tagEnv": "STUDIOCTL_LOCALTEST_V2_TAG",
     "overrideEnvPrefix": "STUDIOCTL_IMAGE_LOCALTEST_V2_",
     "thirdParty": {

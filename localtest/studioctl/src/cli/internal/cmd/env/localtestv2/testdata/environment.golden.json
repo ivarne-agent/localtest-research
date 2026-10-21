@@ -62,8 +62,8 @@
         "driver": "bridge"
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
@@ -78,7 +78,7 @@
           "StartPeriod": 5000000000
         },
         "id": "container:localtest-v2-postgres",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -111,13 +111,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-register",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -154,13 +154,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-profile",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -202,13 +202,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-authentication",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -248,13 +248,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-authorization",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -301,13 +301,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-storage",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -355,13 +355,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-access-management",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -410,13 +410,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-events",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -467,13 +467,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-resource-registry",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -522,13 +522,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-notifications",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -580,13 +580,13 @@
         "waitForReady": true
       },
       {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-7f21882",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-7f21882",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-98e2bae",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-98e2bae",
         "pullPolicy": "ifNotPresent"
       },
       {
         "id": "container:localtest-v2-localtest",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-7f21882",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-98e2bae",
         "networks": [
           "network:localtest-v2_network"
         ],
