@@ -152,7 +152,12 @@ reset is `studioctl env reset -r localtest-v2`, which removes the shared Postgre
 - Malware scanning is simulated "clean"; there is no infected-file path.
 - Blobs are files on one volume; SAS URLs are plain anonymous localtest URLs; there are no per-service-owner storage accounts and
   no `initialize-service-owner` is needed (without a service-owner row the default store is used, as in production).
-- KRR answers "not reserved" for every seeded person; unknown persons get no entry (`../register/README.md`).
+- KRR (the Register's stand-in) answers `JA` for a person with `reserved: true` in the test data (Rik Forelder, 1003, in the
+  seed) and `NEI` for every other seeded person; unknown persons get no entry (`../register/README.md`).
+- Profile's two `correspondence/` lookups are production Profile since task 14 (`../profile/README.md`): unit contact
+  points are only addresses users registered for the organisation, not every role holder; official addresses come from
+  Profile's brreg mirror, seeded once per organisation from the test data. Run with this group on 2026-10-21 (task 14
+  phase 2): `smoke-test.sh` 43 ok and the 2 `KNOWN` party-id checks, unchanged.
 - Correspondence acts as `digdir`, apps as `ttd`; the seeded tt02 policies add `ttd` beside `digdir` in the service-owner rule
   (`../resource-registry/README.md`).
 - Dialog-token keys are fetched again on a key miss instead of every 12 hours.

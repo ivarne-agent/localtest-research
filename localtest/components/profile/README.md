@@ -17,7 +17,7 @@ this component's (host port 8036, container port 5030).
 | `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.editorconfig`, `stylecop.json`) except two additive `LOCALTEST` sites, below |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into the host (upstream has no `Directory.Build.props` to import) |
 | `fakes/` | Compiled into the host assembly (namespace `Altinn.Profile.Localtest`), table below |
-| `postgres-init/80-profile.sh` | Postgres init script: `profiledb` owned by `platform_profile_admin` (not a superuser) and the login role `platform_profile`, password `Password` as in upstream's `appsettings.json`. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/profile/postgres-init/80-profile.sh` |
+| `postgres-init/80-profile.sh` | Postgres init script: `profiledb` owned by `platform_profile_admin` (not a superuser) and the login role `platform_profile`, password `Password` as in upstream's `appsettings.json`. Postgres runs init scripts only on an empty volume, so **a volume created before this component needs `studioctl env reset -r localtest-v2 -y` once** (as Correspondence's does), or this script by hand: `podman exec -i localtest-v2-postgres sh < components/profile/postgres-init/80-profile.sh` |
 | `Dockerfile` | Mirrors upstream's `vendor/Dockerfile` (pinned Alpine images and digests, layered restore, publish, the `Migration/` copy, non-root `dotnet`, `/tmp/logtelemetry`); each difference is marked `localtest:` |
 | `smoke-test.sh` | Against the running stack, through the proxy (below) |
 
@@ -150,8 +150,10 @@ Anonymous, under `profile/api/localtest/`; nothing here is a Profile contract.
 
 ## Known gaps
 
-- Not run yet against Postgres 18.3 with a non-superuser owner (phase 2). If an old Postgres volume predates this
-  component, `profiledb` does not exist and the start fails with a critical log naming `80-profile.sh`.
+- If an old Postgres volume predates this component, `profiledb` does not exist and the start fails with a critical log
+  naming `80-profile.sh`: `env reset` once.
+- The migration history (`__EFMigrationsHistory`) belongs to the admin role and the runtime role has no grant on it, as
+  in production; `localtest/status` reads it with the admin connection.
 - A person who leaves the test data keeps their KRR row; an organisation whose seeded addresses changed in the test data
   keeps Profile's (once per organisation). `env reset` starts over.
 - The org address endpoints need authentication level 3 (the resource policy's obligation); `GetTestUserToken` takes
@@ -161,7 +163,7 @@ Anonymous, under `profile/api/localtest/`; nothing here is a Profile contract.
 
 ## Smoke test
 
-`./smoke-test.sh [BASE]` (default `http://local.altinn.cloud:8000`), against the stack: health; `POST sync` with all
+`./smoke-test.sh [BASE]` (default `http://local.altinn.cloud:8000`), 52 checks against the stack: health; `POST sync` with all
 three steps ok; six migrations; the seeded DDG Fitness addresses (accepted, from the change log) and no row for its
 sub-unit; the user endpoints the Register fakes served (users by id, UUID and SSN, `internal/user` incl. the
 self-identified user, `users/current`, 401 and 403 without the user or platform token); production semantics
@@ -189,6 +191,34 @@ On a machine whose default SDK is a preview (11.0), pin 10.0 with a `global.json
 
 ## Verified
 
-Phase 1 (2026-10-21, no stack): `dotnet build -c Release` of the host with the fakes: 0 warnings, 0 errors. A start
-in `Development` with the database off: DI validation passes, `GET /health` 200, `users/current` 401 without a token.
-Nothing has run against Postgres or the stack yet.
+2026-10-21, task 14 phase 2, on main 506d68e (pin `sha-8aef733`) with this branch, after `env reset`:
+`studioctl env up -r localtest-v2 --dev profile --dev register --dev resource-registry --dev postgres`.
+
+- `smoke-test.sh`: 52 of 52, twice in a row (the second run against the first one's data), and again after the database
+  was dropped and recreated. Two fixes came out of the first run: brreg registry ids must fit Profile's `registry_id`
+  (`varchar(32)`), and the status endpoint must read the migration history as the admin role.
+- The six migrations ran on Postgres 18.3 with `platform_profile_admin` as owner, not a superuser.
+- Start: healthy 2.7 s after `podman start` on an empty `profiledb` (six migrations, KRR sync of 7 persons, both
+  organisations' addresses, 8 settings rows, before Kestrel listens), 2.6 s on a restart with the data in place.
+  `env up` of the whole default stack with the four `--dev` images built beforehand: 18 to 27 s.
+- Memory (`podman stats`): 160 to 180 MB after the smoke test, about 120 MB idle with every group up. Image 184 MB.
+- The other suites on the same stack: Register 14, Resource Registry 43 (41 + the 2 new), Authentication 30 (32 with
+  `--with everything`; the other 2 need Dialogporten), Authorization 30, Notifications 64 (organisation recipients, the
+  DDG Fitness Oslo fallback and Rik Forelder reserved, now through production Profile), root 23. All pass.
+- `--with everything`: Correspondence 43 ok + 2 `KNOWN` (unchanged), Receipt 27, Dialogporten 60, Authentication 32,
+  Dialogporten adapter 39 (34 on its first run straight after `env up`: the first service-owner `GET dialogs/{id}` answered
+  404, the known ordering flake in `../dialogporten-adapter/README.md`; 39 of 39 on the rerun; Profile is not on that
+  path).
+- `../../run-platform-regression.sh --no-apps` (apps under `studioctl run --dev-frontend`, the monorepo's built frontend on
+  8080 with `Access-Control-Allow-Origin: *`): 44 of 44. `party-selection.ts` "Does not prompt for party when user has
+  doNotPromptForParty=true even with multiple parties" logs in as 1001, whose setting comes from the seed through
+  Profile. No spec in the six logs in as 1337 alone; for 1337 the app's `api/v1/profile/user` with the user's cookie
+  answers `doNotPromptForParty: true`, `language: nn`.
+- `payment-test` under `studioctl run`: the app's `api/v1/profile/user` with 1337's cookie answers `phoneNumber
+  "+4799001337"` and `email "1337@altinnstudiotestusers.com"` (production `phoneNumber` from the KRR mirror, the seed's
+  mobile number). The form's data-model prefill stays empty, and not because of Profile: app-lib runs the prefill in the
+  workflow engine's `CommonTaskInitialization` callback, which is not authenticated as the user, so `PrefillSI` logs "Could
+  not prefill from UserProfile, user profile is not defined" and never calls Profile (the app's own Profile call at
+  instantiation, `users/1337`, answered 200).
+
+Phase 1 (no stack): `dotnet build -c Release` of the host with the fakes, 0 warnings and 0 errors.

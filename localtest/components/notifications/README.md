@@ -187,6 +187,11 @@ likewise `platform_notifications`), `PostgreSQLSettings__MigrationScriptPath` as
 
 ## Verified
 
+2026-10-21, task 14: against production Profile (`--dev profile --dev register --dev resource-registry --dev postgres`,
+other images `sha-8aef733`), `smoke-test.sh` 64 of 64: the person, reserved-person, self-identified and organisation
+recipients (DDG Fitness's official addresses, DDG Fitness Oslo through the main-unit fallback, 422 for EAS Health
+Consulting) resolved by Profile's production lookups over its KRR and brreg mirrors.
+
 2026-10-21, schema v3 seed (task 18), `env up -r localtest-v2 --dev register` on the `sha-3c9b03f` images:
 `smoke-test.sh` 64 of 64, twice, now including Sophie Salt's SMS, the reserved person (accepted,
 `Email_Failed_RecipientReserved`, nothing captured; delivered with `ignoreReservation`), DDG Fitness's official e-mail
