@@ -54,7 +54,8 @@ A path matching no route still falls through to the localtest app.
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
-| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | unapproved (2026-10-21, design under discussion; sub-items 21a to 21f) | large | yes |
+| 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | design settled 2026-10-21, awaiting dispatch of 21a, 21b and 21c (sub-items 21a to 21f) | large | yes |
+| 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21) | small | no |
 
 Suggested order: 11b (running, owns the stack); 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -605,8 +606,24 @@ layer).
 - **21f, docs and parity.** A CI check that the manifest, studioctl and the package agree; docs in `localtest/README.md`
   and, when adopted, altinn-studio-docs; the smoke tests runnable against an Aspire-hosted stack.
 
-**Open for discussion.** Source of truth (manifest first, studioctl reads it; or generated from `components.go`);
-manifest templating; the front door choice (21d); whether the Aspire package or app-lib owns the app's localtest
-environment; the test certificate's distribution; package name and publishing; prototype scope (default stack plus
-`dialogporten`, one sample app).
+**Decisions (2026-10-21, discussed one by one).** The checked-in `localtest/manifest.json` with a JSON schema is the
+source of truth; studioctl embeds it and `components.go` becomes a loader, with a transition test that the loader
+reproduces today's table; the pin moves into it. The Aspire front door is `Aspire.Hosting.Yarp` with routes generated
+from the manifest (host + prefix, rewrites), plus the custom pieces it lacks: the 503 for groups that are off and the
+app routes the provisioner adds. The shared provisioning library reads the app's files from disk first (the Aspire
+package knows the project path) and falls back to the running app's API (studioctl-server's case). app-lib's import of
+studioctl's environment: the package sets `STUDIOCTL_APP_RUN` now, and an app-lib change (honour an explicit localtest
+environment) is filed as a follow-up (task 22). 21b runs as one agent: inventory, the sites with a report per
+component in its README, then the stripping removed from both proxies; the owner reviews the inventory in the report
+before merge. Prototype scope: default stack plus `dialogporten`, one sample test app, the smoke tests against the
+Aspire-hosted stack, Podman verified; package `Altinn.Localtest.Aspire` published to GitHub Packages from this repo.
+Order: 21a and 21c first, 21b in parallel (code-only), then 21d and 21e, 21f last. Status: design settled, awaiting
+"dispatch" for 21a, 21b and 21c.
+
+## 22. app-lib honours an explicit localtest environment
+
+**Goal (2026-10-21, follow-up of 21).** app-lib v9 in Development runs `studioctl app env --json` and lets its values
+override the process environment unless `STUDIOCTL_APP_RUN` is set. Propose an app-lib change (and template if needed)
+so that an explicitly configured localtest environment, as an Aspire AppHost sets it, is honoured without the
+variable. Upstream work in `Altinn/app-lib-dotnet`; unapproved.
 
