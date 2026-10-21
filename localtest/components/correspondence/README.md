@@ -231,7 +231,8 @@ and job list. `CORRESPONDENCE_RESTART=1` restarts the container and checks that 
 correspondence to `Published` 180 s, the notification 120 s, the activity jobs and the dialog's activities 90 s; each
 returns as soon as it holds): Hangfire polls every 5 s and the first jobs after `env up` are slow, and with the earlier
 limits one check failed on each of two first runs. With them the first run after a fresh `env up --with everything`
-passed 64 of 64 on 2026-10-21 (task 12, after the authorization, events, Dialogporten and adapter tests).
+passed 64 of 64 on 2026-10-21 (task 12, after the authorization, events, Dialogporten and adapter tests), and with
+`CORRESPONDENCE_RESTART=1` as the very first test after another fresh `env up`, 67 of 67.
 
 Two orderings matter and are production behaviour: `markasread` needs a `Fetched` status first (`details` or `content` set it)
 and answers 400 once the correspondence is `Read`; and a `confirm` sent while one of the opened or download-started activity
