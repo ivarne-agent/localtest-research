@@ -13,7 +13,7 @@ as in production and ends in a localtest handler that posts each command to the 
 | `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, signing-key provider, DI and configuration composition |
 | `postgres-init/10-storage.sh` | Postgres init script: creates `platform_storage_admin`, runs the vendored `infra/postgres_init.sql` unchanged, hands the database and schema to the admin role |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned images, DbTools step, chiseled non-root runtime); each difference is marked `localtest:` (see [Image](#image)) |
-| `smoke-test.sh`, `smoke/` | Standalone smoke test of the host build, not the image (fresh Postgres container, register, authentication, a PDP stub, Storage) |
+| `smoke-test.sh`, `smoke/` | Standalone smoke test of the host build, not the image (fresh Postgres container, register, authentication, a PDP stub, Storage); not runnable as written since 2026-10-20, see [Verified](#verified) |
 
 ## Directive sites in `vendor/`
 
@@ -37,7 +37,7 @@ queues in `Development`, Application Insights is only wired when Key Vault yield
 
 | Replaces | With |
 | --- | --- |
-| `IBlobRepository` (Azure Blob) | `FileBlobRepository`: `{BlobRootPath}/{org}/{blobStoragePath}`, the Azure container layout. Retained blob versions (altinn-storage#1125) are already distinct paths (`…/data-elements/{blobVersionId}` vs legacy `…/data/{dataGuid}`), so no suffix scheme is needed |
+| `IBlobRepository` (Azure Blob) | `FileBlobRepository`: `{BlobRootPath}/{org}/{blobStoragePath}` (`{org}-NN` when a storage account number is given), the Azure container layout. Retained blob versions (altinn-storage#1125) are already distinct paths (`…/data-elements/{blobVersionId}` vs legacy `…/data/{dataGuid}`), so no suffix scheme is needed. Correspondence's `FileStorageRepository` follows the same file-backed pattern (`../correspondence/README.md`) |
 | `IFileScanQueueClient` (Azure Queue) | `LocaltestFileScanQueueClient`: runs the production `IDataRepository.UpdateFileScanStatus(…, Clean)` at once. Upload responses still say `Pending` (as in production); every later read says `Clean`. The update does not bump the instance version |
 | Azure Service Bus queue `altinn.dialogportenadapter.webapi` (the outbox's destination outside `Development`) | `Dialogporten/LocaltestDialogportenSyncHandler`, a Wolverine handler on the `Development` local queue, and `LocaltestDialogportenAdapterClient`, which posts the command to the adapter's anonymous `api/localtest/enqueue` (see [Dialogporten outbox](#dialogporten-outbox)) |
 | `IPublicSigningKeyProvider` (Key Vault, throws without a URI) | `LocaltestPublicSigningKeyProvider`: returns the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer, so the production `AccessTokenHandler` validates incoming platform access tokens for real. The production `AccessTokenGenerator` signs outgoing ones (to Register) with the same certificate |
@@ -111,9 +111,11 @@ change or by hand with the adapter's `syncDialog/simple` endpoint. The adapter's
 
 ## Postgres
 
-One shared `postgres:16` service. `postgres-init/10-storage.sh` (mounted into `/docker-entrypoint-initdb.d`, with
-`vendor/infra/postgres_init.sql` mounted at `/storage-init/postgres_init.sql`) creates the `storagedb` database, the
-`storage` schema and the roles `platform_storage_admin` / `platform_storage`, independent of `POSTGRES_USER`. Storage
+One shared Postgres, the stack's `localtest-postgres` image (`../../postgres/Dockerfile`, `postgres:18.3`).
+`postgres-init/10-storage.sh` (copied into `/docker-entrypoint-initdb.d` by that image, with
+`vendor/infra/postgres_init.sql` at `/storage-init/postgres_init.sql`) creates the `storagedb` database, the
+`storage` schema and the roles `platform_storage_admin` / `platform_storage`, independent of `POSTGRES_USER`. Postgres
+runs init scripts on an empty volume only. Storage
 runs the production Yuniql migrations (`Migration/v0.00` … `v0.38`) itself at startup with the admin connection; a
 fresh database is migrated in about a second.
 
@@ -146,8 +148,9 @@ marked `localtest:`:
   instruction with a warning. The `HEALTHCHECK` lines in the other components' Dockerfiles have no effect for the same
   reason. A check here would also have to be exec form (`CMD ["program", …]`), because the chiseled image has no shell,
   `wget` or `curl`. studioctl polls `/health` over HTTP instead.
-- A `storage-blobs` volume created by the earlier root-run image is owned by root and has to be handed to the app
-  user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
+- Compose era (until 2026-10-20): a `storage-blobs` volume created by the earlier root-run image was owned by root and
+  had to be handed to the app user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
+  studioctl's volume is `localtest-v2-storage-blobs`, created for the non-root image.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` at startup: the chiseled image has no Kerberos
   library, as in production, and nothing uses it.
 
@@ -155,7 +158,12 @@ marked `localtest:`:
 
 `./smoke-test.sh` (fresh `postgres:16-alpine` via podman, register on 5020, authentication on 8000, a Python stub on
 5050 that permits every PDP decision, Storage on 5010), as of the fetch-based version; the metadata rows below now
-describe the pushed flow verified by the root `../../smoke-test.sh`:
+describe the pushed flow verified by the root `../../smoke-test.sh`. **Not runnable as written since 2026-10-20**
+(found by reading, not run): it takes its tokens from `/Home/GetTest*Token` on the Authentication process on port 8000,
+but the `/Home` helpers moved to the localtest app that day (`180fd3c`), and Authentication's sign-in now also needs
+Profile (task 14); `Localtest__Authentication__RegisterLocaltestEndpoint`, which it sets, no longer exists. Storage in
+the stack is covered by the root smoke test and, for the outbox, by `../dialogporten-adapter/smoke-test.sh` (with
+`--off` for the default stack):
 
 - migrations to `v0.38` run on the fresh database at startup (16 tables);
 - `POST applications?appId=ttd/testapp` and `POST applications/ttd/testapp/texts` with a service-owner token
