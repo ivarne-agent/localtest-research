@@ -9,7 +9,8 @@
   `Directory.Packages.props` or `global.json` upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition.
+  `#if LOCALTEST … #endif` addition. The three sites (line numbers checked 2026-10-21): `src/Events/Program.cs:63-65`
+  and `:70-72` (pure additions) and `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`).
 
 ## Syncing to a newer upstream commit
 

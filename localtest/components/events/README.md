@@ -11,7 +11,7 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 | `vendor/` | Unmodified upstream copy except three `LOCALTEST` sites (`git diff` against the vendoring commit shows them) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/**/*.sql`. Upstream has no `Directory.Build.props`, so the import of one is guarded |
 | `fakes/` | Compiled into the host assembly (the interfaces live there): publishers, signing keys, the startup scripts, change notifications, the webhook capture handler and the inspection API |
-| `postgres-init/30-events.sh` | Postgres init script: the `eventsdb` database and the roles upstream's README asks for (`platform_events_admin` superuser, `platform_events`), password `Password`. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest_postgres_1 sh < components/events/postgres-init/30-events.sh` |
+| `postgres-init/30-events.sh` | Postgres init script: the `eventsdb` database and the roles upstream's README asks for (`platform_events_admin` superuser, `platform_events`), password `Password`. Copied into the stack's Postgres image (`../../postgres/Dockerfile`). Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/events/postgres-init/30-events.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (pinned Alpine images, the DbTools build that regenerates the latest migration's functions-and-procedures script, `Migration/` copied from the build stage, non-root `dotnet`); each difference is marked `localtest:` |
 | `smoke-test.sh` | Against the running stack: publish, idempotency, token checks, subscriptions with validation, delivery and capture, the production read API, reset |
 
@@ -67,8 +67,9 @@ client's `AccessTokenSettings`, so the production `SigningCredentialsResolver` r
 | `DELETE events[?subscriptions=true]` | Truncates events, trace log and deliveries (and subscriptions), and empties the memory cache (subscriptions, main units, PDP decisions) |
 
 The list and detail calls read the production tables with plain SQL. The production read endpoints
-(`GET events/api/v1/app/{org}/{app}`, `GET events/api/v1/events`) work as well, with their tokens, PDP filtering and
-the 30-second delay.
+(`GET events/api/v1/app/{org}/{app}`, `GET events/api/v1/events`) work as well, with their tokens and PDP filtering.
+Their 30-second delay (`registeredtime <= now() - interval '30 second'`) most likely does not hold back anything
+locally, because `registeredtime` is stored two hours early (see Known gaps; derived from the SQL, not measured).
 
 ## Configuration
 
@@ -87,7 +88,7 @@ Defaults, inserted just below the environment variables, with `{platform}` = `Lo
 | `Localtest:Events:Delivery` | `LocalOnly`: deliver to the platform host, its subdomains, single-label hosts (container names; `localhost` is the events container itself) and `host.docker.internal`, the developer's machine (a receiver there must listen on more than 127.0.0.1, for example `0.0.0.0`); capture everything else. `CaptureAll` sends nothing; `All` sends everything, as production does |
 
 Forced: `kvSetting:SecretUri` empty, `ApplicationInsights:ConnectionString` empty, all six
-`WolverineSettings:Enable*` false (no Service Bus). Compose sets `PostgreSQLSettings__AdminConnectionString` and
+`WolverineSettings:Enable*` false (no Service Bus). studioctl sets `PostgreSQLSettings__AdminConnectionString` and
 `__ConnectionString` (`Host=postgres;…;Database=eventsdb`, `{0}` is replaced by upstream's `Password` settings).
 `ASPNETCORE_ENVIRONMENT=Development` (set by the Dockerfile) lets the JWT handler read the OpenID metadata over http.
 It also brings the developer exception page and Swagger, and Development's Debug logging, which the image lowers to
@@ -95,7 +96,13 @@ Information (`Logging__LogLevel__Default`).
 
 ## Verified (2026-10-19)
 
-- `./smoke-test.sh`: 22 ok (2026-10-20, after the Dockerfile mirrored upstream).
+- `./smoke-test.sh`: 22 ok (2026-10-20, after the Dockerfile mirrored upstream); again 22 of 22 on 2026-10-21 with the
+  dialogporten group up (task 10, run before the Dialogporten and adapter smoke tests,
+  `../dialogporten-adapter/README.md`).
+- Since task 9b (2026-10-20) Dialogporten's Service host publishes its dialog events to `events/api/v1/events` and they
+  are registered like any other event (`../dialogporten/smoke-test.sh` finds `dialogporten.dialog.created.v1` through the
+  inspection API). Correspondence (task 7) publishes `app.correspondence.*` events too; that Events stores them is not
+  verified (`../correspondence/README.md`).
 - process-transition-test with `RegisterEventsWithEventsComponent` on: `workflow-status.ts` 19 of 19. The run published
   69 app events (created, movedTo per task), all processed, and the workflow engine throttled nothing.
 - Restarting the container empties `events`, `trace_log`, `subscription` and `localtest.delivery`; `event_status` keeps
@@ -108,14 +115,28 @@ Information (`Logging__LogLevel__Default`).
 
 - `DELETE events/api/localtest/events` empties the tables but not Wolverine's in-memory queues: deliveries and retries
   already queued (outbound retries run for up to about 7 minutes) can still arrive, and be recorded, for events that
-  are gone. The reset on start is not affected.
+  are gone. Nor does it stop other components' outboxes: Dialogporten's events for a dialog created just before can
+  still be registered after the reset. The reset on start is not affected.
+- **Order of smoke tests.** `./smoke-test.sh` resets and then expects exactly its own events, so run it before
+  `../dialogporten/smoke-test.sh` and `../dialogporten-adapter/smoke-test.sh`, or a few seconds after them: right after
+  them a late Dialogporten event makes its "stored once" check fail (seen 2026-10-20 and 2026-10-21).
+- **`registeredTime` two hours behind UTC** (seen in task 9b on Dialogporten's events: `time` 19:44:05Z,
+  `registeredTime` 17:44:13+00:00). Likely cause, from reading the code (not tested): upstream's column default is
+  `timestamptz default (now() at time zone 'utc')` (`Migration/v0.21/01-setup-table.sql`), which turns the UTC wall
+  clock into a `timestamp` and back using the session time zone; the stack's Postgres runs with `TZ=Europe/Oslo`
+  (studioctl), so the UTC clock is read as Oslo time, two hours early in summer time and one in winter. Production's
+  Postgres runs in UTC. It also defeats the read API's 30-second delay.
 - Deliveries to Slack endpoints are recorded without their event: production wraps the event as `{ "text": … }`, so
   the record has no event id and the event's delivery counts leave it out.
 - `localhost` in a subscription endpoint is the events container itself; use `host.docker.internal` for a receiver on
   the developer's machine.
-- `GeneralSettings:AppsDomain` is the platform host, so every source filter on `local.altinn.cloud` counts as an app
-  subscription. Only apps publish today; a second publisher on the same host (Correspondence) would need its own host
-  name.
+- `PlatformSettings:AppsDomain` is the platform host, so every source on `local.altinn.cloud` counts as an app source.
+  Apps are no longer the only publishers: Dialogporten's sources (`{platform}dialogporten/api/v1/enduser/dialogs/{id}`)
+  are cut to `.../dialogporten/api` for the source filter that caches authorization results, so one consumer's cached
+  decision for one app's dialog events is reused for every other app's for the cache lifetime, and a source filter on
+  `.../dialogporten/...` without a resource filter counts as an app subscription where production would refuse it
+  (task 9b, `../dialogporten/README.md`, "Events"; a fix is proposed there, not made). Correspondence's sources are on
+  the same host. Until then, subscribe to those events with a resource filter and no source filter.
 - `fakes/Startup/prepare.sql` creates yearly partitions ahead of upstream's; upstream's `events.create_logs_partition()`
   creates monthly ones and nothing calls it today. Re-check on each sync.
 
