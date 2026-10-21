@@ -653,7 +653,10 @@ groups; a `reset` command on the localtest resource stops the persistent contain
 volumes through the runtime CLI; the package refuses to start when port 8000 is held and names the holder. Sample: a self-contained app under `localtest/aspire/samples/` (the `smoke/apps/ttd/testapp` fixture
 completed with the template's `Program.cs`, a project on `Altinn.App.Api` from NuGet, `testData.json`, the template's
 `appsettings.json` and `launchSettings.json` unchanged) with the single-file `apphost.cs` beside it; the monorepo's
-`frontend-test` is a phase-2 verification target through a scratch AppHost only if a `net11.0` AppHost builds.
+`frontend-test` is a phase-2 verification target through a scratch AppHost only if a `net11.0` AppHost builds. The package sets `STUDIOCTL_APP_RUN=1` and `AppSettings__UseOpenTelemetry=true` (an option turns the
+latter off), so the app's telemetry reaches the dashboard; whether the components export OTLP is a noted follow-up,
+not 21e's. The frontend dev server (`--dev-frontend`) is out of the prototype; the sample loads app-frontend from the
+CDN as the template does.
 
 ## 22. app-lib honours an explicit localtest environment
 
