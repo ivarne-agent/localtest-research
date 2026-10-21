@@ -131,7 +131,9 @@ converges the environment to that choice.
 
 Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
 for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked
-in), tagged `sha-<commit>` and `latest`. To run a component from this checkout instead, `studioctl env up -r localtest-v2
+in), tagged `sha-<commit>` and `latest`. studioctl runs the build pinned in
+[`studioctl/src/cli/internal/config/images.go`](studioctl/src/cli/internal/config/images.go) (`tagLocaltestV2`, today
+`sha-0485d0a`, the profile component's build), which is moved by hand after a run against it. To run a component from this checkout instead, `studioctl env up -r localtest-v2
 --dev <name>` builds it from `components/<name>` (`STUDIOCTL_LOCALTEST_V2_SRC` points at this `localtest/` folder; `--dev dialogporten`
 builds the group's three images from `components/dialogporten`). An existing Postgres volume predates a component's init script, which Postgres
 only runs on an empty volume: run the script by hand (see the component's README) or `studioctl env reset -r localtest-v2 --yes`.
