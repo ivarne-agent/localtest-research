@@ -35,27 +35,26 @@ A path matching no route still falls through to the localtest app.
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
 | 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
-| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | done (2026-10-20, commits 4ff3721..ddd0ecf; code-flow tokens carry `pid`, Dialogporten end-user API 200; pin sha-a3f62a8) | medium | yes |
+| 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | done (2026-10-20, commits 4b9b5f7..ddd0ecf; code-flow tokens carry `pid`, Dialogporten end-user API 200; pin sha-a3f62a8) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
-| 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 23e3884..72b1781, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 043c483..e96f904; group `correspondence` implying `dialogporten`, port 8033; known gap: 6-digit party ids fail production\'s `IsPartyId` on every PDP-checked call, see `planned-components/correspondence/party-ids.md`; follow-up 7b below; pin sha-8aef733, proven 2026-10-21 under task 14) | medium | yes |
+| 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 45e99a1..0b38452, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 94c1acb..e96f904; group `correspondence` implying `dialogporten`, port 8033; known gap: 6-digit party ids fail production\'s `IsPartyId` on every PDP-checked call, see `planned-components/correspondence/party-ids.md`; follow-up 7b below; pin sha-8aef733, proven 2026-10-21 under task 14) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
-| 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits ad2c094..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
+| 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
 | 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin sha-902ddfc, proven 2026-10-21) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
-| 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | in progress (2026-10-21, four Opus agents, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans`) | small each | no |
+| 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 
-Suggested order (stack, one at a time): 7b (running); 8 when decided (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
-order. 13 stays with the maintainer. 12 and 14 are fillers.
+Suggested order: 7b (running, owns the stack); then 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -248,7 +247,7 @@ contact-point lookups the Register component must gain (four endpoints) and the 
 scratch build and start of the host; the 104 migration folders have not been run on Postgres 18. The capture fake
 must apply send results after the claim transaction commits (section 6.4).
 
-**Follow-up found while verifying (2026-10-20), unapproved.** Production Notifications rejects bare eight-digit SMS
+**Follow-up found while verifying (2026-10-20), resolved by task 18 on 2026-10-21 (v3 seed: `+47` numbers, valid numbers for the four persons, official organisation addresses, `reserved`).** Production Notifications rejects bare eight-digit SMS
 numbers (direct recipients: 400; Profile contact points: dropped, `Failed_RecipientNotIdentified`) and adds `+47` only
 to numbers starting with 4 or 9, so the seed numbers of users 1337, 1002, 1003 and 12345 (`87654321`-style) never
 receive an SMS. Organisation recipients always get 422 at registration because the seed has no official organisation
@@ -268,13 +267,6 @@ condition-check client keeps the shared Maskinporten fake (question 6, consisten
 orders captured like the rest, attachments by reference (question 7). Correspondence does not share the capture
 GUI (question 8). The send result is applied after the claim transaction commits, through an in-process channel
 (section 6.4).
-
-**Follow-up found while verifying (2026-10-20), unapproved.** Production Notifications rejects bare eight-digit SMS
-numbers (direct recipients: 400; Profile contact points: dropped, `Failed_RecipientNotIdentified`) and adds `+47` only
-to numbers starting with 4 or 9, so the seed numbers of users 1337, 1002, 1003 and 12345 (`87654321`-style) never
-receive an SMS. Organisation recipients always get 422 at registration because the seed has no official organisation
-addresses. Both are seed-data changes in the Register component (`testdata/`), not fakes; the old localtest's apps read
-the same seed, so check what else depends on those numbers before changing them.
 
 ## 7. Correspondence
 
@@ -322,10 +314,10 @@ today: instances by app would need one, or pgAdmin stays the answer)?
 ## 9. Dialogporten core
 
 Vendor the WebApi, GraphQL and Service hosts per `planned-components/dialogporten/dialogporten-core.md`: build chain,
-Dockerfiles, the thirteen `LocalDevelopment` flags, three additive `Program.cs` hooks and two directive sites, Redis,
+Dockerfiles, the fourteen `LocalDevelopment` flags, three additive `Program.cs` hooks and two directive sites, Redis,
 a database on the shared Postgres 18, routes, smoke test on the service-owner API with the org token. Tasks 4 and 5
-are done, so dialogs for `app_ttd_testapp` can be created from the start. End-user smoke needs the `pid` token from
-task 2 (deferred).
+are done, so dialogs for `app_ttd_testapp` can be created from the start. End-user smoke uses the `pid` token of
+task 2 (done: the last checks of the authentication smoke test).
 
 **Decisions (2026-10-20).**
 
@@ -355,7 +347,7 @@ task 2 (deferred).
   read, search, delete; wrong scope and foreign resource refused). **9b**: the provisioner's `sync` step, the cache
   and reset endpoints, the Service host's events into the Events component, GraphQL through the rewrite, CORS for
   `http://af.local.altinn.cloud:8000`, and what Events does with Dialogporten's sources (plan question 9).
-- As the report: the thirteen `LocalDevelopment` flags set explicitly, warmup off, committed Ed25519 test key pairs,
+- As the report: the fourteen `LocalDevelopment` flags set explicitly, warmup off, committed Ed25519 test key pairs,
   Serilog at Information, the CDN read from the internet, no Janitor and no migration image.
 
 ## 10. Dialogporten adapter and the Storage outbox
@@ -376,7 +368,7 @@ local queue so the production sync handler and its retry and error policies run 
   endpoint in the stack is open, this one included. Storage's handler therefore needs no token for the enqueue (the
   earlier question about `/Home/GetTestOrgToken` in Storage is moot). The adapter's own calls to Storage, Register
   and Dialogporten keep their production tokens through the shared Maskinporten fake.
-- **Archived instances' receipt link.** Accept the 404 for now; task 16 vendors the receipt app later.
+- **Archived instances' receipt link.** Served by the `receipt` group since task 16; without the group the front door answers 503 (earlier decision: accept the 404).
 - **Outbox delays.** Local values `LowPriorityDelaySecs=2`, `HighPriorityDelaySecs=0` (production 60 / 5), by
   configuration: testers should see that a sync is not instant, but not wait a minute. **Every place where localtest
   is faster than production is documented** in one list, `localtest/README.md` section "Where localtest is faster
@@ -425,6 +417,23 @@ Small items from `localtest/reviews/` and the components' "Known gaps", each its
 - Authorization and Events: Debug logging is very noisy under `ASPNETCORE_ENVIRONMENT=Development`; a localtest
   logging override.
 - Workflow engine: state reset (left as decided; revisit only on request).
+- Found by the 2026-10-21 documentation audit (task 19):
+  - Authorization smoke test: its "store:" line has the same compose-era container name as the "PDP log errors" line.
+  - Storage's standalone `smoke-test.sh` cannot run since 2026-10-20: it calls the `/Home` token helpers on
+    Authentication, which moved to the localtest app, and sets a setting that no longer exists. Port it or delete it.
+  - Events: `registeredTime` is stored as Oslo time because upstream's column default takes `now() at time zone 'utc'`
+    on a Postgres running with `TZ=Europe/Oslo`; the read API's 30-second delay therefore never holds anything back
+    locally. Fix the container's timezone or document it as a localtest difference (read from the code, not tested).
+  - Events: `AppsDomain` treats every Dialogporten source as one app (9b finding); a `LOCALTEST` site or a separate
+    host name for apps.
+  - Resource Registry: `policy/rules` (and probably `policy/rights`) answers 500 for `stateless-app`'s policy, whose
+    rule 3 mixes action and resource matches in one `AnyOf`; production's parser throws on it. Known gap in the README.
+  - Workflow engine smoke test: its default `--image` is `localtest-workflow-engine:dev`, which nothing builds; its
+    README said Postgres 16.
+  - Dockerfile comments in register, authorization, access-management and workflow-engine still mention compose
+    healthchecks and mounts; `groups.go`'s dialogporten comment omits the adapter and overstates the memory saving.
+  - `localtest/studioctl/UPSTREAM.md` names only the older fork branch; the current one is
+    `feat/studioctl-localtest-v2-stack` (pinned at sha-55ce57f, lacking the Correspondence and Profile commits).
 
 ## 13. studioctl integration leftovers
 
@@ -439,10 +448,10 @@ split into pieces.
 
 ## 14. Profile beyond the Register
 
-The Register component answers the Profile endpoints Authentication and Authorization call. Apps and Dialogporten use
-more of Profile (notification settings, favourites, professional notification addresses). Research first: which
-Profile endpoints app-lib and the inbox stack call, and whether vendoring `Altinn/altinn-profile` (Postgres, its own
-Register and SBL bridge clients) beats extending the Register fakes.
+Done 2026-10-21: production Profile runs in the default stack (`localtest/components/profile/`, port 8036, route
+`/profile`); the Register's Profile controllers are gone. Original question (2026-10-20): the Register component
+answered the Profile endpoints Authentication and Authorization call, apps and Dialogporten use more of Profile,
+and the research was to decide between vendoring `Altinn/altinn-profile` and extending the Register fakes.
 
 **Conditional approval (2026-10-20).** If the research finds vendoring `Altinn/altinn-profile` (or the alternative it
 recommends) straightforward under the vendoring model, dispatch the implementation as a follow-on task after the
@@ -503,8 +512,7 @@ Seed on v3: `+47` on every number, `reserved: true` on Rik Forelder (1003) only,
 and Digitaliseringsdirektoratet, generator back in step with the file. Kept deviation: the four persons whose numbers
 were `87654321`-style get valid Norwegian numbers (`+4799001337` etc.), because libphonenumber in production
 Notifications rejects `+4787654321` and the seed would still never receive an SMS; nothing in Cypress or the apps
-uses the old digits. Open for phase 2: mirror `reserved` into `isReserved` of `users/contactpoint/lookup`
-(production does). 7 must rebase onto this: its KRR stand-in answers `JA` for reserved persons, its
+uses the old digits. Done in phase 2 (96f1917): `reserved` is mirrored into `isReserved` of `users/contactpoint/lookup`, and Profile's KRR sync carries it on since task 14. 7 must rebase onto this: its KRR stand-in answers `JA` for reserved persons, its
 `correspondence/organizations/notificationaddresses/lookup` calls the official addresses, its smoke expectations change.
 
 ## 19. Documentation bookkeeping
