@@ -53,7 +53,7 @@ A path matching no route still falls through to the localtest app.
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 
-Suggested order (stack, one at a time): 7b when approved; 8 when decided (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
+Suggested order (stack, one at a time): 7b (running); 8 when decided (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
@@ -296,7 +296,7 @@ is seeded as tt02 has it (`GenericAccessResource`, refused by production too); b
 API's `jobs` view, no directive for Hangfire retries. Host port 8033, route `/correspondence`, Postgres init
 `70-correspondence.sh`.
 
-**7b, party ids (unapproved, 2026-10-21).** `planned-components/correspondence/party-ids.md`: production Correspondence
+**7b, party ids (approved 2026-10-21, dispatched: Opus agent, worktree `.worktrees/task7b-party-ids`, branch `task/correspondence-party-ids`; decision: `#if !LOCALTEST` / `#else` accepting any 64-bit integer party id).** `planned-components/correspondence/party-ids.md`: production Correspondence
 names the party by id in every PDP request and guesses the id's type by length (8 or 10 digits), so the seed's 6-digit
 party ids give a 500 on app-lib's send and on the recipient's dialog-token path (two KNOWN checks in the smoke test;
 the service-owner token bypasses the PDP). Recommended: one `#if !LOCALTEST` site in `XacmlRequestFactory` accepting
