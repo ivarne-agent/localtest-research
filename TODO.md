@@ -40,7 +40,7 @@ A path matching no route still falls through to the localtest app.
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 45e99a1..0b38452, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 94c1acb..e96f904; group `correspondence` implying `dialogporten`, port 8033; known gap: 6-digit party ids fail production\'s `IsPartyId` on every PDP-checked call, see `planned-components/correspondence/party-ids.md`; follow-up 7b below; pin sha-8aef733, proven 2026-10-21 under task 14) | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 94c1acb..e96f904; group `correspondence` implying `dialogporten`, port 8033; 7b done the same day closed the 6-digit party-id gap with one directive site, see `planned-components/correspondence/party-ids.md`; pin bump pending the images workflow) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
@@ -54,7 +54,7 @@ A path matching no route still falls through to the localtest app.
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 
-Suggested order: 7b (running, owns the stack); then 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
+Suggested order: 12 (running: phase 1 code, then the stack); then 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -289,7 +289,7 @@ is seeded as tt02 has it (`GenericAccessResource`, refused by production too); b
 API's `jobs` view, no directive for Hangfire retries. Host port 8033, route `/correspondence`, Postgres init
 `70-correspondence.sh`.
 
-**7b, party ids (approved 2026-10-21, dispatched: Opus agent, worktree `.worktrees/task7b-party-ids`, branch `task/correspondence-party-ids`; decision: `#if !LOCALTEST` / `#else` accepting any 64-bit integer party id).** `planned-components/correspondence/party-ids.md`: production Correspondence
+**7b, party ids (done 2026-10-21, commits 84723f6..0d3361b: one `#if !LOCALTEST` site in `XacmlRequestFactory.cs` accepting any positive 64-bit party id; the Correspondence smoke test has 64 real checks, 67 with the restart; `signering-brukerstyrt`'s call-to-sign and receipts go through production Correspondence; upstream fix drafted in `party-ids.md`, to be filed by the owner).** `planned-components/correspondence/party-ids.md`: production Correspondence
 names the party by id in every PDP request and guesses the id's type by length (8 or 10 digits), so the seed's 6-digit
 party ids give a 500 on app-lib's send and on the recipient's dialog-token path (two KNOWN checks in the smoke test;
 the service-owner token bypasses the PDP). Recommended: one `#if !LOCALTEST` site in `XacmlRequestFactory` accepting
