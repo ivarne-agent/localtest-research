@@ -30,7 +30,7 @@ git -C <monorepo> apply -3 --index < studioctl.patch
 ```
 
 The output for `7e3f1cd` alone was checked to reverse-apply cleanly on the monorepo branch, so that commit is
-byte-identical to the upstream commit; the commits after it were not checked against any upstream branch. To upstream a single commit instead of the whole range, use `git diff ... <commit>^ <commit>`.
+byte-identical to the upstream commit; no such check is recorded for the commits after it. To upstream a single commit instead of the whole range, use `git diff ... <commit>^ <commit>`.
 
 ## Syncing to a newer upstream commit
 
