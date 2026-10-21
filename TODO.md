@@ -43,17 +43,17 @@ A path matching no route still falls through to the localtest app.
 | 7 | [Correspondence](#7-correspondence) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task7-correspondence`, branch `task/correspondence`; phase 1 code, phase 2 stack after 10 and 16) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
-| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proof on the stack pending) | large | yes |
+| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | approved (research done 2026-10-20, verdict straightforward, conditional approval met: plan in `planned-components/profile/`, brief in its README; vendor altinn-profile d1f9871 into the default stack, two additive hooks, ~660 lines of fakes, port 8036, route `/profile` moves off the Register; dispatch after 7 and 18 merge, since both touch the Register\'s Profile fakes this task deletes) | unknown | yes |
 | 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
-| 16 | [Receipt](#16-receipt) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task16-receipt`, branch `task/receipt`; phase 1 code incl. the group table, phase 2 stack after 10) | medium | yes |
+| 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin bump pending the images workflow) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task18-testdata`, branch `task/testdata-format`; phase 1 docs, schema and seed, phase 2 stack) | small | yes |
 
-Suggested order (stack, one at a time): 16 (running), 18, 7 (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
+Suggested order (stack, one at a time): 18 (running), 7 (rebased on 18: its KRR stand-in reads `reserved`, its Profile lookup calls the official addresses), then 14. 8 is deferred., then 9 to 11 in that
 order. 13 stays with the maintainer. 12 and 14 are fillers.
 
 ## 1. Vendor sync check
