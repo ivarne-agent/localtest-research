@@ -1,5 +1,14 @@
 # Research: admin of running services and the inspection GUI
 
+## Status (2026-10-21)
+
+- **Research done** as task 17 (2026-10-20). Finding recorded in `TODO.md`: not straightforward (the admin frontend
+  depends on the runtime gateway, Kubernetes, Gitea teams and Designer's database), so the conditional follow-on
+  (vendoring admin as an `admin` group) was not dispatched.
+- The recommendation **stands**: build task 8 as planned with admin's instance vocabulary, do not point admin at the
+  stack. Task 8 **stays deferred** pending the owner's decision; the six questions of section 6 are open.
+- No statement here is superseded by later work. The brief's "no longer deferred" is the proposal, not the state.
+
 Research date 2026-10-20 (Europe/Oslo), task 17 of [`../../TODO.md`](../../TODO.md), written against
 `Altinn/altinn-studio` `origin/main` at `9493f65300`, `altinn-studio-docs` at `dd8bba13`, and GitHub issues and pull
 requests read that day. The question: does Altinn Studio's administration of running services (the Designer `admin`

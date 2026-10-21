@@ -1,5 +1,22 @@
 # Plan: the inspection GUI of the new localtest
 
+## Status (2026-10-21)
+
+- **Deferred**: task 8 (2026-10-20), pending the owner's decision after task 17
+  ([`../admin-running-services/`](../admin-running-services/README.md)), whose recommendation is to build this GUI as
+  planned with the admin frontend's instance vocabulary. Nothing is built; the questions of section 8 are open.
+- Since the plan: the Correspondence group (task 7), Receipt (task 16), production Profile (task 14) and the adapter
+  (task 10, the re-sync input) exist, so the page list and the endpoint inventory are behind the stack.
+  `storage/api/localtest/instances` (step 8a) still does not exist.
+
+Superseded statements:
+
+- Brief, design, "a component that is off: `404 text/plain` ... = not part of this environment" and the verification's
+  "or the text 404 when the group is off": studioctl-server answers `503` problem details ("Component not running",
+  with `component` and `group`) for a group that is off and `503` "Component not answering" instead of the `502`
+  (task 16). The report's section 5 already records this.
+- Headline findings, "the re-sync button ... arrives with task 10": task 10 is done.
+
 Research date 2026-10-20 (Europe/Oslo), task 8 of [`../../TODO.md`](../../TODO.md), written against `origin/main` at
 `178f3da` plus the Dialogporten 9b and Authentication OIDC branches being merged that day. The question: one page in
 the localtest app over the components' `api/localtest/` endpoints, replacing the old localtest's StorageExplorer and
@@ -70,6 +87,7 @@ old localtest's Storage Explorer, token page and debug endpoints for what develo
 - A component that is off: JSON = on; `404 text/plain` from the localtest app's fallback = not part of this
   environment (with the `--with` hint for optional groups); `502` or network error = not answering (with the
   `studioctl env logs` hint).
+  *2026-10-21: superseded by the front door's `503` problem details for an off or silent component (task 16); a text 404 remains only for a path that matches no route.*
 - The start page at `/` and the `/Home` contract unchanged, one link added.
 
 **Steps.** 8a: Storage's `GET storage/api/localtest/instances` and `instances/{partyId}/{guid}` in `fakes/` (section 6,
