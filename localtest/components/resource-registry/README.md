@@ -3,7 +3,7 @@
 Production Altinn Resource Registry (`vendor/`, see `vendor/UPSTREAM.md`) on the shared Postgres, without Azure. It is the
 platform's one answer to "which resources exist, who may use them and which subjects does each policy name": app
 resources (`app_{org}_{app}`) are computed from Storage's application list and the policies the app runner pushes, as
-in production; non-app resources come from a built-in seed. Dialogporten, Access Management, the PDP and
+in production; non-app resources come from a built-in seed. Dialogporten, Correspondence, Access Management, the PDP and
 Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{id}`, `resource/{id}/policy`,
 `resource/{id}/policy/rights`, `resource/updated`, `resource/orgs`, `bysubjects`). The registry is reached at
 `resourceregistry/api/v1/`.
@@ -15,7 +15,7 @@ Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{
 | `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed |
 | `postgres-init/40-resource-registry.sh` | Postgres init script: the `resourceregistrydb` database and the roles upstream's migrations grant to (`platform_authorization_admin` superuser, `platform_authorization`), password `localtest`, which Access Management's own database step also sets. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/resource-registry/postgres-init/40-resource-registry.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.ResourceRegistry/Dockerfile` (pinned Alpine SDK image, `dotnet publish` of the host, `aspnet:10.0-alpine`, non-root `dotnet`); each difference is marked `localtest:` |
-| `smoke-test.sh` | Against the running stack: the fixture app pushed as the runner does, resources, policies, the `updated` feed, orgs, subject lookup, platform access tokens |
+| `smoke-test.sh` | Against the running stack: the fixture app pushed as the runner does, resources, policies, the seeded Correspondence and Profile resources, the `updated` feed, orgs, subject lookup, platform access tokens (43 checks) |
 
 ## Directive sites in `vendor/`
 
@@ -30,7 +30,7 @@ Both in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRe
 
 ## Postgres
 
-The production repositories and the ten Yuniql migrations (`resourceregistry` schema: resources with a version table,
+The production repositories and the eleven Yuniql migrations (`v0.00` to `v0.10`, `resourceregistry` schema: resources with a version table,
 access lists, `resourcesubjects` with soft delete, the change feed) run unchanged against `resourceregistrydb` on the
 shared Postgres 18, as `platform_authorization_admin` at start. The database holds only derived or seeded data and is
 not reset on start.
@@ -76,6 +76,9 @@ has none, so a restart changes nothing. The provisioner does not push platform s
   (the production `ResourceSyncService` behind the refresh: `resource/orgs`, `resource/updated`, `resource/{id}`).
 - The PDP, through its production `ResourceRegistryWrapper`: `resource/{id}`, `resource/{id}/policy` and the access list
   endpoints (signed with a platform access token from the shared certificate).
+- Dialogporten (the optional `dialogporten` group), through its production clients and the provisioner's sync (see
+  `../dialogporten/README.md`), and Correspondence (the optional `correspondence` group), for its resources and their
+  policies through the PDP.
 
 ## Configuration
 
@@ -99,11 +102,16 @@ brings the developer exception page and Swagger (`/swagger`).
 - Application Insights and Key Vault are off, as without their settings in production.
 - The seed is five resources; production's registry holds thousands.
 
-## Verified (2026-10-20)
+## Verified
 
 2026-10-21 (task 14): `smoke-test.sh` 43 of 43, including the 2 checks of the seeded `altinn-profil-api-varslingsdaresser-for-virksomheter`, whose policy the PDP applied to Profile's organisation address endpoints (read as DAGL at level 3, 403 without a role).
 
-- Yuniql ran all ten migrations on Postgres 18.3 against an empty volume with the init script baked into the `--dev`
+2026-10-21 (task 7, from `../correspondence/README.md`): with the `correspondence` group on, `smoke-test.sh` 41 ok (35 + 6
+for the three Correspondence resources: types, owner, the `ttd` deviation in the rights).
+
+2026-10-20 (task 5):
+
+- Yuniql ran all eleven migrations on Postgres 18.3 against an empty volume with the init script baked into the `--dev`
   Postgres image (the volume was reset, `env reset`, so the script ran as the image's init step), and the host
   started healthy on the first start. Running the script by hand against the running database changes nothing.
 - `./smoke-test.sh`: 35 ok, 0 FAIL. It covers the fresh-app push reaching `resourcelist` at once, `app_ttd_testapp` as an `AltinnApp`
@@ -111,8 +119,7 @@ brings the developer exception page and Swagger (`/swagger`).
   endpoint drops the fixture's byte order mark), `policy/subjects?reloadFromXacml=true` (dagl, regna, `urn:altinn:org:ttd`),
   the `updated` feed paged one row at a time (14 pairs, every pair once, equal to the unpaged feed), a re-pushed policy
   without regna giving `deleted: true` with a newer `updatedAt` and back again, `resource/orgs`, `bysubjects`,
-  `policy/rights` of the seeded resource, the three Correspondence resources (types, owner, the `ttd` deviation in the
-  rights), a platform access token accepted (and a missing or tampered one refused)
+  `policy/rights` of the seeded resource, a platform access token accepted (and a missing or tampered one refused)
   on `access-lists/get-by-member`, and writes needing a token.
 - A restart of the container leaves the seed and the 14 feed rows untouched (`already present`, same `updatedAt`).
 - `studioctl run` of `signing-test` (built from the monorepo checkout): the provisioner's step 3b (`GET …/policy/subjects?reloadFromXacml=true`,
@@ -125,3 +132,9 @@ brings the developer exception page and Swagger (`/swagger`).
 - The seed's `altinn_keyrole_access/resource.json` is written to fit the policy, not copied from production.
 - Npgsql logs "Error loading shared library libgssapi_krb5.so.2" at start (Kerberos probe on Alpine); harmless.
 - Access lists work against the Register but there is no seed or test for them.
+- `policy/rules` answers 500 for an app whose policy puts matches of two categories in one `AnyOf` (`All matches in a all
+  must have the same category ruleId …`, thrown by production's `PolicyHelper.FlattenXacmlRule`). Seen by the
+  inspection-GUI research for `app_ttd_stateless-app`; that test app's rule 3 mixes action and resource matches in one
+  `AnyOf` (checked in the monorepo's `src/test/apps/stateless-app` policy, not re-run). `policy/rights` goes through the same
+  parser (`ConvertToPolicyRight`), so it should fail the same way (not run). Production behaviour, not fixed here; the
+  policy XML (`policy`) is what to read instead.

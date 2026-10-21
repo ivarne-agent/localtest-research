@@ -15,16 +15,15 @@
 
 Both are pure additions in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`:
 
-1. right after `AltinnHost.CreateWebApplicationBuilder(...)`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);`
-2. right before `return builder.Build();`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);`
+1. Line 46, right after `AltinnHost.CreateWebApplicationBuilder(...)`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);`
+2. Line 191, right before `return builder.Build();`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);`
 
 ## Syncing to a newer upstream commit
 
 1. In a clone of `Altinn/altinn-resource-registry` with both commits, re-pin with the shared script, which takes
    upstream's new version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites,
    adds and deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.ResourceRegistry/src src/apps/Altinn.ResourceRegistry/Dockerfile src/Directory.Build.props src/Directory.Build.targets src/Directory.Packages.props src/stylecop.json Settings.StyleCop global.json`
-  .
+   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.ResourceRegistry/src src/apps/Altinn.ResourceRegistry/Dockerfile src/Directory.Build.props src/Directory.Build.targets src/Directory.Packages.props src/stylecop.json Settings.StyleCop global.json`.
 2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
    `UPSTREAM.md` and `ResourceRegistryHost.cs` may differ.
 3. **Keep `../Dockerfile` as equal to `src/apps/Altinn.ResourceRegistry/Dockerfile` as possible.** It mirrors the
