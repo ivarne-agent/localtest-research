@@ -185,6 +185,13 @@ With the correspondence group (2026-10-21) a service owner's and an app's corres
 
 With the profile component (task 14, 2026-10-21) production Profile replaces the Register's Profile fakes in the default stack (about 170 MB, healthy 3 s after start including its migrations and seed). Every suite passes on it: Profile 52, Register 14, Resource Registry 43, Authentication 30 (32 with Dialogporten), Authorization 30, Notifications 64, root 23; with `--with everything` Correspondence 43 + 2 `KNOWN`, Receipt 27, Dialogporten 60, the Dialogporten adapter 39; the platform regression 44 of 44. Memory with every group up: 4.4 GB used of 7.8 GB, 3.5 GB available (`free -m`). Behaviour changes: `phoneNumber` is the KRR mobile number, and `units/contactpoint/lookup` returns only addresses users registered for the organisation (see `components/profile/`).
 
+With task 12 (2026-10-21, pin `sha-735e5d2` with `--dev events`) the shared Postgres runs in UTC as production's does, and
+Dialogporten's sources no longer count as app sources in Events. Every suite passes with `--with everything`:
+Authorization 31, Events 27, Dialogporten 60, the adapter 39 (34 on the first try straight after the Dialogporten test, the
+known 404), Correspondence 64 on its first run (67 with the restart), Notifications 64, Profile 52, Register 14, Resource
+Registry 43, Authentication 32, Receipt 27, root 26; the workflow engine's own test 3 of 3 with studioctl's image; the
+platform regression 44 of 44 on the default stack.
+
 Not yet: the inspection GUI over the components' `api/localtest/` endpoints (deferred); Arbeidsflate; a
 CI check that every `vendor/` is upstream plus `LOCALTEST` blocks (`tools/repin-vendor.py` re-pins, nothing checks);
 a smoke run in CI against the stack; and the rest of the studioctl integration (upstreaming, the front-door gaps for a
