@@ -5,6 +5,8 @@
 # token (as the app runner does), gets user tokens from authentication, and asks the production decision endpoint what
 # an app's PEP would ask. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
+# 30 checks. The "store:" and closing "PDP log errors" lines are not checks and still read the compose-era container
+# name localtest_authorization_1; under studioctl (localtest-v2-authorization) they show nothing and 0 (TODO.md task 12).
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); Z=$HERE
 BASE=${1:-http://local.altinn.cloud:8000}; PDP=$BASE; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
