@@ -44,7 +44,7 @@ A path matching no route still falls through to the localtest app.
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
-| 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
+| 11 | [Arbeidsflate](#11-arbeidsflate) | in progress (dispatched 2026-10-21, Opus agent, worktree `.worktrees/task11-arbeidsflate`, branch `task/arbeidsflate`; phase 1 code, phase 2 stack) | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | done for the audit findings (2026-10-21, commits 6ba99ee..90c6bc4: Postgres in UTC, two Events directive sites for Dialogporten sources, authorization and root smoke tests fixed, Storage standalone test removed, `reviews/test-apps.md`; still open: HEAD on the localtest app, a WebSocket test, the Events reset not draining queues, Slack deliveries without their event, the Altinn 2 roles stub; pin sha-3143730, proven 2026-10-21 on plain images) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
@@ -53,8 +53,9 @@ A path matching no route still falls through to the localtest app.
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
+| 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | research in progress (2026-10-21, Opus research agent, branch `research/aspire`) | small | no |
 
-Suggested order: nothing running; 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
+Suggested order: 11 (running: phase 1 code, then the stack); 20 research in parallel; 8 when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -402,7 +403,17 @@ issues, so it stays, documented in the Dialogporten and adapter READMEs as a pai
 
 Vendor the pnpm monorepo per `arbeidsflate.md`: pristine tree plus two patches, dedicated host `af.local.altinn.cloud`,
 nginx in front of the BFF with `X-Forwarded-Proto: https`, Postgres and Redis, login through the OIDC client from
-task 2. Needs 2, 9 and 10. Open questions 8 and 10 (upstreaming the patches, the app-frontend link).
+task 2. Needs 2, 9 and 10 (all done; 14 gives the profile page production Profile).
+
+**Decisions (2026-10-21, defaults taken at dispatch; say so if any should change).** Host name `af.local.altinn.cloud`
+(one more hosts line; studioctl prepares the hostnames); the profile page is in scope and served by production
+Profile; internet dependencies stay (task 3); the two patches are kept as `localtest:` patches with the upstream
+proposal (a scheme in `OIDC_PLATFORM_URL`) recorded in the README, not filed by the agent; images are built locally
+from the patched tree, not pulled; its own optional group `arbeidsflate` implying `dialogporten` (the adapter brings
+the app dialogs), with Postgres init `90-arbeidsflate.sh` and the shared Redis on its own database; the authentication
+container gets a hosts entry for `af.local.altinn.cloud` so the front-channel logout reaches the BFF (task 2's note);
+the Correspondence attachment download from the browser (the `IdportenTokenValidator` site noted in task 7) is a
+separate step 11b that needs a report first. Re-pin to upstream `main` if the diff since `0011d95` is harmless.
 
 ## 12. Review leftovers
 
@@ -533,4 +544,14 @@ components (notifications, resource-registry, dialogporten, dialogporten-adapter
 left to task 7b), and `planned-components/` (status headers saying what was implemented and which statements are
 superseded, never rewriting the research). Agents report what they could not verify and anything stale in `TODO.md`,
 which only the coordinator edits.
+
+## 20. Aspire host for the components
+
+**Goal (2026-10-21).** Find out whether the stack's components can run as container resources of a .NET Aspire
+AppHost next to an app project, so an app developer gets the platform from `dotnet run` on the AppHost instead of
+`studioctl env up`: what Aspire would need (the images from the registry, the environment studioctl's `components.go`
+sets, the front door that studioctl-server provides, the provisioning steps, test data, groups), what it cannot give
+(the Unix-socket server, the app runner's provisioning), how app-lib or the app template would reference it, and
+whether this competes with or complements studioctl. Research only, under `planned-components/aspire/`, with a
+recommendation and a proposed brief.
 
