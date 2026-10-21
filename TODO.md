@@ -55,7 +55,7 @@ A path matching no route still falls through to the localtest app.
 | 19 | [Documentation bookkeeping](#19-documentation-bookkeeping) | done (2026-10-21, branches `docs/root`, `docs/components-a`, `docs/components-b`, `docs/plans` merged; TODO corrected the same day) | small each | no |
 | 20 | [Aspire host for the components](#20-aspire-host-for-the-components) | done (2026-10-21: plan in `planned-components/aspire/`; recommendation: no second runtime; a hybrid where an AppHost runs only the app beside `env up` should need no new code, 0.5 to 1 day to verify and document; a generated hosting package only if Aspire becomes a supported way in, 6 to 9 days; owner\'s decision) | small | no |
 
-Suggested order: nothing running; 8 and 11b when decided and 11 Arbeidsflate, whose inputs (2, 9, 10, 14) are all done. 13 stays with the maintainer; 12 is a filler.
+Suggested order: 11b (running, owns the stack); 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -412,8 +412,14 @@ built locally from the patched tree so they work on plain http; no pulled images
 `arbeidsflate` implying `dialogporten` only (dialogs come from other sources than Correspondence). The profile page is
 in scope, served by production Profile. Internet dependencies stay (task 3). Pin: upstream `main` at dispatch.
 Postgres init `90-arbeidsflate.sh`, the shared Redis on its own database. **11b, Correspondence attachments from the
-browser** (the `IdportenTokenValidator` site, an OIDC client, a cookie decision): research first, as a section of the
-component README written in phase 1, no implementation.
+browser.** Researched 2026-10-21 in the Arbeidsflate README's "Correspondence attachments" section: the inbox opens
+attachments as plain links with cookies; Correspondence then signs the user in through production Authentication's OIDC
+provider and validates the token with `IdportenTokenValidator`, whose document retriever requires https
+(`IdportenTokenValidator.cs:26`), so plain http loops. Fix: one `#if !LOCALTEST` site (`RequireHttps = false`), a
+seeded `correspondence-localtest` OIDC client with scopes `openid profile`, and `SameSite=Lax` /
+`SecurePolicy=SameAsRequest` correlation and nonce cookies in Correspondence's fakes. **Approved and dispatched
+2026-10-21** (Opus agent, worktree `.worktrees/task11b-attachments`, branch `task/correspondence-attachments`; owns the
+stack).
 
 ## 12. Review leftovers
 
