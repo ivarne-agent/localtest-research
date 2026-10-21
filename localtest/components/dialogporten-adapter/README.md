@@ -2,8 +2,8 @@
 
 The production Altinn Dialogporten adapter (`vendor/`, see `UPSTREAM.md`): it turns Storage's instances into dialogs in
 Dialogporten and keeps them in step, so an app's instances show up in the inbox (Arbeidsflate) as they do in production.
-Part of the optional `dialogporten` group (`studioctl env up -r localtest-v2 --with dialogporten`), with Dialogporten's
-three hosts and Redis (`../dialogporten/`).
+Part of the optional `dialogporten` group (`studioctl env up -r localtest-v2 --with dialogporten`; `--with correspondence`
+and `--with everything` imply it), with Dialogporten's three hosts and Redis (`../dialogporten/`).
 
 How an instance becomes a dialog: Storage writes an outbox row with every instance change (production code), its outbox
 service publishes a `SyncInstanceCommand` to Wolverine, and in `Development` a localtest handler in Storage's fakes posts
@@ -100,7 +100,7 @@ No localtest source mints dialog tokens: the smoke test reads one from Dialogpor
 | Delivery | The outbox row stays until ASB accepts the message | The row is deleted once Storage's local queue has the command; if the adapter is down, Storage logs one line and drops it (re-sync with `syncDialog/simple`, or the instance's next change sends a new one) |
 | Error queue | ASB dead-letter queue, inspected by hand | Wolverine's error queue on a non-durable local queue: logged and discarded; scheduled retries are in memory and lost on restart |
 | Links | `{org}.apps.{host}`, `platform.{host}` | The one origin (directive sites 3 and 4) |
-| Archived instances' go-to link | The platform receipt app at `/receipt/{partyId}/{guid}` | **404** until the receipt group exists (TODO task 16). The adapter's own transmission receipt works |
+| Archived instances' go-to link | The platform receipt app at `/receipt/{partyId}/{guid}` | The same link, served by the optional `receipt` group (`--with receipt`, `../receipt/`). Without that group the front door answers `503` "Component not running" (problem details, or an HTML page for a browser) naming the group and the `--with receipt` command. The adapter's own transmission receipt works either way |
 | Organisation list | altinncdn.no | altinncdn.no too (internet access needed) |
 | Telemetry | Azure Monitor | Console only |
 | Outbox delays | Storage batches low-priority events for 60 s, high-priority ones for 5 s | 2 s and 0 s (see below) |
@@ -200,5 +200,8 @@ Stack: `studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten 
   Events component a few seconds later, after its reset, and its "stored once" check fails; run on its own it passes 22 of 22.
 
 Not verified: Arbeidsflate (task 11) using the links, attachments opened through `authentication?goto=` in a browser,
-archived instances' go-to link (404 until task 16's receipt group), and the published image (the image workflow builds
-`localtest-dialogporten-adapter` after merge; until the pin moves, `--with dialogporten` needs `--dev dialogporten-adapter`).
+and an archived instance's go-to link followed to the receipt (the `receipt` group serves it since task 16; no test
+chains the two).
+
+Superseded 2026-10-21: the published image is pinned (`sha-3c9b03f`, proven with `--with everything`; now `sha-0485d0a`
+in `config/images.go`), so `--with dialogporten` no longer needs `--dev dialogporten-adapter`.
