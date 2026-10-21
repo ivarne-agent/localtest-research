@@ -1,0 +1,42 @@
+{
+  "identifier": "altinn-profil-api-varslingsdaresser-for-virksomheter",
+  "version": "v0.04",
+  "title": {
+    "en": "Altinn Profil-API: notification addresses for organizations",
+    "nb": "Altinn Profil-API: varslingsadresser for virksomheter",
+    "nn": "Altinn Profil-API: varslingsadresser for verksemder"
+  },
+  "description": {
+    "en": "Notification addresses for organizations can be read and changed by users with access.",
+    "nb": "Varslingsadresser for virksomheter kan leses og skrives via Profil-apiet for brukere med riktig tilgang.",
+    "nn": "Varslingsadresser for verksemder kan leses og skrives via Profil-apiet for brukere med riktig tilgang."
+  },
+  "status": "UnderDevelopment",
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "support@altinn.no",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Norwegian Digitalisation Agency",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    },
+    "organization": "991825827",
+    "orgcode": "digdir"
+  },
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": true,
+  "resourceType": "Systemresource",
+  "availableForType": [
+    "PrivatePerson"
+  ],
+  "isOneTimeConsent": false
+}

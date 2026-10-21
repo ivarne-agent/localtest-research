@@ -64,6 +64,7 @@ has none, so a restart changes nothing. The provisioner does not push platform s
 | `apps-correspondence-integrasjon4` | `CorrespondenceService` | `TTD`, 991825827 (as tt02 writes it) | tt02, fetched 2026-10-20 (`createdAt`, `updatedAt`, `versionId` dropped): `signering-brukerstyrt`'s first signing task sends its correspondence to it. **Localtest deviation in the policy:** `ttd` beside `digdir` in the service-owner rule (read, write, subscribe, publish), marked with an XML comment. An app's correspondence token says `urn:altinn:org` `ttd` (`/Home/GetTestOrgToken` exchanges with `test=true`) and lacks `altinn:serviceowner`, so Correspondence asks the PDP, which would deny it with tt02's rule. The other rules (`dagl` read/write/publish, `dagl` and `priv` read/write) are tt02's, including their shape: each action sits in its own `AnyOf`, which XACML reads as all of them at once, so `policy/rights` lists `dagl` and `priv` under `write` only and a single `read` by a DAGL or PRIV matches no rule there (as in tt02) |
 | `apps-correspondence-integrasjon2` | `GenericAccessResource` | as above | tt02, with the same `ttd` deviation. Kept a `GenericAccessResource` as tt02 has it: Correspondence refuses it for a new correspondence, in production as well, so `signering-brukerstyrt`'s second task gets the production error rather than a 404 |
 | `ttd-localtest-correspondence` | `CorrespondenceService` | `ttd`, 991825827 | written for `../correspondence/smoke-test.sh`, modelled on the tt02 policy: `ttd` reads, writes, subscribes and publishes; `dagl` and `priv` read and write (a recipient's read and confirm, also through a dialog token), each rule's actions as alternatives in one `AnyOf` (unlike the tt02 copies) |
+| `altinn-profil-api-varslingsdaresser-for-virksomheter` | `Systemresource` | `digdir`, 991825827 | tt02, fetched 2026-10-21 (`createdAt`, `updatedAt`, `versionId` dropped, the policy's byte order mark removed), unchanged otherwise: production Profile's `organizations/{orgNumber}/notificationaddresses/mandatory` endpoints ask the PDP for `read` or `write` on it. One rule: the CCR role codes (`dagl`, `lede`, `innh`, `best`, `hadm`, ...), the role `hovedadministrator` and the access packages `hovedadministrator` and `starte-drive-endre-avvikle-virksomhet` read, write and delete, with authentication level 3 as an obligation |
 
 ## Used by
 
@@ -96,7 +97,7 @@ brings the developer exception page and Swagger (`/swagger`).
 - Policies are files on the shared volume, not blobs: no real leases, versions are timestamps, not Azure version ids.
 - The signing keys are the shared test certificate for every issuer, not the Key Vault keys per issuer.
 - Application Insights and Key Vault are off, as without their settings in production.
-- The seed is one resource; production's registry holds thousands.
+- The seed is five resources; production's registry holds thousands.
 
 ## Verified (2026-10-20)
 

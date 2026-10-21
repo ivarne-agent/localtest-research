@@ -99,6 +99,13 @@ done
 curl -s "$RR/ttd-localtest-correspondence/policy/rights" | check "policy/rights of ttd-localtest-correspondence: ttd writes, dagl and priv read" \
   '{((r["action"]["value"] if isinstance(r["action"], dict) else str(r["action"]).split(":")[-1]).lower(), a["value"].lower()) for r in d for s in r["subjects"] for a in s["subjectAttributes"]} >= {("write", "ttd"), ("read", "dagl"), ("read", "priv")}'
 
+echo "== Profile's organisation notification address resource (seed)"
+ORGRES=altinn-profil-api-varslingsdaresser-for-virksomheter
+curl -s "$RR/$ORGRES" | check "$ORGRES: a Systemresource of digdir, as in tt02" \
+  'd["resourceType"] == "Systemresource" and d["hasCompetentAuthority"]["orgcode"] == "digdir" and d["hasCompetentAuthority"]["organization"] == "991825827"'
+curl -s "$RR/$ORGRES/policy/rights" | check "policy/rights of $ORGRES: read, write and delete for dagl and the two access packages" \
+  '{((r["action"]["value"] if isinstance(r["action"], dict) else str(r["action"]).split(":")[-1]).lower(), a["value"].lower()) for r in d for s in r["subjects"] for a in s["subjectAttributes"]} >= {("read", "dagl"), ("write", "dagl"), ("delete", "dagl"), ("write", "hovedadministrator"), ("read", "starte-drive-endre-avvikle-virksomhet")}'
+
 echo "== the updated feed"
 ALL=$(feed 1000); ONE=$(feed 1)
 echo "$ONE" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d))' | { read -r n; echo "     ($n pairs paged one at a time)"; }
