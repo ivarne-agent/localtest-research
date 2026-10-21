@@ -43,7 +43,7 @@ A path matching no route still falls through to the localtest app.
 | 7 | [Correspondence](#7-correspondence) | in progress (dispatched 2026-10-20, Opus agent, worktree `.worktrees/task7-correspondence`, branch `task/correspondence`; phase 1 code, phase 2 stack after 10 and 16) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
-| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin bump pending the images workflow) | large | yes |
+| 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proof on the stack pending) | large | yes |
 | 11 | [Arbeidsflate](#11-arbeidsflate) | unapproved | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | unapproved | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
