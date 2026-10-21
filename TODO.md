@@ -57,7 +57,7 @@ A path matching no route still falls through to the localtest app.
 | 21 | [Aspire host package for apps](#21-aspire-host-package-for-apps) | design settled 2026-10-21, awaiting dispatch of 21a, 21b and 21c (sub-items 21a to 21f) | large | yes |
 | 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21) | small | no |
 
-Suggested order: 11b (running, owns the stack); 8 when decided. 13 stays with the maintainer; 12 is a filler.
+Suggested order: 21a, 21b, 21c on "dispatch"; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
 ## 1. Vendor sync check
 
@@ -419,9 +419,9 @@ attachments as plain links with cookies; Correspondence then signs the user in t
 provider and validates the token with `IdportenTokenValidator`, whose document retriever requires https
 (`IdportenTokenValidator.cs:26`), so plain http loops. Fix: one `#if !LOCALTEST` site (`RequireHttps = false`), a
 seeded `correspondence-localtest` OIDC client with scopes `openid profile`, and `SameSite=Lax` /
-`SecurePolicy=SameAsRequest` correlation and nonce cookies in Correspondence's fakes. **Approved and dispatched
-2026-10-21** (Opus agent, worktree `.worktrees/task11b-attachments`, branch `task/correspondence-attachments`; owns the
-stack).
+`SecurePolicy=SameAsRequest` correlation and nonce cookies in Correspondence's fakes. **Done 2026-10-21** (commits 0432fc95..326425a6: the site at `IdportenTokenValidator.cs:26-31`, the seeded client
+`correspondence-localtest`, Lax cookies in the fakes; the Correspondence smoke test has 76 checks, 79 with the restart;
+the download clicked in Chromium from the inbox; pin bump pending the images workflow).
 
 ## 12. Review leftovers
 
