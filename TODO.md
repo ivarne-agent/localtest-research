@@ -405,15 +405,15 @@ Vendor the pnpm monorepo per `arbeidsflate.md`: pristine tree plus two patches, 
 nginx in front of the BFF with `X-Forwarded-Proto: https`, Postgres and Redis, login through the OIDC client from
 task 2. Needs 2, 9 and 10 (all done; 14 gives the profile page production Profile).
 
-**Decisions (2026-10-21, defaults taken at dispatch; say so if any should change).** Host name `af.local.altinn.cloud`
-(one more hosts line; studioctl prepares the hostnames); the profile page is in scope and served by production
-Profile; internet dependencies stay (task 3); the two patches are kept as `localtest:` patches with the upstream
-proposal (a scheme in `OIDC_PLATFORM_URL`) recorded in the README, not filed by the agent; images are built locally
-from the patched tree, not pulled; its own optional group `arbeidsflate` implying `dialogporten` (the adapter brings
-the app dialogs), with Postgres init `90-arbeidsflate.sh` and the shared Redis on its own database; the authentication
-container gets a hosts entry for `af.local.altinn.cloud` so the front-channel logout reaches the BFF (task 2's note);
-the Correspondence attachment download from the browser (the `IdportenTokenValidator` site noted in task 7) is a
-separate step 11b that needs a report first. Re-pin to upstream `main` if the diff since `0011d95` is harmless.
+**Decisions (2026-10-21, discussed).** Host name `af.local.altinn.cloud:8000` (studioctl maps every ingress host of the
+topology to the host gateway inside the containers, so the authentication container's front-channel logout reaches
+it without a hosts entry). The two patches stay as `localtest:` patches; nothing is proposed upstream now. Images are
+built locally from the patched tree so they work on plain http; no pulled images. Its own optional group
+`arbeidsflate` implying `dialogporten` only (dialogs come from other sources than Correspondence). The profile page is
+in scope, served by production Profile. Internet dependencies stay (task 3). Pin: upstream `main` at dispatch.
+Postgres init `90-arbeidsflate.sh`, the shared Redis on its own database. **11b, Correspondence attachments from the
+browser** (the `IdportenTokenValidator` site, an OIDC client, a cookie decision): research first, as a section of the
+component README written in phase 1, no implementation.
 
 ## 12. Review leftovers
 
