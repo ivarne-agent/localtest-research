@@ -100,7 +100,7 @@ warning. Legacy username self-identified users are not modelled.
 | `doNotPromptForParty` | boolean | `false` | v2 | Profile `profileSettingPreference.doNotPromptForParty` |
 | `telephoneNumber` | string | none | v1 | Profile `phoneNumber` (preferred over `mobileNumber`); contact point lookups when `mobileNumber` is absent |
 | `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | Profile contact point lookups (Notifications' SMS), `phoneNumber` when no `telephoneNumber`; KRR stand-in |
-| `reserved` | boolean | `false` | v3 | `test-users`; Profile's `isReserved` in `users/contactpoint/lookup` (Notifications); the KRR stand-in once task 7 has merged (below) |
+| `reserved` | boolean | `false` | v3 | `test-users`; Profile's `isReserved` in `users/contactpoint/lookup` (Notifications); the KRR stand-in's `reservasjon` (Correspondence) |
 | `addressStreetName`, `addressHouseNumber`, `addressHouseLetter`, `addressPostalCode`, `addressCity`, `addressMunicipalNumber`, `addressMunicipalName` | string | none | v1 | Register (residential address) |
 | `mailingAddress`, `mailingPostalCode`, `mailingPostalCity` | string | none | v1 | Register (mailing address) |
 | `partyRoles` (required) | object: party id → array of role | | v1 | Register, Access Management, Profile `units/contactpoint/lookup`, login picker (below) |
@@ -122,9 +122,10 @@ Norwegian number for libphonenumber (Norwegian mobile numbers start with 4 or 9)
 ### `reserved`
 
 Reservation in KRR, the contact and reservation register, against digital communication from the public sector.
-Production Correspondence checks every person recipient against KRR; task 7's KRR stand-in
-(`register/api/localtest/krr/rest/v2/personer`) answers `reservasjon: "NEI"` for everybody until it reads this flag
-(wired when task 7 has merged). Profile's `isReserved` in `users/contactpoint/lookup` is this flag, as production
+Production Correspondence checks every person recipient against KRR; the Register's KRR stand-in
+(`register/api/localtest/krr/rest/v2/personer`) answers `reservasjon: "JA"` for a person with this flag and `"NEI"` for
+everyone else. Correspondence then refuses a correspondence whose only recipient is reserved (`422`, `CORR-01030`), gives a
+reserved recipient among several the status `Reserved`, and sends anyway with `ignoreReservation`. Profile's `isReserved` in `users/contactpoint/lookup` is this flag, as production
 Profile fills it from KRR, and the person's e-mail and mobile number are still returned. Production Notifications then
 accepts an order to the person (a reserved person is not "missing contact information") and ends the notification
 `Failed_RecipientReserved` without sending anything, unless the order sets `ignoreReservation`. The flag means nothing

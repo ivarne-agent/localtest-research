@@ -7,7 +7,8 @@
 # refusals (401, 403, 400 CORR-01036 for an unknown resource), app-lib's sequence with its /Home/GetTestOrgToken credential
 # (attachment, upload with MD5, the simulated malware scan to Published, the blob in the file store, the correspondence to
 # Sophie Salt with an e-mail notification to Published), the dialog in Dialogporten, the e-mail in the Notifications capture,
-# the notification condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, a
+# the notification condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, the
+# reserved person (KRR) alone (422 CORR-01030) and with another recipient (Reserved), a
 # scheduled publish and the sender's purge of it, the recipient's path with a dialog token (task 2's code-flow token for user
 # 1337, the dialog's dialogToken: content, attachment download, markasread, confirm, purge) and the sender's refused purge of
 # a published correspondence. With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
@@ -165,6 +166,19 @@ expect "notification/check with a raw fake-Maskinporten token (the Maskinporten 
 echo "== an unknown recipient"
 STRANGER=$(correspondence smoke-stranger null "urn:altinn:person:identifier-no:08895699684")
 [[ "${STRANGER##*$'\n'}" =~ ^4 ]] && pass "a person not in the register gets production's 4xx (${STRANGER##*$'\n'})" || fail "unknown recipient: ${STRANGER:0:300}"
+
+echo "== a reserved recipient (KRR: Rik Forelder, 1003, reserved: true in the test data)"
+RESERVED="urn:altinn:person:identifier-no:08829698278"
+ALONE=$(correspondence smoke-reserved null "$RESERVED")
+expect "a correspondence to the reserved person alone is 422" 422 "${ALONE##*$'\n'}"
+[[ "$ALONE" == *CORR-01030* ]] && pass "  ... CORR-01030 (reserved in KRR)" || fail "  ... CORR-01030: ${ALONE:0:300}"
+BOTH=$(send -w '\n%{http_code}' -H 'Content-Type: application/json' -X POST "$API/correspondence" -d '{
+  "correspondence": {"resourceId": "'$RESOURCE'", "sendersReference": "smoke-reserved-pair",
+    "content": {"language": "nb", "messageTitle": "Localtest reserved", "messageSummary": "s", "messageBody": "b"}},
+  "recipients": ["'"$RESERVED"'", "'"$RECIPIENT"'"]}')
+expect "with a second recipient it is 200" 200 "${BOTH##*$'\n'}"
+printf '%s' "${BOTH%$'\n'*}" | check "  ... the reserved recipient's correspondence is Reserved, the other's Initialized" \
+  '{c["recipient"][-11:]: c["status"] for c in d["correspondences"]} == {"08829698278": "Reserved", "'$SSN'": "Initialized"}'
 
 echo "== the recipient, with a dialog token (task 2's code-flow token for user 1337)"
 USER_TOKEN=$(curl -s "$BASE/localtest/api/authentication/token?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["access_token"]')

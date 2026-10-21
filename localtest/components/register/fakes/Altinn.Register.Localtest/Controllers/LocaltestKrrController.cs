@@ -10,9 +10,9 @@ namespace Altinn.Register.Localtest.Controllers;
 /// A stand-in for KRR, the contact and reservation register (<c>kontaktregisteret.no</c>), at
 /// <c>register/api/localtest/krr/rest/v2/personer</c>: the production client of Altinn Correspondence
 /// (<c>ContactReservationRegistryService</c>, base URL <c>GeneralSettings:ContactReservationRegistryBaseUrl</c>) posts
-/// <c>{ "personidentifikatorer": [...] }</c> and reads <c>personer[].reservasjon</c>. Every seeded person answers
-/// <c>reservasjon: "NEI"</c> (nobody is reserved; a reserved flag in the seed would later serve this and Notifications) with
-/// the seed's e-mail and mobile number as stored; national identity numbers not in the seed get no entry, which the client
+/// <c>{ "personidentifikatorer": [...] }</c> and reads <c>personer[].reservasjon</c>. A person with <c>reserved: true</c> in
+/// the test data answers <c>"JA"</c>, everyone else <c>"NEI"</c> (the flag Profile's <c>isReserved</c> mirrors), with the test
+/// data's e-mail and mobile number as stored; national identity numbers not in the test data get no entry, which the client
 /// reads as not reserved. Anonymous: production sends a raw Maskinporten token that nothing checks here.
 /// </summary>
 [ApiController]
@@ -32,9 +32,9 @@ public sealed class LocaltestKrrController(RegisterStoreProvider provider) : Con
             .OfType<TestUser>()
             .Select(user => new KrrPerson(
                 user.Person.Ssn,
-                "NEI",
+                user.Person.Reserved == true ? "JA" : "NEI",
                 "AKTIV",
-                "KAN_VARSLES",
+                user.Person.Reserved == true ? "KAN_IKKE_VARSLES" : "KAN_VARSLES",
                 new KrrContactInformation(user.Person.Email ?? string.Empty, user.Person.MobileNumber ?? user.Person.TelephoneNumber ?? string.Empty)))
             .ToList();
         return Ok(new KrrPersons(persons));
