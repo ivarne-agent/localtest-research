@@ -4,14 +4,16 @@
 # starts Dialogporten:
 #   studioctl env up -r localtest-v2 --with correspondence      (see ../../README.md)
 # Covers: health and the migration count (upstream swallows a failed migration, so /health alone proves nothing), the
-# refusals (401, 403, 400 CORR-01036 for an unknown resource), app-lib's sequence with its /Home/GetTestOrgToken credential
-# (attachment, upload with MD5, the simulated malware scan to Published, the blob in the file store, the correspondence to
-# Sophie Salt with an e-mail notification to Published), the dialog in Dialogporten, the e-mail in the Notifications capture,
-# the notification condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, the
-# reserved person (KRR) alone (422 CORR-01030) and with another recipient (Reserved), a
-# scheduled publish and the sender's purge of it, the recipient's path with a dialog token (task 2's code-flow token for user
-# 1337, the dialog's dialogToken: content, attachment download, markasread, confirm, purge) and the sender's refused purge of
-# a published correspondence. With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
+# refusals (401, 403, 400 CORR-01036 for an unknown resource), the sequence with a service owner's token (attachment, upload
+# with MD5, the simulated malware scan to Published, the blob in the file store, the correspondence to Sophie Salt with an
+# e-mail notification to Published), the dialog in Dialogporten, the e-mail in the Notifications capture, the notification
+# condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, the reserved person (KRR)
+# alone (422 CORR-01030) and with another recipient (Reserved), app-lib's five calls with its /Home/GetTestOrgToken credential
+# (no altinn:serviceowner, so the PDP decides on Digdir's 6-digit party id 500006: attachment, upload, its status,
+# correspondence, details), the recipient's path on that correspondence with a dialog token (task 2's code-flow token for
+# user 1337, party 501337, the dialog's dialogToken: details, markasread, content, attachment download, confirm, the opened
+# and confirmed activities on the dialog, purge), a scheduled publish and the sender's purge of it, and the sender's refused
+# purge of a published correspondence. With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
 # correspondences remain and no migration ran again.
 # The resources are the Resource Registry seed's ttd-localtest-correspondence (see ../resource-registry/README.md); KRR and
 # Profile's correspondence lookups are the Register component's fakes.
@@ -35,9 +37,7 @@ EMAIL=1337@altinnstudiotestusers.com
 MIGRATIONS=69 # EF migrations at the pin (vendor/UPSTREAM.md); bump on a re-pin
 FAIL=0
 OK=0
-KNOWN=0
 pass() { echo "ok   $1"; OK=$((OK + 1)); }
-known() { echo "KNOWN $1"; KNOWN=$((KNOWN + 1)); }
 fail() { echo "FAIL $1"; FAIL=1; }
 check() { # name python-expression-on-d (stdin is JSON)
   local body
@@ -67,19 +67,17 @@ container_up() { command -v "$CTR" >/dev/null && "$CTR" container exists "$1" 2>
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# The known gap (README, "Known gaps"): every PDP request Correspondence builds names the party by its party id, and
-# production accepts only 8- or 10-digit party ids (StringExtensions.IsPartyId), while the test data's are 6 digits
-# (500006, 501337). Every request that reaches the PDP therefore answers 500 "... is not a valid organization number,
-# person number or party id". The sender here uses a service owner's direct token (altinn:serviceowner, as a service owner
-# calling with Maskinporten would), which production lets past the PDP when the consumer owns the resource; app-lib's
-# credential (without altinn:serviceowner) and the recipient's dialog token go to the PDP and are reported as KNOWN.
+# Two senders. A service owner's direct token (altinn:serviceowner, as a service owner calling with Maskinporten would),
+# which production lets past the PDP when the token's consumer owns the resource, and app-lib's credential (without
+# altinn:serviceowner), whose every call goes to the PDP. Every PDP request names the party by its party id; production
+# accepts only 8- or 10-digit ids there and the test data's have 6 (500006, 501337), so app-lib's calls and the
+# recipient's path depend on the one #if !LOCALTEST site in XacmlRequestFactory (README, "Directive sites").
 APPLIB_SCOPES="altinn:serviceowner/instances.read%20altinn:serviceowner/instances.write%20altinn:correspondence.write"
 SENDER=$(orgtoken "altinn:serviceowner%20$APPLIB_SCOPES")
 APPLIB=$(orgtoken "$APPLIB_SCOPES")
-PARTY_ID_GAP="is not a valid organization number, person number or party id"
 NOSCOPE=$(orgtoken "altinn:serviceowner/instances.read")
 DPSO=$(orgtoken "digdir:dialogporten.serviceprovider")
-send() { curl -s -H "Authorization: Bearer $SENDER" "$@"; }
+send() { curl -s -H "Authorization: Bearer ${AS:-$SENDER}" "$@"; } # AS: the sender's token, the service owner's by default
 
 echo "== health and migrations"
 for _ in $(seq 1 120); do [[ "$(code "$DIRECT/health")" == 200 ]] && break; sleep 1; done
@@ -108,16 +106,6 @@ expect "POST correspondence with an org token without altinn:correspondence.writ
 UNKNOWN=$(send -w '\n%{http_code}' -H 'Content-Type: application/json' -X POST "$API/correspondence" -d "${BODY//$RESOURCE/localtest-no-such-resource}")
 expect "POST correspondence for an unknown resource is 400" 400 "${UNKNOWN##*$'\n'}"
 [[ "$UNKNOWN" == *CORR-01036* ]] && pass "  ... with CORR-01036 (after a real Resource Registry lookup)" || fail "  ... CORR-01036: ${UNKNOWN:0:300}"
-
-echo "== app-lib's credential (the PDP decides)"
-APPLIB_POST=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $APPLIB" -H 'Content-Type: application/json' -X POST "$API/correspondence" -d "${BODY//smoke-refused/smoke-applib}")
-if [[ "${APPLIB_POST##*$'\n'}" == 200 ]]; then
-  pass "POST correspondence with app-lib's token (no altinn:serviceowner): 200 after a PDP permit for ttd"
-elif [[ "$APPLIB_POST" == *"$PARTY_ID_GAP"* ]]; then
-  known "POST correspondence with app-lib's token: 500, the PDP request names Digdir's 6-digit party id 500006"
-else
-  fail "POST correspondence with app-lib's token: ${APPLIB_POST:0:300}"
-fi
 
 echo "== the sequence with a service owner's token: attachment"
 printf 'Localtest correspondence attachment %s\n' "$(date -Is)" > "$TMP/attachment.txt"
@@ -200,38 +188,60 @@ expect "with a second recipient it is 200" 200 "${BOTH##*$'\n'}"
 printf '%s' "${BOTH%$'\n'*}" | check "  ... the reserved recipient's correspondence is Reserved, the other's Initialized or ReadyForPublish" \
   '{c["recipient"][-11:]: c["status"] for c in d["correspondences"]} in ({"08829698278": "Reserved", "'$SSN'": "Initialized"}, {"08829698278": "Reserved", "'$SSN'": "ReadyForPublish"})'
 
-echo "== the recipient, with a dialog token (task 2's code-flow token for user 1337)"
-USER_TOKEN=$(curl -s "$BASE/localtest/api/authentication/token?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["access_token"]')
-DIALOG_TOKEN=$(curl -s -H "Authorization: Bearer $USER_TOKEN" "$EU/dialogs/$DIALOG" | field 'd["dialogToken"]')
-[[ -n "$DIALOG_TOKEN" && "$DIALOG_TOKEN" != None ]] && pass "GET enduser/dialogs/{id} gives a dialogToken" || fail "no dialogToken for $DIALOG"
-recipient() { curl -s -H "Authorization: Bearer $DIALOG_TOKEN" "$@"; }
-CONTENT=$(recipient "$API/correspondence/$CID/content")
-RECIPIENT_PATH=1
-if [[ "$CONTENT" == *"Innhold fra smoke-main"* ]]; then
-  pass "GET correspondence/{id}/content with the dialog token returns the body"
-elif [[ "$CONTENT" == *"$PARTY_ID_GAP"* ]]; then
-  known "GET correspondence/{id}/content with the dialog token: the token is accepted (keys fetched on the miss), then 500, the PDP request names Sophie Salt's 6-digit party id 501337; the recipient's read, download, confirm and purge are skipped"
-  RECIPIENT_PATH=0
-else
-  fail "content with the dialog token: ${CONTENT:0:300}"
-fi
-if [[ $RECIPIENT_PATH == 1 ]]; then
-recipient -o "$TMP/download.txt" "$API/correspondence/$CID/attachment/$AID/download"
-cmp -s "$TMP/attachment.txt" "$TMP/download.txt" && pass "GET .../attachment/{id}/download with the dialog token returns the bytes" || fail "download with the dialog token"
-expect "POST correspondence/{id}/markasread with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$CID/markasread")"
-expect "POST correspondence/{id}/confirm with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$CID/confirm")"
-curl -s "$LT/correspondences/$CID" | check "  ... the status history has Read and Confirmed" '{"Read", "Confirmed"} <= {s["status"] for s in d["statusHistory"]}'
-okwait "  ... and the dialog has the opened and confirmed activities" 30 "$SO/dialogs/$DIALOG" \
-  'any("Opened" in a["type"] for a in d["activities"]) and any("Confirmed" in a["type"] for a in d["activities"])' -H "Authorization: Bearer $DPSO"
-fi
 SENDER_PURGE=$(send -w '\n%{http_code}' -X DELETE "$API/correspondence/$CID/purge")
 expect "the sender cannot purge a published correspondence (400)" 400 "${SENDER_PURGE##*$'\n'}"
 [[ "$SENDER_PURGE" == *CORR-01013* ]] && pass "  ... CORR-01013" || fail "  ... CORR-01013: ${SENDER_PURGE:0:300}"
-if [[ $RECIPIENT_PATH == 1 ]]; then
-expect "DELETE correspondence/{id}/purge with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X DELETE "$API/correspondence/$CID/purge")"
-curl -s "$LT/correspondences/$CID" | check "  ... status PurgedByRecipient" 'd["status"] == "PurgedByRecipient"'
-okwait "  ... and the dialog is deleted in Dialogporten" 30 "$SO/dialogs/$DIALOG" 'd.get("deletedAt") or d.get("status") == 404 or d.get("status") == 410' -H "Authorization: Bearer $DPSO"
-fi
+
+echo "== app-lib's credential (no altinn:serviceowner, the PDP decides on Digdir's party id 500006): its five calls"
+AS=$APPLIB
+printf 'Localtest correspondence attachment from app-lib %s\n' "$(date -Is)" > "$TMP/applib.txt"
+AAID=$(attachment "$(md5 "$TMP/applib.txt")")
+[[ "$AAID" =~ ^[0-9a-f-]{36}$ ]] && pass "POST attachment with app-lib's token answers its id ($AAID)" || fail "POST attachment with app-lib's token: $AAID"
+send -H 'Content-Type: application/octet-stream' -X POST "$API/attachment/$AAID/upload" --data-binary @"$TMP/applib.txt" | check "POST attachment/{id}/upload with app-lib's token accepted" \
+  'd["attachmentId"] == "'"$AAID"'" and d["status"] in ("UploadProcessing", "Published")'
+okwait "GET attachment/{id} with app-lib's token reaches Published" 20 "$API/attachment/$AAID" 'd["status"] == "Published"' -H "Authorization: Bearer $APPLIB"
+ARESPONSE=$(correspondence smoke-applib null "$RECIPIENT" "$AAID")
+expect "POST correspondence with app-lib's token is 200 (a PDP permit for ttd on party 500006)" 200 "${ARESPONSE##*$'\n'}"
+ACID=$(printf '%s' "${ARESPONSE%$'\n'*}" | field 'd["correspondences"][0]["correspondenceId"]')
+okwait "GET correspondence/{id}/details with app-lib's token reaches Published" 90 "$API/correspondence/$ACID/details" \
+  'd["status"] == "Published"' -H "Authorization: Bearer $APPLIB"
+unset AS
+ADIALOG=$(curl -s "$LT/correspondences/$ACID" | field 'd["dialog"].rsplit("/", 1)[1]')
+curl -s -H "Authorization: Bearer $DPSO" "$SO/dialogs/$ADIALOG" | check "  ... its dialog exists in Dialogporten for Sophie Salt" \
+  'd["serviceResource"] == "urn:altinn:resource:'$RESOURCE'" and d["party"] == "'"$RECIPIENT"'"'
+curl -s "$LT/correspondences/$ACID" | check "  ... and its notification order is stored" 'len(d["notifications"]) >= 1'
+
+echo "== the recipient of app-lib's correspondence, with a dialog token (task 2's code-flow token for user 1337, party 501337)"
+USER_TOKEN=$(curl -s "$BASE/localtest/api/authentication/token?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["access_token"]')
+DIALOG_TOKEN=$(curl -s -H "Authorization: Bearer $USER_TOKEN" "$EU/dialogs/$ADIALOG" | field 'd["dialogToken"]')
+[[ -n "$DIALOG_TOKEN" && "$DIALOG_TOKEN" != None ]] && pass "GET enduser/dialogs/{id} gives a dialogToken" || fail "no dialogToken for $ADIALOG"
+recipient() { curl -s -H "Authorization: Bearer $DIALOG_TOKEN" "$@"; }
+CONTENT=$(recipient "$API/correspondence/$ACID/content")
+[[ "$CONTENT" == *"Innhold fra smoke-applib"* ]] && pass "GET correspondence/{id}/content with the dialog token returns the body (and marks it Read)" || fail "content with the dialog token: ${CONTENT:0:300}"
+recipient -o "$TMP/download.txt" "$API/correspondence/$ACID/attachment/$AAID/download"
+cmp -s "$TMP/applib.txt" "$TMP/download.txt" && pass "GET .../attachment/{id}/download with the dialog token returns the bytes" || fail "download with the dialog token: $(head -c 300 "$TMP/download.txt")"
+AGAIN=$(recipient -w '\n%{http_code}' -X POST "$API/correspondence/$ACID/markasread")
+[[ "${AGAIN##*$'\n'}" == 400 && "$AGAIN" == *1040* ]] && pass "POST correspondence/{id}/markasread after the content is production's 400 (1040, already marked as read)" || fail "markasread after the content: ${AGAIN:0:300}"
+# The read and the download each enqueue a Dialogporten activity job; a confirm that patches the dialog while one of them
+# writes gets Dialogporten's 409 (optimistic concurrency) and answers 500, production's behaviour for a very fast user.
+okwait "  ... the opened and download activity jobs have run" 30 "$LT/correspondences/$ACID" \
+  'not any(j["state"] in ("Enqueued", "Processing", "Awaiting") for j in d["jobs"]) and {"IDialogportenService.CreateOpenedActivity", "IDialogportenService.CreateDownloadStartedActivity"} <= {j["method"] for j in d["jobs"] if j["state"] == "Succeeded"}'
+expect "POST correspondence/{id}/confirm with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$ACID/confirm")"
+okwait "  ... the status history has Read, AttachmentsDownloaded and Confirmed (the confirmation is committed by a job)" 30 "$LT/correspondences/$ACID" \
+  '{"Read", "AttachmentsDownloaded", "Confirmed"} <= {s["status"] for s in d["statusHistory"]}'
+okwait "  ... and the dialog in Dialogporten has the opened and confirmed activities" 30 "$SO/dialogs/$ADIALOG" \
+  'any("Opened" in a["type"] for a in d["activities"]) and any("Confirmed" in a["type"] for a in d["activities"])' -H "Authorization: Bearer $DPSO"
+expect "DELETE correspondence/{id}/purge with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X DELETE "$API/correspondence/$ACID/purge")"
+curl -s "$LT/correspondences/$ACID" | check "  ... status PurgedByRecipient" 'd["status"] == "PurgedByRecipient"'
+okwait "  ... and the dialog is deleted in Dialogporten" 30 "$SO/dialogs/$ADIALOG" 'd.get("deletedAt") or d.get("status") == 404 or d.get("status") == 410' -H "Authorization: Bearer $DPSO"
+
+echo "== the recipient as an API user on the service owner's correspondence: fetch, then mark as read"
+DIALOG_TOKEN=$(curl -s -H "Authorization: Bearer $USER_TOKEN" "$EU/dialogs/$DIALOG" | field 'd["dialogToken"]')
+[[ -n "$DIALOG_TOKEN" && "$DIALOG_TOKEN" != None ]] && pass "GET enduser/dialogs/{id} gives a dialogToken" || fail "no dialogToken for $DIALOG"
+recipient "$API/correspondence/$CID/details" | check "GET correspondence/{id}/details with the dialog token (the recipient's fetch)" \
+  'd["correspondenceId"] == "'"$CID"'" and d["status"] == "Published"'
+expect "POST correspondence/{id}/markasread with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$CID/markasread")"
+curl -s "$LT/correspondences/$CID" | check "  ... the status history has Read" '"Read" in [s["status"] for s in d["statusHistory"]]'
 
 echo "== a scheduled publish, purged by the sender before it"
 LATER=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
@@ -245,7 +255,8 @@ curl -s "$LT/correspondences/$SID" | check "  ... status PurgedByAltinn" 'd["sta
 
 echo "== the inspection API"
 curl -s "$LT/correspondences?limit=1" | check "correspondences?limit=1 pages with next" 'len(d["items"]) == 1 and d["next"] == d["items"][0]["id"]'
-curl -s "$LT/jobs?limit=5" | check "jobs lists Hangfire jobs with method and state" 'len(d["items"]) >= 1 and all(j["method"] and j["state"] for j in d["items"])'
+# A job Hangfire is still creating has no state yet (its state row is written in a second transaction).
+curl -s "$LT/jobs?limit=5" | check "jobs lists Hangfire jobs with method and state" 'len(d["items"]) >= 1 and all(j["method"] for j in d["items"]) and any(j["state"] for j in d["items"])'
 expect "correspondences/{unknown} is 404" 404 "$(code "$LT/correspondences/00000000-0000-0000-0000-000000000000")"
 
 if [[ "${CORRESPONDENCE_RESTART:-0}" == 1 ]] && container_up localtest-v2-correspondence; then
@@ -258,5 +269,5 @@ if [[ "${CORRESPONDENCE_RESTART:-0}" == 1 ]] && container_up localtest-v2-corres
 fi
 
 echo
-echo "$OK ok, $KNOWN known (see the README's known gaps)"
+echo "$OK ok"
 exit $FAIL
