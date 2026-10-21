@@ -1,5 +1,26 @@
 # Plan: the platform receipt in the new localtest
 
+## Status (2026-10-21)
+
+- **Implemented** as task 16 (2026-10-21, `f40027a..319a712`) in
+  [`../../localtest/components/receipt/`](../../localtest/components/receipt/README.md), host port 8034, route
+  `/receipt`. Smoke test 27 ok on 2026-10-21. The studioctl group table (`6b41c96`) and the 503 front door (`adf6ee6`)
+  landed from this task.
+- Taken: pin `babc0ed`, the two directive sites, the `selfLinks` rewrite fake, the shared certificate mount, no
+  provisioning; task 10's smoke step corrected to the adapter's own 200 Markdown receipt.
+- Decided otherwise (task 16): **its own optional group `receipt`**, implying nothing, not the default stack
+  (`studioctl env up -r localtest-v2 --with receipt`). "Tilbake til innboks" stays as upstream has it, raised upstream
+  with task 11. Re-pin on backend changes only; image builds may reach the npm registry.
+
+Superseded statements:
+
+- Recommendation and brief, "vendor the receipt into the default stack" and "component `receipt` in the default
+  stack": superseded by the `receipt` group. Without it `/receipt` answers `503` "Component not running".
+- Headline findings, Profile as "the Register component's `users/{id}`": production Profile since task 14.
+- Headline findings, the adapter's go-to action as "task 10, unapproved": task 10 is done; the click-through from
+  Arbeidsflate waits for task 11.
+- Brief, "`git subtree`": the vendored copy is a `git archive` with `vendor/UPSTREAM.md`, as every component's.
+
 Research date 2026-10-20 (task 16 of [`../../TODO.md`](../../TODO.md)), written against this repository at `178f3da`.
 The questions were: what `Altinn/altinn-receipt` is, who links to `/receipt/{instanceOwnerPartyId}/{instanceGuid}`,
 what the stack already provides, and whether to vendor it, redirect to the app's own receipt, or do nothing. There is
@@ -45,6 +66,8 @@ with proxy prefix `/receipt` (no collision with the localtest app, the platform 
 provisioning and uses about 67 MB RSS idle. Effort is **2 to 3 days**. The thin redirect to the app's own receipt
 (Option B, 0.5 to 1 day) shows a different page and needs the app running. Doing nothing (Option C) leaves
 Arbeidsflate's archived dialogs on a 404 once tasks 10 and 11 land.
+
+*2026-10-21: decided otherwise: the receipt is its own optional group `receipt` (task 16), not part of the default stack.*
 
 ## Not verified
 
