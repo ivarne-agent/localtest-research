@@ -59,7 +59,7 @@ RUN dotnet publish /src/vendor/src/apps/Altinn.AccessManagement/src/Altinn.Acces
 FROM aspnet-runtime AS final
 COPY --from=build /app .
 # localtest: settings production gets from its deployment; the stack reaches the service on 5080. No HEALTHCHECK:
-# podman builds OCI images, which drop the instruction (only a compose healthcheck: takes effect).
+# podman builds OCI images, which drop the instruction; studioctl polls the health endpoint instead.
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5080 \
     Localtest__AccessManagement__PolicyStorePath=/policy-store

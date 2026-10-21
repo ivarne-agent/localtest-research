@@ -33,7 +33,7 @@ USER dotnet
 RUN mkdir /tmp/logtelemetry
 
 # localtest: settings production gets from its deployment. No HEALTHCHECK: podman builds OCI images, which drop the
-# instruction (only a compose healthcheck: takes effect).
+# instruction; studioctl polls the health endpoint instead.
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5100
 

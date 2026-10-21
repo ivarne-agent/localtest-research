@@ -45,7 +45,7 @@ RUN mkdir /tmp/logtelemetry
 
 # localtest: settings production gets from its deployment. Development's Debug logging was mostly the claim loop's
 # Npgsql lines, so the default is Information (the environment still wins). No HEALTHCHECK: podman builds OCI images,
-# which drop the instruction (only a compose healthcheck: takes effect).
+# which drop the instruction; studioctl polls the health endpoint instead.
 ENV ASPNETCORE_ENVIRONMENT=Development \
     Logging__LogLevel__Default=Information \
     ASPNETCORE_URLS=http://+:5080

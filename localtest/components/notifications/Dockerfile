@@ -60,7 +60,8 @@ RUN mkdir /tmp/logtelemetry
 # localtest: settings production gets from its deployment. Development makes the JWT handler read the OpenID metadata
 # over http; its migrations are looked up in the parent of the working directory, hence the path relative to / (the
 # Migration folder above is /app/Migration). Information instead of Development's Debug logging (the environment still
-# wins). No HEALTHCHECK: podman builds OCI images, which drop the instruction (only a compose healthcheck: takes effect).
+# wins). No HEALTHCHECK: podman builds OCI images, which drop the instruction; studioctl polls the health
+# endpoint instead.
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5090 \
     PostgreSQLSettings__MigrationScriptPath=app/Migration \

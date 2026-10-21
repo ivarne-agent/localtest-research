@@ -37,7 +37,7 @@ WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /src/vendor/src/Storage/Migration ./Migration
 # localtest: blobs live in a volume owned by the app user; settings production gets from its deployment.
-# No HEALTHCHECK: podman builds OCI images, which drop the instruction (only a compose healthcheck: takes effect).
+# No HEALTHCHECK: podman builds OCI images, which drop the instruction; studioctl polls the health endpoint instead.
 COPY --from=build --chown=$APP_UID /data/blobs /data/blobs
 VOLUME /data/blobs
 ENV ASPNETCORE_ENVIRONMENT=Development \

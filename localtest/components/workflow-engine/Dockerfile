@@ -40,6 +40,6 @@ FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 # localtest: settings production gets from its deployment. No HEALTHCHECK: podman builds OCI images, which drop the
-# instruction (only a compose healthcheck: takes effect).
+# instruction; studioctl polls the health endpoint instead.
 ENV ASPNETCORE_ENVIRONMENT=Development
 ENTRYPOINT ["dotnet", "WorkflowEngine.App.dll"]

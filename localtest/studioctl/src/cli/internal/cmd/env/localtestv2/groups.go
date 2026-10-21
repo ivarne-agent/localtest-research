@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	// groupDialogporten is Dialogporten: Redis and the WebApi, GraphQL and Service hosts. Apps never call
-	// Dialogporten, so the default stack leaves it out and saves about a gigabyte of memory.
+	// groupDialogporten is Dialogporten: Redis, the WebApi, GraphQL and Service hosts, and the adapter that turns
+	// Storage's instances into dialogs. Apps never call Dialogporten, so the default stack leaves it out and saves
+	// about 0.75 GB of memory (about 0.5 GB for the hosts and Redis, 0.26 GB for the adapter).
 	groupDialogporten = "dialogporten"
 	// groupReceipt is the platform receipt for archived instances (`/receipt/{partyId}/{instanceGuid}`).
 	groupReceipt = "receipt"

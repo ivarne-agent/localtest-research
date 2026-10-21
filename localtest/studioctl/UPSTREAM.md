@@ -17,6 +17,9 @@
   receipt and correspondence groups, the 503 front door, the Dialogporten adapter, provisioning step 5, `env logs -c`
   for a stopped container, the image pins) are listed by `git log --oneline 3ecc3fb..HEAD -- localtest/studioctl/src`;
   [`README.md`](README.md) "What the localtest-v2 change adds" describes the result file by file.
+- The whole change is also on branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio` (the
+  current one; `feat/studioctl-localtest-v2` holds only the first commit). The coordinator refreshes it from this
+  repository's `main` with the patch below, so it can lag behind the latest studioctl commits here.
 
 ## Regenerating the upstream patch
 
