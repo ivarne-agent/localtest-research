@@ -24,7 +24,7 @@ changed is marked with a dated "Superseded" note at the top of the review; the r
   workflow engine follow since 2026-10-20 as well.
 
 - **HEALTHCHECK** lines are dead everywhere: podman builds OCI images, which drop them. Health checks are left for the
-  studioctl integration. (Since 2026-10-20 studioctl polls each component's health path over HTTP.)
+  studioctl integration. (studioctl now polls each component's health path over HTTP.)
 - **Re-pinning.** Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and
   share libraries; they were re-pinned together to `3d518103` on 2026-10-20 with `../tools/repin-vendor.py`.
 - **Sync instructions** (`vendor/UPSTREAM.md`) exist for every vendored component.
