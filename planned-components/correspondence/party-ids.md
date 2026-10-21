@@ -1,5 +1,12 @@
 # Party ids: Correspondence's 8-or-10-digit rule and the stack's 6-digit seed
 
+## Status (2026-10-21)
+
+- Recommendation (b) **approved 2026-10-21 with a change** (the site accepts any 64-bit integer party id, not only
+  unsigned 32-bit) and **in progress** as task 7b (worktree `.worktrees/task7b-party-ids`, branch
+  `task/correspondence-party-ids`). The seed is not renumbered.
+- (c), the upstream issue, and questions 2 to 5 of section 4 are open.
+
 Research date: 2026-10-21 (Europe/Oslo), follow-up to task 7 of [`../../TODO.md`](../../TODO.md). Read-only: source,
 `git log`/`gh` history and the task 7 branch's README and smoke test. Nothing was built and no container or `studioctl`
 command was run. Claims that come from reading code and were not observed are marked "not verified".

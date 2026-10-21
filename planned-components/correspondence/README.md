@@ -1,5 +1,27 @@
 # Plan: Correspondence in the new localtest
 
+## Status (2026-10-21)
+
+- **Implemented with a known gap** as task 7 (2026-10-21; `TODO.md` gives `043c483..e96f904`, on `main`
+  `94c1acb..e96f904`) in [`../../localtest/components/correspondence/`](../../localtest/components/correspondence/README.md),
+  optional group `correspondence` implying `dialogporten`, host port 8033, route `/correspondence`. Smoke test 43 ok and
+  2 `KNOWN` on 2026-10-21 (task 14's run with `--with everything`; task 7's own run recorded 46 ok and 2 `KNOWN`).
+- Taken: Option A at `6dcf561`, two additive hooks, the fakes as planned, the seed and the Register's KRR stand-in,
+  questions 3 to 9 of section 10 as proposed (task 7).
+- Known gap: production Correspondence rejects the seed's 6-digit party ids on every PDP-checked call, so app-lib's
+  send and the recipient's dialog-token path fail; [`party-ids.md`](party-ids.md). Task 7b, **in progress**, adds the
+  component's first `#if !LOCALTEST` site (approved 2026-10-21: any 64-bit integer party id).
+- Later changes outside the plan: the KRR stand-in answers `JA` for persons with `reserved` (task 18); Profile's two
+  `correspondence/` lookups are production Profile (task 14).
+
+Superseded statements:
+
+- Headline findings and the brief, "no `#if !LOCALTEST` site": task 7b adds one in `XacmlRequestFactory` (in progress).
+- Headline findings and the brief item 7, Profile's `correspondence/` lookups in the Register fakes: production
+  Profile since task 14.
+- Brief, verification, "with the group off: `/correspondence/` returns 404": the front door answers `503` "Component not
+  running" with the `--with correspondence` command (task 16).
+
 Research date 2026-10-20 (task 7 of [`../../TODO.md`](../../TODO.md)), written against this repository at `178f3da`.
 Upstream pin: [`Altinn/altinn-correspondence@6dcf561`](https://github.com/Altinn/altinn-correspondence/tree/6dcf561945f73e8f28f0a95747ee4fafa012aa89)
 (`origin/main`, 2026-10-16). The question was whether to vendor the production `Altinn/altinn-correspondence` with fakes
@@ -22,6 +44,7 @@ in this folder.
   - Malware scanning and storage-account deployment are already simulated or skipped by upstream in `Development`.
   - Two additive `#if LOCALTEST` hooks in `Program.cs` and **no `#if !LOCALTEST` site** cover everything. That was
     built and started in the scratch run.
+    *2026-10-21: task 7b (in progress) adds the first `#if !LOCALTEST` site, in `XacmlRequestFactory`, for the 6-digit party ids.*
   - Fakes come to about 1 070 lines: a file-backed `IStorageRepository`, a no-op `IResourceManager`, auth options for
     http metadata, a refresh-on-miss resolver for dialog-token keys, the shared Maskinporten fake, and the inspection
     API.
@@ -134,6 +157,7 @@ Vendor `Altinn/altinn-correspondence` at `6dcf561` (Option A). Settle the open q
   publish; restart persistence; the dialog-token path (content, markasread, confirm) with a task 2 token; purge.
 - `signering-brukerstyrt` under `studioctl run --with correspondence`: the signee is marked as messaged.
 - With the group off: `/correspondence/` returns 404 and `run-platform-regression.sh` is green.
+  *2026-10-21: superseded by task 16's front door: `503` "Component not running" with the `--with` command.*
 - The Resource Registry, Register, Notifications and Dialogporten smoke tests still pass.
 - The new rows are added to `localtest/README.md` "Where localtest is faster than production" (report section 9).
 
