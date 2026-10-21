@@ -28,7 +28,7 @@ const (
 	// They are pinned to one build studioctl was tested with; EnvLocaltestV2Tag runs another, and
 	// "latest" follows every build on main.
 	imageLocaltestV2Prefix = "ghcr.io/ivarne-agent/localtest-research/localtest-"
-	tagLocaltestV2         = "sha-3143730"
+	tagLocaltestV2         = "sha-16754da"
 	tagLatest              = "latest"
 
 	// The Redis of the optional Dialogporten group: 7.2 is the last BSD-licensed Redis (7.4 moved to RSALv2/SSPL), and
