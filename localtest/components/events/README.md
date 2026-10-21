@@ -8,7 +8,7 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except three `LOCALTEST` sites (`git diff` against the vendoring commit shows them) |
+| `vendor/` | Unmodified upstream copy except five `LOCALTEST` sites (`git diff` against the vendoring commit shows them) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/**/*.sql`. Upstream has no `Directory.Build.props`, so the import of one is guarded |
 | `fakes/` | Compiled into the host assembly (the interfaces live there): publishers, signing keys, the startup scripts, change notifications, the webhook capture handler and the inspection API |
 | `postgres-init/30-events.sh` | Postgres init script: the `eventsdb` database and the roles upstream's README asks for (`platform_events_admin` superuser, `platform_events`), password `Password`. Copied into the stack's Postgres image (`../../postgres/Dockerfile`). Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/events/postgres-init/30-events.sh` |
@@ -23,6 +23,28 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
    which replaces registrations after the production ones.
 3. `src/Events/Controllers/SubscriptionController.cs`, `IsValidUri`: `#if !LOCALTEST` https only, `#else` https or
    http. Apps and the test sink are on `http://local.altinn.cloud:8000`.
+4. `src/Events/Services/OutboundService.cs`, `GetSourceFilter`, and 5. `src/Events/Controllers/SubscriptionController.cs`,
+   `IsAppSubscription` (task 12, 2026-10-21): `#if !LOCALTEST` the production host test, `#else` the same test and
+   the source's first path segment not a platform component's prefix (`fakes/Sources/LocaltestAppSources.cs`).
+
+**Report for sites 4 and 5 (2026-10-21, written before the change).** Production tells an app's source from any other by
+its host alone: `GetSourceFilter` cuts a source whose host contains `PlatformSettings:AppsDomain` (`apps.altinn.no`) to
+`{scheme}://{host}/{org}/{app}`, the key under which a consumer's authorization decision for app events is cached, and
+`IsAppSubscription` lets a subscription whose source filter's host ends with it through as an app subscription, without
+a resource filter or the `altinn:events.subscribe` scope. Platform components (`platform.altinn.no`) never match. In
+the stack apps and platform components share `local.altinn.cloud`, so `AppsDomain` has to be that host, and since task
+9b Dialogporten's (and Correspondence's) sources on it are app sources too: every dialog event is cut to
+`.../dialogporten/api`, so one consumer's cached decision for one app's dialog event is reused for every other app's
+for 5 seconds, and a `.../dialogporten/...` source filter makes an app subscription for "org" `dialogporten`, app `api`,
+where production asks for the subscribe scope and a resource filter. Nothing in `fakes/` can change it: both are private
+methods (one of a controller) whose result picks a production code path (the cache key; the app or the generic
+subscription service), `AppsDomain` is one string matched with `Contains`/`EndsWith` against a host every component
+shares, and replacing `OutboundService` would mean copying it. The other fix, apps on their own host
+(`{org}.apps.local.altinn.cloud`), touches studioctl's routes, app-lib's URLs and the Cypress setup. So the sites keep
+production's host test and add one condition under `#else`: a source whose first path segment is a platform component's
+prefix (the routes studioctl serves on the platform host: `dialogporten`, `correspondence`, `storage`, `events`, ...) is
+not an app source. Dialogporten's events are then cached per dialog URL and a Dialogporten source filter is a generic
+subscription, both as in production; app sources are unchanged.
 
 ## Postgres
 
