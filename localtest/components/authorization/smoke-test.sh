@@ -75,7 +75,7 @@ echo "   push edited: $(pushpolicy ttd testapp "$EDITED")"; rm -f "$EDITED"
 decide NotApplicable  "Sophie read on 500000 after removing DAGL and REGNA"      "$SOPHIE" read ttd testapp 500000
 echo "   push original: $(pushpolicy ttd testapp "$TESTAPP_POLICY")"
 decide Permit         "Sophie (DAGL) read on 500000 after restoring"          "$SOPHIE" read ttd testapp 500000
-if [[ $HAVE_CONTAINER == 1 ]]; then echo "   store: $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -type f | sort | tr '\n' ' ')"
+if [[ $HAVE_CONTAINER == 1 ]]; then echo "   store: $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -maxdepth 1 -type f), $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -path '*.versions/*' -type f | wc -l) versions"
 else echo "   store: skipped (no podman or no container $CONTAINER)"; fi
 echo "== ttd/frontend-test (the app's own App/config/authorization/policy.xml: lower-case dagl/regna/seln; org ttd may write/complete)"
 helper() { # expected label userId partyId action [task]
@@ -130,9 +130,25 @@ echo "GET authorization/api/v1/parties?userid=1337 without token -> $(curl -s -o
 echo "== PDP log errors since the start of this run ($CONTAINER)"
 if [[ $HAVE_CONTAINER == 1 ]]; then
   podman logs --since "$STARTED" "$CONTAINER" >"$LOGS/authorization.log" 2>&1
-  ERRORS=$(grep -ciE 'fail:|exception' "$LOGS/authorization.log")
-  check "error lines (fail:/exception) in the authorization log" "$ERRORS" "0"
-  [[ $ERRORS == 0 ]] || grep -iE 'fail:|exception' -A1 "$LOGS/authorization.log" | cut -c1-240 | head -20
+  # Log entries start at an unindented line. The two Indeterminate checks above provoke three fail: entries (the unknown
+  # instance's 404 from Storage, logged twice; the policy not found); every other fail:/crit: entry is an error.
+  cat >"$LOGS/errors.py" <<'PY'
+import re, sys
+entries, cur = [], []
+for line in open(sys.argv[1], errors="replace"):
+    if line[:1] not in (" ", "\t", "") and cur:
+        entries.append(cur); cur = []
+    cur.append(line.rstrip())
+if cur:
+    entries.append(cur)
+provoked = ("Failed to lookup auth info from storage. Response StatusCode: 404",
+            "Unable to find instance 500000/0f1e2d3c-4b5a-6978-8091-a2b3c4d5e6f7", "Policy not found for resource")
+bad = [e for e in entries if re.match(r"(fail|crit):", e[0]) and not any(p in " ".join(e[:4]) for p in provoked)]
+for e in bad[:5]:
+    print("\n".join(l[:240] for l in e[:4]), file=sys.stderr)
+print(len(bad))
+PY
+  check "error entries in the authorization log beyond the provoked ones" "$(python3 -I "$LOGS/errors.py" "$LOGS/authorization.log")" "0"
 else
   echo "skip error lines in the authorization log (no podman or no container $CONTAINER)"
 fi
