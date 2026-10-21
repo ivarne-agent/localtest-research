@@ -3,9 +3,10 @@
 #
 #   ./run-cypress.sh [cypress args...]     e.g. ./run-cypress.sh --spec test/e2e/integration/frontend-test/on-entry.ts
 #
-# Expects: the stack up (studioctl env up -r localtest-v2), the monorepo at MONOREPO (default ../../altinn-studio relative to this
-# repo's parent) with the frontend built (src/App/frontend/dist) and FRONTEND_DIST in .env pointing at it, and the
-# test apps started with run-app.sh (frontend-test on 5005, component-library on 5006, signing-test on 5007 by default).
+# Expects: the stack up (studioctl env up -r localtest-v2), the monorepo at MONOREPO (default: altinn-studio next to this
+# repository's checkout) with the frontend built (src/App/frontend/dist), and the apps the specs use running: under
+# studioctl with `studioctl run --dev-frontend` and the built frontend served on the port it expects with
+# Access-Control-Allow-Origin (see README.md, "Run it"); with the localtest app as the front door, with run-app.sh.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 MONOREPO=${MONOREPO:-$(cd "$HERE/../.." && pwd)/altinn-studio}

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The app-frontend Cypress specs that once failed because of the platform (not the frontend), as a quick regression
 # check of the stack. Starts the apps they need with run-app.sh, runs the specs with the spec reporter, stops the apps.
-#   ./run-platform-regression.sh [altinn-studio checkout]     (default ~/code/altinn-studio)
+#   ./run-platform-regression.sh [altinn-studio checkout]     (default ~/code/altinn-studio; the apps' source only, the
+#                                                            specs run from MONOREPO through run-cypress.sh)
 #   ./run-platform-regression.sh --no-apps [checkout]         the apps already run, for example with `studioctl run`
 #                                                            behind the localtest-v2 runtime (run-app.sh needs the
 #                                                            localtest app as the front door)

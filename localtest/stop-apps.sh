@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop every app started by run-app.sh and remove its proxy route.
+# Stop every app started by run-app.sh and remove its route from the localtest app's own proxy.
 HERE=$(cd "$(dirname "$0")" && pwd)
 PLATFORM=${PLATFORM:-http://local.altinn.cloud:8000}
 for f in "$HERE"/.run/*.pid; do

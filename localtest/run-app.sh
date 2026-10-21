@@ -4,6 +4,9 @@
 #   ./run-app.sh <path-to-app-repo> [port]        e.g. ./run-app.sh ~/code/altinn-studio/src/test/apps/frontend-test 5005
 #
 # The app listens on 0.0.0.0:<port> on this machine; the proxy reaches it as host.docker.internal:<port>.
+# Needs the localtest app as the front door (it routes the app through that app's own proxy API). Under studioctl's
+# localtest-v2 runtime studioctl-server is the front door: use `studioctl run`, whose provisioner also pushes the
+# artefacts (with the Resource Registry's subject reload and Dialogporten's sync, which this script does not run).
 # Platform URLs point at http://local.altinn.cloud:8000 (override with PLATFORM). Logs: .run/<org>-<app>.log, pid file next to it.
 set -euo pipefail
 APP_DIR=${1:?app directory}; PORT=${2:-5005}

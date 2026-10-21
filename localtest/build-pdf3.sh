@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Build the pdf3 worker image the stack runs (localtest-pdf3:dev) from an altinn-studio checkout, as studioctl's dev
-# mode does (context src/Runtime/pdf3, Dockerfile.worker), and record which commit it came from: the image gets the
-# label org.opencontainers.image.revision and pdf3 reports the commit as its service version.
+# Build a pdf3 worker image (localtest-pdf3:dev) from an altinn-studio checkout, as studioctl's localtest dev mode does
+# (context src/Runtime/pdf3, Dockerfile.worker), and record which commit it came from: the image gets the label
+# org.opencontainers.image.revision and pdf3 reports the commit as its service version. The localtest-v2 runtime runs
+# studioctl's ghcr.io/altinn/altinn-studio/runtime-pdf3-worker image; STUDIOCTL_IMAGE_PDF3 points it at another.
 #   ./build-pdf3.sh [altinn-studio checkout]      (default ~/code/altinn-studio)
 #   podman image inspect localhost/localtest-pdf3:dev --format '{{index .Labels "org.opencontainers.image.revision"}}'
 set -euo pipefail
