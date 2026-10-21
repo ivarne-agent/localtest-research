@@ -645,7 +645,12 @@ loader of it with a golden test that its generated environment is unchanged, and
 the development app-codes file stays something each runner writes, with a test that the package's bytes equal
 studioctl's. The app project: `AddProject<T>` with `ExcludeLaunchProfile` and `ExcludeKestrelEndpoints`, one HTTP
 endpoint with an Aspire-assigned port, proxied; no fixed 5005 under Aspire; the front door reaches the app through the
-project resource (the tunnel) and the Kestrel URL is the runner's, not the manifest's.
+project resource (the tunnel) and the Kestrel URL is the runner's, not the manifest's. Provisioning: on the app's `ResourceReadyEvent` with a `DirectoryAppSource` on the project folder,
+a failure logged with step and URL and shown as a warning on the app resource, not as a failed start; dashboard
+commands `provision` (again) and `deprovision`; no deprovision on stop (every step is idempotent; the Register keeps
+the last run's test users as Storage and the PDP keep the app, documented); `DialogportenRunning` from the AppHost's
+groups; a `reset` command on the localtest resource stops the persistent containers and removes the five named
+volumes through the runtime CLI; the package refuses to start when port 8000 is held and names the holder.
 
 ## 22. app-lib honours an explicit localtest environment
 
