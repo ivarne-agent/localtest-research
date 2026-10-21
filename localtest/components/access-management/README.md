@@ -13,7 +13,8 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 
 ## Directive sites in `vendor/`
 
-Paths relative to `vendor/src/apps/Altinn.AccessManagement/`.
+Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers checked 2026-10-21: `Program.cs:19-35`,
+`AccessManagementHost.cs:70-73` and `:168-170`).
 
 1. `src/Altinn.AccessManagement/Program.cs`: `#if !LOCALTEST` keeps the production init selection (`RunInitOnly`
    exits after init, `RunIntegrationTests` inits then serves); `#else` ensures the database and roles exist
@@ -38,8 +39,8 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/`.
 
 Configuration defaults live in `LocaltestAccessManagementExtensions` (section `Localtest:AccessManagement`): every
 platform endpoint behind the proxy, the production connection strings pointed at the shared Postgres, dummy
-test-tool token settings to satisfy eager validation, and the sync and outbox hosted services switched off until
-their step in the plan.
+test-tool token settings to satisfy eager validation, and the periodic Register and Resource Registry syncs and the
+outbox hosted services switched off (the init-time Register import stays on; the refresh runs the resource sync).
 
 The Resource Registry is the real component (`../resource-registry/`), reached through the production clients: the
 delegation services' `ResourceRegistryClient` at `PlatformSettings:ApiResourceRegistryEndpoint`
@@ -55,9 +56,11 @@ Subject pairs the registry has soft-deleted come back as `deleted` updates and r
 Provider rows come from the registry's `resource/orgs`, the real service-owner list from altinncdn.no. The
 registry's non-app seed resource (`altinn_keyrole_access`) is synced too.
 
-Provider ids are the production ones (MD5 of the org code). A database from before the stand-ins were removed holds
-`ttd` with the stand-in's id, and the first sync then fails on the unique provider name (the container exits at
-start). Drop the database once with the stack's Postgres up and Access Management stopped:
+Provider ids are the production ones (MD5 of the org code). Only a Postgres volume created before the stand-ins were
+removed (task 5b, 2026-10-20) is affected: its database holds `ttd` with the stand-in's id, and the first sync then
+fails on the unique provider name (the container exits at start). `studioctl env reset -r localtest-v2 --yes` (which
+deletes the whole shared Postgres volume) fixes it, or drop just this database once with the stack's Postgres up and
+Access Management stopped:
 `podman exec localtest-v2-postgres psql -U platform_authorization_admin -d postgres -c "drop database authorizationdb with (force)"`.
 Start recreates it, and each app runner's refresh fills the apps in again.
 
@@ -69,8 +72,14 @@ and external roles from the vendored Register, applies the seed's own roles, Alt
 syncs app resources from the Resource Registry component, takes instance delegations from apps, and serves the
 PDP's PIP (`policyinformation/*`) and authorized parties (`enduser/authorizedparties` for app-lib, the internal
 `authorizedparties` for the PDP, which needs `FeatureManagement:RightsDelegationApi`, on as in production). The
-proxy routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers;
-port 5080 is also published on the host for debugging.
+proxy routes all of `/accessmanagement/` here. The startup log lists the effective feature flags with their providers.
+The container listens on 5080; studioctl publishes it on the host as `127.0.0.1:8023` for debugging, and starts it
+after Postgres, the Register, the Resource Registry and the profile component (its startup refresh reads the first
+two; its production Profile client reads users through `profile/api/v1/internal/user`, served by production Profile
+since task 14).
+
+There is no smoke test in this folder: `../authorization/smoke-test.sh` exercises Access Management through the PDP
+(roles, access packages, authorized parties; 30 checks, all ok on 2026-10-21 with production Profile).
 
 User tokens are validated by production's JWT cookie handler. For an issuer listed under `OidcProviders` it fetches
 the metadata with an HTTPS-only retriever regardless of environment; `LocaltestOidcMetadata` registers that issuer's
