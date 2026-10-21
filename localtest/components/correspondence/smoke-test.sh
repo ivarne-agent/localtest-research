@@ -13,7 +13,10 @@
 # correspondence, details), the recipient's path on that correspondence with a dialog token (task 2's code-flow token for
 # user 1337, party 501337, the dialog's dialogToken: details, markasread, content, attachment download, confirm, the opened
 # and confirmed activities on the dialog, purge), a scheduled publish and the sender's purge of it, and the sender's refused
-# purge of a published correspondence. With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
+# purge of a published correspondence, and the browser download from the inbox (task 11b: the attachment URL without a token,
+# Correspondence's OIDC challenge to Authentication's correspondence-localtest client, no picker with user 1337's session
+# cookie, idporten-callback, download?session= with the bytes; a reused session, no cookie, a code of another client and a
+# missing correlation cookie, every walk bounded). With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
 # correspondences remain and no migration ran again.
 # The resources are the Resource Registry seed's ttd-localtest-correspondence (see ../resource-registry/README.md); KRR and
 # Profile's correspondence lookups are the Register component's fakes.
@@ -243,6 +246,86 @@ recipient "$API/correspondence/$CID/details" | check "GET correspondence/{id}/de
   'd["correspondenceId"] == "'"$CID"'" and d["status"] == "Published"'
 expect "POST correspondence/{id}/markasread with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$CID/markasread")"
 curl -s "$LT/correspondences/$CID" | check "  ... the status history has Read" '"Read" in [s["status"] for s in d["statusHistory"]]'
+
+echo "== the browser download from the inbox (task 11b): no token, Correspondence's own OIDC client, no picker with a session"
+# What a click on an attachment link in Arbeidsflate does: a top-level GET of the dialog's attachment URL with cookies only.
+# The AllSchemes cascade finds no bearer, no dialog token and no ?session=, and challenges its OIDC client
+# (correspondence-localtest, seeded in Authentication); Authentication reuses the session of the AltinnStudioRuntime cookie,
+# Correspondence redeems the code, keeps the access token 5 minutes under a one-time ?session= and validates it with
+# IdportenTokenValidator (the #if !LOCALTEST site that lets its discovery retriever read http). Every walk is bounded.
+qp() { python3 -I -c 'import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[""])[0])' "$1" "$2"; }
+urlpath() { python3 -I -c 'import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).path)' "$1"; }
+HOPS=() # walk JAR URL [MAX]: follows redirects one at a time (the jar as a browser keeps it); HOPS gets "status url" per step,
+walk() { # the last body is in $TMP/walk.body and its headers in $TMP/walk.h; returns 1 when MAX hops did not reach a non-redirect
+  local jar=$1 url=$2 max=${3:-8} out
+  HOPS=()
+  for _ in $(seq 1 "$max"); do
+    out=$(curl -s -b "$jar" -c "$jar" -D "$TMP/walk.h" -o "$TMP/walk.body" -w '%{http_code} %{redirect_url}' "$url")
+    HOPS+=("$out ($url)")
+    [[ "${out%% *}" == 3* ]] || return 0
+    url=${out#* }
+  done
+  return 1
+}
+hop() { local h=${HOPS[$1]:-}; h=${h% (*}; echo "${h#* }"; } # the redirect target of step N (0-based)
+DOWNLOAD="$API/correspondence/$CID/attachment/$AID/download"
+JAR="$TMP/browser.jar"
+# User 1337 signed in, as in a browser after the inbox login: the helper sets the session cookies production's callback sets.
+expect "user 1337 signs in (the code-flow helper sets AltinnStudioRuntime)" 200 \
+  "$(curl -s -c "$JAR" -o /dev/null -w '%{http_code}' "$BASE/localtest/api/authentication/code?client=localtest-smoke&userId=1337&authenticationLevel=3")"
+CHALLENGE=$(curl -s -b "$JAR" -c "$JAR" -D "$TMP/challenge.h" -o /dev/null -w '%{redirect_url}' "$DOWNLOAD")
+[[ "$(urlpath "$CHALLENGE")" == /authentication/api/v1/authorize* && "$(qp "$CHALLENGE" client_id)" == correspondence-localtest \
+  && "$(qp "$CHALLENGE" redirect_uri)" == "$API/idporten-callback" && "$(qp "$CHALLENGE" scope)" == "openid profile" \
+  && "$(qp "$CHALLENGE" code_challenge_method)" == S256 && "$(qp "$CHALLENGE" acr_values)" == "selfregistered-email idporten-loa-substantial" ]] \
+  && pass "GET .../download without a token: 302 to Authentication's authorize for correspondence-localtest (exact redirect_uri, openid profile, PKCE, upstream's acr_values)" \
+  || fail "the challenge: $CHALLENGE"
+COOKIES=$(grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$TMP/challenge.h" | tr '[:upper:]' '[:lower:]')
+[[ $(grep -c . <<<"$COOKIES") == 2 && $(grep -c 'samesite=lax' <<<"$COOKIES") == 2 && "$COOKIES" != *secure* ]] \
+  && pass "  ... the correlation and nonce cookies are SameSite=Lax without Secure (the fakes' cookie decision)" || fail "  ... cookies: $COOKIES"
+STATE=$(qp "$CHALLENGE" state)
+walk "$JAR" "$CHALLENGE" 6 || fail "  ... the walk from authorize did not end within 6 redirects: ${HOPS[*]}"
+[[ "$(urlpath "$(hop 0)")" == /correspondence/api/v1/idporten-callback && -n "$(qp "$(hop 0)" code)" ]] \
+  && pass "  ... authorize answers 302 straight to idporten-callback?code=… (the session is reused: no picker)" || fail "  ... authorize: ${HOPS[0]:-}"
+SESSION=$(qp "$(hop 1)" session)
+[[ "$(urlpath "$(hop 1)")" == "${DOWNLOAD#"$BASE"}" && "$SESSION" =~ ^[0-9a-f-]{36}$ ]] \
+  && pass "  ... the callback redeems the code and answers 302 to download?session={guid}" || fail "  ... callback: ${HOPS[1]:-}"
+[[ ${#HOPS[@]} == 3 && "${HOPS[2]%% *}" == 200 ]] && cmp -s "$TMP/attachment.txt" "$TMP/walk.body" \
+  && pass "  ... and download?session= answers 200 with the attachment's bytes (IdportenTokenValidator read the metadata over http)" \
+  || fail "  ... download?session=: ${HOPS[*]} $(head -c 200 "$TMP/walk.body")"
+grep -qi '^content-disposition: attachment; filename=smoke.txt' "$TMP/walk.h" && pass "  ... as an attachment download (Content-Disposition), what the browser saves" \
+  || fail "  ... Content-Disposition: $(grep -i '^content-disposition' "$TMP/walk.h")"
+REUSED=$(curl -s -o "$TMP/reused.body" -w '%{http_code} %{redirect_url}' "$DOWNLOAD?session=$SESSION")
+[[ "${REUSED%% *}" == 302 && "$(urlpath "${REUSED#* }")" == /authentication/api/v1/authorize* ]] && ! cmp -s "$TMP/attachment.txt" "$TMP/reused.body" \
+  && pass "  ... the session is one-time: reused, it gives no bytes but a new challenge (production removes the cached token on first use)" \
+  || fail "  ... reused session: $REUSED"
+NOCOOKIE="$TMP/nocookie.jar"
+if walk "$NOCOOKIE" "$DOWNLOAD" 6 && [[ ${#HOPS[@]} == 3 && "${HOPS[2]%% *}" == 200 && "$(urlpath "$(hop 1)")" == /localtest/api/idporten/authorize ]]; then
+  pass "without the AltinnStudioRuntime cookie: challenge, authorize, then the fake ID-porten's picker (200), no loop"
+else
+  fail "without the cookie: ${HOPS[*]}"
+fi
+# A code issued to another client, presented with a valid state of this flow: the token endpoint refuses it and upstream's
+# OnRemoteFailure restarts the flow once (download?oidcRetry=1), which then completes with the session.
+OTHER_CODE=$(curl -s "$BASE/localtest/api/authentication/code?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["code"]')
+STATE=$(qp "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$DOWNLOAD")" state)
+if walk "$JAR" "$API/idporten-callback?code=$OTHER_CODE&state=$STATE" 8 && [[ "$(hop 0)" == "$DOWNLOAD?oidcRetry=1" && "${HOPS[-1]%% *}" == 200 ]] \
+  && cmp -s "$TMP/attachment.txt" "$TMP/walk.body"; then
+  pass "a code issued to localtest-smoke at the callback: invalid_grant, one restart (oidcRetry=1), then the bytes within ${#HOPS[@]} steps"
+else
+  fail "wrong-client code: ${HOPS[*]}"
+fi
+# The callback without the correlation cookie ("Correlation failed"): one restart, and a second failure ends in the inbox
+# (GeneralSettings:ArbeidsflateBaseUrl) instead of looping.
+callback_without_correlation() { # download URL -> where the callback sends the browser
+  local authz cb
+  authz=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$1")
+  cb=$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' "$authz")
+  curl -s -b "$TMP/session-only.jar" -o /dev/null -w '%{redirect_url}' "$cb"
+}
+grep -v 'AspNetCore' "$JAR" >"$TMP/session-only.jar"
+expect "the callback without the correlation cookie restarts once (download?oidcRetry=1)" "$DOWNLOAD?oidcRetry=1" "$(callback_without_correlation "$DOWNLOAD")"
+expect "  ... and a second failure ends in the inbox, not in a loop" "http://af.local.altinn.cloud:8000/" \
+  "$(callback_without_correlation "$DOWNLOAD?oidcRetry=1")"
 
 echo "== a scheduled publish, purged by the sender before it"
 LATER=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
