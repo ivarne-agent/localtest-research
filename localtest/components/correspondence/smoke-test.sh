@@ -49,6 +49,7 @@ expect() { # name expected actual
 }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 field() { python3 -I -c "import json,sys; d=json.load(sys.stdin); print($1)" 2>/dev/null; }
+# Generous limits: Hangfire polls every 5 s and the first jobs after `env up` are slow; each wait returns as soon as it holds.
 waitfor() { # seconds url python-expression [curl args...]: polls every second until the expression holds
   local seconds=$1 url=$2 expr=$3; shift 3
   for _ in $(seq 1 "$seconds"); do
@@ -118,7 +119,7 @@ AID=$(attachment "$SUM")
 [[ "$AID" =~ ^[0-9a-f-]{36}$ ]] && pass "POST attachment answers its id ($AID)" || fail "POST attachment: $AID"
 send -H 'Content-Type: application/octet-stream' -X POST "$API/attachment/$AID/upload" --data-binary @"$TMP/attachment.txt" | check "POST attachment/{id}/upload accepted" \
   'd["attachmentId"] == "'"$AID"'" and d["status"] in ("UploadProcessing", "Published")'
-okwait "GET attachment/{id} reaches Published (upstream's simulated malware scan)" 20 "$API/attachment/$AID" 'd["status"] == "Published"' -H "Authorization: Bearer $SENDER"
+okwait "GET attachment/{id} reaches Published (upstream's simulated malware scan)" 60 "$API/attachment/$AID" 'd["status"] == "Published"' -H "Authorization: Bearer $SENDER"
 curl -s "$LT/blobs/$AID" -o "$TMP/blob.txt"
 cmp -s "$TMP/attachment.txt" "$TMP/blob.txt" && pass "the bytes are in the file store (correspondence/api/localtest/blobs/{id})" || fail "blob differs from the upload"
 
@@ -148,7 +149,7 @@ expect "POST correspondence is 200" 200 "${RESPONSE##*$'\n'}"
 CID=$(printf '%s' "${RESPONSE%$'\n'*}" | field 'd["correspondences"][0]["correspondenceId"]')
 printf '%s' "${RESPONSE%$'\n'*}" | check "  ... Initialized or ReadyForPublish (its attachment is published already) for the recipient, with the existing attachment" \
   'd["correspondences"][0]["status"] in ("Initialized", "ReadyForPublish") and d["correspondences"][0]["recipient"].endswith("'$SSN'") and d["attachmentIds"] == ["'"$AID"'"]'
-okwait "GET correspondence/{id}/details reaches Published (dialog job, then the publish job)" 90 "$API/correspondence/$CID/details" \
+okwait "GET correspondence/{id}/details reaches Published (dialog job, then the publish job)" 180 "$API/correspondence/$CID/details" \
   'd["status"] == "Published"' -H "Authorization: Bearer $SENDER"
 curl -s "$LT/correspondences?resourceId=$RESOURCE" | check "inspection list has it with a dialog id and one attachment" \
   'any(c["id"] == "'"$CID"'" and c["status"] == "Published" and c["dialogId"] and c["attachmentCount"] == 1 for c in d["items"])'
@@ -159,9 +160,9 @@ curl -s "$LT/correspondences/$CID" | check "inspection detail: statuses Initiali
   '[s["status"] for s in d["statusHistory"]][:3] == ["Initialized", "ReadyForPublish", "Published"] and d["jobs"] and not any(j["state"] == "Failed" for j in d["jobs"])'
 
 echo "== the notification"
-okwait "the notification order is stored on the correspondence" 60 "$LT/correspondences/$CID" 'any(n["captured"] for n in d["notifications"])'
+okwait "the notification order is stored on the correspondence" 120 "$LT/correspondences/$CID" 'any(n["captured"] for n in d["notifications"])'
 CAPTURED=$(curl -s "$LT/correspondences/$CID" | field '[n["captured"] for n in d["notifications"] if n["captured"]][0]')
-okwait "the e-mail to $EMAIL is in the Notifications capture and Delivered" 60 "$CAPTURED" \
+okwait "the e-mail to $EMAIL is in the Notifications capture and Delivered" 120 "$CAPTURED" \
   'any(m["address"] == "'$EMAIL'" and m["outcome"] == "Delivered" for m in d["items"])'
 MP_ASSERTION=$(python3 -I -c 'import base64,json
 b=lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).rstrip(b"=").decode()
@@ -199,11 +200,11 @@ AAID=$(attachment "$(md5 "$TMP/applib.txt")")
 [[ "$AAID" =~ ^[0-9a-f-]{36}$ ]] && pass "POST attachment with app-lib's token answers its id ($AAID)" || fail "POST attachment with app-lib's token: $AAID"
 send -H 'Content-Type: application/octet-stream' -X POST "$API/attachment/$AAID/upload" --data-binary @"$TMP/applib.txt" | check "POST attachment/{id}/upload with app-lib's token accepted" \
   'd["attachmentId"] == "'"$AAID"'" and d["status"] in ("UploadProcessing", "Published")'
-okwait "GET attachment/{id} with app-lib's token reaches Published" 20 "$API/attachment/$AAID" 'd["status"] == "Published"' -H "Authorization: Bearer $APPLIB"
+okwait "GET attachment/{id} with app-lib's token reaches Published" 60 "$API/attachment/$AAID" 'd["status"] == "Published"' -H "Authorization: Bearer $APPLIB"
 ARESPONSE=$(correspondence smoke-applib null "$RECIPIENT" "$AAID")
 expect "POST correspondence with app-lib's token is 200 (a PDP permit for ttd on party 500006)" 200 "${ARESPONSE##*$'\n'}"
 ACID=$(printf '%s' "${ARESPONSE%$'\n'*}" | field 'd["correspondences"][0]["correspondenceId"]')
-okwait "GET correspondence/{id}/details with app-lib's token reaches Published" 90 "$API/correspondence/$ACID/details" \
+okwait "GET correspondence/{id}/details with app-lib's token reaches Published" 180 "$API/correspondence/$ACID/details" \
   'd["status"] == "Published"' -H "Authorization: Bearer $APPLIB"
 unset AS
 ADIALOG=$(curl -s "$LT/correspondences/$ACID" | field 'd["dialog"].rsplit("/", 1)[1]')
@@ -224,16 +225,16 @@ AGAIN=$(recipient -w '\n%{http_code}' -X POST "$API/correspondence/$ACID/markasr
 [[ "${AGAIN##*$'\n'}" == 400 && "$AGAIN" == *1040* ]] && pass "POST correspondence/{id}/markasread after the content is production's 400 (1040, already marked as read)" || fail "markasread after the content: ${AGAIN:0:300}"
 # The read and the download each enqueue a Dialogporten activity job; a confirm that patches the dialog while one of them
 # writes gets Dialogporten's 409 (optimistic concurrency) and answers 500, production's behaviour for a very fast user.
-okwait "  ... the opened and download activity jobs have run" 30 "$LT/correspondences/$ACID" \
+okwait "  ... the opened and download activity jobs have run" 90 "$LT/correspondences/$ACID" \
   'not any(j["state"] in ("Enqueued", "Processing", "Awaiting") for j in d["jobs"]) and {"IDialogportenService.CreateOpenedActivity", "IDialogportenService.CreateDownloadStartedActivity"} <= {j["method"] for j in d["jobs"] if j["state"] == "Succeeded"}'
 expect "POST correspondence/{id}/confirm with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X POST "$API/correspondence/$ACID/confirm")"
-okwait "  ... the status history has Read, AttachmentsDownloaded and Confirmed (the confirmation is committed by a job)" 30 "$LT/correspondences/$ACID" \
+okwait "  ... the status history has Read, AttachmentsDownloaded and Confirmed (the confirmation is committed by a job)" 90 "$LT/correspondences/$ACID" \
   '{"Read", "AttachmentsDownloaded", "Confirmed"} <= {s["status"] for s in d["statusHistory"]}'
-okwait "  ... and the dialog in Dialogporten has the opened and confirmed activities" 30 "$SO/dialogs/$ADIALOG" \
+okwait "  ... and the dialog in Dialogporten has the opened and confirmed activities" 90 "$SO/dialogs/$ADIALOG" \
   'any("Opened" in a["type"] for a in d["activities"]) and any("Confirmed" in a["type"] for a in d["activities"])' -H "Authorization: Bearer $DPSO"
 expect "DELETE correspondence/{id}/purge with the dialog token is 200" 200 "$(code -H "Authorization: Bearer $DIALOG_TOKEN" -X DELETE "$API/correspondence/$ACID/purge")"
 curl -s "$LT/correspondences/$ACID" | check "  ... status PurgedByRecipient" 'd["status"] == "PurgedByRecipient"'
-okwait "  ... and the dialog is deleted in Dialogporten" 30 "$SO/dialogs/$ADIALOG" 'd.get("deletedAt") or d.get("status") == 404 or d.get("status") == 410' -H "Authorization: Bearer $DPSO"
+okwait "  ... and the dialog is deleted in Dialogporten" 90 "$SO/dialogs/$ADIALOG" 'd.get("deletedAt") or d.get("status") == 404 or d.get("status") == 410' -H "Authorization: Bearer $DPSO"
 
 echo "== the recipient as an API user on the service owner's correspondence: fetch, then mark as read"
 DIALOG_TOKEN=$(curl -s -H "Authorization: Bearer $USER_TOKEN" "$EU/dialogs/$DIALOG" | field 'd["dialogToken"]')
@@ -248,7 +249,7 @@ LATER=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
 SCHEDULED=$(correspondence smoke-scheduled "$LATER" "$RECIPIENT")
 expect "POST correspondence with requestedPublishTime in 5 minutes is 200" 200 "${SCHEDULED##*$'\n'}"
 SID=$(printf '%s' "${SCHEDULED%$'\n'*}" | field 'd["correspondences"][0]["correspondenceId"]')
-okwait "  ... ReadyForPublish once its dialog exists" 60 "$API/correspondence/$SID/details" 'd["status"] == "ReadyForPublish"' -H "Authorization: Bearer $SENDER"
+okwait "  ... ReadyForPublish once its dialog exists" 120 "$API/correspondence/$SID/details" 'd["status"] == "ReadyForPublish"' -H "Authorization: Bearer $SENDER"
 curl -s "$LT/jobs?state=Scheduled" | check "  ... and jobs?state=Scheduled lists its publish job" 'any("'"$SID"'" in " ".join(j["arguments"]) for j in d["items"])'
 expect "  ... the sender purges it (200)" 200 "$(code -H "Authorization: Bearer $SENDER" -X DELETE "$API/correspondence/$SID/purge")"
 curl -s "$LT/correspondences/$SID" | check "  ... status PurgedByAltinn" 'd["status"] == "PurgedByAltinn"'
