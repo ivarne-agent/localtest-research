@@ -437,6 +437,9 @@ Small items from `localtest/reviews/` and the components' "Known gaps", each its
     healthchecks and mounts; `groups.go`'s dialogporten comment omits the adapter and overstates the memory saving.
   - `localtest/studioctl/UPSTREAM.md` names only the older fork branch; the current one is
     `feat/studioctl-localtest-v2-stack` (pinned at sha-55ce57f, lacking the Correspondence and Profile commits).
+  - Correspondence smoke test (seen 2026-10-21 on the pinned images): the first run after `env up` fails one check on
+    Hangfire job timing ("reaches Published" once, "the opened and download activity jobs have run" once); the
+    second run passes 64 of 64. Raise the waits so the first run passes.
 
 ## 13. studioctl integration leftovers
 
