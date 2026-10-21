@@ -12,7 +12,11 @@
   ("baseline, unmodified"). It is never amended.
 - Everything after the baseline is our change to upstream. There is no `#if LOCALTEST` here: this code is meant to be
   upstreamed as-is, so changes are ordinary commits. The first one is the localtest-v2 runtime (`7e3f1cd`, upstream
-  commit `43be33f73e`, also branch `feat/studioctl-localtest-v2` on `ivarne-agent/altinn-studio`).
+  commit `43be33f73e`, also branch `feat/studioctl-localtest-v2` on `ivarne-agent/altinn-studio`). The later ones
+  (the Resource Registry, Notifications and Profile components, the Dialogporten group, the group table and the
+  receipt and correspondence groups, the 503 front door, the Dialogporten adapter, provisioning step 5, `env logs -c`
+  for a stopped container, the image pins) are listed by `git log --oneline 3ecc3fb..HEAD -- localtest/studioctl/src`;
+  [`README.md`](README.md) "What the localtest-v2 change adds" describes the result file by file.
 
 ## Regenerating the upstream patch
 
@@ -25,8 +29,8 @@ git -C <monorepo> checkout -b <branch> origin/main
 git -C <monorepo> apply -3 --index < studioctl.patch
 ```
 
-The localtest-v2 output was checked to reverse-apply cleanly on the monorepo branch, so it is byte-identical to the
-upstream commit. To upstream a single commit instead of the whole range, use `git diff ... <commit>^ <commit>`.
+The output for `7e3f1cd` alone was checked to reverse-apply cleanly on the monorepo branch, so that commit is
+byte-identical to the upstream commit; the commits after it were not checked against any upstream branch. To upstream a single commit instead of the whole range, use `git diff ... <commit>^ <commit>`.
 
 ## Syncing to a newer upstream commit
 
