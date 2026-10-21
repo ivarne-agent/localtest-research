@@ -103,3 +103,32 @@ Every login path through the front door with curl (no `Secure` in any `Set-Cooki
 Arbeidsflate inbox login and logout, Correspondence's attachment download from the inbox, Receipt's sign-in round
 trip, the localtest app's `/Home` cookies, and a grep of `Set-Cookie` through the front door across the smoke tests
 that finds `Secure` nowhere except on an app's `keepAlive`.
+
+## Verified on the stack (2026-10-22, phase 2)
+
+Images built from this branch: `--dev authentication --dev localtest --dev correspondence --dev arbeidsflate` (both
+Arbeidsflate Dockerfiles apply patch 0003 in their `source` stage), the rest at the pin `sha-7f21882`.
+
+- **Every login path through the front door** (`/home/agent/code/.scripts/cookie-capture.sh`, curl, each redirect
+  followed by hand): the picker sign-in, `/Home/LogInTestUser`, `localtest/api/authentication/token`, Arbeidsflate's
+  `/api/login` through `authorize` for `arbeidsflate-localtest` to `/api/cb` and its `/api/logout`, Receipt's sign-in
+  round trip, Correspondence's challenge for `correspondence-localtest` to `idporten-callback`, and `openid/logout`:
+  32 `Set-Cookie` headers, none with `Secure`.
+- **The components' own ports**: Authentication (8021), Correspondence (8033) and Arbeidsflate's nginx (8037) send the
+  same cookie attributes as the front door passes on, without `Secure` (the new smoke checks).
+- **Arbeidsflate in Chromium**: the inbox login as Sophie Salt, the inbox with its dialogs
+  (`../components/arbeidsflate/docs/cookies-inbox.png`), every cookie `Secure=false` in the browser's store, the
+  `arbeidsflate` session unchanged across a reload and `/api/isAuthenticated` 200 (the login loop the forged
+  `X-Forwarded-Proto` used to prevent does not return), a Correspondence attachment downloaded from a dialog, and the
+  logout (the old session then answers 401).
+- **App routes (A2)**: `GET /ttd/frontend-test/api/authentication/keepAlive` (`studioctl run`) through the front door
+  answers `AltinnStudioRuntime` without `Secure`; the same request on the app's own port carries `Secure`.
+- **Platform regression**: 44 of 44 on the default stack with the four dev images and three apps under
+  `studioctl run --dev-frontend` (with `--with everything` as well, Cypress was killed by the OOM killer on this
+  7.8 GB machine).
+- **Smoke tests on `--with everything`**: root 26, Arbeidsflate 59, Authentication 34, Authorization 31,
+  Correspondence 81 (with the restart), Dialogporten adapter 39, Dialogporten 60, Notifications 64, Profile 52,
+  Receipt 27, Register 14, Resource Registry 43, shared 10 (with `Cookies.Smoke`), workflow engine 3, all passing.
+  Events 27 of 27 on its own; run right after the Dialogporten and Correspondence suites it fails 2 count checks,
+  because their delayed `dialogporten.dialog.*` and Correspondence notification events land in Events after its reset
+  (not a cookie matter). The localtest app 64 of 66 with `PROXY_CHECKS=0`, the two known failures of task 13.
