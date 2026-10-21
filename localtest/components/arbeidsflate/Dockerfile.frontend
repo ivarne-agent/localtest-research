@@ -1,0 +1,71 @@
+# Arbeidsflate's SPA (Altinn/dialogporten-frontend, packages/frontend) built from the vendored tree with the localtest
+# patches and served by nginx, which also proxies /api/ to the BFF (upstream's traefik does that split).
+# Build context: the component folder (localtest/components/arbeidsflate).
+#
+# Mirrors vendor/packages/frontend/Dockerfile (the upstream one) line for line: the Node build stage (`pnpm --filter
+# frontend run build`, BUILD_VERSION only renames the assets), then nginx with envsubst and start.sh, which writes the
+# three runtime values into index.html. Every difference is marked "localtest:". When re-pinning, diff that file,
+# packages/frontend/nginx.conf and start.sh against the previous pin and carry the changes over here and into
+# nginx/nginx.conf (see vendor/UPSTREAM.md).
+
+# localtest: the source stage of Dockerfile.bff, identical, so both images build from the same patched tree.
+FROM docker.io/library/node:24.15.0-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS source
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY vendor/ .
+COPY patches/ /patches/
+RUN git apply --check -p1 /patches/*.patch && git apply -p1 /patches/*.patch
+
+# localtest: upstream's node:24.15.0-slim pinned by digest (2026-10-21), as in Dockerfile.bff.
+FROM docker.io/library/node:24.15.0-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS build
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Accept build version as build argument
+ARG BUILD_VERSION
+ENV BUILD_VERSION=${BUILD_VERSION}
+
+WORKDIR /app
+# localtest: upstream has `COPY . .` with the repository root as the context; here the patched tree from the source stage.
+COPY --from=source /app .
+
+# localtest: upstream installs the whole workspace; this installs the frontend and the workspace packages it depends on
+# (bff-types-generated, whose install script generates the types the build needs). A pure build-time change: this stage
+# is discarded and the nginx stage gets the same dist/ (checked 2026-10-21: the filtered install builds). The CA export
+# is Dockerfile.bff's.
+RUN if [ -r /run/agent/tls/ca-bundle.pem ]; then export NODE_EXTRA_CA_CERTS=/run/agent/tls/ca-bundle.pem; fi; \
+    pnpm install --frozen-lockfile --filter 'frontend...'
+RUN pnpm --filter frontend run build
+
+# `EXPOSE`, `ENV` and `CMD` in this stage is only used for dev
+EXPOSE 80
+ENV PORT=80
+CMD ["pnpm", "--filter", "frontend", "run", "dev", "--host", "0.0.0.0"]
+
+# ---
+
+# localtest: upstream's floating nginx:1.25-alpine pinned by the digest it had on 2026-10-21; bump it on a re-pin.
+FROM docker.io/library/nginx:1.25-alpine@sha256:516475cc129da42866742567714ddc681e5eed7b9ee0b9e9c015e464b4221a00 AS nginx
+
+# Install envsubst for environment variable substitution
+RUN apk add --no-cache gettext
+
+# Copy the generated frontend build
+COPY --from=build /app/packages/frontend/dist/ /usr/share/nginx/html/
+
+# Copy nginx configuration
+# localtest: our nginx/nginx.conf, derived from upstream's packages/frontend/nginx.conf (every change commented there):
+# /api/ to the BFF with X-Forwarded-Proto https, the CSP widened to the stack's http origin, no HSTS.
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Add the startup script
+# localtest: upstream's start.sh, unchanged, from the vendored tree.
+COPY vendor/packages/frontend/start.sh /start.sh
+RUN chmod +x /start.sh
+
+# Expose port 80
+EXPOSE 80
+
+# Use the custom entrypoint script
+CMD ["/start.sh"]

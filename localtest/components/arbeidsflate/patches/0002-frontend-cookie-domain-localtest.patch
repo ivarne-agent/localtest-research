@@ -1,0 +1,18 @@
+localtest: party cookies the SPA writes (AltinnPartyId, AltinnPartyUuid) get the domain production Authentication
+sets them with in the stack, local.altinn.cloud, so the inbox and the apps share the selected party. Upstream maps
+every host it does not know to prod (.altinn.no), which a browser on af.local.altinn.cloud rejects.
+Against Altinn/dialogporten-frontend bb74dff2c425f2aff48759ed9c6370e73436545d. Both Dockerfiles apply every patch in their source stage (git apply).
+
+--- a/packages/frontend/src/auth/url.ts
++++ b/packages/frontend/src/auth/url.ts
+@@ -200,6 +200,10 @@
+ };
+ 
+ export const getCookieDomain = () => {
++  // localtest: the stack's hosts share Authentication's cookie domain (local.altinn.cloud); upstream maps them to prod
++  if (location.hostname.endsWith('.local.altinn.cloud')) {
++    return 'local.altinn.cloud';
++  }
+   const hostMap: Record<hostEnv, string> = {
+     local: 'app.localhost',
+     at23: '.at23.altinn.cloud',

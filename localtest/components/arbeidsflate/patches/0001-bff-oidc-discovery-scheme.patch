@@ -1,0 +1,53 @@
+localtest: let OIDC_PLATFORM_URL carry a scheme. Upstream puts https:// in front of it in three places (the OIDC
+plugin's and the token verifier's discovery, the /api/health check); the localtest stack serves Authentication over
+plain http on local.altinn.cloud:8000. Without a scheme the value is used as upstream does, so production's
+platform.<env>.altinn.cloud/authentication/api/v1/openid is unaffected.
+Against Altinn/dialogporten-frontend bb74dff2c425f2aff48759ed9c6370e73436545d. Both Dockerfiles apply every patch in their source stage (git apply).
+
+--- a/packages/bff/src/config.ts
++++ b/packages/bff/src/config.ts
+@@ -66,6 +66,8 @@
+   host: env.HOST,
+   hostname: env.HOSTNAME,
+   oidc_url: env.OIDC_PLATFORM_URL,
++  // localtest: a scheme in OIDC_PLATFORM_URL is kept (the localtest stack is plain http); upstream always prefixes https://
++  oidcDiscoveryUrl: `${/^https?:\/\//.test(env.OIDC_PLATFORM_URL) ? env.OIDC_PLATFORM_URL : `https://${env.OIDC_PLATFORM_URL}`}/.well-known/openid-configuration`,
+   client_id: env.OIDC_CLIENT_ID,
+   client_secret: env.OIDC_CLIENT_SECRET,
+   platformBaseURL: env.PLATFORM_BASEURL,
+--- a/packages/bff/src/auth/oidc.ts
++++ b/packages/bff/src/auth/oidc.ts
+@@ -161,8 +161,8 @@
+ };
+ 
+ const plugin: FastifyPluginAsync = async (fastify) => {
+-  const { client_id, oidc_url, hostname, client_secret } = config;
+-  const issuerURL = `https://${oidc_url}/.well-known/openid-configuration`;
++  const { client_id, hostname, client_secret } = config;
++  const issuerURL = config.oidcDiscoveryUrl;
+   const providerConfig = await fetchOpenIDConfig(issuerURL);
+ 
+   const handleFrontChannelLogout = async (request: FastifyRequest, reply: FastifyReply) => {
+--- a/packages/bff/src/auth/verifyToken.ts
++++ b/packages/bff/src/auth/verifyToken.ts
+@@ -102,8 +102,7 @@
+ };
+ 
+ const plugin: FastifyPluginAsync = async (fastify, _) => {
+-  const { oidc_url } = config;
+-  const issuerURL = `https://${oidc_url}/.well-known/openid-configuration`;
++  const issuerURL = config.oidcDiscoveryUrl;
+   const providerConfig = await fetchOpenIDConfig(issuerURL);
+ 
+   fastify.decorate('verifyToken', (allowTokenRefresh: boolean) => {
+--- a/packages/bff/src/azure/HealthChecks.ts
++++ b/packages/bff/src/azure/HealthChecks.ts
+@@ -74,7 +74,7 @@
+     checkFn: async () => {
+       try {
+         // todo: change to a URL we can use to check secret id and secret key
+-        await axios.get(`https://${config.oidc_url}/.well-known/openid-configuration`, {
++        await axios.get(config.oidcDiscoveryUrl, {
+           timeout: 30000,
+         });
+         return { status: 'ok' };

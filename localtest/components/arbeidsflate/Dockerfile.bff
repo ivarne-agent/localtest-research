@@ -1,0 +1,48 @@
+# Arbeidsflate's BFF (Altinn/dialogporten-frontend, packages/bff) built from the vendored tree with the localtest patches.
+# Build context: the component folder (localtest/components/arbeidsflate).
+#
+# Mirrors vendor/packages/bff/Dockerfile (the upstream one) line for line: the Node image, corepack and pnpm, the frozen
+# install of the whole workspace, `pnpm turbo build`, port 80 and `pnpm --filter bff run start`, which runs the TypeScript
+# sources through @swc-node/register (so the runtime image is the build stage, as upstream's). Every difference is marked
+# "localtest:". When re-pinning, diff that file against the previous pin and carry the change over here (see
+# vendor/UPSTREAM.md).
+
+# localtest: vendor/ stays upstream's tree; the patches in patches/ are applied in a stage of their own, so a patch that no
+# longer applies fails the build here, and the build stage below gets only the patched tree. The Node image has neither
+# git nor patch, hence git in this stage only.
+FROM docker.io/library/node:24.15.0-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS source
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY vendor/ .
+COPY patches/ /patches/
+RUN git apply --check -p1 /patches/*.patch && git apply -p1 /patches/*.patch
+
+# localtest: upstream's node:24.15.0-slim, pinned by the digest it had on 2026-10-21 like every other component's images;
+# bump it on a re-pin.
+FROM docker.io/library/node:24.15.0-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS build
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+WORKDIR /app
+# localtest: upstream has `COPY . .` with the repository root as the context; here the patched tree from the source stage.
+COPY --from=source /app .
+
+# localtest: a build behind a TLS-intercepting proxy (the agent sandbox) provides its CA bundle at this path; Node (corepack
+# downloading pnpm, pnpm fetching packages) only trusts it through NODE_EXTRA_CA_CERTS, exported for this step alone.
+# Elsewhere (CI) the file is absent and nothing changes.
+RUN if [ -r /run/agent/tls/ca-bundle.pem ]; then export NODE_EXTRA_CA_CERTS=/run/agent/tls/ca-bundle.pem; fi; \
+    pnpm install --frozen-lockfile
+
+# localtest: the same CA export, in case a package's build fetches anything.
+RUN if [ -r /run/agent/tls/ca-bundle.pem ]; then export NODE_EXTRA_CA_CERTS=/run/agent/tls/ca-bundle.pem; fi; \
+    pnpm turbo build
+
+ENV PORT=80
+
+EXPOSE $PORT
+# localtest: bff-start.sh, which supplies a Maskinporten client key when none is set, runs the TypeORM migrations
+# (production runs them as a separate job with this image and MIGRATION_RUN=true) and then upstream's command,
+# `pnpm --filter bff run start`.
+COPY bff-start.sh /localtest/bff-start.sh
+CMD [ "sh", "/localtest/bff-start.sh" ]

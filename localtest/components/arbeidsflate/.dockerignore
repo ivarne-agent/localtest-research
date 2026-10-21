@@ -1,0 +1,14 @@
+# Mirrors vendor/.dockerignore (upstream's), whose patterns are anchored at the repository root, with the paths under
+# vendor/. Docker anchors these the same way, so the nested packages' Markdown (the docs site's content) stays in the
+# context as upstream's. The last block is ours: a developer's install or build inside vendor/ never enters an image.
+vendor/node_modules
+vendor/build
+vendor/.git
+vendor/.gitignore
+vendor/*.md
+vendor/dist
+# localtest:
+vendor/packages/*/node_modules
+vendor/packages/*/dist
+*.md
+smoke-test.sh
