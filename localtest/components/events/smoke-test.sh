@@ -7,6 +7,7 @@
 # 27 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
 # would land after the reset and break "stored once".
 set -uo pipefail
+shopt -s lastpipe   # `inspect … | check` runs check in this shell, so a failure counts
 HERE=$(cd "$(dirname "$0")" && pwd)
 BASE=${1:-http://local.altinn.cloud:8000}
 FAIL=0
@@ -76,10 +77,13 @@ echo "== production read API"
 # registeredtime comes from upstream's column default `now() at time zone 'utc'`, right only on a Postgres session in UTC
 # (studioctl runs the stack's Postgres in UTC since task 12; under Europe/Oslo it was stored two hours early).
 expect "registeredTime within 60 s of now (UTC)" "yes" "$(inspect events | python3 -c 'import json,sys,datetime as t; now=t.datetime.now(t.timezone.utc); ages=[(now-t.datetime.fromisoformat(e["registeredTime"])).total_seconds() for e in json.load(sys.stdin)["items"]]; print("yes" if ages and all(abs(a) < 60 for a in ages) else "ages %s" % [round(a) for a in ages])')"
-# Production returns only events registered at least 30 seconds ago: the event just delivered is held back.
-curl -s "$BASE/events/api/v1/app/ttd/testapp?after=0" -H "Authorization: Bearer $ORG" | check "GET app/ttd/testapp holds back the event registered seconds ago" '"'"$ID"'" not in [e["id"] for e in d]'
+# Production returns only events up to the last one registered at least 30 seconds ago (getappevents_v2; while no event is
+# that old there is no limit at all, so the hold-back is checked with a third event published after the wait).
 sleep 31
 curl -s "$BASE/events/api/v1/app/ttd/testapp?after=0" -H "Authorization: Bearer $ORG" | check "GET app/ttd/testapp returns both events (PDP-filtered, after the 30 s delay)" 'len(d) == 2'
+publish "$(event app.instance.process.completed 500000 /org/991825827)" >/dev/null
+waitfor events 'len(d["items"]) == 3' || { echo "FAIL third event registered"; FAIL=1; }
+curl -s "$BASE/events/api/v1/app/ttd/testapp?after=0" -H "Authorization: Bearer $ORG" | check "GET app/ttd/testapp holds back the event registered seconds ago" 'len(d) == 2'
 
 echo "== reset"
 expect "DELETE events keeps subscriptions" 204 "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/events/api/localtest/events")"
@@ -87,14 +91,21 @@ inspect events | check "no events left" 'd["items"] == []'
 inspect subscriptions | check "subscriptions kept" 'len(d) == 2'
 
 echo "== Dialogporten sources are not one app (sites 4 and 5, task 12)"
-# Two dialogs on the platform host, one for ttd/testapp (its policy lets org ttd read) and one for an app with no policy.
+# Two dialogs on the platform host, one for ttd/testapp (its policy lets org ttd read) and one for an app whose policy does not.
 # Production caches org ttd's decision per dialog URL; cut to .../dialogporten/api, the second would reuse the first's Permit.
 curl -s -o /dev/null -X DELETE "$BASE/events/api/localtest/events?subscriptions=true"
 PUB=$(curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&scopes=altinn:events.publish%20altinn:events.publish.admin" | tr -d '"')
-NOPOLICY=events-smoke-nopolicy
+# The second app gets the fixture policy so org ttd may subscribe, then a copy for org skd, so its events are not
+# authorized for org ttd (the PDP's caches dropped after each push).
+OTHER=events-smoke-other
+pushpol() { sed -e "$1" -e 's/\[ORG\]/ttd/g' -e 's/\[org\]/ttd/g' -e "s/\[APP\]/$OTHER/g" -e "s/\[app\]/$OTHER/g" "$HERE/../../smoke/apps/ttd/testapp/policy.xml" \
+  | curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $STUDIO" -H 'Content-Type: application/xml' -X POST "$BASE/authorization/api/v1/policies?org=ttd&app=$OTHER" --data-binary @-
+  curl -s -o /dev/null -X POST "$BASE/authorization/api/localtest/refresh"; }
 resub() { curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $ORG" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"resourceFilter\":\"urn:altinn:resource:app_ttd_$1\"}"; }
-expect "org ttd subscribes to app_ttd_testapp and app_ttd_$NOPOLICY by resource" "201 201" "$(resub testapp) $(resub $NOPOLICY)"
+pushpol 's/x/x/' >/dev/null
+expect "org ttd subscribes to app_ttd_testapp and app_ttd_$OTHER by resource" "201 201" "$(resub testapp) $(resub $OTHER)"
 waitfor subscriptions 'len(d) == 2 and all(s["validated"] for s in d)' || { echo "FAIL subscriptions validated"; FAIL=1; }
+pushpol 's/\[ORG\]/skd/g' >/dev/null   # every rule now names org skd (org ttd itself is a subject of the read rules)
 dialog() { # app -> event id
   local id; id=$(uuid)
   curl -s -o /dev/null -X POST "$BASE/events/api/v1/events" -H "Authorization: Bearer $PUB" -H 'Content-Type: application/cloudevents+json' \
@@ -103,7 +114,7 @@ dialog() { # app -> event id
 }
 D1=$(dialog testapp)
 waitfor "events/$D1" 'd["items"][0]["status"] == "processed" and len(d["deliveries"]) == 1' || { echo "FAIL dialog event for ttd/testapp delivered"; FAIL=1; }
-D2=$(dialog $NOPOLICY)   # within the 5 s cache lifetime of the first decision
+D2=$(dialog $OTHER)   # within the 5 s cache lifetime of the first decision
 waitfor "events/$D2" 'd["items"][0]["status"] == "processed" and any(t["activity"] == "Unauthorized" for t in d["traceLog"])' || true
 inspect "events/$D2" | check "the other app's dialog event is not authorized by the first one's cached decision" \
   'any(t["activity"] == "Unauthorized" for t in d["traceLog"]) and not any(t["activity"] == "OutboundQueue" for t in d["traceLog"]) and d["deliveries"] == []'
