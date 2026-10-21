@@ -5,7 +5,7 @@ namespace Altinn.Platform.Storage.Localtest;
 /// <summary>Settings for the localtest Storage fakes, bound from <c>Localtest:Storage</c>.</summary>
 public sealed class LocaltestStorageOptions
 {
-    /// <summary>Folder that holds the file-backed blobs (a volume in compose).</summary>
+    /// <summary>Folder that holds the file-backed blobs (the <c>localtest-v2-storage-blobs</c> volume in the stack).</summary>
     public string BlobRootPath { get; set; } = "/data/blobs";
 
     /// <summary>

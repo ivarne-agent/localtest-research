@@ -19,7 +19,7 @@ public sealed class LocaltestAccessManagementOptions
     public string DatabaseName { get; set; } = "authorizationdb";
 
     /// <summary>
-    /// A connection that may create roles and databases on the shared container (the compose Postgres superuser).
+    /// A connection that may create roles and databases on the shared container (the stack's Postgres superuser).
     /// The production roles <c>platform_authorization_admin</c> and <c>platform_authorization</c>, which the
     /// migrations grant to by name, are created with <see cref="DatabasePassword"/> when they do not exist.
     /// </summary>

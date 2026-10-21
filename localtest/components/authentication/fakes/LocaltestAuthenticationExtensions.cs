@@ -33,8 +33,8 @@ public static class LocaltestAuthenticationExtensions
             : "http://local.altinn.cloud:8000/").TrimEnd('/') + "/";
 
         // URLs the browser follows use the public platform endpoint; calls this service makes itself use the
-        // internal one (in compose possibly the localtest app's service name, because containers may resolve the public host
-        // name to themselves). They are the same when running on one machine without containers.
+        // internal one (set it when a container cannot reach the public host name; studioctl maps the ingress host names to
+        // the host gateway, so it is unset there). They are the same when running on one machine without containers.
         var internalPlatform = (builder.Configuration["Localtest:Authentication:InternalPlatformEndpoint"] is { Length: > 0 } internalConfigured
             ? internalConfigured
             : platform).TrimEnd('/') + "/";

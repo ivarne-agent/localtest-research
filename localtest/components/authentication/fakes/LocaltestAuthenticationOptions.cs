@@ -10,7 +10,8 @@ public sealed class LocaltestAuthenticationOptions
     /// <summary>
     /// Base URL this service uses for its own platform calls (openid metadata, the fake ID-porten's token endpoint and
     /// metadata, register, Profile).
-    /// Defaults to <c>GeneralSettings:PlatformEndpoint</c>; in compose it is the localtest app's service name.
+    /// Defaults to <c>GeneralSettings:PlatformEndpoint</c>, which studioctl's stack uses (the compose file once set the localtest
+    /// app's service name here).
     /// </summary>
     public string? InternalPlatformEndpoint { get; set; }
 

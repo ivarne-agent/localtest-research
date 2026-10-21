@@ -3,7 +3,7 @@
 # database and the two roles upstream's README asks for (platform_events_admin as superuser, platform_events as a login
 # role, both with password "Password"). Events runs its own Yuniql migrations at startup. Idempotent, so it can also be
 # run by hand against an existing volume, where Postgres skips init scripts:
-#   podman exec -i localtest_postgres_1 sh < components/events/postgres-init/30-events.sh
+#   podman exec -i localtest-v2-postgres sh < components/events/postgres-init/30-events.sh
 set -eu
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname postgres <<'SQL'
 DO $$ BEGIN
