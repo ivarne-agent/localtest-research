@@ -4,7 +4,7 @@
 # access token, an idempotency key), subscribes the way an integrator does, and reads the outcome back from the
 # localtest inspection API. Resets the component's data first. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 22 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
+# 24 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
 # would land after the reset and break "stored once".
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -73,7 +73,11 @@ ID=$(inspect events | python3 -c 'import json,sys; print(json.load(sys.stdin)["i
 inspect "events/$ID" | check "event detail: CloudEvent, trace log and deliveries" 'd["items"][0]["cloudEvent"]["id"] == "'"$ID"'" and len(d["traceLog"]) >= 5 and len(d["deliveries"]) == 2'
 
 echo "== production read API"
-# Production returns only events registered at least 30 seconds ago.
+# registeredtime comes from upstream's column default `now() at time zone 'utc'`, right only on a Postgres session in UTC
+# (studioctl runs the stack's Postgres in UTC since task 12; under Europe/Oslo it was stored two hours early).
+expect "registeredTime within 60 s of now (UTC)" "yes" "$(inspect events | python3 -c 'import json,sys,datetime as t; now=t.datetime.now(t.timezone.utc); ages=[(now-t.datetime.fromisoformat(e["registeredTime"])).total_seconds() for e in json.load(sys.stdin)["items"]]; print("yes" if ages and all(abs(a) < 60 for a in ages) else "ages %s" % [round(a) for a in ages])')"
+# Production returns only events registered at least 30 seconds ago: the event just delivered is held back.
+curl -s "$BASE/events/api/v1/app/ttd/testapp?after=0" -H "Authorization: Bearer $ORG" | check "GET app/ttd/testapp holds back the event registered seconds ago" '"'"$ID"'" not in [e["id"] for e in d]'
 sleep 31
 curl -s "$BASE/events/api/v1/app/ttd/testapp?after=0" -H "Authorization: Bearer $ORG" | check "GET app/ttd/testapp returns both events (PDP-filtered, after the 30 s delay)" 'len(d) == 2'
 

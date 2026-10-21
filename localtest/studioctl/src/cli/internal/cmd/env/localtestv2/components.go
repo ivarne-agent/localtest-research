@@ -270,7 +270,17 @@ func postgresComponent(opts *Options) component {
 	c.env = map[string]string{
 		"POSTGRES_USER":     postgresUser,
 		"POSTGRES_PASSWORD": postgresPassword,
-		"TZ":                "Europe/Oslo",
+		// UTC, as production's Postgres: upstream column defaults such as Events' and Profile's
+		// `now() at time zone 'utc'` are only right when the session time zone is UTC.
+		"TZ": "UTC",
+	}
+	// initdb writes TZ into postgresql.conf of a new data volume only; -c also sets UTC on a volume created under the
+	// earlier Europe/Oslo setting. The first arguments repeat the image's CMD (postgres/Dockerfile).
+	c.command = []string{
+		"postgres",
+		"-c", "shared_preload_libraries=pg_stat_statements",
+		"-c", "timezone=UTC",
+		"-c", "log_timezone=UTC",
 	}
 	c.volumes = []types.VolumeMount{namedVolume(volumePostgresData, "/var/lib/postgresql")}
 	c.aliases = []string{postgresAlias}

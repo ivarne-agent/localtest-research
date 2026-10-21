@@ -13,7 +13,7 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 | `fakes/` | Compiled into the host assembly (the interfaces live there): publishers, signing keys, the startup scripts, change notifications, the webhook capture handler and the inspection API |
 | `postgres-init/30-events.sh` | Postgres init script: the `eventsdb` database and the roles upstream's README asks for (`platform_events_admin` superuser, `platform_events`), password `Password`. Copied into the stack's Postgres image (`../../postgres/Dockerfile`). Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/events/postgres-init/30-events.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (pinned Alpine images, the DbTools build that regenerates the latest migration's functions-and-procedures script, `Migration/` copied from the build stage, non-root `dotnet`); each difference is marked `localtest:` |
-| `smoke-test.sh` | Against the running stack: publish, idempotency, token checks, subscriptions with validation, delivery and capture, the production read API, reset |
+| `smoke-test.sh` | Against the running stack: publish, idempotency, token checks, subscriptions with validation, delivery and capture, `registeredTime` in UTC, the production read API with its 30-second delay, reset |
 
 ## Directive sites in `vendor/`
 
@@ -38,6 +38,18 @@ embedded scripts as `platform_events_admin`:
 
 Because this runs in `IHostedLifecycleService.StartingAsync`, the production claim loop never sees the previous
 session's events.
+
+**Time zone (2026-10-21, task 12).** Upstream's column default `registeredtime timestamptz default (now() at time zone
+'utc')` (`Migration/v0.21/01-setup-table.sql`) turns the UTC wall clock into a `timestamp` and back into a
+`timestamptz` with the session time zone, so it is right only on a server in UTC, as production's is. The stack's
+Postgres ran with `TZ=Europe/Oslo` (studioctl, and initdb copies `TZ` into `postgresql.conf`), so every event was stored
+two hours early in summer time (one in winter; seen in task 9b: `time` 19:44:05Z, `registeredTime` 17:44:13+00:00) and
+the read API's 30-second delay never held anything back. studioctl now runs the shared Postgres with `TZ=UTC` and
+`-c timezone=UTC -c log_timezone=UTC` (`localtest/studioctl/src/cli/internal/cmd/env/localtestv2/components.go`,
+`postgresComponent`), which also covers a data volume created under the old setting. The same default is in Profile
+(`created_date_time`) and Dialogporten (`current_timestamp at time zone 'utc'`), which this fixes as well; no init
+script or fake in the stack relies on Oslo time in the database. The smoke test checks `registeredTime` against the
+clock and that the read API holds back the newest event.
 
 ## Fakes (`fakes/`, namespace `Altinn.Platform.Events.Localtest`)
 
@@ -68,8 +80,8 @@ client's `AccessTokenSettings`, so the production `SigningCredentialsResolver` r
 
 The list and detail calls read the production tables with plain SQL. The production read endpoints
 (`GET events/api/v1/app/{org}/{app}`, `GET events/api/v1/events`) work as well, with their tokens and PDP filtering.
-Their 30-second delay (`registeredtime <= now() - interval '30 second'`) most likely does not hold back anything
-locally, because `registeredtime` is stored two hours early (see Known gaps; derived from the SQL, not measured).
+Their 30-second delay (`registeredtime <= now() - interval '30 second'`) holds back the newest events as in production,
+since the stack's Postgres runs in UTC (see Postgres; before 2026-10-21 it held back nothing).
 
 ## Configuration
 
@@ -120,12 +132,6 @@ Information (`Logging__LogLevel__Default`).
 - **Order of smoke tests.** `./smoke-test.sh` resets and then expects exactly its own events, so run it before
   `../dialogporten/smoke-test.sh` and `../dialogporten-adapter/smoke-test.sh`, or a few seconds after them: right after
   them a late Dialogporten event makes its "stored once" check fail (seen 2026-10-20 and 2026-10-21).
-- **`registeredTime` two hours behind UTC** (seen in task 9b on Dialogporten's events: `time` 19:44:05Z,
-  `registeredTime` 17:44:13+00:00). Likely cause, from reading the code (not tested): upstream's column default is
-  `timestamptz default (now() at time zone 'utc')` (`Migration/v0.21/01-setup-table.sql`), which turns the UTC wall
-  clock into a `timestamp` and back using the session time zone; the stack's Postgres runs with `TZ=Europe/Oslo`
-  (studioctl), so the UTC clock is read as Oslo time, two hours early in summer time and one in winter. Production's
-  Postgres runs in UTC. It also defeats the read API's 30-second delay.
 - Deliveries to Slack endpoints are recorded without their event: production wraps the event as `{ "text": … }`, so
   the record has no event id and the event's delivery counts leave it out.
 - `localhost` in a subscription endpoint is the events container itself; use `host.docker.internal` for a receiver on
