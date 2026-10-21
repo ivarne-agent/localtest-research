@@ -1,9 +1,5 @@
-using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
 using Altinn.Studio.EnvTopology;
+using Altinn.Studio.Localtest.Provisioning;
 using Altinn.Studio.StudioctlServer.Discovery;
 using Altinn.Studio.StudioctlServer.Proxy;
 
@@ -25,35 +21,33 @@ internal sealed record AppProvisionerOptions(Uri? PlatformUri, bool Enabled)
 }
 
 /// <summary>
-/// Deploys a discovered app to the localtest-v2 platform the way Altinn Studio deploys one: the application
-/// metadata and texts go to Storage, the authorization policy to the PDP, the test users to the Register, and
-/// Access Management is told the Register changed; with the optional Dialogporten group up, Dialogporten then syncs
-/// the Resource Registry's subjects and policies. The old localtest pulled all of this from the running app
-/// on every request; the production components want it pushed once, and the app is the source, so apps
-/// started from an IDE are provisioned exactly like apps started by `studioctl run`.
+/// Deploys each discovered app to the localtest-v2 platform the way Altinn Studio deploys one. The steps (test users to
+/// the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access
+/// Management's refresh, and Dialogporten's sync when its group is up) are the shared
+/// <see cref="LocaltestProvisioner"/>'s, which the Aspire package uses too; this adapter keeps what is studioctl-server's:
+/// which apps exist (the registry's discovery), where they listen (read through their own API, since discovery knows
+/// only the address, so apps started from an IDE are provisioned exactly like apps started by `studioctl run`), and
+/// whether the Dialogporten group is up (the route table).
 /// </summary>
 internal sealed class AppProvisioner
 {
     public const string HttpClientName = "app-provisioner";
 
     /// <summary>
-    /// The route `env up --with dialogporten` adds (studioctl's components.go); without the group it is not in the
-    /// route table.
+    /// The Dialogporten WebApi's component in studioctl's manifest (`internal/localtestv2/manifest/manifest.json`); its
+    /// route is enabled exactly when `env up --with dialogporten` turned the group on.
     /// </summary>
     internal const string DialogportenComponent = "dialogporten-webapi";
 
-    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
-
     private readonly AppProvisionerOptions _options;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HttpClient _client;
     private readonly BoundTopologyIndexAccessor _topology;
     private readonly ILogger<AppProvisioner> _logger;
+    private readonly LocaltestProvisioner? _provisioner;
     private readonly Dictionary<string, Uri> _provisioned = new(StringComparer.OrdinalIgnoreCase);
 
-    // Whether the running Dialogporten has synced since the last app was provisioned, and whether the last attempt failed
-    // (logged once, then retried quietly on every refresh until it answers).
+    // Whether the running Dialogporten has synced since the last app was provisioned.
     private bool _dialogportenSynced;
-    private bool _dialogportenSyncFailing;
 
     public AppProvisioner(
         AppProvisionerOptions options,
@@ -63,9 +57,19 @@ internal sealed class AppProvisioner
     )
     {
         _options = options;
-        _httpClientFactory = httpClientFactory;
+        _client = httpClientFactory.CreateClient(HttpClientName);
         _topology = topology;
         _logger = logger;
+        if (options is { Enabled: true, PlatformUri: { } platform })
+            _provisioner = new LocaltestProvisioner(
+                new LocaltestProvisionerOptions
+                {
+                    PlatformUri = platform,
+                    DialogportenRunning = () => DialogportenRunning(_topology.Current),
+                },
+                _client,
+                logger
+            );
     }
 
     public bool Enabled => _options.Enabled;
@@ -77,7 +81,7 @@ internal sealed class AppProvisioner
     /// </summary>
     public async Task Reconcile(IReadOnlyList<DiscoveredApp> apps, CancellationToken cancellationToken)
     {
-        if (!Enabled)
+        if (_provisioner is null)
             return;
 
         var current = new Dictionary<string, Uri>(StringComparer.OrdinalIgnoreCase);
@@ -91,7 +95,12 @@ internal sealed class AppProvisioner
 
             try
             {
-                await Provision(appId, baseUri, cancellationToken);
+                var result = await _provisioner.Provision(
+                    AppId.Parse(appId),
+                    new RunningAppSource(_client, baseUri),
+                    cancellationToken
+                );
+                _dialogportenSynced = result.Dialogporten == DialogportenSync.Synced;
                 _provisioned[appId] = baseUri;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -113,7 +122,7 @@ internal sealed class AppProvisioner
         {
             try
             {
-                await Deprovision(appId, cancellationToken);
+                await _provisioner.Deprovision(AppId.Parse(appId), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -131,326 +140,17 @@ internal sealed class AppProvisioner
         if (!DialogportenRunning(_topology.Current))
             _dialogportenSynced = false;
         else if (!_dialogportenSynced && _provisioned.Count > 0)
-            await SyncDialogporten("the provisioned apps", cancellationToken);
-    }
-
-    private async Task Provision(string appId, Uri appBaseUri, CancellationToken cancellationToken)
-    {
-        var (org, app) = SplitAppId(appId);
-        var platform = _options.PlatformUri ?? throw new InvalidOperationException("platform uri is required");
-        using var client = _httpClientFactory.CreateClient(HttpClientName);
-
-        var appRoot = new Uri(appBaseUri, $"/{org}/{app}/");
-        var metadata =
-            await GetBytes(client, new Uri(appRoot, "api/v1/applicationmetadata?checkOrgApp=false"), cancellationToken)
-            ?? throw new InvalidOperationException("the app returned no application metadata");
-        var policy = await GetString(client, new Uri(appRoot, "api/v1/meta/authorizationpolicy"), cancellationToken);
-        var testData = await GetBytes(client, new Uri(appRoot, "testData.json"), cancellationToken);
-        var texts = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        foreach (var language in await GetLanguages(client, appRoot, cancellationToken))
-        {
-            if (
-                await GetBytes(
-                    client,
-                    new Uri(appRoot, $"api/v1/texts/{Uri.EscapeDataString(language)}"),
-                    cancellationToken
-                ) is
-                { } text
-            )
-                texts[language] = text;
-        }
-
-        var studioToken = await GetStudioToken(client, platform, cancellationToken);
-
-        // 1. Register: the app's test users as posted (an empty body: none).
-        await Send(
-            client,
-            HttpMethod.Put,
-            new Uri(platform, $"/register/api/localtest/apps/{org}/{app}"),
-            Json(testData),
-            null,
-            cancellationToken
-        );
-
-        // 2. Storage: application metadata and texts through the production endpoints, created or replaced.
-        await CreateOrReplace(
-            client,
-            new Uri(platform, $"/storage/api/v1/applications?appId={org}/{app}"),
-            new Uri(platform, $"/storage/api/v1/applications/{org}/{app}"),
-            () => Json(metadata),
-            studioToken,
-            cancellationToken
-        );
-        foreach (var (language, text) in texts)
-        {
-            await CreateOrReplace(
-                client,
-                new Uri(platform, $"/storage/api/v1/applications/{org}/{app}/texts"),
-                new Uri(platform, $"/storage/api/v1/applications/{org}/{app}/texts/{Uri.EscapeDataString(language)}"),
-                () => Json(text),
-                studioToken,
-                cancellationToken
-            );
-        }
-
-        // 3. The PDP: the policy with Designer's placeholder replacement.
-        if (!string.IsNullOrWhiteSpace(policy))
-        {
-            var resolved = policy
-                .Replace("[ORG]", org, StringComparison.Ordinal)
-                .Replace("[org]", org, StringComparison.Ordinal)
-                .Replace("[APP]", app, StringComparison.Ordinal)
-                .Replace("[app]", app, StringComparison.Ordinal);
-            await Send(
-                client,
-                HttpMethod.Post,
-                new Uri(
-                    platform,
-                    $"/authorization/api/v1/policies?org={Uri.EscapeDataString(org)}&app={Uri.EscapeDataString(app)}"
-                ),
-                new StringContent(resolved, Encoding.UTF8, "application/xml"),
-                studioToken,
-                cancellationToken
-            );
-        }
-
-        // 3b. The Resource Registry derives the app's subjects from the pushed policy, as Designer does on deploy
-        // (anonymous endpoint; the app's own resource is computed from Storage's application list).
-        if (!string.IsNullOrWhiteSpace(policy))
-        {
-            await Send(
-                client,
-                HttpMethod.Get,
-                new Uri(
-                    platform,
-                    $"/resourceregistry/api/v1/resource/app_{Uri.EscapeDataString(org)}_{Uri.EscapeDataString(app)}/policy/subjects?reloadFromXacml=true"
-                ),
-                null,
-                null,
-                cancellationToken
-            );
-        }
-
-        // 4. Access Management keeps its own copy of parties, roles and resources.
-        await Send(
-            client,
-            HttpMethod.Post,
-            new Uri(platform, "/accessmanagement/api/localtest/refresh"),
-            null,
-            null,
-            cancellationToken
-        );
-
-        // 5. Dialogporten (optional group): the Janitor's two Resource Registry syncs and a cache clear, so the app's
-        // resource and subjects are known at once instead of after the 20-minute resource cache. After step 4 because the
-        // clear also drops the authorized-parties cache, which then reads the test users Access Management has just
-        // refreshed; after 3b because the subject sync reads what the registry derived from the policy.
-        _dialogportenSynced = false;
-        await SyncDialogporten(appId, cancellationToken);
-
-        if (_logger.IsEnabled(LogLevel.Information))
-            _logger.LogInformation(
-                "Provisioned {AppId} from {BaseUri}: metadata, {TextCount} text resource(s), policy {HasPolicy}, test data {HasTestData}",
-                appId,
-                appBaseUri,
-                texts.Count,
-                policy is not null,
-                testData is not null
-            );
+            _dialogportenSynced =
+                await _provisioner.SyncDialogporten("the provisioned apps", cancellationToken)
+                == DialogportenSync.Synced;
     }
 
     /// <summary>
-    /// Runs Dialogporten's localtest sync when the `dialogporten` group is up. The group is read from the route table
-    /// `env up` writes together with the state file's group list (and which this server already watches for the proxy):
-    /// the WebApi's route is enabled exactly when the group is on (with the group off it is written disabled, so the proxy
-    /// can answer 503), so there is no probe and no second copy of the group list.
-    /// A failure does not fail the provisioning, since Dialogporten is optional; the next refresh tries again.
+    /// Whether the `dialogporten` group is up, read from the route table `env up` writes together with the state file's
+    /// group list (and which this server already watches for the proxy): the WebApi's route is enabled exactly when the
+    /// group is on (with the group off it is written disabled, so the proxy can answer 503), so there is no probe and no
+    /// second copy of the group list.
     /// </summary>
-    private async Task SyncDialogporten(string reason, CancellationToken cancellationToken)
-    {
-        if (!DialogportenRunning(_topology.Current))
-        {
-            if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation(
-                    "Dialogporten sync for {Reason} skipped: the dialogporten group is not running",
-                    reason
-                );
-            return;
-        }
-
-        var platform = _options.PlatformUri ?? throw new InvalidOperationException("platform uri is required");
-        var uri = new Uri(platform, "/dialogporten/api/v1/localtest/sync");
-        using var client = _httpClientFactory.CreateClient(HttpClientName);
-        try
-        {
-            using var response = await client.PostAsync(uri, null, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException($"POST {uri} returned {(int)response.StatusCode}: {Truncate(body)}");
-            _dialogportenSynced = true;
-            _dialogportenSyncFailing = false;
-            if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation(
-                    "Dialogporten synced the Resource Registry for {Reason}: {Summary}",
-                    reason,
-                    DialogportenSyncSummary(body)
-                );
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            if (!_dialogportenSyncFailing)
-                _logger.LogWarning(
-                    ex,
-                    "Dialogporten sync for {Reason} failed; retrying on the next refresh (by hand: POST {Uri})",
-                    reason,
-                    uri
-                );
-            _dialogportenSyncFailing = true;
-        }
-    }
-
     internal static bool DialogportenRunning(BoundTopologyIndex topology) =>
         topology.TryGetComponentRoute(DialogportenComponent) is { Route.Enabled: true };
-
-    private static string DialogportenSyncSummary(string body)
-    {
-        try
-        {
-            using var json = JsonDocument.Parse(body);
-            var root = json.RootElement;
-            return $"{root.GetProperty("subjectResources").GetInt32()} subject-resource pair(s), "
-                + $"{root.GetProperty("resourcePolicyInformation").GetInt32()} resource policies, caches cleared";
-        }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
-        {
-            return Truncate(body);
-        }
-    }
-
-    private async Task Deprovision(string appId, CancellationToken cancellationToken)
-    {
-        var (org, app) = SplitAppId(appId);
-        var platform = _options.PlatformUri ?? throw new InvalidOperationException("platform uri is required");
-        using var client = _httpClientFactory.CreateClient(HttpClientName);
-        await Send(
-            client,
-            HttpMethod.Delete,
-            new Uri(platform, $"/register/api/localtest/apps/{org}/{app}"),
-            null,
-            null,
-            cancellationToken
-        );
-        await Send(
-            client,
-            HttpMethod.Post,
-            new Uri(platform, "/accessmanagement/api/localtest/refresh"),
-            null,
-            null,
-            cancellationToken
-        );
-        if (_logger.IsEnabled(LogLevel.Information))
-            _logger.LogInformation("Removed {AppId}'s test users from the platform", appId);
-    }
-
-    private static async Task CreateOrReplace(
-        HttpClient client,
-        Uri create,
-        Uri replace,
-        Func<HttpContent> content,
-        string token,
-        CancellationToken cancellationToken
-    )
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, create) { Content = content() };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (response.IsSuccessStatusCode)
-            return;
-
-        await Send(client, HttpMethod.Put, replace, content(), token, cancellationToken);
-    }
-
-    private static async Task Send(
-        HttpClient client,
-        HttpMethod method,
-        Uri uri,
-        HttpContent? content,
-        string? token,
-        CancellationToken cancellationToken
-    )
-    {
-        using var request = new HttpRequestMessage(method, uri) { Content = content };
-        if (token is not null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"{method} {uri} returned {(int)response.StatusCode}: {Truncate(body)}");
-        }
-    }
-
-    private static async Task<string> GetStudioToken(
-        HttpClient client,
-        Uri platform,
-        CancellationToken cancellationToken
-    )
-    {
-        var token =
-            await GetString(client, new Uri(platform, "/Home/GetTestStudioToken"), cancellationToken)
-            ?? throw new InvalidOperationException("the localtest app returned no Studio token");
-        return token.Trim().Trim('"');
-    }
-
-    private static async Task<IReadOnlyList<string>> GetLanguages(
-        HttpClient client,
-        Uri appRoot,
-        CancellationToken cancellationToken
-    )
-    {
-        var body = await GetBytes(client, new Uri(appRoot, "api/v1/applicationlanguages"), cancellationToken);
-        if (body is null)
-            return [];
-        var languages = JsonSerializer.Deserialize<List<ApplicationLanguage>>(body, _jsonOptions) ?? [];
-        return [.. languages.Select(static l => l.Language).Where(static l => !string.IsNullOrWhiteSpace(l))];
-    }
-
-    private static async Task<byte[]?> GetBytes(HttpClient client, Uri uri, CancellationToken cancellationToken)
-    {
-        using var response = await client.GetAsync(uri, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return null;
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
-    }
-
-    private static async Task<string?> GetString(HttpClient client, Uri uri, CancellationToken cancellationToken)
-    {
-        var bytes = await GetBytes(client, uri, cancellationToken);
-        return bytes is null ? null : Encoding.UTF8.GetString(bytes);
-    }
-
-    private static HttpContent Json(byte[]? body)
-    {
-        var content = new ByteArrayContent(body ?? []);
-        if (body is not null)
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        return content;
-    }
-
-    private static (string Org, string App) SplitAppId(string appId)
-    {
-        var parts = appId.Split('/', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0)
-            throw new ArgumentException($"invalid app id {appId}", nameof(appId));
-        return (parts[0], parts[1]);
-    }
-
-    private static string Truncate(string value) => value.Length <= 300 ? value : value[..300] + "...";
-
-    private sealed record ApplicationLanguage(string Language);
 }

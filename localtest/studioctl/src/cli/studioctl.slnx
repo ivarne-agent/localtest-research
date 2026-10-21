@@ -7,4 +7,8 @@
     <Project Path="common/dotnet/Altinn.Studio.AppDist/Altinn.Studio.AppDist.csproj" />
     <Project Path="common/dotnet/tests/Altinn.Studio.AppDist.Tests/Altinn.Studio.AppDist.Tests.csproj" />
   </Folder>
+  <Folder Name="/runtime-common/">
+    <Project Path="../Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/Altinn.Studio.Localtest.Provisioning.csproj" />
+    <Project Path="../Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/tests/Altinn.Studio.Localtest.Provisioning.Tests.csproj" />
+  </Folder>
 </Solution>

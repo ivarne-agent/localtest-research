@@ -61,10 +61,15 @@ reference for which behaviours the fakes must provide.
 ## What the app runner pushes
 
 In production Altinn Studio pushes an app's artefacts to the platform at deploy time; locally that is the app runner's
-job: studioctl-server's provisioner (`studioctl/src/cli/studioctl-server/Provisioning/AppProvisioner.cs`) when it
-discovers an app (started by `studioctl run` or from an IDE) and again when the app comes back on another port; an app
-that is gone has its test data removed (`DELETE register/api/localtest/apps/{org}/{app}`). `run-app.sh`, which predates
-it, does steps 1 to 4 without 3b and 5. No component watches another. For one app the runner calls, in order:
+job. The steps have one implementation, the library
+[`Altinn.Studio.Localtest.Provisioning`](studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/README.md),
+which reads the artefacts either from the app folder (`DirectoryAppSource`, the planned Aspire package's case) or from
+the running app's own API (`RunningAppSource`). studioctl-server's provisioner
+(`studioctl/src/cli/studioctl-server/Provisioning/AppProvisioner.cs`) calls it with the running app when it discovers
+an app (started by `studioctl run` or from an IDE) and again when the app comes back on another port; an app that is
+gone has its test data removed (`DELETE register/api/localtest/apps/{org}/{app}`). `run-app.sh`, which predates it,
+is kept as a shell reference for runs without studioctl and does steps 1 to 4 without 3b and 5. No component watches
+another. For one app the runner calls, in order:
 
 | Step | Endpoint | What it does |
 | --- | --- | --- |
@@ -75,7 +80,7 @@ it, does steps 1 to 4 without 3b and 5. No component watches another. For one ap
 | 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the Resource Registry component (service owners, `app_{org}_{app}` resources and their policy subjects from its `updated` feed, read from the epoch each time), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
 | 5 (optional) | `POST dialogporten/api/v1/localtest/sync`, only when the `dialogporten` group is up (studioctl-server reads it from the route table `env up` writes; skipped with a log line otherwise) | Dialogporten runs the Janitor's two production syncs (subject-resource pairs from the registry's `updated` feed, resource policy information) and clears its named caches, so the app's resource and subjects are known to Dialogporten at once instead of after its 20-minute resource cache. A failure is logged and retried on the next refresh, and does not fail the provisioning; when the group comes up after the apps, one sync runs for all of them. See `components/dialogporten/README.md` |
 
-Nothing is fetched from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
+No component fetches from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
 so an edited `testData.json` becomes visible after the next registration or refresh. Profile is not called: its KRR sync,
 organisation address sync and settings seed read the Register's test data every minute (task 14), so an app user's e-mail,
 phone number and settings reach Profile up to a minute after step 1, or at once with `POST profile/api/localtest/sync`;
