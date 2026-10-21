@@ -10,7 +10,7 @@ the localtest overrides and run on the stack's Postgres. Apps enqueue workflows 
 | `vendor/` | Unmodified upstream copy of `src/` paths (`Runtime/workflow-engine-app`, `Runtime/workflow-engine/src`, `common/dotnet/Altinn.Studio.Common` and the build files on their path) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored props/targets, define `LOCALTEST` for vendored projects only, bypass CSharpier |
 | `Dockerfile` | Mirrors upstream `Runtime/workflow-engine-app/Dockerfile` (same digest-pinned `aspnet:10.0` / `sdk:10.0` images, same restore/publish, non-root `$APP_UID`, port 9090) with the overrides; defaults `ASPNETCORE_ENVIRONMENT=Development` |
-| `smoke-test.sh` | Fresh Postgres 16 container + engine on a free port, checks `GET /api/v1/health/ready` → 200, migrations and a clean log. `./smoke-test.sh` runs the vendored host with `dotnet`; `./smoke-test.sh --image` runs the image |
+| `smoke-test.sh` | Fresh Postgres container (the stack's version, 18.3, read from `../../postgres/Dockerfile`, in UTC) + engine on a free port, checks `GET /api/v1/health/ready` → 200, migrations and a clean log. `./smoke-test.sh` runs the vendored host with `dotnet`; `./smoke-test.sh --image` runs an image, by default the monorepo's `runtime-workflow-engine-app:tt02` that studioctl runs (`IMAGE=` for another) |
 
 ## Directive sites in `vendor/`
 
@@ -45,6 +45,7 @@ stack; its Dockerfile mirrors the monorepo's, so the two images match apart from
 ## Build and test
 
 ```sh
-podman build -t localtest-workflow-engine:dev .   # from this folder
-./smoke-test.sh && ./smoke-test.sh --image
+./smoke-test.sh && ./smoke-test.sh --image                     # the vendored host, then the image studioctl runs
+podman build -t localtest-workflow-engine:dev .                 # from this folder
+IMAGE=localhost/localtest-workflow-engine:dev ./smoke-test.sh --image
 ```
