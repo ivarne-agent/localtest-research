@@ -108,7 +108,7 @@ runtime and push app routes to the localtest app's own proxy API, which studioct
 `run-platform-regression.sh --no-apps` runs the six platform specs against apps started with `studioctl run`
 (frontend-test, signering-brukerstyrt, process-transition-test). The specs test the monorepo's frontend, so start those
 apps with `studioctl run --dev-frontend` and serve the built `src/App/frontend/dist` (the frontend dev server, or any
-static server on the port `--dev-frontend` expects); with the released CDN bundle the page renders empty and every spec
+static server on the port `--dev-frontend` expects that sends `Access-Control-Allow-Origin`, since the bundle loads as a cross-origin module script); with the released CDN bundle the page renders empty and every spec
 fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` when running from a worktree.
 
 ## Tests

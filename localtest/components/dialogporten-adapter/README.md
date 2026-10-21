@@ -163,7 +163,7 @@ hosts and Redis (318, 148, 177 and 7 MB at the same moment) the group takes abou
 Stack: `studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten --dev dialogporten-adapter --dev storage`
 (the rest at the pinned `sha-a3f62a8`), images built from this branch.
 
-- `./smoke-test.sh`: 39 checks, all pass, twice in a row. The instance's dialog was there within the 10 s; after the
+- `./smoke-test.sh`: 39 checks, all pass (three runs; the last on 2026-10-21 with the final Storage image). The instance's dialog was there within the 10 s; after the
   submission its status went from `Draft` to `Awaiting` with one transmission; the receipt answered 200 `text/markdown`
   with the end user's dialog token; the delete with the token soft-deleted the instance and the dialog had `deletedAt`
   within 10 s.
@@ -171,6 +171,14 @@ Stack: `studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten 
   503 problem details with `component: dialogporten-adapter` and `group: dialogporten`, the instance got no `dialog.id`, and
   Storage logged exactly one line for it: `Dialogporten sync of instance 500000/{guid} dropped: the Dialogporten adapter is
   not running (the dialogporten group is off?): 503 from http://local.altinn.cloud:8000/storage/dialogporten/api/localtest/enqueue`.
+- Regressions with the group on (2026-10-21, same images): `../events/smoke-test.sh` 22 of 22 (run first), `../dialogporten/smoke-test.sh`
+  60 of 60, this smoke test 39 of 39, the root `../../smoke-test.sh` 23 of 23; no outbox warning in Storage's log, nothing in the
+  adapter's error queue. `../storage/smoke-test.sh` was not run: it needs ports 8000 and 5433 free (the stack down).
+- On the default stack (group off, outbox on, `--dev storage`), 2026-10-21: `./smoke-test.sh --off` 7 of 7 and
+  `../../run-platform-regression.sh --no-apps` (apps started with `studioctl run --dev-frontend`, the monorepo's built
+  `src/App/frontend/dist` served on port 8080 with `Access-Control-Allow-Origin: *`): 44 of 44 Cypress tests in the six specs, no retries.
+  The static server needs that CORS header: the app loads the bundle as a cross-origin module script, and without it every page renders
+  empty (the first attempt failed every spec for that reason).
 - Found on the way, and fixed:
   - Dialogporten refused every dialog the adapter made with 400 `'Url' is not a well-formatted HTTPS URL.` (GUI actions,
     the API action): production's validators require https and the stack is http. Fixed with one `#if !LOCALTEST` site in
