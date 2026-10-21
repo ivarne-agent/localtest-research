@@ -1,5 +1,13 @@
 # MVP sketch: one compose file, one folder per component, vendored source changed only by directives
 
+## Status (2026-10-21)
+
+The model is what every component in [`../localtest/components/`](../localtest/components/) follows, with the
+changes listed in "The model as applied (2026-10-21)" at the end: no compose file (studioctl's `localtest-v2` runtime
+runs the stack), `git archive` copies instead of subtrees, fakes compiled into the vendored host, and no fake-only
+platform components (Authentication, Profile, Events and Notifications are all vendored production code). The body
+below is the 2026-10-17 sketch; "Where the model was bent" lists the exceptions made since.
+
 Status: sketch reviewed 2026-10-17; decisions recorded at the end. Refines the vendoring model from [`register/README.md`](register/README.md).
 No Aspire anywhere: docker compose is the orchestrator, and vendored hosts that bootstrap through Aspire-style
 service defaults get a plain bootstrap under `#else`.
@@ -31,12 +39,14 @@ Rules:
 
 - `vendor/` is a subtree; the only diffs against upstream are `#if !LOCALTEST` (production first) / `#else` /
   `#endif` blocks. Nothing is deleted or moved, so `git subtree pull` keeps merging.
+  *2026-10-21: `vendor/` is a `git archive` copy with `vendor/UPSTREAM.md`, not a subtree; additive `#if LOCALTEST` blocks are allowed too (see "The model as applied").*
 - `fakes/` is a normal project next to `vendor/`. It holds every localtest replacement: in-memory repositories,
   no-op queue clients, a signing-key provider that reads the shared localtest certificate, and one
   `LocaltestOverrides.Apply(IServiceCollection, IConfiguration)` entry point that `Replace()`s registrations.
 - Components without a production counterpart worth vendoring (authentication, events, notifications, profile for
   now) are fake-only folders with their own small project and Dockerfile, in the same layout minus `vendor/`.
   They are written fresh; the current localtest source is not copied, only consulted for the behaviours apps rely on.
+  *2026-10-21: superseded: Authentication, Events, Notifications and Profile are vendored production code; no platform component is fake-only.*
 - Upstream csproj files are never edited. The props and targets files do the overriding (next section).
 - A vendored component's Dockerfile mirrors the upstream Dockerfile (same pinned base images, build steps and runtime
   user); every difference is a line marked `localtest:`, and a sync carries upstream Dockerfile changes over
@@ -203,3 +213,48 @@ NuGet, if one is published; not confirmed).
 
 Still open: analyzers pulled in by the vendored build chains, and how the compose file later maps onto studioctl's
 manifest model.
+
+## The model as applied (2026-10-21)
+
+Checked against `TODO.md`'s inherited rules, the component READMEs and their `vendor/UPSTREAM.md` files.
+
+- **Directive sites.** A change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first, unchanged) /
+  `#else` / `#endif` block, or a pure addition in `#if LOCALTEST … #endif`; everything else goes in `fakes/`. Most
+  components have only additive hooks in `Program.cs` or the host builder (Register 1, Resource Registry 2, Profile 2,
+  Correspondence 2, Dialogporten 3, Receipt 1 of 2); `#if !LOCALTEST` sites are kept for code hard-wired to
+  infrastructure or to `https` (Storage's Key Vault connect and request links, Notifications' Wolverine bootstrap,
+  the adapter's Service Bus and link builders, Events' and Authentication's https checks, Receipt's `goto`).
+- **Report before a further site.** A brief names the expected sites; one more needs a report and the owner's
+  approval first (task 2: "a third directive site in Authentication is not acceptable without a report first"; the
+  Correspondence and Profile briefs: "a third site needs a report first"). Task 7b followed it:
+  [`correspondence/party-ids.md`](correspondence/party-ids.md), then approval.
+- **Fakes compiled in.** `localtest.build.props` (selected by `DirectoryBuildPropsPath`) imports upstream's props
+  where there are any and defines `LOCALTEST`; `localtest.build.targets` adds `Compile Include="fakes/**/*.cs"` to the
+  host, which also keeps upstream's `packages.lock.json` restores working (Dialogporten's `--locked-mode`). Only the
+  Register links a separate fakes project (`fakes/Altinn.Register.Localtest/`).
+- **Copies, not subtrees.** `vendor/` is a `git archive` (or an identical `rsync`) of the pinned upstream paths,
+  committed unmodified first; `vendor/UPSTREAM.md` holds the pin, the copied paths, every directive site and the
+  re-pin steps (`localtest/tools/repin-vendor.py`). The automated check that `vendor/` is upstream plus directive
+  blocks is task 1, deferred.
+- **Dockerfiles mirror upstream.** Same base images, build steps and runtime user, every difference a `localtest:`
+  line; Correspondence pins upstream's floating tags by digest as such a deviation.
+- **The shared Maskinporten fake is copied.** One canonical source in
+  [`../localtest/components/shared/fakes/Maskinporten/`](../localtest/components/shared/README.md), copied unchanged
+  into each consumer's `fakes/` (Notifications, Dialogporten, the adapter, Correspondence); no shared build context
+  (task 4). Task 15, unapproved, would make it unnecessary upstream.
+- **Groups.** A component the default stack does not need is an optional group in studioctl's group table
+  (`localtest/studioctl/src/cli/internal/cmd/env/localtestv2/groups.go`): `dialogporten`, `receipt`, `correspondence`
+  (implies `dialogporten`) and `everything`, all off by default, `--with` and `--without` on `env up`. A route of a
+  component that is off answers `503` problem details naming the `--with` command.
+- **Orchestration.** No compose file; studioctl's `localtest-v2` runtime starts the images built by
+  `.github/workflows/images.yml`, studioctl-server is the front door and provisions apps, and the localtest app keeps
+  the fake ID-porten, Maskinporten and `/Home`.
+
+## Where the model was bent (2026-10-21)
+
+| Where | What | Why |
+| --- | --- | --- |
+| Dialogporten, Application project `FluentValidationStringExtensions.cs` (task 10) | A `#if !LOCALTEST` site added by the adapter's task in another component: `IsValidHttpsUrl` accepts `http` too | The stack is plain http, and production's validators refused every dialog the adapter built (400). It is a validation rule, not infrastructure, and lets a service owner create http links locally that production refuses (documented in `components/dialogporten/README.md`) |
+| Correspondence, `XacmlRequestFactory` (task 7b, **in progress**) | The component's first `#if !LOCALTEST` site: any 64-bit integer party id is a party id | Production guesses a party id's type by its length (8 or 10 digits) and the seed's 6-digit ids fail every PDP-checked call; renumbering the seed would break Cypress and apps' test data. Reported first ([`correspondence/party-ids.md`](correspondence/party-ids.md)), approved 2026-10-21, with an upstream fix proposed |
+| studioctl ([`../localtest/studioctl/`](../localtest/studioctl/UPSTREAM.md)) | Vendored, but changed by **ordinary commits** on top of the unmodified baseline `3ecc3fb`, no `#if LOCALTEST` | The change is meant to be upstreamed to `Altinn/altinn-studio` as-is (branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio`); the patch is regenerated with `git diff 3ecc3fb HEAD` |
+| Register | Fakes in a separate project linked by `ProjectReference`, not compiled into the host | Built first (2026-10-17), before the compiled-in pattern settled; not changed since |
