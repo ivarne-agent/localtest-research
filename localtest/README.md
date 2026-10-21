@@ -1,6 +1,7 @@
 # localtest MVP
 
-Compose-based local platform for Altinn apps, built from vendored production services and small fakes. Each
+Local platform for Altinn apps, run by studioctl's `localtest-v2` runtime ("Run it" below), built from vendored
+production services and small fakes. Each
 component runs the production source at a pinned upstream commit; local behaviour comes from `#if !LOCALTEST`
 switches and an adjacent `fakes/` folder, never from edits to the vendored code.
 Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/mvp-vendoring-model.md).
@@ -20,8 +21,9 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `components/dialogporten-adapter/` | **Optional group** (`dialogporten`, with Dialogporten): the production Dialogporten adapter. Storage's outbox (always on) hands every instance change to its anonymous `storage/dialogporten/api/localtest/enqueue`, and the production sync turns the instance into a dialog (attachments, activities, transmissions with the adapter's own receipt, delete with the dialog token) and writes `dialog.id` back. Without the group Storage logs one line per change and drops it |
 | `components/receipt/` | **Optional group** (`env up --with receipt`): production Altinn Receipt, the platform receipt for archived instances at `/receipt/{partyId}/{instanceGuid}` (the target of Dialogporten's go-to action for archived instances), reading Storage, Register and Profile with the user's cookie and a platform access token signed with the shared certificate; one fake rewrites Storage's attachment links to the public origin. Stateless, nothing provisioned. Open it on `local.altinn.cloud`, not `localhost` |
 | `components/correspondence/` | **Optional group** (`env up --with correspondence`, which also starts `dialogporten`): production Altinn Correspondence (the API host, Hangfire inside it) on a `correspondence` database in the shared Postgres, sharing Dialogporten's Redis (database 1), attachments in a file store on a volume, about 120 MB. A service owner's correspondence runs end to end on production code: the Resource Registry seed's correspondence resources, KRR (with the test data's reservations) and production Profile's lookups, a dialog in Dialogporten, the e-mail in the Notifications capture; `correspondence/api/localtest/` shows correspondences, their Hangfire jobs and the migration count. **Known gap:** every request Correspondence sends to the PDP fails (500) on the test data's 6-digit party ids, so an app's own send (app-lib's credential, the signing flow) and the recipient's dialog-token calls do not work yet (see its README) |
-| `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified |
-| `localtest/` | The localtest app, the front door on `local.altinn.cloud:8000` (C#, Native AOT), and the home of localtest features that are not a platform component. Its proxy routes by host and path prefix to the components, one route per app pushed by `run-app.sh` (`PUT localtest/api/proxy/apps/{org}/{app}`), serves the app-frontend files, answers 404 for any app path without a route, and removes `Secure` from cookies. It also hosts the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) that returns production Authentication's OIDC tokens, with `pid`, for a seeded client |
+| `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified; studioctl runs the monorepo's published image, not a build from here |
+| `components/shared/` | Source for fakes more than one component copies (the `IMaskinportenService` fake), with its own smoke test; not an image |
+| `localtest/` | The localtest app (C#, Native AOT), the home of localtest features that are not a platform component. Under studioctl it serves whatever no component route claims on `local.altinn.cloud:8000` (`/`, `/Home`, `localtest/api/`, and the 404 for an app path without a route); studioctl-server is the front door. Its own proxy (routes by host and path prefix, app routes pushed by `run-app.sh` through `PUT localtest/api/proxy/apps/{org}/{app}`, the app-frontend files, `Secure` removed from cookies) is the front door only when the app runs without studioctl. It also hosts the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) that returns production Authentication's OIDC tokens, with `pid`, for a seeded client |
 | `testdata/` | The `testData.json` format the stack reads (the Register's seed and every app's file): field reference, consumers, merge rules and the JSON Schema `test-users.schema.v3.json` |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
@@ -29,9 +31,18 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
 | `postgres/` | The shared Postgres image: Postgres 18 with every component's database init script baked in |
-| `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them |
+| `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them; they need the localtest app's own proxy as the front door, so under studioctl use `studioctl run` |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
-| `smoke-test.sh` | End-to-end check of the running stack through the proxy |
+| `run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform ("Tests" below) |
+| `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`); the stack runs studioctl's `runtime-pdf3-worker` image unless `STUDIOCTL_IMAGE_PDF3` names another |
+| `smoke-test.sh` | End-to-end check of the running stack through the front door |
+
+Host ports (loopback only; `localtestv2/components.go` in the vendored studioctl): Register 8020, Authentication 8021,
+Authorization 8022, Access Management 8023, Storage 8024, Events 8025, the localtest app 8026, Resource Registry 8027,
+the workflow engine 8028, Notifications 8029, Profile 8036, the PDF generator 5300; in the `dialogporten` group the
+WebApi 8030, GraphQL 8031, Service 8032 and the adapter 8035; Receipt 8034 (`receipt`); Correspondence 8033
+(`correspondence`). Postgres and Redis publish no port. Everything is reached through `http://local.altinn.cloud:8000`
+as well, by the route prefixes in the same file.
 
 Fakes are written fresh for this layout and reach the vendored services the way their production counterparts do: the
 picker resolves users through the Register API, and `testData.json` is Register seed data, not a file other
@@ -41,7 +52,10 @@ reference for which behaviours the fakes must provide.
 ## What the app runner pushes
 
 In production Altinn Studio pushes an app's artefacts to the platform at deploy time; locally that is the app runner's
-job (`run-app.sh` today, studioctl later). No component watches another. For one app the runner calls, in order:
+job: studioctl-server's provisioner (`studioctl/src/cli/studioctl-server/Provisioning/AppProvisioner.cs`) when it
+discovers an app (started by `studioctl run` or from an IDE) and again when the app comes back on another port; an app
+that is gone has its test data removed (`DELETE register/api/localtest/apps/{org}/{app}`). `run-app.sh`, which predates
+it, does steps 1 to 4 without 3b and 5. No component watches another. For one app the runner calls, in order:
 
 | Step | Endpoint | What it does |
 | --- | --- | --- |
@@ -57,7 +71,7 @@ so an edited `testData.json` becomes visible after the next registration or refr
 organisation address sync and settings seed read the Register's test data every minute (task 14), so an app user's e-mail,
 phone number and settings reach Profile up to a minute after step 1, or at once with `POST profile/api/localtest/sync`;
 names and ids are live. An app path the runner has not
-registered is a 404 at the proxy.
+registered is the localtest app's 404.
 
 ## Where localtest is faster than production
 
@@ -128,27 +142,30 @@ runtime and push app routes to the localtest app's own proxy API, which studioct
 (frontend-test, signering-brukerstyrt, process-transition-test). The specs test the monorepo's frontend, so start those
 apps with `studioctl run --dev-frontend` and serve the built `src/App/frontend/dist` (the frontend dev server, or any
 static server on the port `--dev-frontend` expects that sends `Access-Control-Allow-Origin`, since the bundle loads as a cross-origin module script); with the released CDN bundle the page renders empty and every spec
-fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` when running from a worktree.
+fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` (and so for `run-platform-regression.sh`, which runs
+the specs through it) when running from a worktree; the regression script's checkout argument only locates the apps.
 
 ## Tests
 
 | Command | What it checks |
 | --- | --- |
-| `./smoke-test.sh` | Through the proxy: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing) |
-| `components/authentication/smoke-test.sh` | Against the stack: the browser sign-in, both discovery documents' `end_session_endpoint`, Authentication as an OIDC provider for the seeded clients (Arbeidsflate's `authorize` through the picker and the token exchange, the code-flow helper's tokens with `pid`, `invalid_client` and `invalid_grant`, refresh rotation and reuse detection, logout through the fake ID-porten's `endsession`), and with `--with dialogporten` Dialogporten's end-user dialog list with the code-flow token (the cookie JWT refused) |
-| `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties |
-| `localtest/smoke-test.sh` | The localtest app: the proxy (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the app route API), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers) |
-| `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens |
-| `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed and synced, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, a late-pushed app known after `sync` and after `caches/clear`, the dialog's event in the Events component, GraphQL with the org token through the rewrite, CORS for Arbeidsflate, the localtest list and delete of dialogs (deletes every dialog in the stack) |
-| `components/dialogporten-adapter/smoke-test.sh` | Needs `--with dialogporten`: an instance followed from Storage's outbox to a dialog (created within 10 s with resource, party and go-to link, `dialog.id` written back; attachment after an upload; status and a transmission after the submission), the adapter's receipt and delete with the end user's dialog token from Dialogporten, idempotent `syncDialog/simple`, the refusals. `--off` checks the default stack: an instance gets no dialog and Storage logs one line |
+| `./smoke-test.sh` | Through the proxy: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing). 23 checks |
+| `components/authentication/smoke-test.sh` | Against the stack: the browser sign-in, both discovery documents' `end_session_endpoint`, Authentication as an OIDC provider for the seeded clients (Arbeidsflate's `authorize` through the picker and the token exchange, the code-flow helper's tokens with `pid`, `invalid_client` and `invalid_grant`, refresh rotation and reuse detection, logout through the fake ID-porten's `endsession`), and with `--with dialogporten` Dialogporten's end-user dialog list with the code-flow token (the cookie JWT refused). 30 checks, 32 with the `dialogporten` group |
+| `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties. 30 checks |
+| `localtest/smoke-test.sh` | The localtest app: the proxy (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the app route API), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers). 75 checks with the localtest app as the front door. Under studioctl run it with `PROXY_CHECKS=0`, which skips the 9 app-route checks (studioctl-server is the front door, see [`localtest/README.md`](localtest/README.md)): 64 of 66 passed on 2026-10-20, every identity provider and Home check among them; the front-door gaps in `../TODO.md` task 13 (no redirect for a prefix without its trailing slash, no `/app-frontend/`) fail there |
+| `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens. 43 checks (2026-10-21) |
+| `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed and synced, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, a late-pushed app known after `sync` and after `caches/clear`, the dialog's event in the Events component, GraphQL with the org token through the rewrite, CORS for Arbeidsflate, the localtest list and delete of dialogs (deletes every dialog in the stack). 60 checks |
+| `components/dialogporten-adapter/smoke-test.sh` | Needs `--with dialogporten`: an instance followed from Storage's outbox to a dialog (created within 10 s with resource, party and go-to link, `dialog.id` written back; attachment after an upload; status and a transmission after the submission), the adapter's receipt and delete with the end user's dialog token from Dialogporten, idempotent `syncDialog/simple`, the refusals. 39 checks. `--off` checks the default stack: an instance gets no dialog and Storage logs one line (7 checks). Run it before the Dialogporten smoke test, or a few seconds after it: that test's last step deletes every dialog and clears the caches, and straight after it this test's first service-owner read of the dialog answered 404 once |
 | `components/receipt/smoke-test.sh` | Needs `--with receipt` (27 checks, all pass on 2026-10-21): health, an archived instance created for party 500000 as the root smoke test does, the sign-in redirect with the receipt as `goto` and back, page, bundle and CSS, `users/current` through Profile with the platform access token, the instance with its party and attachment links rewritten to the public origin that return the bytes, the language cookie, the hidden attachment groups, 403 for user 1002 and 404 for an unknown instance, no access-token warning in the log |
-| `components/correspondence/smoke-test.sh` | Needs `--with correspondence` (46 ok and 2 `KNOWN` on 2026-10-21): health and all 69 EF migrations (in the status API and in the database), the refusals (401, 403, 400 `CORR-01036`), with a service owner's token the attachment and correspondence sequence to `Published`, the blob in the file store, a checksum mismatch, the dialog in Dialogporten, the e-mail in the Notifications capture, the notification condition check with a raw fake-Maskinporten token, an unknown recipient, the reserved person (422 `CORR-01030` alone, `Reserved` beside another recipient), the sender's refused and allowed purges, a scheduled publish and its Hangfire job, a restart; app-lib's credential and the recipient's dialog-token calls are `KNOWN` (the party-id gap) |
-| `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset |
+| `components/correspondence/smoke-test.sh` | Needs `--with correspondence` (43 ok and 2 `KNOWN` on 2026-10-21; 46 ok with `CORRESPONDENCE_RESTART=1`, which adds the restart checks): health and all 69 EF migrations (in the status API and in the database), the refusals (401, 403, 400 `CORR-01036`), with a service owner's token the attachment and correspondence sequence to `Published`, the blob in the file store, a checksum mismatch, the dialog in Dialogporten, the e-mail in the Notifications capture, the notification condition check with a raw fake-Maskinporten token, an unknown recipient, the reserved person (422 `CORR-01030` alone, `Reserved` beside another recipient), the sender's refused and allowed purges, a scheduled publish and its Hangfire job, with `CORRESPONDENCE_RESTART=1` a restart; app-lib's credential and the recipient's dialog-token calls are `KNOWN` (the party-id gap) |
+| `components/events/smoke-test.sh` | Against the stack: app events published, deduplicated, authorized and delivered; subscriptions validated; capture of external endpoints; the production read API; reset. 22 checks (2026-10-20). Not straight after the Dialogporten adapter's smoke test: its dialog's Dialogporten events arrive after this test's reset and fail "stored once" |
 | `components/notifications/smoke-test.sh` | Against the stack: orders with direct, person (incl. a KRR-reserved one), self-identified and organisation recipients (official addresses, main-unit fallback), order chains, idempotency, instant orders, cancel, inboxes, the 422 problem details, reset. 64 checks, all pass on 2026-10-21 (task 18, and task 14 against production Profile) |
 | `components/profile/smoke-test.sh` | Against the stack: health, the six migrations and the seed (`POST sync`, the KRR row, DDG Fitness's addresses from the brreg change log), the user endpoints the Register fakes served (by id, UUID and SSN, `internal/user`, `users/current`, 401/403), production semantics (`phoneNumber` from KRR, `isReserved`, the contact point lookups, the organisation lookup with the main-unit fallback), Correspondence's scoped lookups, favourites, settings (a user change survives the seed), address verification with the code from the Notifications inbox feeding `units/contactpoint/lookup`, organisation addresses through the PDP and the brreg stand-in; `PERSIST=set`/`check` around a restart. 52 checks, all pass on 2026-10-21 (task 14) |
-| `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage needs ports 8000 and 5433 free, so stop the stack first); the Register's also runs through the proxy (`smoke-test.sh http://local.altinn.cloud:8000`; 14 checks since task 14 moved the Profile checks to `components/profile/`) |
-| `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use with `run-app.sh` first |
-| `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps. 44 tests, about six minutes; all pass on 2026-10-20 and again on 2026-10-21 (task 16, default stack; task 18, schema v3 seed; task 14, production Profile). The full suite is mostly about the frontend |
+| `components/register/smoke-test.sh`, `components/storage/smoke-test.sh` | The component on its own (Storage's builds the host and needs ports 8000 and 5433 free, so stop the stack first; 15 checks); the Register's also runs through the front door (`smoke-test.sh http://local.altinn.cloud:8000`; 14 checks since task 14 moved the Profile checks to `components/profile/`) |
+| `components/workflow-engine/smoke-test.sh` | The engine on its own on a fresh Postgres container: health, migrations, a clean log (3 checks); `--image` runs an image instead of the vendored host |
+| `components/shared/smoke-test.sh` | The shared `IMaskinportenService` fake against the stack, with `UseAltinnTestOrg` on and off (2 checks) |
+| `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use first (`studioctl run --dev-frontend` under studioctl, see "Run it") |
+| `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps with `run-app.sh`, or with `--no-apps` uses apps already started with `studioctl run --dev-frontend` (see "Run it": the monorepo's built frontend served with `Access-Control-Allow-Origin`). 44 tests, about six minutes; all pass on 2026-10-20 and again on 2026-10-21 (task 16, default stack; task 18, schema v3 seed; task 14, production Profile). The full suite is mostly about the frontend |
 
 ## Status
 
@@ -156,7 +173,9 @@ Running together and verified: all components above, with sign-in, Storage, PDP 
 (signing) and authorized parties on production code. All 13 test apps in `altinn-studio/src/test/apps` run against
 the stack: 101 Cypress specs with 418 tests (run 2026-10-18), all passing except one test in process-transition-test's
 `workflow-status.ts`, which failed because there was no Events service: every publish was a 404, and the workflow
-engine throttled the app's namespace. With the events component (2026-10-19) the spec passes 19 of 19 with events on.
+engine throttled the app's namespace. With the events component (2026-10-19) the spec passes 19 of 19 with events on. The
+full suite was last run on 2026-10-20 with the localtest app as the front door (419 tests, see
+[`localtest/README.md`](localtest/README.md)); the runs recorded under studioctl are the platform regression's.
 
 With the notifications component (2026-10-20) apps and platform services that order notifications get production answers and a tester sees every message in an inbox.
 
@@ -164,6 +183,8 @@ With the correspondence group (2026-10-21) a service owner's correspondence gets
 
 With the profile component (task 14, 2026-10-21) production Profile replaces the Register's Profile fakes in the default stack (about 170 MB, healthy 3 s after start including its migrations and seed). Every suite passes on it: Profile 52, Register 14, Resource Registry 43, Authentication 30 (32 with Dialogporten), Authorization 30, Notifications 64, root 23; with `--with everything` Correspondence 43 + 2 `KNOWN`, Receipt 27, Dialogporten 60, the Dialogporten adapter 39; the platform regression 44 of 44. Memory with every group up: 4.4 GB used of 7.8 GB, 3.5 GB available (`free -m`). Behaviour changes: `phoneNumber` is the KRR mobile number, and `units/contactpoint/lookup` returns only addresses users registered for the organisation (see `components/profile/`).
 
-Not yet: the inspection GUI over the components' `api/localtest/` endpoints, the
-a way to keep the vendored copies in
-step with upstream, and the rest of the studioctl integration. All of it, with status, is in [`../TODO.md`](../TODO.md).
+Not yet: the inspection GUI over the components' `api/localtest/` endpoints (deferred); Arbeidsflate; Correspondence's
+party-id directive site for the test data's 6-digit party ids (task 7b, until it merges the known gap above stands); a
+CI check that every `vendor/` is upstream plus `LOCALTEST` blocks (`tools/repin-vendor.py` re-pins, nothing checks);
+a smoke run in CI against the stack; and the rest of the studioctl integration (upstreaming, the front-door gaps for a
+prefix without its trailing slash and for `/app-frontend/`). All of it, with status, is in [`../TODO.md`](../TODO.md).
