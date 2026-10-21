@@ -24,8 +24,8 @@ production components see the population register, the CCR and Profile:
 | Login picker (localtest app) | `register/api/localtest/test-users` | users, their parties |
 | Access Management | Register streams (production import), `test-users` (its refresh) | parties and CCR roles; Altinn 2 role codes and access packages |
 | Authorization (production PDP) | Access Management, Register, Profile | roles, access packages, parties (no file of its own) |
-| Notifications | Profile contact point lookups | persons' e-mail and mobile number, organisations' official addresses, users holding something at an organisation |
-| Correspondence (task 7) | Profile `correspondence/` lookups, KRR stand-in | as Notifications; persons' reservation |
+| Notifications | Profile contact point lookups | persons' e-mail, mobile number and reservation, organisations' official addresses; for an organisation also the addresses users registered for it in Profile (none from the test data) |
+| Correspondence | Profile `correspondence/` lookups, KRR stand-in | as Notifications; persons' reservation straight from the KRR stand-in |
 
 ## Pointing at the schema
 
@@ -94,13 +94,13 @@ warning. Legacy username self-identified users are not modelled.
 | `partyUuid` | UUID | party id zero-padded into a UUID | v1 | Register; Access Management; Profile `userUuid` |
 | `firstName`, `middleName`, `lastName` | string | `lastName` `""` | v1 | Register (name parts and display name = first, middle, last joined); Profile `party`; person lookups match `lastName` |
 | `userName` | string | none | v1 | Register (user name); Profile `userName` and lookup by user name |
-| `email` | string, e-mail | none | v1 | Profile `email` and the contact point lookups (Notifications); KRR stand-in; the identity of a self-identified user |
+| `email` | string, e-mail | none | v1 | KRR stand-in, and through it Profile's KRR mirror: Profile `email` and the contact point lookups (Notifications); the identity of a self-identified user |
 | `language` | `nb`, `nn`, `en` | `nb` | v1 | Profile `profileSettingPreference.language` (seeded once per user; a user's own change wins) |
 | `preSelectedPartyId` | integer | `0` | v2 | Profile `profileSettingPreference.preSelectedPartyId` (as above, stored by the party's UUID) |
 | `doNotPromptForParty` | boolean | `false` | v2 | Profile `profileSettingPreference.doNotPromptForParty` (as above) |
 | `telephoneNumber` | string | none | v1 | Register; the KRR stand-in's mobile number when `mobileNumber` is absent |
 | `mobileNumber` | string, `+` and 8 to 15 digits | none | v1, form tightened in v3 | KRR stand-in, and through it Profile's KRR mirror: `phoneNumber` in user profiles, the contact point lookups (Notifications' SMS) |
-| `reserved` | boolean | `false` | v3 | `test-users`; Profile's `isReserved` in `users/contactpoint/lookup` (Notifications); the KRR stand-in's `reservasjon` (Correspondence) |
+| `reserved` | boolean | `false` | v3 | `test-users`; the KRR stand-in's `reservasjon` (Correspondence), and through it Profile's KRR mirror: `isReserved` in `users/contactpoint/lookup` (Notifications) |
 | `addressStreetName`, `addressHouseNumber`, `addressHouseLetter`, `addressPostalCode`, `addressCity`, `addressMunicipalNumber`, `addressMunicipalName` | string | none | v1 | Register (residential address) |
 | `mailingAddress`, `mailingPostalCode`, `mailingPostalCity` | string | none | v1 | Register (mailing address) |
 | `partyRoles` (required) | object: party id → array of role | | v1 | Register, Access Management, login picker (below). Not Profile's `units/contactpoint/lookup` since task 14: production answers only addresses users registered for the organisation |
@@ -125,8 +125,9 @@ Reservation in KRR, the contact and reservation register, against digital commun
 Production Correspondence checks every person recipient against KRR; the Register's KRR stand-in
 (`register/api/localtest/krr/rest/v2/personer`) answers `reservasjon: "JA"` for a person with this flag and `"NEI"` for
 everyone else. Correspondence then refuses a correspondence whose only recipient is reserved (`422`, `CORR-01030`), gives a
-reserved recipient among several the status `Reserved`, and sends anyway with `ignoreReservation`. Profile's `isReserved` in `users/contactpoint/lookup` is this flag, as production
-Profile fills it from KRR, and the person's e-mail and mobile number are still returned. Production Notifications then
+reserved recipient among several the status `Reserved`, and sends anyway with `ignoreReservation`. Profile's `isReserved` in `users/contactpoint/lookup` is this flag: production
+Profile's KRR sync copies the stand-in's answer into its KRR mirror (every minute, or at once with `POST
+profile/api/localtest/sync`), as it does from KRR in production, and the person's e-mail and mobile number are still returned. Production Notifications then
 accepts an order to the person (a reserved person is not "missing contact information") and ends the notification
 `Failed_RecipientReserved` without sending anything, unless the order sets `ignoreReservation`. The flag means nothing
 for a self-identified user.
@@ -266,6 +267,11 @@ components from the pinned `sha-3c9b03f` images; Notifications unchanged):
   no conflicts.
 
 Not verified here: Correspondence and task 7's KRR stand-in reading `reserved` (the branch is not merged).
+
+Superseded 2026-10-21: task 7 merged and its smoke test checks the reserved person (`422 CORR-01030` alone, `Reserved`
+beside another recipient; `../components/correspondence/README.md`). Task 14 moved the Profile checks out of the
+Register's smoke test, which now has 14 checks; they are in `../components/profile/smoke-test.sh` (52), and Profile's
+`isReserved` comes from its KRR sync of the stand-in instead of the Register's Profile fakes.
 
 ## History
 
