@@ -104,7 +104,7 @@ STUDIOCTL_IMAGE_WORKFLOW_ENGINE=ghcr.io/altinn/altinn-studio/runtime-workflow-en
 
 `studioctl env up -r localtest-v2` runs the production platform services instead of localtest's
 emulation of them: Register, Profile, Authentication, the PDP, Access
-Management, Storage and Events, built from the
+Management, Storage, Events, the Resource Registry and Notifications, built from the
 [localtest-research](https://github.com/ivarne-agent/localtest-research) repository with small
 local stand-ins for Azure, plus a localtest app for the test-user login and the token helpers, a
 shared Postgres, and the same PDF generator and workflow engine as `localtest`. Apps run exactly as
@@ -112,7 +112,14 @@ before: `studioctl run` gives them the same platform URLs, and studioctl-server 
 `http://local.altinn.cloud:8000` itself, forwarding each platform prefix to the component behind it
 and `/{org}/{app}` to the app. When an app starts, studioctl-server deploys it to the platform the
 way Altinn Studio does: application metadata and texts to Storage, the authorization policy to the
-PDP, and the app's `testData.json` users to the Register.
+PDP, and the app's `testData.json` users to the Register; the Resource Registry and Access Management
+then pick up the app's resource, policy subjects and test users.
+
+Optional component groups are off by default: `--with dialogporten` adds Dialogporten and its adapter,
+which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;
+`--with correspondence` Correspondence, which also starts `dialogporten`; `--with everything` all of
+them. `--without <group>` leaves one out. A request for a component whose group is off answers
+`503` with the `env up` command that starts it.
 
 Only one runtime runs at a time. `env up` records which one it started, and `env down`, `env status`,
 `env logs` and `env reset` act on that one unless `-r` says otherwise.
@@ -127,7 +134,7 @@ STUDIOCTL_LOCALTEST_V2_SRC=~/code/localtest-research/localtest \
   studioctl env up -r localtest-v2 --dev storage --dev events   # or --dev all
 ```
 
-Not in localtest-v2 yet: Notifications and Correspondence (their prefixes answer 404), the
+Not in localtest-v2 yet: the
 monitoring stack and pgAdmin, container-mode apps (`run --mode container`), and `doctor` checks.
 
 ## Install from source (for contributors)
