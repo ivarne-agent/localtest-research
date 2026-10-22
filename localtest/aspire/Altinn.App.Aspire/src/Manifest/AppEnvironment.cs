@@ -131,6 +131,16 @@ internal static class AppEnvironment
             Default("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath);
             Default("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder);
             Default("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName);
+
+            // The app frontend's inbox, dialog, profile and parties links, into the local Arbeidsflate (the
+            // frontend uses a configured link on a local host and the start page otherwise). Only the stack has
+            // Arbeidsflate, and the certificate is set exactly when the app runs against it, as in studioctl. The
+            // change-and-redirect link stays unset: the stack's Access Management does not serve it.
+            var arbeidsflate = Topology.Url(Topology.ArbeidsflateHost, ingressPort);
+            Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate + "/");
+            Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate + "/inbox/{dialogId}");
+            Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate + "/profile");
+            Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate + "/profile/parties");
         }
         return values;
     }

@@ -78,6 +78,7 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		"AppSettings__AppFrontendAssetBaseUrl=http://localhost:5173",
 		"Kestrel__EndPoints__Http__Url=http://127.0.0.1:6000",
 		"OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4317",
+		"PlatformFrontendSettings__ArbeidsflateInboxUrl=",
 		"PATH=/second/value/ignored",
 		"malformed",
 		"=no-key",

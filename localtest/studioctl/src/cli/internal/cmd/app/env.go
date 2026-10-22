@@ -117,7 +117,23 @@ func (e appEnv) addRunDefaults(
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
+		e.addArbeidsflateLinks(topology)
 	}
+}
+
+// addArbeidsflateLinks points the app frontend's inbox, dialog, profile and parties links at the local
+// Arbeidsflate, which only localtest-v2 has (the certificate is set exactly when it is up). The app frontend
+// reads them from app-lib's PlatformFrontendSettings in the bootstrap response; on a local host it uses a
+// configured link and falls back to the localtest start page otherwise, so without these "back to inbox"
+// is the start page. AccessManagementChangeAndRedirectUrl stays unset: the stack's Access Management does not
+// serve reportee/changeandredirect (it is the UI backend's), so the links go to the inbox without a party
+// switch. The other members (login, logout, all forms, access management, help) keep the start page.
+func (e appEnv) addArbeidsflateLinks(topology envtopology.Local) {
+	arbeidsflate := topology.PublicBaseURL(envtopology.ComponentArbeidsflate)
+	e.setDefault("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate+"/")
+	e.setDefault("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate+"/inbox/{dialogId}")
+	e.setDefault("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate+"/profile")
+	e.setDefault("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate+"/profile/parties")
 }
 
 func (e appEnv) setDefault(key, value string) {

@@ -35,6 +35,9 @@ internal static class Topology
     /// </summary>
     public const string LegacyCertificateFile = "/accesstoken/accesstokencredentials.pfx";
 
+    /// <summary>Arbeidsflate's (the inbox's) public host.</summary>
+    public const string ArbeidsflateHost = "af." + PublicHost;
+
     /// <summary>The frontend dev server's public host.</summary>
     public const string FrontendDevServerHost = "app-frontend.local.altinn.cloud";
 
@@ -51,7 +54,7 @@ internal static class Topology
         "pdf." + PublicHost,
         "workflow-engine." + PublicHost,
         FrontendDevServerHost,
-        "af." + PublicHost,
+        ArbeidsflateHost,
         HostGatewayName,
     ];
 
