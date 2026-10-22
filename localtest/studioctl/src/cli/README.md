@@ -108,31 +108,33 @@ Management, Storage, Events, the Resource Registry and Notifications, built from
 [localtest-research](https://github.com/ivarne-agent/localtest-research) repository with small
 local stand-ins for Azure, plus a localtest app for the test-user login and the token helpers, a
 shared Postgres, and the same PDF generator and workflow engine as `localtest`. Apps run exactly as
-before: `studioctl run` gives them the same platform URLs, and studioctl-server serves
-`http://local.altinn.cloud:8000` itself, forwarding each platform prefix to the component behind it
-and `/{org}/{app}` to the app. When an app starts, studioctl-server deploys it to the platform the
-way Altinn Studio does: application metadata and texts to Storage, the authorization policy to the
-PDP, and the app's `testData.json` users to the Register; the Resource Registry and Access Management
-then pick up the app's resource, policy subjects and test users.
+before: `studioctl run` gives them the same platform URLs. The localtest app's container serves
+`http://local.altinn.cloud:8000` (the only published port), forwarding each platform prefix to the
+component behind it and `/{org}/{app}` to the app. studioctl-server registers every app it discovers
+there, one started by `studioctl run` or from an IDE, and the front door deploys it to the platform
+the way Altinn Studio does: application metadata and texts to Storage, the authorization policy to
+the PDP, and the app's `testData.json` users to the Register; the Resource Registry and Access
+Management then pick up the app's resource, policy subjects and test users. While localtest-v2 is
+up, apps listen on every interface, because the front door reaches them from its container as
+`host.docker.internal:<port>`.
 
 Optional component groups are off by default: `--with dialogporten` adds Dialogporten and its adapter,
 which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;
-`--with correspondence` Correspondence, which also starts `dialogporten`; `--with arbeidsflate` the
-Altinn inbox on `http://af.local.altinn.cloud:8000` (also `dialogporten`; `studioctl env hosts add` adds the
+`--with correspondence` Correspondence (with the Dialogporten services it depends on); `--with arbeidsflate` the
+Altinn inbox on `http://af.local.altinn.cloud:8000` (likewise; `studioctl env hosts add` adds the
 hostname); `--with everything` all of them. `--without <group>` leaves one out. A request for a component whose group is off answers
 `503` with the `env up` command that starts it.
 
 Only one runtime runs at a time. `env up` records which one it started, and `env down`, `env status`,
 `env logs` and `env reset` act on that one unless `-r` says otherwise.
 
-The localtest-v2 images are pinned to one build; `--latest` follows every build on the research
-repository's main branch, `STUDIOCTL_LOCALTEST_V2_TAG` names another build, and
-`STUDIOCTL_IMAGE_LOCALTEST_V2_<COMPONENT>` pins one image. To run a component from a checkout of the
-research repository, point `STUDIOCTL_LOCALTEST_V2_SRC` at its `localtest/` folder and build it:
+The localtest-v2 images are pinned to one build in the embedded manifest; `--latest` follows every
+build on the research repository's main branch. To run a container from source, pass the Dockerfile or
+the directory holding it (default: the current directory); studioctl builds it and runs it instead:
 
 ```sh
-STUDIOCTL_LOCALTEST_V2_SRC=~/code/localtest-research/localtest \
-  studioctl env up -r localtest-v2 --dev storage --dev events   # or --dev all
+cd ~/code/localtest-research/localtest/components/storage
+studioctl env up -r localtest-v2 --dev-storage                  # or --dev-storage=<path>, --dev storage=<path>
 ```
 
 Not in localtest-v2 yet: the

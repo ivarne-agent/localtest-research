@@ -144,8 +144,8 @@ Altinn Studio platform components.
   works the same against it. `--with dialogporten|receipt|correspondence|arbeidsflate|everything` adds optional services
   (`arbeidsflate` is the inbox on `http://af.local.altinn.cloud:8000`, which needs a hosts entry: `studioctl env hosts add`).
   Only one runtime runs at a time, and the other `env` commands follow the one last started. `--latest` runs the
-  newest images, and `--dev <component>` builds one from `STUDIOCTL_LOCALTEST_V2_SRC` (the localtest-research
-  checkout's `localtest/` folder).
+  newest images, and `--dev-<container>[=<path>]` builds one from a Dockerfile or its directory (default: the current
+  directory).
 
 ## Stop
 

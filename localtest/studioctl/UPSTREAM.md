@@ -8,9 +8,6 @@
   - `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common`: `studioctl-server.csproj` compiles its `HostBridge/**`
     and `EnvTopology/**` sources by relative path.
   - `src/Runtime/localtest/infra`: staged into the install by `src/cli/cmd/dev/main.go` during `make dev-install`.
-- Added here, not copied: `src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning` (the app provisioning
-  steps as a library, a project reference of `studioctl-server` and in `src/cli/studioctl.slnx`). It is under
-  `localtest/studioctl/src`, so the upstream patch below carries it; the sync command does not need it.
 - Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `3ecc3fb`
   ("baseline, unmodified"). It is never amended.
 - Everything after the baseline is our change to upstream. There is no `#if LOCALTEST` here: this code is meant to be
