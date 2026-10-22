@@ -819,4 +819,8 @@ app-environment golden both runners compare against; the default stack is marked
 manifest; the images workflow pushes `sha-<commit>` and whoever proved the tag bumps every entry with a small script
 and regenerates the golden (pinning some images to a floating tag is a separate decision). `--dev-<component>` takes
 the path to the Dockerfile or its directory and defaults to the current directory; the manifest carries no build
-information. The JSON Schema is dropped (the loader's test validates the file) unless the owner objects.
+information. **The JSON Schema is dropped** (owner, 2026-10-22: "just another thing to not be in sync"; the loader's
+test validates the file). **Groups and the default stack are runner code, not manifest entries** (owner: they must be
+explicit in code anyway, for the Aspire methods and the command-line arguments): each runner holds the root services of
+`default`, `dialogporten`, `receipt`, `correspondence`, `arbeidsflate` and `everything`, and the manifest's `dependsOn`
+closes them transitively; the manifest lists real services only, no imageless entries.
