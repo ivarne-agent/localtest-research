@@ -330,8 +330,8 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"                   Build a localtest-v2 container from PATH, a Dockerfile or a directory holding one",
 			"                   (default: the current directory), and run it instead of the pinned image",
 			"  --dev NAME[=PATH]  The same as --dev-NAME[=PATH] (repeatable)",
-			"  --with GROUP     Start an optional localtest-v2 component group and the groups it implies ("+groupNames+"; repeatable)",
-			"  --without GROUP  Leave out an optional localtest-v2 component group, not the groups it implies (repeatable)",
+			"  --with GROUP     Start an optional localtest-v2 group: its containers and what they depend on ("+groupNames+"; repeatable)",
+			"  --without GROUP  Leave out an optional localtest-v2 group's own containers (repeatable)",
 			"  --json           Output as JSON",
 		))
 	}
