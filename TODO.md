@@ -660,7 +660,8 @@ CDN as the template does. Publishing: a workflow on `localtest/aspire/**` runs t
 `ivarne-agent` NuGet feed on GitHub Packages with `GITHUB_TOKEN` (consumers need a `read:packages` token, documented),
 and attaches the `.nupkg` to a GitHub release for a token-free path; the sample stays on `#:project` in the repo with
 the `#:package` form shown in the README; nuget.org under Altinn's prefix is for adoption, not this repository. The
-21e brief is written when 21d's phase 2 is in (its Podman and front-door findings may change the package's shape).
+21e brief is written when 21d's phase 2 is in (its Podman and front-door findings may change the package's shape), and
+21e is dispatched without a further "dispatch" once 21d is verified and merged (owner, 2026-10-22).
 
 ## 22. app-lib honours an explicit localtest environment
 
