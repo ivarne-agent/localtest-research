@@ -89,7 +89,7 @@ func TestParseRefusesWhatTheSchemaCannotCheck(t *testing.T) {
 		}, errPlaceholderArg},
 		"alias of a component without one": {func(m map[string]any) {
 			env := asObject(componentNamed(m, "storage")["environment"])
-			env["X"] = "{{alias:register}}"
+			env["X"] = "{{alias:localtest}}"
 		}, errPlaceholderArg},
 		"unterminated placeholder": {func(m map[string]any) {
 			env := asObject(componentNamed(m, "storage")["environment"])

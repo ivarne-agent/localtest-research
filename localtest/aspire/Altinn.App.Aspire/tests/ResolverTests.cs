@@ -38,7 +38,7 @@ public sealed class ResolverTests
     [Theory]
     [InlineData("{{nope}}")]
     [InlineData("{{host:nowhere}}")]
-    [InlineData("{{alias:storage}}")]
+    [InlineData("{{alias:localtest}}")]
     [InlineData("{{port:nothing}}")]
     [InlineData("{{platform")]
     [InlineData("{{url}}")]

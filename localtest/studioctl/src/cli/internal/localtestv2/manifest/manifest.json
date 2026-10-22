@@ -232,6 +232,7 @@
       "image": { "research": "register" },
       "dev": { "context": "components/register" },
       "containerPort": 5020,
+      "networkAliases": ["register"],
       "hostPort": 8020,
       "healthPath": "/health",
       "environment": {
@@ -252,6 +253,7 @@
       "image": { "research": "profile" },
       "dev": { "context": "components/profile" },
       "containerPort": 5030,
+      "networkAliases": ["profile"],
       "hostPort": 8036,
       "healthPath": "/health",
       "environment": {
@@ -271,6 +273,7 @@
       "image": { "research": "authentication" },
       "dev": { "context": "components/authentication" },
       "containerPort": 5101,
+      "networkAliases": ["authentication"],
       "hostPort": 8021,
       "healthPath": "/health",
       "environment": {
@@ -288,6 +291,7 @@
       "image": { "research": "authorization" },
       "dev": { "context": "components/authorization" },
       "containerPort": 5070,
+      "networkAliases": ["authorization"],
       "hostPort": 8022,
       "healthPath": "/health",
       "environment": {
@@ -307,6 +311,7 @@
       "image": { "research": "storage" },
       "dev": { "context": "components/storage" },
       "containerPort": 5010,
+      "networkAliases": ["storage"],
       "hostPort": 8024,
       "healthPath": "/health",
       "environment": {
@@ -331,6 +336,7 @@
       "image": { "research": "access-management" },
       "dev": { "context": "components/access-management" },
       "containerPort": 5080,
+      "networkAliases": ["access-management"],
       "hostPort": 8023,
       "healthPath": "/health",
       "environment": {
@@ -354,6 +360,7 @@
       "image": { "research": "events" },
       "dev": { "context": "components/events" },
       "containerPort": 5080,
+      "networkAliases": ["events"],
       "hostPort": 8025,
       "healthPath": "/health",
       "environment": {
@@ -380,6 +387,7 @@
       "image": { "research": "resource-registry" },
       "dev": { "context": "components/resource-registry" },
       "containerPort": 5100,
+      "networkAliases": ["resource-registry"],
       "hostPort": 8027,
       "healthPath": "/health",
       "environment": {
@@ -405,6 +413,7 @@
       "image": { "research": "notifications" },
       "dev": { "context": "components/notifications" },
       "containerPort": 5090,
+      "networkAliases": ["notifications"],
       "hostPort": 8029,
       "healthPath": "/health",
       "environment": {
@@ -424,7 +433,7 @@
       "name": "localtest",
       "description": "The localtest app: fake ID-porten and Maskinporten, the start page and /Home test helpers; it serves whatever no component route claims.",
       "notes": [
-        "Its test-user picker and token helpers call the Register and Authentication through the public origin, as everything else does (the app's own proxy is not used here).",
+        "It calls the other components by service name (http://register/..., http://authentication/..., and the provisioning's calls) through service discovery from the services__<name>__http__0 variables, without a pass-through to DNS. Its own front door (task 26) is not used here until task 27: studioctl-server forwards to it, on 8000 inside the container (ASPNETCORE_HTTP_PORTS; the image's own port is 8080).",
         "The route with an empty prefix takes everything the other prefixes do not claim: /, /Home, /localtest/api, /app-frontend."
       ],
       "image": { "research": "localtest" },
@@ -435,8 +444,26 @@
       "environment": {
         "Localtest__PlatformEndpoint": "{{platform}}",
         "Localtest__AccessTokenCertificatePath": "{{certPath}}",
-        "Proxy__Upstreams__register": "{{url:app}}",
-        "Proxy__Upstreams__authentication": "{{url:app}}"
+        "ASPNETCORE_HTTP_PORTS": "8000",
+        "services__register__http__0": "http://{{alias:register}}:{{port:register}}",
+        "services__profile__http__0": "http://{{alias:profile}}:{{port:profile}}",
+        "services__authentication__http__0": "http://{{alias:authentication}}:{{port:authentication}}",
+        "services__authorization__http__0": "http://{{alias:authorization}}:{{port:authorization}}",
+        "services__storage__http__0": "http://{{alias:storage}}:{{port:storage}}",
+        "services__access-management__http__0": "http://{{alias:access-management}}:{{port:access-management}}",
+        "services__events__http__0": "http://{{alias:events}}:{{port:events}}",
+        "services__resource-registry__http__0": "http://{{alias:resource-registry}}:{{port:resource-registry}}",
+        "services__notifications__http__0": "http://{{alias:notifications}}:{{port:notifications}}",
+        "services__pdf3__http__0": "http://{{alias:pdf3}}:{{port:pdf3}}",
+        "services__workflow-engine__http__0": "http://{{alias:workflow-engine}}:{{port:workflow-engine}}",
+        "services__dialogporten-webapi__http__0": "http://{{alias:dialogporten-webapi}}:{{port:dialogporten-webapi}}",
+        "services__dialogporten-graphql__http__0": "http://{{alias:dialogporten-graphql}}:{{port:dialogporten-graphql}}",
+        "services__dialogporten-service__http__0": "http://{{alias:dialogporten-service}}:{{port:dialogporten-service}}",
+        "services__dialogporten-adapter__http__0": "http://{{alias:dialogporten-adapter}}:{{port:dialogporten-adapter}}",
+        "services__receipt__http__0": "http://{{alias:receipt}}:{{port:receipt}}",
+        "services__correspondence__http__0": "http://{{alias:correspondence}}:{{port:correspondence}}",
+        "services__arbeidsflate-bff__http__0": "http://{{alias:arbeidsflate-bff}}:{{port:arbeidsflate-bff}}",
+        "services__arbeidsflate__http__0": "http://{{alias:arbeidsflate}}:{{port:arbeidsflate}}"
       },
       "mounts": [
         { "kind": "certificateDir" },
@@ -449,6 +476,7 @@
       "description": "The PDF generator from the altinn-studio monorepo; studioctl runs the image its localtest runtime runs. Its host port 5300 is also what app-lib's PlatformSettings default ApiPdf2Endpoint (http://localhost:5300/pdf) names.",
       "image": { "core": "pdf3" },
       "containerPort": 5031,
+      "networkAliases": ["pdf3"],
       "hostPort": 5300,
       "healthPath": "/health/ready",
       "environment": {
@@ -465,6 +493,7 @@
       "notes": ["No collector runs in this environment; the default exporter would fail against localhost:4317, so telemetry is off."],
       "image": { "core": "workflow-engine" },
       "containerPort": 9090,
+      "networkAliases": ["workflow-engine"],
       "hostPort": 8028,
       "healthPath": "/api/v1/health/ready",
       "environment": {
@@ -506,6 +535,7 @@
       "image": { "research": "dialogporten-webapi" },
       "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.webapi" },
       "containerPort": 8080,
+      "networkAliases": ["dialogporten-webapi"],
       "hostPort": 8030,
       "healthPath": "/health/readiness",
       "containerHealthCheck": {
@@ -541,6 +571,7 @@
       "image": { "research": "dialogporten-graphql" },
       "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.graphql" },
       "containerPort": 8080,
+      "networkAliases": ["dialogporten-graphql"],
       "hostPort": 8031,
       "healthPath": "/health/readiness",
       "environment": {
@@ -556,6 +587,7 @@
       "image": { "research": "dialogporten-service" },
       "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.service" },
       "containerPort": 8080,
+      "networkAliases": ["dialogporten-service"],
       "hostPort": 8032,
       "healthPath": "/health/readiness",
       "environment": {
@@ -571,6 +603,7 @@
       "image": { "research": "dialogporten-adapter" },
       "dev": { "context": "components/dialogporten-adapter" },
       "containerPort": 5011,
+      "networkAliases": ["dialogporten-adapter"],
       "hostPort": 8035,
       "healthPath": "/health",
       "environment": {
@@ -592,6 +625,7 @@
       "image": { "research": "receipt" },
       "dev": { "context": "components/receipt" },
       "containerPort": 5060,
+      "networkAliases": ["receipt"],
       "hostPort": 8034,
       "healthPath": "/health",
       "environment": {
@@ -622,6 +656,7 @@
       "image": { "research": "correspondence" },
       "dev": { "context": "components/correspondence" },
       "containerPort": 2525,
+      "networkAliases": ["correspondence"],
       "hostPort": 8033,
       "healthPath": "/health",
       "environment": {
@@ -699,6 +734,7 @@
       "image": { "research": "arbeidsflate" },
       "dev": { "selector": "arbeidsflate", "context": "components/arbeidsflate", "dockerfile": "Dockerfile.frontend" },
       "containerPort": 80,
+      "networkAliases": ["arbeidsflate"],
       "hostPort": 8037,
       "healthPath": "/",
       "environment": {

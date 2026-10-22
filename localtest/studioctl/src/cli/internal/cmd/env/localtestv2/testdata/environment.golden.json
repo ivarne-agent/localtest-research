@@ -151,6 +151,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "register"
+        ],
         "waitForReady": true
       },
       {
@@ -199,6 +202,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "profile"
+        ],
         "waitForReady": true
       },
       {
@@ -244,6 +250,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "authentication"
         ],
         "waitForReady": true
       },
@@ -297,6 +306,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "authorization"
         ],
         "waitForReady": true
       },
@@ -352,6 +364,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "storage"
+        ],
         "waitForReady": true
       },
       {
@@ -406,6 +421,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "access-management"
         ],
         "waitForReady": true
       },
@@ -464,6 +482,9 @@
           "af.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
+        "networkAliases": [
+          "events"
+        ],
         "waitForReady": true
       },
       {
@@ -518,6 +539,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "resource-registry"
         ],
         "waitForReady": true
       },
@@ -577,6 +601,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "notifications"
+        ],
         "waitForReady": true
       },
       {
@@ -615,10 +642,28 @@
           }
         ],
         "env": [
+          "ASPNETCORE_HTTP_PORTS=8000",
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
-          "Proxy__Upstreams__authentication=http://local.altinn.cloud:8000",
-          "Proxy__Upstreams__register=http://local.altinn.cloud:8000"
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
@@ -663,6 +708,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "pdf3"
+        ],
         "waitForReady": true
       },
       {
@@ -701,6 +749,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "workflow-engine"
         ],
         "waitForReady": true
       }
@@ -1118,6 +1169,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "register"
+        ],
         "waitForReady": true
       },
       {
@@ -1171,6 +1225,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "profile"
+        ],
         "waitForReady": true
       },
       {
@@ -1221,6 +1278,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "authentication"
         ],
         "waitForReady": true
       },
@@ -1279,6 +1339,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "authorization"
         ],
         "waitForReady": true
       },
@@ -1339,6 +1402,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "storage"
+        ],
         "waitForReady": true
       },
       {
@@ -1398,6 +1464,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "access-management"
         ],
         "waitForReady": true
       },
@@ -1461,6 +1530,9 @@
           "af.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
+        "networkAliases": [
+          "events"
+        ],
         "waitForReady": true
       },
       {
@@ -1520,6 +1592,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "resource-registry"
         ],
         "waitForReady": true
       },
@@ -1584,6 +1659,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "notifications"
+        ],
         "waitForReady": true
       },
       {
@@ -1627,10 +1705,28 @@
           }
         ],
         "env": [
+          "ASPNETCORE_HTTP_PORTS=8000",
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
-          "Proxy__Upstreams__authentication=http://local.altinn.cloud:8000",
-          "Proxy__Upstreams__register=http://local.altinn.cloud:8000"
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
@@ -1675,6 +1771,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "pdf3"
+        ],
         "waitForReady": true
       },
       {
@@ -1713,6 +1812,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "workflow-engine"
         ],
         "waitForReady": true
       },
@@ -1805,6 +1907,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "dialogporten-webapi"
+        ],
         "waitForReady": true
       },
       {
@@ -1845,6 +1950,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "dialogporten-graphql"
+        ],
         "waitForReady": true
       },
       {
@@ -1884,6 +1992,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-service"
         ],
         "waitForReady": true
       },
@@ -1927,6 +2038,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-adapter"
         ],
         "waitForReady": true
       },
@@ -1986,6 +2100,9 @@
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
         ],
+        "networkAliases": [
+          "receipt"
+        ],
         "waitForReady": true
       },
       {
@@ -2044,6 +2161,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "correspondence"
         ],
         "waitForReady": true
       },
@@ -2147,6 +2267,9 @@
           "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway"
+        ],
+        "networkAliases": [
+          "arbeidsflate"
         ],
         "waitForReady": true
       }
