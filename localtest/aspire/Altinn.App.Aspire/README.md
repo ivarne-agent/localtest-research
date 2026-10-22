@@ -43,7 +43,7 @@ An app repository gets an `apphost.cs` beside its `App/` folder:
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var localtest = builder.AddAltinnLocaltest().WithGroup("dialogporten");
+var localtest = builder.AddAltinnLocaltest().WithDialogporten();
 builder.AddAltinnApp<Projects.App>(localtest);
 
 await builder.Build().RunAsync();
@@ -97,6 +97,7 @@ the `.nupkg` from a GitHub release (`aspire-v*` tags) or a workflow run's artifa
 | --- | --- |
 | `AddAltinnLocaltest(name = "localtest", configure = null)` | Adds the always-on components and the front door, returns the parent resource. It is `Running` once every component and the front door is healthy, so an app can `WaitFor` it |
 | `.WithGroup(group)` | Adds an optional group's components and those of the groups it implies (`correspondence` and `arbeidsflate` bring `dialogporten`, `everything` brings all) |
+| `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases, one per manifest group, each `WithGroup("<group>")`; a test (`GroupMethodsTests`) fails when the manifest's groups and these methods differ, so a new group needs its method |
 | `AltinnLocaltestOptions.Tag` | The research images' tag. Default: `STUDIOCTL_LOCALTEST_V2_TAG`, otherwise the manifest's pin; `latest` is pulled on every start. A per-image `STUDIOCTL_IMAGE_LOCALTEST_V2_<NAME>` (and `STUDIOCTL_IMAGE_PDF3`, `STUDIOCTL_IMAGE_WORKFLOW_ENGINE`) still wins, as with studioctl |
 | `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`; the shared test certificate is written to `certs/` there (world-readable, as studioctl does) when the AppHost starts |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
@@ -294,7 +295,7 @@ token-free way to get it. nuget.org under Altinn's prefix is for adoption, not t
 
 ## Tests
 
-`dotnet test tests -c Release` (76 tests):
+`dotnet test tests -c Release` (78 tests):
 
 - **Golden comparison** (`GoldenComparisonTests`): the resolved components against studioctl's snapshot
   `internal/cmd/env/localtestv2/testdata/environment.golden.json` (read by relative path), for the default stack and

@@ -25,7 +25,7 @@ using Altinn.App.Aspire;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var localtest = builder.AddAltinnLocaltest().WithGroup("dialogporten");
+var localtest = builder.AddAltinnLocaltest().WithDialogporten();
 builder.AddAltinnApp<Projects.App>(localtest);
 
 await builder.Build().RunAsync();

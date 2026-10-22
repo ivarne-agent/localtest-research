@@ -14,7 +14,8 @@ public static class AltinnLocaltestExtensions
     /// Adds the localtest platform: the always-on components of the localtest-v2 manifest as persistent containers
     /// (the images, environment, ports, volumes and certificate studioctl runs), and a YARP front door on
     /// <c>http://local.altinn.cloud:8000</c> with the manifest's routes. Optional groups come from
-    /// <see cref="AltinnLocaltestOptions.Groups" /> or <see cref="WithGroup" />.
+    /// <see cref="AltinnLocaltestOptions.Groups" />, <see cref="WithGroup" /> or a typed alias such as
+    /// <see cref="WithDialogporten" />.
     /// </summary>
     /// <param name="builder">The AppHost's builder.</param>
     /// <param name="name">The parent resource's name.</param>
@@ -100,6 +101,56 @@ public static class AltinnLocaltestExtensions
         builder.Resource.Stack.AddGroups([group]);
         return builder;
     }
+
+    // One typed alias per manifest group; GroupMethodsTests keeps the set equal to the manifest's groups.
+
+    /// <summary>
+    /// Enables the <c>dialogporten</c> group: Dialogporten's WebApi, GraphQL and Service hosts, its Redis, and the
+    /// adapter that turns Storage's instances into dialogs. Implies no other group.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithDialogporten(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup("dialogporten");
+
+    /// <summary>
+    /// Enables the <c>receipt</c> group: the platform receipt for archived instances. Implies no other group.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithReceipt(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup("receipt");
+
+    /// <summary>
+    /// Enables the <c>correspondence</c> group: Altinn Correspondence. Also brings Dialogporten (the
+    /// <c>dialogporten</c> group), which its publish needs.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithCorrespondence(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup("correspondence");
+
+    /// <summary>
+    /// Enables the <c>arbeidsflate</c> group: Arbeidsflate, the Altinn inbox (the SPA and its BFF) on
+    /// <c>af.local.altinn.cloud</c>. Also brings Dialogporten (the <c>dialogporten</c> group), whose dialogs it shows.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithArbeidsflate(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup("arbeidsflate");
+
+    /// <summary>
+    /// Enables the <c>everything</c> group, which owns no components and brings every other group.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithEverything(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup("everything");
 
     private static async Task ReportWhenHealthyAsync(InitializeResourceEvent e, CancellationToken cancellationToken)
     {

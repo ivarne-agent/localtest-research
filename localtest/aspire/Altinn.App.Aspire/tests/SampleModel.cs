@@ -7,7 +7,7 @@ using Yarp.ReverseProxy.Configuration;
 namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
-/// The sample AppHost's model (<c>AddAltinnLocaltest().WithGroup("dialogporten")</c> and
+/// The sample AppHost's model (<c>AddAltinnLocaltest().WithDialogporten()</c> and
 /// <c>AddAltinnApp&lt;Projects.App&gt;(localtest)</c>), built and not run.
 /// </summary>
 internal sealed class SampleModel
@@ -38,9 +38,7 @@ internal sealed class SampleModel
         var builder = DistributedApplication.CreateBuilder(
             new DistributedApplicationOptions { Args = [], DisableDashboard = true }
         );
-        var localtest = builder
-            .AddAltinnLocaltest(configure: o => o.DataDirectory = DataDirectory)
-            .WithGroup("dialogporten");
+        var localtest = builder.AddAltinnLocaltest(configure: o => o.DataDirectory = DataDirectory).WithDialogporten();
         var app = withApp ? builder.AddAltinnApp<SampleAppProject>(localtest, configure: configureApp) : null;
         return new SampleModel(builder, localtest, app);
     }
