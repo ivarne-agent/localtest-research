@@ -3,7 +3,7 @@
   "org": "ttd",
   "title": { "nb": "Testapp (pushed)" },
   "dataTypes": [
-    { "id": "model", "allowedContentTypes": ["application/xml"], "appLogic": { "autoCreate": true, "classRef": "Altinn.App.Models.Model" }, "taskId": "Task_1", "maxCount": 1, "minCount": 1 },
+    { "id": "model", "allowedContentTypes": ["application/xml"], "appLogic": { "autoCreate": true, "classRef": "Altinn.App.Models.Model" }, "taskId": "Task_1", "enablePdfCreation": false, "maxCount": 1, "minCount": 1 },
     { "id": "attachment", "allowedContentTypes": ["text/plain", "application/pdf"], "taskId": "Task_1", "maxCount": 5, "minCount": 0, "enableFileScan": true }
   ],
   "partyTypesAllowed": { "bankruptcyEstate": false, "organisation": true, "person": true, "subUnit": false }
