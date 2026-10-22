@@ -116,8 +116,11 @@ Adding a component:
    order). Give it a `description`, an `image` (a research image
    is named like the component and built by `.github/workflows/images.yml`), a `dev` build if it is built from this
    repository, a free `hostPort` in 8020 to 8039 and a `healthPath` if it serves HTTP, and `routes` if the browser or
-   another component reaches it through the front door. Reach other components through `{{platform}}` (the public
-   origin); only Postgres and Redis are reached on the network, by `{{alias:...}}:{{port:...}}`.
+   another component reaches it through the front door, and `networkAliases` equal to its name if it serves HTTP. Reach
+   other components through `{{platform}}` (the public origin); only Postgres and Redis are reached on the network, by
+   `{{alias:...}}:{{port:...}}`, and the localtest app, which gets `services__<name>__http__0 =
+   http://{{alias:<name>}}:{{port:<name>}}` for every HTTP component (task 26: its calls and its own front door go by
+   service name; add the new component there too). Environment names may hold hyphens for those variables.
 2. A database: an init script in the component's `postgres-init/`, a `COPY` line in `localtest/postgres/Dockerfile` and
    the same pair in `postgres.initScripts`.
 3. A named volume: list it in `volumes` first.

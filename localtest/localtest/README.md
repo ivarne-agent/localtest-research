@@ -1,14 +1,21 @@
 # localtest
 
-The localtest app: the home of the localtest features that are not a platform component, and the front door when the
-stack runs without studioctl. Under studioctl's `localtest-v2` runtime studioctl-server is the front door and sends this
-app only what no component route claims (see "Proxy" below).
-A small ASP.NET app published with Native AOT: one 16 MB binary on `runtime-deps`, a 34 MB image, no .NET runtime.
-Each feature keeps its own code folder and its own API under `localtest/api/{feature}/`.
+The localtest app: the stack's front door, and the home of the localtest features that are not a platform component.
+A small ASP.NET app published with Native AOT: one binary on `runtime-deps`, no .NET runtime, a 36.5 MB image
+(34.8 MiB; 35.5 MB before task 26). Each feature keeps its own code folder and its own API under `localtest/api/{feature}/`.
+
+**One front door for both runtimes (task 26).** The proxy routes by host and path prefix to the platform services by
+their service names, answers a `503` for a service that is not running, strips `Secure` from an app's cookies, and
+takes one registration call per app that routes and provisions it. studioctl and the Aspire package are meant to run
+it as their only front door, publishing the public port 8000 onto the container's 8080; that switch is task 27. Until
+then studioctl-server (under `studioctl env up -r localtest-v2`) and the Aspire package's YARP container stay the front
+door on 8000 with their own route tables and provisioning, and send this app only what no component route claims
+(`/`, `/Home`, `localtest/api/…`), so its proxy is dormant behind them; it is the front door when the stack runs
+without either, and it can be reached directly on its container port (phase 2 of task 26 publishes it as 8001).
 
 | Feature | Folder | API |
 | --- | --- | --- |
-| Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform components and the apps the app runner has registered. Replaced the nginx ingress on 2026-10-19 with the same contract. Not the front door under studioctl | `Proxy/` | `localtest/api/proxy/` |
+| Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform services by name and onto the registered apps; the 503s; the app registration with provisioning; the frontend dev server's route | `Proxy/`, `Provisioning/` | `localtest/api/apps/`, `localtest/api/routes/` |
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
@@ -16,54 +23,83 @@ Each feature keeps its own code folder and its own API under `localtest/api/{fea
 
 | File | What |
 | --- | --- |
-| `Program.cs` | Composition: dedicated hosts first, then the app-frontend files, routing, the features' endpoints, the catch-all forwarder |
+| `Program.cs` | Composition: service discovery (core and configuration provider), dedicated hosts first, then the app-frontend files, routing, the features' endpoints, the catch-all forwarder |
 | `LocaltestSettings.cs` | Settings the features share: the public `Localtest:PlatformEndpoint` and the shared test certificate's path |
 | `Tokens/` | `SigningKey.cs`: RS256 keys (generated, or the shared certificate's), JWKS and a hand-written JWT writer, used by the identity features; `TokenErrorResponse.cs`, the token endpoint error both fakes answer |
 | `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `AuthorizationCodes.cs`, `TestUsers.cs` (the register's test users, also used by Home), `AuthLevels.cs` |
 | `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, token endpoint, minting) |
-| `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`) |
+| `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`), `StudioToken.cs` (Designer's token, for `/Home/GetTestStudioToken` and the provisioning) |
 | `Authentication/` | `AuthenticationApi.cs` (endpoints), `CodeFlow.cs` (the code flow over HTTP), `SeededClients.cs` (the seeded clients' ids, secrets and redirect URIs) |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
-| `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts, exact paths and path prefixes, and the upstream addresses |
-| `Proxy/AppRoutes.cs`, `Proxy/AppRoutesApi.cs` | The app routes and the API the app runner pushes them through |
-| `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (the forwarding core the old localtest also uses), and the transform (original `Host`; `Secure` removed from an app's cookies) |
-| `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`) |
-| `smoke-test.sh` | Against the running stack: the proxy's routing contract and its app route API, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 75 checks; `PROXY_CHECKS=0` skips the 9 app-route checks, for studioctl (below) |
+| `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts and path prefixes to service names, the rewrite, the optional groups for the hints, the public host names |
+| `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (platform routes through service discovery's handler), the transform (original `Host`; the rewrite; `Secure` removed from an app's cookies), and the error path |
+| `Proxy/ComponentUnavailable.cs`, `Proxy/ServiceCalls.cs` | The 503 problem details and page ("not running", "not answering"), and how a call to a name without an address fails |
+| `Proxy/AppRoutes.cs`, `Proxy/DevServerRoute.cs`, `Proxy/RoutesApi.cs` | The registered apps (with their last provisioning) and the frontend dev server, saved on `/data`, and the API the runners use |
+| `Provisioning/` | The deploy steps, copied from studioctl's provisioning library (`AppId.cs` says what changed): `LocaltestProvisioner.cs`, `RunningAppSource.cs`, and `AppProvisioning.cs`, which runs them for a registration |
+| `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
+| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports (`dotnet test tests`) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks; `PROXY_CHECKS=0` skips the 14 registration checks, for a front door that is not this app (below) |
 
 ## Proxy
+
+### Upstreams by service name
+
+Every platform destination is `http://<service>` with no port (`http://storage`), and every call the app makes to a
+component goes the same way (`http://authentication/…`, `http://register/…`, the provisioning's calls).
+[`Microsoft.Extensions.ServiceDiscovery`](../../planned-components/service-discovery.md) resolves the name from the
+configuration key `services:<service>:http:0`, which the runtime sets as the environment variable
+`services__<service>__http__0=http://<alias>:<port>`. Registered are the core and the configuration provider only,
+**not the pass-through provider**: a name without an entry fails at once (service discovery throws
+`InvalidOperationException: The endpoint collection contains no endpoints`), without a DNS lookup, and the front door
+answers "not running" for it. The factory clients get the resolving handler through `ConfigureHttpClientDefaults`; the
+forwarder wraps its own `SocketsHttpHandler` with `IServiceDiscoveryHttpMessageHandlerFactory.CreateHandler`, for the
+platform routes only: an app's and the dev server's addresses (`http://host.docker.internal:5005`) are not names the
+configuration knows, so they go through the plain handler, and the provisioning reads the app through a plain client.
+The `services__*` variables are the override: there is no other upstream setting. A `Host` header the caller sets is
+kept (the forwarder sets the browser's, the Authentication client the public one), since the resolver only fills one
+in.
 
 ### Routes
 
 In order:
 
 1. **Dedicated hosts** own every path, the localtest app's own endpoints included: `pdf.local.altinn.cloud` → `pdf3`,
-   `workflow-engine.local.altinn.cloud` → `workflow-engine`.
+   `workflow-engine.local.altinn.cloud` → `workflow-engine`, `af.local.altinn.cloud` → `arbeidsflate`, and
+   `app-frontend.local.altinn.cloud` → the frontend dev server while one is registered (below; without one that host
+   is served like the main host).
 2. **`/app-frontend/`**: the built app-frontend (`FRONTEND_DIST`, mounted at `/frontend`) as static files, with
    `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. The apps' asset base.
 3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), and the start page and `/Home/…`
    (Home).
-4. **App routes**: `/{org}/{app}/…` → the registered upstream, path unchanged.
-5. **Platform routes** on the main host, path unchanged: `/authentication/` → authentication; `/register/` → register; `/profile/` → profile; `/authorization/` → the PDP; `/accessmanagement/` → Access
-   Management; `/storage/` → Storage; `/events/` → Events.
-6. Anything else: `404` with the text "No app is registered for this path. Start it with studioctl run (or, with this
-   app as the proxy, run-app.sh <app-dir> <port>)."
+4. **App routes**: `/{org}/{app}/…` → the registered address, path unchanged.
+5. **Platform prefixes** on any other host, matched on segment boundaries, first match wins:
+   `/dialogporten/graphql` → `dialogporten-graphql` with the prefix rewritten to `/graphql` (APIM does the same in
+   front of the GraphQL host); `/dialogporten/` → `dialogporten-webapi`; `/storage/dialogporten/` →
+   `dialogporten-adapter`; `/storage/` → `storage`; `/register/`, `/profile/`, `/authentication/`, `/authorization/`,
+   `/events/`, `/notifications/`, `/receipt/`, `/correspondence/` → the service of that name; `/accessmanagement/` →
+   `access-management`; `/resourceregistry/` → `resource-registry`. Paths are passed on unchanged except for the
+   GraphQL rewrite.
+6. Anything else: `404` with the text "No app is registered for this path. Start it with studioctl run or an Aspire
+   AppHost (or, with this app as the front door, run-app.sh <app-dir> <port>)."
 
 A prefix requested without its trailing slash (`/storage`, `/ttd/app?x=1`) is redirected with `301` to the slashed
-path, query kept, as nginx did. Matching is ordinal and case-sensitive, like the nginx locations.
+path, query kept, as nginx did; not `/dialogporten/graphql`, which is the GraphQL endpoint itself. Matching is ordinal
+and case-sensitive, like the nginx locations. The host names are code constants (`PlatformRoutes.Hosts`), the public
+origin's, until the runtimes pass them. `GET localtest/api/routes` lists the table with each service's address (null:
+not running) and the dev-server route.
 
-Upstreams default to the container names of the compose file the stack used to run from (`register:5020`,
-`profile:5030`, `authentication:5101`, `authorization:5070`, `access-management:5080`, `storage:5010`, `events:5080`, `pdf3:5031`,
-`workflow-engine:9090`). Override one with `Proxy__Upstreams__<name>`. `GET localtest/api/proxy/upstreams` lists the
-effective ones.
+### When a service cannot answer
 
-Behind studioctl's `localtest-v2` runtime studioctl-server is the front door, with its own route table (the component
-routes from the vendored studioctl's component manifest, `internal/localtestv2/manifest/manifest.json`, served by `studioctl-server/Proxy/`), and this app's
-route table is not used: studioctl-server sends it only the paths no component claims, so here only steps 3 and 6
-apply (the start page, `/Home`, `localtest/api/…`, and the 404 for an app path studioctl has not routed). App routes
-come from studioctl, not from this app's API; `/app-frontend/` is not served, because studioctl mounts nothing at
-`/frontend`; and studioctl-server does not redirect a prefix without its trailing slash. studioctl sets
-`Proxy__Upstreams__register` and `__authentication` to the public origin, because the identity features and `/Home`
-call those two.
+Both are `503 Service Unavailable` with `Cache-Control: no-store`, as RFC 9457 problem details
+(`application/problem+json`, with the extension members `component` and `group`), or the same content as a small HTML
+page when the request ranks `text/html` above JSON (a browser). Ported from studioctl-server's front door.
+
+| Case | Title | Detail |
+| --- | --- | --- |
+| The service has no address (`services__<name>__http__0` is not set) | `Component not running` | Names the service and, for an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`), the group with both runtimes' hints: `studioctl env up -r localtest-v2 --with <group>`, and `.With<Group>()` or `.WithGroup("<group>")` on `AddAltinnLocaltest()` in an Aspire AppHost |
+| The address does not answer (refused, timed out, unknown host) | `Component not answering` | The forwarder's error and its message (the old `502` text), and `studioctl env logs -r localtest-v2 -c <name>` and `env status`; for an app, whether it still runs; for the dev server, how to remove its route |
+
+A request the client cancelled answers nothing. An app path without a registered app keeps its `404` hint.
 
 ### What it does to a request
 
@@ -72,27 +108,48 @@ call those two.
 - **Headers**: YARP's default transform (all headers copied, `X-Forwarded-For`, `-Proto` and `-Host` set), plus the
   original `Host`, because the components and apps build their own links from it.
 - **Cookies**: a platform component's `Set-Cookie` passes unchanged; the components set no `Secure` cookie over plain
-  http themselves (task 21b, [`reviews/cookies.md`](../reviews/cookies.md)). On an app's route (one the app runner
-  registered) the `Secure` attribute is still removed, because app-lib's `keepAlive` sets the runtime cookie `Secure` in
-  every environment and the browser refuses it from this plain-http origin (the nginx ingress removed it everywhere,
-  with `proxy_cookie_flags ~ nosecure`).
+  http themselves (task 21b, [`reviews/cookies.md`](../reviews/cookies.md)). On an app's route the `Secure` attribute
+  is still removed, because app-lib's `keepAlive` sets the runtime cookie `Secure` in every environment and the browser
+  refuses it from this plain-http origin (task 22 removes this).
 - **Limits**: request bodies up to 200 MB; an upstream may stay silent for 5 minutes (PDF generation, big uploads)
-  before the request fails; connect timeout 5 seconds. A failed upstream is a `502` naming the route and address.
+  before the request fails; connect timeout 5 seconds.
 - Connections to an upstream are recycled every 30 seconds, so a recreated container's new address is picked up.
 
-### App routes (`localtest/api/proxy/`, anonymous)
+### Registering an app (`localtest/api/apps/`, anonymous)
+
+One call routes an app and deploys it to the platform the way Altinn Studio deploys one: the app runner (`studioctl
+run`, `AddAltinnApp` on the app's ready event, `run-app.sh`) gives the app's address, and the front door reads the
+rest from the running app.
 
 | Call | What |
 | --- | --- |
-| `PUT apps/{org}/{app}` with `{ "upstream": "http://host.docker.internal:5005" }` | Route `/{org}/{app}/…` to the app. Org and app are lower-case letters, digits and hyphens; the upstream is an http(s) origin without a path. Replaces an existing route |
-| `DELETE apps/{org}/{app}` | Remove the route (`404` if there was none) |
-| `GET apps` | Every route with its upstream and registration time |
-| `GET upstreams` | The platform upstreams in effect |
+| `PUT apps/{org}/{app}` with `{ "url": "http://host.docker.internal:5005" }` | Validates (org and app are lower-case letters, digits and hyphens; not an org that is a platform prefix, `localtest` or `app-frontend`; the URL is an http(s) origin without a path or query; `400` otherwise), stores the route, then provisions from the app's API under `{url}/{org}/{app}/` (`api/v1/applicationmetadata`, `api/v1/meta/authorizationpolicy`, `api/v1/applicationlanguages`, `api/v1/texts/{lang}`, `testData.json`): the test users to the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access Management's refresh, and Dialogporten's sync when `dialogporten-adapter` has an address. `200` with the route and its provisioning (`state`, `at`, `result`: `textCount`, `hasPolicy`, `hasTestData`, `dialogporten` `Skipped`/`Synced`/`Failed`). A failed provisioning keeps the route and answers `502` problem details naming the failing request (or the service without an address); register again to retry. Idempotent: a repeat provisions again and keeps the registration time |
+| `DELETE apps/{org}/{app}` | Removes the app's test users from the Register, refreshes Access Management and removes the route; `204`, also when there was no route. Storage, the policy store and the Resource Registry keep the app, as they keep one Designer no longer deploys. A failed deprovisioning still removes the route and answers `502` |
+| `GET apps` | Every route with its address, registration time and last provisioning |
 
-`../run-app.sh` registers each app it starts; `../stop-apps.sh` removes them. Both only work with this app as the
-front door. Routes are saved to
-`/data/app-routes.json` (`Proxy__AppRoutesFile`) on the `localtest-data` volume and read at start, so a recreated
-container keeps routing the apps that still run. Nothing watches the file, and nothing reloads.
+Platform calls go by service name; the Studio token (Designer's `studio`/`studio.designer` platform access token,
+exchanged through production `exchange/altinnstudio`) is minted in-process, as `/Home/GetTestStudioToken` does. One
+provisioning runs at a time. The steps are a copy of studioctl's provisioning library
+(`../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/`), which studioctl-server keeps using
+until task 27 deletes it and its own provisioning.
+
+### The frontend dev server (`localtest/api/routes/`, anonymous)
+
+| Call | What |
+| --- | --- |
+| `PUT routes/frontend-dev-server` with `{ "url": "http://host.docker.internal:8080" }` | Every path on `app-frontend.local.altinn.cloud` goes to the Vite dev server (`studioctl run --dev-frontend`). Same URL rules as an app |
+| `DELETE routes/frontend-dev-server` | Back to the built app-frontend under `/app-frontend/`; `204` |
+| `GET routes` | The platform route table with each service's address, and the dev-server route |
+
+App routes are saved to `/data/app-routes.json` (`Proxy__AppRoutesFile`) and the dev-server route next to it
+(`frontend-dev-server.json`), on the `localtest-data` volume, and read at start, so a recreated container keeps routing.
+Nothing watches the files.
+
+### Port
+
+The image listens on **8080** (`ASPNETCORE_HTTP_PORTS=8080`, `EXPOSE 8080`), the stack's conventional port, and answers
+`/health`. The public port 8000 is what a runtime publishes onto it. studioctl's manifest still declares
+`containerPort` 8000 until task 27 and sets `ASPNETCORE_HTTP_PORTS=8000` in the component's environment.
 
 ## ID-porten
 
@@ -114,7 +171,7 @@ Both tokens carry `iss`, a pairwise `sub`, `pid` (or `urn:altinn:userid` for a s
 national identity number), `acr` (level table in `IdPorten/AuthLevels.cs`, kept in step with Authentication's
 `OidcProviders:idporten:AuthLevels`), `amr: ["TestID"]`, `actual_iss`, `jti`, `iat`, `nbf`, `exp`. JWTs are written
 by hand (`Tokens/SigningKey.cs`): the IdentityModel token libraries are not verified for Native AOT. Test users
-come from the register's `register/api/localtest/test-users`, read from its upstream directly.
+come from the register's `register/api/localtest/test-users`, read by service name (`http://register/…`), not through the front door.
 
 ## Maskinporten
 
@@ -146,7 +203,7 @@ There is no client table and no client is refused; one Information line names th
 The old localtest's login contract, which the app-frontend Cypress suite, app-lib's `LocaltestValidation`, scripts
 and developers use. It moved here from Authentication's fakes on 2026-10-20, unchanged. Nothing is minted as an Altinn
 token: user tokens come from production Authentication's sign-in against the fake ID-porten, org and Studio tokens from
-its production exchanges. Calls to Authentication go straight to its upstream with the public `Host`.
+its production exchanges. Calls to Authentication go by service name (`http://authentication/…`) with the public `Host`.
 
 | Endpoint | Behaviour |
 | --- | --- |
@@ -203,6 +260,12 @@ the requested ones), which is what Dialogporten's end-user API needs; `/Home/Get
   nothing for a request that already has an endpoint. A feature's endpoints are mapped before the catch-all and win
   over it by route precedence.
 - The AOT publish is memory-hungry; don't run it alongside a Cypress run on a small machine.
+- `Microsoft.Extensions.ServiceDiscovery` 10.8.0 and the provisioning code publish for `linux-musl` without AOT or trim
+  warnings (task 26, `podman build`, arm64): the image grew from 35.5 MB to 36.5 MB.
+- Settings are read from the built configuration in the service registrations (`sp => …`), not from
+  `builder.Configuration` before `Build()`, so the test host's configuration (`WebApplicationFactory`) reaches them.
+- `tests/` sits inside the project folder: `Localtest.csproj` excludes it (`DefaultItemExcludes`) and so does
+  `.dockerignore`.
 
 ## Verified (2026-10-20): identity features and Home
 

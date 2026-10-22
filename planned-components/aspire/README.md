@@ -34,6 +34,14 @@
   until adoption (nothing in altinn-studio-docs).
 - **Task 21 is done** except what task 24 (the HTTPS mode task 23 proposed) and task 22
   (app-lib honours an explicit localtest environment and sets `keepAlive`'s `Secure` from the request) decide.
+- **Task 26 phase 1** (2026-10-22, branch `task/front-door`): the localtest image is the shared front door the owner
+  chose on 2026-10-22, which reverses the 21d choice of `Aspire.Hosting.Yarp`: YARP routes by service name through
+  service discovery (no pass-through), the 503 problem details for a service without an address (with the
+  `.With<Group>()`/`.WithGroup(...)` hint), the app-route `Secure` stripping, and one `PUT localtest/api/apps/{org}/{app}`
+  with the app's URL that routes and provisions it ([`localtest/localtest/README.md`](../../localtest/localtest/README.md#proxy)).
+  The package is unchanged until task 27, which drops its YARP container, its route model and its compiled-in
+  provisioning and publishes 8000 from the localtest container; `AddAltinnApp` then calls the registration on the app's
+  ready event.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
