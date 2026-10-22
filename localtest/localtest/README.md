@@ -267,6 +267,36 @@ the requested ones), which is what Dialogporten's end-user API needs; `/Home/Get
 - `tests/` sits inside the project folder: `Localtest.csproj` excludes it (`DefaultItemExcludes`) and so does
   `.dockerignore`.
 
+## Verified (2026-10-22): task 26 on today's stack
+
+`studioctl env up -r localtest-v2 --with dialogporten` (studioctl built from the branch) with this image as the
+`localtest` component, studioctl-server still the front door on 8000:
+
+- The container got the 19 `services__<name>__http__0` variables (hyphenated names included) and every component its
+  alias; the start page read the test users and `/Home/GetTestStudioToken` exchanged, both by service name.
+- **Registration through 8000** (`run-app.sh` with the Aspire sample `ttd/testapp`): `200`, provisioning `succeeded`
+  (1 text, policy, test data, Dialogporten `Synced`). A packet capture on the stack's network showed the container's
+  calls: the app's five reads at `host.docker.internal:5005`, the exchange with `Host: local.altinn.cloud:8000`, then
+  Register, Storage (metadata, texts), the PDP, the Resource Registry, Access Management and Dialogporten's sync, each
+  with its service name as `Host`. `DELETE` emptied the Register's app list (studioctl-server, which provisions the
+  same app itself, did not push it back), and `PUT` again restored it. A registration under another app name answered
+  `502` with the app's own refusal (`409`) as the detail and kept the route. A `DELETE` of an app the Register did not
+  know answered `502` (its `404`), now fixed: a removal is idempotent.
+- **The container's own port, published as 8001** (a second container of the image on the network, same variables,
+  volume and host entries): `smoke-test.sh http://local.altinn.cloud:8001` 52 of 81 ok, every routing, `503`,
+  registration and dev-server check among them. The 29 that fail cannot pass through a second container: 27 are the
+  identity flows and the issuer checks, because `Localtest:PlatformEndpoint` is `:8000`, so Authentication reaches the
+  fake ID-porten and Maskinporten at the first container, whose keys and codes differ from the second's; the others are
+  the sign-in cookies (same cause) and `/app-frontend/` (no `FRONTEND_DIST` mounted). The root `smoke-test.sh` against
+  8001: 26 of 26 (its browser-like sign-in follows the redirects onto `:8000`, so only its API calls used 8001).
+- **The 503s through 8001**: with the GraphQL container stopped, `POST /dialogporten/graphql` answered "Component not
+  answering" (`Name does not resolve (dialogporten-graphql:8080)`), as problem details and as the page; with the second
+  container started without `services__dialogporten-graphql__http__0`, "Component not running" with the group and both
+  runtimes' hints.
+- Through studioctl-server on 8000, after deprovisioning the sample: the root `smoke-test.sh` 26 of 26, Authentication's
+  34 of 34, and this folder's script with `PROXY_CHECKS=0` 65 of 67 (the trailing-slash redirect and `/app-frontend/`,
+  studioctl-server's known gaps).
+
 ## Verified (2026-10-20): identity features and Home
 
 Update 2026-10-21: the script has had 75 checks since task 4 added the Maskinporten token checks (2026-10-20, 798f18e).
