@@ -83,8 +83,7 @@ internal static class PortGuard
                 }
                 if (OwnsSocket(process, inodes))
                 {
-                    var name = ReadOrNull(Path.Combine(process, "comm"))?.Trim();
-                    return $"{name ?? "a process"} (pid {pid})";
+                    return $"{ProcessName(process) ?? "a process"} (pid {pid})";
                 }
             }
         }
@@ -93,6 +92,24 @@ internal static class PortGuard
             return null;
         }
         return null;
+    }
+
+    /// <summary>
+    /// The program's name from its command line (the assembly for <c>dotnet app.dll</c>), else the kernel's
+    /// 15-character <c>comm</c>.
+    /// </summary>
+    private static string? ProcessName(string process)
+    {
+        var arguments = ReadOrNull(Path.Combine(process, "cmdline"))
+            ?.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        if (arguments is { Length: > 0 })
+        {
+            var program = Path.GetFileName(arguments[0]);
+            return program == "dotnet" && arguments.Length > 1
+                ? Path.GetFileNameWithoutExtension(arguments[1])
+                : program;
+        }
+        return ReadOrNull(Path.Combine(process, "comm"))?.Trim();
     }
 
     private static HashSet<string> ListeningInodes(int port)

@@ -5,12 +5,20 @@
 - **Research done** as task 20 (2026-10-21); the owner chose the hosting package (task 21 in [`TODO.md`](../../TODO.md)),
   with the stock `Aspire.Hosting.Yarp` as the front door (the 21d decisions), not the localtest app this report
   recommends in section 3.
-- **21d in progress** (2026-10-22, branch `task/aspire-frontdoor`): [`localtest/aspire/Altinn.App.Aspire/`](../../localtest/aspire/Altinn.App.Aspire/README.md)
-  is built: the C# manifest reader (compared with studioctl's golden file), `AddAltinnLocaltest()` with the default
-  stack and `WithGroup(...)`, the YARP front door with the manifest's routes, and a single-file sample AppHost. Run
-  under Podman 5.7 (phase 2): the root, authentication and Dialogporten smoke tests pass through its front door,
-  persistent containers survive AppHost restarts; Aspire's container tunnel does not build on this Podman and is
-  switched off (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`), which matters for 21e's app route. 21e (the app, provisioning, commands, publishing) follows.
+- **21d merged** (2026-10-22): [`localtest/aspire/Altinn.App.Aspire/`](../../localtest/aspire/Altinn.App.Aspire/README.md)
+  has the C# manifest reader (compared with studioctl's golden file), `AddAltinnLocaltest()` with the default stack and
+  `WithGroup(...)`, and the YARP front door with the manifest's routes. Run under Podman 5.7: the root, authentication
+  and Dialogporten smoke tests pass through its front door, and persistent containers survive AppHost restarts.
+  Aspire's container tunnel does not build on this Podman and is switched off (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`),
+  so an app on the host is reached through `host.docker.internal` and the host gateway.
+- **21e phase 1 done** (2026-10-22, branch `task/aspire-app`): the app's environment is the manifest's `app` section,
+  which `studioctl run` loads (its output pinned by a golden file) and the package reads;
+  `AddAltinnApp<Projects.App>(localtest)` adds the app project with that environment, one endpoint on an Aspire-assigned
+  port on every interface, the `/{org}/{app}` front-door route, provisioning when the app is healthy (a failure is a
+  degraded health check, not a failed start), and the `provision`, `deprovision` and `reset` commands. The package
+  refuses to start while port 8000 is taken. The sample is `localtest/aspire/samples/app/` (the `ttd/testapp` fixture
+  as an app on app-lib 8.12.15, and its single-file AppHost), and `.github/workflows/aspire-package.yml` publishes the
+  package to GitHub Packages. Unit-tested only; phase 2 runs the sample under Podman.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
