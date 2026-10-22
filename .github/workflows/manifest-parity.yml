@@ -19,7 +19,7 @@ name: manifest-parity
 
 on:
   pull_request:
-    paths: &paths
+    paths:
       - "localtest/studioctl/src/cli/internal/localtestv2/**"
       - "localtest/studioctl/src/cli/internal/cmd/env/localtestv2/**"
       - "localtest/studioctl/src/cli/internal/cmd/app/**"
@@ -35,7 +35,20 @@ on:
       - ".github/workflows/manifest-parity.yml"
   push:
     branches: [main]
-    paths: *paths
+    paths:
+      - "localtest/studioctl/src/cli/internal/localtestv2/**"
+      - "localtest/studioctl/src/cli/internal/cmd/env/localtestv2/**"
+      - "localtest/studioctl/src/cli/internal/cmd/app/**"
+      - "localtest/studioctl/src/cli/internal/appsecrets/**"
+      - "localtest/studioctl/src/cli/internal/config/**"
+      - "localtest/studioctl/src/cli/internal/envtopology/**"
+      - "localtest/studioctl/src/cli/go.mod"
+      - "localtest/studioctl/src/cli/go.sum"
+      - "localtest/studioctl/src/Runtime/devenv/**"
+      - "localtest/studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/**"
+      - "localtest/postgres/Dockerfile"
+      - "localtest/aspire/**"
+      - ".github/workflows/manifest-parity.yml"
   workflow_dispatch:
 
 permissions:
