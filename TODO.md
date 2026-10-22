@@ -656,7 +656,11 @@ completed with the template's `Program.cs`, a project on `Altinn.App.Api` from N
 `frontend-test` is a phase-2 verification target through a scratch AppHost only if a `net11.0` AppHost builds. The package sets `STUDIOCTL_APP_RUN=1` and `AppSettings__UseOpenTelemetry=true` (an option turns the
 latter off), so the app's telemetry reaches the dashboard; whether the components export OTLP is a noted follow-up,
 not 21e's. The frontend dev server (`--dev-frontend`) is out of the prototype; the sample loads app-frontend from the
-CDN as the template does.
+CDN as the template does. Publishing: a workflow on `localtest/aspire/**` runs the tests, packs `0.1.0-alpha.<run>` and pushes to the
+`ivarne-agent` NuGet feed on GitHub Packages with `GITHUB_TOKEN` (consumers need a `read:packages` token, documented),
+and attaches the `.nupkg` to a GitHub release for a token-free path; the sample stays on `#:project` in the repo with
+the `#:package` form shown in the README; nuget.org under Altinn's prefix is for adoption, not this repository. The
+21e brief is written when 21d's phase 2 is in (its Podman and front-door findings may change the package's shape).
 
 ## 22. app-lib honours an explicit localtest environment
 
