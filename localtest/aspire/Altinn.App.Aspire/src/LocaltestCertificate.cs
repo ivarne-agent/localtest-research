@@ -8,15 +8,18 @@ namespace Altinn.App.Aspire;
 /// </summary>
 internal static class LocaltestCertificate
 {
+    /// <summary>The embedded certificate's resource name.</summary>
+    public const string Resource = "Altinn.App.Aspire.localtest-accesstoken.pfx";
+
     /// <summary>
     /// Writes the certificate into <paramref name="directory" /> unless it is there already, as studioctl's
     /// <c>ensureCertificate</c> does; world-readable on purpose, because the containers run as their image users.
     /// </summary>
-    public static string Ensure(string directory, LocaltestManifest manifest)
+    public static string Ensure(string directory)
     {
         Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, manifest.Certificate.FileName);
-        var certificate = ManifestLoader.ReadResource(ManifestLoader.CertificateResource);
+        var path = Path.Combine(directory, Topology.CertificateFileName);
+        var certificate = Read();
         if (!File.Exists(path) || !File.ReadAllBytes(path).AsSpan().SequenceEqual(certificate))
         {
             File.WriteAllBytes(path, certificate);
@@ -32,5 +35,16 @@ internal static class LocaltestCertificate
             );
         }
         return path;
+    }
+
+    /// <summary>The certificate's bytes.</summary>
+    public static byte[] Read()
+    {
+        using var stream =
+            typeof(LocaltestCertificate).Assembly.GetManifestResourceStream(Resource)
+            ?? throw new InvalidOperationException($"The package has no embedded resource {Resource}.");
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
     }
 }

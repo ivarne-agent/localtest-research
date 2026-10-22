@@ -1,5 +1,4 @@
 using Altinn.App.Aspire.Manifest;
-using Altinn.Studio.Localtest.Provisioning;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,17 +18,16 @@ public static class AltinnAppExtensions
     /// <summary>The app command that provisions the app again.</summary>
     public const string ProvisionCommand = "provision";
 
-    /// <summary>The app command that removes the app's test users from the Register.</summary>
+    /// <summary>The app command that deregisters the app (its test users and its route).</summary>
     public const string DeprovisionCommand = "deprovision";
 
     /// <summary>
     /// Adds an Altinn app project (<c>Projects.App</c> from the AppHost's <c>#:project</c> or project reference) that
-    /// runs against <paramref name="localtest" />: the environment of the manifest's app section (the platform
+    /// runs against <paramref name="localtest" />: the environment <c>studioctl run</c> gives an app (the platform
     /// endpoints, host name and base URL, the OpenID well-known endpoint, the test certificate, the secrets directory
-    /// with the development app codes), one HTTP endpoint on an Aspire-assigned port on every interface, the route
-    /// <c>/{org}/{app}</c> on the front door, provisioning on the platform once the app is ready, and the
-    /// <c>provision</c> and <c>deprovision</c> commands. The app id is read from the project's
-    /// <c>config/applicationmetadata.json</c>.
+    /// with the development app codes), one HTTP endpoint on an Aspire-assigned port on every interface, its
+    /// registration with the front door once the app is ready (route and provisioning), and the <c>provision</c> and
+    /// <c>deprovision</c> commands. The app id is read from the project's <c>config/applicationmetadata.json</c>.
     /// </summary>
     /// <typeparam name="TProject">The project's metadata type.</typeparam>
     /// <param name="builder">The AppHost's builder.</param>
@@ -111,13 +109,11 @@ public static class AltinnAppExtensions
         var options = new AltinnAppOptions();
         configure?.Invoke(options);
         var stack = localtest.Resource.Stack;
-        var manifest = stack.Resolver.Manifest;
 
         var projectDirectory =
             Path.GetDirectoryName(Path.GetFullPath(projectPath))
             ?? throw new ArgumentException($"{projectPath} has no folder.", nameof(projectPath));
-        var source = new DirectoryAppSource(projectDirectory);
-        var appId = ReadAppId(source, name);
+        var appId = ReadAppId(projectDirectory, name);
 
         var app = addProject();
         // One endpoint without a proxy: Aspire assigns the port (the same for Port and TargetPort), and the app listens
@@ -128,35 +124,37 @@ public static class AltinnAppExtensions
             .WithEndpoint(HttpEndpoint, endpoint => endpoint.TargetHost = "0.0.0.0");
         var endpoint = app.GetEndpoint(HttpEndpoint);
         app.WithEnvironment(
-            "Kestrel__EndPoints__Http__Url",
+            AppEnvironment.KestrelUrl,
             ReferenceExpression.Create(
                 $"{Uri.UriSchemeHttp}://0.0.0.0:{endpoint.Property(EndpointProperty.TargetPort)}"
             )
         );
 
-        // The manifest's app section, as studioctl's run sets it, with the package's certificate and secrets directory.
-        var appRoot = Path.GetDirectoryName(source.AppDirectory) ?? source.AppDirectory;
+        // studioctl run's environment (AppEnvironment, held to its golden file), with the package's certificate and
+        // secrets directory; Aspire sets the OpenTelemetry endpoint to its dashboard, and the Kestrel URL is above.
+        var appRoot = Path.GetDirectoryName(projectDirectory) ?? projectDirectory;
         var secretsDirectory = AppSecrets.Directory(stack.DataDirectory, appId.Org, appId.App);
-        var certificate = AppCertificate.ForProcess(appRoot, stack.CertificateDirectory, manifest.Certificate.FileName);
-        foreach (var (key, value) in stack.Resolver.AppEnvironment(secretsDirectory, certificate).AllVariables())
+        var certificate = AppCertificate.ForProcess(appRoot, stack.CertificateDirectory);
+        app.WithEnvironment(context =>
         {
-            app.WithEnvironment(key, value);
-        }
+            foreach (var (key, value) in EnvironmentOf(stack, secretsDirectory, certificate))
+            {
+                context.EnvironmentVariables[key] = value;
+            }
+        });
         if (options.OpenTelemetry)
         {
             app.WithEnvironment("AppSettings__UseOpenTelemetry", "true");
         }
-        var appCodes = manifest.App.Secrets.File(ManifestAppSecretFile.AppCodes);
         builder.Eventing.Subscribe<BeforeStartEvent>(
             (_, _) =>
             {
-                AppSecrets.WriteDevelopmentAppCodes(secretsDirectory, appCodes.FileName);
+                AppSecrets.WriteDevelopmentAppCodes(secretsDirectory, AppEnvironment.AppCodesFileName);
                 return Task.CompletedTask;
             }
         );
 
         app.WithHttpHealthCheck(HealthPath, endpointName: HttpEndpoint).WaitFor(localtest);
-        stack.AddAppRoute(name, appId.Org, appId.App, endpoint);
         app.WithUrlForEndpoint(
             HttpEndpoint,
             url =>
@@ -165,22 +163,45 @@ public static class AltinnAppExtensions
                 url.DisplayLocation = UrlDisplayLocation.DetailsOnly;
             }
         );
-        app.WithUrl(new Uri(stack.PlatformUri, $"{appId.Org}/{appId.App}/").ToString(), "App (front door)");
+        app.WithUrl(
+            new Uri(localtest.Resource.PlatformUri, $"{appId.Org}/{appId.App}/").ToString(),
+            "App (front door)"
+        );
 
-        AddProvisioning(builder, localtest, app, appId, source, options);
+        AddProvisioning(builder, localtest, app, appId, endpoint, options);
         return app;
     }
 
-    private static AppId ReadAppId(DirectoryAppSource source, string name)
+    /// <summary>The app's environment: studioctl run's, less the variables Aspire or the endpoint set.</summary>
+    internal static IEnumerable<KeyValuePair<string, string>> EnvironmentOf(
+        LocaltestStack stack,
+        string secretsDirectory,
+        AppCertificate certificate
+    ) =>
+        AppEnvironment
+            .Build(
+                [],
+                "",
+                Topology.IngressPort,
+                stack.FrontendDevServerPort is null
+                    ? ""
+                    : Topology.Url(Topology.FrontendDevServerHost, Topology.IngressPort),
+                secretsDirectory,
+                "",
+                certificate
+            )
+            .Where(kv => kv.Key is not AppEnvironment.KestrelUrl and not AppEnvironment.OtlpEndpoint);
+
+    private static AppId ReadAppId(string projectDirectory, string name)
     {
         try
         {
-            return source.ReadAppId(CancellationToken.None).GetAwaiter().GetResult();
+            return AppId.Read(projectDirectory);
         }
         catch (InvalidOperationException e)
         {
             throw new InvalidOperationException(
-                $"AddAltinnApp(\"{name}\"): the app id is read from {Path.Combine(source.AppDirectory, "config", "applicationmetadata.json")}, "
+                $"AddAltinnApp(\"{name}\"): the app id is read from {AppId.MetadataPath(projectDirectory)}, "
                     + $"which the project folder must hold with an \"id\" of the form org/app: {e.Message}",
                 e
             );
@@ -192,16 +213,11 @@ public static class AltinnAppExtensions
         IResourceBuilder<AltinnLocaltestResource> localtest,
         IResourceBuilder<ProjectResource> app,
         AppId appId,
-        DirectoryAppSource source,
+        EndpointReference endpoint,
         AltinnAppOptions options
     )
     {
-        var provisioning = new AppProvisioning(
-            appId,
-            source,
-            localtest.Resource.PlatformUri,
-            () => localtest.Resource.Groups.Contains("dialogporten")
-        );
+        var provisioning = new AppProvisioning(appId, localtest.Resource.PlatformUri, () => endpoint.Port);
         var key = $"{app.Resource.Name}_provisioning";
         builder
             .Services.AddHealthChecks()
@@ -236,7 +252,7 @@ public static class AltinnAppExtensions
             new CommandOptions
             {
                 Description =
-                    "Push the app's test users, metadata, texts and policy to the platform again (from its files on disk)",
+                    "Register the app with the front door again, which provisions it from the running app (test users, metadata, texts, policy)",
                 IconName = "CloudArrowUp",
             }
         );
@@ -251,9 +267,11 @@ public static class AltinnAppExtensions
                 ),
             new CommandOptions
             {
-                Description = "Remove the app's test users from the Register (Storage and the PDP keep the app)",
+                Description =
+                    "Deregister the app: its test users leave the Register and its route the front door (Storage and the PDP keep the app)",
                 IconName = "CloudDismiss",
-                ConfirmationMessage = $"Remove {appId}'s test users from the Register?",
+                ConfirmationMessage =
+                    $"Remove {appId}'s test users from the Register and its route from the front door?",
             }
         );
     }

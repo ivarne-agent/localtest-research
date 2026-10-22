@@ -7,9 +7,9 @@
     <Authors>Altinn</Authors>
     <PackageTags>altinn;aspire;localtest</PackageTags>
     <Description>
-      Runs the Altinn localtest platform (the localtest-v2 component stack) as container resources of a .NET Aspire
-      AppHost, with a YARP front door on http://local.altinn.cloud:8000, from the same component manifest studioctl
-      runs.
+      Runs the Altinn localtest platform (the localtest-v2 container stack) as container resources of a .NET Aspire
+      AppHost, from the same manifest studioctl runs, with the localtest container as the front door on
+      http://local.altinn.cloud:8000.
     </Description>
   </PropertyGroup>
 
@@ -19,25 +19,14 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" />
-    <PackageReference Include="Aspire.Hosting.Yarp" />
   </ItemGroup>
 
-  <!-- TODO task 27b: the provisioning steps under src/Provisioning are a copy of the library studioctl deleted in task
-       27a (the localtest container provisions now, on PUT localtest/api/apps); task 27b drops them with the package's
-       own proxy and registers the app with the front door instead. -->
-
-  <!-- The component manifest and its schema, and the shared test certificate studioctl embeds too. TODO task 27b: the
-       manifest is a copy of studioctl's v1 manifest (as of the pin sha-f76b62b), since studioctl moved to manifest v2 in
-       task 27a; the package runs the v1 topology (its own YARP front door, routes and provisioning) until 27b reads
-       studioctl's v2 manifest (internal/localtestv2/manifest/manifest.json) instead. -->
+  <!-- studioctl's manifest and the shared test certificate studioctl embeds too, by relative path: one copy of each. -->
   <ItemGroup>
     <EmbeddedResource
-      Include="Manifest/manifest.v1.json"
+      Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.json"
       LogicalName="Altinn.App.Aspire.manifest.json"
-    />
-    <EmbeddedResource
-      Include="Manifest/manifest.v1.schema.json"
-      LogicalName="Altinn.App.Aspire.manifest.schema.json"
+      Link="Manifest/manifest.json"
     />
     <EmbeddedResource
       Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/assets/localtest-accesstoken.pfx"

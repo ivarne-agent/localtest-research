@@ -1,4 +1,3 @@
-using Altinn.Studio.Localtest.Provisioning;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -7,48 +6,40 @@ using Microsoft.Extensions.Logging;
 namespace Altinn.App.Aspire;
 
 /// <summary>
-/// Registers an app on the platform as Designer's deploy does (the shared provisioning library's
-/// <see cref="LocaltestProvisioner" />: the Register's test users, Storage's metadata and texts, the PDP's policy, the
-/// Resource Registry's subjects, Access Management, Dialogporten), from the app's files on disk. A failure is logged
-/// with its step and URL and reported as a degraded health check of the app (the dashboard's warning state), not as a
-/// failed start: the app runs, and the <c>provision</c> command runs it again.
+/// Registers an app with the front door, which routes it and provisions it from the app's own API (test users,
+/// metadata, texts, policy, Access Management, Dialogporten when its adapter runs): one
+/// <c>PUT localtest/api/apps/{org}/{app}</c> with the app's address, as studioctl-server does for the apps it
+/// discovers. A failure is logged with the front door's answer and reported as a degraded health check of the app (the
+/// dashboard's warning state), not as a failed start: the app runs, and the <c>provision</c> command registers it again.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.SuppressMessage(
-    "Design",
-    "CA1001:Types that own disposable fields should be disposable",
-    Justification = "One per app resource, living as long as the AppHost."
-)]
 internal sealed class AppProvisioning
 {
     /// <summary>The resource property that shows the last outcome in the dashboard.</summary>
     public const string StatusProperty = "altinn.provisioning";
 
-    private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(100);
+    private readonly Func<int> _appPort;
 
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly Func<bool> _dialogportenRunning;
-
-    public AppProvisioning(AppId appId, DirectoryAppSource source, Uri platformUri, Func<bool> dialogportenRunning)
+    /// <param name="appId">The app.</param>
+    /// <param name="platformUri">The front door.</param>
+    /// <param name="appPort">The app's port on the host, once Aspire allocated it.</param>
+    public AppProvisioning(AppId appId, Uri platformUri, Func<int> appPort)
     {
         AppId = appId;
-        Source = source;
         PlatformUri = platformUri;
-        _dialogportenRunning = dialogportenRunning;
+        _appPort = appPort;
     }
 
     public AppId AppId { get; }
 
-    public DirectoryAppSource Source { get; }
-
     public Uri PlatformUri { get; }
 
-    /// <summary>The last outcome; <see cref="ProvisioningState.NotRun" /> until the first run.</summary>
+    /// <summary>The last outcome; <see cref="ProvisioningState.NotRun" /> until the first call.</summary>
     public ProvisioningStatus Status { get; private set; } = ProvisioningStatus.NotRun;
 
     /// <summary>Forgets the last outcome, when the app starts again.</summary>
     public void Reset() => Status = ProvisioningStatus.NotRun;
 
-    /// <summary>Provisions the app; never throws but for cancellation. Returns the outcome.</summary>
+    /// <summary>Registers the app (route and provisioning); never throws but for cancellation.</summary>
     public Task<ProvisioningStatus> ProvisionAsync(
         IServiceProvider services,
         IResource resource,
@@ -58,16 +49,17 @@ internal sealed class AppProvisioning
             services,
             resource,
             "provision",
-            async (provisioner, ct) =>
-            {
-                var result = await provisioner.Provision(AppId, Source, ct).ConfigureAwait(false);
-                return $"provisioned {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}: {result.TextCount} text resource(s), "
-                    + $"policy {result.HasPolicy}, test data {result.HasTestData}, Dialogporten {result.Dialogporten}";
-            },
+            ct =>
+                FrontDoorClient.PutAsync(
+                    PlatformUri,
+                    FrontDoorClient.AppPath(AppId),
+                    FrontDoorClient.HostAddress(_appPort()),
+                    ct
+                ),
             cancellationToken
         );
 
-    /// <summary>Removes the app's test users from the Register; never throws but for cancellation.</summary>
+    /// <summary>Deregisters the app (test users and route removed); never throws but for cancellation.</summary>
     public Task<ProvisioningStatus> DeprovisionAsync(
         IServiceProvider services,
         IResource resource,
@@ -77,11 +69,7 @@ internal sealed class AppProvisioning
             services,
             resource,
             "deprovision",
-            async (provisioner, ct) =>
-            {
-                await provisioner.Deprovision(AppId, ct).ConfigureAwait(false);
-                return $"deprovisioned {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}: the test users are removed";
-            },
+            ct => FrontDoorClient.DeleteAsync(PlatformUri, FrontDoorClient.AppPath(AppId), ct),
             cancellationToken
         );
 
@@ -89,49 +77,42 @@ internal sealed class AppProvisioning
         IServiceProvider services,
         IResource resource,
         string operation,
-        Func<LocaltestProvisioner, CancellationToken, Task<string>> run,
+        Func<CancellationToken, Task<FrontDoorAnswer>> call,
         CancellationToken cancellationToken
     )
     {
         var logger = services.GetRequiredService<ResourceLoggerService>().GetLogger(resource);
         var console = services.GetRequiredService<ILoggerFactory>().CreateLogger("Altinn.App.Aspire");
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var app = AppId.ToString();
         try
         {
-            using var handler = new SocketsHttpHandler();
-            using var tracker = new RequestTracker(handler);
-            using var client = new HttpClient(tracker, disposeHandler: false) { Timeout = _timeout };
-            var provisioner = new LocaltestProvisioner(
-                new LocaltestProvisionerOptions
-                {
-                    PlatformUri = PlatformUri,
-                    DialogportenRunning = _dialogportenRunning,
-                },
-                client,
-                logger
+            var answer = await call(cancellationToken).ConfigureAwait(false);
+            var message = $"{operation} {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}: {answer}";
+            Status = new ProvisioningStatus(
+                answer.Succeeded ? ProvisioningState.Succeeded : ProvisioningState.Failed,
+                message
             );
-            try
+            if (answer.Succeeded)
             {
-                var message = await run(provisioner, cancellationToken).ConfigureAwait(false);
-                Status = new ProvisioningStatus(ProvisioningState.Succeeded, message);
-                console.LogProvisioned(AppId.ToString(), operation, message);
+                logger.LogProvisioned(app, operation, answer.ToString());
+                console.LogProvisioned(app, operation, answer.ToString());
             }
-            catch (Exception exception)
-                when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            else
             {
-                var step = ProvisioningSteps.Of(tracker.LastRequest);
-                var url = tracker.LastRequest?.ToString() ?? Source.AppDirectory;
-                Status = new ProvisioningStatus(
-                    ProvisioningState.Failed,
-                    $"{operation} failed at {step} ({url}): {exception.Message}"
-                );
-                logger.LogProvisioningFailed(exception, AppId.ToString(), operation, step, url);
-                console.LogProvisioningFailed(exception, AppId.ToString(), operation, step, url);
+                logger.LogProvisioningRefused(app, operation, answer.ToString());
+                console.LogProvisioningRefused(app, operation, answer.ToString());
             }
         }
-        finally
+        catch (Exception exception)
+            when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _gate.Release();
+            var url = new Uri(PlatformUri, FrontDoorClient.AppPath(AppId));
+            Status = new ProvisioningStatus(
+                ProvisioningState.Failed,
+                $"{operation} failed ({url}): {exception.Message}"
+            );
+            logger.LogProvisioningFailed(exception, app, operation, url.ToString());
+            console.LogProvisioningFailed(exception, app, operation, url.ToString());
         }
         await services
             .GetRequiredService<ResourceNotificationService>()
@@ -150,21 +131,6 @@ internal sealed class AppProvisioning
             .ConfigureAwait(false);
         return Status;
     }
-
-    /// <summary>Records the last request, so a failure names the step and URL it failed at.</summary>
-    private sealed class RequestTracker(HttpMessageHandler inner) : DelegatingHandler(inner)
-    {
-        public Uri? LastRequest { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken
-        )
-        {
-            LastRequest = request.RequestUri;
-            return base.SendAsync(request, cancellationToken);
-        }
-    }
 }
 
 /// <summary>Where a provisioning stands.</summary>
@@ -173,10 +139,10 @@ internal enum ProvisioningState
     /// <summary>Not run since the app started.</summary>
     NotRun,
 
-    /// <summary>The last run succeeded.</summary>
+    /// <summary>The last call succeeded.</summary>
     Succeeded,
 
-    /// <summary>The last run failed; the app runs anyway.</summary>
+    /// <summary>The last call failed; the app runs anyway.</summary>
     Failed,
 }
 
@@ -189,36 +155,9 @@ internal sealed record ProvisioningStatus(ProvisioningState State, string Messag
     public static ProvisioningStatus NotRun { get; } = new(ProvisioningState.NotRun, "not provisioned yet");
 }
 
-/// <summary>The provisioning steps by the platform path they call (<c>localtest/README.md</c>, "What the app runner pushes").</summary>
-internal static class ProvisioningSteps
-{
-    private static readonly (string Prefix, string Step)[] _steps =
-    [
-        ("/Home/GetTestStudioToken", "the Studio token (the localtest app)"),
-        ("/register/", "step 1, the Register's test users"),
-        ("/storage/", "step 2, Storage's application metadata and texts"),
-        ("/authorization/", "step 3, the PDP's policy"),
-        ("/resourceregistry/", "step 3b, the Resource Registry's policy subjects"),
-        ("/accessmanagement/", "step 4, the Access Management refresh"),
-        ("/dialogporten", "step 5, the Dialogporten sync"),
-    ];
-
-    /// <summary>The step a request belongs to; reading the app's files when no request was sent.</summary>
-    public static string Of(Uri? request)
-    {
-        if (request is null)
-        {
-            return "reading the app's files";
-        }
-        var path = request.AbsolutePath;
-        return _steps.FirstOrDefault(s => path.StartsWith(s.Prefix, StringComparison.OrdinalIgnoreCase)).Step
-            ?? $"a request to {path}";
-    }
-}
-
 /// <summary>
-/// The app's provisioning as a health check: healthy until a run fails, then degraded with the step and URL, which the
-/// dashboard shows as the app's warning state while the app keeps running.
+/// The app's provisioning as a health check: healthy until a call fails, then degraded with the front door's answer,
+/// which the dashboard shows as the app's warning state while the app keeps running.
 /// </summary>
 internal sealed class ProvisioningHealthCheck(AppProvisioning provisioning) : IHealthCheck
 {

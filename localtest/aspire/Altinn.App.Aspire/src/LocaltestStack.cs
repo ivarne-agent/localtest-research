@@ -1,241 +1,139 @@
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Aspire.Hosting.Yarp;
-using Aspire.Hosting.Yarp.Transforms;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Altinn.App.Aspire;
 
 /// <summary>
-/// Adds the manifest's components and the front door to the application model: the always-on components when the
-/// stack is created, a group's components when it is enabled.
+/// Adds the manifest's containers to the application model: the default group's when the stack is created, a group's
+/// when it is enabled. Each container is one persistent container resource named after its manifest key.
 /// </summary>
 internal sealed class LocaltestStack
 {
-    /// <summary>The front door's resource name.</summary>
-    public const string FrontDoorName = "frontdoor";
-
-    /// <summary>The name of a component's HTTP endpoint.</summary>
+    /// <summary>The name of the front door's HTTP endpoint, published on port 8000.</summary>
     public const string HttpEndpoint = "http";
 
-    /// <summary>The name of the TCP endpoint of a component without a host port (Postgres, Redis).</summary>
+    /// <summary>The name of Postgres's TCP endpoint, published only with <c>PostgresHostPort</c>.</summary>
     public const string TcpEndpoint = "tcp";
 
-    /// <summary>
-    /// The name the front door reaches an app on the host by: mapped to the runtime's host gateway with
-    /// <c>--add-host</c>, as the components reach the front door (21d: Aspire's container tunnel does not build on
-    /// Podman 5.7, so the app binds every interface and the front door goes through the gateway).
-    /// </summary>
-    public const string AppHostGatewayName = "host.docker.internal";
-
-    private bool _frontDoorReachesHost;
+    /// <summary>The value of the <c>--with</c> group that enables every optional group.</summary>
+    public const string Everything = "everything";
 
     private readonly IDistributedApplicationBuilder _builder;
-    private readonly ManifestResolver _resolver;
-    private readonly SortedSet<string> _groups = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, IResourceBuilder<ContainerResource>> _components = new(StringComparer.Ordinal);
-    private readonly List<FrontDoorRoute> _routes = [];
-    private IResourceBuilder<AltinnLocaltestResource>? _parent;
-    private IResourceBuilder<YarpResource>? _frontDoor;
-    private HashSet<string>? _only;
     private readonly AltinnLocaltestOptions _options;
+    private readonly SortedSet<string> _groups = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IResourceBuilder<ContainerResource>> _containers = new(StringComparer.Ordinal);
+    private IResourceBuilder<AltinnLocaltestResource>? _parent;
 
     public LocaltestStack(
         IDistributedApplicationBuilder builder,
-        ManifestResolver resolver,
-        string certificateDirectory,
+        LocaltestManifest manifest,
         AltinnLocaltestOptions options
     )
     {
-        _options = options;
-        DataDirectory = options.DataDirectory;
         _builder = builder;
-        _resolver = resolver;
-        CertificateDirectory = certificateDirectory;
+        _options = options;
+        Manifest = manifest;
+        DataDirectory = options.DataDirectory;
+        CertificateDirectory = Path.Combine(options.DataDirectory, "certs");
     }
 
-    public string CertificateDirectory { get; }
+    public LocaltestManifest Manifest { get; }
 
     /// <summary>The package's data directory on the host.</summary>
     public string DataDirectory { get; }
 
+    /// <summary>The host directory holding the shared test certificate.</summary>
+    public string CertificateDirectory { get; }
+
+    /// <summary>The enabled optional groups, sorted.</summary>
     public IReadOnlyCollection<string> EnabledGroups => _groups;
 
-    public Uri PlatformUri => new(_resolver.Topology.Url(LocaltestTopology.App) + "/");
+    /// <summary>The container resources by manifest name, in the order they were added.</summary>
+    public IReadOnlyDictionary<string, IResourceBuilder<ContainerResource>> Containers => _containers;
 
-    public ManifestResolver Resolver => _resolver;
+    /// <summary>The front door: the localtest container.</summary>
+    public IResourceBuilder<ContainerResource> FrontDoor => _containers[Topology.FrontDoor];
 
-    /// <summary>The component resources by manifest name, in the order they were added.</summary>
-    public IReadOnlyDictionary<string, IResourceBuilder<ContainerResource>> Components => _components;
+    /// <summary>The frontend dev server's port on the host, when one is registered with the front door.</summary>
+    public int? FrontendDevServerPort { get; set; }
 
-    /// <summary>The front-door routes added so far.</summary>
-    public IReadOnlyList<FrontDoorRoute> Routes => _routes;
+    /// <summary>The optional groups <see cref="AddGroups" /> takes: the manifest's, less the default.</summary>
+    public IReadOnlyList<string> OptionalGroups =>
+        [.. Manifest.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup)];
 
-    /// <summary>The front door.</summary>
-    public IResourceBuilder<YarpResource> FrontDoor =>
-        _frontDoor ?? throw new InvalidOperationException("The localtest stack is not initialised.");
+    /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
+    public IReadOnlyList<ContainerSpec> Specs() =>
+        StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _options.Tag);
 
-    /// <summary>Every child resource: the front door and the components.</summary>
-    public IEnumerable<IResource> Children => [FrontDoor.Resource, .. _components.Values.Select(c => c.Resource)];
-
-    /// <summary>Adds the front door and the always-on components.</summary>
-    public void Initialize(
-        IResourceBuilder<AltinnLocaltestResource> parent,
-        IEnumerable<string> groups,
-        IEnumerable<string> onlyComponents
-    )
+    /// <summary>Adds the default group's containers, then the groups of the options.</summary>
+    public void Initialize(IResourceBuilder<AltinnLocaltestResource> parent, IEnumerable<string> groups)
     {
         _parent = parent;
-        _only = DependencyClosure(onlyComponents);
-        var port = _resolver.Topology.IngressPort;
-        // The containers reach the front door as local.altinn.cloud:8000 through --add-host ...:host-gateway, so the
-        // host port must listen on every interface: unproxied (DCP's proxy listens on loopback) with target host
-        // 0.0.0.0, which DCP turns into the port's host IP.
-        _frontDoor = _builder
-            .AddYarp(FrontDoorName)
-            .WithHostPort(port)
-            .WithEndpoint(
-                HttpEndpoint,
-                endpoint =>
-                {
-                    endpoint.IsProxied = false;
-                    endpoint.TargetHost = "0.0.0.0";
-                }
-            )
-            .WithHttpHealthCheck(_resolver.Manifest.FrontDoor.HealthPath, endpointName: HttpEndpoint)
-            .WithParentRelationship(parent);
-        AddComponents(_resolver.Components([]));
+        AddContainers();
         AddGroups(groups);
     }
 
-    /// <summary>Enables groups and what they imply, and adds the components not added yet.</summary>
+    /// <summary>
+    /// Enables groups (<c>everything</c> enables all) and adds the containers they start that are not added yet.
+    /// </summary>
+    /// <exception cref="ArgumentException">An unknown group, or the default one, which is always on.</exception>
     public void AddGroups(IEnumerable<string> groups)
     {
-        var requested = groups.ToList();
-        if (requested.Count == 0)
+        foreach (var group in groups)
         {
-            return;
-        }
-        _groups.UnionWith(_resolver.ResolveGroups(requested));
-        AddComponents(_resolver.Components(_groups).Where(c => !_components.ContainsKey(c.Name)).ToList());
-    }
-
-    /// <summary>The named components and what they depend on, transitively; null for every component.</summary>
-    private HashSet<string>? DependencyClosure(IEnumerable<string> names)
-    {
-        var pending = new Queue<string>(names);
-        if (pending.Count == 0)
-        {
-            return null;
-        }
-        var closure = new HashSet<string>(StringComparer.Ordinal);
-        while (pending.TryDequeue(out var name))
-        {
-            var component =
-                _resolver.Manifest.Component(name)
-                ?? throw new ArgumentException($"Unknown localtest component {name}.", nameof(names));
-            if (closure.Add(name))
+            if (group == Everything)
             {
-                foreach (var dependency in component.DependsOn)
-                {
-                    pending.Enqueue(dependency);
-                }
+                _groups.UnionWith(OptionalGroups);
+            }
+            else if (OptionalGroups.Contains(group))
+            {
+                _groups.Add(group);
+            }
+            else
+            {
+                throw new ArgumentException(
+                    group == LocaltestManifest.DefaultGroup
+                        ? $"The {LocaltestManifest.DefaultGroup} group is always on."
+                        : $"Unknown localtest group {group} (one of {string.Join(", ", [.. OptionalGroups, Everything])}).",
+                    nameof(groups)
+                );
             }
         }
-        return closure;
+        AddContainers();
     }
 
-    private void AddComponents(IReadOnlyList<ResolvedComponent> components)
+    private void AddContainers()
     {
-        var batch = _only is null ? components : [.. components.Where(c => _only.Contains(c.Name))];
-        foreach (var component in batch)
+        var added = Specs().Where(spec => !_containers.ContainsKey(spec.Name)).ToList();
+        foreach (var spec in added)
         {
-            _components.Add(component.Name, AddContainer(component));
+            _containers.Add(spec.Name, AddContainer(spec));
         }
-        // Waits after the whole batch, since a component may depend on one later in the manifest.
-        foreach (var component in batch)
+        // The waits after the batch: a dependency is in the same batch or an earlier one.
+        foreach (var spec in added)
         {
-            var container = _components[component.Name];
-            foreach (var dependency in component.DependsOn)
+            var container = _containers[spec.Name];
+            foreach (var dependency in spec.DependsOn)
             {
-                container.WaitFor(_components[dependency]);
+                container.WaitFor(_containers[dependency]);
+            }
+            if (spec.Name != Topology.FrontDoor && !spec.Health.Tcp)
+            {
+                // It may call the public origin from its first request on.
+                container.WaitForStart(FrontDoor);
             }
         }
-        FrontDoor.WithConfiguration(yarp =>
-        {
-            foreach (var component in batch.Where(c => c.Routes.Count > 0))
-            {
-                var container = _components[component.Name];
-                var cluster = yarp.AddCluster(container.GetEndpoint(HttpEndpoint));
-                foreach (var route in FrontDoorRoutes.For(component, _resolver.Topology))
-                {
-                    var yarpRoute = yarp.AddRoute(route.Path, cluster)
-                        .WithMatchHosts([.. route.Hosts])
-                        .WithOrder(route.Order)
-                        .WithTransformUseOriginalHostHeader();
-                    if (route.RemovePrefix is not null && route.AddPrefix is not null)
-                    {
-                        yarpRoute
-                            .WithTransformPathRemovePrefix(route.RemovePrefix)
-                            .WithTransformPathPrefix(route.AddPrefix);
-                    }
-                    _routes.Add(route);
-                }
-            }
-        });
     }
 
-    /// <summary>
-    /// Routes <c>/{org}/{app}</c> on the public origin to an app on the host: a cluster whose destination is the app's
-    /// port on <see cref="AppHostGatewayName" />, which the front door resolves to the host gateway. The destination is
-    /// written here rather than taken from the project's endpoint, which Aspire resolves for a container to its own
-    /// container host name (<c>host.containers.internal</c> under Podman) without the tunnel.
-    /// </summary>
-    public FrontDoorRoute AddAppRoute(string resource, string org, string app, EndpointReference endpoint)
+    private IResourceBuilder<ContainerResource> AddContainer(ContainerSpec spec)
     {
-        if (!_frontDoorReachesHost)
-        {
-            FrontDoor.WithContainerRuntimeArgs("--add-host", $"{AppHostGatewayName}:{ManifestResolver.HostGateway}");
-            _frontDoorReachesHost = true;
-        }
-        var route = FrontDoorRoutes.ForApp(resource, org, app, _resolver.Topology);
-        FrontDoor.WithConfiguration(yarp =>
-        {
-            var cluster = yarp.AddCluster(
-                resource,
-                ReferenceExpression.Create(
-                    $"{Uri.UriSchemeHttp}://{AppHostGatewayName}:{endpoint.Property(EndpointProperty.Port)}"
-                )
-            );
-            yarp.AddRoute(route.Path, cluster)
-                .WithMatchHosts([.. route.Hosts])
-                .WithOrder(route.Order)
-                .WithTransformUseOriginalHostHeader();
-        });
-        _routes.Add(route);
-        return route;
-    }
-
-    /// <summary>The resource name of a component: its manifest name, unless that is the parent's name.</summary>
-    public string ResourceName(string component) =>
-        string.Equals(component, _parent?.Resource.Name, StringComparison.OrdinalIgnoreCase)
-            ? component + "-app"
-            : component;
-
-    private IResourceBuilder<ContainerResource> AddContainer(ResolvedComponent component)
-    {
-        if (component.HostUser)
-        {
-            throw new NotSupportedException(
-                $"Component {component.Name} runs as the developer's user (hostUser), which the Aspire package does not support yet."
-            );
-        }
-        var name = ResourceName(component.Name);
-        var image = component.Image;
+        var image = spec.Image;
         var container = _builder
-            .AddContainer(name, image.Image, image.Tag ?? "latest")
+            .AddContainer(spec.Name, image.Image, image.Tag ?? "latest")
             .WithParentRelationship(_parent!)
             .WithLifetime(ContainerLifetime.Persistent);
         if (image.Registry is not null)
@@ -250,16 +148,17 @@ internal sealed class LocaltestStack
         {
             container.WithImagePullPolicy(ImagePullPolicy.Always);
         }
-        foreach (var (key, value) in component.Environment)
+        // The services__ variables name every container running when the AppHost starts, so the environment is read
+        // then: a group enabled after this container was added is in it.
+        var name = spec.Name;
+        container.WithEnvironment(context =>
         {
-            container.WithEnvironment(key, value);
-        }
-        if (component.Command is { } command)
-        {
-            container.WithArgs([.. command]);
-        }
-        AddEndpointAndHealth(container, component);
-        foreach (var mount in component.Mounts)
+            foreach (var (key, value) in Specs().Single(s => s.Name == name).Environment)
+            {
+                context.EnvironmentVariables[key] = value;
+            }
+        });
+        foreach (var mount in spec.Mounts)
         {
             if (mount.IsVolume)
             {
@@ -270,78 +169,54 @@ internal sealed class LocaltestStack
                 container.WithBindMount(mount.Source, mount.Target, mount.ReadOnly);
             }
         }
-        // Every container is reachable by its resource name; the manifest's aliases (and the component name, when the
-        // resource name differs) are added to it.
-        IEnumerable<string> aliases =
-            name == component.Name ? component.NetworkAliases : [component.Name, .. component.NetworkAliases];
-        foreach (var alias in aliases.Where(alias => alias != name).Distinct(StringComparer.Ordinal))
-        {
-            container.WithContainerNetworkAlias(alias);
-        }
-        foreach (var host in component.ExtraHosts)
+        // Aspire gives a container its resource name as network alias, which is the manifest name.
+        foreach (var host in spec.ExtraHosts)
         {
             container.WithContainerRuntimeArgs("--add-host", host);
         }
-        if (component.ExtraHosts.Count > 0)
-        {
-            // It calls the platform through the front door from its first request on.
-            container.WaitForStart(FrontDoor);
-        }
+        AddEndpointsAndHealth(container, spec);
         return container;
     }
 
-    private void AddEndpointAndHealth(IResourceBuilder<ContainerResource> container, ResolvedComponent component)
+    private void AddEndpointsAndHealth(IResourceBuilder<ContainerResource> container, ContainerSpec spec)
     {
-        if (component.HostPort is { } hostPort)
+        if (spec.PublishedPort is { } published)
         {
-            container.WithHttpEndpoint(
-                port: hostPort,
-                targetPort: component.ContainerPort,
-                name: HttpEndpoint,
-                isProxied: false
-            );
-            if (component.HealthPath is not null)
-            {
-                container.WithHttpHealthCheck(component.HealthPath, endpointName: HttpEndpoint);
-            }
+            // Unproxied, on every interface: the containers reach the public origin through the host gateway, which a
+            // loopback-only port would not answer. The health check is the front door's /health through that port.
+            container
+                .WithHttpEndpoint(port: published, targetPort: spec.Port, name: HttpEndpoint, isProxied: false)
+                .WithEndpoint(HttpEndpoint, endpoint => endpoint.TargetHost = "0.0.0.0")
+                .WithHttpHealthCheck(spec.Health.Path, endpointName: HttpEndpoint);
             return;
         }
-        if (component.Routes.Count > 0)
+        if (spec.Name == InNetworkHealthCheck.ProbeContainer && _options.PostgresHostPort is { } postgresPort)
         {
-            throw new NotSupportedException($"Component {component.Name} has routes but no host port.");
+            container.WithEndpoint(
+                port: postgresPort,
+                targetPort: spec.Port,
+                scheme: "tcp",
+                name: TcpEndpoint,
+                isProxied: false
+            );
         }
-        // No published port in the manifest: an unproxied TCP endpoint on a fixed loopback port for the host-side probe.
-        // A proxied one would give the container a new random host port on every run, which changes a persistent
-        // container's configuration and recreates it on every AppHost start.
-        var (protocol, port) = ProbeOf(component);
-        container.WithEndpoint(
-            port: port,
-            targetPort: component.ContainerPort,
-            scheme: "tcp",
-            name: TcpEndpoint,
-            isProxied: false
-        );
-        var key = $"{container.Resource.Name}_protocol_check";
-        var endpoint = container.GetEndpoint(TcpEndpoint);
+        var key = $"{spec.Name}_in_network_check";
+        InNetworkHealthCheck? check = null;
         _builder
             .Services.AddHealthChecks()
-            .Add(new HealthCheckRegistration(key, _ => new ProtocolHealthCheck(endpoint, protocol), null, null));
+            .Add(
+                new HealthCheckRegistration(
+                    key,
+                    services =>
+                        check ??= new InNetworkHealthCheck(
+                            spec.Health,
+                            services.GetRequiredService<ResourceNotificationService>(),
+                            services.GetRequiredService<IConfiguration>()
+                        ),
+                    failureStatus: null,
+                    tags: null
+                )
+            );
         container.WithHealthCheck(key);
-    }
-
-    /// <summary>The host-side probe that replaces a component's container health check.</summary>
-    private (ProtocolHealthCheck.Protocol Protocol, int Port) ProbeOf(ResolvedComponent component)
-    {
-        if (component.Name == _resolver.Manifest.Postgres.Component)
-        {
-            return (ProtocolHealthCheck.Protocol.Postgres, _options.PostgresHostPort);
-        }
-        if (component.Image.Image.EndsWith("/redis", StringComparison.Ordinal))
-        {
-            return (ProtocolHealthCheck.Protocol.Redis, _options.RedisHostPort);
-        }
-        throw new NotSupportedException(
-            $"Component {component.Name} has no HTTP health path and no host-side probe in the Aspire package."
-        );
     }
 }

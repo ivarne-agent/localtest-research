@@ -6,8 +6,8 @@ namespace Altinn.App.Aspire.Manifest;
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-    RespectRequiredConstructorParameters = true,
     RespectNullableAnnotations = true
 )]
-[JsonSerializable(typeof(LocaltestManifest))]
+[JsonSerializable(typeof(IReadOnlyList<ManifestGroup>))]
+[JsonSerializable(typeof(ManifestContainer))]
 internal sealed partial class ManifestJsonContext : JsonSerializerContext;

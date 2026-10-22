@@ -8,7 +8,7 @@ namespace Altinn.App.Aspire.Manifest;
 /// <param name="Floating">Whether the tag moves, so the image is pulled on every start.</param>
 internal sealed record ImageReference(string? Registry, string Image, string? Tag, string? Digest, bool Floating)
 {
-    /// <summary>The full reference as studioctl writes it: <c>registry/image:tag[@digest]</c>.</summary>
+    /// <summary>The full reference as the manifest writes it: <c>registry/image:tag[@digest]</c>.</summary>
     public string Reference =>
         (Registry is null ? Image : Registry + "/" + Image)
         + ":"
@@ -50,28 +50,5 @@ internal sealed record ImageReference(string? Registry, string Image, string? Ta
             }
         }
         return new ImageReference(registry, image, string.IsNullOrEmpty(tag) ? null : tag, digest, floating);
-    }
-
-    /// <summary>
-    /// Parses a complete reference from an override variable (<c>repository[:tag][@digest]</c>); it names one build,
-    /// so it never floats. Only a colon after the last slash delimits the tag (a registry may carry a port).
-    /// </summary>
-    public static ImageReference Parse(string reference)
-    {
-        string? digest = null;
-        var at = reference.IndexOf('@', StringComparison.Ordinal);
-        if (at >= 0)
-        {
-            digest = reference[(at + 1)..];
-            reference = reference[..at];
-        }
-        var colon = reference.LastIndexOf(':');
-        string? tag = null;
-        if (colon >= 0 && !reference[(colon + 1)..].Contains('/', StringComparison.Ordinal))
-        {
-            tag = reference[(colon + 1)..];
-            reference = reference[..colon];
-        }
-        return From(reference, digest is null ? tag : tag + "@" + digest, floating: false);
     }
 }

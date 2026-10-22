@@ -4,38 +4,27 @@ namespace Altinn.App.Aspire;
 public sealed class AltinnLocaltestOptions
 {
     /// <summary>
-    /// The tag every research image runs. Null (the default) takes <c>STUDIOCTL_LOCALTEST_V2_TAG</c> when it is set,
-    /// otherwise the manifest's pin; <c>latest</c> follows main and is pulled on every start. A per-image variable
-    /// (<c>STUDIOCTL_IMAGE_LOCALTEST_V2_STORAGE</c> and so on) still wins, as with studioctl.
+    /// The tag that replaces every research image's <c>sha-</c> pin; null (the default) runs the manifest's pins.
+    /// <c>latest</c> follows main (studioctl's <c>--latest</c>) and is pulled on every start.
     /// </summary>
     public string? Tag { get; set; }
 
     /// <summary>
     /// The package's data directory on the host; it holds the shared test certificate (<c>certs/</c>), which every
-    /// component mounts. Default <c>~/.altinn-app-aspire</c>.
+    /// container mounts, and the apps' secrets. Default <c>~/.altinn-app-aspire</c>.
     /// </summary>
     public string DataDirectory { get; set; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".altinn-app-aspire");
 
     /// <summary>
-    /// The optional component groups to add (<c>dialogporten</c>, <c>receipt</c>, <c>correspondence</c>,
-    /// <c>arbeidsflate</c>, <c>everything</c>), each with the groups it implies. The same as calling
-    /// <see cref="AltinnLocaltestExtensions.WithGroup" />.
+    /// The optional groups to add (<c>dialogporten</c>, <c>receipt</c>, <c>correspondence</c>, <c>arbeidsflate</c>,
+    /// <c>everything</c>). The same as calling <see cref="AltinnLocaltestExtensions.WithGroup" />.
     /// </summary>
     public ICollection<string> Groups { get; } = [];
 
     /// <summary>
-    /// For diagnosis: when not empty, only these components and what they depend on are added (with the front door),
-    /// for example <c>postgres</c> alone. Empty (the default) adds the whole selection.
+    /// A loopback host port to publish Postgres on, for <c>psql</c> and other tools; null (the default) publishes
+    /// nothing, as studioctl. The health checks do not need it.
     /// </summary>
-    public ICollection<string> OnlyComponents { get; } = [];
-
-    /// <summary>
-    /// The loopback host port Postgres is published on (studioctl publishes none). The package's health check needs a
-    /// port, and a fixed one keeps the persistent container from being recreated on every run. Default 15432.
-    /// </summary>
-    public int PostgresHostPort { get; set; } = 15432;
-
-    /// <summary>The loopback host port Redis is published on, for the same reasons. Default 16379.</summary>
-    public int RedisHostPort { get; set; } = 16379;
+    public int? PostgresHostPort { get; set; }
 }

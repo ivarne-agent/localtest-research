@@ -10,20 +10,23 @@ namespace Altinn.App.Aspire;
 /// <summary>Adds the Altinn localtest platform to an Aspire AppHost.</summary>
 public static class AltinnLocaltestExtensions
 {
+    /// <summary>The parent resource's default name; the localtest container is <c>localtest</c>.</summary>
+    public const string DefaultName = "altinn-localtest";
+
     /// <summary>
-    /// Adds the localtest platform: the always-on components of the localtest-v2 manifest as persistent containers
-    /// (the images, environment, ports, volumes and certificate studioctl runs), and a YARP front door on
-    /// <c>http://local.altinn.cloud:8000</c> with the manifest's routes. Optional groups come from
+    /// Adds the localtest platform: the containers of the localtest-v2 manifest's <c>default</c> group as persistent
+    /// containers (the images, environment, volumes and certificate studioctl runs), the localtest container's port
+    /// 8080 published as <c>http://local.altinn.cloud:8000</c>, the front door. Optional groups come from
     /// <see cref="AltinnLocaltestOptions.Groups" />, <see cref="WithGroup" /> or a typed alias such as
     /// <see cref="WithDialogporten" />.
     /// </summary>
     /// <param name="builder">The AppHost's builder.</param>
     /// <param name="name">The parent resource's name.</param>
     /// <param name="configure">Sets the options.</param>
-    /// <returns>The parent resource, which is running once every component and the front door is healthy.</returns>
+    /// <returns>The parent resource, which is running once every container is healthy.</returns>
     public static IResourceBuilder<AltinnLocaltestResource> AddAltinnLocaltest(
         this IDistributedApplicationBuilder builder,
-        [ResourceName] string name = "localtest",
+        [ResourceName] string name = DefaultName,
         Action<AltinnLocaltestOptions>? configure = null
     )
     {
@@ -31,14 +34,7 @@ public static class AltinnLocaltestExtensions
         var options = new AltinnLocaltestOptions();
         configure?.Invoke(options);
 
-        var manifest = ManifestLoader.Default;
-        var certificateDirectory = Path.Combine(options.DataDirectory, "certs");
-        var stack = new LocaltestStack(
-            builder,
-            new ManifestResolver(manifest, certificateDirectory, options.Tag),
-            certificateDirectory,
-            options
-        );
+        var stack = new LocaltestStack(builder, LocaltestManifest.Default, options);
         var parent = builder
             .AddResource(new AltinnLocaltestResource(name, stack))
             .WithInitialState(
@@ -48,12 +44,11 @@ public static class AltinnLocaltestExtensions
                     State = KnownResourceStates.NotStarted,
                     Properties =
                     [
-                        new ResourcePropertySnapshot("localtest.manifestTag", manifest.Images.Tag),
-                        new ResourcePropertySnapshot("localtest.platformUri", stack.PlatformUri.ToString()),
+                        new ResourcePropertySnapshot("localtest.platformUri", Topology.PlatformUri.ToString()),
                     ],
                 }
             );
-        stack.Initialize(parent, options.Groups, options.OnlyComponents);
+        stack.Initialize(parent, options.Groups);
 
         // The port check and the certificate run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
@@ -61,9 +56,9 @@ public static class AltinnLocaltestExtensions
             {
                 if (builder.ExecutionContext.IsRunMode)
                 {
-                    PortGuard.EnsureFree(stack.Resolver.Topology.IngressPort);
+                    PortGuard.EnsureFree(Topology.IngressPort);
                 }
-                LocaltestCertificate.Ensure(certificateDirectory, manifest);
+                LocaltestCertificate.Ensure(stack.CertificateDirectory);
                 return Task.CompletedTask;
             }
         );
@@ -84,9 +79,59 @@ public static class AltinnLocaltestExtensions
     }
 
     /// <summary>
-    /// Enables an optional component group and the groups it implies (<c>correspondence</c> brings
-    /// <c>dialogporten</c>; <c>everything</c> brings all). Components of groups that are not enabled are not added, so a
-    /// request to their prefix falls through to the localtest app.
+    /// Routes <c>app-frontend.local.altinn.cloud:8000</c> to a frontend dev server (Vite) on the host, as
+    /// <c>studioctl run --dev-frontend</c> does: the route is registered with the front door once the localtest
+    /// container is healthy (<c>PUT localtest/api/routes/frontend-dev-server</c>), and every app added with
+    /// <c>AddAltinnApp</c> loads app-frontend from it (<c>AppSettings__AppFrontendAssetBaseUrl</c>).
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <param name="port">The dev server's port on the host.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithFrontendDevServer(
+        this IResourceBuilder<AltinnLocaltestResource> builder,
+        int port = 8080
+    )
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(port);
+        var stack = builder.Resource.Stack;
+        if (stack.FrontendDevServerPort is null)
+        {
+            builder.ApplicationBuilder.Eventing.Subscribe<ResourceReadyEvent>(
+                stack.FrontDoor.Resource,
+                async (e, ct) =>
+                {
+                    var console = e.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Altinn.App.Aspire");
+                    try
+                    {
+                        var answer = await FrontDoorClient
+                            .PutAsync(
+                                Topology.PlatformUri,
+                                FrontDoorClient.DevServerPath,
+                                FrontDoorClient.HostAddress(stack.FrontendDevServerPort!.Value),
+                                ct
+                            )
+                            .ConfigureAwait(false);
+                        console.LogDevServerRoute(answer.ToString());
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        console.LogDevServerRouteFailed(
+                            exception,
+                            new Uri(Topology.PlatformUri, FrontDoorClient.DevServerPath).ToString()
+                        );
+                    }
+                }
+            );
+        }
+        stack.FrontendDevServerPort = port;
+        return builder;
+    }
+
+    /// <summary>
+    /// Enables an optional group of the manifest: its root containers and what they depend on (<c>correspondence</c>
+    /// starts Dialogporten's WebApi, its dependency; <c>everything</c> enables every group). A group that is off has
+    /// no containers and no <c>services__</c> variables, so the front door answers 503 "not running" for it.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <param name="group">The group's name.</param>
@@ -102,11 +147,12 @@ public static class AltinnLocaltestExtensions
         return builder;
     }
 
-    // One typed alias per manifest group; GroupMethodsTests keeps the set equal to the manifest's groups.
+    // One typed alias per optional group of the manifest, and everything; GroupMethodsTests keeps the set equal to the
+    // manifest's groups.
 
     /// <summary>
     /// Enables the <c>dialogporten</c> group: Dialogporten's WebApi, GraphQL and Service hosts, its Redis, and the
-    /// adapter that turns Storage's instances into dialogs. Implies no other group.
+    /// adapter that turns Storage's instances into dialogs.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>
@@ -115,7 +161,7 @@ public static class AltinnLocaltestExtensions
     ) => builder.WithGroup("dialogporten");
 
     /// <summary>
-    /// Enables the <c>receipt</c> group: the platform receipt for archived instances. Implies no other group.
+    /// Enables the <c>receipt</c> group: the platform receipt for archived instances.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>
@@ -124,8 +170,8 @@ public static class AltinnLocaltestExtensions
     ) => builder.WithGroup("receipt");
 
     /// <summary>
-    /// Enables the <c>correspondence</c> group: Altinn Correspondence. Also brings Dialogporten (the
-    /// <c>dialogporten</c> group), which its publish needs.
+    /// Enables the <c>correspondence</c> group: Altinn Correspondence, with what it depends on: Redis and Dialogporten's
+    /// WebApi among them, which its publish needs.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>
@@ -135,7 +181,7 @@ public static class AltinnLocaltestExtensions
 
     /// <summary>
     /// Enables the <c>arbeidsflate</c> group: Arbeidsflate, the Altinn inbox (the SPA and its BFF) on
-    /// <c>af.local.altinn.cloud</c>. Also brings Dialogporten (the <c>dialogporten</c> group), whose dialogs it shows.
+    /// <c>af.local.altinn.cloud</c>. With what it depends on: Dialogporten's WebApi and GraphQL hosts among them.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>
@@ -143,9 +189,7 @@ public static class AltinnLocaltestExtensions
         this IResourceBuilder<AltinnLocaltestResource> builder
     ) => builder.WithGroup("arbeidsflate");
 
-    /// <summary>
-    /// Enables the <c>everything</c> group, which owns no components and brings every other group.
-    /// </summary>
+    /// <summary>Enables every optional group.</summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>
     public static IResourceBuilder<AltinnLocaltestResource> WithEverything(
@@ -164,12 +208,12 @@ public static class AltinnLocaltestExtensions
         try
         {
             await Task.WhenAll(
-                    resource.Stack.Children.Select(async child =>
+                    resource.Stack.Containers.Values.Select(async container =>
                     {
                         await e
-                            .Notifications.WaitForResourceHealthyAsync(child.Name, cancellationToken)
+                            .Notifications.WaitForResourceHealthyAsync(container.Resource.Name, cancellationToken)
                             .ConfigureAwait(false);
-                        console.LogComponentHealthy(child.Name, started.Elapsed.TotalSeconds);
+                        console.LogContainerHealthy(container.Resource.Name, started.Elapsed.TotalSeconds);
                     })
                 )
                 .ConfigureAwait(false);
