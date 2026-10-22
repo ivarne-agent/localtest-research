@@ -58,7 +58,7 @@ A path matching no route still falls through to the localtest app.
 | 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21; two items: the explicit environment, and `keepAlive`'s `Secure` from the request, decided 2026-10-21) | small | no |
 | 23 | [HTTPS for the Aspire-hosted stack](#23-https-for-the-aspire-hosted-stack) | research done (2026-10-22, commit 43915959, `planned-components/aspire/https.md`: yes, Aspire 13.6 terminates TLS at the YARP front door with a package-generated CA and server certificate and gives every container the CA without image changes; follow-up task 24) | small | no |
 | 24 | [HTTPS mode for the Aspire package](#24-https-mode-for-the-aspire-package) | unapproved (follow-up of 23) | medium | no |
-| 25 | [Service discovery in the components](#25-service-discovery-in-the-components) | research running (dispatched 2026-10-22, Opus, brief `/home/agent/code/.briefs/task25-service-discovery.md`; first step of the simplification below) | small | no |
+| 25 | [Service discovery in the components](#25-service-discovery-in-the-components) | research done (2026-10-22, branch `research/service-discovery` head 3d616735, report `planned-components/service-discovery.md`; registration prototype compiles in every component, not merged yet; brief `/home/agent/code/.briefs/task25-service-discovery.md`) | small | no |
 | 26 | [The localtest container as the shared front door](#26-the-localtest-container-as-the-shared-front-door) | unapproved (decided direction 2026-10-22; after 25) | large | yes |
 | 27 | [Manifest v2: services only](#27-manifest-v2-services-only) | unapproved (decided direction 2026-10-22; after 26) | medium | yes |
 
@@ -754,6 +754,24 @@ inline in every vendored .NET composition root, compile-checked one component at
 (a localtest appsettings with service names) and what stays in `envs`; the port and health convention per Dockerfile;
 whether Aspire honours a container `HEALTHCHECK` for `WaitFor`; the YARP service-discovery resolver. Report
 `planned-components/service-discovery.md`.
+
+**Outcome (2026-10-22).** Works for every .NET component through `IHttpClientFactory` clients; Register,
+Authentication, Access Management and the Resource Registry already register it in production (`AltinnServiceDefaults`);
+the other hosts got a three-line `#if LOCALTEST` block (prototype branch, every component builds, coordinator rebuilt
+the localtest app). Findings that change the plan: the call graph has cycles (Storage/Authorization,
+Authorization/Access Management, Register/Authorization), so the runtime injects `services__<name>__http__0` for every
+running component and `dependsOn` stays start order only; Aspire 13.6 ignores an image `HEALTHCHECK` for `WaitFor`, so
+the health convention (`/health` on 8080) is fixed in both loaders with optional `port`/`health` keys for Postgres,
+Redis, pdf3 and the workflow engine; the real work is the settings (URLs derived from one public `PlatformEndpoint` per
+fake; Correspondence's `PlatformGatewayUrl`, Dialogporten's `Infrastructure:Altinn:BaseUri` and the BFF's
+`PLATFORM_BASEURL` serve several services and must be split); one active call bypasses the factory (Access
+Management's `ResourceRegistryClient`), the token-metadata fetches stay on the public origin. Estimate 9 to 11 days in
+per-component steps. **Decision (owner, 2026-10-22): the pass-through provider is disabled** in the localtest app and
+in every component where possible, as the last step of each component's URL migration (today every factory client
+calls the public origin, which only passes through, so it cannot go off first); the four `ServiceDefaults` components
+remove the pass-through factory from the container in their fakes. Before the registration branch merges: the
+`UPSTREAM.md` site lists, and `RestoreLockedMode=false` for Dialogporten's localtest build instead of the 4,500-line
+lock files the prototype carries.
 
 ## 26. The localtest container as the shared front door
 
