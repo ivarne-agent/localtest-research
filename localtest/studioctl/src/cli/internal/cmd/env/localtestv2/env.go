@@ -121,7 +121,8 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 		return fmt.Errorf("ensure studioctl-server: %w", err)
 	}
 
-	if err := e.applyResources(ctx, resources(opts, newProber(e.client, e.out.Verbosef).probes), len(opts.Dev) > 0); err != nil {
+	probes := newProber(e.client, e.out.Verbosef).probes
+	if err := e.applyResources(ctx, resources(opts, probes), len(opts.Dev) > 0); err != nil {
 		return err
 	}
 	e.out.Println("Waiting for the front door to answer...")
