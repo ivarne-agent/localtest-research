@@ -27,6 +27,7 @@
   <ItemGroup>
     <Compile
       Include="../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/**/*.cs"
+      Exclude="../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/bin/**;../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/obj/**"
       LinkBase="Provisioning"
     />
   </ItemGroup>
