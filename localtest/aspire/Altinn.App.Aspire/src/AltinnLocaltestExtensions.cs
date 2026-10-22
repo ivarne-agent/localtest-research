@@ -54,12 +54,28 @@ public static class AltinnLocaltestExtensions
             );
         stack.Initialize(parent, options.Groups, options.OnlyComponents);
 
-        // The certificate is written when the AppHost starts, not when the model is built.
+        // The port check and the certificate run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
             (_, _) =>
             {
+                if (builder.ExecutionContext.IsRunMode)
+                {
+                    PortGuard.EnsureFree(stack.Resolver.Topology.IngressPort);
+                }
                 LocaltestCertificate.Ensure(certificateDirectory, manifest);
                 return Task.CompletedTask;
+            }
+        );
+        parent.WithCommand(
+            LocaltestReset.CommandName,
+            "Reset",
+            context => LocaltestReset.ExecuteAsync(context, parent.Resource),
+            new CommandOptions
+            {
+                Description =
+                    "Remove the localtest containers and the named volumes (studioctl env reset), then restart the AppHost",
+                ConfirmationMessage = LocaltestReset.Confirmation,
+                IconName = "ArrowReset",
             }
         );
         builder.Eventing.Subscribe<InitializeResourceEvent>(parent.Resource, ReportWhenHealthyAsync);

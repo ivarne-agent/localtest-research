@@ -14,7 +14,13 @@ internal sealed class Placeholders(LocaltestManifest manifest, LocaltestTopology
     private const string Close = "}}";
 
     /// <summary>Resolves every placeholder in <paramref name="value" />; an unknown one throws.</summary>
-    public string Expand(string value)
+    public string Expand(string value) => Expand(value, null);
+
+    /// <summary>
+    /// Resolves every placeholder in <paramref name="value" />, with the runner's certificate for the app section's
+    /// <c>accessTokenSigning</c> (<c>{{appCertPath}}</c>, <c>{{appCertKeysFolder}}</c>); without it those throw.
+    /// </summary>
+    public string Expand(string value, AppCertificate? certificate)
     {
         var output = new StringBuilder();
         var rest = value.AsSpan();
@@ -33,7 +39,7 @@ internal sealed class Placeholders(LocaltestManifest manifest, LocaltestTopology
             {
                 throw new InvalidDataException($"Unterminated placeholder in \"{value}\".");
             }
-            output.Append(Resolve(rest[..end].ToString(), value));
+            output.Append(Resolve(rest[..end].ToString(), value, certificate));
             rest = rest[(end + Close.Length)..];
         }
     }
@@ -41,7 +47,7 @@ internal sealed class Placeholders(LocaltestManifest manifest, LocaltestTopology
     /// <summary>Resolves every string of a list.</summary>
     public IReadOnlyList<string> ExpandAll(IEnumerable<string> values) => [.. values.Select(Expand)];
 
-    private string Resolve(string text, string context)
+    private string Resolve(string text, string context, AppCertificate? certificate)
     {
         var colon = text.IndexOf(':', StringComparison.Ordinal);
         var name = colon < 0 ? text : text[..colon];
@@ -52,6 +58,9 @@ internal sealed class Placeholders(LocaltestManifest manifest, LocaltestTopology
             ("url", { Length: > 0 } id) => Topology(topology.Url, id, text, context),
             ("host", { Length: > 0 } id) => Topology(topology.Host, id, text, context),
             ("certPath", null) => manifest.Certificate.ContainerPath,
+            ("certFileName", null) => manifest.Certificate.FileName,
+            ("appCertPath", null) => AppValue(certificate?.Path, text, context),
+            ("appCertKeysFolder", null) => AppValue(certificate?.KeysFolder, text, context),
             ("postgresUser", null) => manifest.Postgres.User,
             ("postgresPassword", null) => manifest.Postgres.Password,
             ("alias", { Length: > 0 } component) => Alias(component, text, context),
@@ -60,6 +69,12 @@ internal sealed class Placeholders(LocaltestManifest manifest, LocaltestTopology
             _ => throw new InvalidDataException($"Unknown placeholder {{{{{text}}}}} in \"{context}\"."),
         };
     }
+
+    private static string AppValue(string? value, string text, string context) =>
+        value
+        ?? throw new InvalidDataException(
+            $"{{{{{text}}}}} in \"{context}\": only the app section's accessTokenSigning may use the runner's certificate placeholders."
+        );
 
     private static string Topology(Func<string, string?> lookup, string id, string text, string context) =>
         lookup(id)

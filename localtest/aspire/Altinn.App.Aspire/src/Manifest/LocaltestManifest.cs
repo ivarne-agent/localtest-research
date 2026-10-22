@@ -36,6 +36,9 @@ internal sealed record LocaltestManifest
     /// <summary>What the front door needs beyond the components' routes.</summary>
     public required ManifestFrontDoor FrontDoor { get; init; }
 
+    /// <summary>The environment an app runs with against the stack.</summary>
+    public required ManifestApp App { get; init; }
+
     /// <summary>The optional component groups by name.</summary>
     public required IReadOnlyDictionary<string, ManifestGroup> Groups { get; init; }
 
@@ -378,4 +381,63 @@ internal sealed record ManifestRoute
 
     /// <summary>The path forwarded in place of the prefix; null to forward the path unchanged.</summary>
     public string? Rewrite { get; init; }
+}
+
+/// <summary>
+/// The environment an app runs with against the stack, which every runner sets (studioctl's <c>run</c>, this package's
+/// <c>AddAltinnApp</c>); the runner adds the Kestrel URL, the OpenTelemetry endpoint and the secrets directory's path.
+/// </summary>
+internal sealed record ManifestApp
+{
+    /// <summary>What the section is for.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>Set unless the inherited environment has the variable (studioctl); with placeholders.</summary>
+    public required IReadOnlyDictionary<string, string> Environment { get; init; }
+
+    /// <summary>Set on every run whatever the inherited environment holds.</summary>
+    public required IReadOnlyDictionary<string, string> FixedEnvironment { get; init; }
+
+    /// <summary>The certificate variables, set when the runner has the certificate; with the runner's placeholders.</summary>
+    public required IReadOnlyDictionary<string, string> AccessTokenSigning { get; init; }
+
+    /// <summary>The secrets directory variable and its files.</summary>
+    public required ManifestAppSecrets Secrets { get; init; }
+}
+
+/// <summary>The app's secrets directory and the files in it.</summary>
+internal sealed record ManifestAppSecrets
+{
+    /// <summary>The variable holding the directory's path.</summary>
+    public required string DirectoryEnv { get; init; }
+
+    /// <summary>The files of the directory.</summary>
+    public required IReadOnlyList<ManifestAppSecretFile> Files { get; init; }
+
+    /// <summary>The named file.</summary>
+    public ManifestAppSecretFile File(string name) =>
+        Files.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal))
+        ?? throw new InvalidDataException($"The localtest manifest names no app secrets file {name}.");
+}
+
+/// <summary>One file of the secrets directory.</summary>
+internal sealed record ManifestAppSecretFile
+{
+    /// <summary>The development app codes' name.</summary>
+    public const string AppCodes = "appCodes";
+
+    /// <summary>The file's name in the manifest.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>What it holds and who writes it.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>The variable that names the file.</summary>
+    public required string Env { get; init; }
+
+    /// <summary>The file's name in the directory.</summary>
+    public required string FileName { get; init; }
+
+    /// <summary>Whether every runner writes it before the app starts.</summary>
+    public bool WrittenOnEveryRun { get; init; }
 }

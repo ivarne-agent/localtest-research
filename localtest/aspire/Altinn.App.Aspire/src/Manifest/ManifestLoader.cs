@@ -84,12 +84,31 @@ internal static class ManifestLoader
                 throw new InvalidDataException($"Component {c.Name} depends on the unknown component {unknown}.");
             }
         }
+        CheckApp(m.App);
         foreach (var (name, group) in m.Groups)
         {
             if (group.Implies.FirstOrDefault(implied => !m.Groups.ContainsKey(implied)) is { } unknown)
             {
                 throw new InvalidDataException($"Group {name} implies the unknown group {unknown}.");
             }
+        }
+    }
+
+    /// <summary>A variable the app section sets twice is refused, as the Go loader refuses it.</summary>
+    private static void CheckApp(ManifestApp app)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        IEnumerable<string> all =
+        [
+            .. app.Environment.Keys,
+            .. app.FixedEnvironment.Keys,
+            .. app.AccessTokenSigning.Keys,
+            app.Secrets.DirectoryEnv,
+            .. app.Secrets.Files.Select(f => f.Env),
+        ];
+        if (all.FirstOrDefault(key => !keys.Add(key)) is { } duplicate)
+        {
+            throw new InvalidDataException($"The localtest manifest's app section sets {duplicate} twice.");
         }
     }
 

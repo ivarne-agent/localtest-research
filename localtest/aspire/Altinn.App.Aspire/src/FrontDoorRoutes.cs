@@ -34,6 +34,27 @@ internal static class FrontDoorRoutes
     public const int HostOnlyOrder = 0;
 
     /// <summary>
+    /// The order of an app's route: after every component prefix (their orders are minus the prefix length) and before
+    /// the localtest app's fall-through. studioctl-server sorts an app's <c>/{org}/{app}</c> prefix among the
+    /// component prefixes by length; the two agree unless an org is named like a component prefix.
+    /// </summary>
+    public const int AppOrder = -1;
+
+    /// <summary>
+    /// The route of an app on the public origin's host (and <c>localhost</c>, <c>127.0.0.1</c>), as studioctl-server's
+    /// app routes: <c>/{org}/{app}</c> and everything below it, the original Host kept.
+    /// </summary>
+    public static FrontDoorRoute ForApp(string resource, string org, string app, LocaltestTopology topology) =>
+        new(
+            resource,
+            [topology.Host(LocaltestTopology.App)!, "localhost", "127.0.0.1"],
+            $"{PathSeparator}{org}{PathSeparator}{app}{PathSeparator}{CatchAll}",
+            AppOrder,
+            null,
+            null
+        );
+
+    /// <summary>
     /// The routes for a component's manifest routes. A route on the public origin's host also matches
     /// <c>localhost</c> and <c>127.0.0.1</c>: studioctl-server matches a request on another host against the public
     /// origin's host, which is how a request to <c>http://localhost:8000/</c> and the front door's own health check

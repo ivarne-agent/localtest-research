@@ -23,6 +23,15 @@ internal sealed class LocaltestStack
     /// <summary>The name of the TCP endpoint of a component without a host port (Postgres, Redis).</summary>
     public const string TcpEndpoint = "tcp";
 
+    /// <summary>
+    /// The name the front door reaches an app on the host by: mapped to the runtime's host gateway with
+    /// <c>--add-host</c>, as the components reach the front door (21d: Aspire's container tunnel does not build on
+    /// Podman 5.7, so the app binds every interface and the front door goes through the gateway).
+    /// </summary>
+    public const string AppHostGatewayName = "host.docker.internal";
+
+    private bool _frontDoorReachesHost;
+
     private readonly IDistributedApplicationBuilder _builder;
     private readonly ManifestResolver _resolver;
     private readonly SortedSet<string> _groups = new(StringComparer.Ordinal);
@@ -41,12 +50,16 @@ internal sealed class LocaltestStack
     )
     {
         _options = options;
+        DataDirectory = options.DataDirectory;
         _builder = builder;
         _resolver = resolver;
         CertificateDirectory = certificateDirectory;
     }
 
     public string CertificateDirectory { get; }
+
+    /// <summary>The package's data directory on the host.</summary>
+    public string DataDirectory { get; }
 
     public IReadOnlyCollection<string> EnabledGroups => _groups;
 
@@ -172,6 +185,37 @@ internal sealed class LocaltestStack
                 }
             }
         });
+    }
+
+    /// <summary>
+    /// Routes <c>/{org}/{app}</c> on the public origin to an app on the host: a cluster whose destination is the app's
+    /// port on <see cref="AppHostGatewayName" />, which the front door resolves to the host gateway. The destination is
+    /// written here rather than taken from the project's endpoint, which Aspire resolves for a container to its own
+    /// container host name (<c>host.containers.internal</c> under Podman) without the tunnel.
+    /// </summary>
+    public FrontDoorRoute AddAppRoute(string resource, string org, string app, EndpointReference endpoint)
+    {
+        if (!_frontDoorReachesHost)
+        {
+            FrontDoor.WithContainerRuntimeArgs("--add-host", $"{AppHostGatewayName}:{ManifestResolver.HostGateway}");
+            _frontDoorReachesHost = true;
+        }
+        var route = FrontDoorRoutes.ForApp(resource, org, app, _resolver.Topology);
+        FrontDoor.WithConfiguration(yarp =>
+        {
+            var cluster = yarp.AddCluster(
+                resource,
+                ReferenceExpression.Create(
+                    $"{Uri.UriSchemeHttp}://{AppHostGatewayName}:{endpoint.Property(EndpointProperty.Port)}"
+                )
+            );
+            yarp.AddRoute(route.Path, cluster)
+                .WithMatchHosts([.. route.Hosts])
+                .WithOrder(route.Order)
+                .WithTransformUseOriginalHostHeader();
+        });
+        _routes.Add(route);
+        return route;
     }
 
     /// <summary>The resource name of a component: its manifest name, unless that is the parent's name.</summary>

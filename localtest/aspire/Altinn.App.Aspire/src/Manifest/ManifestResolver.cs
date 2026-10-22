@@ -94,6 +94,39 @@ internal sealed class ManifestResolver
             : [.. group.Implies.Order(StringComparer.Ordinal)];
     }
 
+    /// <summary>
+    /// The app section resolved as studioctl's <c>internal/cmd/app/env.go</c> resolves it: the environment and the fixed
+    /// environment against the topology, the secrets variables with <paramref name="secretsDirectory" />, and the access
+    /// token signing variables when <paramref name="certificate" /> is set.
+    /// </summary>
+    public ResolvedAppEnvironment AppEnvironment(string secretsDirectory, AppCertificate? certificate)
+    {
+        var app = _manifest.App;
+        var defaults = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        var fixedValues = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (key, value) in app.Environment)
+        {
+            defaults[key] = _placeholders.Expand(value);
+        }
+        if (certificate is not null)
+        {
+            foreach (var (key, value) in app.AccessTokenSigning)
+            {
+                defaults[key] = _placeholders.Expand(value, certificate);
+            }
+        }
+        foreach (var (key, value) in app.FixedEnvironment)
+        {
+            fixedValues[key] = _placeholders.Expand(value);
+        }
+        fixedValues[app.Secrets.DirectoryEnv] = secretsDirectory;
+        foreach (var file in app.Secrets.Files)
+        {
+            fixedValues[file.Env] = file.FileName;
+        }
+        return new ResolvedAppEnvironment(defaults, fixedValues);
+    }
+
     /// <summary>The components of the always-on set and the enabled groups, in manifest order.</summary>
     public IReadOnlyList<ResolvedComponent> Components(IReadOnlyCollection<string> enabledGroups) =>
         [.. _manifest.Components.Where(c => c.Group is null || enabledGroups.Contains(c.Group)).Select(Resolve)];
