@@ -763,6 +763,22 @@ deploy endpoint on the provisioning library fed from the running app's URL (post
 `AddAltinnApp` on the app's ready event), `deprovision` and `reset` as endpoints; studioctl-server and the Aspire
 package drop their proxies, route tables and provisioning adapters and publish only port 8000 from the container.
 
+**Decisions (2026-10-22).** The localtest app is already a YARP forwarder (Native AOT, routes in code, app routes
+pushed over `localtest/api/proxy/apps`, 502 on no answer, `Secure` stripped on app routes); 26 consolidates onto it.
+One registration call does both routing and provisioning: `PUT localtest/api/apps/{org}/{app}` with the app's URL
+registers the route and provisions from the running app (`RunningAppSource`; `DirectoryAppSource` leaves the library),
+`DELETE` deprovisions and removes the route, both idempotent; `AddAltinnApp` calls it on the app's ready event and
+re-registers on every start without deprovisioning on stop, studioctl-server's discovery calls it for the apps it
+finds (an app started from an IDE keeps working). The proxy resolves upstreams by name through
+`Microsoft.Extensions.ServiceDiscovery` (its `IServiceDiscoveryHttpMessageHandlerFactory` wraps the forwarder's own
+handler; core plus the configuration provider, **without the pass-through provider**, so a name with no
+`services__<name>__http__0` fails resolution at once and the forwarder's error path answers the 503 page naming the
+group, while an address that does not answer stays 502). The Studio token is minted in-process; the Dialogporten
+sync follows whether the adapter has an address; the Vite dev-server route becomes a pushed route on the same API.
+Side effects: the keepAlive `Secure` gap closes for Aspire too (task 22's second item becomes cosmetic); the Aspire
+package drops `Aspire.Hosting.Yarp` and the compiled-in provisioning sources. Not verified yet: a Native AOT publish
+with the discovery package (no trimming or dynamic-code annotations in the net10 assembly).
+
 ## 27. Manifest v2: services only
 
 **Goal (2026-10-22, after 26).** The format above; the Go and C# loaders reduced to: network, one container per
