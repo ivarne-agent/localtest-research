@@ -14,4 +14,7 @@ COPY components/notifications/postgres-init/60-notifications.sh /docker-entrypoi
 COPY components/correspondence/postgres-init/70-correspondence.sh /docker-entrypoint-initdb.d/70-correspondence.sh
 COPY components/profile/postgres-init/80-profile.sh /docker-entrypoint-initdb.d/80-profile.sh
 COPY components/arbeidsflate/postgres-init/90-arbeidsflate.sh /docker-entrypoint-initdb.d/90-arbeidsflate.sh
-CMD ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+# timezone and log_timezone UTC, as production's Postgres: upstream column defaults such as Events' and Profile's
+# `now() at time zone 'utc'` are only right when the session time zone is UTC. TZ=UTC (the manifest's envs) makes initdb
+# write UTC into a new data volume; the flags also set it on a volume created under the earlier Europe/Oslo setting.
+CMD ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]

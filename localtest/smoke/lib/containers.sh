@@ -9,7 +9,7 @@
 #                              container, or more than one, so a caller can skip its check:
 #     1. LOCALTEST_CONTAINER_<NAME> (NAME upper-cased, `-` as `_`) when set, and for storage and receipt also the older
 #        STORAGE_CONTAINER and RECEIPT_CONTAINER; it must name an existing container.
-#     2. studioctl's `localtest-v2-<name>` (the manifest's containerPrefix plus the name) when it is running.
+#     2. studioctl's `localtest-v2-<name>` (the localtest-v2 loader's container prefix plus the name) when it is running.
 #     3. The Aspire package's `<resource>-<suffix>` (the suffix a hash of the AppHost's path, `storage-0de70ea0`): the
 #        resource is the manifest name, except the localtest app, which is `localtest-app` beside the parent resource
 #        `localtest`. Exactly one running container may match; two AppHosts' stacks at once are an error.

@@ -1,5 +1,7 @@
 # Builds the localtest stack's images and pushes them to ghcr.io/<owner>/<repo>/localtest-<name>, tagged with the commit
 # (sha-<short>) and, from main, latest. studioctl pins the sha tag of a build it was tested with and runs latest on request.
+# This workflow never writes the manifest (localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json): whoever
+# proved a build moves the pin with localtest/tools/bump-tag.sh sha-<short> and regenerates the golden snapshot.
 # The build runs natively per architecture (the localtest app is a Native AOT build, which does not cross-compile), and a
 # manifest list joins the two.
 name: images
@@ -12,6 +14,7 @@ on:
       - "localtest/localtest/**"
       - "localtest/postgres/**"
       - "localtest/postgres-init/**"
+      - "localtest/redis/**"
       - ".github/workflows/images.yml"
   workflow_dispatch:
 
@@ -47,6 +50,7 @@ jobs:
           - { name: arbeidsflate, context: localtest/components/arbeidsflate, file: localtest/components/arbeidsflate/Dockerfile.frontend }
           - { name: arbeidsflate-bff, context: localtest/components/arbeidsflate, file: localtest/components/arbeidsflate/Dockerfile.bff }
           - { name: postgres, context: localtest, file: localtest/postgres/Dockerfile }
+          - { name: redis, context: localtest/redis, file: localtest/redis/Dockerfile }
         platform:
           - { os: ubuntu-24.04, arch: amd64 }
           - { os: ubuntu-24.04-arm, arch: arm64 }
@@ -85,7 +89,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, notifications, profile, dialogporten-webapi, dialogporten-graphql, dialogporten-service, dialogporten-adapter, receipt, correspondence, arbeidsflate, arbeidsflate-bff, postgres]
+        name: [localtest, register, authentication, authorization, access-management, storage, events, resource-registry, notifications, profile, dialogporten-webapi, dialogporten-graphql, dialogporten-service, dialogporten-adapter, receipt, correspondence, arbeidsflate, arbeidsflate-bff, postgres, redis]
     steps:
       - uses: actions/download-artifact@v4
         with:

@@ -1,18 +1,14 @@
 # Parity of the two runtimes of the localtest-v2 stack: studioctl's `env up` / `run` and the Aspire hosting package
-# (localtest/aspire/Altinn.App.Aspire) read one component manifest
-# (localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json) and share the provisioning library. Three
-# jobs, on every change to the manifest, the Go loaders, the package or the provisioning library:
+# (localtest/aspire/Altinn.App.Aspire). Two jobs, on every change to the manifest, the Go loaders or the package:
 #
-# - go: `go build ./... && go test ./...` under studioctl's src/cli. Besides the manifest's own checks (schema, Parse,
-#   Postgres init scripts, dev build Dockerfiles), this is the stale-golden check: the golden tests compare what the
-#   loaders build from the manifest with the snapshots checked in beside them
+# - go: `go build ./... && go test ./...` under studioctl's src/cli. The manifest's own test validates the file (known
+#   keys, references, no cycles, every container reached by a group, values in range); the golden tests compare what
+#   the loaders build with the snapshots checked in beside them
 #   (internal/cmd/env/localtestv2/testdata/environment.golden.json, internal/cmd/app/testdata/app-environment.golden.json,
 #   internal/appsecrets/testdata/app-codes.golden.json), so a manifest or loader change without a reviewed, regenerated
 #   snapshot (STUDIOCTL_UPDATE_GOLDEN=1 go test ./...) fails here.
-# - dotnet: the package's tests, which read those same golden files by relative path and fail when the C# reader
-#   resolves the manifest differently from studioctl, and the provisioning library's tests.
-# - schema: the manifest against its JSON Schema with a full validator (python3 -m jsonschema), independent of the Go
-#   test's small validator, as the manifest README documents.
+# - dotnet: the package's tests, which read the app environment and app codes snapshots by relative path. Until task 27b
+#   the package reads its own copy of the v1 manifest and compares it with the v1 environment snapshot beside its tests.
 #
 # aspire-package.yml builds and publishes the package on main; this workflow is the check on pull requests.
 name: manifest-parity
@@ -29,7 +25,6 @@ on:
       - "localtest/studioctl/src/cli/go.mod"
       - "localtest/studioctl/src/cli/go.sum"
       - "localtest/studioctl/src/Runtime/devenv/**"
-      - "localtest/studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/**"
       - "localtest/postgres/Dockerfile"
       - "localtest/aspire/**"
       - ".github/workflows/manifest-parity.yml"
@@ -45,7 +40,6 @@ on:
       - "localtest/studioctl/src/cli/go.mod"
       - "localtest/studioctl/src/cli/go.sum"
       - "localtest/studioctl/src/Runtime/devenv/**"
-      - "localtest/studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/**"
       - "localtest/postgres/Dockerfile"
       - "localtest/aspire/**"
       - ".github/workflows/manifest-parity.yml"
@@ -60,7 +54,6 @@ concurrency:
 
 env:
   CLI_DIR: localtest/studioctl/src/cli
-  MANIFEST_DIR: localtest/studioctl/src/cli/internal/localtestv2/manifest
   DOTNET_NOLOGO: "true"
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
@@ -76,7 +69,7 @@ jobs:
       - name: Build
         working-directory: ${{ env.CLI_DIR }}
         run: go build ./...
-      - name: Test (manifest checks and the stale-golden check)
+      - name: Test (the manifest's validation and the stale-golden check)
         working-directory: ${{ env.CLI_DIR }}
         run: go test ./...
 
@@ -86,10 +79,8 @@ jobs:
       fail-fast: false
       matrix:
         project:
-          # The package's tests: the C# manifest reader and the app section against studioctl's golden files.
+          # The package's tests: the C# manifest reader and the app environment against the golden files.
           - { name: Altinn.App.Aspire, dir: localtest/aspire/Altinn.App.Aspire }
-          # The provisioning library both runners compile in.
-          - { name: Altinn.Studio.Localtest.Provisioning, dir: localtest/studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning }
     name: dotnet (${{ matrix.project.name }})
     steps:
       - uses: actions/checkout@v4
@@ -99,16 +90,3 @@ jobs:
       - name: Test
         working-directory: ${{ matrix.project.dir }}
         run: dotnet test tests -c Release
-
-  schema:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install jsonschema
-        run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install --quiet "jsonschema==4.26.0"
-      - name: Validate the manifest against its schema
-        working-directory: ${{ env.MANIFEST_DIR }}
-        # Silent when valid; the CLI's deprecation warning is not an error.
-        run: '"$RUNNER_TEMP/venv/bin/python" -W ignore::DeprecationWarning -m jsonschema -i manifest.json manifest.schema.json'
