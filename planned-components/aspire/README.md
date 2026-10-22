@@ -21,6 +21,11 @@
   package to GitHub Packages. Phase 2 ran the sample under Podman: the app through the front door, provisioned,
   signed in to and submitted in a browser, the commands from the dashboard, a first start on empty volumes after `reset`,
   and the root and authentication smoke tests; the workflow runs after the merge.
+- **HTTPS researched** (2026-10-22, task 23): [`https.md`](https.md). Aspire 13.6 can terminate TLS on the YARP front
+  door with a package-made certificate and give every component the CA without image changes (run in a scratch AppHost
+  under Podman); the dev certificate cannot carry the stack's host names. Recommendation: termination at the front
+  door, a localtest CA in the package's data directory, Aspire first behind an opt-in, studioctl after; 4.5 to 6 days,
+  plus 2 to 3 for studioctl.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
@@ -32,6 +37,7 @@ it worth doing? One report in this folder.
 | Report | What it covers | Effort |
 | --- | --- | --- |
 | [`aspire.md`](aspire.md) | What `env up` and studioctl-server do, the mapping table (20 components to Aspire resources) and each need's Aspire feature, five front-door candidates, four provisioning triggers, the app's environment and app-lib's studioctl import, the hybrid that needs no code, fit (audience, duplication, shared definitions, memory, Podman, dashboard), recommendation, effort, risks, open questions | Hybrid: 0.5 to 1 day. Generated hosting package: 6 to 9 days |
+| [`https.md`](https.md) | Task 23: https on `local.altinn.cloud:8000` for the Aspire-hosted stack: Aspire 13.6's certificate and CA-trust APIs, the certificate (a localtest CA versus the dev certificate), trust in the browser and in every image, termination and `X-Forwarded-Proto`, what https changes, studioctl parity, experiments | Aspire: 4.5 to 6 days; studioctl parity: 2 to 3 more |
 
 ## Headline findings
 
