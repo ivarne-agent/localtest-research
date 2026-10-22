@@ -48,7 +48,10 @@
   registers an app with that front door (`PUT localtest/api/apps/{org}/{app}`) on its ready event; the YARP container,
   `Aspire.Hosting.Yarp`, the route model, the v1 manifest copy and the compiled-in provisioning are gone. Health checks
   run inside the network (`exec` of studioctl's bash probe in the Postgres container). This reverses the 21d front-door
-  choice above and is what section 3 recommended. Phase 2 (the sample AppHost under Podman, the smoke suites) is open.
+  choice above and is what section 3 recommended. Phase 2 (2026-10-22) ran the sample under Podman: only 8000 published, the app
+  registered and provisioned through the front door, root 26, authentication 34, Dialogporten 60, authorization 31 and
+  the localtest app 80 of 81; healthy in 22 s (4 s on a restart reusing the containers, 32 s on empty volumes after
+  `reset`); one fix (the port guard refused a restart while the persistent front door held 8000).
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository

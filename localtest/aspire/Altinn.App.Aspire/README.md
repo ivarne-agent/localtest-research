@@ -10,8 +10,9 @@ the only published port. `AddAltinnApp` runs an Altinn app project beside it wit
 gives an app and registers it with the front door, which routes it and provisions it. Tasks 21 and 27b of
 [`TODO.md`](../../../TODO.md).
 
-Status (2026-10-23): task 27b phase 1, code and tests (69). The run under Podman with this version (phase 2) is open;
-the runs recorded under [History](#history) were made with the package's earlier YARP front door (tasks 21d to 21f).
+Status (2026-10-22): task 27b done in code and tests (70) and **run under Podman** with the sample (`WithDialogporten()`,
+the pin `sha-6d928ad`): only the localtest container publishes a port (8000), the app is registered and provisioned
+through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman).
 The documentation stays in this repository until the package is adopted.
 
 | Path | What |
@@ -88,7 +89,7 @@ studioctl's loader (`internal/cmd/env/localtestv2/containers.go`) builds it:
 | Manifest or runner | Aspire | Differs from studioctl |
 | --- | --- | --- |
 | the key | `AddContainer(key, image, tag)`, persistent (`ContainerLifetime.Persistent`), a child of the parent resource; Aspire's network alias is the resource name | container names `<key>-<hash of the AppHost's path>` (`storage-0de70ea0`), Aspire's network |
-| `registry`, `tag` | registry and image split (`WithImageRegistry`), `WithImageSHA256` for a digest (Aspire then drops the tag: `library/redis@sha256:...`); a floating tag (`tt02`, `latest`) `WithImagePullPolicy(Always)` | studioctl keeps a stale local copy when the registry is unreachable |
+| `registry`, `tag` | registry and image split (`WithImageRegistry`), `WithImageSHA256` for a digest (Aspire then drops the tag; no container is digest-pinned since `sha-6d928ad`); a floating tag (`tt02`, `latest`) `WithImagePullPolicy(Always)` | studioctl keeps a stale local copy when the registry is unreachable |
 | `envs` | `WithEnvironment`, literal | none |
 | the `services__<name>__http__0=http://<name>:<port>` of every selected HTTP container | the same, read when the AppHost starts, so a group added later is announced to every container | none |
 | the certificate | `<data>/certs` read-only at `/certs`, and its file at `/accesstoken/accesstokencredentials.pfx` | no SELinux relabel (not an Aspire option) |
@@ -112,7 +113,9 @@ passed for a container ID it stays healthy without an exec until the container i
 studioctl's, not a liveness probe. The runtime is `ASPIRE_CONTAINER_RUNTIME` (otherwise `docker`); the container IDs
 come from the resources' snapshots. The alternatives the brief named (a loopback port per container for the probe, or
 healthy-when-running with only the front door's `/health`) publish ports or lose the start order Postgres and
-Dialogporten's migrations need; phase 2 measures the start-up cost of this one.
+Dialogporten's migrations need. Measured under Podman ([Run under Podman](#run-under-podman)): every container is
+healthy 1 to 6 s after what it waits for, the stack in 22 s on existing volumes and 32 s on empty ones, close to
+studioctl's 20 s and 21.6 s.
 
 ## The app
 
@@ -161,7 +164,7 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (69 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (70 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
@@ -185,6 +188,42 @@ pull request and push to `main` that touches the manifest, the Go loaders or the
 time (the smoke suites, run by hand against either runtime: [`localtest/README.md`](../../README.md#tests)), and what
 differs by design (the health mechanism, `--dev`, pull policies, container names).
 
+## Run under Podman
+
+Task 27b phase 2 (2026-10-22), Podman 5.7 rootful, arm64, the sample AppHost with `WithDialogporten()` (18 containers)
+on the pinned images (`sha-6d928ad`), started with the environment of [Use](#use) through a launcher that gives the
+`dotnet run` process group the default SIGINT handling (a shell's background job ignores SIGINT, and the AppHost then
+ignores Ctrl-C sent with `kill -INT`).
+
+| Run | Platform healthy | App provisioned (from `dotnet run`) |
+| --- | --- | --- |
+| Containers created, volumes from an earlier studioctl stack | 22 s | 33 s |
+| Restart, all 18 containers reused (same creation times) | 4 s | 11 s |
+| First start after the `reset` command (no volumes; Postgres ran its nine `CREATE DATABASE`) | 32 s | 40 s |
+
+The containers' "healthy after" times on empty volumes: localtest and Redis 3 s, the Register 4, Postgres and pdf3 6,
+Storage 9, Profile and the workflow engine 10, the Resource Registry 11, Authentication and the PDP 12, Events 15,
+Notifications 16, Access Management 23, Dialogporten's WebApi 29 (its migrations), the adapter 30, Service and GraphQL
+32. On the reused stack every container was healthy in 4 s.
+
+- `podman port` lists one published port: `localtest-<hash>: 8080/tcp -> 0.0.0.0:8000`.
+- The registration: `PUT .../localtest/api/apps/ttd/testapp answered 200` with `"state":"succeeded"`, one text resource,
+  policy, test data and Dialogporten `Synced`; `GET localtest/api/apps` lists it; the app answers through 8000
+  (`/ttd/testapp/api/v1/applicationmetadata` 200).
+- A group that is off: `/correspondence/...` and `/receipt/` answer `503` problem details "Component not running" naming
+  `.WithCorrespondence()`; `af.local.altinn.cloud` 503 too.
+- The smoke suites through `localtest/smoke/lib/containers.sh`, after `DELETE localtest/api/apps/ttd/testapp` and the PDP
+  refresh: root 26 of 26, authentication 34 of 34, Dialogporten 60 of 60, authorization 31 of 31, the localtest app
+  80 of 81 with every check (the one failure is `/app-frontend/` without `FRONTEND_DIST`, as under studioctl). The app
+  was registered again afterwards.
+- `reset` from the dashboard (confirmed in its dialog) removed the 18 containers and the five volumes.
+- SIGINT to the process group: the AppHost exits in about a second, DCP and the app within 12 s more by themselves; no
+  process was left to kill. The persistent containers stay, as designed.
+- Memory with the 18 containers: about 1.9 GB by `podman stats`, 4.3 GB used of 7.9 GB on the machine.
+
+Found and fixed: the port guard refused every restart, because the persistent localtest container keeps port 8000
+between runs; it now accepts the port when this AppHost's own `localtest-<hash>` container runs.
+
 ## History
 
 Recorded with the package's YARP front door (21d to 21f, 2026-10-22), Podman 5.7 rootful, arm64; what still applies:
@@ -202,6 +241,6 @@ Recorded with the package's YARP front door (21d to 21f, 2026-10-22), Podman 5.7
 
 ## Not verified
 
-- Everything at run time with this version (task 27b phase 2): the in-network probes and their start-up cost, the
-  registration through the localtest container, the dev-server route, the smoke suites with the registration checks.
+- `WithFrontendDevServer` against a running Vite server; the `provision` and `deprovision` commands from the dashboard
+  with this version (the `PUT` on the ready event and the `DELETE` by hand were run).
 - An SELinux host (bind mounts without relabelling), rootless Podman, Docker.

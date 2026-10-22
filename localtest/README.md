@@ -243,6 +243,11 @@ package's [README](aspire/Altinn.App.Aspire/README.md#run-the-app-under-podman))
 
 Checks that cannot apply under Aspire: anything that needs `--dev`.
 
+Run on 2026-10-22 (task 27b) against the sample AppHost with `dialogporten`, after the `DELETE` and the PDP refresh:
+root 26 of 26, `components/authentication` 34 of 34, `components/dialogporten` 60 of 60, `components/authorization`
+31 of 31 and `localtest/smoke-test.sh` with every check 80 of 81 (`/app-frontend/` needs `FRONTEND_DIST`, as under
+studioctl).
+
 Run on 2026-10-22 (task 21f, before task 27b, with the package's YARP front door) against the sample AppHost with `dialogporten`, after the deprovision and the PDP refresh,
 every container found by the helper (`storage-c6c99550`, `authorization-c6c99550`, ...): root 26 of 26 (the Storage
 log check included), `components/authentication` 34 of 34, `components/dialogporten` 60 of 60,
