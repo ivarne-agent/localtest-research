@@ -15,6 +15,20 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Infrastructure'">
     <Compile Include="$(MSBuildThisFileDirectory)fakes/Infrastructure/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>
+  <!--
+    Service discovery by name for the #if LOCALTEST registration in the three hosts' Program.cs
+    (planned-components/service-discovery.md). Upstream restores in locked mode, so the hosts that get the package
+    restore against localtest's own lock files in locks/ (generated from upstream's plus this package) instead of the
+    vendored packages.lock.json, which stays untouched. After a re-pin, regenerate them with a plain
+    `dotnet restore` of each host (no locked mode) with these overrides active; the diff against the vendored lock file
+    must be the ServiceDiscovery package and its Abstractions only.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
+    <NuGetLockFilePath>$(MSBuildThisFileDirectory)locks/$(MSBuildProjectName).packages.lock.json</NuGetLockFilePath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+  </ItemGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi'">
     <Compile Include="$(MSBuildThisFileDirectory)fakes/WebApi/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>

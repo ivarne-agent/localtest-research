@@ -18,6 +18,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:2fa828c68761b1b8c23d7662dc1344
 WORKDIR /src
 COPY localtest.build.props localtest.build.targets ./
 COPY fakes/ fakes/
+# localtest: the hosts' lock files with the service-discovery package (see localtest.build.targets)
+COPY locks/ locks/
 ENV DirectoryBuildPropsPath=/src/localtest.build.props \
     DirectoryBuildTargetsPath=/src/localtest.build.targets
 WORKDIR /src/vendor
