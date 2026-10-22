@@ -7,8 +7,9 @@
 #   (internal/cmd/env/localtestv2/testdata/environment.golden.json, internal/cmd/app/testdata/app-environment.golden.json,
 #   internal/appsecrets/testdata/app-codes.golden.json), so a manifest or loader change without a reviewed, regenerated
 #   snapshot (STUDIOCTL_UPDATE_GOLDEN=1 go test ./...) fails here.
-# - dotnet: the package's tests, which read the app environment and app codes snapshots by relative path. Until task 27b
-#   the package reads its own copy of the v1 manifest and compares it with the v1 environment snapshot beside its tests.
+# - dotnet: the package's tests, which embed the manifest and read the same three snapshots by relative path: per
+#   container the application model the package builds against environment.golden.json, the C# app environment against
+#   every case of app-environment.golden.json, the app codes byte for byte.
 #
 # aspire-package.yml builds and publishes the package on main; this workflow is the check on pull requests.
 name: manifest-parity

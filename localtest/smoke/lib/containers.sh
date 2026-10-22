@@ -10,9 +10,8 @@
 #     1. LOCALTEST_CONTAINER_<NAME> (NAME upper-cased, `-` as `_`) when set, and for storage and receipt also the older
 #        STORAGE_CONTAINER and RECEIPT_CONTAINER; it must name an existing container.
 #     2. studioctl's `localtest-v2-<name>` (the localtest-v2 loader's container prefix plus the name) when it is running.
-#     3. The Aspire package's `<resource>-<suffix>` (the suffix a hash of the AppHost's path, `storage-0de70ea0`): the
-#        resource is the manifest name, except the localtest app, which is `localtest-app` beside the parent resource
-#        `localtest`. Exactly one running container may match; two AppHosts' stacks at once are an error.
+#     3. The Aspire package's `<name>-<suffix>` (the resource is the manifest name, the suffix a hash of the AppHost's
+#        path: `storage-0de70ea0`). Exactly one running container may match; two AppHosts' stacks at once are an error.
 #
 #   . "$HERE/../../smoke/lib/containers.sh"
 #   if RT=$(localtest_runtime) && C=$(localtest_container storage); then "$RT" logs "$C"; else echo "skip ..."; fi
@@ -42,7 +41,7 @@ localtest_runtime() {
 
 localtest_container() {
   local name=${1:?localtest_container: a component name}
-  local rt var override resource matches count
+  local rt var override matches count
   rt=$(localtest_runtime) || return 1
 
   var=LOCALTEST_CONTAINER_$(printf '%s' "$name" | tr '[:lower:]-' '[:upper:]_')
@@ -67,17 +66,15 @@ localtest_container() {
     return 0
   fi
 
-  # Aspire: <resource>-<suffix>. The exact match keeps arbeidsflate from matching arbeidsflate-bff-*.
-  resource=$name
-  [[ $name == localtest ]] && resource=localtest-app
-  matches=$("$rt" ps --filter "name=$resource-" --format '{{.Names}}' 2>/dev/null | grep -E "^$resource-[[:alnum:]]+\$")
+  # Aspire: <name>-<suffix>. The exact match keeps arbeidsflate from matching arbeidsflate-bff-*.
+  matches=$("$rt" ps --filter "name=$name-" --format '{{.Names}}' 2>/dev/null | grep -E "^$name-[[:alnum:]]+\$")
   count=$(printf '%s' "$matches" | grep -c .)
   if [[ $count == 1 ]]; then
     printf '%s\n' "$matches"
     return 0
   fi
   if [[ $count == 0 ]]; then
-    echo "no running container for $name (localtest-v2-$name or $resource-<suffix>; set $var)" >&2
+    echo "no running container for $name (localtest-v2-$name or $name-<suffix>; set $var)" >&2
   else
     echo "$count running containers for $name (${matches//$'\n'/ }); set $var" >&2
   fi

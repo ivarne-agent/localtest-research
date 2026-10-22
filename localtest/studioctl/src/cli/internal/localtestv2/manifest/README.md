@@ -75,4 +75,5 @@ in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `interna
   `STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/env/localtestv2/` (under `src/cli`).
 - Tags change only in a separate, tested step: the images workflow never writes the manifest; whoever proved a build
   runs `localtest/tools/bump-tag.sh sha-<commit>` and regenerates the snapshot.
-- The Aspire package reads a copy of the v1 manifest until task 27b.
+- The Aspire package (`localtest/aspire/Altinn.App.Aspire`) embeds this file by relative path and compares what it
+  builds with the snapshots above (`.github/workflows/manifest-parity.yml`).

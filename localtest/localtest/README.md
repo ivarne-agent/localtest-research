@@ -6,11 +6,9 @@ A small ASP.NET app published with Native AOT: one binary on `runtime-deps`, no 
 
 **One front door for both runtimes (task 26).** The proxy routes by host and path prefix to the platform services by
 their service names, answers a `503` for a service that is not running, strips `Secure` from an app's cookies, and
-takes one registration call per app that routes and provisions it. studioctl and the Aspire package are meant to run
-it as their only front door, publishing the public port 8000 onto the container's 8080. studioctl does since task 27a
-(`studioctl env up -r localtest-v2`; studioctl-server's discovery registers the apps here). Until task 27b the Aspire
-package's YARP container stays the front door on 8000 with its own route table and provisioning, and sends this app only
-what no component route claims (`/`, `/Home`, `localtest/api/…`), so its proxy is dormant behind it there.
+takes one registration call per app that routes and provisions it. studioctl (task 27a) and the Aspire package (task
+27b) run it as their only front door, publishing the public port 8000 onto the container's 8080: studioctl-server's
+discovery and the package's `AddAltinnApp` register the apps here.
 
 | Feature | Folder | API |
 | --- | --- | --- |
@@ -129,7 +127,7 @@ rest from the running app.
 Platform calls go by service name; the Studio token (Designer's `studio`/`studio.designer` platform access token,
 exchanged through production `exchange/altinnstudio`) is minted in-process, as `/Home/GetTestStudioToken` does. One
 provisioning runs at a time. The steps were copied from studioctl's provisioning library, which task 27a deleted (the
-Aspire package keeps its own copy until task 27b).
+Aspire package's copy went in task 27b).
 
 ### The frontend dev server (`localtest/api/routes/`, anonymous)
 
@@ -146,8 +144,7 @@ Nothing watches the files.
 ### Port
 
 The image listens on **8080** (`ASPNETCORE_HTTP_PORTS=8080`, `EXPOSE 8080`), the stack's conventional port, and answers
-`/health`. The public port 8000 is what a runtime publishes onto it (studioctl since task 27a; the Aspire package's v1
-manifest copy still runs it on 8000 with `ASPNETCORE_HTTP_PORTS=8000` until task 27b).
+`/health`. The public port 8000 is what a runtime publishes onto it (studioctl since task 27a, the Aspire package since task 27b).
 
 ## ID-porten
 

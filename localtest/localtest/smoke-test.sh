@@ -7,8 +7,8 @@
 # - Home: the old localtest login contract (start page, LogInTestUser and the party cookies of the selected party,
 #   authentication levels in the token, version probe, token helpers), all through production Authentication.
 # The registration section needs the localtest app as the front door (it registers routes through the app's own API);
-# it is under studioctl's localtest-v2 runtime since task 27a; behind the Aspire package's YARP front door (until task
-# 27b) skip it with PROXY_CHECKS=0.
+# it is under studioctl's localtest-v2 runtime (task 27a) and the Aspire package (task 27b); behind another front door
+# skip it with PROXY_CHECKS=0.
 # USER_SELECT must be a user acting for an organisation (userId.orgPartyId); OWN_PARTY is that user's own party.
 # FAKE_APP is any address the localtest container reaches that is not an app (default the Register's), OFF_PREFIX a
 # platform prefix whose service is not running (default /correspondence/, an optional group).

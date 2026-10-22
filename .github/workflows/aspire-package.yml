@@ -1,9 +1,9 @@
 # Builds, tests and packs the Aspire hosting package Altinn.App.Aspire (localtest/aspire/Altinn.App.Aspire) and pushes it
 # to this repository owner's NuGet feed on GitHub Packages as 0.1.0-alpha.<run number>; the .nupkg is also a workflow
 # artifact. A tag aspire-v<version> (aspire-v0.1.0) packs that version and attaches the .nupkg to a GitHub release, the
-# token-free way to get it. The package embeds the shared test certificate from the studioctl tree, and its tests read
-# studioctl's app environment and app codes golden files, so changes there build it too. (Until task 27b it carries its
-# own copies of the v1 manifest and the provisioning steps.)
+# token-free way to get it. The package embeds studioctl's manifest and the shared test certificate from the studioctl
+# tree, and its tests read studioctl's container, app environment and app codes golden files, so changes there build it
+# too.
 name: aspire-package
 
 on:
@@ -12,7 +12,9 @@ on:
     tags: ["aspire-v*"]
     paths:
       - "localtest/aspire/**"
+      - "localtest/studioctl/src/cli/internal/localtestv2/manifest/**"
       - "localtest/studioctl/src/cli/internal/cmd/env/localtestv2/assets/**"
+      - "localtest/studioctl/src/cli/internal/cmd/env/localtestv2/testdata/**"
       - "localtest/studioctl/src/cli/internal/cmd/app/testdata/**"
       - "localtest/studioctl/src/cli/internal/appsecrets/testdata/**"
       - ".github/workflows/aspire-package.yml"

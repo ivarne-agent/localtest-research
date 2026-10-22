@@ -8,20 +8,18 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 
 **Two runtimes.** The stack runs under studioctl (`studioctl env up -r localtest-v2`, "Run it" below) or as container
 resources of a .NET Aspire AppHost through the hosting package
-[`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()`, `AddAltinnApp<T>()`).
-studioctl reads the [manifest v2](studioctl/src/cli/internal/localtestv2/manifest/README.md) (task 27a): the localtest
-container is its front door, the only published port (8000 onto its 8080), and studioctl-server registers each app with
-it. **Until task 27b the Aspire package runs the old topology**: it reads its own copy of the v1 manifest
-(`aspire/Altinn.App.Aspire/src/Manifest/manifest.v1.json`), puts a stock YARP container on port 8000 in front with its
-own routes, and provisions the app with its own copy of the provisioning steps; 27b moves it onto manifest v2 and the
-localtest container's front door. [`.github/workflows/manifest-parity.yml`](../.github/workflows/manifest-parity.yml)
-runs both sides' tests; the app environment golden file holds the two runners' app environments together. What differs
-until 27b: the front door (under Aspire a group that is off falls through to the next route, usually the localtest
-app's 404, instead of the `503`; the YARP container cannot strip the app's `keepAlive` cookie's `Secure` flag, so under
-Aspire the ten-minute token refresh fails over http until task 22); `--dev-<container>` builds (studioctl only: under
-Aspire set `STUDIOCTL_IMAGE_LOCALTEST_V2_<NAME>` to a locally built image); reset (`env reset`, or the localtest
-resource's `reset` command and an AppHost restart; the volumes are shared, so either resets both); and the container
-names (`localtest-v2-<name>`, or Aspire's `<resource>-<suffix>`, see [Tests](#tests)). Run one at a time: both need port
+[`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()`, `AddAltinnApp<T>()`). Both
+read the [manifest v2](studioctl/src/cli/internal/localtestv2/manifest/README.md) (tasks 27a and 27b): the same
+containers with the same environment and `services__` variables, the localtest container as the front door and the only
+published port (8000 onto its 8080), so the routes, the `503` for a group that is off and the `Secure` stripping on app
+routes are the same under both; an app is registered with the front door by one `PUT localtest/api/apps/{org}/{app}`
+(studioctl-server's discovery, `AddAltinnApp` on the app's ready event). [`.github/workflows/manifest-parity.yml`](../.github/workflows/manifest-parity.yml)
+runs both sides' tests against studioctl's golden files (the containers, the app environment). What differs:
+`--dev-<container>` builds (studioctl only: under Aspire set `AltinnLocaltestOptions.Tag` or run a locally built image
+by hand); reset (`env reset`, or the platform resource's `reset` command and an AppHost restart; the volumes are shared,
+so either resets both); the health checks (studioctl's probe containers, the package's `exec` into Postgres, both on
+the network); the container names (`localtest-v2-<name>`, or Aspire's `<name>-<suffix>`, see [Tests](#tests)); and the
+dashboard, which is Aspire's own. Run one at a time: both need port
 8000.
 
 | Folder | What |
@@ -42,10 +40,10 @@ names (`localtest-v2-<name>`, or Aspire's `<resource>-<suffix>`, see [Tests](#te
 | `components/arbeidsflate/` | **Optional group** (`env up --with arbeidsflate`, which also starts `dialogporten`): production Arbeidsflate, the Altinn inbox, on its own host `http://af.local.altinn.cloud:8000` (a hosts entry for the browser, `studioctl env hosts add`): the SPA behind nginx, which proxies `/api/` to the BFF; the BFF signs users in through production Authentication's OIDC provider (the seeded client `arbeidsflate-localtest`), keeps sessions in Redis (database 2) and its own rows in an `arbeidsflate` database, proxies GraphQL to Dialogporten with the user's token and serves the profile page from production Profile. Upstream's tree unmodified plus three `localtest:` patches applied at image build (discovery over http, the party cookies' domain, the BFF's cookies `Secure` only over https). With the `correspondence` group a correspondence's attachment downloads from the inbox (11b in its README) |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified; studioctl runs the monorepo's published image, not a build from here |
 | `components/shared/` | Source for fakes more than one component copies (the `IMaskinportenService` fake), with its own smoke test; not an image |
-| `localtest/` | The localtest app (C#, Native AOT), the home of localtest features that are not a platform component, and the stack's front door under studioctl (task 27a): a proxy by host and path prefix to the platform services by service name (`services__<name>__http__0`, no pass-through), `503` problem details for a service that is not running or not answering, one registration call per app that routes it and provisions it from the running app (`PUT localtest/api/apps/{org}/{app}`), the frontend dev server's pushed route, the app-frontend files and `Secure` removed from an app's cookies; it listens on 8080, published as 8000. Under the Aspire package (until task 27b) the package's YARP container is the front door and sends it only what no component route claims. It also hosts the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) that returns production Authentication's OIDC tokens, with `pid`, for a seeded client |
+| `localtest/` | The localtest app (C#, Native AOT), the home of localtest features that are not a platform component, and the stack's front door under studioctl (task 27a): a proxy by host and path prefix to the platform services by service name (`services__<name>__http__0`, no pass-through), `503` problem details for a service that is not running or not answering, one registration call per app that routes it and provisions it from the running app (`PUT localtest/api/apps/{org}/{app}`), the frontend dev server's pushed route, the app-frontend files and `Secure` removed from an app's cookies; it listens on 8080, published as 8000. The same under the Aspire package (task 27b). It also hosts the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) that returns production Authentication's OIDC tokens, with `pid`, for a seeded client |
 | `testdata/` | The `testData.json` format the stack reads (the Register's seed and every app's file): field reference, consumers, merge rules and the JSON Schema `test-users.schema.v3.json` |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
-| `aspire/Altinn.App.Aspire/` | The Aspire hosting package (task 21): `AddAltinnLocaltest().WithGroup(...)` adds the components of the studioctl manifest as persistent containers of an Aspire AppHost behind a YARP front door on `local.altinn.cloud:8000` (21d, run under Podman: the root, authentication and Dialogporten smoke tests pass through its front door), and `AddAltinnApp<Projects.App>(localtest)` adds an app project with the environment of the manifest's `app` section, its `/{org}/{app}` route and its provisioning (21e); published to GitHub Packages by `.github/workflows/aspire-package.yml` (see its [README](aspire/Altinn.App.Aspire/README.md)) |
+| `aspire/Altinn.App.Aspire/` | The Aspire hosting package (task 21): `AddAltinnLocaltest().WithGroup(...)` adds the containers of studioctl's manifest v2 as persistent containers of an Aspire AppHost, the localtest container's port published as `local.altinn.cloud:8000`, and `AddAltinnApp<Projects.App>(localtest)` adds an app project with `studioctl run`'s environment and registers it with the front door (task 27b); published to GitHub Packages by `.github/workflows/aspire-package.yml` (see its [README](aspire/Altinn.App.Aspire/README.md)) |
 | `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHost that runs it against the platform (`AppHost/apphost.cs`) |
 | `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
@@ -85,10 +83,9 @@ service name; `DELETE` removes the app's test users and the route. Under studioc
 discovery makes that call for every app it finds, started by `studioctl run` or from an IDE, with the address
 `http://host.docker.internal:<port>`, and again when the app comes back on another port; it deregisters an app that is
 gone (`studioctl-server/Discovery/FrontDoorRegistration.cs`). `studioctl run` waits until `GET localtest/api/apps` lists
-the app with a provisioning that succeeded. `run-app.sh` makes the same call by hand. The Aspire package (until task
-27b) runs its own copy of the steps ([`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md#provisioning))
-from the app project's folder on disk when the app resource is healthy; the dashboard's `provision` command runs it
-again and `deprovision` removes the test users. Both runners start the app with the same environment
+the app with a provisioning that succeeded. `run-app.sh` makes the same call by hand. The Aspire package makes it when the app resource is healthy
+([`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md#registration)); the dashboard's `provision` command
+makes it again and `deprovision` makes the `DELETE`. Both runners start the app with the same environment
 (`internal/cmd/app/env.go` in studioctl, held to `internal/cmd/app/testdata/app-environment.golden.json`, which the
 Aspire package compares with). No component watches another. For one app the runner calls, in order:
 
@@ -99,7 +96,7 @@ Aspire package compares with). No component watches another. For one app the run
 | 3 | `POST authorization/api/v1/policies?org={org}&app={app}` with `App/config/authorization/policy.xml`, `[ORG]`/`[org]`/`[APP]`/`[app]` replaced as Designer's `ReplacePolicyPlaceholderTokens` does | Production PDP endpoint (Studio token); the policy lands in the policy store shared with Access Management, which reads it for delegable rights |
 | 3b | `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true` (when the app has a policy) | Production Resource Registry endpoint, anonymous, as Designer calls it at deploy: reads the pushed policy from the policy store and upserts the app's subject pairs for the `updated` feed. The app's resource itself is computed from Storage's application list |
 | 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the Resource Registry component (service owners, `app_{org}_{app}` resources and their policy subjects from its `updated` feed, read from the epoch each time), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
-| 5 (optional) | `POST dialogporten/api/v1/localtest/sync`, only when the `dialogporten` group is up (the front door: when `dialogporten-adapter` has a `services__` address; the Aspire package: from the groups the AppHost added; skipped otherwise) | Dialogporten runs the Janitor's two production syncs (subject-resource pairs from the registry's `updated` feed, resource policy information) and clears its named caches, so the app's resource and subjects are known to Dialogporten at once instead of after its 20-minute resource cache. A failure is logged and retried on the next refresh, and does not fail the provisioning; when the group comes up after the apps, one sync runs for all of them. See `components/dialogporten/README.md` |
+| 5 (optional) | `POST dialogporten/api/v1/localtest/sync`, only when the `dialogporten` group is up (when `dialogporten-adapter` has a `services__` address; skipped otherwise) | Dialogporten runs the Janitor's two production syncs (subject-resource pairs from the registry's `updated` feed, resource policy information) and clears its named caches, so the app's resource and subjects are known to Dialogporten at once instead of after its 20-minute resource cache. A failure is logged and retried on the next refresh, and does not fail the provisioning; when the group comes up after the apps, one sync runs for all of them. See `components/dialogporten/README.md` |
 
 No component fetches from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
 so an edited `testData.json` becomes visible after the next registration or refresh. Profile is not called: its KRR sync,
@@ -196,7 +193,7 @@ the specs through it) when running from a worktree; the regression script's chec
 | `./smoke-test.sh` | Through the front door: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing), texts read back, the org's application list, no errors in Storage's log (skipped without podman). 26 checks, all pass on 2026-10-21 (task 12) |
 | `components/authentication/smoke-test.sh` | Against the stack: the browser sign-in, both discovery documents' `end_session_endpoint`, Authentication as an OIDC provider for the seeded clients (Arbeidsflate's `authorize` through the picker and the token exchange, the code-flow helper's tokens with `pid`, `invalid_client` and `invalid_grant`, refresh rotation and reuse detection, logout through the fake ID-porten's `endsession`), and with `--with dialogporten` Dialogporten's end-user dialog list with the code-flow token (the cookie JWT refused). 30 checks, 32 with the `dialogporten` group |
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties, no errors in the PDP's log beyond the three the run provokes (skipped without podman). 31 checks, all pass on 2026-10-21 (task 12) |
-| `localtest/smoke-test.sh` | The localtest app: the front door (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the 503 for a service that is off, the registration API and the dev-server route), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers). 81 checks with the localtest app as the front door (14 of them registration checks, task 26: through the container's own port on today's stack 52 of 81, every routing, 503 and registration check among them; the rest are identity flows that need the container to be the public origin, see [its README](localtest/README.md)). Under studioctl the localtest container is the front door since task 27a, so it runs with every check (deprovision a registered app first, as for Aspire below); under the Aspire package until task 27b run it with `PROXY_CHECKS=0`, which skips the registration checks. Earlier, with studioctl-server as the front door, 64 of 66 passed on 2026-10-20 |
+| `localtest/smoke-test.sh` | The localtest app: the front door (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the 503 for a service that is off, the registration API and the dev-server route), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers). 81 checks with the localtest app as the front door (14 of them registration checks, task 26: through the container's own port on today's stack 52 of 81, every routing, 503 and registration check among them; the rest are identity flows that need the container to be the public origin, see [its README](localtest/README.md)). The localtest container is the front door under studioctl (task 27a) and the Aspire package (task 27b), so it runs with every check under both (deprovision a registered app first, as below). Earlier, with studioctl-server as the front door, 64 of 66 passed on 2026-10-20 |
 | `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens. 43 checks (2026-10-21) |
 | `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed and synced, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, a late-pushed app known after `sync` and after `caches/clear`, the dialog's event in the Events component, GraphQL with the org token through the rewrite, CORS for Arbeidsflate, the localtest list and delete of dialogs (deletes every dialog in the stack). 60 checks |
 | `components/dialogporten-adapter/smoke-test.sh` | Needs `--with dialogporten`: an instance followed from Storage's outbox to a dialog (created within 10 s with resource, party and go-to link, `dialog.id` written back; attachment after an upload; status and a transmission after the submission), the adapter's receipt and delete with the end user's dialog token from Dialogporten, idempotent `syncDialog/simple`, the refusals. 39 checks. `--off` checks the default stack: an instance gets no dialog and Storage logs one line (7 checks). Run it before the Dialogporten smoke test, or a few seconds after it: that test's last step deletes every dialog and clears the caches, and straight after it this test's first service-owner read of the dialog answered 404 once |
@@ -227,7 +224,7 @@ The smoke tests that read a container's log or run a command in it (the root tes
 test's policy store and PDP log, the dialogporten-adapter test's Storage log, the receipt's log, Correspondence's
 database and restart) find the container through [`smoke/lib/containers.sh`](smoke/lib/containers.sh):
 `localtest_container <name>` prints studioctl's `localtest-v2-<name>` when it runs, otherwise the one running Aspire
-container `<resource>-<suffix>` (the resource is the manifest name, `localtest-app` for the localtest app), and
+container `<name>-<suffix>` (the resource is the manifest name), and
 `LOCALTEST_CONTAINER_<NAME>` (`STORAGE_CONTAINER`, `RECEIPT_CONTAINER` and the authorization test's `CONTAINER` still
 work) names one by hand. Without podman or docker, or with no such container or two, the check is skipped with the
 reason.
@@ -236,20 +233,17 @@ reason.
 package's [README](aspire/Altinn.App.Aspire/README.md#run-the-app-under-podman)), with no studioctl stack running:
 
 1. Deprovision the app first: its `deprovision` command in the dashboard, or by hand
-   `curl -X DELETE http://local.altinn.cloud:8000/register/api/localtest/apps/ttd/testapp` and
-   `curl -X POST http://local.altinn.cloud:8000/accessmanagement/api/localtest/refresh`. A provisioned app's
+   `curl -X DELETE http://local.altinn.cloud:8000/localtest/api/apps/ttd/testapp`. A provisioned app's
    `testData.json` replaces the Register's seed (when every registered app posted test data, only theirs is loaded), so
    the suites' seed users (1337, 1003, ...) do not exist while the sample is registered.
 2. Drop the PDP's one-minute party cache: `curl -X POST http://local.altinn.cloud:8000/authorization/api/localtest/refresh`.
-3. Run the suites as against studioctl (`localtest/smoke-test.sh` with `PROXY_CHECKS=0`: the YARP container is the front
-   door). The root suite and the others that push the `ttd/testapp` fixture overwrite the sample's metadata, texts and
+3. Run the suites as against studioctl. The root suite and the others that push the `ttd/testapp` fixture overwrite the sample's metadata, texts and
    policy in Storage and the PDP.
 4. Provision the sample again: its `provision` command, or restart the app resource.
 
-Checks that cannot apply under Aspire: the `503` answers for a group that is off (dialogporten-adapter's `--off` mode)
-and anything that needs `--dev`.
+Checks that cannot apply under Aspire: anything that needs `--dev`.
 
-Run on 2026-10-22 (task 21f) against the sample AppHost with `dialogporten`, after the deprovision and the PDP refresh,
+Run on 2026-10-22 (task 21f, before task 27b, with the package's YARP front door) against the sample AppHost with `dialogporten`, after the deprovision and the PDP refresh,
 every container found by the helper (`storage-c6c99550`, `authorization-c6c99550`, ...): root 26 of 26 (the Storage
 log check included), `components/authentication` 34 of 34, `components/dialogporten` 60 of 60,
 `components/authorization` 31 of 31 (the policy store listing and the PDP log check included) and
