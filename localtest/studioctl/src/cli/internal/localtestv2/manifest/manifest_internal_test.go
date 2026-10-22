@@ -161,7 +161,8 @@ func TestTheDefaultsApply(t *testing.T) {
 		t.Fatalf("postgres: port %d, health %q", postgres.HTTPPort(), postgres.HealthCheck())
 	}
 	// Redis is our own image since the sha-6d928ad pin (localtest/redis/Dockerfile bakes the command in).
-	if got := m.Containers["redis"].Image(); !strings.HasPrefix(got, "ghcr.io/ivarne-agent/localtest-research/localtest-redis:sha-") {
+	const redisImage = "ghcr.io/ivarne-agent/localtest-research/localtest-redis:sha-"
+	if got := m.Containers["redis"].Image(); !strings.HasPrefix(got, redisImage) {
 		t.Fatalf("redis image %s", got)
 	}
 }
