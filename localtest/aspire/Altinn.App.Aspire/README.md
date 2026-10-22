@@ -7,8 +7,9 @@ relative path, one copy), so the images, environment, ports, volumes, certificat
 studioctl's. Task 21 of [`TODO.md`](../../../TODO.md); this is 21d, the first slice: the platform and its front door,
 no app yet.
 
-Status (2026-10-22): **built and unit-tested, not yet run**. Nothing in this folder has started a container: phase 2 of
-21d runs the sample under Podman and the smoke tests through the front door (see [Not verified](#not-verified)).
+Status (2026-10-22): **runs under Podman**. The sample (default stack plus `dialogporten`) passes the root (26),
+authentication (34) and Dialogporten (60) smoke tests through its front door, and survives AppHost restarts (see
+[Run under Podman](#run-under-podman)).
 
 | Path | What |
 | --- | --- |
@@ -37,7 +38,8 @@ await builder.Build().RunAsync();
 ```
 
 ```sh
-ASPIRE_CONTAINER_RUNTIME=podman aspire run      # or dotnet run apphost.cs; Docker is Aspire's default
+cd samples/AppHost
+ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost.cs   # or aspire run
 ```
 
 Stop `studioctl env down -r localtest-v2` first: both listen on port 8000 and on the components' host ports.
@@ -71,15 +73,15 @@ session).
 | `image.core` (pdf3, workflow engine), floating tags | `WithImagePullPolicy(Always)` | studioctl keeps the local copy when the registry is unreachable; `Always` fails instead |
 | `environment` | `WithEnvironment(key, value)` per variable, placeholders resolved as the Go loader does | none |
 | `command` | `WithArgs(...)` (the image's CMD) | none |
-| `containerPort`, `hostPort` | `WithHttpEndpoint(port: hostPort, targetPort: containerPort, name: "http", isProxied: false)` | DCP's default host IP is not set (studioctl publishes on `127.0.0.1`) |
-| no `hostPort` (Postgres, Redis) | a proxied TCP endpoint on a random loopback port, for the host-side probe | studioctl publishes nothing |
+| `containerPort`, `hostPort` | `WithHttpEndpoint(port: hostPort, targetPort: containerPort, name: "http", isProxied: false)` | none: DCP publishes on `127.0.0.1` when no host IP is set, as studioctl does |
+| no `hostPort` (Postgres, Redis) | an unproxied TCP endpoint on a fixed loopback port, `PostgresHostPort` (15432) and `RedisHostPort` (16379), for the host-side probe | studioctl publishes nothing. A proxied endpoint (random port) gave the persistent container a new port on every run, which recreated it on every AppHost start |
 | `healthPath` | `WithHttpHealthCheck(path)` | Aspire polls from the host; `WaitFor` waits for healthy |
 | `containerHealthCheck` | Postgres: an `SSLRequest` handshake; Redis: `PING`, both host-side through the TCP endpoint (`ProtocolHealthCheck`). Dialogporten WebApi: its HTTP `healthPath`, which `WaitFor` uses to keep the other hosts' migrations apart | Aspire has no exec health checks; a new exec-only component fails `AddAltinnLocaltest` until it gets a probe |
 | `mounts` `certificateDir` | `WithBindMount(<data>/certs, /certs, isReadOnly: true)` | no SELinux relabel: `:z` is not an Aspire option, so on an SELinux host (Fedora with Podman) the bind may be unreadable ([aspire#3945](https://github.com/microsoft/aspire/issues/3945)); this machine is not SELinux |
 | `mounts` `certificateFile` | `WithBindMount(<data>/certs/localtest-accesstoken.pfx, target, isReadOnly: true)` | as above |
 | `mounts` `volume` | `WithVolume(name, target)` with the manifest's volume names | none, on purpose: the volumes are **shared with studioctl** (same images, same data layout), so `studioctl env reset -r localtest-v2` also resets the Aspire stack's data |
 | `networkAliases` | `WithContainerNetworkAlias(alias)` (skipped when it equals the resource name, as for `postgres` and `redis`) | none |
-| `ingressHosts` (default true), `extraHostGatewayNames` | `WithContainerRuntimeArgs("--add-host", "<host>:host-gateway")` for `local.altinn.cloud`, `pdf.`, `workflow-engine.`, `pgadmin.`, `app-frontend.`, `af.local.altinn.cloud` and each extra name; such a component also `WaitForStart(frontdoor)` | none in the model; under Podman not yet run |
+| `ingressHosts` (default true), `extraHostGatewayNames` | `WithContainerRuntimeArgs("--add-host", "<host>:host-gateway")` for `local.altinn.cloud`, `pdf.`, `workflow-engine.`, `pgadmin.`, `app-frontend.`, `af.local.altinn.cloud` and each extra name; such a component also `WaitForStart(frontdoor)` | none (works under Podman 5.7) |
 | `dependsOn` | `WaitFor(dependency)` (healthy) | studioctl waits for the runtime's ready state; Aspire for the health check |
 | `hostUser` | refused (`NotSupportedException`) | no component uses it today (studioctl's `RuntimeUser`/`UsernsMode` apply only to such components) |
 | `group` | added by `WithGroup` with the group closure; components of groups that are off are **not added** | the 503 problem details for a group that is off are deferred: its prefix falls through to the localtest app's 404, and its own host (`af.local.altinn.cloud`) gets YARP's 404 |
@@ -159,18 +161,39 @@ cookie does: an app behind this front door (21e) loses the ten-minute token refr
   `localhost` and `127.0.0.1` fall-back, the `pdf.` and `workflow-engine.` hosts, the original Host, and YARP's 404 for
   `af.local.altinn.cloud`.
 
+## Run under Podman
+
+Phase 2 of 21d (2026-10-22), on this machine: Podman 5.7.0 driven through its socket (rootful, netavark), arm64,
+`dotnet run apphost.cs` with SDK 10.0.401 (no `aspire` CLI), DCP and the dashboard from the 13.6.2 linux-arm64 NuGet
+packages.
+
+- **`ASPIRE_ENABLE_CONTAINER_TUNNEL=false` is needed here.** With the tunnel on (Aspire's default since 13.3) DCP
+  builds its tunnel image and Podman refuses the generated Dockerfile (`parsing main Dockerfile: ... bufio.Scanner:
+  token too long`); the front door then never starts, because it exports telemetry to the dashboard on the host, which
+  goes through the tunnel. Without the tunnel the front door's telemetry has no route to the dashboard (no traces from
+  it); nothing else changes. 21e planned the app route through that tunnel; its fallback (`host.docker.internal` with
+  the app on `0.0.0.0`) is the one that applies on Podman 5.7.
+- **Port 8000 on every interface works**: the front door's port is `0.0.0.0:8000->5000`; the components' fixed ports
+  are on `127.0.0.1`. **`--add-host ...:host-gateway` works**: a component's `/etc/hosts` maps the ingress hosts to the
+  network's gateway (`10.89.2.1`), and `http://local.altinn.cloud:8000/Home/Localtest/Version` answered from inside
+  Storage's network namespace. The component images have no shell or curl, so the request ran in a throwaway container
+  sharing that namespace: `podman run --rm --network container:<storage container> --entrypoint sh
+  docker.io/library/redis:7.2-alpine -c 'wget -qO- http://local.altinn.cloud:8000/Home/Localtest/Version'`. The
+  network-alias fallback was not needed.
+- **The YARP container reaches the components** by their resource names (the smoke tests pass through it).
+- **Container names** are `<resource>-<suffix>`, the suffix a hash of the AppHost's path (`storage-0de70ea0` for the
+  sample), so two AppHosts give two sets of containers on the same host ports: run one at a time, and remove the other's
+  containers (`podman rm -f`) first. Set `STORAGE_CONTAINER` for the root smoke test's log check.
+- **Persistent containers survive** Ctrl-C of the AppHost (the front door, session-scoped, goes); the next start reuses
+  all of them and is healthy in 3 s, against 27 s for a start that creates them on data volumes that already exist.
+  A changed configuration recreates only the containers it changed. Redis's empty argument (`--save ""`) passes
+  through.
+- **Memory**: the stack with `dialogporten` (18 containers and the front door) is about 2.2 GB by `podman stats`;
+  Aspire itself about 0.5 GB proportional set size (the AppHost 140 MB, the dashboard 125 MB, DCP's API server and
+  controllers 115 MB, one 26 MB DCP monitor per process), plus 150 MB for the `dotnet run` host.
+
 ## Not verified
 
-Phase 2 of 21d runs these; until then they are readings of the API and of DCP's code (13.6.2):
-
-- **The front door on every interface.** DCP sets a container port's host IP from the endpoint's target host
-  (`ContainerCreator`: any target host other than `localhost` becomes `HostIP`), so `0.0.0.0` should publish on all
-  interfaces, and a proxied endpoint would be DCP's loopback proxy. The first check of phase 2:
-  `curl http://local.altinn.cloud:8000/` from inside a component container.
-- **`--add-host ...:host-gateway` under rootless Podman** through DCP. Fallback (reported, not switched silently):
-  network aliases on the front door's container.
-- **The YARP container's destinations**: the clusters name the components' endpoints (`http://register`), which the
-  YARP image resolves through Aspire's service discovery variables to their container-network addresses.
-- **Persistent containers across AppHost restarts**, including the proxied TCP endpoints of Postgres and Redis.
-- **Redis's empty argument** (`--save ""`) through DCP's argument list.
-- **Memory** with DCP and the dashboard beside the stack.
+- An SELinux host (bind mounts without relabelling), rootless Podman (this machine runs Podman rootful behind its
+  socket), Docker.
+- A first start on empty volumes (the volumes are studioctl's and held data, so the init scripts did not run).

@@ -7,8 +7,10 @@
   recommends in section 3.
 - **21d in progress** (2026-10-22, branch `task/aspire-frontdoor`): [`localtest/aspire/Altinn.App.Aspire/`](../../localtest/aspire/Altinn.App.Aspire/README.md)
   is built: the C# manifest reader (compared with studioctl's golden file), `AddAltinnLocaltest()` with the default
-  stack and `WithGroup(...)`, the YARP front door with the manifest's routes, and a single-file sample AppHost. Not yet
-  run: phase 2 runs it under Podman with the smoke tests. 21e (the app, provisioning, commands, publishing) follows.
+  stack and `WithGroup(...)`, the YARP front door with the manifest's routes, and a single-file sample AppHost. Run
+  under Podman 5.7 (phase 2): the root, authentication and Dialogporten smoke tests pass through its front door,
+  persistent containers survive AppHost restarts; Aspire's container tunnel does not build on this Podman and is
+  switched off (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`), which matters for 21e's app route. 21e (the app, provisioning, commands, publishing) follows.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
