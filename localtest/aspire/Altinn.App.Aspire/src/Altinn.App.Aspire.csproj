@@ -22,28 +22,22 @@
     <PackageReference Include="Aspire.Hosting.Yarp" />
   </ItemGroup>
 
-  <!-- The shared provisioning library, compiled in so the package is one assembly with no unpublished dependency
-       (TODO.md task 21, the 21d decisions). Unused until 21e. -->
-  <ItemGroup>
-    <Compile
-      Include="../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/**/*.cs"
-      Exclude="../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/bin/**;../../../studioctl/src/Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/obj/**"
-      LinkBase="Provisioning"
-    />
-  </ItemGroup>
+  <!-- TODO task 27b: the provisioning steps under src/Provisioning are a copy of the library studioctl deleted in task
+       27a (the localtest container provisions now, on PUT localtest/api/apps); task 27b drops them with the package's
+       own proxy and registers the app with the front door instead. -->
 
-  <!-- The component manifest and its schema from the Go tree (single copy), and the shared test certificate studioctl
-       embeds too. -->
+  <!-- The component manifest and its schema, and the shared test certificate studioctl embeds too. TODO task 27b: the
+       manifest is a copy of studioctl's v1 manifest (as of the pin sha-f76b62b), since studioctl moved to manifest v2 in
+       task 27a; the package runs the v1 topology (its own YARP front door, routes and provisioning) until 27b reads
+       studioctl's v2 manifest (internal/localtestv2/manifest/manifest.json) instead. -->
   <ItemGroup>
     <EmbeddedResource
-      Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.json"
+      Include="Manifest/manifest.v1.json"
       LogicalName="Altinn.App.Aspire.manifest.json"
-      Link="Manifest/manifest.json"
     />
     <EmbeddedResource
-      Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.schema.json"
+      Include="Manifest/manifest.v1.schema.json"
       LogicalName="Altinn.App.Aspire.manifest.schema.json"
-      Link="Manifest/manifest.schema.json"
     />
     <EmbeddedResource
       Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/assets/localtest-accesstoken.pfx"

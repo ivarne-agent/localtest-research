@@ -3,6 +3,9 @@ using System.Text.Json;
 
 namespace Altinn.App.Aspire.Manifest;
 
+// Until task 27b: the embedded manifest is Manifest/manifest.v1.json, a copy of studioctl's v1 manifest; studioctl reads
+// manifest v2 since task 27a, and 27b moves this reader to it.
+
 /// <summary>Reads the embedded manifest and checks what the resolver relies on.</summary>
 internal static class ManifestLoader
 {

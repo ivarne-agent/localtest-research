@@ -21,10 +21,11 @@
   </ItemGroup>
 
   <!-- studioctl's golden snapshot of the resolved environment (default, and with every group and every dev build as a rootless
-       user), the file the reader must agree with. -->
+       user), the file the reader must agree with. TODO task 27b: golden-v1/ is the snapshot of the v1 manifest the package
+       still reads (src/Manifest/manifest.v1.json); 27b reads manifest v2 and compares with studioctl's current snapshot. -->
   <ItemGroup>
     <Content
-      Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/testdata/environment.golden.json"
+      Include="golden-v1/environment.golden.json"
       Link="golden/environment.golden.json"
       CopyToOutputDirectory="PreserveNewest"
     />

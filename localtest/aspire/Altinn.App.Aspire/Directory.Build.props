@@ -1,6 +1,6 @@
 <Project>
-  <!-- Standalone like Altinn.Studio.Localtest.Provisioning, whose settings these are: nothing above this folder is
-       imported, so the package builds the same from here and from any checkout of the repository. -->
+  <!-- Standalone: nothing above this folder is imported, so the package builds the same from here and from any checkout
+       of the repository. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
