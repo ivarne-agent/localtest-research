@@ -795,9 +795,16 @@ func (c *RunCommand) registerPortAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
+	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, port, runInfo, monitor, startupTimeout)
 	if err != nil {
+		return "", err
+	}
+
+	if err := waitForFrontDoorRegistration(
+		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
+	); err != nil {
 		return "", err
 	}
 
@@ -862,9 +869,16 @@ func (c *RunCommand) registerContainerAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
+	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, hostPort, runInfo, monitor, startupTimeout)
 	if err != nil {
+		return "", err
+	}
+
+	if err := waitForFrontDoorRegistration(
+		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
+	); err != nil {
 		return "", err
 	}
 
@@ -891,6 +905,7 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
+	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerProcessAppWithStartupMonitor(
 		ctx,
@@ -902,6 +917,12 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		startupTimeout,
 	)
 	if err != nil {
+		return "", err
+	}
+
+	if err := waitForFrontDoorRegistration(
+		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
+	); err != nil {
 		return "", err
 	}
 

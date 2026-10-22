@@ -35,6 +35,9 @@ var (
 // TODO: this should come from the "current env".
 const (
 	localtestLoopbackHost           = "127.0.0.1"
+	// allInterfacesHost is where an app listens while the localtest-v2 runtime is up: its front door, in a container,
+	// reaches the app through the runtime's host gateway (host.docker.internal), which loopback does not answer.
+	allInterfacesHost = "0.0.0.0"
 	localtestAppContainerNamePrefix = "localtest-app-"
 	appMetadataFile                 = "App/config/applicationmetadata.json"
 )
@@ -135,6 +138,11 @@ func (s *Service) BuildDotnetRunSpec(
 	if signingErr != nil {
 		return DotnetRunSpec{}, signingErr
 	}
+	kestrelURL := baseURL
+	if !signing.isZero() {
+		// The certificate is set exactly when localtest-v2 is up, whose front door needs the app on every interface.
+		kestrelURL = "http://" + allInterfacesHost + ":" + port
+	}
 
 	return DotnetRunSpec{
 		Dir:            filepath.Dir(projectPath),
@@ -145,7 +153,7 @@ func (s *Service) BuildDotnetRunSpec(
 		AppArgs:        args,
 		BuildArgs:      []string{"build", projectPath},
 		TargetPathArgs: []string{"msbuild", projectPath, "-getProperty:TargetPath"},
-		Env:            newAppRunEnv(env, baseURL, topology, opts.AppFrontendAssetBaseUrl, secretsDir, "", signing),
+		Env:            newAppRunEnv(env, kestrelURL, topology, opts.AppFrontendAssetBaseUrl, secretsDir, "", signing),
 	}, nil
 }
 
@@ -296,6 +304,11 @@ func (s *Service) BuildDockerRunSpec(
 	if signingErr != nil {
 		return DockerRunSpec{}, signingErr
 	}
+	publishHost := localtestLoopbackHost
+	if !signing.isZero() {
+		// localtest-v2 is up: its front door reaches the published port through the host gateway.
+		publishHost = ""
+	}
 
 	return DockerRunSpec{
 		SecretsDir: secretsDir,
@@ -318,7 +331,7 @@ func (s *Service) BuildDockerRunSpec(
 			},
 			Ports: []types.PortMapping{
 				{
-					HostIP:        localtestLoopbackHost,
+					HostIP:        publishHost,
 					HostPort:      hostPort,
 					ContainerPort: appcontainers.DefaultContainerPort,
 					Protocol:      "tcp",
