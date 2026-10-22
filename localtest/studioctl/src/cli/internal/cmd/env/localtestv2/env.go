@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -31,10 +30,6 @@ const (
 	// Name is the runtime's name on the command line (-r localtest-v2).
 	Name = "localtest-v2"
 
-	// EnvSourceRoot points at the research checkout's localtest/ folder, which `env up --dev <component>`
-	// builds component images from.
-	EnvSourceRoot = "STUDIOCTL_LOCALTEST_V2_SRC"
-
 	// graphID scopes devenv ownership labels to this runtime's graph.
 	graphID = "studioctl-localtest-v2"
 
@@ -44,11 +39,7 @@ const (
 
 var (
 	// ErrLocaltestRunning is returned when the localtest runtime holds the public origin's port.
-	ErrLocaltestRunning    = errors.New("the localtest runtime is running; stop it first with 'env down'")
-	errUnknownDevComponent = errors.New("unknown component for --dev")
-	errDevSourceMissing    = errors.New(
-		"--dev needs " + EnvSourceRoot + " to point at the research checkout's localtest/ folder",
-	)
+	ErrLocaltestRunning = errors.New("the localtest runtime is running; stop it first with 'env down'")
 )
 
 // Env implements envtypes.Env for the localtest-v2 runtime.
@@ -68,8 +59,8 @@ func (e *Env) Name() string {
 	return Name
 }
 
-// Preflight validates prerequisites before startup: the localtest runtime must not hold port 8000, and a
-// dev build needs the research checkout.
+// Preflight validates prerequisites before startup: the localtest runtime must not hold port 8000, the groups must be
+// known, and a dev build must name a container and a Dockerfile.
 func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if err := envlocaltest.CheckForLegacyLocaltest(ctx, e.client); err != nil {
 		return fmt.Errorf("check for legacy localtest: %w", err)
@@ -81,7 +72,7 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if err != nil && !errors.Is(err, container.ErrContainerNotFound) {
 		return fmt.Errorf("inspect container %s: %w", v1components.ContainerLocaltest, err)
 	}
-	if _, err := devComponents(opts.DevComponents); err != nil {
+	if _, err := e.devBuilds(opts.DevComponents); err != nil {
 		return err
 	}
 	if _, err := ResolveGroups(opts.With, opts.Without); err != nil {
@@ -106,8 +97,9 @@ func (e *Env) GroupsChanged(opts envtypes.UpOptions) (bool, error) {
 	return !slices.Equal(want, have), nil
 }
 
-// Up starts the environment: writes the certificate and the proxy's route table, (re)starts
-// studioctl-server as the proxy, applies the containers, and waits until every component answers.
+// Up starts the environment: writes the certificate and the state file, (re)starts studioctl-server so that it
+// registers the apps it discovers with the front door, applies the containers (each one's health checked before what
+// depends on it starts), and waits until the front door answers on the public origin.
 func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	toolchain := e.client.Toolchain()
 	e.out.Verbosef("Using container toolchain: %s via %s", toolchain.Platform, toolchain.AccessMode)
@@ -116,20 +108,12 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err != nil {
 		return err
 	}
-	groups := groupNames(opts.Groups)
 	if err := ensureCertificate(opts.CertDir); err != nil {
 		return err
 	}
-	if err := envtopology.WriteBoundTopologyConfig(
-		e.cfg.BoundTopologyBaseConfigPath(),
-		boundTopologyConfig(opts),
-	); err != nil {
-		return fmt.Errorf("write proxy routes: %w", err)
-	}
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
-		ProxyPorts:     studioctlserver.LocaltestV2ProxyPorts(opts.Topology.IngressPort()),
-		Groups:         groups,
+		Groups:         opts.Groups,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
 	}
@@ -137,11 +121,11 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 		return fmt.Errorf("ensure studioctl-server: %w", err)
 	}
 
-	if err := e.applyResources(ctx, resources(opts), len(opts.DevComponents) > 0); err != nil {
+	if err := e.applyResources(ctx, resources(opts, newProber(e.client).probes), len(opts.Dev) > 0); err != nil {
 		return err
 	}
-	e.out.Println("Waiting for the components to answer...")
-	if err := waitHealthy(ctx, e.out, healthTargets(opts)); err != nil {
+	e.out.Println("Waiting for the front door to answer...")
+	if err := waitFrontDoor(ctx, e.out, frontDoorHealthURL(opts)); err != nil {
 		return fmt.Errorf("localtest-v2 did not become healthy: %w", err)
 	}
 	e.out.Success("Environment healthy")
@@ -163,7 +147,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	return nil
 }
 
-// Down stops the environment and takes studioctl-server out of proxy mode.
+// Down stops the environment and restarts studioctl-server without the front-door registration.
 func (e *Env) Down(ctx context.Context) error {
 	hasResources, err := e.hasManagedResources(ctx)
 	if err != nil {
@@ -172,7 +156,7 @@ func (e *Env) Down(ctx context.Context) error {
 	if !hasResources {
 		return e.forgetState(ctx, envtypes.ErrAlreadyStopped)
 	}
-	if err := e.destroyResources(ctx, resources(e.teardownOptions()), stoppingMessage); err != nil {
+	if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
 		return fmt.Errorf("stop environment: %w", err)
 	}
 	if err := e.forgetState(ctx, nil); err != nil {
@@ -189,7 +173,7 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	if hasResources {
-		if err := e.destroyResources(ctx, resources(e.teardownOptions()), stoppingMessage); err != nil {
+		if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
 			return fmt.Errorf("stop environment: %w", err)
 		}
 	}
@@ -219,7 +203,7 @@ func (e *Env) Logs(ctx context.Context, opts envtypes.LogsOptions) error {
 	}
 	streamer := envlocaltest.NewLogStreamer(e.client, e.out, containerNames(current))
 	component := opts.Component
-	if component != "" && !strings.HasPrefix(component, stack().ContainerPrefix) {
+	if component != "" && !strings.HasPrefix(component, containerPrefix) {
 		component = containerOf(component)
 	}
 	if err := streamer.Stream(ctx, component, opts.Follow, opts.JSON); err != nil {
@@ -234,7 +218,7 @@ func (e *Env) Status(ctx context.Context) (*envlocaltest.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	graph, err := buildResourceGraph(resources(current))
+	graph, err := buildResourceGraph(resources(current, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +290,8 @@ func statusString(status executor.Status) string {
 	return status.String()
 }
 
-// forgetState removes the runtime's state and, when studioctl-server runs, restarts it without the proxy.
+// forgetState removes the runtime's state and, when studioctl-server runs, restarts it without the front-door
+// registration.
 // The passthrough error is returned when the state is gone, so a caller can report "already stopped".
 func (e *Env) forgetState(ctx context.Context, passthrough error) error {
 	if err := localtestv2.RemoveState(e.cfg); err != nil {
@@ -319,7 +304,7 @@ func (e *Env) forgetState(ctx context.Context, passthrough error) error {
 }
 
 func (e *Env) defaultOptions() *Options {
-	return defaultOptions(e.cfg.Images, localtestv2.CertificateDir(e.cfg))
+	return defaultOptions(localtestv2.CertificateDir(e.cfg))
 }
 
 // currentOptions are the options of the environment as it was started: the optional groups come from the state file,
@@ -330,7 +315,7 @@ func (e *Env) currentOptions() (*Options, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
-	opts.Groups = groupSet(state.Groups)
+	opts.Groups = state.Groups
 	return opts, nil
 }
 
@@ -338,72 +323,35 @@ func (e *Env) currentOptions() (*Options, error) {
 // started, even when the state file is gone.
 func (e *Env) teardownOptions() *Options {
 	opts := e.defaultOptions()
-	opts.Groups = allGroups()
+	opts.Groups = OptionalGroups()
 	return opts
 }
 
 func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
-	opts.RuntimeUser, opts.UsernsMode, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
-	if upOpts.LatestImages {
-		opts.Images.LocaltestV2 = opts.Images.LocaltestV2.WithTag("latest")
-	}
+	_, _, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
+	opts.LatestImages = upOpts.LatestImages
 	groups, err := ResolveGroups(upOpts.With, upOpts.Without)
 	if err != nil {
 		return nil, err
 	}
-	opts.Groups = groupSet(groups)
-	dev, err := devComponents(upOpts.DevComponents)
-	if err != nil {
+	opts.Groups = groups
+	if opts.Dev, err = e.devBuilds(upOpts.DevComponents); err != nil {
 		return nil, err
-	}
-	if len(dev) > 0 {
-		root := filepath.Clean(strings.TrimSpace(os.Getenv(EnvSourceRoot)))
-		if root == "" || root == "." {
-			return nil, errDevSourceMissing
-		}
-		if _, err := os.Stat(root); err != nil {
-			return nil, fmt.Errorf("%w: %s: %w", errDevSourceMissing, root, err)
-		}
-		opts.DevSourceRoot = root
-		opts.DevComponents = dev
 	}
 	return opts, nil
 }
 
-func groupNames(set map[string]bool) []string {
-	var names []string
-	for name, on := range set {
-		if on {
-			names = append(names, name)
-		}
+// devBuilds resolves the --dev paths against the current directory.
+func (e *Env) devBuilds(dev map[string]string) (map[string]DevBuild, error) {
+	if len(dev) == 0 {
+		return nil, nil //nolint:nilnil // No dev build.
 	}
-	slices.Sort(names)
-	return names
-}
-
-// devComponents validates --dev names; "all" selects every component that has a dev build.
-func devComponents(names []string) (map[string]bool, error) {
-	selected := map[string]bool{}
-	buildable := DevBuildable()
-	for _, name := range names {
-		if name == "all" {
-			for _, b := range buildable {
-				selected[b] = true
-			}
-			continue
-		}
-		if !slices.Contains(buildable, name) {
-			return nil, fmt.Errorf(
-				"%w: %s (one of %s, all)",
-				errUnknownDevComponent,
-				name,
-				strings.Join(buildable, ", "),
-			)
-		}
-		selected[name] = true
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("current directory: %w", err)
 	}
-	return selected, nil
+	return resolveDevBuilds(dev, cwd)
 }
 
 func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Options) error {
@@ -421,7 +369,7 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 	teardownCtx, cancel := context.WithTimeout(context.Background(), teardownTimeout)
 	defer cancel()
 	//nolint:contextcheck // intentionally using new context for cleanup after cancellation
-	if err := e.destroyResources(teardownCtx, resources(e.teardownOptions()), ""); err != nil {
+	if err := e.destroyResources(teardownCtx, resources(e.teardownOptions(), nil), ""); err != nil {
 		e.out.Warningf("Failed to stop environment cleanly: %v", err)
 		return err
 	}
@@ -434,7 +382,7 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 }
 
 func (e *Env) hasManagedResources(ctx context.Context) (bool, error) {
-	graph, err := buildResourceGraph(resources(e.teardownOptions()))
+	graph, err := buildResourceGraph(resources(e.teardownOptions(), nil))
 	if err != nil {
 		return false, err
 	}

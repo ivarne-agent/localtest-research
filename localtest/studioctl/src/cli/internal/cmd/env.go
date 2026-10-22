@@ -294,7 +294,7 @@ func (c *EnvCommand) withContainerClient(
 // envUpFlags holds parsed flags for the env up command.
 type envUpFlags struct {
 	runtime           string
-	devComponents     []string
+	devComponents     map[string]string
 	with              []string
 	without           []string
 	detach            bool
@@ -325,14 +325,18 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --monitoring     Start monitoring stack (localtest)",
 			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
 			"  --open           Open localtest in browser after starting",
-			"  --latest         Run the localtest-v2 images at :latest instead of the pinned build",
-			"  --dev NAME       Build a localtest-v2 component from "+envlocaltestv2.EnvSourceRoot+" (repeatable; 'all')",
+			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
+			"  --dev-NAME[=PATH]",
+			"                   Build a localtest-v2 container from PATH, a Dockerfile or a directory holding one",
+			"                   (default: the current directory), and run it instead of the pinned image",
+			"  --dev NAME[=PATH]  The same as --dev-NAME[=PATH] (repeatable)",
 			"  --with GROUP     Start an optional localtest-v2 component group and the groups it implies ("+groupNames+"; repeatable)",
 			"  --without GROUP  Leave out an optional localtest-v2 component group, not the groups it implies (repeatable)",
 			"  --json           Output as JSON",
 		))
 	}
 	var f envUpFlags
+	f.devComponents = map[string]string{}
 	fs.StringVar(&f.runtime, "r", "", "Runtime to use")
 	fs.StringVar(&f.runtime, "runtime", "", "Runtime to use")
 	fs.BoolVar(&f.detach, "d", true, "Run in background")
@@ -341,10 +345,19 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.pgAdmin, "pgadmin", false, "Start pgAdmin for the workflow-engine database")
 	fs.BoolVar(&f.openBrowser, "open", false, "Open localtest in browser after starting")
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
-	fs.BoolVar(&f.devWorkflowEngine, "dev-workflow-engine", false, "Route workflow-engine to a host process")
-	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 images at :latest")
-	fs.Func("dev", "Build a localtest-v2 component from source (repeatable)", func(value string) error {
-		f.devComponents = append(f.devComponents, strings.TrimSpace(value))
+	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
+	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is also the localtest
+	// runtime's hidden flag that routes the workflow engine to a host process.
+	for _, name := range envlocaltestv2.DevContainers() {
+		value := &devFlag{name: name, dev: f.devComponents, set: nil}
+		if name == devWorkflowEngineContainer {
+			value.set = func() { f.devWorkflowEngine = true }
+		}
+		fs.Var(value, "dev-"+name, "Build a localtest-v2 container from a Dockerfile")
+	}
+	fs.Func("dev", "Build a localtest-v2 container from source: NAME[=PATH] (repeatable)", func(value string) error {
+		name, path, _ := strings.Cut(strings.TrimSpace(value), "=")
+		f.devComponents[strings.TrimSpace(name)] = strings.TrimSpace(path)
 		return nil
 	})
 	fs.Func("with", "Start an optional localtest-v2 component group (repeatable)", func(value string) error {
@@ -1253,4 +1266,36 @@ func commandOutput(out *ui.Output, jsonOutput bool) *ui.Output {
 		return silentOutput()
 	}
 	return out
+}
+
+// devWorkflowEngineContainer is the localtest-v2 container whose --dev flag is also the localtest runtime's
+// --dev-workflow-engine.
+const devWorkflowEngineContainer = "workflow-engine"
+
+// devFlag is --dev-<container>[=<path>]: a bare flag builds from the current directory (an empty path).
+type devFlag struct {
+	dev  map[string]string
+	set  func()
+	name string
+}
+
+func (d *devFlag) String() string {
+	return ""
+}
+
+func (d *devFlag) Set(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "true" {
+		value = ""
+	}
+	d.dev[d.name] = value
+	if d.set != nil {
+		d.set()
+	}
+	return nil
+}
+
+// IsBoolFlag lets the flag stand without a value.
+func (d *devFlag) IsBoolFlag() bool {
+	return true
 }

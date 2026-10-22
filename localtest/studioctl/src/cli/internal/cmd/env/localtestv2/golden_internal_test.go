@@ -2,6 +2,7 @@ package localtestv2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,8 +10,7 @@ import (
 
 	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
-	"altinn.studio/studioctl/internal/config"
-	"altinn.studio/studioctl/internal/envtopology"
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // envUpdateGolden regenerates the golden file: STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/env/localtestv2/.
@@ -18,53 +18,50 @@ const envUpdateGolden = "STUDIOCTL_UPDATE_GOLDEN"
 
 var goldenPath = filepath.Join("testdata", "environment.golden.json") //nolint:gochecknoglobals // A test fixture path.
 
-// goldenEnvironment is what the runtime builds from the manifest: the snapshot that replaced the transition test, which
-// showed the loader building exactly what the hand-written component table it replaced built (task 21a).
+// goldenEnvironment is what the runtime builds from the manifest. Each container's env is the manifest's envs plus the
+// services__ variables.
 type goldenEnvironment struct {
-	Groups       map[string]goldenGroup `json:"groups"`
-	DevBuildable []string               `json:"devBuildable"`
-	Volumes      []string               `json:"volumes"`
-	// Default is `env up` with no flags: pulled images at the pin, no group.
+	// Groups are the containers each group selects with the default group, in start order.
+	Groups  map[string][]string `json:"groups"`
+	Volumes []string            `json:"volumes"`
+	// Default is `env up` with no flags: pulled images at the pin, no optional group.
 	Default goldenOptions `json:"default"`
-	// Everything is `env up --with everything --dev all` as a rootless runtime user with SELinux relabelling.
+	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
+	// a runtime with SELinux relabelling.
 	Everything goldenOptions `json:"everything"`
 }
 
-type goldenGroup struct {
-	Implies     []string `json:"implies"`
-	OnByDefault bool     `json:"onByDefault"`
-}
-
 type goldenOptions struct {
-	Resources     []goldenResource                `json:"resources"`
-	HealthTargets []string                        `json:"healthTargets"`
-	RouteTable    envtopology.BoundTopologyConfig `json:"routeTable"`
+	Resources       []goldenResource `json:"resources"`
+	HealthTargets   []string         `json:"healthTargets"`
+	FrontDoorHealth string           `json:"frontDoorHealth"`
 }
 
 func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
-	t.Setenv("STUDIOCTL_LOCALTEST_V2_TAG", "")
-	for _, name := range config.DefaultImages().LocaltestV2.Names() {
-		t.Setenv(config.LocaltestV2OverrideEnv(name), "")
+	t.Parallel()
+	everything := defaultOptions("/home/dev/.altinn-studio/certs")
+	everything.Groups = OptionalGroups()
+	everything.LatestImages = true
+	everything.RelabelBinds = true
+	everything.Dev = map[string]DevBuild{
+		"storage": {
+			Context:    "/src/localtest/components/storage",
+			Dockerfile: "/src/localtest/components/storage/Dockerfile",
+		},
+		"dialogporten-webapi": {
+			Context:    "/src/localtest/components/dialogporten",
+			Dockerfile: "/src/localtest/components/dialogporten/Dockerfile.webapi",
+		},
 	}
-	t.Setenv("STUDIOCTL_IMAGE_PDF3", "")
-	t.Setenv("STUDIOCTL_IMAGE_WORKFLOW_ENGINE", "")
-
-	images := config.DefaultImages()
-	everything := defaultOptions(images, "/home/dev/.altinn-studio/certs")
-	everything.Groups = allGroups()
-	everything.DevComponents = groupSet(DevBuildable())
-	everything.DevSourceRoot = devSourceRoot
-	everything.RuntimeUser, everything.UsernsMode, everything.RelabelBinds = "1000:1000", "keep-id", true
 
 	got := goldenEnvironment{
-		Groups:       map[string]goldenGroup{},
-		DevBuildable: DevBuildable(),
-		Volumes:      stack().VolumeNames(),
-		Default:      goldenOf(t, defaultOptions(images, "/home/dev/.altinn-studio/certs")),
-		Everything:   goldenOf(t, everything),
+		Groups:     map[string][]string{},
+		Volumes:    stack().VolumeNames(),
+		Default:    goldenOf(t, defaultOptions("/home/dev/.altinn-studio/certs")),
+		Everything: goldenOf(t, everything),
 	}
-	for name, g := range groupTable() {
-		got.Groups[name] = goldenGroup{Implies: g.implies, OnByDefault: g.onByDefault}
+	for _, name := range stack().GroupNames() {
+		got.Groups[name] = stack().Select([]string{manifest.DefaultGroup, name})
 	}
 	data, err := json.MarshalIndent(got, "", "  ")
 	if err != nil {
@@ -98,14 +95,17 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 func goldenOf(t *testing.T, opts *Options) goldenOptions {
 	t.Helper()
 	targets := healthTargets(opts)
-	urls := make([]string, 0, len(targets))
+	described := make([]string, 0, len(targets))
 	for _, target := range targets {
-		urls = append(urls, target.name+" "+target.url)
+		described = append(described, target.name+" "+target.String())
+	}
+	probes := func(healthTarget) func(context.Context) error {
+		return func(context.Context) error { return nil }
 	}
 	return goldenOptions{
-		Resources:     describeResources(t, resources(opts)),
-		RouteTable:    boundTopologyConfig(opts),
-		HealthTargets: urls,
+		Resources:       describeResources(t, resources(opts, probes)),
+		HealthTargets:   described,
+		FrontDoorHealth: frontDoorHealthURL(opts),
 	}
 }
 
@@ -138,6 +138,7 @@ type goldenResource struct {
 	HandlesDestroyError bool                  `json:"handlesDestroyError,omitempty"`
 	RetainOnDestroy     bool                  `json:"retainOnDestroy,omitempty"`
 	WaitForReady        bool                  `json:"waitForReady,omitempty"`
+	ReadinessProbe      bool                  `json:"readinessProbe,omitempty"`
 }
 
 func describeResources(t *testing.T, resources []resource.Resource) []goldenResource {
@@ -164,6 +165,7 @@ func describeResources(t *testing.T, resources []resource.Resource) []goldenReso
 			g.ExtraHosts, g.NetworkAliases = v.ExtraHosts, v.NetworkAliases
 			g.HandlesDestroyError = v.Lifecycle.HandleDestroyError != nil
 			g.RetainOnDestroy, g.WaitForReady = v.Lifecycle.RetainOnDestroy, v.Lifecycle.WaitForReady
+			g.ReadinessProbe = v.Lifecycle.ReadinessProbe != nil
 		default:
 			t.Fatalf("resource %s of type %T has no golden form", r.ID(), r)
 		}

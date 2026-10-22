@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"altinn.studio/studioctl/internal/envtopology"
-	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // envUpdateGolden regenerates the golden file: STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/app/.
@@ -27,32 +26,15 @@ type goldenAppEnv struct {
 }
 
 type goldenAppEnvCase struct {
-	Environment             map[string]string `json:"environment"`
-	Name                    string            `json:"name"`
-	KestrelURL              string            `json:"kestrelUrl"`
-	IngressPort             string            `json:"ingressPort"`
-	AppFrontendAssetBaseURL string            `json:"appFrontendAssetBaseUrl"`
-	SecretsDir              string            `json:"secretsDir"`
-	KeysDir                 string            `json:"keysDir"`
-	Signing                 goldenSigning     `json:"signing"`
-	Current                 []string          `json:"current"`
-}
-
-// goldenSigning is a case's certificate, as the runner finds it; empty for a run without localtest-v2. FileName is the
-// manifest's certificate file name, which the snapshot names as the hand-written code took it.
-//
-//nolint:tagliatelle // The snapshot's field names predate the app section.
-type goldenSigning struct {
-	FullPath   string `json:"FullPath"`
-	KeysFolder string `json:"KeysFolder"`
-	FileName   string `json:"FileName"`
-}
-
-func (g goldenSigning) certificate() *manifest.AppCertificate {
-	if g.FullPath == "" {
-		return nil
-	}
-	return &manifest.AppCertificate{Path: g.FullPath, KeysFolder: g.KeysFolder}
+	Environment             map[string]string  `json:"environment"`
+	Name                    string             `json:"name"`
+	KestrelURL              string             `json:"kestrelUrl"`
+	IngressPort             string             `json:"ingressPort"`
+	AppFrontendAssetBaseURL string             `json:"appFrontendAssetBaseUrl"`
+	SecretsDir              string             `json:"secretsDir"`
+	KeysDir                 string             `json:"keysDir"`
+	Signing                 accessTokenSigning `json:"signing"`
+	Current                 []string           `json:"current"`
 }
 
 const (
@@ -61,12 +43,12 @@ const (
 )
 
 func goldenAppEnvCases() []goldenAppEnvCase {
-	native := goldenSigning{
+	native := accessTokenSigning{
 		FullPath:   goldenCertDir + "/localtest-accesstoken.pfx",
 		KeysFolder: "/../../.altinn-studio/localtest-v2/certs/",
 		FileName:   "localtest-accesstoken.pfx",
 	}
-	container := goldenSigning{
+	container := accessTokenSigning{
 		FullPath:   containerCertificateDir + "/localtest-accesstoken.pfx",
 		KeysFolder: containerCertificateDir + "/",
 		FileName:   "localtest-accesstoken.pfx",
@@ -130,11 +112,8 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 			c.AppFrontendAssetBaseURL,
 			c.SecretsDir,
 			c.KeysDir,
-			c.Signing.certificate(),
+			c.Signing,
 		)
-		if c.Signing.FullPath != "" && c.Signing.FileName != manifest.MustDefault().Certificate.FileName {
-			t.Fatalf("%s: the certificate file name is not the manifest's", c.Name)
-		}
 		env := make(map[string]string, len(entries))
 		for _, entry := range entries {
 			key, value, _ := strings.Cut(entry, "=")
@@ -162,9 +141,7 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 		t.Fatalf("read %s (regenerate with %s=1): %v", appEnvGoldenPath, envUpdateGolden, err)
 	}
 	if !bytes.Equal(want, data) {
-		t.Errorf(
-			"the app environment differs from %s; review, then regenerate with %s=1 go test ./internal/cmd/app/:\n%s",
-			appEnvGoldenPath, envUpdateGolden, data,
-		)
+		t.Errorf("the app environment differs from %s; review, then regenerate with %s=1 go test ./internal/cmd/app/:\n%s",
+			appEnvGoldenPath, envUpdateGolden, data)
 	}
 }

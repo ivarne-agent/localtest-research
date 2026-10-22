@@ -1,12 +1,8 @@
 package config
 
 import (
-	"maps"
 	"os"
-	"slices"
 	"strings"
-
-	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // Container images used by the local environment.
@@ -26,9 +22,6 @@ const (
 	// .github/workflows/deploy-runtime-{pdf3,workflow-engine-app}.yaml when the tt_ring1
 	// runtime ring, which is what tt02 serves, is tagged.
 	tagTT02 = "tt02"
-
-	// tagLatest follows every build on main.
-	tagLatest = "latest"
 )
 
 // ImageSpec defines an image reference with repository and tag.
@@ -59,82 +52,6 @@ type CoreImages struct {
 	PgAdmin          ImageSpec
 }
 
-// ByName returns a core image the localtest-v2 component manifest names (its images.core keys): the PDF generator and
-// the workflow engine, which both runtimes run.
-func (c CoreImages) ByName(name string) (ImageSpec, bool) {
-	switch name {
-	case "pdf3":
-		return c.PDF3, true
-	case "workflow-engine":
-		return c.WorkflowEngine, true
-	default:
-		return ImageSpec{Image: "", Tag: "", Floating: false}, false
-	}
-}
-
-// LocaltestV2Images holds the images of the localtest-v2 runtime by image name, as the component manifest
-// (internal/localtestv2/manifest) lists them: the research builds, one per component plus the localtest app and the
-// shared Postgres, pinned to the manifest's tag, and the third-party images (Redis), pinned by digest. The PDF
-// generator and the workflow engine are the ones the localtest runtime runs (CoreImages).
-//
-// Copies of the value share the specs; WithTag returns a value with its own.
-type LocaltestV2Images struct {
-	specs    map[string]ImageSpec
-	research []string
-}
-
-// Image returns the named image.
-func (i LocaltestV2Images) Image(name string) (ImageSpec, bool) {
-	spec, ok := i.specs[name]
-	return spec, ok
-}
-
-// Names lists every image, sorted.
-func (i LocaltestV2Images) Names() []string {
-	return slices.Sorted(maps.Keys(i.specs))
-}
-
-// ResearchNames lists the images built by the research repository, which one tag applies to, in manifest order.
-func (i LocaltestV2Images) ResearchNames() []string {
-	return slices.Clone(i.research)
-}
-
-// WithTag returns the images with every research image at one tag. "latest" moves with main, so it is re-pulled on
-// every start; any other tag names one build. Third-party images keep their pins.
-func (i LocaltestV2Images) WithTag(tag string) LocaltestV2Images {
-	specs := maps.Clone(i.specs)
-	for _, name := range i.research {
-		spec := specs[name]
-		spec.Tag = tag
-		spec.Floating = tag == tagLatest
-		specs[name] = spec
-	}
-	return LocaltestV2Images{specs: specs, research: i.research}
-}
-
-// EnvLocaltestV2Tag is the variable that overrides the tag every localtest-v2 research image runs ("latest" follows
-// main), from the manifest.
-func EnvLocaltestV2Tag() string {
-	return manifest.MustDefault().Images.TagEnv
-}
-
-// LocaltestV2OverrideEnv is the variable that overrides one localtest-v2 image with a complete reference:
-// STUDIOCTL_IMAGE_LOCALTEST_V2_ plus the image name upper-cased with - turned into _.
-func LocaltestV2OverrideEnv(name string) string {
-	return manifest.MustDefault().Images.OverrideEnv(name)
-}
-
-func defaultLocaltestV2Images(m *manifest.Manifest) LocaltestV2Images {
-	images := LocaltestV2Images{specs: map[string]ImageSpec{}, research: m.ResearchNames()}
-	for _, name := range images.research {
-		images.specs[name] = ImageSpec{Image: m.Images.RepositoryPrefix + name, Tag: m.Images.Tag, Floating: false}
-	}
-	for name, external := range m.Images.ThirdParty {
-		images.specs[name] = ImageSpec{Image: external.Repository, Tag: external.Tag, Floating: external.Floating}
-	}
-	return images
-}
-
 // MonitoringImages holds image configuration for monitoring stack containers.
 type MonitoringImages struct {
 	VictoriaMetrics ImageSpec
@@ -146,9 +63,8 @@ type MonitoringImages struct {
 
 // ImagesConfig holds all image configuration grouped by purpose.
 type ImagesConfig struct {
-	Core        CoreImages
-	Monitoring  MonitoringImages
-	LocaltestV2 LocaltestV2Images
+	Core       CoreImages
+	Monitoring MonitoringImages
 }
 
 // DefaultImages returns the images the local environment runs, with any
@@ -169,10 +85,6 @@ func DefaultImages() ImagesConfig {
 			OtelCollector:   ImageSpec{Image: "otel/opentelemetry-collector-contrib", Tag: "0.161.0", Floating: false},
 			Grafana:         ImageSpec{Image: "grafana/grafana", Tag: "12.4.8", Floating: false},
 		},
-		LocaltestV2: defaultLocaltestV2Images(manifest.MustDefault()),
-	}
-	if tag := strings.TrimSpace(os.Getenv(EnvLocaltestV2Tag())); tag != "" {
-		images.LocaltestV2 = images.LocaltestV2.WithTag(tag)
 	}
 	images.applyEnvOverrides(os.Getenv)
 	return images
@@ -198,22 +110,15 @@ func (c *ImagesConfig) imageOverrides() map[string]*ImageSpec {
 
 func (c *ImagesConfig) applyEnvOverrides(getenv func(string) string) {
 	for envVar, spec := range c.imageOverrides() {
-		if ref := strings.TrimSpace(getenv(envVar)); ref != "" {
-			*spec = overriddenSpec(ref)
+		ref := strings.TrimSpace(getenv(envVar))
+		if ref == "" {
+			continue
 		}
+		image, tag := splitImageRef(ref)
+		spec.Image = image
+		spec.Tag = tag
+		spec.Floating = false
 	}
-	// The localtest-v2 images' variables follow a rule from the manifest (LocaltestV2OverrideEnv).
-	for _, name := range c.LocaltestV2.Names() {
-		if ref := strings.TrimSpace(getenv(LocaltestV2OverrideEnv(name))); ref != "" {
-			c.LocaltestV2.specs[name] = overriddenSpec(ref)
-		}
-	}
-}
-
-// overriddenSpec is the spec of an override reference: it names one build, so it does not follow a tag.
-func overriddenSpec(ref string) ImageSpec {
-	image, tag := splitImageRef(ref)
-	return ImageSpec{Image: image, Tag: tag, Floating: false}
 }
 
 // splitImageRef splits "repository:tag". A registry host may carry a port, so only a colon

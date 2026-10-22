@@ -22,7 +22,7 @@ func TestReadStateOnFreshDataDir(t *testing.T) {
 func TestStateRoundTrip(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{DataDir: t.TempDir()}
-	want := localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg), ProxyPorts: []string{"8000", "5101"}}
+	want := localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg), Groups: []string{"dialogporten", "receipt"}}
 	if err := localtestv2.WriteState(cfg, want); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestStateRoundTrip(t *testing.T) {
 	if !up {
 		t.Fatal("state was written, so the runtime is up")
 	}
-	if got.CertificateDir != want.CertificateDir || len(got.ProxyPorts) != 2 || got.ProxyPorts[1] != "5101" {
+	if got.CertificateDir != want.CertificateDir || len(got.Groups) != 2 || got.Groups[1] != "receipt" {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 	if got.CertificatePath() != want.CertificateDir+"/"+localtestv2.CertificateFileName {
@@ -45,7 +45,7 @@ func TestStateRoundTrip(t *testing.T) {
 func TestRemoveStateIsIdempotent(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{DataDir: t.TempDir()}
-	if err := localtestv2.WriteState(cfg, localtestv2.State{CertificateDir: "/certs", ProxyPorts: nil}); err != nil {
+	if err := localtestv2.WriteState(cfg, localtestv2.State{CertificateDir: "/certs", Groups: nil}); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {

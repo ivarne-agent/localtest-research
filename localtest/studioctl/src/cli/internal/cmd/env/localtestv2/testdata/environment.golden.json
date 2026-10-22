@@ -1,59 +1,101 @@
 {
   "groups": {
-    "arbeidsflate": {
-      "implies": [
-        "dialogporten"
-      ],
-      "onByDefault": false
-    },
-    "correspondence": {
-      "implies": [
-        "dialogporten"
-      ],
-      "onByDefault": false
-    },
-    "dialogporten": {
-      "implies": null,
-      "onByDefault": false
-    },
-    "everything": {
-      "implies": [
-        "arbeidsflate",
-        "correspondence",
-        "dialogporten",
-        "receipt"
-      ],
-      "onByDefault": false
-    },
-    "receipt": {
-      "implies": null,
-      "onByDefault": false
-    }
+    "arbeidsflate": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "redis",
+      "access-management",
+      "dialogporten-webapi",
+      "dialogporten-graphql",
+      "arbeidsflate-bff",
+      "arbeidsflate"
+    ],
+    "correspondence": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "redis",
+      "access-management",
+      "dialogporten-webapi",
+      "correspondence"
+    ],
+    "default": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "access-management"
+    ],
+    "dialogporten": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "redis",
+      "access-management",
+      "dialogporten-webapi",
+      "dialogporten-graphql",
+      "dialogporten-service",
+      "dialogporten-adapter"
+    ],
+    "receipt": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "receipt",
+      "access-management"
+    ]
   },
-  "devBuildable": [
-    "postgres",
-    "register",
-    "profile",
-    "authentication",
-    "authorization",
-    "storage",
-    "access-management",
-    "events",
-    "resource-registry",
-    "notifications",
-    "localtest",
-    "dialogporten",
-    "dialogporten-adapter",
-    "receipt",
-    "correspondence",
-    "arbeidsflate"
-  ],
   "volumes": [
-    "localtest-v2-postgres-data",
-    "localtest-v2-storage-blobs",
-    "localtest-v2-policy-store",
+    "localtest-v2-correspondence-blobs",
     "localtest-v2-localtest-data",
-    "localtest-v2-correspondence-blobs"
+    "localtest-v2-policy-store",
+    "localtest-v2-postgres-data",
+    "localtest-v2-storage-blobs"
   ],
   "default": {
     "resources": [
@@ -67,22 +109,26 @@
         "pullPolicy": "ifNotPresent"
       },
       {
-        "healthCheck": {
-          "Test": [
-            "CMD-SHELL",
-            "pg_isready -h 127.0.0.1 -p 5432 -U postgres"
-          ],
-          "Interval": 2000000000,
-          "Timeout": 5000000000,
-          "Retries": 30,
-          "StartPeriod": 5000000000
-        },
         "id": "container:localtest-v2-postgres",
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-f76b62b",
         "networks": [
           "network:localtest-v2_network"
         ],
         "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
           {
             "HostPath": "localtest-v2-postgres-data",
             "ContainerPath": "/var/lib/postgresql",
@@ -94,21 +140,33 @@
         "env": [
           "POSTGRES_PASSWORD=postgres",
           "POSTGRES_USER=postgres",
-          "TZ=UTC"
+          "TZ=UTC",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
-        "command": [
-          "postgres",
-          "-c",
-          "shared_preload_libraries=pg_stat_statements",
-          "-c",
-          "timezone=UTC",
-          "-c",
-          "log_timezone=UTC"
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "postgres"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:sha-f76b62b",
@@ -121,18 +179,17 @@
         "networks": [
           "network:localtest-v2_network"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8020",
-            "ContainerPort": "5020",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -141,20 +198,33 @@
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__OpenIdWellKnownEndpoint=http://local.altinn.cloud:8000/authentication/api/v1/openid/",
-          "PlatformSettings__ApiAuthorizationEndpoint=http://local.altinn.cloud:8000/authorization/api/v1/"
+          "PlatformSettings__ApiAuthorizationEndpoint=http://local.altinn.cloud:8000/authorization/api/v1/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "register"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:sha-f76b62b",
@@ -171,18 +241,17 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8036",
-            "ContainerPort": "5030",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -192,20 +261,33 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Profile__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSqlSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_profile_admin;Password={0};Database=profiledb",
-          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True"
+          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "profile"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:sha-f76b62b",
@@ -222,14 +304,6 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8021",
-            "ContainerPort": "5101",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -237,24 +311,44 @@
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
           }
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/"
+          "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "authentication"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:sha-f76b62b",
@@ -271,18 +365,17 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8022",
-            "ContainerPort": "5070",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -297,20 +390,33 @@
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "Localtest__Authorization__PlatformEndpoint=http://local.altinn.cloud:8000/"
+          "Localtest__Authorization__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "authorization"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-f76b62b",
@@ -326,18 +432,17 @@
         "dependsOn": [
           "container:localtest-v2-postgres"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8024",
-            "ContainerPort": "5010",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -354,78 +459,33 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSqlSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb",
-          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True"
+          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "storage"
         ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
-        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
-        "pullPolicy": "ifNotPresent"
-      },
-      {
-        "id": "container:localtest-v2-access-management",
-        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-postgres",
-          "container:localtest-v2-register",
-          "container:localtest-v2-resource-registry",
-          "container:localtest-v2-profile"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8023",
-            "ContainerPort": "5080",
-            "Protocol": ""
-          }
-        ],
-        "volumes": [
-          {
-            "HostPath": "/home/dev/.altinn-studio/certs",
-            "ContainerPath": "/certs",
-            "Type": "bind",
-            "SELinuxRelabel": "",
-            "ReadOnly": true
-          },
-          {
-            "HostPath": "localtest-v2-policy-store",
-            "ContainerPath": "/policy-store",
-            "Type": "volume",
-            "SELinuxRelabel": "",
-            "ReadOnly": false
-          }
-        ],
-        "env": [
-          "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "access-management"
-        ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:sha-f76b62b",
@@ -442,14 +502,6 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
           "container:localtest-v2-authorization"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8025",
-            "ContainerPort": "5080",
-            "Protocol": ""
-          }
         ],
         "volumes": [
           {
@@ -471,13 +523,24 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Events__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_events_admin;Password={0};Database=eventsdb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True"
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
@@ -485,7 +548,8 @@
         "networkAliases": [
           "events"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:sha-f76b62b",
@@ -502,18 +566,17 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-storage"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8027",
-            "ContainerPort": "5100",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -530,20 +593,33 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__ResourceRegistry__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True"
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "resource-registry"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:sha-f76b62b",
@@ -563,14 +639,6 @@
           "container:localtest-v2-authorization",
           "container:localtest-v2-authentication"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8029",
-            "ContainerPort": "5090",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -591,20 +659,33 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Notifications__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_notifications_admin;Password={0};Database=notificationsdb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True"
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "notifications"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-f76b62b",
@@ -619,9 +700,9 @@
         ],
         "ports": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8026",
-            "ContainerPort": "8000",
+            "HostIP": "",
+            "HostPort": "8000",
+            "ContainerPort": "8080",
             "Protocol": ""
           }
         ],
@@ -629,6 +710,13 @@
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "",
             "ReadOnly": true
@@ -642,24 +730,16 @@
           }
         ],
         "env": [
-          "ASPNETCORE_HTTP_PORTS=8000",
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "services__access-management__http__0=http://access-management:5080",
-          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
-          "services__arbeidsflate__http__0=http://arbeidsflate:80",
           "services__authentication__http__0=http://authentication:5101",
           "services__authorization__http__0=http://authorization:5070",
-          "services__correspondence__http__0=http://correspondence:2525",
-          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
-          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
-          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
-          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
           "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
           "services__notifications__http__0=http://notifications:5090",
           "services__pdf3__http__0=http://pdf3:5031",
           "services__profile__http__0=http://profile:5030",
-          "services__receipt__http__0=http://receipt:5060",
           "services__register__http__0=http://register:5020",
           "services__resource-registry__http__0=http://resource-registry:5100",
           "services__storage__http__0=http://storage:5010",
@@ -669,11 +749,15 @@
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
-        "waitForReady": true
+        "networkAliases": [
+          "localtest"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/altinn/altinn-studio/runtime-pdf3-worker:tt02",
@@ -686,32 +770,53 @@
         "networks": [
           "network:localtest-v2_network"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "5300",
-            "ContainerPort": "5031",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
           }
         ],
         "env": [
           "PDF3_ENVIRONMENT=localtest",
           "PDF3_LOCALTEST_PUBLIC_BASE_URL=http://local.altinn.cloud:8000",
           "PDF3_QUEUE_SIZE=3",
-          "TZ=Europe/Oslo"
+          "TZ=Europe/Oslo",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "pdf3"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app:tt02",
@@ -727,12 +832,20 @@
         "dependsOn": [
           "container:localtest-v2-postgres"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8028",
-            "ContainerPort": "9090",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
           }
         ],
         "env": [
@@ -740,328 +853,121 @@
           "ASPNETCORE_HTTP_PORTS=9090",
           "AppCommandSettings__CommandEndpoint=http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/",
           "ConnectionStrings__WorkflowEngine=Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres",
-          "EngineSettings__EnableTelemetry=false"
+          "EngineSettings__EnableTelemetry=false",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "workflow-engine"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
+        "pullPolicy": "ifNotPresent"
+      },
+      {
+        "id": "container:localtest-v2-access-management",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:sha-f76b62b",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-postgres",
+          "container:localtest-v2-register",
+          "container:localtest-v2-resource-registry",
+          "container:localtest-v2-profile"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "localtest-v2-policy-store",
+            "ContainerPath": "/policy-store",
+            "Type": "volume",
+            "SELinuxRelabel": "",
+            "ReadOnly": false
+          }
+        ],
+        "env": [
+          "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "access-management"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
       }
     ],
     "healthTargets": [
-      "register http://127.0.0.1:8020/health",
-      "profile http://127.0.0.1:8036/health",
-      "authentication http://127.0.0.1:8021/health",
-      "authorization http://127.0.0.1:8022/health",
-      "storage http://127.0.0.1:8024/health",
-      "access-management http://127.0.0.1:8023/health",
-      "events http://127.0.0.1:8025/health",
-      "resource-registry http://127.0.0.1:8027/health",
-      "notifications http://127.0.0.1:8029/health",
-      "localtest http://127.0.0.1:8026/health",
-      "pdf3 http://127.0.0.1:5300/health/ready",
-      "workflow-engine http://127.0.0.1:8028/api/v1/health/ready",
-      "proxy http://local.altinn.cloud:8000/Home/Localtest/Version"
+      "postgres tcp postgres:5432",
+      "register http://register:5020/health",
+      "profile http://profile:5030/health",
+      "authentication http://authentication:5101/health",
+      "authorization http://authorization:5070/health",
+      "storage http://storage:5010/health",
+      "events http://events:5080/health",
+      "resource-registry http://resource-registry:5100/health",
+      "notifications http://notifications:5090/health",
+      "localtest http://localtest:8080/health",
+      "pdf3 http://pdf3:5031/health/ready",
+      "workflow-engine http://workflow-engine:9090/api/v1/health/ready",
+      "access-management http://access-management:5080/health"
     ],
-    "routeTable": {
-      "appRouteTemplate": {
-        "host": "local.altinn.cloud",
-        "pathPrefixTemplate": "/{org}/{app}"
-      },
-      "routes": [
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8020"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/register"
-          },
-          "component": "register",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8036"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/profile"
-          },
-          "component": "profile",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8021"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/authentication"
-          },
-          "component": "authentication",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8022"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/authorization"
-          },
-          "component": "authorization",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8024"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/storage"
-          },
-          "component": "storage",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8023"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/accessmanagement"
-          },
-          "component": "access-management",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8025"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/events"
-          },
-          "component": "events",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8027"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/resourceregistry"
-          },
-          "component": "resource-registry",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8029"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/notifications"
-          },
-          "component": "notifications",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8026"
-          },
-          "match": {
-            "host": "local.altinn.cloud"
-          },
-          "component": "localtest",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:5300"
-          },
-          "match": {
-            "host": "pdf.local.altinn.cloud"
-          },
-          "component": "pdf3",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8028"
-          },
-          "match": {
-            "host": "workflow-engine.local.altinn.cloud"
-          },
-          "component": "workflow-engine",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8030"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/dialogporten"
-          },
-          "component": "dialogporten-webapi",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8031"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/dialogporten/graphql"
-          },
-          "component": "dialogporten-graphql",
-          "metadata": [
-            {
-              "key": "rewritePrefix",
-              "value": "/graphql"
-            },
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8035"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/storage/dialogporten"
-          },
-          "component": "dialogporten-adapter",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8034"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/receipt"
-          },
-          "component": "receipt",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "receipt"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8033"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/correspondence"
-          },
-          "component": "correspondence",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "correspondence"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8037"
-          },
-          "match": {
-            "host": "af.local.altinn.cloud"
-          },
-          "component": "arbeidsflate",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "arbeidsflate"
-            }
-          ],
-          "enabled": false
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8080"
-          },
-          "match": {
-            "host": "app-frontend.local.altinn.cloud"
-          },
-          "component": "frontendDevServer",
-          "enabled": true
-        }
-      ],
-      "version": 1
-    }
+    "frontDoorHealth": "http://local.altinn.cloud:8000/health"
   },
   "everything": {
     "resources": [
@@ -1070,32 +976,31 @@
         "driver": "bridge"
       },
       {
-        "id": "image:built:localtest-v2-postgres:dev",
-        "contextPath": "/src/localtest",
-        "dockerfile": "/src/localtest/postgres/Dockerfile",
-        "tag": "localtest-v2-postgres:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
-        "healthCheck": {
-          "Test": [
-            "CMD-SHELL",
-            "pg_isready -h 127.0.0.1 -p 5432 -U postgres"
-          ],
-          "Interval": 2000000000,
-          "Timeout": 5000000000,
-          "Retries": 30,
-          "StartPeriod": 5000000000
-        },
         "id": "container:localtest-v2-postgres",
-        "image": "image:built:localtest-v2-postgres:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
         "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
           {
             "HostPath": "localtest-v2-postgres-data",
             "ContainerPath": "/var/lib/postgresql",
@@ -1107,45 +1012,52 @@
         "env": [
           "POSTGRES_PASSWORD=postgres",
           "POSTGRES_USER=postgres",
-          "TZ=UTC"
+          "TZ=UTC",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
-        "command": [
-          "postgres",
-          "-c",
-          "shared_preload_libraries=pg_stat_statements",
-          "-c",
-          "timezone=UTC",
-          "-c",
-          "log_timezone=UTC"
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "postgres"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-register:dev",
-        "contextPath": "/src/localtest/components/register",
-        "dockerfile": "/src/localtest/components/register/Dockerfile",
-        "tag": "localtest-v2-register:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-register:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-register",
-        "image": "image:built:localtest-v2-register:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-register:latest",
         "networks": [
           "network:localtest-v2_network"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8020",
-            "ContainerPort": "5020",
-            "Protocol": ""
-          }
         ],
         "volumes": [
           {
@@ -1154,39 +1066,62 @@
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__OpenIdWellKnownEndpoint=http://local.altinn.cloud:8000/authentication/api/v1/openid/",
-          "PlatformSettings__ApiAuthorizationEndpoint=http://local.altinn.cloud:8000/authorization/api/v1/"
+          "PlatformSettings__ApiAuthorizationEndpoint=http://local.altinn.cloud:8000/authorization/api/v1/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "register"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-profile:dev",
-        "contextPath": "/src/localtest/components/profile",
-        "dockerfile": "/src/localtest/components/profile/Dockerfile",
-        "tag": "localtest-v2-profile:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-profile:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-profile",
-        "image": "image:built:localtest-v2-profile:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-profile:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -1194,18 +1129,17 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8036",
-            "ContainerPort": "5030",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
@@ -1215,48 +1149,56 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Profile__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSqlSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_profile_admin;Password={0};Database=profiledb",
-          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True"
+          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "profile"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-authentication:dev",
-        "contextPath": "/src/localtest/components/authentication",
-        "dockerfile": "/src/localtest/components/authentication/Dockerfile",
-        "tag": "localtest-v2-authentication:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authentication:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-authentication",
-        "image": "image:built:localtest-v2-authentication:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authentication:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
         "dependsOn": [
           "container:localtest-v2-register",
           "container:localtest-v2-profile"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8021",
-            "ContainerPort": "5101",
-            "Protocol": ""
-          }
         ],
         "volumes": [
           {
@@ -1265,38 +1207,61 @@
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/"
+          "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "authentication"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-authorization:dev",
-        "contextPath": "/src/localtest/components/authorization",
-        "dockerfile": "/src/localtest/components/authorization/Dockerfile",
-        "tag": "localtest-v2-authorization:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-authorization:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-authorization",
-        "image": "image:built:localtest-v2-authorization:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-authorization:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -1304,18 +1269,17 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8022",
-            "ContainerPort": "5070",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
@@ -1330,26 +1294,47 @@
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "Localtest__Authorization__PlatformEndpoint=http://local.altinn.cloud:8000/"
+          "Localtest__Authorization__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "authorization"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-storage:dev",
+        "id": "image:built:localtest-v2-dev-storage",
         "contextPath": "/src/localtest/components/storage",
         "dockerfile": "/src/localtest/components/storage/Dockerfile",
-        "tag": "localtest-v2-storage:dev",
+        "tag": "localtest-v2-dev-storage",
         "build": {
           "CacheFrom": null,
           "CacheTo": null
@@ -1357,25 +1342,24 @@
       },
       {
         "id": "container:localtest-v2-storage",
-        "image": "image:built:localtest-v2-storage:dev",
+        "image": "image:built:localtest-v2-dev-storage",
         "networks": [
           "network:localtest-v2_network"
         ],
         "dependsOn": [
           "container:localtest-v2-postgres"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8024",
-            "ContainerPort": "5010",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
@@ -1392,97 +1376,50 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSqlSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb",
-          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True"
+          "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "storage"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-access-management:dev",
-        "contextPath": "/src/localtest/components/access-management",
-        "dockerfile": "/src/localtest/components/access-management/Dockerfile",
-        "tag": "localtest-v2-access-management:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "id": "container:localtest-v2-access-management",
-        "image": "image:built:localtest-v2-access-management:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-postgres",
-          "container:localtest-v2-register",
-          "container:localtest-v2-resource-registry",
-          "container:localtest-v2-profile"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8023",
-            "ContainerPort": "5080",
-            "Protocol": ""
-          }
-        ],
-        "volumes": [
-          {
-            "HostPath": "/home/dev/.altinn-studio/certs",
-            "ContainerPath": "/certs",
-            "Type": "bind",
-            "SELinuxRelabel": "z",
-            "ReadOnly": true
-          },
-          {
-            "HostPath": "localtest-v2-policy-store",
-            "ContainerPath": "/policy-store",
-            "Type": "volume",
-            "SELinuxRelabel": "",
-            "ReadOnly": false
-          }
-        ],
-        "env": [
-          "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
-          "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "access-management"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-events:dev",
-        "contextPath": "/src/localtest/components/events",
-        "dockerfile": "/src/localtest/components/events/Dockerfile",
-        "tag": "localtest-v2-events:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-events:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-events",
-        "image": "image:built:localtest-v2-events:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-events:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -1490,14 +1427,6 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
           "container:localtest-v2-authorization"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8025",
-            "ContainerPort": "5080",
-            "Protocol": ""
-          }
         ],
         "volumes": [
           {
@@ -1519,13 +1448,32 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Events__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_events_admin;Password={0};Database=eventsdb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True"
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
@@ -1533,21 +1481,17 @@
         "networkAliases": [
           "events"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-resource-registry:dev",
-        "contextPath": "/src/localtest/components/resource-registry",
-        "dockerfile": "/src/localtest/components/resource-registry/Dockerfile",
-        "tag": "localtest-v2-resource-registry:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-resource-registry",
-        "image": "image:built:localtest-v2-resource-registry:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -1555,18 +1499,17 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-storage"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8027",
-            "ContainerPort": "5100",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
             "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
             "Type": "bind",
             "SELinuxRelabel": "z",
             "ReadOnly": true
@@ -1583,34 +1526,50 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__ResourceRegistry__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True"
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "resource-registry"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-notifications:dev",
-        "contextPath": "/src/localtest/components/notifications",
-        "dockerfile": "/src/localtest/components/notifications/Dockerfile",
-        "tag": "localtest-v2-notifications:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-notifications:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-notifications",
-        "image": "image:built:localtest-v2-notifications:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-notifications:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -1620,14 +1579,6 @@
           "container:localtest-v2-profile",
           "container:localtest-v2-authorization",
           "container:localtest-v2-authentication"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8029",
-            "ContainerPort": "5090",
-            "Protocol": ""
-          }
         ],
         "volumes": [
           {
@@ -1649,65 +1600,7 @@
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "Localtest__Notifications__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "PostgreSQLSettings__AdminConnectionString=Host=postgres;Port=5432;Username=platform_notifications_admin;Password={0};Database=notificationsdb",
-          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "notifications"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-localtest:dev",
-        "contextPath": "/src/localtest/localtest",
-        "dockerfile": "/src/localtest/localtest/Dockerfile",
-        "tag": "localtest-v2-localtest:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "id": "container:localtest-v2-localtest",
-        "image": "image:built:localtest-v2-localtest:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8026",
-            "ContainerPort": "8000",
-            "Protocol": ""
-          }
-        ],
-        "volumes": [
-          {
-            "HostPath": "/home/dev/.altinn-studio/certs",
-            "ContainerPath": "/certs",
-            "Type": "bind",
-            "SELinuxRelabel": "z",
-            "ReadOnly": true
-          },
-          {
-            "HostPath": "localtest-v2-localtest-data",
-            "ContainerPath": "/data",
-            "Type": "volume",
-            "SELinuxRelabel": "",
-            "ReadOnly": false
-          }
-        ],
-        "env": [
-          "ASPNETCORE_HTTP_PORTS=8000",
-          "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
-          "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1719,6 +1612,7 @@
           "services__dialogporten-service__http__0=http://dialogporten-service:8080",
           "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
           "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
           "services__notifications__http__0=http://notifications:5090",
           "services__pdf3__http__0=http://pdf3:5031",
           "services__profile__http__0=http://profile:5030",
@@ -1732,11 +1626,95 @@
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
-        "waitForReady": true
+        "networkAliases": [
+          "notifications"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-localtest:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-localtest",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "ports": [
+          {
+            "HostIP": "",
+            "HostPort": "8000",
+            "ContainerPort": "8080",
+            "Protocol": ""
+          }
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "localtest-v2-localtest-data",
+            "ContainerPath": "/data",
+            "Type": "volume",
+            "SELinuxRelabel": "",
+            "ReadOnly": false
+          }
+        ],
+        "env": [
+          "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
+          "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "localtest"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/altinn/altinn-studio/runtime-pdf3-worker:tt02",
@@ -1749,32 +1727,61 @@
         "networks": [
           "network:localtest-v2_network"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "5300",
-            "ContainerPort": "5031",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
           "PDF3_ENVIRONMENT=localtest",
           "PDF3_LOCALTEST_PUBLIC_BASE_URL=http://local.altinn.cloud:8000",
           "PDF3_QUEUE_SIZE=3",
-          "TZ=Europe/Oslo"
+          "TZ=Europe/Oslo",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "pdf3"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app:tt02",
@@ -1790,12 +1797,20 @@
         "dependsOn": [
           "container:localtest-v2-postgres"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8028",
-            "ContainerPort": "9090",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
@@ -1803,20 +1818,41 @@
           "ASPNETCORE_HTTP_PORTS=9090",
           "AppCommandSettings__CommandEndpoint=http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/",
           "ConnectionStrings__WorkflowEngine=Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres",
-          "EngineSettings__EnableTelemetry=false"
+          "EngineSettings__EnableTelemetry=false",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "workflow-engine"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
         "id": "image:pulled:docker.io/library/redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0",
@@ -1824,239 +1860,71 @@
         "pullPolicy": "ifNotPresent"
       },
       {
-        "healthCheck": {
-          "Test": [
-            "CMD",
-            "redis-cli",
-            "ping"
-          ],
-          "Interval": 2000000000,
-          "Timeout": 3000000000,
-          "Retries": 15,
-          "StartPeriod": 0
-        },
         "id": "container:localtest-v2-redis",
         "image": "image:pulled:docker.io/library/redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0",
         "networks": [
           "network:localtest-v2_network"
         ],
-        "command": [
-          "redis-server",
-          "--save",
-          "",
-          "--appendonly",
-          "no"
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "redis"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-dialogporten-webapi:dev",
-        "contextPath": "/src/localtest/components/dialogporten",
-        "dockerfile": "/src/localtest/components/dialogporten/Dockerfile.webapi",
-        "tag": "localtest-v2-dialogporten-webapi:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "healthCheck": {
-          "Test": [
-            "CMD-SHELL",
-            "bash -c \"exec 3\u003c\u003e/dev/tcp/127.0.0.1/8080 || exit 1; printf 'GET /health/readiness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' \u003e\u00263 || exit 1; head -n 1 \u003c\u00263 | grep -q ' 200 '\""
-          ],
-          "Interval": 2000000000,
-          "Timeout": 5000000000,
-          "Retries": 60,
-          "StartPeriod": 5000000000
-        },
-        "id": "container:localtest-v2-dialogporten-webapi",
-        "image": "image:built:localtest-v2-dialogporten-webapi:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-postgres",
-          "container:localtest-v2-redis",
-          "container:localtest-v2-register",
-          "container:localtest-v2-authentication",
-          "container:localtest-v2-authorization",
-          "container:localtest-v2-access-management",
-          "container:localtest-v2-events",
-          "container:localtest-v2-resource-registry"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8030",
-            "ContainerPort": "8080",
-            "Protocol": ""
-          }
-        ],
-        "env": [
-          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "dialogporten-webapi"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-dialogporten-graphql:dev",
-        "contextPath": "/src/localtest/components/dialogporten",
-        "dockerfile": "/src/localtest/components/dialogporten/Dockerfile.graphql",
-        "tag": "localtest-v2-dialogporten-graphql:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "id": "container:localtest-v2-dialogporten-graphql",
-        "image": "image:built:localtest-v2-dialogporten-graphql:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-dialogporten-webapi"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8031",
-            "ContainerPort": "8080",
-            "Protocol": ""
-          }
-        ],
-        "env": [
-          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "dialogporten-graphql"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-dialogporten-service:dev",
-        "contextPath": "/src/localtest/components/dialogporten",
-        "dockerfile": "/src/localtest/components/dialogporten/Dockerfile.service",
-        "tag": "localtest-v2-dialogporten-service:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "id": "container:localtest-v2-dialogporten-service",
-        "image": "image:built:localtest-v2-dialogporten-service:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-dialogporten-webapi"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8032",
-            "ContainerPort": "8080",
-            "Protocol": ""
-          }
-        ],
-        "env": [
-          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "dialogporten-service"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-dialogporten-adapter:dev",
-        "contextPath": "/src/localtest/components/dialogporten-adapter",
-        "dockerfile": "/src/localtest/components/dialogporten-adapter/Dockerfile",
-        "tag": "localtest-v2-dialogporten-adapter:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
-      },
-      {
-        "id": "container:localtest-v2-dialogporten-adapter",
-        "image": "image:built:localtest-v2-dialogporten-adapter:dev",
-        "networks": [
-          "network:localtest-v2_network"
-        ],
-        "dependsOn": [
-          "container:localtest-v2-storage",
-          "container:localtest-v2-register",
-          "container:localtest-v2-authentication",
-          "container:localtest-v2-dialogporten-webapi"
-        ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8035",
-            "ContainerPort": "5011",
-            "Protocol": ""
-          }
-        ],
-        "env": [
-          "Localtest__Adapter__PlatformEndpoint=http://local.altinn.cloud:8000/"
-        ],
-        "extraHosts": [
-          "local.altinn.cloud:host-gateway",
-          "pdf.local.altinn.cloud:host-gateway",
-          "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
-          "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
-        ],
-        "networkAliases": [
-          "dialogporten-adapter"
-        ],
-        "waitForReady": true
-      },
-      {
-        "id": "image:built:localtest-v2-receipt:dev",
-        "contextPath": "/src/localtest/components/receipt",
-        "dockerfile": "/src/localtest/components/receipt/Dockerfile",
-        "tag": "localtest-v2-receipt:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-receipt:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-receipt:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-receipt",
-        "image": "image:built:localtest-v2-receipt:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-receipt:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -2066,15 +1934,14 @@
           "container:localtest-v2-authentication",
           "container:localtest-v2-storage"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8034",
-            "ContainerPort": "5060",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
           {
             "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
             "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
@@ -2090,34 +1957,411 @@
           "PlatformSettings__ApiAuthenticationEndpoint=http://local.altinn.cloud:8000/authentication/api/v1/",
           "PlatformSettings__ApiProfileEndpoint=http://local.altinn.cloud:8000/profile/api/v1/",
           "PlatformSettings__ApiRegisterEndpoint=http://local.altinn.cloud:8000/register/api/v1/",
-          "PlatformSettings__ApiStorageEndpoint=http://local.altinn.cloud:8000/storage/api/v1/"
+          "PlatformSettings__ApiStorageEndpoint=http://local.altinn.cloud:8000/storage/api/v1/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "receipt"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-correspondence:dev",
-        "contextPath": "/src/localtest/components/correspondence",
-        "dockerfile": "/src/localtest/components/correspondence/Dockerfile",
-        "tag": "localtest-v2-correspondence:dev",
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-access-management",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-postgres",
+          "container:localtest-v2-register",
+          "container:localtest-v2-resource-registry",
+          "container:localtest-v2-profile"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "localtest-v2-policy-store",
+            "ContainerPath": "/policy-store",
+            "Type": "volume",
+            "SELinuxRelabel": "",
+            "ReadOnly": false
+          }
+        ],
+        "env": [
+          "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "access-management"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:built:localtest-v2-dev-dialogporten-webapi",
+        "contextPath": "/src/localtest/components/dialogporten",
+        "dockerfile": "/src/localtest/components/dialogporten/Dockerfile.webapi",
+        "tag": "localtest-v2-dev-dialogporten-webapi",
         "build": {
           "CacheFrom": null,
           "CacheTo": null
         }
       },
       {
+        "id": "container:localtest-v2-dialogporten-webapi",
+        "image": "image:built:localtest-v2-dev-dialogporten-webapi",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-postgres",
+          "container:localtest-v2-redis",
+          "container:localtest-v2-register",
+          "container:localtest-v2-authentication",
+          "container:localtest-v2-authorization",
+          "container:localtest-v2-access-management",
+          "container:localtest-v2-events",
+          "container:localtest-v2-resource-registry"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-webapi"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-graphql:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-graphql:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-dialogporten-graphql",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-graphql:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-dialogporten-webapi"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-graphql"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-service:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-service:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-dialogporten-service",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-service:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-dialogporten-webapi"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "Localtest__Dialogporten__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-service"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-dialogporten-adapter",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-storage",
+          "container:localtest-v2-register",
+          "container:localtest-v2-authentication",
+          "container:localtest-v2-dialogporten-webapi"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "Localtest__Adapter__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "dialogporten-adapter"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-correspondence:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-correspondence:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
         "id": "container:localtest-v2-correspondence",
-        "image": "image:built:localtest-v2-correspondence:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-correspondence:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -2132,15 +2376,21 @@
           "container:localtest-v2-redis",
           "container:localtest-v2-dialogporten-webapi"
         ],
-        "ports": [
-          {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8033",
-            "ContainerPort": "2525",
-            "Protocol": ""
-          }
-        ],
         "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
           {
             "HostPath": "localtest-v2-correspondence-blobs",
             "ContainerPath": "/mnt/storage",
@@ -2152,34 +2402,50 @@
         "env": [
           "DatabaseOptions__ConnectionString=Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest",
           "GeneralSettings__RedisConnectionString=redis:6379,defaultDatabase=1",
-          "Localtest__Correspondence__PlatformEndpoint=http://local.altinn.cloud:8000/"
+          "Localtest__Correspondence__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "correspondence"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-arbeidsflate-bff:dev",
-        "contextPath": "/src/localtest/components/arbeidsflate",
-        "dockerfile": "/src/localtest/components/arbeidsflate/Dockerfile.bff",
-        "tag": "localtest-v2-arbeidsflate-bff:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate-bff:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate-bff:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-arbeidsflate-bff",
-        "image": "image:built:localtest-v2-arbeidsflate-bff:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate-bff:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
@@ -2191,12 +2457,20 @@
           "container:localtest-v2-authentication",
           "container:localtest-v2-dialogporten-graphql"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8038",
-            "ContainerPort": "80",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
@@ -2215,378 +2489,134 @@
           "OIDC_PLATFORM_URL=http://local.altinn.cloud:8000/authentication/api/v1/openid",
           "PLATFORM_BASEURL=http://local.altinn.cloud:8000",
           "REDIS_CONNECTION_STRING=redis://redis:6379/2",
-          "SESSION_SECRET=localtest-arbeidsflate-session-secret-not-a-secret"
+          "SESSION_SECRET=localtest-arbeidsflate-session-secret-not-a-secret",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "arbeidsflate-bff"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       },
       {
-        "id": "image:built:localtest-v2-arbeidsflate:dev",
-        "contextPath": "/src/localtest/components/arbeidsflate",
-        "dockerfile": "/src/localtest/components/arbeidsflate/Dockerfile.frontend",
-        "tag": "localtest-v2-arbeidsflate:dev",
-        "build": {
-          "CacheFrom": null,
-          "CacheTo": null
-        }
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate:latest",
+        "pullPolicy": "alwaysAllowStale"
       },
       {
         "id": "container:localtest-v2-arbeidsflate",
-        "image": "image:built:localtest-v2-arbeidsflate:dev",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate:latest",
         "networks": [
           "network:localtest-v2_network"
         ],
         "dependsOn": [
           "container:localtest-v2-arbeidsflate-bff"
         ],
-        "ports": [
+        "volumes": [
           {
-            "HostIP": "127.0.0.1",
-            "HostPort": "8037",
-            "ContainerPort": "80",
-            "Protocol": ""
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
           }
         ],
         "env": [
-          "DIALOGPORTEN_STREAM_URL=http://local.altinn.cloud:8000/dialogporten/graphql/stream"
+          "DIALOGPORTEN_STREAM_URL=http://local.altinn.cloud:8000/dialogporten/graphql/stream",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
         ],
         "extraHosts": [
           "local.altinn.cloud:host-gateway",
           "pdf.local.altinn.cloud:host-gateway",
           "workflow-engine.local.altinn.cloud:host-gateway",
-          "pgadmin.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
-          "af.local.altinn.cloud:host-gateway"
+          "af.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "arbeidsflate"
         ],
-        "waitForReady": true
+        "waitForReady": true,
+        "readinessProbe": true
       }
     ],
     "healthTargets": [
-      "register http://127.0.0.1:8020/health",
-      "profile http://127.0.0.1:8036/health",
-      "authentication http://127.0.0.1:8021/health",
-      "authorization http://127.0.0.1:8022/health",
-      "storage http://127.0.0.1:8024/health",
-      "access-management http://127.0.0.1:8023/health",
-      "events http://127.0.0.1:8025/health",
-      "resource-registry http://127.0.0.1:8027/health",
-      "notifications http://127.0.0.1:8029/health",
-      "localtest http://127.0.0.1:8026/health",
-      "pdf3 http://127.0.0.1:5300/health/ready",
-      "workflow-engine http://127.0.0.1:8028/api/v1/health/ready",
-      "dialogporten-webapi http://127.0.0.1:8030/health/readiness",
-      "dialogporten-graphql http://127.0.0.1:8031/health/readiness",
-      "dialogporten-service http://127.0.0.1:8032/health/readiness",
-      "dialogporten-adapter http://127.0.0.1:8035/health",
-      "receipt http://127.0.0.1:8034/health",
-      "correspondence http://127.0.0.1:8033/health",
-      "arbeidsflate-bff http://127.0.0.1:8038/api/readiness",
-      "arbeidsflate http://127.0.0.1:8037/",
-      "proxy http://local.altinn.cloud:8000/Home/Localtest/Version"
+      "postgres tcp postgres:5432",
+      "register http://register:5020/health",
+      "profile http://profile:5030/health",
+      "authentication http://authentication:5101/health",
+      "authorization http://authorization:5070/health",
+      "storage http://storage:5010/health",
+      "events http://events:5080/health",
+      "resource-registry http://resource-registry:5100/health",
+      "notifications http://notifications:5090/health",
+      "localtest http://localtest:8080/health",
+      "pdf3 http://pdf3:5031/health/ready",
+      "workflow-engine http://workflow-engine:9090/api/v1/health/ready",
+      "redis tcp redis:6379",
+      "receipt http://receipt:5060/health",
+      "access-management http://access-management:5080/health",
+      "dialogporten-webapi http://dialogporten-webapi:8080/health/readiness",
+      "dialogporten-graphql http://dialogporten-graphql:8080/health/readiness",
+      "dialogporten-service http://dialogporten-service:8080/health/readiness",
+      "dialogporten-adapter http://dialogporten-adapter:5011/health",
+      "correspondence http://correspondence:2525/health",
+      "arbeidsflate-bff http://arbeidsflate-bff:80/api/readiness",
+      "arbeidsflate http://arbeidsflate:80/"
     ],
-    "routeTable": {
-      "appRouteTemplate": {
-        "host": "local.altinn.cloud",
-        "pathPrefixTemplate": "/{org}/{app}"
-      },
-      "routes": [
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8020"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/register"
-          },
-          "component": "register",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8036"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/profile"
-          },
-          "component": "profile",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8021"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/authentication"
-          },
-          "component": "authentication",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8022"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/authorization"
-          },
-          "component": "authorization",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8024"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/storage"
-          },
-          "component": "storage",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8023"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/accessmanagement"
-          },
-          "component": "access-management",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8025"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/events"
-          },
-          "component": "events",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8027"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/resourceregistry"
-          },
-          "component": "resource-registry",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8029"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/notifications"
-          },
-          "component": "notifications",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8026"
-          },
-          "match": {
-            "host": "local.altinn.cloud"
-          },
-          "component": "localtest",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:5300"
-          },
-          "match": {
-            "host": "pdf.local.altinn.cloud"
-          },
-          "component": "pdf3",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8028"
-          },
-          "match": {
-            "host": "workflow-engine.local.altinn.cloud"
-          },
-          "component": "workflow-engine",
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8030"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/dialogporten"
-          },
-          "component": "dialogporten-webapi",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8031"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/dialogporten/graphql"
-          },
-          "component": "dialogporten-graphql",
-          "metadata": [
-            {
-              "key": "rewritePrefix",
-              "value": "/graphql"
-            },
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8035"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/storage/dialogporten"
-          },
-          "component": "dialogporten-adapter",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "dialogporten"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8034"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/receipt"
-          },
-          "component": "receipt",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "receipt"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8033"
-          },
-          "match": {
-            "host": "local.altinn.cloud",
-            "pathPrefix": "/correspondence"
-          },
-          "component": "correspondence",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "correspondence"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8037"
-          },
-          "match": {
-            "host": "af.local.altinn.cloud"
-          },
-          "component": "arbeidsflate",
-          "metadata": [
-            {
-              "key": "group",
-              "value": "arbeidsflate"
-            }
-          ],
-          "enabled": true
-        },
-        {
-          "destination": {
-            "location": "host",
-            "kind": "http",
-            "url": "http://127.0.0.1:8080"
-          },
-          "match": {
-            "host": "app-frontend.local.altinn.cloud"
-          },
-          "component": "frontendDevServer",
-          "enabled": true
-        }
-      ],
-      "version": 1
-    }
+    "frontDoorHealth": "http://local.altinn.cloud:8000/health"
   }
 }

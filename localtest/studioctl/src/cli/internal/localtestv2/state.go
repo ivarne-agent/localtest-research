@@ -1,6 +1,6 @@
 // Package localtestv2 holds the state the localtest-v2 runtime shares with the rest of studioctl: while the
-// runtime is up, studioctl-server proxies the platform's public origin and apps sign platform access tokens
-// with the runtime's certificate, and both learn that from the state file the runtime writes.
+// runtime is up, studioctl-server registers the apps it discovers with the localtest container's front door, and apps
+// sign platform access tokens with the runtime's certificate; both learn that from the state file the runtime writes.
 package localtestv2
 
 import (
@@ -27,8 +27,6 @@ const (
 type State struct {
 	// CertificateDir holds CertificateFileName on the host.
 	CertificateDir string `json:"certificateDir"`
-	// ProxyPorts are the host ports studioctl-server serves the platform on.
-	ProxyPorts []string `json:"proxyPorts"`
 	// Groups are the optional component groups the environment was started with.
 	Groups []string `json:"groups,omitempty"`
 }
@@ -65,7 +63,7 @@ func ReadState(cfg *config.Config) (State, bool, error) {
 }
 
 func noState() State {
-	return State{CertificateDir: "", ProxyPorts: nil, Groups: nil}
+	return State{CertificateDir: "", Groups: nil}
 }
 
 // WriteState records that the runtime is up.
