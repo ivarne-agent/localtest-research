@@ -15,21 +15,23 @@
 #   syncDialog/simple twice -> 204, no new revision;
 #   DELETE storage/dialogporten/api/v1/instance with the dialog token -> Storage soft delete -> outbox -> dialog deleted.
 # Without the group: the front door answers 503 problem details for the adapter's prefix, an instance is created as usual, gets no dialog.id,
-# and (when podman can read the container's log) Storage logs exactly one "adapter is not running" line for it.
+# and (when podman or docker can read the container's log) Storage logs exactly one "adapter is not running" line for it.
 # Instances are left in Storage (soft-deleted in the first mode); dialogs persist like instances (env reset removes both).
 #
 # PARTY_ID overrides the instance owner; DIALOGPORTEN_ADAPTER_URL the adapter's host-port URL (default http://127.0.0.1:8035);
-# STORAGE_CONTAINER the Storage container name for the log check (default localtest-v2-storage).
+# STORAGE_CONTAINER (or LOCALTEST_CONTAINER_STORAGE) the Storage container for the log check (default: studioctl's
+# localtest-v2-storage or the Aspire package's storage-<suffix>, see ../../smoke/lib/containers.sh).
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 OFF=0
 if [[ "${1:-}" == "--off" ]]; then OFF=1; shift; fi
 HERE=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
 FX="$HERE/../../smoke/apps/ttd/testapp"
 BASE=${1:-http://local.altinn.cloud:8000}
 PARTY_ID=${PARTY_ID:-500000}
 ADAPTER_DIRECT=${DIALOGPORTEN_ADAPTER_URL:-http://127.0.0.1:8035}
-STORAGE_CONTAINER=${STORAGE_CONTAINER:-localtest-v2-storage}
 ADP="$BASE/storage/dialogporten"
 ST="$BASE/storage/api/v1"
 DP="$BASE/dialogporten"
@@ -82,13 +84,13 @@ if ((OFF)); then
   ID=$(printf '%s' "${R%$'\n'*}" | py 'd["id"]')
   sleep 5
   curl -s -H "Authorization: Bearer $USR" "$ST/instances/$ID" | check "  ... and no dialog.id after 5 s" '"dialog.id" not in (d.get("dataValues") or {})'
-  if command -v podman >/dev/null && podman container exists "$STORAGE_CONTAINER" 2>/dev/null; then
-    LINES=$(podman logs --since "$SINCE" "$STORAGE_CONTAINER" 2>&1 | grep -c "instance $ID dropped: the Dialogporten adapter is not running")
+  if RT=$(localtest_runtime) && SC=$(localtest_container storage); then
+    LINES=$("$RT" logs --since "$SINCE" "$SC" 2>&1 | grep -c "instance $ID dropped: the Dialogporten adapter is not running")
     expect "  ... Storage logged exactly one 'adapter is not running' line for it" 1 "$LINES"
     expect "  ... and no warning or error from the outbox or its handler" 0 \
-      "$(podman logs --since "$SINCE" "$STORAGE_CONTAINER" 2>&1 | grep -E "^(warn|fail|crit)" -A1 | grep -ciE "outbox|Dialogporten")"
+      "$("$RT" logs --since "$SINCE" "$SC" 2>&1 | grep -E "^(warn|fail|crit)" -A1 | grep -ciE "outbox|Dialogporten")"
   else
-    echo "skip Storage log check (podman or the $STORAGE_CONTAINER container not available)"
+    echo "skip Storage log check (no container runtime or no Storage container)"
   fi
   echo "$OK passed, $([[ $FAIL == 0 ]] && echo "no failures" || echo "FAILURES")"
   exit $FAIL

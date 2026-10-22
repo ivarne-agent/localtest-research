@@ -5,16 +5,19 @@
 # token (as the app runner does), gets user tokens from authentication, and asks the production decision endpoint what
 # an app's PEP would ask. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 31 checks. The "store:" listing and the closing "PDP log errors" check read studioctl's container
-# localtest-v2-authorization (override with CONTAINER=...) through podman; without podman or the container they say
-# "skipped" and are not counted as failures.
+# 31 checks. The "store:" listing and the closing "PDP log errors" check read the PDP's container (studioctl's
+# localtest-v2-authorization or the Aspire package's authorization-<suffix>, see ../../smoke/lib/containers.sh; override
+# with CONTAINER=... or LOCALTEST_CONTAINER_AUTHORIZATION=...) through podman or docker; without either or the container
+# they say "skipped" and are not counted as failures.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); Z=$HERE
 BASE=${1:-http://local.altinn.cloud:8000}; PDP=$BASE; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
 APPS=${APPS:-/home/agent/code/altinn-studio/src/test/apps}   # the frontend-test policy comes from the app itself
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-CONTAINER=${CONTAINER:-localtest-v2-authorization}
-HAVE_CONTAINER=0; command -v podman >/dev/null 2>&1 && podman container exists "$CONTAINER" 2>/dev/null && HAVE_CONTAINER=1
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
+[[ -n "${CONTAINER:-}" ]] && export LOCALTEST_CONTAINER_AUTHORIZATION=$CONTAINER
+HAVE_CONTAINER=0; RT=$(localtest_runtime) && CONTAINER=$(localtest_container authorization) && HAVE_CONTAINER=1
 
 for _ in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
 # The decisions below need the PIP's view of the register seed: re-import it, and drop the PDP's caches.
@@ -75,8 +78,8 @@ echo "   push edited: $(pushpolicy ttd testapp "$EDITED")"; rm -f "$EDITED"
 decide NotApplicable  "Sophie read on 500000 after removing DAGL and REGNA"      "$SOPHIE" read ttd testapp 500000
 echo "   push original: $(pushpolicy ttd testapp "$TESTAPP_POLICY")"
 decide Permit         "Sophie (DAGL) read on 500000 after restoring"          "$SOPHIE" read ttd testapp 500000
-if [[ $HAVE_CONTAINER == 1 ]]; then echo "   store: $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -maxdepth 1 -type f), $(podman exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -path '*.versions/*' -type f | wc -l) versions"
-else echo "   store: skipped (no podman or no container $CONTAINER)"; fi
+if [[ $HAVE_CONTAINER == 1 ]]; then echo "   store: $("$RT" exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -maxdepth 1 -type f), $("$RT" exec "$CONTAINER" find /policy-store/metadata/ttd/testapp -path '*.versions/*' -type f | wc -l) versions"
+else echo "   store: skipped (no container runtime or no PDP container)"; fi
 echo "== ttd/frontend-test (the app's own App/config/authorization/policy.xml: lower-case dagl/regna/seln; org ttd may write/complete)"
 helper() { # expected label userId partyId action [task]
   local expected=$1 label=$2 q="userId=$3&partyId=$4&org=ttd&app=frontend-test&action=$5${6:+&task=$6}"
@@ -127,9 +130,9 @@ echo "GET authorization/api/v1/parties?userid=1337 -> $(curl -s -H "Authorizatio
 echo "GET authorization/api/v1/parties/500000/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $SOPHIE" "$PDP/authorization/api/v1/parties/500000/validate?userid=1337" -w ' HTTP %{http_code}')"
 echo "GET authorization/api/v1/parties/500003/validate?userid=1337 -> $(curl -s -H "Authorization: Bearer $SOPHIE" "$PDP/authorization/api/v1/parties/500003/validate?userid=1337" -w ' HTTP %{http_code}')"
 echo "GET authorization/api/v1/parties?userid=1337 without token -> $(curl -s -o /dev/null -w 'HTTP %{http_code}' "$PDP/authorization/api/v1/parties?userid=1337")"
-echo "== PDP log errors since the start of this run ($CONTAINER)"
+echo "== PDP log errors since the start of this run (${CONTAINER:-no container})"
 if [[ $HAVE_CONTAINER == 1 ]]; then
-  podman logs --since "$STARTED" "$CONTAINER" >"$LOGS/authorization.log" 2>&1
+  "$RT" logs --since "$STARTED" "$CONTAINER" >"$LOGS/authorization.log" 2>&1
   # Log entries start at an unindented line. The two Indeterminate checks above provoke three fail: entries (the unknown
   # instance's 404 from Storage, logged twice; the policy not found); every other fail:/crit: entry is an error.
   cat >"$LOGS/errors.py" <<'PY'
@@ -150,6 +153,6 @@ print(len(bad))
 PY
   check "error entries in the authorization log beyond the provoked ones" "$(python3 -I "$LOGS/errors.py" "$LOGS/authorization.log")" "0"
 else
-  echo "skip error lines in the authorization log (no podman or no container $CONTAINER)"
+  echo "skip error lines in the authorization log (no container runtime or no PDP container)"
 fi
 exit $FAIL

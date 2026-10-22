@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # End-to-end check of the stack through the front door: sign-in, tokens, PDP decisions and a full instance lifecycle on
 # production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
-# 26 checks, the last one (no errors in Storage's log, read with podman from localtest-v2-storage) skipped without
-# podman or the container.
+# 26 checks, the last one (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
+# storage-<suffix> under the Aspire package, see smoke/lib/containers.sh) skipped without podman or docker or the
+# container.
 set -u
+HERE=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source-path=SCRIPTDIR source=smoke/lib/containers.sh
+. "$HERE/smoke/lib/containers.sh"
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 BASE=${BASE:-http://local.altinn.cloud:8000}
 FAIL=0
@@ -63,13 +67,12 @@ check "storage: user without the role cannot upload" "403" "$(code -H "Authoriza
 check "storage: the app ends the process" "200" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/instances/$ID/process" -d '{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","ended":"2026-10-17T07:05:00Z","endEvent":"EndEvent_1"}')"
 check "storage: service owner lists instances" "200" "$(code -H "Authorization: Bearer $ORG" "$BASE/storage/api/v1/instances?org=ttd&appId=ttd/testapp")"
 # Storage's own log since the start of this run (what the removed standalone Storage smoke test checked).
-STORAGE_CONTAINER=${STORAGE_CONTAINER:-localtest-v2-storage}
-if command -v podman >/dev/null 2>&1 && podman container exists "$STORAGE_CONTAINER" 2>/dev/null; then
-  SL=$(mktemp); podman logs --since "$STARTED" "$STORAGE_CONTAINER" >"$SL" 2>&1
+if RT=$(localtest_runtime) && SC=$(localtest_container storage); then
+  SL=$(mktemp); "$RT" logs --since "$STARTED" "$SC" >"$SL" 2>&1
   check "storage: no fail/crit/unhandled exception lines in its log" "0" "$(grep -ciE '^(fail|crit):|unhandled exception' "$SL")"
   grep -iE '^(fail|crit):|unhandled exception' -A1 "$SL" | cut -c1-240 | head -8; rm -f "$SL"
 else
-  echo "skip storage: no errors in its log (no podman or no container $STORAGE_CONTAINER)"
+  echo "skip storage: no errors in its log (no container runtime or no Storage container)"
 fi
 rm -f "$J" "$H"
 exit $FAIL

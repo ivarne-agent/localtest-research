@@ -5,12 +5,15 @@
 # reads it through the receipt as the browser would. Requires the stack with the group
 # (`studioctl env up -r localtest-v2 --with receipt`, see ../../README.md) and local.altinn.cloud in /etc/hosts.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
+# The log check reads the receipt's container (studioctl's localtest-v2-receipt or the Aspire package's receipt-<suffix>,
+# see ../../smoke/lib/containers.sh; override with RECEIPT_CONTAINER or LOCALTEST_CONTAINER_RECEIPT) through podman or
+# docker, and is skipped without them.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
 BASE=${1:-http://local.altinn.cloud:8000}
 HEALTH=${RECEIPT_HEALTH:-http://127.0.0.1:8034/health}
-CONTAINER=${RECEIPT_CONTAINER:-localtest-v2-receipt}
-CTR=$(command -v podman || command -v docker)
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FAIL=0
 expect() { # name expected actual
@@ -96,11 +99,11 @@ expect "unknown instance: 404" 404 "$(code -b "$COOKIE" "$API/instances/500000/$
 expect "API without a cookie: 302 to sign-in" 302 "$(code "$API/users/current")"
 
 # 10. The platform access token was signed (the certificate is bind-mounted where the generator looks).
-if [[ -n "$CTR" ]]; then
-  WARNINGS=$("$CTR" logs --since "$STARTED" "$CONTAINER" 2>&1 | grep -c 'Not able to generate access token')
+if RT=$(localtest_runtime) && CONTAINER=$(localtest_container receipt); then
+  WARNINGS=$("$RT" logs --since "$STARTED" "$CONTAINER" 2>&1 | grep -c 'Not able to generate access token')
   expect "no access-token warning in the receipt's log" 0 "$WARNINGS"
 else
-  echo "skip no podman or docker for the log check"
+  echo "skip the log check (no container runtime or no receipt container)"
 fi
 
 echo "instance: $ID"

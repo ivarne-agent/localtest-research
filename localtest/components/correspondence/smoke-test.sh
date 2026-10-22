@@ -17,19 +17,22 @@
 # Correspondence's OIDC challenge to Authentication's correspondence-localtest client, no picker with user 1337's session
 # cookie, idporten-callback, download?session= with the bytes; a reused session, no cookie, a code of another client and a
 # missing correlation cookie, every walk bounded; task 21b: the challenge's cookies from the host port unchanged through the
-# front door, and the restart's expiry of them without Secure). With CORRESPONDENCE_RESTART=1 it also restarts the container (podman) and checks that the
+# front door, and the restart's expiry of them without Secure). With CORRESPONDENCE_RESTART=1 it also restarts the container (podman or docker) and checks that the
 # correspondences remain and no migration ran again.
 # The resources are the Resource Registry seed's ttd-localtest-correspondence (see ../resource-registry/README.md); KRR and
 # Profile's correspondence lookups are the Register component's fakes.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# CORRESPONDENCE_URL overrides the host-port URL for /health and the cookie check (default http://127.0.0.1:8033). CTR (default podman) and the
-# container names localtest-v2-correspondence / localtest-v2-postgres are used for the database and restart checks; without a
-# container runtime those checks are skipped.
+# CORRESPONDENCE_URL overrides the host-port URL for /health and the cookie check (default http://127.0.0.1:8033). The database and
+# restart checks use the container runtime (CTR, default podman, else docker) and the Postgres and Correspondence containers
+# (studioctl's localtest-v2-<name> or the Aspire package's <name>-<suffix>, see ../../smoke/lib/containers.sh; override with
+# LOCALTEST_CONTAINER_POSTGRES and LOCALTEST_CONTAINER_CORRESPONDENCE); without them those checks are skipped.
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 BASE=${1:-http://local.altinn.cloud:8000}
 DIRECT=${CORRESPONDENCE_URL:-http://127.0.0.1:8033}
-CTR=${CTR:-podman}
+HERE=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
 API="$BASE/correspondence/api/v1"
 LT="$BASE/correspondence/api/localtest"
 SO="$BASE/dialogporten/api/v1/serviceowner"
@@ -68,7 +71,8 @@ okwait() { # name seconds url expression [curl args...]
 }
 orgtoken() { curl -s "$BASE/Home/GetTestOrgToken?orgNumber=991825827&scopes=$1" | tr -d '"'; }
 md5() { md5sum "$1" | cut -d' ' -f1; }
-container_up() { command -v "$CTR" >/dev/null && "$CTR" container exists "$1" 2>/dev/null; }
+RT=$(localtest_runtime 2>/dev/null) || RT=
+container() { [[ -n "$RT" ]] && localtest_container "$1"; } # prints the component's container
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -91,16 +95,16 @@ okwait "the inspection API answers through the proxy" 30 "$LT/status" 'True'
 curl -s "$LT/status" | check "status: all $MIGRATIONS EF migrations applied, none pending" \
   "d['migrations']['known'] == $MIGRATIONS and d['migrations']['applied'] == $MIGRATIONS and d['migrations']['pending'] == []"
 curl -s "$LT/status" | check "status: a Hangfire server is beating" 'len(d["hangfireServers"]) >= 1'
-if container_up localtest-v2-postgres; then
-  HISTORY=$("$CTR" exec localtest-v2-postgres psql -U postgres -d correspondence -tAc \
+if PG=$(container postgres); then
+  HISTORY=$("$RT" exec "$PG" psql -U postgres -d correspondence -tAc \
     "SELECT n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = '__EFMigrationsHistory'" | head -1)
-  COUNT=$("$CTR" exec localtest-v2-postgres psql -U postgres -d correspondence -tAc "SELECT count(*) FROM \"$HISTORY\".\"__EFMigrationsHistory\"")
+  COUNT=$("$RT" exec "$PG" psql -U postgres -d correspondence -tAc "SELECT count(*) FROM \"$HISTORY\".\"__EFMigrationsHistory\"")
   expect "the database itself has $MIGRATIONS rows in $HISTORY.__EFMigrationsHistory" "$MIGRATIONS" "$COUNT"
-  OWNER=$("$CTR" exec localtest-v2-postgres psql -U postgres -d correspondence -tAc \
+  OWNER=$("$RT" exec "$PG" psql -U postgres -d correspondence -tAc \
     "SELECT r.rolname || ':' || r.rolsuper FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba WHERE d.datname = 'correspondence'")
   expect "database correspondence is owned by the non-superuser role correspondence" "correspondence:false" "$OWNER"
 else
-  echo "skip the database checks: no $CTR container localtest-v2-postgres"
+  echo "skip the database checks: no container runtime or no Postgres container"
 fi
 
 echo "== refusals"
@@ -366,13 +370,13 @@ curl -s "$LT/correspondences?limit=1" | check "correspondences?limit=1 pages wit
 curl -s "$LT/jobs?limit=5" | check "jobs lists Hangfire jobs with method and state" 'len(d["items"]) >= 1 and all(j["method"] for j in d["items"]) and any(j["state"] for j in d["items"])'
 expect "correspondences/{unknown} is 404" 404 "$(code "$LT/correspondences/00000000-0000-0000-0000-000000000000")"
 
-if [[ "${CORRESPONDENCE_RESTART:-0}" == 1 ]] && container_up localtest-v2-correspondence; then
+if [[ "${CORRESPONDENCE_RESTART:-0}" == 1 ]] && CC=$(container correspondence); then
   echo "== restart"
-  "$CTR" restart localtest-v2-correspondence >/dev/null
+  "$RT" restart "$CC" >/dev/null
   for _ in $(seq 1 120); do [[ "$(code "$DIRECT/health")" == 200 ]] && break; sleep 1; done
   curl -s "$LT/correspondences/$CID" | check "after a restart the correspondence is still there" 'd["id"] == "'"$CID"'"'
   curl -s "$LT/status" | check "  ... and no migration is pending" "d['migrations']['applied'] == $MIGRATIONS and d['migrations']['pending'] == []"
-  "$CTR" logs --since 2m localtest-v2-correspondence 2>&1 | grep -q "Applying migration" && fail "  ... a migration ran again" || pass "  ... no migration ran again"
+  "$RT" logs --since 2m "$CC" 2>&1 | grep -q "Applying migration" && fail "  ... a migration ran again" || pass "  ... no migration ran again"
 fi
 
 echo
