@@ -212,6 +212,16 @@ the specs through it) when running from a worktree; the regression script's chec
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use first (`studioctl run --dev-frontend` under studioctl, see "Run it") |
 | `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps with `run-app.sh`, or with `--no-apps` uses apps already started with `studioctl run --dev-frontend` (see "Run it": the monorepo's built frontend served with `Access-Control-Allow-Origin`). 44 tests, about six minutes; all pass on 2026-10-20 and again on 2026-10-21 (task 16, default stack; task 18, schema v3 seed; task 14, production Profile). The full suite is mostly about the frontend |
 
+Run on 2026-10-22 (task 27a phase 2) under studioctl with manifest v2 and the localtest container as the front door,
+pinned images `sha-f76b62b`, `--with dialogporten`: root 26 of 26, `components/authentication` 34 of 34,
+`components/authorization` 31 of 31, `components/dialogporten` 60 of 60, `components/dialogporten-adapter` 39 of 39,
+`components/events` 27 of 27, `components/notifications` 64 of 64, `components/profile` 52 of 52 and
+`localtest/smoke-test.sh` with every check 80 of 81 (the `/app-frontend/` bundle needs `FRONTEND_DIST`, which the stack
+does not mount); with `--with correspondence --with receipt` (Correspondence without the Dialogporten group, only the
+WebApi and Redis it depends on): `components/correspondence` 78 of 78 and `components/receipt` 27 of 27. The tests read
+the containers without a route of their own (health endpoints, the direct cookie checks) from inside the stack's network
+through `smoke/lib/containers.sh`, since no component publishes a host port any more.
+
 The smoke tests that read a container's log or run a command in it (the root test's Storage log, the authorization
 test's policy store and PDP log, the dialogporten-adapter test's Storage log, the receipt's log, Correspondence's
 database and restart) find the container through [`smoke/lib/containers.sh`](smoke/lib/containers.sh):
