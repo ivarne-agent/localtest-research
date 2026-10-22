@@ -13,14 +13,17 @@
 
 ## Directive sites
 
-Both in `src/backend/Altinn.Receipt/Program.cs`:
+All three in `src/backend/Altinn.Receipt/Program.cs` (line numbers checked 2026-10-22):
 
-1. Lines 46-48, after `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
+1. Lines 52-54, after `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
    `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Configuration);` `#endif`
    (the hook into `../fakes/`).
-2. Lines 259-265, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
+2. Lines 265-271, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
    `https://platform.{GeneralSettings:Hostname}{path}{query}` `#else` the request's own scheme and host `#endif`. There
    is no `platform.` host and no TLS locally, and the proxy keeps the browser's `Host`.
+3. Lines 36-41, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
+   service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http =>
+   http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`).
 
 The frontend has no sites: it is built unchanged.
 

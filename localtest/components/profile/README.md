@@ -28,7 +28,7 @@ request-time dependencies of Profile only, so they cannot be its deps.
 
 ## Directive sites in `vendor/`
 
-Two, both in `src/Altinn.Profile/Program.cs`, both pure additions; there is no `#if !LOCALTEST`:
+Three, all in `src/Altinn.Profile/Program.cs`, all pure additions; there is no `#if !LOCALTEST`:
 
 1. After `SetConfigurationProviders(builder.Configuration);`: `#if LOCALTEST`
    `AddLocaltestConfiguration(builder.Configuration)` `#endif`. `AddRegisterService` reads the connection string,
@@ -36,6 +36,9 @@ Two, both in `src/Altinn.Profile/Program.cs`, both pure additions; there is no `
    the defaults must be in place first. They sit just below the environment variables.
 2. After `services.AddSyncJobs(config);`: `#if LOCALTEST` `AddLocaltestServices(services, config)` `#endif`, after
    `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
+3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
+   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 ## What is replaced
 

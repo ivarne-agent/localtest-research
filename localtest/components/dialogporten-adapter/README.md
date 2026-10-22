@@ -39,7 +39,7 @@ All in `vendor/src/Altinn.DialogportenAdapter.WebApi/`, lines in `vendor/UPSTREA
 4. `Features/Command/Sync/StorageDialogportenDataMerger.cs`, `element.SelfLinks.Platform` in the attachment and the
    transmission-attachment factory: Storage hard-codes `https://platform.{host}/storage/...` in its Interface package;
    `#else` `LocaltestLinks.ToLocalPlatformUrl` puts the same path on the stack's origin.
-5. `Program.cs`, three additions: the configuration defaults before `ConfigureDialogportenAdapterServices` (which reads
+5. `Program.cs`, four additions: service discovery right after `CreateBuilder` (task 25, [`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)), the configuration defaults before `ConfigureDialogportenAdapterServices` (which reads
    the settings eagerly), the service replacements after it (the Maskinporten fake must replace the package's `TryAdd`),
    and the localtest routes after the production ones.
 

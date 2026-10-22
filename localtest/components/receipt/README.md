@@ -10,7 +10,7 @@ for Register and Profile; the browser reads Storage's application metadata and t
 
 | Path | What |
 | --- | --- |
-| `vendor/` | The whole upstream repository at the pin, unmodified except two `LOCALTEST` sites in `src/backend/Altinn.Receipt/Program.cs` (see `vendor/UPSTREAM.md`) |
+| `vendor/` | The whole upstream repository at the pin, unmodified except three `LOCALTEST` sites in `src/backend/Altinn.Receipt/Program.cs` (see `vendor/UPSTREAM.md`; the third registers service discovery, task 25, [`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored project and compile `fakes/**/*.cs` into the host. Upstream's root `Directory.Build.props` (CSharpier) is not imported, as upstream's image never sees it |
 | `fakes/` | Compiled into the host (namespace `Altinn.Platform.Receipt.Localtest`): the hook `LocaltestReceipt.Apply` and the `IStorage` decorator `SelfLinksStorage` |
 | `Dockerfile`, `.dockerignore` | Mirror upstream's: the Node 24.21 stage bundles the frontend (`yarn --immutable`, `yarn run build`, from the npm registry), the SDK 10.0 stage publishes the host, the chiseled ASP.NET 10.0 runtime runs it as `$APP_UID` on 5060. Each difference is marked `localtest:` |

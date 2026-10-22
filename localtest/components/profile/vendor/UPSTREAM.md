@@ -15,15 +15,18 @@
 
 ## Directive sites
 
-Two, both in `src/Altinn.Profile/Program.cs`, both pure additions (no `#if !LOCALTEST`):
+Three, all in `src/Altinn.Profile/Program.cs`, all pure additions (no `#if !LOCALTEST`; line numbers checked 2026-10-22):
 
-1. Lines 58-60, after `SetConfigurationProviders(builder.Configuration);`:
+1. Lines 64-66, after `SetConfigurationProviders(builder.Configuration);`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
    It must come before `ConfigureServices`: `AddRegisterService` reads the connection string, `AddMaskinportenClient`
    binds its settings and `AddSyncJobs` reads `JobSettings` at registration time.
-2. Lines 224-226, after `services.AddSyncJobs(config);` in `ConfigureServices`:
+2. Lines 230-232, after `services.AddSyncJobs(config);` in `ConfigureServices`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);` … `#endif`.
    It must come after `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
+3. Lines 54-59, right after `var builder = WebApplication.CreateBuilder(args);`: the service-discovery registration
+   (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25,
+   `planned-components/service-discovery.md`).
 
 ## Syncing to a newer upstream commit
 

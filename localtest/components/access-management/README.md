@@ -13,6 +13,10 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 
 ## Directive sites in `vendor/`
 
+Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
+`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
 Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers checked 2026-10-21: `Program.cs:19-35`,
 `AccessManagementHost.cs:70-73` and `:168-170`).
 

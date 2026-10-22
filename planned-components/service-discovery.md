@@ -519,12 +519,13 @@ builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())
 | localtest app | `localtest/localtest/Program.cs:42-45` (no directive) | `Localtest.csproj` |
 | register, authentication, access-management, resource-registry | none: `AltinnHost.CreateWebApplicationBuilder` registers it in production code | already there |
 
-Not changed:
+Each changed component's `vendor/UPSTREAM.md` lists the new site with the moved line numbers of the later sites, and
+every component README with a site list mentions the registration in one line (Authentication, Access Management and
+the Resource Registry say they need no site).
 
-- **The call sites.** No setting was pointed at a service name. With no `services__*` injected, every request goes where
-  it goes today, through pass-through. So the branch changes no behaviour until the runtime and the settings move.
-- **Each `vendor/UPSTREAM.md` list of directive sites.** These lists are not updated for the new block, and their line
-  numbers for later sites in the same `Program.cs` are now off by six. Update them when this is merged.
+Not changed: **the call sites.** No setting was pointed at a service name. With no `services__*` injected, every request
+goes where it goes today, through pass-through. So the branch changes no behaviour until the runtime and the settings
+move.
 
 ## 5. Build results
 
@@ -699,7 +700,7 @@ For the predictable 503 of a group that is off, the front door should register
 
 ## 9. Recommendation
 
-1. **Merge the registration** (this branch), with the `UPSTREAM.md` site lists updated. It changes no behaviour on its
+1. **Merge the registration** (this branch). It changes no behaviour on its
    own (section 4) and makes every later step a configuration change.
 2. **Runtime: port, health, `services__*`.** Do these in one change to the manifest, studioctl and the Aspire package.
    - Move the images to 8080 and `/health` (section 7; the Notifications loopback URLs with it).
@@ -723,7 +724,7 @@ An estimate from what was read, not measured:
 
 | Step | Estimate |
 | --- | --- |
-| Registration (done here) plus `UPSTREAM.md` updates | 0.5 day |
+| Registration and its site documentation (done here) | 0.5 day |
 | Runtime: ports and health in 13 Dockerfiles and the manifest, `services__*` injection and aliases in studioctl and the Aspire package, their tests | 2-3 days |
 | Fakes defaults, simple components (8) | 2-3 days in all, mostly smoke-test runs |
 | Access Management (including the `ResourceRegistryClient` site), Authentication | 1.5 days |

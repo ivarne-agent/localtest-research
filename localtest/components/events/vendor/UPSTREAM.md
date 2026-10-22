@@ -9,8 +9,8 @@
   `Directory.Packages.props` or `global.json` upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition. The five sites (line numbers checked 2026-10-21): `src/Events/Program.cs:63-65`
-  and `:70-72` (pure additions), `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`) and
+  `#if LOCALTEST … #endif` addition. The six sites (line numbers checked 2026-10-22): `src/Events/Program.cs:59-64`
+  (the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`)), `:69-71` and `:76-78` (pure additions), `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`) and
   `:213-221` (`IsAppSubscription`), and `src/Events/Services/OutboundService.cs:429-435` (`GetSourceFilter`); the last
   two (task 12) call `fakes/Sources/LocaltestAppSources.cs`.
 

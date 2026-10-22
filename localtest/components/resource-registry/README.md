@@ -28,6 +28,10 @@ Both in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRe
 
 `Program.cs` is untouched.
 
+Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
+`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
 ## Postgres
 
 The production repositories and the eleven Yuniql migrations (`v0.00` to `v0.10`, `resourceregistry` schema: resources with a version table,

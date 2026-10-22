@@ -22,13 +22,15 @@ the three `WebApplication.CreateBuilder(args)` calls are at WebApi `Program.cs:6
 
 ## Directive sites
 
-Three pure additions, one per host, each right after `var builder = WebApplication.CreateBuilder(args);`:
+Three pure additions, one per host, each right after `var builder = WebApplication.CreateBuilder(args);` (line numbers checked
+2026-10-22). Each block also holds the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`), after the `Apply` call; the package is added in `../localtest.build.targets`,
+which turns the locked restore off (the three Dockerfiles drop `--locked-mode` for the same reason):
 
 | File | Adds |
 | --- | --- |
-| `src/Digdir.Domain.Dialogporten.WebApi/Program.cs:63-65` | `#if LOCALTEST` `Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);` `#endif` |
-| `src/Digdir.Domain.Dialogporten.GraphQL/Program.cs:45-47` | the same with `GraphQL.Localtest.LocaltestGraphQl` |
-| `src/Digdir.Domain.Dialogporten.Service/Program.cs:41-43` | the same with `Service.Localtest.LocaltestService` |
+| `src/Digdir.Domain.Dialogporten.WebApi/Program.cs:63-69` | `#if LOCALTEST` `Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);` and the service-discovery registration `#endif` |
+| `src/Digdir.Domain.Dialogporten.GraphQL/Program.cs:45-51` | the same with `GraphQL.Localtest.LocaltestGraphQl` |
+| `src/Digdir.Domain.Dialogporten.Service/Program.cs:41-47` | the same with `Service.Localtest.LocaltestService` |
 
 The hook goes there, and not before `Build()` as the planning report had it, because the hosts read their settings eagerly while
 registering (the JWT schemes' metadata addresses, the health probes, the Infrastructure settings), so the configuration defaults must be in

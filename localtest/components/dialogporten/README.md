@@ -39,7 +39,10 @@ with `503` problem details ("Component not running", `group` `dialogporten`, the
 One per host, right after `var builder = WebApplication.CreateBuilder(args);` in `Program.cs` (`vendor/UPSTREAM.md` has the lines):
 `LocaltestWebApi.Apply(builder)`, `LocaltestGraphQl.Apply(builder)` and `LocaltestService.Apply(builder)`. Each (1) inserts the
 configuration defaults below the environment variables and above the JSON files, and (2) installs a service-provider factory that applies the replacements to the
-finished service collection, so they win over production's registrations whatever their order.
+finished service collection, so they win over production's registrations whatever their order. The same three blocks also
+register service discovery (task 25): `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`,
+so factory clients can resolve `http://<service>/` from `services__<service>__http__0`; the package is added in `localtest.build.targets`,
+which turns the locked restore off, and the Dockerfiles restore without `--locked-mode` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 One `#if !LOCALTEST` block (added with the Dialogporten adapter, task 10): the Application project's `IsValidHttpsUrl` validators
 (`FluentValidationStringExtensions.cs`) accept `http` as well as `https`. The stack is plain http, so the links in the adapter's dialogs

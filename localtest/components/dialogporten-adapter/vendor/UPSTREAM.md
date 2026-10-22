@@ -16,9 +16,10 @@
 
 | File | Site |
 | --- | --- |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:42-44` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestConfiguration(builder.Configuration)`: the localtest defaults, before `ConfigureDialogportenAdapterServices` reads `Settings` eagerly |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:49-51` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestAdapter(builder)`: http OpenID metadata, the Maskinporten fake (after the package's `TryAdd`) |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:56-58` | `#if LOCALTEST` `LocaltestAdapterExtensions.MapLocaltestRoutes(app)`: the anonymous enqueue endpoint |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:31-36` | `#if LOCALTEST` right after `WebApplication.CreateBuilder`: the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`) |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:48-50` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestConfiguration(builder.Configuration)`: the localtest defaults, before `ConfigureDialogportenAdapterServices` reads `Settings` eagerly |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:55-57` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestAdapter(builder)`: http OpenID metadata, the Maskinporten fake (after the package's `TryAdd`) |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:62-64` | `#if LOCALTEST` `LocaltestAdapterExtensions.MapLocaltestRoutes(app)`: the anonymous enqueue endpoint |
 | `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs:63-75` | `ConfigureAdapterDefaults` (Azure Service Bus; throws on an empty connection string) under `#if !LOCALTEST`; `#else` its three non-transport settings |
 | `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs:179-191` | The two Service Bus listeners under `#if !LOCALTEST`; `#else` one sequential local queue under the production queue name and the publish rule for `SyncInstanceCommand` |
 | `src/Altinn.DialogportenAdapter.WebApi/Settings.cs:43-50` | `GetAppUriForOrg` / `GetPlatformUri` build `{org}.apps.{host}` and `platform.{host}` without the port; `#else` the one origin of `Altinn:BaseUri`, port kept |

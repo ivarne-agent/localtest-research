@@ -14,14 +14,17 @@
 
 ## Directive sites
 
-Both are in `components/api/src/Altinn.Notifications/Program.cs`:
+All three are in `components/api/src/Altinn.Notifications/Program.cs` (line numbers checked 2026-10-22):
 
-1. After `SetConfigurationProviders(builder.Configuration);`, a pure addition:
+1. Lines 51-53, after `SetConfigurationProviders(builder.Configuration);`, a pure addition:
    `#if LOCALTEST` … `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
-2. `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
+2. Lines 236-240, `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
    `#if !LOCALTEST` (the production call) `#else` `…LocaltestNotificationsExtensions.AddLocaltestMessaging(services, config);` `#endif`.
    `AddWolverineServices` throws without a Service Bus connection string and registers hosted services that connect at
    start, so it cannot be neutralised by configuration or a later `Replace`.
+3. Lines 40-45, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
+   service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http =>
+   http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`).
 
 ## Syncing to a newer upstream commit
 

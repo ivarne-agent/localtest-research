@@ -10,8 +10,9 @@
   `Dockerfile` for reference. There is no `global.json`, `Directory.Packages.props` or ruleset upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition. The three sites (line numbers checked 2026-10-21): `src/Storage/Program.cs:71-73`
-  (after `ConfigureWolverine`, pure addition) and `:137-141` (`SetConfigurationProviders`), and
+  `#if LOCALTEST … #endif` addition. The four sites (line numbers checked 2026-10-22): `src/Storage/Program.cs:58-63`
+  (right after `WebApplication.CreateBuilder`, pure addition: the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`)), `:77-79`
+  (after `ConfigureWolverine`, pure addition) and `:143-147` (`SetConfigurationProviders`), and
   `src/Storage/Controllers/InstancesController.cs:1465-1471` (`BuildRequestLink`).
 
 ## Syncing to a newer upstream commit

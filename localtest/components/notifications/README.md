@@ -20,7 +20,7 @@ Nothing leaves the machine.
 
 ## Directive sites in `vendor/`
 
-Both in `components/api/src/Altinn.Notifications/Program.cs`:
+All three in `components/api/src/Altinn.Notifications/Program.cs`:
 
 1. After `SetConfigurationProviders`, a pure addition: `#if LOCALTEST` `AddLocaltestConfiguration(builder.Configuration)`
    `#endif`. `ConfigureServices` reads `GeneralSettings`, `PlatformSettings` and the process loop settings eagerly, so
@@ -28,6 +28,9 @@ Both in `components/api/src/Altinn.Notifications/Program.cs`:
 2. In `ConfigureServices`, where `services.AddWolverineServices(...)` is: `#if !LOCALTEST` the production call `#else`
    `AddLocaltestMessaging(services, config)` `#endif`. `AddWolverineServices` throws without a Service Bus connection
    string and starts hosted services that connect, so it cannot be neutralised by configuration or a later `Replace`.
+3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
+   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 ## What is replaced
 

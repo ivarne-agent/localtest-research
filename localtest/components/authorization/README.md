@@ -15,9 +15,13 @@ other localtest components.
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
-## Directive site
+## Directive sites
 
-One, a pure addition in `vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, right after
+Service discovery (task 25): a pure `#if LOCALTEST` addition (the package comes transitively from `Altinn.Authorization.ServiceDefaults`) right after `WebApplication.CreateBuilder` registers
+`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+The other, a pure addition in `vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, right after
 `ConfigureServices(builder.Services, builder.Configuration)`:
 
 ```csharp

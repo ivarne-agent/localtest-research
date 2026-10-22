@@ -36,7 +36,7 @@ download of attachments").
 
 ## Directive sites
 
-Two pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
+Three pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
 lines):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
@@ -58,6 +58,10 @@ lines):
    retriever it builds, not the scheme's (whose `RequireHttpsMetadata` the fakes turn off), and it is a concrete class injected
    by type, so no fake reaches it. Without the site the download looped between Correspondence and Authentication (below).
    Reported first in `../arbeidsflate/README.md`, "Correspondence attachments (11b, implemented)".
+
+5. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
+   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 **Cookies without `Secure` (task 21b): no site, reported here first.** The correlation and nonce cookies are already
 `SameAsRequest`/`Lax` in the fakes (11b). The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the
@@ -150,7 +154,7 @@ and skips the storage account deployment.
 ## Redis, shared with Dialogporten
 
 Correspondence connects to Redis eagerly at start (`ConnectionMultiplexer.Connect` for the Data Protection keys,
-`Program.cs:140`) and aborts without it; with `abortConnect=false` and no Redis every HybridCache and OIDC-state call waits
+`Program.cs:149`) and aborts without it; with `abortConnect=false` and no Redis every HybridCache and OIDC-state call waits
 5 seconds and fails. So it uses the Redis of the `dialogporten` group, database 1 (Dialogporten uses 0). That is one reason
 the group implies `dialogporten`.
 

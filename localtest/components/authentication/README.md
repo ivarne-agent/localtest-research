@@ -18,6 +18,10 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 
 ## Directive sites in `vendor/`
 
+Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
+`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
 1. `AuthenticationHost.cs`: `AddLocaltestAuthentication(builder)` just before the persistence layer. Its settings
    are read eagerly there and its repositories use TryAdd, so the in-memory ones registered first win.
 2. `AuthenticationController.cs`, `IsSafeSameOrSubdomainHttps`: the `goto` guard accepts plain http as well,

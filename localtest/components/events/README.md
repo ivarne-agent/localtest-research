@@ -26,6 +26,9 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 4. `src/Events/Services/OutboundService.cs`, `GetSourceFilter`, and 5. `src/Events/Controllers/SubscriptionController.cs`,
    `IsAppSubscription` (task 12, 2026-10-21): `#if !LOCALTEST` the production host test, `#else` the same test and
    the source's first path segment not a platform component's prefix (`fakes/Sources/LocaltestAppSources.cs`).
+6. `src/Events/Program.cs`: Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
+   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 **Report for sites 4 and 5 (2026-10-21, written before the change).** Production tells an app's source from any other by
 its host alone: `GetSourceFilter` cuts a source whose host contains `PlatformSettings:AppsDomain` (`apps.altinn.no`) to

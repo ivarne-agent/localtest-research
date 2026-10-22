@@ -16,7 +16,7 @@ as in production and ends in a localtest handler that posts each command to the 
 
 ## Directive sites in `vendor/`
 
-Two in `src/Storage/Program.cs`, one in `src/Storage/Controllers/InstancesController.cs`:
+Three in `src/Storage/Program.cs`, one in `src/Storage/Controllers/InstancesController.cs`:
 
 1. `SetConfigurationProviders`: `#if !LOCALTEST` around `await ConnectToKeyVaultAndSetApplicationInsights(config)`,
    `#else LocaltestStorageExtensions.AddLocaltestConfiguration(config)`. Runs before any setting is read, so the
@@ -28,6 +28,9 @@ Two in `src/Storage/Program.cs`, one in `src/Storage/Controllers/InstancesContro
    party has more than one page of instances, and there is no `platform.*` host locally. The `selfLinks.platform`
    values still say `https://platform.local.altinn.cloud/...`: that prefix is hard-coded in the
    `Altinn.Platform.Storage.Interface` package and nothing follows those links.
+4. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
+   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
+   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 Nothing else in the host is hard-wired to Azure: Postgres and Yuniql run as in production, Wolverine uses local
 queues in `Development`, Application Insights is only wired when Key Vault yields a connection string.
