@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Localtest.IdPorten;
 using Localtest.Maskinporten;
+using Localtest.Proxy;
 using Localtest.Tokens;
 
 namespace Localtest.Home;
@@ -60,7 +60,7 @@ public static class HomeApi
         {
             users = await testUsers.GetAll(context.RequestAborted);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             users = [];
             notice = $"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?";
@@ -189,32 +189,11 @@ public static class HomeApi
         return exchanged is null ? Results.Problem(error, statusCode: 502) : Results.Text(exchanged);
     }
 
-    /// <summary>
-    /// Designer's credential against the platform (pushing application metadata, texts and policies): a platform access
-    /// token from issuer <c>studio</c> for app <c>studio.designer</c>, signed with the shared test certificate and exchanged
-    /// through production <c>exchange/altinnstudio</c>. The result carries <c>urn:altinn:app=studio.designer</c>, which
-    /// Storage's and Authorization's <c>StudioDesignerAccess</c> policies require.
-    /// </summary>
-    private static async Task<IResult> GetTestStudioToken(LocaltestSettings localtest, AuthenticationClient authentication, CancellationToken cancellationToken)
+    /// <summary>Designer's credential against the platform, see <see cref="StudioToken"/>.</summary>
+    private static async Task<IResult> GetTestStudioToken(StudioToken studioToken, CancellationToken cancellationToken)
     {
-        if (!File.Exists(localtest.AccessTokenCertificatePath))
-        {
-            return Results.Problem($"The shared test certificate is not at {localtest.AccessTokenCertificatePath} (Localtest:AccessTokenCertificatePath).", statusCode: 500);
-        }
-
-        using var certificate = X509CertificateLoader.LoadPkcs12FromFile(localtest.AccessTokenCertificatePath, password: null);
-        using var key = SigningKey.FromCertificate(certificate);
-        var now = DateTimeOffset.UtcNow;
-        var token = key.CreateJwt(writer =>
-        {
-            writer.WriteString("iss", "studio");
-            writer.WriteString("urn:altinn:app", "studio.designer");
-            writer.WriteNumber("nbf", now.AddSeconds(-5).ToUnixTimeSeconds());
-            writer.WriteNumber("iat", now.ToUnixTimeSeconds());
-            writer.WriteNumber("exp", now.AddMinutes(30).ToUnixTimeSeconds());
-        });
-        var (exchanged, error) = await authentication.Exchange("altinnstudio", token, cancellationToken);
-        return exchanged is null ? Results.Problem(error, statusCode: 502) : Results.Text(exchanged);
+        var (token, error, status) = await studioToken.Get(cancellationToken);
+        return token is null ? Results.Problem(error, statusCode: status) : Results.Text(token);
     }
 
     /// <summary>Signs the user in and appends the browser cookies; the JWT, or the error to answer.</summary>
@@ -225,7 +204,7 @@ public static class HomeApi
         {
             users = await testUsers.GetAll(cancellationToken);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             return (null, Results.Problem($"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?", statusCode: 502));
         }
@@ -247,7 +226,7 @@ public static class HomeApi
         {
             (result, error) = await authentication.SignIn(user, level.Acr, cancellationToken);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             (result, error) = (null, $"Could not reach Authentication: {ex.Message}. Is the authentication component running?");
         }

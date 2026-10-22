@@ -2,17 +2,18 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using Localtest.IdPorten;
-using Localtest.Proxy;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace Localtest.Home;
 
 /// <summary>
 /// Production Authentication, called over HTTP from <c>/Home</c>: the browser sign-in run headlessly, and the token
-/// exchanges. Calls go straight to the component's upstream with the public <c>Host</c>, as the proxy forwards a browser's.
+/// exchanges. Calls go straight to the component by its service name (<c>http://authentication/…</c>, resolved by service
+/// discovery) with the public <c>Host</c>, as the front door forwards a browser's: Authentication builds its redirects
+/// and cookies from it, and service discovery keeps a <c>Host</c> that is set.
 /// The Authentication feature's code-flow helper (<c>Authentication/</c>) shares the upstream half of the sign-in.
 /// </summary>
-public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten)
+public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten)
 {
     /// <summary>The named client: Authentication's redirects and cookies are read, not followed or stored.</summary>
     public const string HttpClientName = "localtest-authentication";
@@ -117,10 +118,10 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, P
         }
     }
 
-    /// <summary>A request to production Authentication's upstream with the public <c>Host</c>, as the proxy forwards a browser's.</summary>
+    /// <summary>A request to production Authentication by its service name with the public <c>Host</c>, as the front door forwards a browser's.</summary>
     public HttpRequestMessage Request(HttpMethod method, string pathAndQuery)
     {
-        var request = new HttpRequestMessage(method, platformRoutes.Upstreams["authentication"].TrimEnd('/') + "/" + pathAndQuery);
+        var request = new HttpRequestMessage(method, "http://authentication/" + pathAndQuery);
         request.Headers.Host = localtest.PublicHost;
         return request;
     }

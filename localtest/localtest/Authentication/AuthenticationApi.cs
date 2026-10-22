@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Localtest.Home;
 using Localtest.IdPorten;
+using Localtest.Proxy;
 
 namespace Localtest.Authentication;
 
@@ -103,7 +104,7 @@ public static class AuthenticationApi
         {
             users = await testUsers.GetAll(cancellationToken);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             return (null, Results.Problem($"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?", statusCode: 502));
         }
@@ -124,7 +125,7 @@ public static class AuthenticationApi
         {
             (authorization, error) = await flow.Authorize(client, string.IsNullOrWhiteSpace(scope) ? SeededClients.DefaultScope : scope, user, level, cancellationToken);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             (authorization, error) = (null, $"Could not reach Authentication: {ex.Message}. Is the authentication component running?");
         }

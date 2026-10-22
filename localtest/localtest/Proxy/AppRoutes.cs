@@ -1,13 +1,15 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Localtest.Provisioning;
 
 namespace Localtest.Proxy;
 
 /// <summary>
-/// The running apps, one route each: <c>/{org}/{app}/…</c> → the app's own address. The app runner pushes them
-/// (<c>PUT localtest/api/proxy/apps/{org}/{app}</c>) and removes them on stop. They are saved to a file on a volume, so
-/// a restarted proxy keeps routing the apps that are still running; nothing watches the file.
+/// The registered apps, one route each: <c>/{org}/{app}/…</c> → the app's own address, with the outcome of the last
+/// provisioning. The app runner registers them (<c>PUT localtest/api/apps/{org}/{app}</c>, <see cref="AppsApi"/>) and
+/// removes them. They are saved to a file on a volume, so a restarted front door keeps routing the apps that are still
+/// running; nothing watches the file.
 /// </summary>
 public sealed partial class AppRoutes
 {
@@ -28,6 +30,8 @@ public sealed partial class AppRoutes
     public static partial Regex Segment();
 
     public IEnumerable<AppRoute> All => _routes.Values.OrderBy(r => r.Org).ThenBy(r => r.App);
+
+    public AppRoute? Get(string org, string app) => _routes.GetValueOrDefault(Key(org, app));
 
     public void Set(AppRoute route)
     {
@@ -73,7 +77,8 @@ public sealed partial class AppRoutes
             }
 
             var saved = JsonSerializer.Deserialize(File.ReadAllText(_file), LocaltestJsonContext.Default.AppRouteArray) ?? [];
-            foreach (var route in saved)
+            // An entry without an address (a file from before the registration API) is dropped.
+            foreach (var route in saved.Where(r => !string.IsNullOrEmpty(r.Url)))
             {
                 _routes[Key(route.Org, route.App)] = route;
             }
@@ -106,8 +111,11 @@ public sealed partial class AppRoutes
     }
 }
 
-/// <summary>One app: requests to <c>/{Org}/{App}/…</c> go to <c>{Upstream}/{Org}/{App}/…</c>.</summary>
-public sealed record AppRoute(string Org, string App, string Upstream, DateTimeOffset Registered);
+/// <summary>
+/// One app: requests to <c>/{Org}/{App}/…</c> go to <c>{Url}/{Org}/{App}/…</c>. <see cref="Provisioning"/> is the
+/// outcome of the last provisioning from that address.
+/// </summary>
+public sealed record AppRoute(string Org, string App, string Url, DateTimeOffset Registered, ProvisioningStatus? Provisioning);
 
-/// <summary>The body of <c>PUT localtest/api/proxy/apps/{org}/{app}</c>.</summary>
-public sealed record AppRouteRequest(string? Upstream);
+/// <summary>The body of <c>PUT localtest/api/apps/{org}/{app}</c> and <c>PUT localtest/api/routes/frontend-dev-server</c>.</summary>
+public sealed record RouteRequest(string? Url);

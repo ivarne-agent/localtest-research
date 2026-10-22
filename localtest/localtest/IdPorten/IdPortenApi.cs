@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Localtest.Proxy;
 using Localtest.Tokens;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -250,7 +251,7 @@ public static class IdPortenApi
             var users = await testUsers.GetAll(cancellationToken);
             return (users, users.Length == 0 ? $"No test users at {testUsers.Endpoint}." : null);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
         {
             return ([], $"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?");
         }

@@ -3,19 +3,22 @@ using Localtest.Authentication;
 using Localtest.Home;
 using Localtest.IdPorten;
 using Localtest.Maskinporten;
+using Localtest.Provisioning;
 using Localtest.Proxy;
 using Localtest.Tokens;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 
 // The localtest app: the front door of the stack, and home of the localtest features that are not a platform
-// component: the proxy (Proxy/), one origin, local.altinn.cloud:8000, split by host and path prefix onto the platform
-// components and the apps the app runner has registered; a fake ID-porten (IdPorten/) with the test-user picker and a
+// component: the proxy (Proxy/), one origin, local.altinn.cloud:8000 (published onto this app's 8080), split by host and
+// path prefix onto the platform services by name (service discovery from services__<name>__http__0, no pass-through)
+// and onto the apps the runners register, which are provisioned from their own API on registration (Provisioning/);
+// a fake ID-porten (IdPorten/) with the test-user picker and a
 // fake Maskinporten (Maskinporten/), which production Authentication trusts; the old localtest's start page and
 // test helpers (Home/), which sign in and exchange tokens through production Authentication; and a headless
 // authorization-code flow for the registered OIDC clients production Authentication is seeded with (Authentication/).
-// Forwarding is YARP's IHttpForwarder; the route table is code (PlatformRoutes) and the app routes arrive over HTTP
-// (AppRoutes), so nothing reads files or reloads. Each feature keeps its own API under localtest/api/{feature}/.
+// Forwarding is YARP's IHttpForwarder; the route table is code (PlatformRoutes) and the app and dev-server routes arrive
+// over HTTP (RoutesApi), saved on the data volume. Each feature keeps its own API under localtest/api/{feature}/.
 var builder = WebApplication.CreateSlimBuilder(args);
 // One line per request at Information drowned everything else during a Cypress run; warnings and the start-up lines
 // stay. Logging__LogLevel__… in the environment still wins.
@@ -33,15 +36,19 @@ builder.WebHost.ConfigureKestrel(kestrel =>
     kestrel.Limits.MaxRequestBodySize = 200 * 1024 * 1024;
 });
 builder.Services.AddHttpForwarder();
-builder.Services.AddSingleton(PlatformRoutes.FromConfiguration(builder.Configuration));
-builder.Services.AddSingleton(sp => new AppRoutes(
-    builder.Configuration["Proxy:AppRoutesFile"] ?? "/data/app-routes.json",
-    sp.GetRequiredService<ILogger<AppRoutes>>()));
+var appRoutesFile = builder.Configuration["Proxy:AppRoutesFile"] ?? "/data/app-routes.json";
+builder.Services.AddSingleton(sp => new AppRoutes(appRoutesFile, sp.GetRequiredService<ILogger<AppRoutes>>()));
+builder.Services.AddSingleton(sp => new DevServerRoute(
+    Path.Combine(Path.GetDirectoryName(appRoutesFile) ?? "/data", "frontend-dev-server.json"),
+    sp.GetRequiredService<ILogger<DevServerRoute>>()));
 builder.Services.AddSingleton<Forwarder>();
 builder.Services.AddHttpClient();
-// Other components by name (http://<service>/...) from services__<service>__http__0; names without an entry pass
-// through to DNS (planned-components/service-discovery.md). The forwarder's own invoker does not resolve names.
-builder.Services.AddServiceDiscovery();
+// Every other service by name (http://<service>/...) from services__<service>__http__0: the core and the configuration
+// provider only, not the pass-through provider, so a name without an entry fails at once instead of trying DNS (the
+// front door answers 503 "not running" for it; planned-components/service-discovery.md sections 3 and 8). Every factory
+// client resolves; the forwarder wraps its own handler with the same resolver for the platform routes.
+builder.Services.AddServiceDiscoveryCore();
+builder.Services.AddConfigurationServiceEndpointProvider();
 builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
 var localtest = LocaltestSettings.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(localtest);
@@ -52,17 +59,22 @@ builder.Services.AddSingleton<TestUsers>();
 builder.Services.AddSingleton(MaskinportenSettings.FromConfiguration(builder.Configuration, localtest));
 builder.Services.AddKeyedSingleton<SigningKey>(MaskinportenApi.KeyName);
 builder.Services.AddSingleton<AuthenticationClient>();
+builder.Services.AddSingleton<StudioToken>();
 builder.Services.AddSingleton<CodeFlow>();
+builder.Services.AddHttpClient(AppProvisioning.PlatformClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddSingleton<AppProvisioning>();
 builder.Services.AddHttpClient(AuthenticationClient.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, LocaltestJsonContext.Default));
 
 var app = builder.Build();
 
-// The PDF generator's and the workflow engine's host names belong to them entirely, own endpoints included.
+// The dedicated hosts (the PDF generator, the workflow engine, Arbeidsflate, and the frontend dev server when one is
+// registered) belong to their destination entirely, the localtest app's own endpoints included.
 app.Use(async (context, next) =>
 {
-    if (context.RequestServices.GetRequiredService<PlatformRoutes>().ResolveHost(context.Request.Host.Host) is { } hostRoute)
+    var host = context.Request.Host.Host;
+    if ((PlatformRoutes.ResolveHost(host) ?? context.RequestServices.GetRequiredService<DevServerRoute>().Resolve(host)) is { } hostRoute)
     {
         await context.RequestServices.GetRequiredService<Forwarder>().Send(context, hostRoute);
         return;
@@ -95,7 +107,7 @@ if (Directory.Exists(frontendRoot))
 app.UseRouting();
 
 app.MapGet("/health", () => "ok");
-AppRoutesApi.Map(app);
+RoutesApi.Map(app);
 IdPortenApi.Map(app);
 MaskinportenApi.Map(app);
 HomeApi.Map(app);
@@ -106,7 +118,7 @@ app.Map("/localtest/api/{**rest}", context =>
 {
     context.Response.StatusCode = StatusCodes.Status404NotFound;
     context.Response.ContentType = "text/plain; charset=utf-8";
-    return context.Response.WriteAsync("Unknown localtest API path. The features' APIs are under localtest/api/{proxy,idporten,maskinporten,authentication}/.\n");
+    return context.Response.WriteAsync("Unknown localtest API path. The features' APIs are under localtest/api/{apps,routes,idporten,maskinporten,authentication}/.\n");
 });
 // Everything else is forwarded. An explicit catch-all pattern: MapFallback's default ({*path:nonfile}) would skip
 // every path that looks like a file (…/report.pdf, …/main.js). A plain RequestDelegate, because the AOT request

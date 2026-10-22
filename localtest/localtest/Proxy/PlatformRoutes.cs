@@ -1,106 +1,167 @@
 namespace Localtest.Proxy;
 
 /// <summary>
-/// Where each platform path goes. Hosts first (the PDF generator and the workflow engine have their own host names, as
-/// in production and studioctl), then path prefixes on the main host. Matching is ordinal and case-sensitive, like the
-/// nginx locations it replaced. Upstream addresses come from configuration (<c>Proxy:Upstreams:{name}</c>, for example
-/// the environment variable <c>Proxy__Upstreams__storage=http://storage:5010</c>), so a component can be pointed elsewhere.
+/// Where each platform path goes, in code: every routed service of the stack by its service name. Dedicated hosts
+/// first (they own every path), then path prefixes on any other host, the longer prefix of a service inside another's
+/// first. Matching is ordinal and case-sensitive, like the nginx locations this replaced. A destination is
+/// <c>http://{service}</c> with no port: the forwarder resolves the name through service discovery from
+/// <c>services__{service}__http__0</c> (the configuration provider only, so a service without that entry is "not
+/// running", see <see cref="ComponentUnavailable"/>).
 /// </summary>
-public sealed class PlatformRoutes
+public static class PlatformRoutes
 {
-    private static readonly Dictionary<string, string> DefaultUpstreams = new()
+    /// <summary>The public host names: the public origin's, read from here only, until the runtimes pass them.</summary>
+    public static class Hosts
     {
-        ["register"] = "http://register:5020",
-        ["profile"] = "http://profile:5030",
-        ["authentication"] = "http://authentication:5101",
-        ["authorization"] = "http://authorization:5070",
-        ["access-management"] = "http://access-management:5080",
-        ["storage"] = "http://storage:5010",
-        ["events"] = "http://events:5080",
-        ["pdf3"] = "http://pdf3:5031",
-        ["workflow-engine"] = "http://workflow-engine:9090",
-    };
-
-    /// <summary>Host name (without port) → upstream name, for every path on that host.</summary>
-    private static readonly (string Host, string Upstream)[] Hosts =
-    [
-        ("pdf.local.altinn.cloud", "pdf3"),
-        ("workflow-engine.local.altinn.cloud", "workflow-engine"),
-    ];
-
-    /// <summary>Path prefix → upstream name on the main host. The prefix is passed on unchanged.</summary>
-    private static readonly (string Prefix, string Upstream)[] Prefixes =
-    [
-        ("/register/", "register"),
-        ("/profile/", "profile"),
-        ("/authentication/", "authentication"),
-        ("/authorization/", "authorization"),
-        // Production Access Management: authorized parties, the PDP's PIP, the apps' instance delegations and the app
-        // runner's refresh.
-        ("/accessmanagement/", "access-management"),
-        ("/storage/", "storage"),
-        // Production Events (events/api/v1/…) and its localtest inspection API (events/api/localtest/…, with an SSE stream).
-        ("/events/", "events"),
-    ];
-
-    private readonly Dictionary<string, string> _upstreams;
-
-    private PlatformRoutes(Dictionary<string, string> upstreams) => _upstreams = upstreams;
-
-    public static PlatformRoutes FromConfiguration(IConfiguration configuration)
-    {
-        var upstreams = new Dictionary<string, string>(DefaultUpstreams, StringComparer.OrdinalIgnoreCase);
-        foreach (var setting in configuration.GetSection("Proxy:Upstreams").GetChildren())
-        {
-            if (!string.IsNullOrWhiteSpace(setting.Value))
-            {
-                upstreams[setting.Key] = setting.Value;
-            }
-        }
-
-        return new PlatformRoutes(upstreams);
+        public const string Pdf = "pdf.local.altinn.cloud";
+        public const string WorkflowEngine = "workflow-engine.local.altinn.cloud";
+        public const string Arbeidsflate = "af.local.altinn.cloud";
+        public const string FrontendDevServer = "app-frontend.local.altinn.cloud";
     }
 
-    public IReadOnlyDictionary<string, string> Upstreams => _upstreams;
+    /// <summary>Host name (without port) → the service that owns every path on it, the localtest app's own included.</summary>
+    private static readonly (string Host, string Service)[] HostRoutes =
+    [
+        (Hosts.Pdf, "pdf3"),
+        (Hosts.WorkflowEngine, "workflow-engine"),
+        (Hosts.Arbeidsflate, "arbeidsflate"),
+    ];
 
-    /// <summary>The upstream that owns every path on this host name (without port), or null for the main host.</summary>
-    public Route? ResolveHost(string host)
+    /// <summary>
+    /// Path prefixes on the main host, in match order. A prefix matches the path itself and everything below it on a
+    /// segment boundary. <c>Rewrite</c> replaces the prefix (the rest of the path is kept); without one the path is passed
+    /// on unchanged. Without a rewrite, the bare prefix (<c>/storage</c>) is redirected to its slashed form, as nginx did.
+    /// </summary>
+    private static readonly PrefixRoute[] Prefixes =
+    [
+        // Dialogporten's GraphQL host serves /graphql with no path base; APIM rewrites in front of it, so do we. Before
+        // /dialogporten, which it is inside. The bare path is the GraphQL endpoint itself, so it is not redirected.
+        new("/dialogporten/graphql", "dialogporten-graphql", Rewrite: "/graphql"),
+        new("/dialogporten", "dialogporten-webapi"),
+        // The adapter's own API is under Storage's prefix (its webhook from Storage's outbox); before /storage.
+        new("/storage/dialogporten", "dialogporten-adapter"),
+        new("/storage", "storage"),
+        new("/register", "register"),
+        new("/profile", "profile"),
+        new("/authentication", "authentication"),
+        new("/authorization", "authorization"),
+        // Production Access Management: authorized parties, the PDP's PIP, the apps' instance delegations and refresh.
+        new("/accessmanagement", "access-management"),
+        // Production Events (events/api/v1/…) and its localtest inspection API (events/api/localtest/…, with an SSE stream).
+        new("/events", "events"),
+        new("/resourceregistry", "resource-registry"),
+        new("/notifications", "notifications"),
+        new("/receipt", "receipt"),
+        new("/correspondence", "correspondence"),
+    ];
+
+    /// <summary>
+    /// The optional group each service belongs to in today's runtimes (studioctl's manifest groups, the Aspire
+    /// package's <c>With…()</c>); a service not listed is in the default stack.
+    /// </summary>
+    private static readonly Dictionary<string, string> Groups = new(StringComparer.Ordinal)
     {
-        foreach (var (routeHost, upstream) in Hosts)
+        ["redis"] = "dialogporten",
+        ["dialogporten-webapi"] = "dialogporten",
+        ["dialogporten-graphql"] = "dialogporten",
+        ["dialogporten-service"] = "dialogporten",
+        ["dialogporten-adapter"] = "dialogporten",
+        ["receipt"] = "receipt",
+        ["correspondence"] = "correspondence",
+        ["arbeidsflate"] = "arbeidsflate",
+        ["arbeidsflate-bff"] = "arbeidsflate",
+    };
+
+    /// <summary>Every routed service, once, in table order.</summary>
+    public static IEnumerable<string> Services
+        => HostRoutes.Select(h => h.Service).Concat(Prefixes.Select(p => p.Service)).Distinct(StringComparer.Ordinal);
+
+    /// <summary>The table, for <c>GET localtest/api/routes</c>.</summary>
+    public static IEnumerable<(string? Host, string? Prefix, string Service, string? Rewrite)> Table
+        => HostRoutes.Select(h => ((string?)h.Host, (string?)null, h.Service, (string?)null))
+            .Concat(Prefixes.Select(p => ((string?)null, (string?)p.Prefix, p.Service, p.Rewrite)));
+
+    /// <summary>The service's optional group, or null for a service of the default stack.</summary>
+    public static string? GroupOf(string service) => Groups.GetValueOrDefault(service);
+
+    /// <summary>The destination the forwarder resolves: <c>http://{service}</c>.</summary>
+    public static string Destination(string service) => "http://" + service;
+
+    /// <summary>The service that owns every path on this host name (without port), or null for the main host.</summary>
+    public static Route? ResolveHost(string host)
+    {
+        foreach (var (routeHost, service) in HostRoutes)
         {
             if (string.Equals(host, routeHost, StringComparison.OrdinalIgnoreCase))
             {
-                return new Route(upstream, _upstreams[upstream]);
+                return Route.Platform(service);
             }
         }
 
         return null;
     }
 
-    /// <summary>The upstream for a path on the main host, or null when no platform route matches.</summary>
-    public Route? Resolve(string path)
+    /// <summary>The route for a path on the main host, or null when no platform prefix matches.</summary>
+    public static Route? Resolve(string path)
     {
-        foreach (var (prefix, upstream) in Prefixes)
+        foreach (var prefix in Prefixes)
         {
-            if (path.StartsWith(prefix, StringComparison.Ordinal))
+            if (prefix.Matches(path))
             {
-                return new Route(upstream, _upstreams[upstream]);
+                return Route.Platform(prefix.Service, prefix.Rewrite is null ? null : new PathRewrite(prefix.Prefix, prefix.Rewrite));
             }
         }
 
         return null;
     }
 
-    /// <summary>True when a platform route owns the path.</summary>
-    public static bool IsPlatformPath(string path) => Prefixes.Any(p => path.StartsWith(p.Prefix, StringComparison.Ordinal));
+    /// <summary>True when a platform prefix owns the path.</summary>
+    public static bool IsPlatformPath(string path) => Prefixes.Any(p => p.Matches(path));
 
-    /// <summary>True when the path is a platform prefix without its trailing slash (<c>/storage</c>), which nginx redirected.</summary>
+    /// <summary>
+    /// True when the path is a platform prefix without its trailing slash (<c>/storage</c>), which nginx redirected. Not
+    /// for a rewritten prefix (<c>/dialogporten/graphql</c> is the GraphQL endpoint).
+    /// </summary>
     public static bool IsPrefixWithoutSlash(string path)
-        => Prefixes.Any(p => string.Equals(p.Prefix, path + "/", StringComparison.Ordinal));
+        => Prefixes.FirstOrDefault(p => p.Matches(path)) is { Rewrite: null } prefix && string.Equals(prefix.Prefix, path, StringComparison.Ordinal);
+
+    private sealed record PrefixRoute(string Prefix, string Service, string? Rewrite = null)
+    {
+        public bool Matches(string path)
+            => path.StartsWith(Prefix, StringComparison.Ordinal) && (path.Length == Prefix.Length || path[Prefix.Length] == '/');
+    }
 }
 
 /// <summary>
-/// A resolved destination: a name for logs and error pages, the base URL the request path is appended to, and whether
-/// it is an app the runner registered (whose cookies still lose <c>Secure</c>, see <see cref="Forwarder"/>).
+/// A route that is forwarded under another path than the public one: the prefix is replaced and the rest of the path
+/// kept, so <c>/dialogporten/graphql/x</c> reaches the upstream as <c>/graphql/x</c>.
 /// </summary>
-public sealed record Route(string Name, string Destination, bool IsApp = false);
+public sealed record PathRewrite(string Prefix, string Replacement)
+{
+    public PathString Apply(PathString path)
+        => path.StartsWithSegments(Prefix, StringComparison.Ordinal, out var rest) ? new PathString(Replacement).Add(rest) : path;
+}
+
+/// <summary>What a route forwards to.</summary>
+public enum RouteKind
+{
+    /// <summary>A platform service, by name through service discovery.</summary>
+    Platform,
+
+    /// <summary>An app the runner registered, at the address it gave.</summary>
+    App,
+
+    /// <summary>The frontend dev server the runner registered, at the address it gave.</summary>
+    FrontendDevServer,
+}
+
+/// <summary>
+/// A resolved destination: a name for logs and error pages (the service, <c>{org}/{app}</c>, or
+/// <c>frontend-dev-server</c>), the base URL the request path is appended to, and its kind. An app's cookies still lose
+/// <c>Secure</c>, see <see cref="Forwarder"/>.
+/// </summary>
+public sealed record Route(string Name, string Destination, RouteKind Kind, PathRewrite? Rewrite = null)
+{
+    public static Route Platform(string service, PathRewrite? rewrite = null)
+        => new(service, PlatformRoutes.Destination(service), RouteKind.Platform, rewrite);
+}

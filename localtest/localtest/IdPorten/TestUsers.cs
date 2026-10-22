@@ -1,21 +1,20 @@
 using System.Net.Http.Json;
-using Localtest.Proxy;
 
 namespace Localtest.IdPorten;
 
 /// <summary>
-/// The seeded test users, read from the register component's <c>register/api/localtest/test-users</c> straight from
-/// its upstream (not through the proxy). Cached for a few seconds, so a page render and the form post that follows see
+/// The seeded test users, read from the register component's <c>register/api/localtest/test-users</c> by its service
+/// name (<c>http://register/…</c>, resolved by service discovery), not through the front door. Cached for a few seconds, so a page render and the form post that follows see
 /// the same list without hammering the register.
 /// </summary>
-public sealed class TestUsers(IHttpClientFactory httpClientFactory, PlatformRoutes platformRoutes)
+public sealed class TestUsers(IHttpClientFactory httpClientFactory)
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _lock = new(1, 1);
     private TestUser[]? _cached;
     private DateTimeOffset _cachedAt;
 
-    public Uri Endpoint => new(platformRoutes.Upstreams["register"].TrimEnd('/') + "/register/api/localtest/test-users");
+    public Uri Endpoint { get; } = new("http://register/register/api/localtest/test-users");
 
     public async Task<TestUser[]> GetAll(CancellationToken cancellationToken)
     {
