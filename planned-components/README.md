@@ -34,6 +34,7 @@ commits on `main` where a range there names a commit from before a rebase. Smoke
 | [`inspection-gui/README.md`](inspection-gui/README.md) | **deferred**: task 8 (2026-10-20), pending the owner's decision after task 17 | none |
 | [`admin-running-services/README.md`](admin-running-services/README.md) | **research done**, task 17 (2026-10-20); its recommendation (build task 8, do not reuse admin) stands, task 8 stays deferred | none |
 | [`aspire/README.md`](aspire/README.md), [`aspire/aspire.md`](aspire/aspire.md) | **research done**, task 20 (2026-10-21): the components map to Aspire container resources, but the front door (Aspire's YARP cannot strip `Secure`), provisioning and the app environment are studioctl's; recommends documenting an AppHost running the app next to `studioctl env up`, and a hosting package generated from studioctl's component table only if Aspire becomes a supported way in | none |
+| [`service-discovery.md`](service-discovery.md): components resolving each other by name (`Microsoft.Extensions.ServiceDiscovery`) | **research done, prototype on branch** `research/service-discovery`, task 25 (2026-10-22): the registration in every .NET host (four had it already through `AltinnHost`), compiled per component; the shared base URLs, metadata fetches and the `dependsOn` cycles are what remains | none on `main` |
 
 
 ## Conventions for vendored production code

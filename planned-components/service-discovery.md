@@ -6,7 +6,7 @@
   (`http://storage/`, `http://authentication/`, ...) through `Microsoft.Extensions.ServiceDiscovery`, so that the runtime
   injects `services__<name>__http__0` instead of a hand-written URL per setting.
 - Written against this repository at `7583be9b` (main). The prototype is on branch `research/service-discovery`
-  (`d0d109c2..`, see the final commit in the git log). Package versions are from nuget.org on 2026-10-22: Microsoft.Extensions.ServiceDiscovery,
+  (commits from `d0d109c2` on). Package versions are from nuget.org on 2026-10-22: Microsoft.Extensions.ServiceDiscovery,
   `.Abstractions` and `.Yarp` **10.11.0** latest (published 2026-10-14); the prototype pins **10.8.0**, the version
   `Altinn.Authorization.ServiceDefaults` 6.0.0 already brings into Authentication and the Resource Registry.
 - **Built and run:**
@@ -366,3 +366,382 @@ These never see the resolver. Per the brief, none was changed. Each has a propos
 | 8 | `components/correspondence/vendor/src/Altinn.Correspondence.Integrations/Slack/SlackDevClient.cs:12`, `.../Azure/AzureResourceManagerService.cs:312` | Slack, Azure Resource Manager | inert or replaced | None |
 | 9 | `components/authorization/vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/Services/Implementation/DevAccessTokenGenerator.cs:42` | test-tool token generator | replaced in the fakes | None |
 | 10 | `components/authentication/vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Helpers/ConfigurationMangerHelper.cs:25-28` | metadata | dead under LOCALTEST | None |
+
+## 3. The registration
+
+### What plugs in where
+
+The recipe is the one Aspire's service defaults use, and the one `AddAltinnServiceDefaults` already runs (decompiled
+`Altinn.Authorization.ServiceDefaults` 5.5.0 and 6.0.0, `AltinnServiceDefaultsExtensions.AddAltinnServiceDefaults`):
+
+```csharp
+builder.Services.AddServiceDiscovery();
+builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
+```
+
+Both calls are in `Microsoft.Extensions.ServiceDiscovery` 10.8.0, as decompiled:
+
+- **`AddServiceDiscovery()`** is `AddServiceDiscoveryCore()` plus two endpoint providers:
+  - the **configuration provider**, which reads section `Services:<name>`;
+  - the **pass-through provider**, which returns the name itself for DNS.
+- **`IHttpClientBuilder.AddServiceDiscovery()`** adds a `ResolvingHttpDelegatingHandler`.
+  - The handler resolves the request URI's authority, sends to the endpoint it picks, and restores the original URI
+    after the call.
+  - It sets `Host` only when the request has none and the endpoint carries a host-name feature. The configuration
+    provider attaches that feature only when `ShouldApplyHostNameMetadata` says so (default: false). In practice the
+    `Host` header comes from the resolved URI, except where the caller set one: the localtest app's Authentication
+    client relies on this.
+
+### Configuration shape
+
+`services__<name>__<scheme>__<index>` in the environment is configuration key `Services:<name>:<scheme>:<index>`; keys
+are case-insensitive. The value is a URI, which may carry a path. The probe
+([`service-discovery-probe/output.txt`](service-discovery-probe/output.txt)), against 10.8.0, showed:
+
+| Request | Configuration | Sent to |
+| --- | --- | --- |
+| `http://storage/storage/api/v1/applications` | `services:storage:http:0 = http://localtest-v2-storage:5010` | `http://localtest-v2-storage:5010/storage/api/v1/applications` |
+| `http://envform/x` | environment `services__envform__http__0=http://envform-host:5` | `http://envform-host:5/x` |
+| `http+https://both/x` | `http` and `https` entries | the `http` one (the first scheme listed that has an entry wins) |
+| `https+http://both/x` | `http` and `https` entries | the `https` one |
+| `http+https://onlyhttps/x` | `https` entry only | `https://onlyhttps-host:3/x` |
+| `http://onlyhttps/x` | `https` entry only | unchanged, `http://onlyhttps/x` (pass-through) |
+| `http://withpath/storage/x` | `http://withpath-host:4/base` | `http://withpath-host:4/base/storage/x` (the endpoint's path is prepended) |
+| `http://local.altinn.cloud:8000/storage/...` | none | unchanged (pass-through), so public URLs keep working through the same clients |
+
+Recommendation: write `http://<service>/...` in the images' settings and inject `services__<service>__http__0`. The
+`http+https://` form only matters once the stack serves https inside the network, which it does not; see
+[`aspire/https.md`](aspire/https.md).
+
+Two cautions about names:
+
+- **Hyphens.** Service names such as `resource-registry` and `dialogporten-webapi` contain hyphens, so the variable is
+  `services__resource-registry__http__0`. .NET reads it, and Aspire uses the same form. I did not run Podman with it.
+- **Name collisions.** A name that equals an existing DNS name is resolved by configuration first.
+
+### A name with no entry
+
+| Registration | What happens | When | Type |
+| --- | --- | --- | --- |
+| `AddServiceDiscovery()` (configuration + pass-through), what every component on this branch uses | The name passes through unchanged, so the request goes to `http://register:80` through DNS. Without a DNS name or a listener on 80 it fails like any unreachable host. | At the request, not at start; resolution is lazy and cached per authority. | Whatever `SocketsHttpHandler` throws: `HttpRequestException`. Not run against a real network. |
+| `AddServiceDiscoveryCore()` + configuration provider only | No endpoint. The handler throws (probe: `System.InvalidOperationException: The endpoint collection contains no endpoints`). | At the request | `InvalidOperationException` |
+| The YARP resolver with configuration only | The cluster resolves to **0 destinations** (probe) | When the proxy configuration loads, and again on configuration change | none; see [section 8](#8-the-front-doors-resolver) |
+| The YARP resolver with pass-through | One destination `http://register/` (probe) | | DNS failure at the proxied request |
+
+So for the components, an optional group that is off behaves like today's "not running":
+
+- Storage's adapter client already treats `HttpRequestException` as "not running"
+  (`fakes/Dialogporten/LocaltestDialogportenAdapterClient.cs`).
+- Clients that do not expect it log their usual failure.
+
+For the front door, register only the configuration provider, so that an absent group is an empty cluster, not a DNS
+lookup.
+
+Configuration reloads through change tokens. The 60-second `RefreshPeriod` applies to providers that poll; the
+configuration provider uses the configuration's reload token.
+
+### Package and versions
+
+Every vendored host targets **net10.0**. The multi-targeted `net8.0`/`net9.0` projects are libraries under `pkgs/`.
+`Microsoft.Extensions.ServiceDiscovery` 10.x ships `net8.0`, `net9.0`, `net10.0`, `netstandard2.0` and `net462` assets,
+so one version serves all.
+
+- Its `net10.0` dependency is `Microsoft.Extensions.Http` ≥ 10.0.8 (10.8.0) or ≥ 10.0.13 (10.11.0). Notifications pins
+  `Microsoft.Extensions.Http` 10.0.12 centrally, so 10.11.0 would need that pin raised there; 10.8.0 does not.
+- The prototype uses **10.8.0**. That is what Authentication and the Resource Registry already get from
+  ServiceDefaults 6.0.0.
+- Register, Authorization and Access Management get **9.5.2** from ServiceDefaults 5.5.0. Authorization's new block
+  compiles against that 9.5.2; nothing was added to its packages.
+
+### How the package reference is added
+
+`#if` does not work in a `.csproj`, and no component added a package before this task. The fakes enter through
+`localtest.build.targets` (`DirectoryBuildTargetsPath`). The package goes in the same file, in the host's existing
+`ItemGroup`, conditioned on `MSBuildProjectName`. There are three cases:
+
+| Case | Components | How |
+| --- | --- | --- |
+| No central package management, no lock file | Storage, Events, Profile, Receipt, Correspondence, the adapter | `<PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />` |
+| Central package management | Notifications (`CentralPackageTransitivePinningEnabled`) | the same with `VersionOverride="10.8.0"` (`Version` would be NU1008) |
+| Locked-mode restore | Dialogporten (`RestorePackagesWithLockFile`, Dockerfiles `restore --locked-mode`) | Adding the reference fails the restore with NU1004 (reproduced). The targets point the three hosts' `NuGetLockFilePath` at localtest-owned lock files in `components/dialogporten/locks/`, generated by a plain restore with the overrides active. Each differs from the vendored one by exactly two entries, the package (Direct) and its Abstractions (Transitive). Each Dockerfile copies `locks/` (one `localtest:` line). The vendored lock files stay untouched; a re-pin must regenerate the three. |
+| Already present | Register, Authentication, Access Management, Resource Registry (registration and package); Authorization (package only, transitively from ServiceDefaults 5.5.0) | nothing, or code only |
+
+The localtest app is our own code, so it gets a plain `PackageReference` in `Localtest.csproj` and no directive.
+
+### Conflicts with what the components register
+
+- **Double registration.** In the four `AltinnHost` components, a second `ConfigureHttpClientDefaults(...AddServiceDiscovery())`
+  would add a second resolving handler. That is why they got no edit.
+- **`AddStandardResilienceHandler`** comes from ServiceDefaults in those four, ordered before discovery as Aspire does.
+  Register (`RegisterHost.cs:191,207`) and Access Management (`IntegrationDependencyInjectionExtensions.cs:48,63`) replace
+  the resilience handler on some clients; the discovery handler is untouched. The probe ran resilience followed by
+  discovery and resolved normally.
+- **Polly v7 policy handlers** (Dialogporten `AddPolicyHandlerFromRegistry`, Correspondence `AddStandardRetryPolicy`),
+  **Maskinporten token handlers**, the adapter's `FourHundredLoggingDelegatingHandler` and the Resource Registry's
+  `PlatformAccessTokenHandler` are all added per client.
+  - `ConfigureHttpClientDefaults` runs before per-client configuration, so the resolving handler is the outermost.
+  - The inner handlers, retries included, see the resolved URI, and a retry does not re-resolve. Nothing in those
+    handlers depends on the host name, as far as I read.
+- **Events' webhooks are the one case to decide.** `LocaltestWebhookDeliveryHandler` (fakes) captures and decides
+  delivery by the request URI. Behind the resolver it sees the resolved URI. A subscriber URL whose single-label host
+  equals a configured service name would be rerouted. Options:
+  - accept this, since subscriber URLs are `local.altinn.cloud` or `host.docker.internal`;
+  - or register the webhook client's own handler chain without discovery: a named-client
+    `ConfigureAdditionalHttpMessageHandlers` that removes `ResolvingHttpDelegatingHandler`.
+- **`ConfigurePrimaryHttpMessageHandler`** (the localtest app's Authentication client, Correspondence's APIM bypass) is
+  compatible: the resolver is a delegating handler.
+
+## 4. The prototype
+
+Branch `research/service-discovery`. The block, placed directly after `WebApplication.CreateBuilder(args)` (inside the
+existing `#if LOCALTEST` block in the three Dialogporten hosts):
+
+```csharp
+#if LOCALTEST
+// localtest: resolve other components by name (http://<service>/...) from services__<service>__http__0; names
+// without an entry pass through to DNS (planned-components/service-discovery.md).
+builder.Services.AddServiceDiscovery();
+builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
+#endif
+```
+
+| Component | File (under `localtest/components/<c>/`) | Package |
+| --- | --- | --- |
+| storage | `vendor/src/Storage/Program.cs:58-63` | targets, `Version` |
+| events | `vendor/src/Events/Program.cs:59-64` | targets, `Version` |
+| profile | `vendor/src/Altinn.Profile/Program.cs:54-59` | targets, `Version` |
+| receipt | `vendor/src/backend/Altinn.Receipt/Program.cs:36-41` | targets, `Version` |
+| correspondence | `vendor/src/Altinn.Correspondence.API/Program.cs:44-49` | targets, `Version` |
+| notifications | `vendor/components/api/src/Altinn.Notifications/Program.cs:40-45` | targets, `VersionOverride` |
+| authorization | `vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs:53-58` | none (transitive 9.5.2) |
+| dialogporten-adapter | `vendor/src/Altinn.DialogportenAdapter.WebApi/Program.cs:31-36` | targets, `Version` |
+| dialogporten (WebApi, GraphQL, Service) | `vendor/src/Digdir.Domain.Dialogporten.{WebApi,GraphQL,Service}/Program.cs`, inside the existing `#if LOCALTEST` after `Apply(builder)` | targets + `locks/` + one `COPY` line per Dockerfile |
+| localtest app | `localtest/localtest/Program.cs:42-45` (no directive) | `Localtest.csproj` |
+| register, authentication, access-management, resource-registry | none: `AltinnHost.CreateWebApplicationBuilder` registers it in production code | already there |
+
+Not changed:
+
+- **The call sites.** No setting was pointed at a service name. With no `services__*` injected, every request goes where
+  it goes today, through pass-through. So the branch changes no behaviour until the runtime and the settings move.
+- **Each `vendor/UPSTREAM.md` list of directive sites.** These lists are not updated for the new block, and their line
+  numbers for later sites in the same `Program.cs` are now off by six. Update them when this is merged.
+
+## 5. Build results
+
+Each check copied the paths the Dockerfile's build stage copies into a scratch directory, set `DirectoryBuildPropsPath`
+and `DirectoryBuildTargetsPath` as the Dockerfile does, ran `dotnet build -c Release` of the host project with SDK
+10.0.401 (`global.json` pinned, because the machine's default SDK is an 11.0 preview), checked that
+`Microsoft.Extensions.ServiceDiscovery.dll` is in the output, and deleted the copy. The script is
+`/home/agent/code/.scripts/sd-build.sh` on this machine. One build ran at a time.
+
+| Component | Result | Warnings |
+| --- | --- | --- |
+| storage | built, 0 errors | 4 |
+| events | built, 0 errors | 0 |
+| profile | built, 0 errors | 0 |
+| receipt | built, 0 errors | 0 |
+| correspondence | built, 0 errors | 24 |
+| notifications | built, 0 errors | 0 |
+| authorization | built, 0 errors | 22 |
+| dialogporten-adapter | built, 0 errors | 0 |
+| dialogporten WebApi, GraphQL, Service | `restore --locked-mode` with the localtest lock files, then `build --no-restore`: built, 0 errors | 2, 0, 0 |
+| dialogporten without the lock-file override | `restore --locked-mode` fails with NU1004, as the targets comment predicted | — |
+| localtest app | built, 0 warnings (`TreatWarningsAsErrors`, `IsAotCompatible`); `dotnet publish -r linux-arm64` Native AOT succeeded | 0 |
+| register, authentication, access-management, resource-registry | not built: no file changed | — |
+| workflow-engine, pdf3, arbeidsflate | not built: not .NET hosts we build, or not .NET | — |
+
+The warnings are the components' existing ones. The diagnostics were not compared with a build of `main`.
+
+## 6. What moves into the images, and what stays in `envs`
+
+**Where "baked in" lives.** Most of these settings are already baked into the images: they are the defaults the fakes
+compute from `Localtest__<X>__PlatformEndpoint`. So the change is per component, in its fakes' configuration
+defaults: replace `platform + "register/api/v1/"` with the constant `"http://register/register/api/v1/"`. No new
+appsettings file is needed. The fakes put their defaults at different priorities:
+
+- **Register:** lowest, below `appsettings.json`.
+- **Most others:** above `appsettings.json` and below the environment.
+- **Authentication:** above the environment (`AddInMemoryCollection`).
+
+An `appsettings.Localtest.json` in the image would therefore not win everywhere, which is another reason to change the
+fakes themselves.
+
+| Component | Becomes a constant with a service name | Must stay runtime-injected |
+| --- | --- | --- |
+| register | `PlatformSettings:ApiAuthorizationEndpoint = http://authorization/authorization/api/v1/` | `GeneralSettings:OpenIdWellKnownEndpoint` (public) |
+| profile | `RegisterSettings:ApiRegisterEndpoint = http://register/register/api/`, `NotificationsSettings:ApiNotificationsEndpoint = http://notifications/notifications/api/`, `PlatformSettings:ApiAuthorizationEndpoint`, a new key for the fakes' Register test-data URL | `Localtest__Profile__PlatformEndpoint` (JwtCookie metadata) |
+| authentication | Profile, Register (v1 and v2 internal), Notifications, Resource Registry, Authorization endpoints; `AccessManagementSettings:ApiAccessManagementEndpoint = http://access-management/accessmanagement/api/v1/` (at22 today); ID-porten token and metadata URLs `http://localtest/localtest/api/idporten/...`. This means splitting `InternalPlatformEndpoint`, which serves all of them. | `GeneralSettings__PlatformEndpoint` (issuer, `BaseUrl`, cookie domain, ID-porten issuer and browser endpoints, Maskinporten well-known URLs) |
+| authorization | Register, Storage, Resource Registry, Access Management, Profile endpoints | `Localtest__Authorization__PlatformEndpoint` (JwtCookie) |
+| access-management | Authentication, Authorization, Profile, Register, Resource Registry endpoints; `Platform:Register:Endpoint = http://register/`, `Platform:ResourceRegistry:Endpoint = http://resource-registry/`; a new key for the refresh's test-users URL. `ApiResourceRegistryEndpoint` takes effect only with flagged site 1. | `Localtest__AccessManagement__PlatformEndpoint` (`OidcProviders:altinn:Issuer`, `GeneralSettings:Hostname`) |
+| resource-registry | `PlatformSettings:StorageApiEndpoint = http://storage/storage/api/v1/`, `ApiRegisterEndpoint` | `Localtest__ResourceRegistry__PlatformEndpoint` (issuer) |
+| storage | `PlatformSettings:ApiAuthorizationEndpoint`, `RegisterServiceSettings:ApiRegisterEndpoint`, `Localtest:Storage:DialogportenAdapterEndpoint = http://dialogporten-adapter/storage/dialogporten/` | `GeneralSettings__PlatformEndpoint` (`Hostname`, self links, JwtCookie) |
+| events | `PlatformSettings:ApiAuthorizationEndpoint`, `PlatformSettings:RegisterApiBaseAddress = http://register/register/api/` | `Localtest__Events__PlatformEndpoint` (`BaseUri`, the CloudEvent source, `AppsDomain`, JwtCookie) |
+| notifications | Profile, Register, Authorization endpoints; Maskinporten `ExchangeEndpoint = http://authentication/authentication/api/v1/exchange/maskinporten` and the token URL `http://localtest/localtest/api/maskinporten/` (today under the misnamed key `Localtest:Maskinporten:Issuer`; split into a `TokenEndpoint`) | `Localtest__Notifications__PlatformEndpoint` (`BaseUri`, JwtCookie) |
+| receipt | `PlatformSettings:ApiStorageEndpoint = http://storage/storage/api/v1/`, `ApiRegisterEndpoint`, `ApiProfileEndpoint` (in the manifest today; they move into the fakes) | `ApiAuthenticationEndpoint` (browser redirect), `OpenIdWellKnownEndpoint`, `GeneralSettings__Hostname`, `Localtest__Receipt__PlatformEndpoint` |
+| correspondence | `ContactReservationRegistryBaseUrl`, Maskinporten token and exchange URLs, the dialog JWKS URL (needs its own key), and the nine typed clients. Those clients need `PlatformGatewayUrl` split: per-client `ConfigureHttpClient(c => c.BaseAddress = new("http://register/"))` in a fake hook registered after upstream's, plus a directive at `ResourceRegistryService.cs:26`, which sets the base in its constructor. | `Localtest__Correspondence__PlatformEndpoint` (`PlatformGatewayUrl` as authority and expected issuer, `CorrespondenceBaseUrl`, blob links) |
+| dialogporten | `Infrastructure:Altinn:EventsBaseUri = http://events/`, Maskinporten token and exchange URLs. The four clients on `Infrastructure:Altinn:BaseUri` need it split, because `MetadataLinkProvider` builds client-facing links from it: per-client base overrides in the fakes, or a fake handler that rewrites `{platform}<prefix>/` to `http://<service>/<prefix>/`. | `Localtest__Dialogporten__PlatformEndpoint` (dialog-token issuer, JWT well-known URLs, `BaseUri` links) |
+| dialogporten-adapter | `InternalStorageEndpoint = http://storage/`, `InternalRegisterEndpoint = http://register/`, `Dialogporten:BaseUri = http://dialogporten-webapi/dialogporten`, Maskinporten token and exchange URLs. Upstream already separates internal from public, so this is the easiest component. | `Localtest__Adapter__PlatformEndpoint` (`Altinn:BaseUri`, `Adapter:BaseUri` dialog links, JwtBearer well-known) |
+| localtest app | `Proxy__Upstreams__authentication = http://authentication`, `Proxy__Upstreams__register = http://register` (these also feed its own proxy, flagged site 2) | `Localtest__PlatformEndpoint`, `Localtest__AccessTokenCertificatePath` |
+
+**Values that could also become constants:**
+
+- **The certificate path** (`AccessTokenSettings__AccessTokenSigningCertificateFullPath = {{certPath}}`) could become a
+  constant if the mount point (`/certs/localtest-accesstoken.pfx`, manifest `certificate.containerDir`) is part of the
+  image contract. The mount itself stays a runtime `volumes` entry.
+- **The Postgres and Redis connection strings** (`Host={{alias:postgres}};Port={{port:postgres}}`) could become
+  `Host=postgres;Port=5432` constants if both runtimes guarantee those network aliases and ports. The manifest declares
+  `networkAliases: ["postgres"]` and `["redis"]` today; I did not check the Aspire package's names. Npgsql and
+  StackExchange.Redis use DNS, not the resolver.
+
+**`envs` per .NET component after the change:**
+
+- One public-origin value: `Localtest__<X>__PlatformEndpoint`, or `GeneralSettings__PlatformEndpoint` in Storage and
+  Authentication.
+- Receipt also keeps `GeneralSettings__Hostname`.
+- The certificate path and connection strings, unless they become constants as above.
+- Plus the `services__*` entries the runtime adds.
+
+**Node, nginx, pdf3 and the workflow engine have no resolver**, so the runtime must still substitute these values or
+provide these names:
+
+- **arbeidsflate-bff**
+  - `HOSTNAME`, `OIDC_PLATFORM_URL`, `AUTH_CONTEXT_COOKIE_DOMAIN`, `MASKINPORTEN_ISSUER` (public, or a DNS name of the
+    localtest app) and `PLATFORM_BASEURL`.
+  - `PLATFORM_BASEURL` serves six services by path, so it can only go direct by pointing at an in-network path router:
+    the future front door by its network alias (for example `http://localtest:8080`), or one variable per service in a
+    new `localtest:` patch.
+  - `DIALOGPORTEN_URL` must be split into GraphQL (`http://dialogporten-graphql:8080`) and WebApi health
+    (`http://dialogporten-webapi:8080/dialogporten`) by a patch.
+  - DNS aliases for every name it calls. Today only `postgres`, `redis` and `arbeidsflate-bff` have one; the containers
+    are named `localtest-v2-<name>`.
+- **arbeidsflate SPA (nginx):** `DIALOGPORTEN_STREAM_URL` stays public; its `/api/` proxy already uses the BFF's alias.
+- **pdf3:** `PDF3_LOCALTEST_PUBLIC_BASE_URL` stays public.
+- **workflow engine:** `AppCommandSettings__CommandEndpoint` stays `{{url:app}}`, because the app is on the host.
+
+**What the runtime injects.** For every .NET component, `services__<name>__http__0 = http://<container DNS name>:<port>`
+for each component the stack runs.
+
+- **Under studioctl** the container name `localtest-v2-<name>` resolves on the user-defined network. That is Podman
+  behaviour I did not test here.
+- **Under Aspire** a container-to-container reference injects the same shape. Not verified in 13.6.2.
+- **Not only `dependsOn`.** The call graph has cycles:
+  - Storage → Authorization → Storage;
+  - Authorization → Access Management → Authorization;
+  - Register → Authorization → Register.
+
+  `dependsOn`, which orders start-up, cannot carry it. Two options:
+  - inject the entries for all running components;
+  - or add a separate `references` list next to `dependsOn` in the manifest.
+- **Optional groups.** Leave out the entries of a group that is off. The pass-through then fails at the request, as in
+  section 3.
+
+## 7. Port and health convention
+
+Container port today and the change for 8080. In the .NET images, removing `ASPNETCORE_URLS` lets the base image's own
+`ASPNETCORE_HTTP_PORTS=8080` apply. That is the documented default of the .NET 8+ images; I did not inspect each pinned
+base image.
+
+| Image | Listens on today | Health today | Change for 8080 + `/health` |
+| --- | --- | --- | --- |
+| register | `ASPNETCORE_URLS=http://+:5020` | `/health` (`MapDefaultAltinnEndpoints`) | drop `ASPNETCORE_URLS`, `EXPOSE 8080` |
+| profile | 5030 | `/health` (`Program.cs:309`) | same |
+| authentication | 5101 (`EXPOSE 5040` is stale) | `/health` | same |
+| authorization | 5070 (`EXPOSE 5050` is stale) | `/health` | same |
+| storage | 5010 | `/health` (`Program.cs:497`) | same |
+| access-management | 5080 (the runtime stage already says 8080 and is overridden) | `/health` | drop the final `ASPNETCORE_URLS` |
+| events | 5080 | `/health` | same as register |
+| resource-registry | 5100 | `/health` | same |
+| notifications | 5090. Its SMS and e-mail clients call `http://localhost:5090/...` (fakes `LocaltestNotificationsExtensions.cs:56-57`). | `/health` | same, **and** change those two loopback URLs to 8080 |
+| receipt | 5060 | `/health` | same as register |
+| correspondence | 2525 | `/health` (DB check), `/healthz` liveness | same |
+| dialogporten-adapter | 5011 | `/health` (`WebApplicationExtensions.cs:25`) | same |
+| localtest app | `ASPNETCORE_HTTP_PORTS=8000` | `/health` | `8080`. Its host port 8000 is the front door's public port, which is a separate decision. |
+| dialogporten WebApi, GraphQL, Service | 8080 (base image default; only WebApi says `EXPOSE 8080`) | `/health/readiness`; `Altinn.AspNet.HealthChecks` 0.4.0 also maps `/health` (decompiled default), liveness pinned to `/health/liveness` | none for the port; point the manifest's `healthPath` at `/health` if the convention is literal (not run) |
+| arbeidsflate-bff | `PORT=80` (`Dockerfile.bff:41`) | `/api/readiness` (also `/api/liveness`, `/api/health`) | `ENV PORT=8080`; `/health` needs a route (a patch) or the convention must accept `/api/readiness` |
+| arbeidsflate SPA (nginx) | `listen 80` (`nginx/nginx.conf:7`) | `/` | `listen 8080;` plus `location = /health { return 200; }` in our `nginx.conf` (not upstream's) |
+| workflow-engine | 9090 (not ours) | `/api/v1/health/ready`; `/health*` redirect | not our image; the manifest keeps its values |
+| pdf3 | 5031 (not ours) | `/health/ready` | as above |
+
+The port is also in the manifest (`containerPort`, `hostPort`) and in every `services__*` value, so the port change and
+the injection belong in the same runtime change.
+
+**Aspire 13.6.2 and the image's `HEALTHCHECK`.** No: `WaitFor` does not use it. Read in the decompiled `Aspire.Hosting`
+13.6.2, not run:
+
+- `ResourceNotificationService.WaitForResourceHealthyAsync` documents that a resource without `HealthCheckAnnotation`s
+  "will be considered healthy once it reaches a Running state".
+- DCP's `ContainerSpec` and `ContainerStatus` models carry no health field. Only `ExecutableSpec` has `healthProbes`.
+- So the container's own health is ignored. A container is healthy for `WaitFor` only through `WithHttpHealthCheck`
+  (or another health-check annotation), which the Aspire package adds from the manifest's `healthPath`.
+- In addition, Podman builds OCI images, which drop `HEALTHCHECK`, as every Dockerfile here notes.
+
+## 8. The front door's resolver
+
+`Microsoft.Extensions.ServiceDiscovery.Yarp` is 10.11.0 latest (`net8.0`, `net9.0`, `net10.0`; depends on
+`Yarp.ReverseProxy` ≥ 2.3.0). `AddServiceDiscoveryDestinationResolver()` on `IReverseProxyBuilder` registers
+`ServiceDiscoveryDestinationResolver` as YARP's `IDestinationResolver` and calls only `AddServiceDiscoveryCore()`, so
+the caller must add the providers. The resolver works like this (decompiled 10.11.0; behaviour run with 10.8.0 in the
+probe):
+
+- It resolves each destination's `scheme://authority` through `ServiceEndpointResolver`.
+- It emits one destination per endpoint, named `<original>[<endpoint>]`, with the endpoint's scheme, host and port and
+  the original path. `http://storage/storage` became `http://localtest-v2-storage:5010/storage`.
+- It rewrites a destination's `Health` address the same way, and keeps an explicit `Host`.
+- It follows the configuration's change token, so a changed `services__*` value re-resolves.
+- For a name with no entry it returns:
+  - with the configuration provider alone: **zero destinations** (probe);
+  - with `AddServiceDiscovery()`: a pass-through destination `http://register/`, which fails per request in DNS.
+
+For the predictable 503 of a group that is off, the front door should register
+`AddServiceDiscoveryCore().AddConfigurationServiceEndpointProvider()` and not the pass-through provider. YARP answers
+503 for a cluster without available destinations. That is its documented behaviour; I did not run a proxy here.
+
+## 9. Recommendation
+
+1. **Merge the registration** (this branch), with the `UPSTREAM.md` site lists updated. It changes no behaviour on its
+   own (section 4) and makes every later step a configuration change.
+2. **Runtime: port, health, `services__*`.** Do these in one change to the manifest, studioctl and the Aspire package.
+   - Move the images to 8080 and `/health` (section 7; the Notifications loopback URLs with it).
+   - Inject `services__<name>__http__0` for every running component, not only `dependsOn` (section 6).
+   - Give every container a network alias equal to its service name, for the non-.NET clients and the data stores.
+3. **Per component, change the fakes' defaults to service names**, easiest first:
+   - **Simple:** the adapter (internal and public are already separate); Storage, Events, Notifications, Profile,
+     Receipt, Authorization, the Resource Registry, Register.
+   - **Then:** Access Management (with the flagged `ResourceRegistryClient` `#else`), Authentication (split
+     `InternalPlatformEndpoint`).
+   - **Last:** Dialogporten (split `Infrastructure:Altinn:BaseUri`) and Correspondence (split `PlatformGatewayUrl`).
+   - Run each component's smoke test after its step. The public-origin values stay as they are throughout.
+4. **The YARP front door** with the configuration-only resolver (section 8), the later task. Then the BFF's
+   `PLATFORM_BASEURL` can point at the front door's in-network name instead of the host.
+5. **Leave every metadata fetch on the public origin** (flagged rows 3-6). Nothing is gained while `jwks_uri` is public,
+   and the containers need `local.altinn.cloud` for the browser-facing values anyway.
+
+## 10. Effort estimate
+
+An estimate from what was read, not measured:
+
+| Step | Estimate |
+| --- | --- |
+| Registration (done here) plus `UPSTREAM.md` updates | 0.5 day |
+| Runtime: ports and health in 13 Dockerfiles and the manifest, `services__*` injection and aliases in studioctl and the Aspire package, their tests | 2-3 days |
+| Fakes defaults, simple components (8) | 2-3 days in all, mostly smoke-test runs |
+| Access Management (including the `ResourceRegistryClient` site), Authentication | 1.5 days |
+| Dialogporten, Correspondence (base splits, per-client overrides, one directive) | 2 days |
+| BFF patch (split variables, `/health`, port) and nginx | 1 day |
+| **Total** | **about 9-11 days** |
+
+## 11. Not verified
+
+- **Real network behaviour.** No request ran between real containers. The pass-through failure mode
+  (`HttpRequestException` for an unknown name), that `localtest-v2-<name>` resolves on the Podman network, and that a
+  hyphenated `services__resource-registry__http__0` reaches the process under Podman are expectations, not observations.
+- **Aspire.** That Aspire 13.6.2 injects `services__*` for container-to-container references in this shape: not run. Its
+  ignoring of the image `HEALTHCHECK` is read from decompiled code, not run.
+- **YARP's 503** for a cluster with zero destinations: documented behaviour, not run.
+- **The `.NET` base images' `ASPNETCORE_HTTP_PORTS=8080`** in each pinned digest: not inspected.
+- **Dialogporten's `/health`:** from the decompiled defaults of `Altinn.AspNet.HealthChecks` 0.4.0, not requested.
+- **The localtest app's AOT publish** ran for linux-arm64 glibc. The image publishes linux-musl, which was not built.
+- **Register, Authentication, Access Management and the Resource Registry** were not rebuilt (no change). That their
+  service discovery is active at runtime rests on reading `AltinnServiceDefaultsExtensions`, not on a request.
+- **Build warnings** were not compared with a build of `main`.
+- **No smoke test ran.** The branch is not in an image, and the stack was not started.
