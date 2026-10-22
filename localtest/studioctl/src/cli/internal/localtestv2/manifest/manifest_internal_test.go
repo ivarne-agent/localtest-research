@@ -48,7 +48,11 @@ func containerNamed(m map[string]any, name string) map[string]any {
 }
 
 func groupNamed(m map[string]any, name string) map[string]any {
-	for _, g := range m["groups"].([]any) {
+	groups, ok := m["groups"].([]any)
+	if !ok {
+		panic("no groups")
+	}
+	for _, g := range groups {
 		if obj, ok := g.(map[string]any); ok && obj["name"] == name {
 			return obj
 		}

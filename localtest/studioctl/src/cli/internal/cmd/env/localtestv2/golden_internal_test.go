@@ -22,19 +22,19 @@ var goldenPath = filepath.Join("testdata", "environment.golden.json") //nolint:g
 // services__ variables.
 type goldenEnvironment struct {
 	// Groups are the containers each group selects with the default group, in start order.
-	Groups  map[string][]string `json:"groups"`
-	Volumes []string            `json:"volumes"`
+	Groups map[string][]string `json:"groups"`
 	// Default is `env up` with no flags: pulled images at the pin, no optional group.
 	Default goldenOptions `json:"default"`
 	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
 	// a runtime with SELinux relabelling.
 	Everything goldenOptions `json:"everything"`
+	Volumes    []string      `json:"volumes"`
 }
 
 type goldenOptions struct {
+	FrontDoorHealth string           `json:"frontDoorHealth"`
 	Resources       []goldenResource `json:"resources"`
 	HealthTargets   []string         `json:"healthTargets"`
-	FrontDoorHealth string           `json:"frontDoorHealth"`
 }
 
 func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {

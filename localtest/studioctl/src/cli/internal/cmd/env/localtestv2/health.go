@@ -28,6 +28,7 @@ const (
 	healthPollInterval = time.Second
 	healthRequestLimit = 5 * time.Second
 	probePollInterval  = 500 * time.Millisecond
+	probeRemoveTimeout = 30 * time.Second
 	// probeAttempts is how many times a probe tries, a second apart, before it gives up: healthTimeout's worth.
 	probeAttempts = int(healthTimeout / time.Second)
 	// probeReadTimeout is how long a probe waits for the status line once connected, in seconds.
@@ -92,13 +93,18 @@ func probeScript(t healthTarget, attempts int) string {
 // prober runs the probe containers.
 type prober struct {
 	client  container.ContainerClient
-	image   string
 	pullErr error
+	image   string
 	pull    sync.Once
 }
 
 func newProber(client container.ContainerClient) *prober {
-	return &prober{client: client, image: stack().Containers[probeImageContainer].Image(), pullErr: nil, pull: sync.Once{}}
+	return &prober{
+		client:  client,
+		pullErr: nil,
+		image:   stack().Containers[probeImageContainer].Image(),
+		pull:    sync.Once{},
+	}
 }
 
 // probes is the readinessProbes of the runtime.
@@ -127,7 +133,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 		return err
 	}
 	name := containerPrefix + "probe-" + target.name
-	p.remove(name)
+	p.remove(ctx, name)
 	if _, err := p.client.CreateContainer(ctx, types.ContainerConfig{
 		Labels:         nil,
 		HealthCheck:    nil,
@@ -148,7 +154,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 	}); err != nil {
 		return fmt.Errorf("start health probe for %s: %w", target, err)
 	}
-	defer p.remove(name)
+	defer p.remove(ctx, name)
 
 	waitCtx, cancel := context.WithTimeout(ctx, healthTimeout+time.Minute)
 	defer cancel()
@@ -179,10 +185,9 @@ func probeFinished(status string) bool {
 	return false
 }
 
-// remove deletes a probe container; it may not exist.
-func (p *prober) remove(name string) {
-	//nolint:contextcheck // A probe is cleaned up also when the apply was cancelled.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+// remove deletes a probe container, which may not exist; also when the apply was cancelled.
+func (p *prober) remove(ctx context.Context, name string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), probeRemoveTimeout)
 	defer cancel()
 	ignoreError(p.client.ContainerRemove(ctx, name, true))
 }

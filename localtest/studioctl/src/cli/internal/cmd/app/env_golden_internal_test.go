@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"altinn.studio/studioctl/internal/envtopology"
+	"altinn.studio/studioctl/internal/localtestv2"
 )
 
 // envUpdateGolden regenerates the golden file: STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/app/.
@@ -18,23 +19,36 @@ const envUpdateGolden = "STUDIOCTL_UPDATE_GOLDEN"
 var appEnvGoldenPath = filepath.Join("testdata", "app-environment.golden.json")
 
 // goldenAppEnv is the snapshot of the environment an app is started with, for the option combinations the run tests
-// cover. It was taken before the environment moved into the manifest's app section (task 21e) and holds the loader
-// to what the hand-written code built; the Aspire package (localtest/aspire/Altinn.App.Aspire) compares its own
-// expansion of the app section against the case it names.
+// cover. It held the manifest's app section (tasks 21e to 27a) to what the hand-written code built, and holds this code
+// to it now; the Aspire package (localtest/aspire/Altinn.App.Aspire) compares its own app environment against the case
+// it names.
 type goldenAppEnv struct {
 	Cases []goldenAppEnvCase `json:"cases"`
 }
 
 type goldenAppEnvCase struct {
-	Environment             map[string]string  `json:"environment"`
-	Name                    string             `json:"name"`
-	KestrelURL              string             `json:"kestrelUrl"`
-	IngressPort             string             `json:"ingressPort"`
-	AppFrontendAssetBaseURL string             `json:"appFrontendAssetBaseUrl"`
-	SecretsDir              string             `json:"secretsDir"`
-	KeysDir                 string             `json:"keysDir"`
-	Signing                 accessTokenSigning `json:"signing"`
-	Current                 []string           `json:"current"`
+	Environment             map[string]string `json:"environment"`
+	Name                    string            `json:"name"`
+	KestrelURL              string            `json:"kestrelUrl"`
+	IngressPort             string            `json:"ingressPort"`
+	AppFrontendAssetBaseURL string            `json:"appFrontendAssetBaseUrl"`
+	SecretsDir              string            `json:"secretsDir"`
+	KeysDir                 string            `json:"keysDir"`
+	Signing                 goldenSigning     `json:"signing"`
+	Current                 []string          `json:"current"`
+}
+
+// goldenSigning is a case's certificate, as the runner finds it; empty for a run without localtest-v2.
+//
+//nolint:tagliatelle // The snapshot's field names are the Go field names of the code that wrote it first.
+type goldenSigning struct {
+	FullPath   string `json:"FullPath"`
+	KeysFolder string `json:"KeysFolder"`
+	FileName   string `json:"FileName"`
+}
+
+func (g goldenSigning) certificate() accessTokenSigning {
+	return accessTokenSigning(g)
 }
 
 const (
@@ -43,12 +57,12 @@ const (
 )
 
 func goldenAppEnvCases() []goldenAppEnvCase {
-	native := accessTokenSigning{
+	native := goldenSigning{
 		FullPath:   goldenCertDir + "/localtest-accesstoken.pfx",
 		KeysFolder: "/../../.altinn-studio/localtest-v2/certs/",
 		FileName:   "localtest-accesstoken.pfx",
 	}
-	container := accessTokenSigning{
+	container := goldenSigning{
 		FullPath:   containerCertificateDir + "/localtest-accesstoken.pfx",
 		KeysFolder: containerCertificateDir + "/",
 		FileName:   "localtest-accesstoken.pfx",
@@ -112,8 +126,11 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 			c.AppFrontendAssetBaseURL,
 			c.SecretsDir,
 			c.KeysDir,
-			c.Signing,
+			c.Signing.certificate(),
 		)
+		if c.Signing.FullPath != "" && c.Signing.FileName != localtestv2.CertificateFileName {
+			t.Fatalf("%s: the certificate file name is not the runtime's", c.Name)
+		}
 		env := make(map[string]string, len(entries))
 		for _, entry := range entries {
 			key, value, _ := strings.Cut(entry, "=")
@@ -141,7 +158,9 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 		t.Fatalf("read %s (regenerate with %s=1): %v", appEnvGoldenPath, envUpdateGolden, err)
 	}
 	if !bytes.Equal(want, data) {
-		t.Errorf("the app environment differs from %s; review, then regenerate with %s=1 go test ./internal/cmd/app/:\n%s",
-			appEnvGoldenPath, envUpdateGolden, data)
+		t.Errorf(
+			"the app environment differs from %s; review, then regenerate with %s=1 go test ./internal/cmd/app/:\n%s",
+			appEnvGoldenPath, envUpdateGolden, data,
+		)
 	}
 }

@@ -166,38 +166,6 @@ func strictDecode(data []byte, v any) error {
 	return nil
 }
 
-// readContainers reads the containers object, keeping the file order of its keys.
-func (m *Manifest) readContainers(data json.RawMessage) error {
-	if len(data) == 0 {
-		return fmt.Errorf("%w: no containers", errValue)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	if tok, err := decoder.Token(); err != nil || tok != json.Delim('{') {
-		return fmt.Errorf("%w: containers is not an object", errValue)
-	}
-	for decoder.More() {
-		tok, err := decoder.Token()
-		if err != nil {
-			return fmt.Errorf("containers: %w", err)
-		}
-		name, _ := tok.(string)
-		var raw json.RawMessage
-		if err := decoder.Decode(&raw); err != nil {
-			return fmt.Errorf("container %s: %w", name, err)
-		}
-		var c Container
-		if err := strictDecode(raw, &c); err != nil {
-			return fmt.Errorf("container %s: %w", name, err)
-		}
-		if _, dup := m.Containers[name]; dup {
-			return fmt.Errorf("%w container %s", errDuplicate, name)
-		}
-		m.Containers[name] = c
-		m.names = append(m.names, name)
-	}
-	return nil
-}
-
 // Names lists the containers in file order.
 func (m *Manifest) Names() []string {
 	return slices.Clone(m.names)
@@ -256,6 +224,41 @@ func (m *Manifest) Select(groups []string) []string {
 		}
 	}
 	return m.startOrder(selected)
+}
+
+// readContainers reads the containers object, keeping the file order of its keys.
+func (m *Manifest) readContainers(data json.RawMessage) error {
+	if len(data) == 0 {
+		return fmt.Errorf("%w: no containers", errValue)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if tok, err := decoder.Token(); err != nil || tok != json.Delim('{') {
+		return fmt.Errorf("%w: containers is not an object", errValue)
+	}
+	for decoder.More() {
+		tok, err := decoder.Token()
+		if err != nil {
+			return fmt.Errorf("containers: %w", err)
+		}
+		name, ok := tok.(string)
+		if !ok {
+			return fmt.Errorf("%w: container name %v", errValue, tok)
+		}
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return fmt.Errorf("container %s: %w", name, err)
+		}
+		var c Container
+		if err := strictDecode(raw, &c); err != nil {
+			return fmt.Errorf("container %s: %w", name, err)
+		}
+		if _, dup := m.Containers[name]; dup {
+			return fmt.Errorf("%w container %s", errDuplicate, name)
+		}
+		m.Containers[name] = c
+		m.names = append(m.names, name)
+	}
+	return nil
 }
 
 // startOrder lists the selected containers so that each comes after its dependencies, ties in file order.
@@ -361,6 +364,13 @@ func checkContainer(name string, c Container) error {
 	if name == "" || strings.TrimSpace(name) != name || strings.ContainsAny(name, " /:") {
 		return fmt.Errorf("%w: name %q", errValue, name)
 	}
+	if err := checkImage(c); err != nil {
+		return err
+	}
+	return checkEnvsAndVolumes(c)
+}
+
+func checkImage(c Container) error {
 	if strings.TrimSpace(c.Registry) == "" || strings.Contains(c.Registry, " ") {
 		return fmt.Errorf("%w: registry %q", errValue, c.Registry)
 	}
@@ -373,6 +383,10 @@ func checkContainer(name string, c Container) error {
 	if c.Health != "" && c.Health != HealthTCP && !strings.HasPrefix(c.Health, "/") {
 		return fmt.Errorf("%w: health %q is neither a path nor %q", errValue, c.Health, HealthTCP)
 	}
+	return nil
+}
+
+func checkEnvsAndVolumes(c Container) error {
 	for key := range c.Envs {
 		if key == "" || strings.ContainsAny(key, "= ") {
 			return fmt.Errorf("%w: envs key %q", errValue, key)

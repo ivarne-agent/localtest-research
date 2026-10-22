@@ -22,7 +22,10 @@ func TestReadStateOnFreshDataDir(t *testing.T) {
 func TestStateRoundTrip(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{DataDir: t.TempDir()}
-	want := localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg), Groups: []string{"dialogporten", "receipt"}}
+	want := localtestv2.State{
+		CertificateDir: localtestv2.CertificateDir(cfg),
+		Groups:         []string{"dialogporten", "receipt"},
+	}
 	if err := localtestv2.WriteState(cfg, want); err != nil {
 		t.Fatal(err)
 	}

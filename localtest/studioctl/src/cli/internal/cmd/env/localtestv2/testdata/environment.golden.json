@@ -90,14 +90,8 @@
       "access-management"
     ]
   },
-  "volumes": [
-    "localtest-v2-correspondence-blobs",
-    "localtest-v2-localtest-data",
-    "localtest-v2-policy-store",
-    "localtest-v2-postgres-data",
-    "localtest-v2-storage-blobs"
-  ],
   "default": {
+    "frontDoorHealth": "http://local.altinn.cloud:8000/health",
     "resources": [
       {
         "id": "network:localtest-v2_network",
@@ -966,10 +960,10 @@
       "pdf3 http://pdf3:5031/health/ready",
       "workflow-engine http://workflow-engine:9090/api/v1/health/ready",
       "access-management http://access-management:5080/health"
-    ],
-    "frontDoorHealth": "http://local.altinn.cloud:8000/health"
+    ]
   },
   "everything": {
+    "frontDoorHealth": "http://local.altinn.cloud:8000/health",
     "resources": [
       {
         "id": "network:localtest-v2_network",
@@ -2616,7 +2610,13 @@
       "correspondence http://correspondence:2525/health",
       "arbeidsflate-bff http://arbeidsflate-bff:80/api/readiness",
       "arbeidsflate http://arbeidsflate:80/"
-    ],
-    "frontDoorHealth": "http://local.altinn.cloud:8000/health"
-  }
+    ]
+  },
+  "volumes": [
+    "localtest-v2-correspondence-blobs",
+    "localtest-v2-localtest-data",
+    "localtest-v2-policy-store",
+    "localtest-v2-postgres-data",
+    "localtest-v2-storage-blobs"
+  ]
 }

@@ -156,18 +156,33 @@ func TestTheGroupsSelectTheirRootsAndTheirDependencies(t *testing.T) {
 
 func TestResolveGroups(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		with, without []string
-		want          []string
-		err           error
-	}{
-		"none":                {nil, nil, nil, nil},
-		"one":                 {[]string{"receipt"}, nil, []string{"receipt"}, nil},
-		"everything":          {[]string{"everything"}, nil, []string{"arbeidsflate", "correspondence", "dialogporten", "receipt"}, nil},
-		"everything but one":  {[]string{"everything"}, []string{"dialogporten"}, []string{"arbeidsflate", "correspondence", "receipt"}, nil},
-		"without what is off": {nil, []string{"receipt"}, nil, nil},
-		"unknown":             {[]string{"kvittering"}, nil, nil, errUnknownGroup},
-		"default":             {nil, []string{"default"}, nil, errDefaultGroup},
+	type groupCase struct {
+		err     error
+		with    []string
+		without []string
+		want    []string
+	}
+	gc := func(with, without, want []string, err error) groupCase {
+		return groupCase{err: err, with: with, without: without, want: want}
+	}
+	cases := map[string]groupCase{
+		"none": gc(nil, nil, nil, nil),
+		"one":  gc([]string{"receipt"}, nil, []string{"receipt"}, nil),
+		"everything": gc(
+			[]string{"everything"},
+			nil,
+			[]string{"arbeidsflate", "correspondence", "dialogporten", "receipt"},
+			nil,
+		),
+		"everything but one": gc(
+			[]string{"everything"},
+			[]string{"dialogporten"},
+			[]string{"arbeidsflate", "correspondence", "receipt"},
+			nil,
+		),
+		"without what is off": gc(nil, []string{"receipt"}, nil, nil),
+		"unknown":             gc([]string{"kvittering"}, nil, nil, errUnknownGroup),
+		"default":             gc(nil, []string{"default"}, nil, errDefaultGroup),
 	}
 	for name, c := range cases {
 		got, err := ResolveGroups(c.with, c.without)
@@ -254,42 +269,48 @@ func TestResolveDevBuilds(t *testing.T) {
 	storage := filepath.Join(root, "components", "storage")
 	dialogporten := filepath.Join(root, "components", "dialogporten")
 
-	cases := map[string]struct {
-		dev  map[string]string
-		cwd  string
-		want map[string]DevBuild
+	type devCase struct {
 		err  error
-	}{
-		"the current directory": {
+		dev  map[string]string
+		want map[string]DevBuild
+		cwd  string
+	}
+	dc := func(dev map[string]string, cwd string, want map[string]DevBuild, err error) devCase {
+		return devCase{err: err, dev: dev, want: want, cwd: cwd}
+	}
+	cases := map[string]devCase{
+		"the current directory": dc(
 			map[string]string{"storage": ""}, storage,
 			map[string]DevBuild{"storage": {Context: storage, Dockerfile: filepath.Join(storage, "Dockerfile")}}, nil,
-		},
-		"a directory": {
+		),
+		"a directory": dc(
 			map[string]string{"storage": "components/storage"}, root,
 			map[string]DevBuild{"storage": {Context: storage, Dockerfile: filepath.Join(storage, "Dockerfile")}}, nil,
-		},
-		"a Dockerfile in the current directory": {
+		),
+		"a Dockerfile in the current directory": dc(
 			map[string]string{"dialogporten-webapi": "Dockerfile.webapi"}, dialogporten,
 			map[string]DevBuild{"dialogporten-webapi": {
 				Context: dialogporten, Dockerfile: filepath.Join(dialogporten, "Dockerfile.webapi"),
 			}},
 			nil,
-		},
-		"a Dockerfile below the current directory builds with the current directory as context": {
+		),
+		"a Dockerfile below the current directory builds with the current directory as context": dc(
 			map[string]string{"postgres": "postgres/Dockerfile"}, root,
 			map[string]DevBuild{"postgres": {Context: root, Dockerfile: filepath.Join(root, "postgres", "Dockerfile")}},
 			nil,
-		},
-		"a Dockerfile elsewhere builds with its own directory as context": {
+		),
+		"a Dockerfile elsewhere builds with its own directory as context": dc(
 			map[string]string{"dialogporten-webapi": filepath.Join(dialogporten, "Dockerfile.webapi")}, storage,
 			map[string]DevBuild{"dialogporten-webapi": {
 				Context: dialogporten, Dockerfile: filepath.Join(dialogporten, "Dockerfile.webapi"),
 			}},
 			nil,
-		},
-		"a directory without a Dockerfile": {map[string]string{"storage": ""}, root, nil, errDevPath},
-		"a missing path":                   {map[string]string{"storage": "nowhere"}, root, nil, errDevPath},
-		"an unknown container":             {map[string]string{"blob-store": ""}, storage, nil, errUnknownDevContainer},
+		),
+		"a directory without a Dockerfile": dc(map[string]string{"storage": ""}, root, nil, errDevPath),
+		"a missing path":                   dc(map[string]string{"storage": "nowhere"}, root, nil, errDevPath),
+		"an unknown container": dc(
+			map[string]string{"blob-store": ""}, storage, nil, errUnknownDevContainer,
+		),
 	}
 	for name, c := range cases {
 		got, err := resolveDevBuilds(c.dev, c.cwd)

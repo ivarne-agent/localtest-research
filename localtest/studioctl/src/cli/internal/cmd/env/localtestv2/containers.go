@@ -250,22 +250,23 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 	if opts.RelabelBinds {
 		relabel = types.SELinuxRelabelShared
 	}
-	volumes := []types.VolumeMount{
-		{
+	volumes := make([]types.VolumeMount, 0, 2+len(c.Volumes))
+	volumes = append(volumes,
+		types.VolumeMount{
 			HostPath:       opts.CertDir,
 			ContainerPath:  certificateDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
 			ReadOnly:       true,
 		},
-		{
+		types.VolumeMount{
 			HostPath:       filepath.Join(opts.CertDir, localtestv2.CertificateFileName),
 			ContainerPath:  legacyCertificateFile,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
 			ReadOnly:       true,
 		},
-	}
+	)
 	for _, volume := range slices.Sorted(maps.Keys(c.Volumes)) {
 		volumes = append(volumes, types.VolumeMount{
 			HostPath:       volume,

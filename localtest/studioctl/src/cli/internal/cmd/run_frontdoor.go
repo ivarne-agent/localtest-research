@@ -77,7 +77,7 @@ func waitForFrontDoorRegistration(
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	client := &http.Client{Timeout: frontDoorRequestTimeout}
-	last := "no answer yet"
+	var last string
 	for {
 		routes, err := frontDoorRoutes(waitCtx, client, appsURL)
 		if err != nil {
@@ -132,7 +132,7 @@ func frontDoorRoutes(ctx context.Context, client *http.Client, appsURL string) (
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: %w", appsURL, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { ignoreCloseError(resp.Body.Close()) }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%w: GET %s: HTTP %d", errFrontDoorRegistration, appsURL, resp.StatusCode)
 	}
@@ -142,3 +142,5 @@ func frontDoorRoutes(ctx context.Context, client *http.Client, appsURL string) (
 	}
 	return routes, nil
 }
+
+func ignoreCloseError(error) {}

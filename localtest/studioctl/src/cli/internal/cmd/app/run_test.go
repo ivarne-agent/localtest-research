@@ -763,7 +763,10 @@ func TestBuildDotnetRunSpec_ListensOnEveryInterfaceForTheLocaltestV2FrontDoor(t 
 	t.Parallel()
 
 	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir(), Version: config.NewVersion("test-version")}
-	if err := localtestv2.WriteState(cfg, localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg)}); err != nil {
+	if err := localtestv2.WriteState(
+		cfg,
+		localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg)},
+	); err != nil {
 		t.Fatal(err)
 	}
 	appPath := t.TempDir()

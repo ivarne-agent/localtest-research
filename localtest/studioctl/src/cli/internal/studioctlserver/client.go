@@ -87,9 +87,9 @@ type Status struct {
 	BoundTopologyBaseConfigPath string           `json:"boundTopologyBaseConfigPath"`
 	BoundTopologyConfigPath     string           `json:"boundTopologyConfigPath"`
 	HostBridge                  HostBridgeStatus `json:"hostBridge"`
-	Localtest                   LocaltestStatus  `json:"localtest"`
 	Apps                        []DiscoveredApp  `json:"apps"`
 	ProcessID                   int              `json:"processId"`
+	Localtest                   LocaltestStatus  `json:"localtest"`
 	InternalDev                 bool             `json:"internalDev"`
 }
 
@@ -339,12 +339,12 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 			Enabled   bool   `json:"enabled"`
 			Connected bool   `json:"connected"`
 		} `json:"hostBridge"`
+		Apps      []statusApp `json:"apps"`
+		ProcessID int         `json:"processId"`
 		Localtest struct {
 			RegisterApps bool `json:"registerApps"`
 		} `json:"localtest"`
-		Apps        []statusApp `json:"apps"`
-		ProcessID   int         `json:"processId"`
-		InternalDev bool        `json:"internalDev"`
+		InternalDev bool `json:"internalDev"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
 		return nil, fmt.Errorf("decode status response: %w", err)
