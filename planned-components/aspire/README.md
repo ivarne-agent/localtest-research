@@ -11,14 +11,16 @@
   and Dialogporten smoke tests pass through its front door, and persistent containers survive AppHost restarts.
   Aspire's container tunnel does not build on this Podman and is switched off (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`),
   so an app on the host is reached through `host.docker.internal` and the host gateway.
-- **21e phase 1 done** (2026-10-22, branch `task/aspire-app`): the app's environment is the manifest's `app` section,
+- **21e done** (2026-10-22, branch `task/aspire-app`): the app's environment is the manifest's `app` section,
   which `studioctl run` loads (its output pinned by a golden file) and the package reads;
   `AddAltinnApp<Projects.App>(localtest)` adds the app project with that environment, one endpoint on an Aspire-assigned
   port on every interface, the `/{org}/{app}` front-door route, provisioning when the app is healthy (a failure is a
   degraded health check, not a failed start), and the `provision`, `deprovision` and `reset` commands. The package
   refuses to start while port 8000 is taken. The sample is `localtest/aspire/samples/app/` (the `ttd/testapp` fixture
   as an app on app-lib 8.12.15, and its single-file AppHost), and `.github/workflows/aspire-package.yml` publishes the
-  package to GitHub Packages. Unit-tested only; phase 2 runs the sample under Podman.
+  package to GitHub Packages. Phase 2 ran the sample under Podman: the app through the front door, provisioned,
+  signed in to and submitted in a browser, the commands from the dashboard, a first start on empty volumes after `reset`,
+  and the root and authentication smoke tests; the workflow runs after the merge.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository
