@@ -117,6 +117,52 @@
       }
     ]
   },
+  "app": {
+    "description": "The environment an app runs with against this stack, set by every runner: studioctl's `run` and `app env` (internal/cmd/app/env.go) and the Aspire package's AddAltinnApp. The runner adds the Kestrel URL, the frontend asset base URL, the OpenTelemetry endpoint, the data-protection keys directory and the secrets directory's path.",
+    "environment": {
+      "ASPNETCORE_ENVIRONMENT": "Development",
+      "AppSettings__OpenIdWellKnownEndpoint": "{{url:platform}}/authentication/api/v1/openid/",
+      "GeneralSettings__ExternalAppBaseUrl": "{{url:app}}/{org}/{app}/",
+      "GeneralSettings__HostName": "{{host:app}}",
+      "PlatformSettings__ApiAccessManagementEndpoint": "{{url:platform}}/accessmanagement/api/v1/",
+      "PlatformSettings__ApiAuthenticationEndpoint": "{{url:platform}}/authentication/api/v1/",
+      "PlatformSettings__ApiAuthorizationEndpoint": "{{url:platform}}/authorization/api/v1/",
+      "PlatformSettings__ApiCorrespondenceEndpoint": "{{url:platform}}/correspondence/api/v1/",
+      "PlatformSettings__ApiEventsEndpoint": "{{url:platform}}/events/api/v1/",
+      "PlatformSettings__ApiNotificationEndpoint": "{{url:platform}}/notifications/api/v1/",
+      "PlatformSettings__ApiPdf2Endpoint": "{{url:pdf}}/pdf",
+      "PlatformSettings__ApiProfileEndpoint": "{{url:platform}}/profile/api/v1/",
+      "PlatformSettings__ApiRegisterEndpoint": "{{url:platform}}/register/api/v1/",
+      "PlatformSettings__ApiStorageEndpoint": "{{url:platform}}/storage/api/v1/",
+      "PlatformSettings__ApiWorkflowEngineEndpoint": "{{url:workflowEngine}}/api/v1/"
+    },
+    "fixedEnvironment": {
+      "STUDIOCTL_APP_RUN": "1"
+    },
+    "accessTokenSigning": {
+      "AccessTokenSettings__AccessTokenSigningCertificateFileName": "{{certFileName}}",
+      "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{appCertPath}}",
+      "AccessTokenSettings__AccessTokenSigningKeysFolder": "{{appCertKeysFolder}}"
+    },
+    "secrets": {
+      "directoryEnv": "RUNTIME_APP_SECRETS_DIR",
+      "files": [
+        {
+          "name": "maskinporten",
+          "description": "The app's Maskinporten client, stored by `studioctl app maskinporten set`; no runner writes it on its own.",
+          "env": "RUNTIME_APP_SECRETS_MASKINPORTEN_FILENAME",
+          "fileName": "maskinporten-settings.json"
+        },
+        {
+          "name": "appCodes",
+          "description": "The callback verification codes: the development code for the workflow engine's callbacks, which every runner writes before the app starts (studioctl's appsecrets.WriteDevelopmentAppCodes; the Aspire package writes the same bytes).",
+          "env": "RUNTIME_APP_SECRETS_APPCODES_FILENAME",
+          "fileName": "app-codes.json",
+          "writtenOnEveryRun": true
+        }
+      ]
+    }
+  },
   "groups": {
     "dialogporten": {
       "description": "Dialogporten: Redis, the WebApi, GraphQL and Service hosts, and the adapter that turns Storage's instances into dialogs. Apps never call Dialogporten, so the default stack leaves it out and saves about 0.75 GB of memory (about 0.5 GB for the hosts and Redis, 0.26 GB for the adapter).",

@@ -18,6 +18,7 @@ same file.
 | `volumes` | Every named volume; `env reset` deletes them |
 | `postgres` | The Postgres component, its user and password, and `initScripts`: what `localtest/postgres/Dockerfile` copies into the image (a test checks they agree) |
 | `frontDoor` | The front door's health path and its routes to ports on the host itself (`hostRoutes`: the frontend dev server) |
+| `app` | The environment an app runs with against the stack, which every runner sets: studioctl's `run` and `app env`, and the Aspire package's `AddAltinnApp` (see [The app section](#the-app-section)) |
 | `groups` | The optional groups: `onByDefault`, `implies`, or `impliesAll` for `everything` |
 | `components` | Every container; the runtime starts each after its `dependsOn` |
 
@@ -56,11 +57,41 @@ of the prefix. The `dev` build has a `context` relative to the `localtest/` fold
 context (default `Dockerfile`), and a `selector`, the `--dev` name, when several components are built together
 (`dialogporten`, `arbeidsflate`); without one the selector is the component's name.
 
+## The app section
+
+What an app is started with (task 21e). studioctl's `internal/cmd/app/env.go` is its loader, and
+`localtest/aspire/Altinn.App.Aspire` reads the same section for an app project in an Aspire AppHost.
+
+| Key | What |
+| --- | --- |
+| `environment` | The platform endpoints (`PlatformSettings__Api*Endpoint`), `GeneralSettings__ExternalAppBaseUrl` and `HostName`, `AppSettings__OpenIdWellKnownEndpoint`, `ASPNETCORE_ENVIRONMENT`. studioctl sets each unless the shell it runs in already has the variable |
+| `fixedEnvironment` | `STUDIOCTL_APP_RUN=1`, set on every run whatever the shell holds |
+| `accessTokenSigning` | The `AccessTokenSettings__*` certificate variables, set like `environment` when the runner has the shared certificate (studioctl: while `localtest-v2` is up; the Aspire package: always) |
+| `secrets` | `directoryEnv` (`RUNTIME_APP_SECRETS_DIR`, set to the directory the runner creates) and the `files` in it, each with the variable that names it and its `fileName`; `writtenOnEveryRun` marks the development app codes every runner writes with the same bytes (a Go test keeps studioctl's `appsecrets` names equal to these, and the Aspire package's test compares its bytes with `internal/appsecrets/testdata/app-codes.golden.json`) |
+
+The runner adds what only it knows: the Kestrel URL, `AppSettings__AppFrontendAssetBaseUrl` (`--dev-frontend`),
+`OTEL_EXPORTER_OTLP_ENDPOINT` (studioctl's collector; under Aspire, the dashboard, which Aspire sets),
+`ALTINN_KEYS_DIRECTORY` (an app container) and the secrets directory's path.
+
+The certificate variables need two values only the runner knows, so the section has two placeholders of its own,
+allowed in `accessTokenSigning` only (`Parse` refuses them anywhere else):
+
+| Placeholder | Value |
+| --- | --- |
+| `{{appCertPath}}` | The certificate as the app opens it (app-lib v8's 3.x access token client reads the full path): the host path for a process run (`~/.altinn-studio/.../certs/localtest-accesstoken.pfx`, the Aspire package's `~/.altinn-app-aspire/certs/...`), `/certs/localtest-accesstoken.pfx` in an app container |
+| `{{appCertKeysFolder}}` | The certificate's directory as the 1.x client (the v9 backend) resolves it: appended to the parent of the app's working directory (the app root), so a process run gets a traversal from the app root with a leading and a trailing slash (`/../../.altinn-studio/localtest-v2/certs/`), an app container `/certs/` |
+
+`{{certFileName}}` (`certificate.fileName`) is valid everywhere. studioctl's golden file of the app environment,
+`internal/cmd/app/testdata/app-environment.golden.json`, was taken before the section existed, for the option
+combinations the run tests cover (a process run with and without `localtest-v2`, a random port, an inherited
+environment, `--dev-frontend`, ingress port 80, an app container), and holds the loader to it; the Aspire package
+compares its expansion with the snapshot's `native-localtest-v2` case.
+
 ## Placeholders
 
-`{{name}}` or `{{name:argument}}` in an environment value, a command argument, a container health check argument, a
-route host or a front-door host route's host. Single braces (`{0}`, `{Org}`) belong to the components and pass through
-unchanged. An unknown placeholder, or one naming a component that does not exist, fails `Parse`.
+`{{name}}` or `{{name:argument}}` in an environment value (of a component or the app section), a command argument, a
+container health check argument, a route host or a front-door host route's host. Single braces (`{0}`, `{Org}`,
+`{org}`) belong to the components and the app and pass through unchanged. An unknown placeholder, or one naming a component that does not exist, fails `Parse`.
 
 | Placeholder | Value (default topology) |
 | --- | --- |
@@ -70,7 +101,9 @@ unchanged. An unknown placeholder, or one naming a component that does not exist
 | `{{alias:<component>}}` | The first network alias of a component: `{{alias:postgres}}` is `postgres` |
 | `{{port:<component>}}` | The container port of a component: `{{port:postgres}}` is `5432` |
 | `{{certPath}}` | The certificate's path in a container that mounts its directory: `/certs/localtest-accesstoken.pfx` |
+| `{{certFileName}}` | The certificate's file name: `localtest-accesstoken.pfx` |
 | `{{postgresUser}}`, `{{postgresPassword}}` | `postgres.user` and `postgres.password` |
+| `{{appCertPath}}`, `{{appCertKeysFolder}}` | The runner's; `app.accessTokenSigning` only, see [The app section](#the-app-section) |
 
 The topology components are studioctl's (`internal/envtopology/topology.yaml`); the ingress port follows the topology,
 so `{{platform}}` changes with it.

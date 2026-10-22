@@ -50,6 +50,9 @@ func (m *Manifest) check() error {
 	if err := m.checkRoutes(); err != nil {
 		return err
 	}
+	if err := m.checkApp(); err != nil {
+		return err
+	}
 	if pg, ok := byName[m.Postgres.Component]; !ok || pg.Group != "" {
 		return fmt.Errorf("%w: postgres.component %q is not an always-on component", errReference, m.Postgres.Component)
 	}

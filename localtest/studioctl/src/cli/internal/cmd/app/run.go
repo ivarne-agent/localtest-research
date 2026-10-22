@@ -19,6 +19,7 @@ import (
 	repocontext "altinn.studio/studioctl/internal/context"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 	"altinn.studio/studioctl/internal/osutil"
 )
 
@@ -149,50 +150,44 @@ func (s *Service) BuildDotnetRunSpec(
 	}, nil
 }
 
-// nativeAccessTokenSigning points a process run at the localtest-v2 certificate, or at nothing when that
-// runtime is not up. KeysFolder is a traversal from the app root (the parent of the App/ working
+// nativeAccessTokenSigning points a process run at the localtest-v2 certificate, or at nothing (nil) when that
+// runtime is not up. The keys folder is a traversal from the app root (the parent of the App/ working
 // directory) to the certificate directory, which is what the 1.x client resolves.
-func (s *Service) nativeAccessTokenSigning(appPath string) (accessTokenSigning, error) {
+func (s *Service) nativeAccessTokenSigning(appPath string) (*manifest.AppCertificate, error) {
 	state, up, err := localtestv2.ReadState(s.cfg)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("read localtest-v2 state: %w", err)
+		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	if !up {
-		return noAccessTokenSigning(), nil
+		return nil, nil //nolint:nilnil // No certificate: the localtest runtime does not check access tokens.
 	}
 	appRoot, err := filepath.Abs(appPath)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("resolve app path: %w", err)
+		return nil, fmt.Errorf("resolve app path: %w", err)
 	}
 	rel, err := filepath.Rel(appRoot, state.CertificateDir)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("relate certificate directory to app: %w", err)
+		return nil, fmt.Errorf("relate certificate directory to app: %w", err)
 	}
-	return accessTokenSigning{
-		FullPath:   state.CertificatePath(),
+	return &manifest.AppCertificate{
+		Path:       state.CertificatePath(),
 		KeysFolder: "/" + filepath.ToSlash(rel) + "/",
-		FileName:   localtestv2.CertificateFileName,
 	}, nil
 }
 
-func noAccessTokenSigning() accessTokenSigning {
-	return accessTokenSigning{FullPath: "", KeysFolder: "", FileName: ""}
-}
-
 // containerAccessTokenSigning mounts the localtest-v2 certificate into an app container at a fixed
-// path, or mounts nothing when that runtime is not up.
-func (s *Service) containerAccessTokenSigning() (accessTokenSigning, string, error) {
+// path, or mounts nothing (nil) when that runtime is not up.
+func (s *Service) containerAccessTokenSigning() (*manifest.AppCertificate, string, error) {
 	state, up, err := localtestv2.ReadState(s.cfg)
 	if err != nil {
-		return accessTokenSigning{}, "", fmt.Errorf("read localtest-v2 state: %w", err)
+		return nil, "", fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	if !up {
-		return noAccessTokenSigning(), "", nil
+		return nil, "", nil
 	}
-	return accessTokenSigning{
-		FullPath:   containerCertificateDir + "/" + localtestv2.CertificateFileName,
+	return &manifest.AppCertificate{
+		Path:       containerCertificateDir + "/" + localtestv2.CertificateFileName,
 		KeysFolder: containerCertificateDir + "/",
-		FileName:   localtestv2.CertificateFileName,
 	}, state.CertificateDir, nil
 }
 

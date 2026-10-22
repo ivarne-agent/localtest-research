@@ -11,6 +11,7 @@ import (
 	"altinn.studio/devenv/pkg/resource"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
+	statev2 "altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
@@ -137,7 +138,7 @@ func allComponents(opts *Options) []component {
 // loadComponents resolves the manifest's components against the options: images, topology placeholders, the host
 // certificate directory.
 func loadComponents(m *manifest.Manifest, opts *Options) ([]component, error) {
-	topology := manifestTopology{local: opts.Topology}
+	topology := manifestTopology{Local: opts.Topology}
 	out := make([]component, 0, len(m.Components))
 	for _, mc := range m.Components {
 		c, err := loadComponent(m, mc, opts, topology)
@@ -324,28 +325,11 @@ func portString(port int) string {
 }
 
 // manifestTopology resolves the manifest's topology placeholders ({{url:...}}, {{host:...}}) against envtopology.
-type manifestTopology struct {
-	local envtopology.Local
-}
-
-func (t manifestTopology) PublicURL(id string) (string, bool) {
-	if _, ok := t.local.Component(envtopology.ComponentID(id)); !ok {
-		return "", false
-	}
-	return t.local.PublicBaseURL(envtopology.ComponentID(id)), true
-}
-
-func (t manifestTopology) PublicHost(id string) (string, bool) {
-	component, ok := t.local.Component(envtopology.ComponentID(id))
-	if !ok {
-		return "", false
-	}
-	return component.Host(), true
-}
+type manifestTopology = statev2.ManifestTopology
 
 // expandTopology resolves a string that may only hold topology placeholders, such as a front-door host route's host.
 func expandTopology(opts *Options, s string) string {
-	expanded, err := stack().Expand(s, manifestTopology{local: opts.Topology})
+	expanded, err := stack().Expand(s, manifestTopology{Local: opts.Topology})
 	if err != nil {
 		panic(fmt.Sprintf("localtest-v2 component manifest: %v: %v", errManifestTopology, err))
 	}

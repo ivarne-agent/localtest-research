@@ -1,11 +1,14 @@
 package app
 
 import (
+	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
-	"altinn.studio/studioctl/internal/appsecrets"
 	"altinn.studio/studioctl/internal/envtopology"
+	statev2 "altinn.studio/studioctl/internal/localtestv2"
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // EnvKeysDirectory is the environment variable the app libraries read their data-protection keys
@@ -16,22 +19,13 @@ type appEnv struct {
 	values map[string]string
 }
 
-// accessTokenSigning is the certificate an app signs its platform access tokens with. The localtest
-// runtime never checked those tokens, so a run against it sets nothing; the localtest-v2 components
-// validate them, so a run against that runtime gets the shared test certificate.
+// The certificate an app signs its platform access tokens with is a *manifest.AppCertificate. The localtest
+// runtime never checked those tokens, so a run against it gets nil and no signing variables; the localtest-v2
+// components validate them, so a run against that runtime gets the shared test certificate.
 //
-// Two generations of Altinn.Common.AccessTokenClient read the settings differently: 3.x (app-lib v8)
-// opens FullPath, and 1.x (the v9 backend) concatenates the parent of the working directory, KeysFolder
-// and FileName without separators, so KeysFolder is a path that resolves from there.
-type accessTokenSigning struct {
-	FullPath   string
-	KeysFolder string
-	FileName   string
-}
-
-func (a accessTokenSigning) isZero() bool {
-	return a.FullPath == ""
-}
+// Two generations of Altinn.Common.AccessTokenClient read the settings differently: 3.x (app-lib v8) opens
+// the full path, and 1.x (the v9 backend) concatenates the parent of the working directory, the keys folder
+// and the file name without separators, so the keys folder is a path that resolves from there.
 
 // newAppRunEnv builds the environment an app is started with. secretsDir is required - every run is given a
 // secrets directory, and the caller has created it by now; keysDir is set only where studioctl decides where
@@ -43,7 +37,7 @@ func newAppRunEnv(
 	appFrontendAssetBaseUrl string,
 	secretsDir string,
 	keysDir string,
-	signing accessTokenSigning,
+	signing *manifest.AppCertificate,
 ) []string {
 	env := newAppEnv(current)
 	env.addRunDefaults(kestrelURL, topology, appFrontendAssetBaseUrl, secretsDir, keysDir, signing)
@@ -64,60 +58,46 @@ func newAppEnv(current []string) appEnv {
 	return appEnv{values: values}
 }
 
+// addRunDefaults sets the manifest's app section (internal/localtestv2/manifest, "app"), then what only this
+// runner knows: the keys directory, the Kestrel URL, the frontend asset base URL and the OpenTelemetry endpoint.
 func (e appEnv) addRunDefaults(
 	kestrelURL string,
 	topology envtopology.Local,
 	appFrontendAssetBaseUrl string,
 	secretsDir string,
 	keysDir string,
-	signing accessTokenSigning,
+	signing *manifest.AppCertificate,
 ) {
-	endpoints := newAppEndpointConfig(topology)
-
-	e.values["STUDIOCTL_APP_RUN"] = "1"
-	// Where the app's secrets are and what every file in that directory is called, named for the app exactly
-	// as the platform names them for a deployed app - the same variables the operator's configuration map
-	// sets in every environment (infra/runtime/apps-config/base/apps-runtime-common-env.yaml), because
-	// studioctl is the platform for a local run. All three are set on every run: the app libraries require
-	// them and fall back to nothing, and the directory is there by the time a spec is built, holding the
-	// callback verification codes studioctl provisions for every local run. The Maskinporten client stored
-	// with `studioctl app maskinporten set` lands under the name advertised here, and a client stored while
-	// the app runs is picked up without a restart. None of the three is taken from the inherited
-	// environment: the contract is studioctl's to state, not the shell's.
-	e.values[appsecrets.EnvSecretsDir] = secretsDir
-	e.values[appsecrets.EnvMaskinportenFileName] = appsecrets.MaskinportenFileName
-	e.values[appsecrets.EnvAppCodesFileName] = appsecrets.AppCodesFileName
+	// The secrets variables and STUDIOCTL_APP_RUN are fixed: where the app's secrets are and what every file
+	// in that directory is called, named for the app exactly as the platform names them for a deployed app -
+	// the same variables the operator's configuration map sets in every environment
+	// (infra/runtime/apps-config/base/apps-runtime-common-env.yaml), because studioctl is the platform for a
+	// local run. They are set on every run: the app libraries require them and fall back to nothing, and the
+	// directory is there by the time a spec is built, holding the callback verification codes studioctl
+	// provisions for every local run. The Maskinporten client stored with `studioctl app maskinporten set`
+	// lands under the name advertised here, and a client stored while the app runs is picked up without a
+	// restart. None of them is taken from the inherited environment: the contract is studioctl's to state,
+	// not the shell's. The rest of the section is a default the inherited environment can override.
+	app, err := manifest.MustDefault().AppEnvironment(statev2.ManifestTopology{Local: topology}, secretsDir, signing)
+	if err != nil {
+		// Only a change to the embedded manifest can cause this, and the golden test catches it.
+		panic(fmt.Sprintf("localtest-v2 component manifest: app section: %v", err))
+	}
+	maps.Copy(e.values, app.Fixed)
 	// Where the app persists its data-protection keys, which is the one part a run can leave unsaid: a
 	// native run keeps the app libraries' default, the developer's own home directory, and only a container
 	// run is told a directory, the one studioctl mounts for it, as the platform tells a deployed app.
 	if keysDir != "" {
 		e.values[EnvKeysDirectory] = keysDir
 	}
-	e.setDefault("ASPNETCORE_ENVIRONMENT", "Development")
+	for key, value := range app.Defaults {
+		e.setDefault(key, value)
+	}
 	e.setDefault("Kestrel__EndPoints__Http__Url", kestrelURL)
 	if appFrontendAssetBaseUrl != "" {
 		e.values["AppSettings__AppFrontendAssetBaseUrl"] = appFrontendAssetBaseUrl
 	}
-	e.setDefault("AppSettings__OpenIdWellKnownEndpoint", endpoints.platform+"/authentication/api/v1/openid/")
-	e.setDefault("GeneralSettings__ExternalAppBaseUrl", topology.AppBaseURL())
-	e.setDefault("GeneralSettings__HostName", topology.AppHostName())
 	e.setDefault("OTEL_EXPORTER_OTLP_ENDPOINT", topology.OTelURL())
-	e.setDefault("PlatformSettings__ApiStorageEndpoint", endpoints.platform+"/storage/api/v1/")
-	e.setDefault("PlatformSettings__ApiRegisterEndpoint", endpoints.platform+"/register/api/v1/")
-	e.setDefault("PlatformSettings__ApiProfileEndpoint", endpoints.platform+"/profile/api/v1/")
-	e.setDefault("PlatformSettings__ApiAuthenticationEndpoint", endpoints.platform+"/authentication/api/v1/")
-	e.setDefault("PlatformSettings__ApiAuthorizationEndpoint", endpoints.platform+"/authorization/api/v1/")
-	e.setDefault("PlatformSettings__ApiEventsEndpoint", endpoints.platform+"/events/api/v1/")
-	e.setDefault("PlatformSettings__ApiPdf2Endpoint", endpoints.pdf)
-	e.setDefault("PlatformSettings__ApiNotificationEndpoint", endpoints.platform+"/notifications/api/v1/")
-	e.setDefault("PlatformSettings__ApiCorrespondenceEndpoint", endpoints.platform+"/correspondence/api/v1/")
-	e.setDefault("PlatformSettings__ApiAccessManagementEndpoint", endpoints.platform+"/accessmanagement/api/v1/")
-	e.setDefault("PlatformSettings__ApiWorkflowEngineEndpoint", endpoints.workflowEngine)
-	if !signing.isZero() {
-		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath)
-		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
-		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
-	}
 }
 
 func (e appEnv) setDefault(key, value string) {

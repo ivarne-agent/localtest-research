@@ -55,6 +55,7 @@ type Manifest struct {
 	Postgres        Postgres         `json:"postgres"`
 	Volumes         []Volume         `json:"volumes"`
 	Components      []Component      `json:"components"`
+	App             App              `json:"app"`
 	Version         int              `json:"version"`
 }
 

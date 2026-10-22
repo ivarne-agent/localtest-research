@@ -28,6 +28,15 @@ const (
 	PlaceholderPostgresUser = "postgresUser"
 	// PlaceholderPostgresPassword is postgres.password.
 	PlaceholderPostgresPassword = "postgresPassword"
+	// PlaceholderCertFileName is the shared certificate's file name, certificate.fileName.
+	PlaceholderCertFileName = "certFileName"
+	// PlaceholderAppCertPath is the shared certificate's path as the app opens it, which its runner supplies (a host
+	// path for a process, the mount for an app container); only app.accessTokenSigning may use it.
+	PlaceholderAppCertPath = "appCertPath"
+	// PlaceholderAppCertKeysFolder is the certificate's directory as the 1.x access token client resolves it: appended
+	// to the parent of the app's working directory, with a leading and a trailing slash. The runner supplies it; only
+	// app.accessTokenSigning may use it.
+	PlaceholderAppCertKeysFolder = "appCertKeysFolder"
 )
 
 // TopologyApp is the topology component of the public origin, which {{platform}} names.
@@ -42,6 +51,7 @@ var (
 	errPlaceholderSyntax  = errors.New("unterminated placeholder")
 	errUnknownPlaceholder = errors.New("unknown placeholder")
 	errPlaceholderArg     = errors.New("bad placeholder argument")
+	errAppPlaceholder     = errors.New("only app.accessTokenSigning may use the runner's certificate placeholders")
 )
 
 // Topology resolves the topology placeholders ({{url:...}}, {{host:...}}); envtopology's component IDs are the
@@ -62,7 +72,8 @@ func takesArgument(name string) (needsArg, known bool) {
 	switch name {
 	case PlaceholderURL, PlaceholderHost, PlaceholderAlias, PlaceholderPort:
 		return true, true
-	case PlaceholderPlatform, PlaceholderCertPath, PlaceholderPostgresUser, PlaceholderPostgresPassword:
+	case PlaceholderPlatform, PlaceholderCertPath, PlaceholderPostgresUser, PlaceholderPostgresPassword,
+		PlaceholderCertFileName, PlaceholderAppCertPath, PlaceholderAppCertKeysFolder:
 		return false, true
 	default:
 		return false, false
@@ -134,7 +145,23 @@ func (m *Manifest) ExpandAll(values []string, topology Topology) ([]string, erro
 }
 
 func (m *Manifest) resolve(p placeholder, topology Topology) (string, error) {
+	return m.resolveWith(p, topology, nil)
+}
+
+// resolveWith resolves a placeholder; certificate is the runner's certificate for app.accessTokenSigning and nil
+// everywhere else.
+func (m *Manifest) resolveWith(p placeholder, topology Topology, certificate *AppCertificate) (string, error) {
 	switch p.name {
+	case PlaceholderAppCertPath, PlaceholderAppCertKeysFolder:
+		if certificate == nil {
+			return "", errAppPlaceholder
+		}
+		if p.name == PlaceholderAppCertPath {
+			return certificate.Path, nil
+		}
+		return certificate.KeysFolder, nil
+	case PlaceholderCertFileName:
+		return m.Certificate.FileName, nil
 	case PlaceholderPlatform:
 		return topologyValue(topology.PublicURL, TopologyApp, "/")
 	case PlaceholderURL:

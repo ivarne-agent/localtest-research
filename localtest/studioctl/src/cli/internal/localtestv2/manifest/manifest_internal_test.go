@@ -114,6 +114,26 @@ func TestParseRefusesWhatTheSchemaCannotCheck(t *testing.T) {
 			check["interval"] = "often"
 		}, nil},
 		"unknown field": {func(m map[string]any) { componentNamed(m, "storage")["replicas"] = 2 }, nil},
+		"the app's certificate placeholder in a component": {func(m map[string]any) {
+			env := asObject(componentNamed(m, "storage")["environment"])
+			env["X"] = "{{appCertPath}}"
+		}, errAppPlaceholder},
+		"the app's certificate placeholder outside accessTokenSigning": {func(m map[string]any) {
+			env := asObject(asObject(m["app"])["environment"])
+			env["X"] = "{{appCertKeysFolder}}"
+		}, errAppPlaceholder},
+		"an app variable in two sections": {func(m map[string]any) {
+			fixed := asObject(asObject(m["app"])["fixedEnvironment"])
+			fixed["ASPNETCORE_ENVIRONMENT"] = "Development"
+		}, errAppKey},
+		"a secrets variable in a section": {func(m map[string]any) {
+			env := asObject(asObject(m["app"])["environment"])
+			env["RUNTIME_APP_SECRETS_DIR"] = "/tmp"
+		}, errAppKey},
+		"an unknown placeholder in the app section": {func(m map[string]any) {
+			env := asObject(asObject(m["app"])["environment"])
+			env["X"] = "{{secretsDir}}"
+		}, errUnknownPlaceholder},
 	}
 	for name, tc := range cases {
 		err := mutated(t, tc.mutate)
@@ -159,6 +179,52 @@ func TestThePlaceholders(t *testing.T) {
 	}
 	if _, err := m.Expand("{{url:grafana}}", topology); !errors.Is(err, errPlaceholderArg) {
 		t.Errorf("a topology component the topology does not know: %v", err)
+	}
+}
+
+func TestTheAppEnvironment(t *testing.T) {
+	t.Parallel()
+	m := MustDefault()
+	topology := fakeTopology{
+		"app": "local.altinn.cloud", "platform": "local.altinn.cloud",
+		"pdf": "pdf.local.altinn.cloud", "workflowEngine": "workflow-engine.local.altinn.cloud",
+	}
+	without, err := m.AppEnvironment(topology, "/secrets", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, set := without.Defaults["AccessTokenSettings__AccessTokenSigningCertificateFullPath"]; set {
+		t.Error("the signing variables are set without a certificate")
+	}
+	with, err := m.AppEnvironment(topology, "/secrets", &AppCertificate{Path: "/c/x.pfx", KeysFolder: "/../c/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/c/x.pfx",
+		"AccessTokenSettings__AccessTokenSigningKeysFolder":          "/../c/",
+		"AccessTokenSettings__AccessTokenSigningCertificateFileName": "localtest-accesstoken.pfx",
+		"GeneralSettings__ExternalAppBaseUrl":                        "http://local.altinn.cloud:8000/{org}/{app}/",
+		"PlatformSettings__ApiPdf2Endpoint":                          "http://pdf.local.altinn.cloud:8000/pdf",
+	}
+	for key, value := range want {
+		if with.Defaults[key] != value {
+			t.Errorf("%s = %q, want %q", key, with.Defaults[key], value)
+		}
+	}
+	fixed := map[string]string{
+		"STUDIOCTL_APP_RUN":                         "1",
+		"RUNTIME_APP_SECRETS_DIR":                   "/secrets",
+		"RUNTIME_APP_SECRETS_APPCODES_FILENAME":     "app-codes.json",
+		"RUNTIME_APP_SECRETS_MASKINPORTEN_FILENAME": "maskinporten-settings.json",
+	}
+	if len(with.Fixed) != len(fixed) {
+		t.Errorf("fixed = %v, want %v", with.Fixed, fixed)
+	}
+	for key, value := range fixed {
+		if with.Fixed[key] != value {
+			t.Errorf("%s = %q, want %q", key, with.Fixed[key], value)
+		}
 	}
 }
 

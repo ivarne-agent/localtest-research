@@ -14,6 +14,7 @@
     "volumes",
     "postgres",
     "frontDoor",
+    "app",
     "groups",
     "components"
   ],
@@ -237,6 +238,90 @@
         }
       }
     },
+    "app": {
+      "title": "App environment",
+      "description": "The environment an app runs with against this stack, which every runner sets: studioctl's `run` and `app env` (internal/cmd/app/env.go) and the Aspire package's AddAltinnApp. The runner adds what only it knows: the Kestrel URL, the frontend asset base URL, the OpenTelemetry endpoint, the data-protection keys directory and the secrets directory's path. A variable appears in one section only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "fixedEnvironment", "accessTokenSigning", "secrets"],
+      "properties": {
+        "description": {
+          "title": "Description",
+          "description": "What the section is for.",
+          "type": "string"
+        },
+        "environment": {
+          "title": "Environment",
+          "description": "Set on every run unless the environment the app inherits (studioctl's shell) already has the variable. Values may hold the topology placeholders ({{platform}}, {{url:...}}, {{host:...}}) and {{certFileName}}; single braces ({org}, {app}) are the app's own and pass through unchanged.",
+          "$ref": "#/$defs/appVariables"
+        },
+        "fixedEnvironment": {
+          "title": "Fixed environment",
+          "description": "Set on every run whatever the inherited environment holds: the contract is the runner's to state, not the shell's.",
+          "$ref": "#/$defs/appVariables"
+        },
+        "accessTokenSigning": {
+          "title": "Access token signing",
+          "description": "The certificate the app signs its platform access tokens with, set like environment when the runner has the shared certificate (studioctl: while localtest-v2 is up; the Aspire package: always). Values may also hold the runner's {{appCertPath}} and {{appCertKeysFolder}}, which only this section may use.",
+          "$ref": "#/$defs/appVariables"
+        },
+        "secrets": {
+          "title": "Secrets directory",
+          "description": "The app's secrets directory and the files in it, named as the platform names them for a deployed app (the operator's configuration map). Every variable here is fixed. The runner sets directoryEnv to the directory it creates.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["directoryEnv", "files"],
+          "properties": {
+            "directoryEnv": {
+              "title": "Directory variable",
+              "description": "The variable holding the secrets directory's path.",
+              "$ref": "#/$defs/envName"
+            },
+            "files": {
+              "title": "Files",
+              "description": "The files the app reads from the directory.",
+              "type": "array",
+              "items": {
+                "title": "Secrets file",
+                "description": "One file of the secrets directory and the variable that names it.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "env", "fileName"],
+                "properties": {
+                  "name": {
+                    "title": "Name",
+                    "description": "The file's name in this manifest, for the runners' code.",
+                    "type": "string",
+                    "pattern": "^[a-z][A-Za-z0-9]*$"
+                  },
+                  "description": {
+                    "title": "Description",
+                    "description": "What the file holds and who writes it.",
+                    "type": "string"
+                  },
+                  "env": {
+                    "title": "Variable",
+                    "description": "The variable that names the file; its value is fileName.",
+                    "$ref": "#/$defs/envName"
+                  },
+                  "fileName": {
+                    "title": "File name",
+                    "description": "The file's name in the secrets directory.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "writtenOnEveryRun": {
+                    "title": "Written on every run",
+                    "description": "Every runner writes the file before the app starts, with the same bytes. Otherwise the developer stores it (studioctl app maskinporten set).",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "groups": {
       "title": "Optional component groups",
       "description": "`env up --with <group>` enables a group and, transitively, the groups it implies; `--without <group>` leaves out only the named group, and leaving out a group an enabled group implies is an error. A component with a group exists only while its group is enabled; its routes are written either way, disabled while the group is off, so the front door answers 503 with the command that starts it.",
@@ -283,6 +368,19 @@
     }
   },
   "$defs": {
+    "envName": {
+      "title": "Variable name",
+      "description": "An environment variable's name.",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "appVariables": {
+      "title": "App variables",
+      "description": "Environment variables by name, with placeholders in the values.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "type": "string", "title": "Value", "description": "The variable's value, with placeholders resolved by the runner." }
+    },
     "name": {
       "title": "Name",
       "description": "A lower-case name: letters, digits and dashes.",
