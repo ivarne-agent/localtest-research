@@ -58,6 +58,9 @@ A path matching no route still falls through to the localtest app.
 | 22 | [app-lib honours an explicit localtest environment](#22-app-lib-honours-an-explicit-localtest-environment) | unapproved (follow-up of 21; two items: the explicit environment, and `keepAlive`'s `Secure` from the request, decided 2026-10-21) | small | no |
 | 23 | [HTTPS for the Aspire-hosted stack](#23-https-for-the-aspire-hosted-stack) | research done (2026-10-22, commit 43915959, `planned-components/aspire/https.md`: yes, Aspire 13.6 terminates TLS at the YARP front door with a package-generated CA and server certificate and gives every container the CA without image changes; follow-up task 24) | small | no |
 | 24 | [HTTPS mode for the Aspire package](#24-https-mode-for-the-aspire-package) | unapproved (follow-up of 23) | medium | no |
+| 25 | [Service discovery in the components](#25-service-discovery-in-the-components) | research running (dispatched 2026-10-22, Opus, brief `/home/agent/code/.briefs/task25-service-discovery.md`; first step of the simplification below) | small | no |
+| 26 | [The localtest container as the shared front door](#26-the-localtest-container-as-the-shared-front-door) | unapproved (decided direction 2026-10-22; after 25) | large | yes |
+| 27 | [Manifest v2: services only](#27-manifest-v2-services-only) | unapproved (decided direction 2026-10-22; after 26) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -715,3 +718,54 @@ task 22's keepAlive gap disappears. studioctl parity (studioctl-server terminati
 second step. Effort from the research: 4.5 to 6 days for the package, 2 to 3 more for studioctl. Not verified by the
 research: the full stack over https, browsers, pdf3's Chromium trust, the app process trusting the CA, Docker.
 
+## Simplification (decided 2026-10-22)
+
+**Owner's direction.** The manifest is too detailed, "a docker compose format in JSON": 711 lines plus a 688-line schema,
+two readers (Go and C#), a consistency checker and a parity workflow, for 22 images. The coordinator's inventory of the
+file: all 76 environment values resolve to the same constants in both runtimes (the public origin, the shared Postgres
+and Redis, the certificate path), the prose is about 200 lines, the per-component host ports are unused by Aspire, the
+Postgres init-script list duplicates the Postgres image, and 17 of 22 routes are `/<name>`. Decisions:
+
+- **Manifest v2** is a map of services: `{"<service>": {"registry", "tag", "envs", "dependsOn", "volumes"}}`. Volumes
+  carry name and bind location (they change with image internals that are not public API). The app is a service
+  without an image whose `dependsOn` is the default stack; optional groups are the services nothing in the default set
+  depends on (`--with x` / `.WithX()` adds a root and its transitive dependencies). No `groups`, `images`, `routes`,
+  `frontDoor`, `postgres`, `hostPort`, `dev`, `description` or `notes` sections; prose moves to the component READMEs.
+- **Service discovery as Aspire does it**: the runtime injects `services__<name>__http__0` for each dependency and
+  containers resolve `http://<service>/` themselves. The components do not follow the convention yet, so until they do
+  the runtime substitutes service names in `envs` URLs and connection strings. Task 25 researches adding
+  `Microsoft.Extensions.ServiceDiscovery` to every .NET component inline in `#if !LOCALTEST` / `#else` blocks (also the
+  ones with no cross-service call today), flagging components that create `HttpClient` outside the factory.
+- **The front door is the localtest container**: a shared YARP proxy in C# inside the localtest image, with the 503
+  fallbacks, the mock HTTP services (Maskinporten, ID-porten), the `Secure` stripping on app routes and the app deploy
+  (provisioning) logic, destinations resolved by service discovery. studioctl-server and the Aspire package stop
+  carrying their own proxy, routes and provisioning; each runtime publishes one port, 8000 from the localtest
+  container. Images we build listen on one conventional port (8080 proposed) and answer `/health`.
+- **Order**: 25 (research) → 26 (front door into the localtest image, deploy as an endpoint fed from the running app)
+  → 27 (manifest v2 and both loaders; the parity suites shrink to one snapshot of resolved environments) → the
+  per-component image changes from 25 as small pin-bump commits.
+
+## 25. Service discovery in the components
+
+**Goal (2026-10-22).** Per component: every outbound HTTP call site (factory clients, `new HttpClient()` flagged,
+other transports), which configured URL it reads, direct-capable or public-origin-only; the registration recipe and
+package versions per target framework; a prototype branch `research/service-discovery` with the registration added
+inline in every vendored .NET composition root, compile-checked one component at a time; what moves into the images
+(a localtest appsettings with service names) and what stays in `envs`; the port and health convention per Dockerfile;
+whether Aspire honours a container `HEALTHCHECK` for `WaitFor`; the YARP service-discovery resolver. Report
+`planned-components/service-discovery.md`.
+
+## 26. The localtest container as the shared front door
+
+**Goal (2026-10-22, after 25).** YARP in the localtest app with routes by host and prefix to service-discovery
+destinations, the 503 page for a destination without an address, the app-route `Secure` stripping (until task 22), the
+deploy endpoint on the provisioning library fed from the running app's URL (posted by `studioctl run` and by
+`AddAltinnApp` on the app's ready event), `deprovision` and `reset` as endpoints; studioctl-server and the Aspire
+package drop their proxies, route tables and provisioning adapters and publish only port 8000 from the container.
+
+## 27. Manifest v2: services only
+
+**Goal (2026-10-22, after 26).** The format above; the Go and C# loaders reduced to: network, one container per
+service in dependency order with alias equal to its name, its volumes, `services__*` for its dependencies, `envs`
+with service names substituted, 8000 published from `localtest`; one golden snapshot of the resolved environments;
+the schema, the checker, the placeholder vocabulary and the Aspire manifest reader's route model removed.
