@@ -30,6 +30,7 @@ public sealed class RegistrationTests : IAsyncLifetime
     ];
 
     private FakeServer _app = null!;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _registered = new();
     private FakeServer _platform = null!;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -53,6 +54,18 @@ public sealed class RegistrationTests : IAsyncLifetime
         _platform = await FakeServer.Start(context =>
         {
             var path = context.Request.Path.Value ?? string.Empty;
+            if (context.Request.Method == "DELETE" && path.StartsWith("/register/", StringComparison.Ordinal) && !_registered.TryRemove(path, out _))
+            {
+                // As the Register: 404 for an app it has no test data for.
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return Task.CompletedTask;
+            }
+
+            if (context.Request.Method == "PUT" && path.StartsWith("/register/", StringComparison.Ordinal))
+            {
+                _registered[path] = true;
+            }
+
             if (path.StartsWith("/authentication/api/v1/exchange/altinnstudio", StringComparison.Ordinal))
             {
                 return context.Response.WriteAsync("\"studio-token\"");
@@ -225,6 +238,18 @@ public sealed class RegistrationTests : IAsyncLifetime
         var detail = (await Body(response)).GetProperty("detail").GetString()!;
         Assert.Contains("POST http://storage/storage/api/v1/applications?appId=ttd/fake-app failed: The endpoint collection contains no endpoints", detail, StringComparison.Ordinal);
         Assert.Contains("services__<name>__http__0 is not set", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeletingAnAppThatWasNeverProvisionedSucceeds()
+    {
+        await using var frontDoor = new FrontDoor(Platform());
+        using var client = frontDoor.Client();
+
+        using var deleted = await client.DeleteAsync("/localtest/api/apps/ttd/never-registered", Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        Assert.Equal(["DELETE /register/api/localtest/apps/ttd/never-registered", "POST /accessmanagement/api/localtest/refresh"], _platform.Calls);
     }
 
     [Fact]

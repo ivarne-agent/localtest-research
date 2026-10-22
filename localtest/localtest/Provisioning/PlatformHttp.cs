@@ -34,13 +34,16 @@ internal static class PlatformHttp
         Uri uri,
         HttpContent? content,
         string? token,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool notFoundIsSuccess = false
     )
     {
         using var request = new HttpRequestMessage(method, uri) { Content = content };
         if (token is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await SendAsync(client, request, cancellationToken);
+        if (notFoundIsSuccess && response.StatusCode == HttpStatusCode.NotFound)
+            return;
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);

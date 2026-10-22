@@ -131,7 +131,7 @@ public sealed class LocaltestProvisioner
     }
 
     /// <summary>
-    /// Removes the app's test users from the Register and refreshes Access Management. Storage, the policy store and
+    /// Removes the app's test users from the Register (none registered is fine) and refreshes Access Management. Storage, the policy store and
     /// the Resource Registry keep the app, as they keep an app Designer no longer deploys.
     /// </summary>
     public async Task Deprovision(AppId appId, CancellationToken cancellationToken)
@@ -142,7 +142,10 @@ public sealed class LocaltestProvisioner
             Service("register", $"/register/api/localtest/apps/{appId.Org}/{appId.App}"),
             null,
             null,
-            cancellationToken
+            cancellationToken,
+            // The Register answers 404 for an app it has no test data for: nothing to remove, so a repeated or
+            // never-provisioned removal succeeds (the front door's DELETE is idempotent).
+            notFoundIsSuccess: true
         );
         await RefreshAccessManagement(cancellationToken);
         if (_logger.IsEnabled(LogLevel.Information))
