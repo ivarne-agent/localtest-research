@@ -160,7 +160,8 @@ func TestTheDefaultsApply(t *testing.T) {
 	if postgres.HTTPPort() != 5432 || postgres.IsHTTP() {
 		t.Fatalf("postgres: port %d, health %q", postgres.HTTPPort(), postgres.HealthCheck())
 	}
-	if got := m.Containers["redis"].Image(); !strings.HasPrefix(got, "docker.io/library/redis:7.2-alpine@sha256:") {
+	// Redis is our own image since the sha-6d928ad pin (localtest/redis/Dockerfile bakes the command in).
+	if got := m.Containers["redis"].Image(); !strings.HasPrefix(got, "ghcr.io/ivarne-agent/localtest-research/localtest-redis:sha-") {
 		t.Fatalf("redis image %s", got)
 	}
 }

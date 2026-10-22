@@ -9,7 +9,7 @@
   "containers": {
     "postgres": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5432,
       "health": "tcp",
       "envs": {
@@ -23,7 +23,7 @@
     },
     "register": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-register",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5020,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -33,7 +33,7 @@
     },
     "profile": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-profile",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5030,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -45,7 +45,7 @@
     },
     "authentication": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-authentication",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5101,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -55,7 +55,7 @@
     },
     "authorization": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-authorization",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5070,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -68,7 +68,7 @@
     },
     "storage": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-storage",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5010,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -83,7 +83,7 @@
     },
     "access-management": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5080,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -96,7 +96,7 @@
     },
     "events": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-events",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5080,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -108,7 +108,7 @@
     },
     "resource-registry": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5100,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -123,7 +123,7 @@
     },
     "notifications": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-notifications",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5090,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
@@ -135,7 +135,7 @@
     },
     "localtest": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-localtest",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "envs": {
         "Localtest__AccessTokenCertificatePath": "/certs/localtest-accesstoken.pfx",
         "Localtest__PlatformEndpoint": "http://local.altinn.cloud:8000/"
@@ -171,14 +171,14 @@
       "dependsOn": ["postgres"]
     },
     "redis": {
-      "registry": "docker.io/library/redis",
-      "tag": "7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0",
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-redis",
+      "tag": "sha-6d928ad",
       "port": 6379,
       "health": "tcp"
     },
     "dialogporten-webapi": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-webapi",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "health": "/health/readiness",
       "envs": {
         "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
@@ -187,7 +187,7 @@
     },
     "dialogporten-graphql": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-graphql",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "health": "/health/readiness",
       "envs": {
         "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
@@ -196,7 +196,7 @@
     },
     "dialogporten-service": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-service",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "health": "/health/readiness",
       "envs": {
         "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
@@ -205,7 +205,7 @@
     },
     "dialogporten-adapter": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5011,
       "envs": {
         "Localtest__Adapter__PlatformEndpoint": "http://local.altinn.cloud:8000/"
@@ -214,7 +214,7 @@
     },
     "receipt": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-receipt",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5060,
       "envs": {
         "GeneralSettings__Hostname": "local.altinn.cloud",
@@ -229,7 +229,7 @@
     },
     "correspondence": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-correspondence",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 2525,
       "envs": {
         "DatabaseOptions__ConnectionString": "Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest",
@@ -243,7 +243,7 @@
     },
     "arbeidsflate-bff": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate-bff",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 80,
       "health": "/api/readiness",
       "envs": {
@@ -268,7 +268,7 @@
     },
     "arbeidsflate": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 80,
       "health": "/",
       "envs": {
