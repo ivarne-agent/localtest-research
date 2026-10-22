@@ -94,16 +94,19 @@ func probeScript(t healthTarget, attempts int) string {
 type prober struct {
 	client  container.ContainerClient
 	pullErr error
-	image   string
-	pull    sync.Once
+	// verbosef logs how long each container took to answer its check (`studioctl --verbose`).
+	verbosef func(format string, args ...any)
+	image    string
+	pull     sync.Once
 }
 
-func newProber(client container.ContainerClient) *prober {
+func newProber(client container.ContainerClient, verbosef func(format string, args ...any)) *prober {
 	return &prober{
-		client:  client,
-		pullErr: nil,
-		image:   stack().Containers[probeImageContainer].Image(),
-		pull:    sync.Once{},
+		client:   client,
+		pullErr:  nil,
+		verbosef: verbosef,
+		image:    stack().Containers[probeImageContainer].Image(),
+		pull:     sync.Once{},
 	}
 }
 
@@ -155,6 +158,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 		return fmt.Errorf("start health probe for %s: %w", target, err)
 	}
 	defer p.remove(ctx, name)
+	started := time.Now()
 
 	waitCtx, cancel := context.WithTimeout(ctx, healthTimeout+time.Minute)
 	defer cancel()
@@ -167,6 +171,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 			if state.ExitCode != 0 {
 				return fmt.Errorf("%w after %s: %s", errUnhealthy, healthTimeout, target)
 			}
+			p.verbosef("%s healthy after %s (%s)", target.name, time.Since(started).Round(time.Millisecond), target)
 			return nil
 		}
 		select {
