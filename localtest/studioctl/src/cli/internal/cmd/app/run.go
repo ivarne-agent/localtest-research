@@ -34,10 +34,10 @@ var (
 
 // TODO: this should come from the "current env".
 const (
-	localtestLoopbackHost           = "127.0.0.1"
+	localtestLoopbackHost = "127.0.0.1"
 	// allInterfacesHost is where an app listens while the localtest-v2 runtime is up: its front door, in a container,
 	// reaches the app through the runtime's host gateway (host.docker.internal), which loopback does not answer.
-	allInterfacesHost = "0.0.0.0"
+	allInterfacesHost               = "0.0.0.0"
 	localtestAppContainerNamePrefix = "localtest-app-"
 	appMetadataFile                 = "App/config/applicationmetadata.json"
 )

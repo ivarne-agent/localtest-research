@@ -35,8 +35,8 @@ const (
 	// probeImageContainer is the manifest container whose image the probes run in.
 	probeImageContainer = "postgres"
 	probeStatusExited   = "exited"
-	probeStatusDead    = "dead"
-	probeStatusStopped = "stopped"
+	probeStatusDead     = "dead"
+	probeStatusStopped  = "stopped"
 )
 
 var (

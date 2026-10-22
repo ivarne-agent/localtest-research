@@ -20,7 +20,7 @@ func TestARunWaitsForAFreshSuccessfulRegistrationAtItsAddress(t *testing.T) {
 		body string
 		want bool
 	}{
-		"not registered": {`[{"org":"ttd","app":"other","url":"http://host.docker.internal:5005"}]`, false},
+		"not registered":  {`[{"org":"ttd","app":"other","url":"http://host.docker.internal:5005"}]`, false},
 		"another address": {`[{"org":"ttd","app":"app","url":"http://host.docker.internal:5006"}]`, false},
 		"provisioning":    {`[{"org":"ttd","app":"app","url":"http://host.docker.internal:5005"}]`, false},
 		"stale": {

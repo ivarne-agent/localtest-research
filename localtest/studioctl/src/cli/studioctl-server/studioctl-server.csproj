@@ -21,12 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- A project reference, unlike Runtime.Common: this server publishes self-contained without trimming or AOT, and
-         the library is also referenced by the Aspire package, so it is one assembly with its own build settings. -->
-    <ProjectReference Include="../../Runtime/common/dotnet/Altinn.Studio.Localtest.Provisioning/src/Altinn.Studio.Localtest.Provisioning.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Acornima" />
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="LibGit2Sharp" />
@@ -39,6 +33,5 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" />
     <PackageReference Include="Microsoft.NET.StringTools" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="NuGet.Versioning" />
-    <PackageReference Include="Yarp.ReverseProxy" />
   </ItemGroup>
 </Project>

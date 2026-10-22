@@ -2,7 +2,6 @@ using Altinn.Studio.EnvTopology;
 using Altinn.Studio.StudioctlServer.Discovery;
 using Altinn.Studio.StudioctlServer.HostBridge;
 using Altinn.Studio.StudioctlServer.Platform;
-using Altinn.Studio.StudioctlServer.Proxy;
 
 namespace Altinn.Studio.StudioctlServer.Studioctl;
 
@@ -24,7 +23,7 @@ internal static class Endpoints
         HostBridgeState hostBridgeState,
         IConfiguration configuration,
         BoundTopologyOptions boundTopologyOptions,
-        ProxyOptions proxyOptions
+        FrontDoorRegistration frontDoor
     )
     {
         return Results.Ok(
@@ -39,7 +38,7 @@ internal static class Endpoints
                 boundTopologyOptions.BaseConfigPath ?? "",
                 boundTopologyOptions.ConfigPath ?? "",
                 new HostBridgeStatusResponse(hostBridgeState.Enabled, hostBridgeState.IsConnected, hostBridgeState.Url),
-                new ProxyStatusResponse(proxyOptions.Enabled, proxyOptions.Listen),
+                new LocaltestStatusResponse(frontDoor.Enabled),
                 [
                     .. registry
                         .GetAll()
@@ -162,14 +161,14 @@ internal static class Endpoints
         string BoundTopologyBaseConfigPath,
         string BoundTopologyConfigPath,
         HostBridgeStatusResponse HostBridge,
-        ProxyStatusResponse Proxy,
+        LocaltestStatusResponse Localtest,
         IReadOnlyList<DiscoveredAppResponse> Apps
     );
 
     private sealed record HostBridgeStatusResponse(bool Enabled, bool Connected, string? Url);
 
-    /// <summary>Listen echoes the configured value, which studioctl compares with what it asked for.</summary>
-    private sealed record ProxyStatusResponse(bool Enabled, string Listen);
+    /// <summary>Whether the discovered apps are registered with the localtest-v2 front door; studioctl compares it.</summary>
+    private sealed record LocaltestStatusResponse(bool RegisterApps);
 
     private sealed record RegisterAppRequest(
         string AppId,
