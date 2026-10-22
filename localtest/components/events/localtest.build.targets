@@ -11,6 +11,8 @@
     are compiled into the host from the adjacent fakes/ folder instead of being a separate project.
   -->
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Platform.Events'">
+    <!-- Service discovery by name for the #if LOCALTEST registration in Program.cs (planned-components/service-discovery.md). -->
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
     <!-- The startup SQL the localtest database step runs (fakes/Startup/*.sql), read as Localtest.{name}.sql. -->
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)fakes/**/*.sql" LinkBase="Localtest" LogicalName="Localtest.%(Filename)%(Extension)" />
