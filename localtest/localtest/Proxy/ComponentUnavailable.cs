@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Net.Http.Headers;
 
@@ -115,7 +116,8 @@ public static class ComponentUnavailable
     private static byte[] Json(Problem problem)
     {
         using var buffer = new MemoryStream();
-        using (var json = new Utf8JsonWriter(buffer))
+        // Relaxed escaping: the detail's quotes and apostrophes stay readable (\u0022 otherwise); the body is JSON, never HTML.
+        using (var json = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             json.WriteStartObject();
             json.WriteString("type", "https://www.rfc-editor.org/rfc/rfc9110#section-15.6.4");

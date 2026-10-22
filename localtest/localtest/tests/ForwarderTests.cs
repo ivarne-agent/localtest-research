@@ -124,6 +124,7 @@ public sealed class ForwarderTests
         Assert.Contains("studioctl env up -r localtest-v2 --with receipt", detail, StringComparison.Ordinal);
         Assert.Contains(".WithReceipt()", detail, StringComparison.Ordinal);
         Assert.Contains(".WithGroup(\"receipt\")", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u0022", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
     [Fact]
