@@ -1,747 +1,280 @@
 {
-  "$schema": "./manifest.schema.json",
-  "version": 1,
-  "containerPrefix": "localtest-v2-",
-  "network": "localtest-v2_network",
-  "certificate": {
-    "fileName": "localtest-accesstoken.pfx",
-    "containerDir": "/certs"
-  },
-  "images": {
-    "repositoryPrefix": "ghcr.io/ivarne-agent/localtest-research/localtest-",
-    "tag": "sha-f76b62b",
-    "tagEnv": "STUDIOCTL_LOCALTEST_V2_TAG",
-    "overrideEnvPrefix": "STUDIOCTL_IMAGE_LOCALTEST_V2_",
-    "thirdParty": {
-      "redis": {
-        "description": "The Redis of the dialogporten group: 7.2 is the last BSD-licensed Redis (7.4 moved to RSALv2/SSPL) and the nearest to the 6.0 upstream's own compose file runs. Pinned by digest; no build of ours is involved.",
-        "repository": "docker.io/library/redis",
-        "tag": "7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0"
-      }
-    },
-    "core": {
-      "pdf3": {
-        "description": "The PDF generator studioctl's localtest runtime runs too (internal/config/images.go, CoreImages.PDF3, override STUDIOCTL_IMAGE_PDF3); it follows what tt02 runs.",
-        "repository": "ghcr.io/altinn/altinn-studio/runtime-pdf3-worker",
-        "tag": "tt02",
-        "floating": true,
-        "overrideEnv": "STUDIOCTL_IMAGE_PDF3"
-      },
-      "workflow-engine": {
-        "description": "The workflow engine studioctl's localtest runtime runs too (internal/config/images.go, CoreImages.WorkflowEngine, override STUDIOCTL_IMAGE_WORKFLOW_ENGINE); it follows what tt02 runs.",
-        "repository": "ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app",
-        "tag": "tt02",
-        "floating": true,
-        "overrideEnv": "STUDIOCTL_IMAGE_WORKFLOW_ENGINE"
-      }
-    }
-  },
-  "volumes": [
-    {
-      "name": "localtest-v2-postgres-data",
-      "description": "The shared Postgres's data directory."
-    },
-    {
-      "name": "localtest-v2-storage-blobs",
-      "description": "Storage's file-backed blobs (owned by uid 1654, the image's user)."
-    },
-    {
-      "name": "localtest-v2-policy-store",
-      "description": "The policy store the PDP writes app policies to and Access Management and the Resource Registry read (uid 1000)."
-    },
-    {
-      "name": "localtest-v2-localtest-data",
-      "description": "The localtest app's data (uid 1654)."
-    },
-    {
-      "name": "localtest-v2-correspondence-blobs",
-      "description": "Correspondence's file-backed blob store (uid of the image's dotnet user)."
-    }
+  "groups": [
+    { "name": "default", "containers": ["postgres", "register", "profile", "authentication", "authorization", "storage", "access-management", "events", "resource-registry", "notifications", "localtest", "pdf3", "workflow-engine"] },
+    { "name": "dialogporten", "containers": ["dialogporten-graphql", "dialogporten-service", "dialogporten-adapter"] },
+    { "name": "receipt", "containers": ["receipt"] },
+    { "name": "correspondence", "containers": ["correspondence"] },
+    { "name": "arbeidsflate", "containers": ["arbeidsflate"] }
   ],
-  "postgres": {
-    "component": "postgres",
-    "user": "postgres",
-    "password": "postgres",
-    "initScripts": [
-      {
-        "source": "components/storage/postgres-init/10-storage.sh",
-        "target": "/docker-entrypoint-initdb.d/10-storage.sh"
-      },
-      {
-        "source": "components/storage/vendor/infra/postgres_init.sql",
-        "target": "/storage-init/postgres_init.sql"
-      },
-      {
-        "source": "postgres-init/20-workflow-engine.sh",
-        "target": "/docker-entrypoint-initdb.d/20-workflow-engine.sh"
-      },
-      {
-        "source": "components/events/postgres-init/30-events.sh",
-        "target": "/docker-entrypoint-initdb.d/30-events.sh"
-      },
-      {
-        "source": "components/resource-registry/postgres-init/40-resource-registry.sh",
-        "target": "/docker-entrypoint-initdb.d/40-resource-registry.sh"
-      },
-      {
-        "source": "components/dialogporten/postgres-init/50-dialogporten.sh",
-        "target": "/docker-entrypoint-initdb.d/50-dialogporten.sh"
-      },
-      {
-        "source": "components/notifications/postgres-init/60-notifications.sh",
-        "target": "/docker-entrypoint-initdb.d/60-notifications.sh"
-      },
-      {
-        "source": "components/correspondence/postgres-init/70-correspondence.sh",
-        "target": "/docker-entrypoint-initdb.d/70-correspondence.sh"
-      },
-      {
-        "source": "components/profile/postgres-init/80-profile.sh",
-        "target": "/docker-entrypoint-initdb.d/80-profile.sh"
-      },
-      {
-        "source": "components/arbeidsflate/postgres-init/90-arbeidsflate.sh",
-        "target": "/docker-entrypoint-initdb.d/90-arbeidsflate.sh"
-      }
-    ]
-  },
-  "frontDoor": {
-    "healthPath": "/Home/Localtest/Version",
-    "hostRoutes": [
-      {
-        "name": "frontendDevServer",
-        "description": "The Vite dev server on the host for `studioctl run --dev-frontend`.",
-        "host": "{{host:frontendDevServer}}",
-        "prefix": "",
-        "hostPort": 8080
-      }
-    ]
-  },
-  "app": {
-    "description": "The environment an app runs with against this stack, set by every runner: studioctl's `run` and `app env` (internal/cmd/app/env.go) and the Aspire package's AddAltinnApp. The runner adds the Kestrel URL, the frontend asset base URL, the OpenTelemetry endpoint, the data-protection keys directory and the secrets directory's path.",
-    "environment": {
-      "ASPNETCORE_ENVIRONMENT": "Development",
-      "AppSettings__OpenIdWellKnownEndpoint": "{{url:platform}}/authentication/api/v1/openid/",
-      "GeneralSettings__ExternalAppBaseUrl": "{{url:app}}/{org}/{app}/",
-      "GeneralSettings__HostName": "{{host:app}}",
-      "PlatformSettings__ApiAccessManagementEndpoint": "{{url:platform}}/accessmanagement/api/v1/",
-      "PlatformSettings__ApiAuthenticationEndpoint": "{{url:platform}}/authentication/api/v1/",
-      "PlatformSettings__ApiAuthorizationEndpoint": "{{url:platform}}/authorization/api/v1/",
-      "PlatformSettings__ApiCorrespondenceEndpoint": "{{url:platform}}/correspondence/api/v1/",
-      "PlatformSettings__ApiEventsEndpoint": "{{url:platform}}/events/api/v1/",
-      "PlatformSettings__ApiNotificationEndpoint": "{{url:platform}}/notifications/api/v1/",
-      "PlatformSettings__ApiPdf2Endpoint": "{{url:pdf}}/pdf",
-      "PlatformSettings__ApiProfileEndpoint": "{{url:platform}}/profile/api/v1/",
-      "PlatformSettings__ApiRegisterEndpoint": "{{url:platform}}/register/api/v1/",
-      "PlatformSettings__ApiStorageEndpoint": "{{url:platform}}/storage/api/v1/",
-      "PlatformSettings__ApiWorkflowEngineEndpoint": "{{url:workflowEngine}}/api/v1/"
-    },
-    "fixedEnvironment": {
-      "STUDIOCTL_APP_RUN": "1"
-    },
-    "accessTokenSigning": {
-      "AccessTokenSettings__AccessTokenSigningCertificateFileName": "{{certFileName}}",
-      "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{appCertPath}}",
-      "AccessTokenSettings__AccessTokenSigningKeysFolder": "{{appCertKeysFolder}}"
-    },
-    "secrets": {
-      "directoryEnv": "RUNTIME_APP_SECRETS_DIR",
-      "files": [
-        {
-          "name": "maskinporten",
-          "description": "The app's Maskinporten client, stored by `studioctl app maskinporten set`; no runner writes it on its own.",
-          "env": "RUNTIME_APP_SECRETS_MASKINPORTEN_FILENAME",
-          "fileName": "maskinporten-settings.json"
-        },
-        {
-          "name": "appCodes",
-          "description": "The callback verification codes: the development code for the workflow engine's callbacks, which every runner writes before the app starts (studioctl's appsecrets.WriteDevelopmentAppCodes; the Aspire package writes the same bytes).",
-          "env": "RUNTIME_APP_SECRETS_APPCODES_FILENAME",
-          "fileName": "app-codes.json",
-          "writtenOnEveryRun": true
-        }
-      ]
-    }
-  },
-  "groups": {
-    "dialogporten": {
-      "description": "Dialogporten: Redis, the WebApi, GraphQL and Service hosts, and the adapter that turns Storage's instances into dialogs. Apps never call Dialogporten, so the default stack leaves it out and saves about 0.75 GB of memory (about 0.5 GB for the hosts and Redis, 0.26 GB for the adapter).",
-      "onByDefault": false,
-      "implies": []
-    },
-    "receipt": {
-      "description": "The platform receipt for archived instances (/receipt/{partyId}/{instanceGuid}).",
-      "onByDefault": false,
-      "implies": []
-    },
-    "correspondence": {
-      "description": "Correspondence, which cannot run without Dialogporten (its publish needs a dialog).",
-      "onByDefault": false,
-      "implies": ["dialogporten"]
-    },
-    "arbeidsflate": {
-      "description": "Arbeidsflate, the Altinn inbox (the SPA's nginx and the BFF): it shows Dialogporten's dialogs, which come from the adapter (apps' instances) as well as from Correspondence, so it implies Dialogporten only.",
-      "onByDefault": false,
-      "implies": ["dialogporten"]
-    },
-    "everything": {
-      "description": "Owns no components and implies every other group.",
-      "onByDefault": false,
-      "implies": [],
-      "impliesAll": true
-    }
-  },
-  "components": [
-    {
-      "name": "postgres",
-      "description": "The shared Postgres: Postgres 18 with every component's database init script baked in (localtest/postgres/Dockerfile, see postgres.initScripts).",
-      "notes": [
-        "TZ=UTC as production's Postgres: upstream column defaults such as Events' and Profile's `now() at time zone 'utc'` are only right when the session time zone is UTC.",
-        "initdb writes TZ into postgresql.conf of a new data volume only; -c also sets UTC on a volume created under the earlier Europe/Oslo setting. The first arguments repeat the image's CMD (postgres/Dockerfile)."
-      ],
-      "image": { "research": "postgres" },
-      "dev": { "context": ".", "dockerfile": "postgres/Dockerfile" },
-      "containerPort": 5432,
-      "containerHealthCheck": {
-        "test": ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p {{port:postgres}} -U {{postgresUser}}"],
-        "interval": "2s",
-        "timeout": "5s",
-        "retries": 30,
-        "startPeriod": "5s"
-      },
-      "environment": {
-        "POSTGRES_USER": "{{postgresUser}}",
-        "POSTGRES_PASSWORD": "{{postgresPassword}}",
+  "containers": {
+    "postgres": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres",
+      "tag": "sha-f76b62b",
+      "port": 5432,
+      "health": "tcp",
+      "envs": {
+        "POSTGRES_PASSWORD": "postgres",
+        "POSTGRES_USER": "postgres",
         "TZ": "UTC"
       },
-      "command": [
-        "postgres",
-        "-c", "shared_preload_libraries=pg_stat_statements",
-        "-c", "timezone=UTC",
-        "-c", "log_timezone=UTC"
-      ],
-      "mounts": [
-        { "kind": "volume", "volume": "localtest-v2-postgres-data", "target": "/var/lib/postgresql" }
-      ],
-      "networkAliases": ["postgres"],
-      "ingressHosts": false
+      "volumes": {
+        "localtest-v2-postgres-data": "/var/lib/postgresql"
+      }
     },
-    {
-      "name": "register",
-      "description": "Production Register on an in-memory store, seeded with the built-in data and every app's testData.json.",
-      "image": { "research": "register" },
-      "dev": { "context": "components/register" },
-      "containerPort": 5020,
-      "networkAliases": ["register"],
-      "hostPort": 8020,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "GeneralSettings__OpenIdWellKnownEndpoint": "{{platform}}authentication/api/v1/openid/",
-        "PlatformSettings__ApiAuthorizationEndpoint": "{{platform}}authorization/api/v1/"
-      },
-      "mounts": [{ "kind": "certificateDir" }],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/register" }]
+    "register": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-register",
+      "tag": "sha-f76b62b",
+      "port": 5020,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "GeneralSettings__OpenIdWellKnownEndpoint": "http://local.altinn.cloud:8000/authentication/api/v1/openid/",
+        "PlatformSettings__ApiAuthorizationEndpoint": "http://local.altinn.cloud:8000/authorization/api/v1/"
+      }
     },
-    {
-      "name": "profile",
-      "description": "Production Altinn Profile on its own database: the user profiles apps, Authentication, Authorization and Access Management read, the contact point lookups of Notifications and Correspondence, and Arbeidsflate's profile endpoints.",
-      "notes": [
-        "It migrates its database and seeds itself from the Register's localtest API at start (contact details through its KRR sync, organisations' official addresses through its brreg sync, profile settings), so the Register comes first.",
-        "The PDP, Authentication's OpenID metadata and Notifications are request-time dependencies only; they list Profile among their dependencies (Authentication and the PDP call it on every login), which rules out the reverse."
-      ],
-      "image": { "research": "profile" },
-      "dev": { "context": "components/profile" },
-      "containerPort": 5030,
-      "networkAliases": ["profile"],
-      "hostPort": 8036,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__Profile__PlatformEndpoint": "{{platform}}",
-        "PostgreSqlSettings__AdminConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_profile_admin;Password={0};Database=profiledb",
-        "PostgreSqlSettings__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True"
+    "profile": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-profile",
+      "tag": "sha-f76b62b",
+      "port": 5030,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__Profile__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PostgreSqlSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_profile_admin;Password={0};Database=profiledb",
+        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True"
       },
-      "mounts": [{ "kind": "certificateDir" }],
-      "dependsOn": ["postgres", "register"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/profile" }]
+      "dependsOn": ["postgres", "register"]
     },
-    {
-      "name": "authentication",
-      "description": "Production Authentication on memory: sign-in against the localtest app's fake ID-porten, the OIDC provider for registered clients.",
-      "notes": ["Login resolves the user through Profile's internal/user."],
-      "image": { "research": "authentication" },
-      "dev": { "context": "components/authentication" },
-      "containerPort": 5101,
-      "networkAliases": ["authentication"],
-      "hostPort": 8021,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "GeneralSettings__PlatformEndpoint": "{{platform}}"
+    "authentication": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-authentication",
+      "tag": "sha-f76b62b",
+      "port": 5101,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "GeneralSettings__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "mounts": [{ "kind": "certificateDir" }],
+      "dependsOn": ["register", "profile"]
+    },
+    "authorization": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-authorization",
+      "tag": "sha-f76b62b",
+      "port": 5070,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__Authorization__PlatformEndpoint": "http://local.altinn.cloud:8000/"
+      },
       "dependsOn": ["register", "profile"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/authentication" }]
+      "volumes": {
+        "localtest-v2-policy-store": "/policy-store"
+      }
     },
-    {
-      "name": "authorization",
-      "description": "Production PDP with app policies in the policy store shared with Access Management and the Resource Registry.",
-      "notes": ["The PDP reads the subject's profile through Profile's internal/user."],
-      "image": { "research": "authorization" },
-      "dev": { "context": "components/authorization" },
-      "containerPort": 5070,
-      "networkAliases": ["authorization"],
-      "hostPort": 8022,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__Authorization__PlatformEndpoint": "{{platform}}"
+    "storage": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-storage",
+      "tag": "sha-f76b62b",
+      "port": 5010,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "GeneralSettings__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PostgreSqlSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb",
+        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "volume", "volume": "localtest-v2-policy-store", "target": "/policy-store" }
-      ],
-      "dependsOn": ["register", "profile"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/authorization" }]
-    },
-    {
-      "name": "storage",
-      "description": "Production Storage on Postgres with file-backed blobs.",
-      "image": { "research": "storage" },
-      "dev": { "context": "components/storage" },
-      "containerPort": 5010,
-      "networkAliases": ["storage"],
-      "hostPort": 8024,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "GeneralSettings__PlatformEndpoint": "{{platform}}",
-        "PostgreSqlSettings__AdminConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_storage_admin;Password={0};Database=storagedb",
-        "PostgreSqlSettings__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True"
-      },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "volume", "volume": "localtest-v2-storage-blobs", "target": "/data/blobs" }
-      ],
       "dependsOn": ["postgres"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/storage" }]
+      "volumes": {
+        "localtest-v2-storage-blobs": "/data/blobs"
+      }
     },
-    {
-      "name": "access-management",
-      "description": "Production Access Management on Postgres: parties and roles from the Register, resources from the Resource Registry, the PDP's PIP.",
-      "notes": [
-        "Its startup refresh reads the Register's streams and the Resource Registry's providers, resources and updated feed; its Profile client reads users through internal/user."
-      ],
-      "image": { "research": "access-management" },
-      "dev": { "context": "components/access-management" },
-      "containerPort": 5080,
-      "networkAliases": ["access-management"],
-      "hostPort": 8023,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__AccessManagement__PlatformEndpoint": "{{platform}}"
+    "access-management": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management",
+      "tag": "sha-f76b62b",
+      "port": 5080,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__AccessManagement__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "volume", "volume": "localtest-v2-policy-store", "target": "/policy-store" }
-      ],
       "dependsOn": ["postgres", "register", "resource-registry", "profile"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/accessmanagement" }]
+      "volumes": {
+        "localtest-v2-policy-store": "/policy-store"
+      }
     },
-    {
-      "name": "events",
-      "description": "Production Events on the shared Postgres.",
-      "notes": [
-        "Events never binds AccessTokenSettings for its outgoing platform tokens, so its production SigningCredentialsResolver reads the default path relative to /app: the certificate file is mounted there too.",
-        "host.docker.internal: Events delivers webhooks to the developer's machine by the conventional name."
-      ],
-      "image": { "research": "events" },
-      "dev": { "context": "components/events" },
-      "containerPort": 5080,
-      "networkAliases": ["events"],
-      "hostPort": 8025,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__Events__PlatformEndpoint": "{{platform}}",
-        "PostgreSQLSettings__AdminConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_events_admin;Password={0};Database=eventsdb",
-        "PostgreSQLSettings__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True"
+    "events": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-events",
+      "tag": "sha-f76b62b",
+      "port": 5080,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__Events__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_events_admin;Password={0};Database=eventsdb",
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "certificateFile", "target": "/accesstoken/accesstokencredentials.pfx" }
-      ],
-      "extraHostGatewayNames": ["host.docker.internal"],
-      "dependsOn": ["postgres", "register", "authorization"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/events" }]
+      "dependsOn": ["postgres", "register", "authorization"]
     },
-    {
-      "name": "resource-registry",
-      "description": "Production Resource Registry on the shared Postgres: app resources computed from Storage's application list and the pushed policies.",
-      "notes": [
-        "App policies are read where the PDP's policy endpoint writes them; resource policies are written there.",
-        "App resources come from Storage's application list."
-      ],
-      "image": { "research": "resource-registry" },
-      "dev": { "context": "components/resource-registry" },
-      "containerPort": 5100,
-      "networkAliases": ["resource-registry"],
-      "hostPort": 8027,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__ResourceRegistry__PlatformEndpoint": "{{platform}}",
-        "PostgreSQLSettings__AdminConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
-        "PostgreSQLSettings__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True"
+    "resource-registry": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-resource-registry",
+      "tag": "sha-f76b62b",
+      "port": 5100,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__ResourceRegistry__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "volume", "volume": "localtest-v2-policy-store", "target": "/policy-store" }
-      ],
       "dependsOn": ["postgres", "storage"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/resourceregistry" }]
+      "volumes": {
+        "localtest-v2-policy-store": "/policy-store"
+      }
     },
-    {
-      "name": "notifications",
-      "description": "Production Notifications (the orders API host) on the shared Postgres; every message is captured, nothing is sent.",
-      "notes": [
-        "The platform-token generator (to Register and the PDP) reads its default path relative to /app, as Events' does.",
-        "Orders call Profile, Register, the PDP, and the apps' condition endpoints through the public origin."
-      ],
-      "image": { "research": "notifications" },
-      "dev": { "context": "components/notifications" },
-      "containerPort": 5090,
-      "networkAliases": ["notifications"],
-      "hostPort": 8029,
-      "healthPath": "/health",
-      "environment": {
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "{{certPath}}",
-        "Localtest__Notifications__PlatformEndpoint": "{{platform}}",
-        "PostgreSQLSettings__AdminConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_notifications_admin;Password={0};Database=notificationsdb",
-        "PostgreSQLSettings__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True"
+    "notifications": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-notifications",
+      "tag": "sha-f76b62b",
+      "port": 5090,
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__Notifications__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_notifications_admin;Password={0};Database=notificationsdb",
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "certificateFile", "target": "/accesstoken/accesstokencredentials.pfx" }
-      ],
-      "dependsOn": ["postgres", "register", "profile", "authorization", "authentication"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/notifications" }]
+      "dependsOn": ["postgres", "register", "profile", "authorization", "authentication"]
     },
-    {
-      "name": "localtest",
-      "description": "The localtest app: fake ID-porten and Maskinporten, the start page and /Home test helpers; it serves whatever no component route claims.",
-      "notes": [
-        "It calls the other components by service name (http://register/..., http://authentication/..., and the provisioning's calls) through service discovery from the services__<name>__http__0 variables, without a pass-through to DNS. Its own front door (task 26) is not used here until task 27: studioctl-server forwards to it, on 8000 inside the container (ASPNETCORE_HTTP_PORTS; the image's own port is 8080).",
-        "The route with an empty prefix takes everything the other prefixes do not claim: /, /Home, /localtest/api, /app-frontend."
-      ],
-      "image": { "research": "localtest" },
-      "dev": { "context": "localtest" },
-      "containerPort": 8000,
-      "hostPort": 8026,
-      "healthPath": "/health",
-      "environment": {
-        "Localtest__PlatformEndpoint": "{{platform}}",
-        "Localtest__AccessTokenCertificatePath": "{{certPath}}",
-        "ASPNETCORE_HTTP_PORTS": "8000",
-        "services__register__http__0": "http://{{alias:register}}:{{port:register}}",
-        "services__profile__http__0": "http://{{alias:profile}}:{{port:profile}}",
-        "services__authentication__http__0": "http://{{alias:authentication}}:{{port:authentication}}",
-        "services__authorization__http__0": "http://{{alias:authorization}}:{{port:authorization}}",
-        "services__storage__http__0": "http://{{alias:storage}}:{{port:storage}}",
-        "services__access-management__http__0": "http://{{alias:access-management}}:{{port:access-management}}",
-        "services__events__http__0": "http://{{alias:events}}:{{port:events}}",
-        "services__resource-registry__http__0": "http://{{alias:resource-registry}}:{{port:resource-registry}}",
-        "services__notifications__http__0": "http://{{alias:notifications}}:{{port:notifications}}",
-        "services__pdf3__http__0": "http://{{alias:pdf3}}:{{port:pdf3}}",
-        "services__workflow-engine__http__0": "http://{{alias:workflow-engine}}:{{port:workflow-engine}}",
-        "services__dialogporten-webapi__http__0": "http://{{alias:dialogporten-webapi}}:{{port:dialogporten-webapi}}",
-        "services__dialogporten-graphql__http__0": "http://{{alias:dialogporten-graphql}}:{{port:dialogporten-graphql}}",
-        "services__dialogporten-service__http__0": "http://{{alias:dialogporten-service}}:{{port:dialogporten-service}}",
-        "services__dialogporten-adapter__http__0": "http://{{alias:dialogporten-adapter}}:{{port:dialogporten-adapter}}",
-        "services__receipt__http__0": "http://{{alias:receipt}}:{{port:receipt}}",
-        "services__correspondence__http__0": "http://{{alias:correspondence}}:{{port:correspondence}}",
-        "services__arbeidsflate-bff__http__0": "http://{{alias:arbeidsflate-bff}}:{{port:arbeidsflate-bff}}",
-        "services__arbeidsflate__http__0": "http://{{alias:arbeidsflate}}:{{port:arbeidsflate}}"
+    "localtest": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-localtest",
+      "tag": "sha-f76b62b",
+      "envs": {
+        "Localtest__AccessTokenCertificatePath": "/certs/localtest-accesstoken.pfx",
+        "Localtest__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "mounts": [
-        { "kind": "certificateDir" },
-        { "kind": "volume", "volume": "localtest-v2-localtest-data", "target": "/data" }
-      ],
-      "routes": [{ "host": "{{host:app}}", "prefix": "" }]
+      "volumes": {
+        "localtest-v2-localtest-data": "/data"
+      }
     },
-    {
-      "name": "pdf3",
-      "description": "The PDF generator from the altinn-studio monorepo; studioctl runs the image its localtest runtime runs. Its host port 5300 is also what app-lib's PlatformSettings default ApiPdf2Endpoint (http://localhost:5300/pdf) names.",
-      "image": { "core": "pdf3" },
-      "containerPort": 5031,
-      "networkAliases": ["pdf3"],
-      "hostPort": 5300,
-      "healthPath": "/health/ready",
-      "environment": {
-        "TZ": "Europe/Oslo",
+    "pdf3": {
+      "registry": "ghcr.io/altinn/altinn-studio/runtime-pdf3-worker",
+      "tag": "tt02",
+      "port": 5031,
+      "health": "/health/ready",
+      "envs": {
         "PDF3_ENVIRONMENT": "localtest",
+        "PDF3_LOCALTEST_PUBLIC_BASE_URL": "http://local.altinn.cloud:8000",
         "PDF3_QUEUE_SIZE": "3",
-        "PDF3_LOCALTEST_PUBLIC_BASE_URL": "{{url:app}}"
-      },
-      "routes": [{ "host": "{{host:pdf}}", "prefix": "" }]
+        "TZ": "Europe/Oslo"
+      }
     },
-    {
-      "name": "workflow-engine",
-      "description": "The workflow engine from the altinn-studio monorepo; studioctl runs the image its localtest runtime runs.",
-      "notes": ["No collector runs in this environment; the default exporter would fail against localhost:4317, so telemetry is off."],
-      "image": { "core": "workflow-engine" },
-      "containerPort": 9090,
-      "networkAliases": ["workflow-engine"],
-      "hostPort": 8028,
-      "healthPath": "/api/v1/health/ready",
-      "environment": {
+    "workflow-engine": {
+      "registry": "ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app",
+      "tag": "tt02",
+      "port": 9090,
+      "health": "/api/v1/health/ready",
+      "envs": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_HTTP_PORTS": "9090",
-        "EngineSettings__EnableTelemetry": "false",
-        "ConnectionStrings__WorkflowEngine": "Host={{alias:postgres}};Port={{port:postgres}};Database=workflow_engine;Username={{postgresUser}};Password={{postgresPassword}}",
-        "AppCommandSettings__CommandEndpoint": "{{url:app}}/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/"
+        "AppCommandSettings__CommandEndpoint": "http://local.altinn.cloud:8000/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/",
+        "ConnectionStrings__WorkflowEngine": "Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres",
+        "EngineSettings__EnableTelemetry": "false"
       },
-      "dependsOn": ["postgres"],
-      "routes": [{ "host": "{{host:workflowEngine}}", "prefix": "" }]
+      "dependsOn": ["postgres"]
     },
-    {
-      "name": "redis",
-      "description": "The cache, backplane and subscription transport of Dialogporten's three hosts (database 0), shared by Correspondence (1) and the Arbeidsflate BFF (2). No persistence and no published port: only containers on the network use it.",
-      "group": "dialogporten",
-      "image": { "thirdParty": "redis" },
-      "containerPort": 6379,
-      "containerHealthCheck": {
-        "test": ["CMD", "redis-cli", "ping"],
-        "interval": "2s",
-        "timeout": "3s",
-        "retries": 15
-      },
-      "command": ["redis-server", "--save", "", "--appendonly", "no"],
-      "networkAliases": ["redis"],
-      "ingressHosts": false
+    "redis": {
+      "registry": "docker.io/library/redis",
+      "tag": "7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0",
+      "port": 6379,
+      "health": "tcp"
     },
-    {
-      "name": "dialogporten-webapi",
-      "description": "Production Dialogporten's WebApi host: the service-owner and end-user REST APIs under the path base /dialogporten.",
-      "notes": [
-        "It migrates the database at start (production's DevelopmentMigratorHostedService in Development, before the host listens), and so does each of the other hosts, so a second host starting at the same time makes the migrations collide. The container health check, which the runtime waits for before it starts what depends on it, keeps them apart.",
-        "The aspnet image has no curl or wget, so the check is a GET over bash's /dev/tcp; the runtime hands the string to a shell (dash, which has no /dev/tcp), hence the explicit bash.",
-        "Its first authorization and party lookups need the platform services, which start before it.",
-        "The host serves everything under UsePathBase(\"/dialogporten\"), so the path passes unchanged. The GraphQL route is longer and wins for its own prefix."
-      ],
-      "group": "dialogporten",
-      "image": { "research": "dialogporten-webapi" },
-      "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.webapi" },
-      "containerPort": 8080,
-      "networkAliases": ["dialogporten-webapi"],
-      "hostPort": 8030,
-      "healthPath": "/health/readiness",
-      "containerHealthCheck": {
-        "test": [
-          "CMD-SHELL",
-          "bash -c \"exec 3<>/dev/tcp/127.0.0.1/{{port:dialogporten-webapi}} || exit 1; printf 'GET /health/readiness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 || exit 1; head -n 1 <&3 | grep -q ' 200 '\""
-        ],
-        "interval": "2s",
-        "timeout": "5s",
-        "retries": 60,
-        "startPeriod": "5s"
+    "dialogporten-webapi": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-webapi",
+      "tag": "sha-f76b62b",
+      "health": "/health/readiness",
+      "envs": {
+        "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "environment": {
-        "Localtest__Dialogporten__PlatformEndpoint": "{{platform}}"
-      },
-      "dependsOn": [
-        "postgres",
-        "redis",
-        "register",
-        "authentication",
-        "authorization",
-        "access-management",
-        "events",
-        "resource-registry"
-      ],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/dialogporten" }]
+      "dependsOn": ["postgres", "redis", "register", "authentication", "authorization", "access-management", "events", "resource-registry"]
     },
-    {
-      "name": "dialogporten-graphql",
-      "description": "Production Dialogporten's GraphQL host, with the subscription stream.",
-      "notes": ["The host serves /graphql with no path base; APIM maps /dialogporten/graphql to it in production, the front door does here."],
-      "group": "dialogporten",
-      "image": { "research": "dialogporten-graphql" },
-      "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.graphql" },
-      "containerPort": 8080,
-      "networkAliases": ["dialogporten-graphql"],
-      "hostPort": 8031,
-      "healthPath": "/health/readiness",
-      "environment": {
-        "Localtest__Dialogporten__PlatformEndpoint": "{{platform}}"
-      },
-      "dependsOn": ["dialogporten-webapi"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/dialogporten/graphql", "rewrite": "/graphql" }]
-    },
-    {
-      "name": "dialogporten-service",
-      "description": "Production Dialogporten's Service host: it consumes the in-process bus and publishes to the other hosts through Redis. No public route.",
-      "group": "dialogporten",
-      "image": { "research": "dialogporten-service" },
-      "dev": { "selector": "dialogporten", "context": "components/dialogporten", "dockerfile": "Dockerfile.service" },
-      "containerPort": 8080,
-      "networkAliases": ["dialogporten-service"],
-      "hostPort": 8032,
-      "healthPath": "/health/readiness",
-      "environment": {
-        "Localtest__Dialogporten__PlatformEndpoint": "{{platform}}"
+    "dialogporten-graphql": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-graphql",
+      "tag": "sha-f76b62b",
+      "health": "/health/readiness",
+      "envs": {
+        "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
       "dependsOn": ["dialogporten-webapi"]
     },
-    {
-      "name": "dialogporten-adapter",
-      "description": "The Dialogporten adapter: it takes Storage's outbox commands on its anonymous localtest enqueue endpoint (Storage posts them through the front door whether or not the group is up) and syncs each instance to a dialog with the production code, calling Storage, Register and Dialogporten through the public origin.",
-      "notes": ["Its routes start with /storage/dialogporten, so the path passes unchanged. The front door matches the longest prefix, so this route wins over Storage's /storage for the adapter's paths."],
-      "group": "dialogporten",
-      "image": { "research": "dialogporten-adapter" },
-      "dev": { "context": "components/dialogporten-adapter" },
-      "containerPort": 5011,
-      "networkAliases": ["dialogporten-adapter"],
-      "hostPort": 8035,
-      "healthPath": "/health",
-      "environment": {
-        "Localtest__Adapter__PlatformEndpoint": "{{platform}}"
+    "dialogporten-service": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-service",
+      "tag": "sha-f76b62b",
+      "health": "/health/readiness",
+      "envs": {
+        "Localtest__Dialogporten__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "dependsOn": ["storage", "register", "authentication", "dialogporten-webapi"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/storage/dialogporten" }]
+      "dependsOn": ["dialogporten-webapi"]
     },
-    {
-      "name": "receipt",
-      "description": "The platform receipt (/receipt/{instanceOwnerPartyId}/{instanceGuid}), the target of archived instances' links. Stateless: it reads the instance from Storage, the owner from Register and the user from Profile with the user's cookie, and is only the sign-in target and JWKS user of Authentication.",
-      "notes": [
-        "Every endpoint is the public origin, because the browser follows the sign-in redirect and the attachment links the receipt hands out.",
-        "Storage reports attachment links on https://platform.{this host}/, which the component's fake rewrites to Localtest__Receipt__PlatformEndpoint.",
-        "It validates no platform tokens; its generator (to Register and Profile) reads the default path relative to /app, as Events' and Notifications' do.",
-        "Request-time dependencies only: nothing is read at start (the OpenID metadata on the first cookie)."
-      ],
-      "group": "receipt",
-      "image": { "research": "receipt" },
-      "dev": { "context": "components/receipt" },
-      "containerPort": 5060,
-      "networkAliases": ["receipt"],
-      "hostPort": 8034,
-      "healthPath": "/health",
-      "environment": {
-        "GeneralSettings__OpenIdWellKnownEndpoint": "{{platform}}authentication/api/v1/openid/",
-        "GeneralSettings__Hostname": "{{host:app}}",
-        "PlatformSettings__ApiAuthenticationEndpoint": "{{platform}}authentication/api/v1/",
-        "PlatformSettings__ApiProfileEndpoint": "{{platform}}profile/api/v1/",
-        "PlatformSettings__ApiRegisterEndpoint": "{{platform}}register/api/v1/",
-        "PlatformSettings__ApiStorageEndpoint": "{{platform}}storage/api/v1/",
-        "Localtest__Receipt__PlatformEndpoint": "{{platform}}"
+    "dialogporten-adapter": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter",
+      "tag": "sha-f76b62b",
+      "port": 5011,
+      "envs": {
+        "Localtest__Adapter__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
-      "mounts": [
-        { "kind": "certificateFile", "target": "/accesstoken/accesstokencredentials.pfx" }
-      ],
-      "dependsOn": ["register", "profile", "authentication", "storage"],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/receipt" }]
+      "dependsOn": ["storage", "register", "authentication", "dialogporten-webapi"]
     },
-    {
-      "name": "correspondence",
-      "description": "Production Altinn Correspondence (the API host, Hangfire inside it) on its own database. It cannot publish without a Dialogporten dialog and connects to Redis eagerly at start, so its group implies Dialogporten's and it shares that Redis (database 1).",
-      "notes": [
-        "Everything but the database and Redis it reaches through the public origin; the localtest hook derives those URLs from the platform endpoint (see the component README).",
-        "/health is the database check (CanConnectAsync); /healthz is liveness only.",
-        "It validates dialog tokens against Dialogporten's JWKS and creates dialogs from its first job, so the WebApi (healthy, migrated) comes first; the platform services it calls start before it too.",
-        "The host's own paths start with /correspondence/api/v1, so nothing is rewritten."
-      ],
-      "group": "correspondence",
-      "image": { "research": "correspondence" },
-      "dev": { "context": "components/correspondence" },
-      "containerPort": 2525,
-      "networkAliases": ["correspondence"],
-      "hostPort": 8033,
-      "healthPath": "/health",
-      "environment": {
-        "Localtest__Correspondence__PlatformEndpoint": "{{platform}}",
-        "DatabaseOptions__ConnectionString": "Host={{alias:postgres}};Port={{port:postgres}};Database=correspondence;Username=correspondence;Password=localtest",
-        "GeneralSettings__RedisConnectionString": "{{alias:redis}}:{{port:redis}},defaultDatabase=1"
+    "receipt": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-receipt",
+      "tag": "sha-f76b62b",
+      "port": 5060,
+      "envs": {
+        "GeneralSettings__Hostname": "local.altinn.cloud",
+        "GeneralSettings__OpenIdWellKnownEndpoint": "http://local.altinn.cloud:8000/authentication/api/v1/openid/",
+        "Localtest__Receipt__PlatformEndpoint": "http://local.altinn.cloud:8000/",
+        "PlatformSettings__ApiAuthenticationEndpoint": "http://local.altinn.cloud:8000/authentication/api/v1/",
+        "PlatformSettings__ApiProfileEndpoint": "http://local.altinn.cloud:8000/profile/api/v1/",
+        "PlatformSettings__ApiRegisterEndpoint": "http://local.altinn.cloud:8000/register/api/v1/",
+        "PlatformSettings__ApiStorageEndpoint": "http://local.altinn.cloud:8000/storage/api/v1/"
       },
-      "mounts": [
-        { "kind": "volume", "volume": "localtest-v2-correspondence-blobs", "target": "/mnt/storage" }
-      ],
-      "dependsOn": [
-        "postgres",
-        "register",
-        "profile",
-        "authorization",
-        "resource-registry",
-        "notifications",
-        "events",
-        "redis",
-        "dialogporten-webapi"
-      ],
-      "routes": [{ "host": "{{host:app}}", "prefix": "/correspondence" }]
+      "dependsOn": ["register", "profile", "authentication", "storage"]
     },
-    {
-      "name": "arbeidsflate-bff",
-      "description": "Arbeidsflate's backend for frontend: the OIDC client of production Authentication (the seeded client arbeidsflate-localtest, whose redirect, post-logout and front-channel URLs are on the Arbeidsflate host), the GraphQL proxy to Dialogporten with the user's access token, Profile for the profile page, and its own Postgres database and Redis database (2). No public route: the browser reaches it through the SPA's nginx, which proxies /api/ to its network alias.",
-      "notes": [
-        "HOSTNAME + /api/cb is the redirect_uri, which must equal the seeded client's byte for byte.",
-        "OIDC_PLATFORM_URL keeps its scheme, which patch 0001 keeps (upstream prefixes https://).",
-        "OIDC_CLIENT_ID is the client Authentication seeds for it (components/authentication, LocaltestOidcClients); its secret is the client id with \"-secret\".",
-        "PLATFORM_BASEURL serves Profile, Register, Correspondence, Notifications, the Resource Registry and the Maskinporten exchange; DIALOGPORTEN_URL has /graphql and /health under it, and the front door forwards /dialogporten/graphql to the GraphQL host's /graphql.",
-        "AUTH_CONTEXT_COOKIE_DOMAIN is the domain of the cookies the BFF writes for the apps (the language in altinnPersistentContext).",
-        "ENABLE_GRAPHIQL and ENABLE_INIT_SESSION_ENDPOINT: upstream enables both everywhere but production (GraphiQL at /api/graphiql with the browser's session, and /api/init-session for tests that bring a token instead of signing in).",
-        "MASKINPORTEN_ISSUER is the localtest app's fake Maskinporten (the BFF posts to {issuer}token); a nine-digit client id is the organisation number (Digdir's). The image's start script supplies a client key when MASKINPORTEN_JWK is unset.",
-        "The BFF refuses a SESSION_SECRET under 32 characters.",
-        "/api/readiness answers once the server listens, which is after the migrations and the database connection.",
-        "Its start reads Authentication's discovery (twice) and connects to Postgres and Redis; the GraphQL proxy, the health check and the profile page need Dialogporten, Profile and the Register."
-      ],
-      "group": "arbeidsflate",
-      "image": { "research": "arbeidsflate-bff" },
-      "dev": { "selector": "arbeidsflate", "context": "components/arbeidsflate", "dockerfile": "Dockerfile.bff" },
-      "containerPort": 80,
-      "hostPort": 8038,
-      "healthPath": "/api/readiness",
-      "environment": {
-        "HOSTNAME": "{{url:arbeidsflate}}",
-        "OIDC_PLATFORM_URL": "{{platform}}authentication/api/v1/openid",
-        "OIDC_CLIENT_ID": "arbeidsflate-localtest",
-        "OIDC_CLIENT_SECRET": "arbeidsflate-localtest-secret",
-        "PLATFORM_BASEURL": "{{url:app}}",
-        "DIALOGPORTEN_URL": "{{url:app}}/dialogporten",
-        "DB_CONNECTION_STRING": "postgres://arbeidsflate:localtest@{{alias:postgres}}:{{port:postgres}}/arbeidsflate",
-        "REDIS_CONNECTION_STRING": "redis://{{alias:redis}}:{{port:redis}}/2",
-        "SESSION_SECRET": "localtest-arbeidsflate-session-secret-not-a-secret",
-        "AUTH_CONTEXT_COOKIE_DOMAIN": "{{host:app}}",
-        "ENVIRONMENT": "test",
-        "NODE_ENV": "production",
+    "correspondence": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-correspondence",
+      "tag": "sha-f76b62b",
+      "port": 2525,
+      "envs": {
+        "DatabaseOptions__ConnectionString": "Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest",
+        "GeneralSettings__RedisConnectionString": "redis:6379,defaultDatabase=1",
+        "Localtest__Correspondence__PlatformEndpoint": "http://local.altinn.cloud:8000/"
+      },
+      "dependsOn": ["postgres", "register", "profile", "authorization", "resource-registry", "notifications", "events", "redis", "dialogporten-webapi"],
+      "volumes": {
+        "localtest-v2-correspondence-blobs": "/mnt/storage"
+      }
+    },
+    "arbeidsflate-bff": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate-bff",
+      "tag": "sha-f76b62b",
+      "port": 80,
+      "health": "/api/readiness",
+      "envs": {
+        "AUTH_CONTEXT_COOKIE_DOMAIN": "local.altinn.cloud",
+        "DB_CONNECTION_STRING": "postgres://arbeidsflate:localtest@postgres:5432/arbeidsflate",
+        "DIALOGPORTEN_URL": "http://local.altinn.cloud:8000/dialogporten",
         "ENABLE_GRAPHIQL": "true",
         "ENABLE_INIT_SESSION_ENDPOINT": "true",
-        "MASKINPORTEN_ISSUER": "{{platform}}localtest/api/maskinporten/",
-        "MASKINPORTEN_CLIENT_ID": "991825827"
+        "ENVIRONMENT": "test",
+        "HOSTNAME": "http://af.local.altinn.cloud:8000",
+        "MASKINPORTEN_CLIENT_ID": "991825827",
+        "MASKINPORTEN_ISSUER": "http://local.altinn.cloud:8000/localtest/api/maskinporten/",
+        "NODE_ENV": "production",
+        "OIDC_CLIENT_ID": "arbeidsflate-localtest",
+        "OIDC_CLIENT_SECRET": "arbeidsflate-localtest-secret",
+        "OIDC_PLATFORM_URL": "http://local.altinn.cloud:8000/authentication/api/v1/openid",
+        "PLATFORM_BASEURL": "http://local.altinn.cloud:8000",
+        "REDIS_CONNECTION_STRING": "redis://redis:6379/2",
+        "SESSION_SECRET": "localtest-arbeidsflate-session-secret-not-a-secret"
       },
-      "networkAliases": ["arbeidsflate-bff"],
       "dependsOn": ["postgres", "redis", "register", "profile", "authentication", "dialogporten-graphql"]
     },
-    {
-      "name": "arbeidsflate",
-      "description": "The SPA of Arbeidsflate, the Altinn inbox, served by nginx on its own host: the SPA and the BFF use absolute paths (/, /assets, /api/...), so they cannot live under a prefix of the platform host. nginx proxies /api/ to the BFF, whose cookies are Secure only over https (patch 0003), so it sets them without Secure on the stack's http (see the component README). The browser opens Dialogporten's subscription stream on the platform host directly, as in production.",
-      "notes": [
-        "Upstream's start.sh writes DIALOGPORTEN_STREAM_URL into index.html (envsubst); the two Application Insights values stay empty.",
-        "The health path is the SPA's index.html; /api/ would make the BFF's readiness the SPA's, which is polled on its own.",
-        "nginx resolves the BFF's alias when it starts, so the BFF comes first."
-      ],
-      "group": "arbeidsflate",
-      "image": { "research": "arbeidsflate" },
-      "dev": { "selector": "arbeidsflate", "context": "components/arbeidsflate", "dockerfile": "Dockerfile.frontend" },
-      "containerPort": 80,
-      "networkAliases": ["arbeidsflate"],
-      "hostPort": 8037,
-      "healthPath": "/",
-      "environment": {
-        "DIALOGPORTEN_STREAM_URL": "{{url:app}}/dialogporten/graphql/stream"
+    "arbeidsflate": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-arbeidsflate",
+      "tag": "sha-f76b62b",
+      "port": 80,
+      "health": "/",
+      "envs": {
+        "DIALOGPORTEN_STREAM_URL": "http://local.altinn.cloud:8000/dialogporten/graphql/stream"
       },
-      "dependsOn": ["arbeidsflate-bff"],
-      "routes": [{ "host": "{{host:arbeidsflate}}", "prefix": "" }]
+      "dependsOn": ["arbeidsflate-bff"]
     }
-  ]
+  }
 }
