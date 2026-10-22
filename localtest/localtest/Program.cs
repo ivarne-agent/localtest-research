@@ -36,10 +36,11 @@ builder.WebHost.ConfigureKestrel(kestrel =>
     kestrel.Limits.MaxRequestBodySize = 200 * 1024 * 1024;
 });
 builder.Services.AddHttpForwarder();
-var appRoutesFile = builder.Configuration["Proxy:AppRoutesFile"] ?? "/data/app-routes.json";
-builder.Services.AddSingleton(sp => new AppRoutes(appRoutesFile, sp.GetRequiredService<ILogger<AppRoutes>>()));
+// Settings are read from the built configuration (sp), so a test host's configuration counts too.
+static string AppRoutesFile(IServiceProvider sp) => sp.GetRequiredService<IConfiguration>()["Proxy:AppRoutesFile"] ?? "/data/app-routes.json";
+builder.Services.AddSingleton(sp => new AppRoutes(AppRoutesFile(sp), sp.GetRequiredService<ILogger<AppRoutes>>()));
 builder.Services.AddSingleton(sp => new DevServerRoute(
-    Path.Combine(Path.GetDirectoryName(appRoutesFile) ?? "/data", "frontend-dev-server.json"),
+    Path.Combine(Path.GetDirectoryName(AppRoutesFile(sp)) ?? "/data", "frontend-dev-server.json"),
     sp.GetRequiredService<ILogger<DevServerRoute>>()));
 builder.Services.AddSingleton<Forwarder>();
 builder.Services.AddHttpClient();
@@ -50,13 +51,12 @@ builder.Services.AddHttpClient();
 builder.Services.AddServiceDiscoveryCore();
 builder.Services.AddConfigurationServiceEndpointProvider();
 builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
-var localtest = LocaltestSettings.FromConfiguration(builder.Configuration);
-builder.Services.AddSingleton(localtest);
-builder.Services.AddSingleton(IdPortenSettings.FromConfiguration(builder.Configuration, localtest));
+builder.Services.AddSingleton(sp => LocaltestSettings.FromConfiguration(sp.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton(sp => IdPortenSettings.FromConfiguration(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<LocaltestSettings>()));
 builder.Services.AddKeyedSingleton<SigningKey>(IdPortenSettings.KeyName);
 builder.Services.AddSingleton<AuthorizationCodes>();
 builder.Services.AddSingleton<TestUsers>();
-builder.Services.AddSingleton(MaskinportenSettings.FromConfiguration(builder.Configuration, localtest));
+builder.Services.AddSingleton(sp => MaskinportenSettings.FromConfiguration(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<LocaltestSettings>()));
 builder.Services.AddKeyedSingleton<SigningKey>(MaskinportenApi.KeyName);
 builder.Services.AddSingleton<AuthenticationClient>();
 builder.Services.AddSingleton<StudioToken>();
@@ -84,7 +84,7 @@ app.Use(async (context, next) =>
 });
 
 // The app-frontend bundle built from src/App/frontend (dist mounted at /frontend), served as the apps' asset base.
-var frontendRoot = builder.Configuration["Proxy:FrontendRoot"] ?? "/frontend";
+var frontendRoot = app.Configuration["Proxy:FrontendRoot"] ?? "/frontend";
 if (Directory.Exists(frontendRoot))
 {
     app.UseStaticFiles(new StaticFileOptions

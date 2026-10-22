@@ -8,6 +8,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- AOT and trim analysis on every build, not only on publish. -->
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- The test project lives below this folder (tests/), with its own sources and build output. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
