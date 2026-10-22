@@ -26,6 +26,14 @@
   under Podman); the dev certificate cannot carry the stack's host names. Recommendation: termination at the front
   door, a localtest CA in the package's data directory, Aspire first behind an opt-in, studioctl after; 4.5 to 6 days,
   plus 2 to 3 for studioctl.
+- **21f** (2026-10-22, branch `task/aspire-parity`): `.github/workflows/manifest-parity.yml` runs studioctl's Go tests
+  (the golden snapshots are the stale-golden check), the package's and the provisioning library's tests and a JSON Schema
+  validation of the manifest on every change to the manifest, the Go loaders, the package or the library; the smoke
+  tests find containers under either runtime (`localtest/smoke/lib/containers.sh`); `localtest/README.md` describes the
+  two runtimes and how to run the smoke tests against an Aspire-hosted stack. The documentation stays in this repository
+  until adoption (nothing in altinn-studio-docs).
+- **Task 21 is done** except what task 24 (the HTTPS mode task 23 proposed) and task 22
+  (app-lib honours an explicit localtest environment and sets `keepAlive`'s `Secure` from the request) decide.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository

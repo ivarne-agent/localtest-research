@@ -14,6 +14,10 @@ Status (2026-10-22): the platform **runs under Podman** (21d): the default stack
 the front door, provisioned, signed in to and submitted in a browser, and the `provision`, `deprovision` and `reset`
 commands work from the dashboard, including a first start on empty volumes (see
 [Run the app under Podman](#run-the-app-under-podman)).
+Parity with studioctl (21f) is checked on every pull request by `.github/workflows/manifest-parity.yml` (see
+[Parity with studioctl](#parity-with-studioctl)), and the smoke tests find the Aspire containers by name
+([`localtest/README.md`](../../README.md#tests)). The documentation stays in this repository until the package is
+adopted; altinn-studio-docs gets nothing before that.
 
 | Path | What |
 | --- | --- |
@@ -324,6 +328,41 @@ token-free way to get it. nuget.org under Altinn's prefix is for adoption, not t
   `localhost` and `127.0.0.1` fall-back, the `pdf.` and `workflow-engine.` hosts, the app's `/ttd/testapp` route (and
   `/ttd/testappx`, `/ttd/other` falling through), the original Host, and YARP's 404 for `af.local.altinn.cloud`.
 
+## Parity with studioctl
+
+studioctl and this package build the stack from one manifest, and parity means they resolve it to the same thing.
+Nothing is generated twice: the package reads the Go tree's files by relative path, and its tests compare what it
+resolves with studioctl's golden snapshots, which studioctl's own tests hold its loaders to.
+
+| Golden file (under `localtest/studioctl/src/cli/`) | studioctl's test | This package's test |
+| --- | --- | --- |
+| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: the resource graph, route table and health targets of `env up` and of `env up --with everything --dev all` | `golden_internal_test.go` | `GoldenComparisonTests` |
+| `internal/cmd/app/testdata/app-environment.golden.json`: the app's environment from the manifest's `app` section | `env_golden_internal_test.go` | `AppTests` (the `native-localtest-v2` case) |
+| `internal/appsecrets/testdata/app-codes.golden.json`: the development app codes both runners write | `appcodes_golden_test.go` | `AppTests` (byte-equal) |
+
+A change to the manifest or to a Go loader fails `go test ./...` until the snapshot is reviewed and regenerated
+(`STUDIOCTL_UPDATE_GOLDEN=1 go test ./...`); the regenerated snapshot then fails this package's tests until the C#
+reader resolves the same. `.github/workflows/manifest-parity.yml` runs both on every pull request and push to `main`
+that touches the manifest, the Go loaders (`internal/localtestv2`, `internal/cmd/env/localtestv2`, `internal/cmd/app`,
+`internal/appsecrets`, `internal/config`, `internal/envtopology`, `devenv`), the provisioning library, the Postgres
+image's Dockerfile or `localtest/aspire/**`, in three jobs: `go` (`go build ./... && go test ./...`, which is also the
+stale-golden check), `dotnet` (this package's tests and the provisioning library's) and `schema` (the manifest against
+its schema with `python3 -m jsonschema`). `aspire-package.yml` builds and publishes on `main`.
+
+Not covered:
+
+- **Behaviour at run time.** The tests compare the resolved configuration, not running containers. The smoke tests are
+  the run-time check, run by hand against either runtime ([`localtest/README.md`](../../README.md#tests)).
+- **The deviations by design** in [How the manifest becomes resources](#how-the-manifest-becomes-resources): the front
+  door (studioctl-server against a stock YARP: no `503` for a group that is off, no `Secure` stripping on app routes),
+  `--dev` builds, pull policies, health semantics (the runtime's state against Aspire's host-side checks), the network
+  and container names, the frontend dev server's host route.
+- **The provisioning trigger.** Both runners call the same library, but studioctl-server provisions when it discovers
+  a running app and reads its files from the app's API, this package when the app resource is healthy and from disk;
+  the library's tests cover the steps, not the two triggers.
+- **The runner's own variables** (the Kestrel URL, the OpenTelemetry endpoint, the secrets directory's path), which the
+  app comparison leaves out.
+
 ## Run under Podman
 
 Phase 2 of 21d (2026-10-22), on this machine: Podman 5.7.0 driven through its socket (rootful, netavark), arm64,
@@ -346,7 +385,8 @@ packages.
 - **The YARP container reaches the components** by their resource names (the smoke tests pass through it).
 - **Container names** are `<resource>-<suffix>`, the suffix a hash of the AppHost's path (`storage-0de70ea0` for the
   sample), so two AppHosts give two sets of containers on the same host ports: run one at a time, and remove the other's
-  containers (`podman rm -f`) first. Set `STORAGE_CONTAINER` for the root smoke test's log check.
+  containers (`podman rm -f`) first. The smoke tests find a component's container by either naming
+  (`localtest/smoke/lib/containers.sh`, 21f); at 21d the root test's log check needed `STORAGE_CONTAINER`.
 - **Persistent containers survive** Ctrl-C of the AppHost (the front door, session-scoped, goes); the next start reuses
   all of them and is healthy in 3 s, against 27 s for a start that creates them on data volumes that already exist.
   A changed configuration recreates only the containers it changed. Redis's empty argument (`--save ""`) passes
@@ -417,6 +457,8 @@ could not load app-frontend from the CDN (a TLS handshake through this sandbox's
 
 - The workflow's run: GitHub offers `workflow_dispatch` only for a workflow on the default branch, so it runs after the
   merge.
+- `manifest-parity.yml` on GitHub: its jobs' commands were run locally (`go build ./... && go test ./...`, both
+  `dotnet test` runs, `python3 -m jsonschema`) and `actionlint` passes; the first run is on the pull request that adds it.
 - The degraded provisioning state in the dashboard (unit-tested; every provisioning in the run succeeded).
 - An SELinux host (bind mounts without relabelling), rootless Podman (this machine runs Podman rootful behind its
   socket), Docker.

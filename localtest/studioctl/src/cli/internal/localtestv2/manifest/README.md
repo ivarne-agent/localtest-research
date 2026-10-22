@@ -144,3 +144,6 @@ exactly the keywords the schema uses. A full JSON Schema validator gives the sam
 python3 -m venv /tmp/venv && /tmp/venv/bin/pip install jsonschema
 /tmp/venv/bin/python -m jsonschema -i manifest.json manifest.schema.json   # silent when valid
 ```
+
+CI runs both, with the golden tests and the Aspire package's comparison against them, in
+`.github/workflows/manifest-parity.yml`.

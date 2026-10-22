@@ -6,6 +6,21 @@ component runs the production source at a pinned upstream commit; local behaviou
 switches and an adjacent `fakes/` folder, never from edits to the vendored code.
 Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/mvp-vendoring-model.md).
 
+**Two runtimes.** The stack runs under studioctl (`studioctl env up -r localtest-v2`, "Run it" below) or as container
+resources of a .NET Aspire AppHost through the hosting package
+[`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()`, `AddAltinnApp<T>()`). Both
+read the same [component manifest](studioctl/src/cli/internal/localtestv2/manifest/README.md), run the same images and
+push an app with the same [provisioning library](#what-the-app-runner-pushes), and
+[`.github/workflows/manifest-parity.yml`](../.github/workflows/manifest-parity.yml) holds them to it (see the package's
+[parity section](aspire/Altinn.App.Aspire/README.md#parity-with-studioctl)). What differs: the front door
+(studioctl-server, or a stock YARP container on port 8000); the `503` problem details for a group that is off
+(studioctl only: under Aspire the path falls through to the next route, usually the localtest app's 404); `--dev` builds (studioctl only: under
+Aspire set `STUDIOCTL_IMAGE_LOCALTEST_V2_<NAME>` to a locally built image); reset (`env reset`, or the localtest
+resource's `reset` command and an AppHost restart; the volumes are shared, so either resets both); the app's `keepAlive`
+cookie (studioctl-server strips its `Secure` flag, the YARP front door cannot, so under Aspire the ten-minute token
+refresh fails over http until task 22); and the container names (`localtest-v2-<name>`, or Aspire's
+`<resource>-<suffix>`, see [Tests](#tests)). Run one at a time: both need port 8000.
+
 | Folder | What |
 | --- | --- |
 | `components/register/` | Production Register on an in-memory store: a built-in seed plus the `testData.json` each app runner posts (see its README), and the KRR stand-in |
@@ -33,6 +48,7 @@ Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/m
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
 | `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
+| `smoke/lib/containers.sh` | The smoke tests' container names under studioctl and under the Aspire package ("Tests" below) |
 | `postgres/` | The shared Postgres image: Postgres 18 with every component's database init script baked in |
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, route, push its artefacts) and stop all of them; they need the localtest app's own proxy as the front door, so under studioctl use `studioctl run` |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
@@ -194,6 +210,32 @@ the specs through it) when running from a worktree; the regression script's chec
 | `components/shared/smoke-test.sh` | The shared `IMaskinportenService` fake against the stack, with `UseAltinnTestOrg` on and off (2 checks) |
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use first (`studioctl run --dev-frontend` under studioctl, see "Run it") |
 | `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps with `run-app.sh`, or with `--no-apps` uses apps already started with `studioctl run --dev-frontend` (see "Run it": the monorepo's built frontend served with `Access-Control-Allow-Origin`). 44 tests, about six minutes; all pass on 2026-10-20 and again on 2026-10-21 (task 16, default stack; task 18, schema v3 seed; task 14, production Profile). The full suite is mostly about the frontend |
+
+The smoke tests that read a container's log or run a command in it (the root test's Storage log, the authorization
+test's policy store and PDP log, the dialogporten-adapter test's Storage log, the receipt's log, Correspondence's
+database and restart) find the container through [`smoke/lib/containers.sh`](smoke/lib/containers.sh):
+`localtest_container <name>` prints studioctl's `localtest-v2-<name>` when it runs, otherwise the one running Aspire
+container `<resource>-<suffix>` (the resource is the manifest name, `localtest-app` for the localtest app), and
+`LOCALTEST_CONTAINER_<NAME>` (`STORAGE_CONTAINER`, `RECEIPT_CONTAINER` and the authorization test's `CONTAINER` still
+work) names one by hand. Without podman or docker, or with no such container or two, the check is skipped with the
+reason.
+
+**Against an Aspire-hosted stack** (the sample AppHost, [`aspire/samples/app/`](aspire/samples/app), see the
+package's [README](aspire/Altinn.App.Aspire/README.md#run-the-app-under-podman)), with no studioctl stack running:
+
+1. Deprovision the app first: its `deprovision` command in the dashboard, or by hand
+   `curl -X DELETE http://local.altinn.cloud:8000/register/api/localtest/apps/ttd/testapp` and
+   `curl -X POST http://local.altinn.cloud:8000/accessmanagement/api/localtest/refresh`. A provisioned app's
+   `testData.json` replaces the Register's seed (when every registered app posted test data, only theirs is loaded), so
+   the suites' seed users (1337, 1003, ...) do not exist while the sample is registered.
+2. Drop the PDP's one-minute party cache: `curl -X POST http://local.altinn.cloud:8000/authorization/api/localtest/refresh`.
+3. Run the suites as against studioctl (`localtest/smoke-test.sh` with `PROXY_CHECKS=0`: the YARP container is the front
+   door). The root suite and the others that push the `ttd/testapp` fixture overwrite the sample's metadata, texts and
+   policy in Storage and the PDP.
+4. Provision the sample again: its `provision` command, or restart the app resource.
+
+Checks that cannot apply under Aspire: the `503` answers for a group that is off (dialogporten-adapter's `--off` mode)
+and anything that needs `--dev`.
 
 ## Status
 

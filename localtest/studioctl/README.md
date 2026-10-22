@@ -101,6 +101,11 @@ What studioctl does with it:
   health targets of the default `env up` and of `--with everything --dev all`). The golden file was generated while a
   transition test showed the loader building exactly what the hand-written component table it replaced built, for 2268
   option combinations; the commit that removed the table also removed that test.
+- CI: [`.github/workflows/manifest-parity.yml`](../../.github/workflows/manifest-parity.yml) runs `go build ./...` and
+  `go test ./...` here on every pull request that touches the manifest, the loaders, the provisioning library or the
+  Aspire package, so a manifest change without a regenerated golden file fails it; the same workflow runs the Aspire
+  package's tests, which compare its C# reader with these golden files, the provisioning library's tests and
+  `python3 -m jsonschema` on the manifest.
 
 To check the manifest by hand with a full JSON Schema validator:
 
