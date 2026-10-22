@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# Container names for the smoke tests, under either runtime of the stack. Source it; it defines two functions and sets
-# nothing else:
+# Container names for the smoke tests, under either runtime of the stack, and requests from inside the stack's network.
+# Source it; it defines four functions and sets nothing else:
 #
 #   localtest_runtime          prints the container CLI: $CTR when set, otherwise podman, otherwise docker; status 1
 #                              (and a reason on stderr) when there is none.
@@ -16,6 +16,15 @@
 #
 #   . "$HERE/../../smoke/lib/containers.sh"
 #   if RT=$(localtest_runtime) && C=$(localtest_container storage); then "$RT" logs "$C"; else echo "skip ..."; fi
+
+#   localtest_stack_code URL [HEADER]...     prints the HTTP status a GET of URL gets from inside the stack's network,
+#                                            where every container answers by its name (http://dialogporten-graphql:8080);
+#                                            000 when nothing answers or there is no Postgres container. Since task 27a
+#                                            no other container than the front door publishes a port under studioctl. The
+#                                            request is HTTP/1.1 over bash's /dev/tcp in the Postgres container (the one
+#                                            image with bash; BusyBox wget leaves out a redirect's Set-Cookie headers) and
+#                                            follows no redirect.
+#   localtest_stack_headers URL [HEADER]...  prints that response's headers, one per line, without the status line.
 
 localtest_runtime() {
   if [[ -n "${CTR:-}" ]]; then
@@ -72,4 +81,32 @@ localtest_container() {
     echo "$count running containers for $name (${matches//$'\n'/ }); set $var" >&2
   fi
   return 1
+}
+
+# _localtest_stack_get URL [HEADER]...: the raw response head of a GET from the Postgres container.
+_localtest_stack_get() {
+  local url=$1 rt c
+  shift
+  rt=$(localtest_runtime) || return 1
+  c=$(localtest_container postgres) || return 1
+  # shellcheck disable=SC2016 # the script runs in the container's bash, with U and H from its environment
+  "$rt" exec -e "U=$url" -e "H=$(printf '%s\n' "$@")" "$c" bash -c '
+    u=${U#http://}; hp=${u%%/*}; p=/; [[ $u == */* ]] && p=/${u#*/}
+    h=${hp%%:*}; port=80; [[ $hp == *:* ]] && port=${hp##*:}
+    { exec 3<>"/dev/tcp/$h/$port"; } 2>/dev/null || exit 0
+    {
+      printf "GET %s HTTP/1.1\r\n" "$p"
+      grep -qi "^host:" <<<"$H" || printf "Host: %s\r\n" "$hp"
+      while IFS= read -r l; do [[ -n $l ]] && printf "%s\r\n" "$l"; done <<<"$H"
+      printf "Connection: close\r\n\r\n"
+    } >&3
+    timeout 15 cat <&3 | tr -d "\r" | sed "/^$/q"'
+}
+
+localtest_stack_code() {
+  _localtest_stack_get "$@" | awk 'NR == 1 && /^HTTP\//{s=$2} END{print (s == "" ? "000" : s)}'
+}
+
+localtest_stack_headers() {
+  _localtest_stack_get "$@" | awk 'NR > 1 && NF'
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test for the dialogporten component (the WebApi, GraphQL and Service hosts) in the running stack, everything
 # through the proxy except the two hosts that have no route of their own (GraphQL's and the Service's health endpoints,
-# read on their host ports). The stack must be up with the optional group:
+# read from inside the stack's network, ../../smoke/lib/containers.sh). The stack must be up with the optional group:
 #   studioctl env up -r localtest-v2 --with dialogporten      (see ../../README.md)
 # Pushes the ttd/testapp fixture the way the app runner does (Studio token, metadata to Storage, policy to the PDP, then the
 # Resource Registry's subject reload), and one app of another organisation (skd/dpforeign, left in Storage afterwards, see
@@ -14,14 +14,17 @@
 # The end-user API is not covered here: with the code-flow token (which carries `pid`) it is the last check of
 # ../authentication/smoke-test.sh.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# DIALOGPORTEN_GRAPHQL_URL and DIALOGPORTEN_SERVICE_URL override the host-port URLs (default http://127.0.0.1:8031 and :8032).
+# DIALOGPORTEN_GRAPHQL_URL and DIALOGPORTEN_SERVICE_URL name the hosts on host ports instead (http://127.0.0.1:8031 and
+# :8032 under the Aspire package); by default they are read by name from inside the stack's network.
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 HERE=$(cd "$(dirname "$0")" && pwd)
 FX="$HERE/../../smoke/apps/ttd/testapp"
 BASE=${1:-http://local.altinn.cloud:8000}
-GRAPHQL_DIRECT=${DIALOGPORTEN_GRAPHQL_URL:-http://127.0.0.1:8031}
-SERVICE_DIRECT=${DIALOGPORTEN_SERVICE_URL:-http://127.0.0.1:8032}
+# shellcheck source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
+GRAPHQL_DIRECT=${DIALOGPORTEN_GRAPHQL_URL:-}
+SERVICE_DIRECT=${DIALOGPORTEN_SERVICE_URL:-}
 DP="$BASE/dialogporten"
 SO="$DP/api/v1/serviceowner"
 LT="$DP/api/v1/localtest"
@@ -39,13 +42,15 @@ expect() { # name expected actual
   if [[ "$2" == "$3" ]]; then pass "$1"; else fail "$1 (expected $2, got $3)"; fi
 }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+# direct_code BASE NAME PATH: the status of a host's own PATH, at BASE when set, else by NAME inside the stack's network.
+direct_code() { if [[ -n "$1" ]]; then code "$1$3"; else localtest_stack_code "http://$2:8080$3"; fi; }
 token() { curl -s "$BASE/Home/GetTestOrgToken?orgNumber=991825827&scopes=$1" | tr -d '"'; }
 
 echo "== readiness"
 for _ in $(seq 1 90); do [[ "$(code "$DP/health/readiness")" == 200 ]] && break; sleep 1; done
 expect "WebApi /dialogporten/health/readiness (through the proxy)" 200 "$(code "$DP/health/readiness")"
-expect "GraphQL /health/readiness (host port)" 200 "$(code "$GRAPHQL_DIRECT/health/readiness")"
-expect "Service /health/readiness (host port)" 200 "$(code "$SERVICE_DIRECT/health/readiness")"
+expect "GraphQL /health/readiness (the host itself)" 200 "$(direct_code "$GRAPHQL_DIRECT" dialogporten-graphql /health/readiness)"
+expect "Service /health/readiness (the host itself)" 200 "$(direct_code "$SERVICE_DIRECT" dialogporten-service /health/readiness)"
 curl -s "$DP/health/readiness" | check "readiness reports the database healthy" 'd["status"] == "healthy" and d["entries"]["postgres"]["status"] == "healthy"'
 
 echo "== well-known endpoints (the committed test keys, the localtest issuer)"
@@ -172,10 +177,10 @@ echo "== GraphQL through the /dialogporten/graphql rewrite"
 # The host serves /graphql with no path base. Without the rewrite the proxy would hand it /dialogporten/graphql and it would
 # answer 404; the host answers 401 to an anonymous request on both paths (every operation, the schema included, requires
 # authentication), so equal 401s prove the request reached the right path.
-expect "the GraphQL host itself answers an anonymous request on /graphql with 401" 401 "$(code "$GRAPHQL_DIRECT/graphql")"
+expect "the GraphQL host itself answers an anonymous request on /graphql with 401" 401 "$(direct_code "$GRAPHQL_DIRECT" dialogporten-graphql /graphql)"
 expect "/dialogporten/graphql is rewritten to /graphql (401, not the 404 of an unrewritten path)" 401 "$(code "$DP/graphql")"
 expect "/dialogporten/graphql/schema.graphql is rewritten to /graphql/schema.graphql" \
-  "$(code "$GRAPHQL_DIRECT/graphql/schema.graphql")" "$(code "$DP/graphql/schema.graphql")"
+  "$(direct_code "$GRAPHQL_DIRECT" dialogporten-graphql /graphql/schema.graphql)" "$(code "$DP/graphql/schema.graphql")"
 expect "a POST of a query through the rewrite is 401 as well" 401 "$(code -X POST -H 'Content-Type: application/json' "$DP/graphql" -d '{"query":"{ __typename }"}')"
 expect "the WebApi's paths are not rewritten (/dialogporten/api/v1/metadata/limits answers anonymously)" 200 "$(code "$DP/api/v1/metadata/limits")"
 # Any authenticated caller reaches the endpoint (the schema and introspection); every query field needs the end-user policy
