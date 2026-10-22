@@ -10,8 +10,10 @@ studioctl's. `AddAltinnApp` runs an Altinn app project beside it with the enviro
 
 Status (2026-10-22): the platform **runs under Podman** (21d): the default stack plus `dialogporten` passes the root
 (26), authentication (34) and Dialogporten (60) smoke tests through its front door, and survives AppHost restarts (see
-[Run under Podman](#run-under-podman)). The app side (21e) is **unit-tested, not run yet**: the sample app under Podman
-is phase 2 of 21e.
+[Run under Podman](#run-under-podman)). The app side (21e) **runs under Podman** too: the sample app is reached through
+the front door, provisioned, signed in to and submitted in a browser, and the `provision`, `deprovision` and `reset`
+commands work from the dashboard, including a first start on empty volumes (see
+[Run the app under Podman](#run-the-app-under-podman)).
 
 | Path | What |
 | --- | --- |
@@ -353,11 +355,68 @@ packages.
   Aspire itself about 0.5 GB proportional set size (the AppHost 140 MB, the dashboard 125 MB, DCP's API server and
   controllers 115 MB, one 26 MB DCP monitor per process), plus 150 MB for the `dotnet run` host.
 
+## Run the app under Podman
+
+21e phase 2 (2026-10-22), on the same machine, the sample AppHost (`../samples/app/AppHost`):
+
+```sh
+ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false \
+ASPIRE_ALLOW_UNSECURED_TRANSPORT=true ASPNETCORE_URLS=http://localhost:18888 \
+ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL=http://localhost:18889 ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL=http://localhost:18887 \
+dotnet run apphost.cs
+```
+
+- **The dashboard needs a trusted development certificate, or http.** With the defaults the dashboard reaches the
+  AppHost's resource service over https with the ASP.NET Core development certificate, which this Linux machine does not
+  trust (`UntrustedRoot`): the dashboard shows "Lost connection to the AppHost" and no resources, so no command can be
+  run. The four variables above put the dashboard, its OTLP endpoint and the resource service on plain http (local use
+  only); `dotnet dev-certs https --trust` is the other way. The AppHost itself runs either way.
+- **The port refusal**: with `studioctl env up -r localtest-v2` running, `dotnet run apphost.cs` stops before creating
+  anything: `Unhandled exception. System.InvalidOperationException: Port 8000 is in use by studioctl-server (pid
+  188202): another localtest stack or AppHost is running (...)`. A front-door container a killed AppHost left behind
+  (session lifetime, its creator gone) holds the port too: remove it with `podman rm -f frontdoor-<suffix>`.
+- **The app** listens on `0.0.0.0:<Aspire-assigned port>` (`ss -ltnp`: `0.0.0.0:14364 ... "Altinn.Applicat"`), and is
+  provisioned once it is healthy: `ttd/testapp: provision: provisioned ...: 1 text resource(s), policy True, test data
+  True, Dialogporten Synced` on the AppHost's console; the Register lists the app with its two persons and one
+  organisation, Storage serves the metadata and texts, the policy store holds the policy without placeholders, the
+  Resource Registry lists its subjects, and Dialogporten ran its two syncs.
+- **The front door reaches it**: `curl http://local.altinn.cloud:8000/ttd/testapp/api/v1/applicationmetadata` answers
+  200 with `"altinnNugetVersion":"8.12.15.277"` from the app (`--add-host host.docker.internal:host-gateway` on the
+  front door).
+- **A browser** (Chromium) signs in through the localtest app's picker (`/Home/`) as Aspire Utvikler with the app
+  `ttd/testapp`, picks the person's own party, gets an instance with the form, saves the fields (`PATCH .../data/...`
+  200) and submits it to the receipt ([`docs/sample-app-form.png`](docs/sample-app-form.png),
+  [`docs/sample-app-receipt.png`](docs/sample-app-receipt.png)). app-frontend comes from the CDN, which needs internet.
+- **The keepAlive gap**, through the front door: `GET /ttd/testapp/api/authentication/keepAlive` with the runtime
+  cookie answers `Set-Cookie: AltinnStudioRuntime=eyJ...; domain=local.altinn.cloud; path=/; secure; samesite=lax;
+  httponly`, so a browser on http drops the refreshed cookie, as documented.
+- **Commands** (clicked in the dashboard with playwright-cli): restarting the app provisions it again (the
+  `ResourceReadyEvent`); `provision` pushes it again; `deprovision` asks for confirmation
+  ([`docs/dashboard-deprovision-confirmation.png`](docs/dashboard-deprovision-confirmation.png)) and empties the
+  Register's app list (back to the seed); `reset` asks for confirmation, then removes the 18 containers and the five
+  volumes (the front door stays until the AppHost stops).
+- **A first start on empty volumes**, after `reset` and an AppHost restart: Postgres runs its nine init scripts
+  (`10-storage.sh` to `90-arbeidsflate.sh`, each `CREATE DATABASE`), every component is healthy after 36 s and the app
+  provisioned 47 s after `dotnet run` (images present, the AppHost already built). A restart that reuses the persistent
+  containers is healthy in 3 s.
+- **Smoke tests**: authentication 34 of 34 and root 26 of 26 through the front door, with the app deprovisioned
+  first. The sample's `testData.json` replaces the Register's seed while it is registered (the Register's rule: when
+  every registered app posted test data, only theirs is loaded), so the smoke tests' seed users (1337, 1003) do not
+  exist while the sample is provisioned. After the deprovision the PDP still answered from its one-minute party cache
+  until `POST authorization/api/localtest/refresh`. The root smoke test also pushes the fixture's metadata over the
+  sample's; `provision` puts the sample's back.
+- **Memory**: `free -m` 5.4 GB used of 7.9 GB, 2.5 GB available; the 18 containers about 3.0 GB by `podman stats`
+  (after the browser tests and on fresh volumes), the AppHost about 190 MB, the dashboard 200 MB, the app 150 MB.
+
+Found and fixed on the way (sample only): the fixture's data type had no `autoCreate`, so an instance got no data
+element and app-frontend could not bind the form, and `models/model.schema.json` was missing; the template's
+`enablePdfCreation: false` was missing, so app-lib ran its PDF task, which failed here because pdf3's headless browser
+could not load app-frontend from the CDN (a TLS handshake through this sandbox's proxy, not the package).
+
 ## Not verified
 
-- The whole app side (21e phase 2): the app on its Aspire-assigned port on `0.0.0.0`, the front door reaching it
-  through `host.docker.internal` under Podman, the provisioning against the running platform, the degraded state in
-  the dashboard, the commands, the port refusal with a studioctl stack up, the workflow's run.
+- The workflow's run: GitHub offers `workflow_dispatch` only for a workflow on the default branch, so it runs after the
+  merge.
+- The degraded provisioning state in the dashboard (unit-tested; every provisioning in the run succeeded).
 - An SELinux host (bind mounts without relabelling), rootless Podman (this machine runs Podman rootful behind its
   socket), Docker.
-- A first start on empty volumes (the volumes are studioctl's and held data, so the init scripts did not run).

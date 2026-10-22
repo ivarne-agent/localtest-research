@@ -13,6 +13,11 @@
 // AppHost running: the package refuses to start while port 8000 is taken. local.altinn.cloud must resolve to this
 // machine (studioctl's hosts entries), since the AppHost provisions the app through the front door.
 //
+// The dashboard reaches the AppHost over https with the ASP.NET Core development certificate; where it is not trusted
+// (Linux), trust it (dotnet dev-certs https --trust) or add ASPIRE_ALLOW_UNSECURED_TRANSPORT=true
+// ASPNETCORE_URLS=http://localhost:18888 ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL=http://localhost:18889
+// ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL=http://localhost:18887, or the dashboard shows no resources and no commands.
+//
 // Known gap (TODO task 21, the 21d decisions): the stock YARP front door cannot strip `Secure` from app-lib's keepAlive
 // cookie, so over http the browser drops it and the app loses its ten-minute token refresh until app-lib sets the flag
 // from the request (task 22 in the research repository). Sign in again when the token expires.
