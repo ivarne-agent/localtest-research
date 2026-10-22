@@ -17,7 +17,10 @@ commands work from the dashboard, including a first start on empty volumes (see
 Parity with studioctl (21f) is checked on every pull request by `.github/workflows/manifest-parity.yml` (see
 [Parity with studioctl](#parity-with-studioctl)), and the smoke tests find the Aspire containers by name
 ([`localtest/README.md`](../../README.md#tests)). The documentation stays in this repository until the package is
-adopted; altinn-studio-docs gets nothing before that.
+adopted; altinn-studio-docs gets nothing before that. The suites ran against the sample with the containers found by
+name (21f phase 2): root 26, authentication 34, Dialogporten 60, authorization 31 of 31 each, and the localtest app's
+64 of 66 with `PROXY_CHECKS=0`, the same two failures as under studioctl
+([`localtest/README.md`](../../README.md#tests)).
 
 | Path | What |
 | --- | --- |

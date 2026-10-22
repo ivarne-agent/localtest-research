@@ -237,6 +237,16 @@ package's [README](aspire/Altinn.App.Aspire/README.md#run-the-app-under-podman))
 Checks that cannot apply under Aspire: the `503` answers for a group that is off (dialogporten-adapter's `--off` mode)
 and anything that needs `--dev`.
 
+Run on 2026-10-22 (task 21f) against the sample AppHost with `dialogporten`, after the deprovision and the PDP refresh,
+every container found by the helper (`storage-c6c99550`, `authorization-c6c99550`, ...): root 26 of 26 (the Storage
+log check included), `components/authentication` 34 of 34, `components/dialogporten` 60 of 60,
+`components/authorization` 31 of 31 (the policy store listing and the PDP log check included) and
+`localtest/smoke-test.sh` with `PROXY_CHECKS=0` 64 of 66. Its two failures are the ones it has under studioctl: a
+prefix without its slash (`/storage`) is not redirected to `/storage/` (404), and `/app-frontend/` needs
+`FRONTEND_DIST` (404), as under studioctl (`../TODO.md` task 13). `PROXY_CHECKS=0`
+leaves out its 9 app-route checks, which need the localtest app as the front door. The `provision` command put the
+sample back (the Register lists `ttd/testapp` with its two persons and one organisation).
+
 ## Status
 
 Running together and verified: all components above, with sign-in, Storage, PDP decisions, instance delegations
