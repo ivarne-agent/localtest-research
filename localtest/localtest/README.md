@@ -133,7 +133,7 @@ Aspire package's copy went in task 27b).
 
 | Call | What |
 | --- | --- |
-| `PUT routes/frontend-dev-server` with `{ "url": "http://host.docker.internal:8080" }` | Every path on `app-frontend.local.altinn.cloud` goes to the Vite dev server (`studioctl run --dev-frontend`). Same URL rules as an app |
+| `PUT routes/frontend-dev-server` with `{ "url": "http://host.docker.internal:8080" }` | Every path on `app-frontend.local.altinn.cloud` goes to the frontend dev server (`studioctl run --dev-frontend` sends it under localtest-v2 and `DELETE`s it when the run stops). Same URL rules as an app |
 | `DELETE routes/frontend-dev-server` | Back to the built app-frontend under `/app-frontend/`; `204` |
 | `GET routes` | The platform route table with each service's address, and the dev-server route |
 

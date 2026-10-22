@@ -199,6 +199,17 @@ static server on the port `--dev-frontend` expects that sends `Access-Control-Al
 fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` (and so for `run-platform-regression.sh`, which runs
 the specs through it) when running from a worktree; the regression script's checkout argument only locates the apps.
 
+`studioctl run --dev-frontend` points the app's assets at `http://app-frontend.local.altinn.cloud:8000`. Under
+localtest-v2 the run routes that host through the front door to the dev server on the host's port 8080 once the app is
+registered (`PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:8080`) and removes the route
+when it stops (`DELETE`; a `--detach` run leaves it in place). Serve the frontend there: `yarn docker` in
+`src/App/frontend` builds a development bundle and serves `dist` on 8080 with CORS, and `yarn start --port 8080` runs
+Vite there. Without a route that host is served like the main host. To set or clear the route by hand (an app started
+from an IDE, or a stale route after a detached run):
+`curl -X PUT http://local.altinn.cloud:8000/localtest/api/routes/frontend-dev-server -H 'Content-Type: application/json' -d '{"url":"http://host.docker.internal:8080"}'`
+and `curl -X DELETE http://local.altinn.cloud:8000/localtest/api/routes/frontend-dev-server`
+([`localtest/README.md`](localtest/README.md#the-frontend-dev-server-localtestapiroutes-anonymous)).
+
 ## Tests
 
 | Command | What it checks |
