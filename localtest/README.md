@@ -106,7 +106,7 @@ names and ids are live. An app path the runner has not
 registered is the localtest app's 404.
 
 Besides the platform endpoints, the app's environment sets the links the app frontend sends a browser to (task 28).
-Against localtest-v2 both runners default `PlatformFrontendSettings__ArbeidsflateInboxUrl` to
+Against localtest-v2 both runners (and `run-app.sh`) default `PlatformFrontendSettings__ArbeidsflateInboxUrl` to
 `http://af.local.altinn.cloud:8000/`, `…ArbeidsflateDialogUrl` to `…/inbox/{dialogId}`, `…ArbeidsflateProfileUrl` to
 `…/profile` and `…ArbeidsflatePartiesUrl` to `…/profile/parties` (host and port from the topology, so another ingress
 port follows). app-lib sends them to the frontend in the bootstrap response, and on a local host the frontend uses a

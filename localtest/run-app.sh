@@ -48,6 +48,13 @@ export PlatformSettings__ApiNotificationEndpoint="$PLATFORM/notifications/api/v1
 export PlatformSettings__ApiCorrespondenceEndpoint="$PLATFORM/correspondence/api/v1/"
 export PlatformSettings__ApiAccessManagementEndpoint="$PLATFORM/accessmanagement/api/v1/"
 export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local.altinn.cloud:8000/api/v1/"
+# The app frontend's inbox links into the local Arbeidsflate, as studioctl run and the Aspire package set them (README.md,
+# "What the app runner pushes"); an empty value in the caller's environment keeps the start page.
+ARBEIDSFLATE="http://af.${PLATFORM#http://}"
+export PlatformFrontendSettings__ArbeidsflateInboxUrl="${PlatformFrontendSettings__ArbeidsflateInboxUrl-$ARBEIDSFLATE/}"
+export PlatformFrontendSettings__ArbeidsflateDialogUrl="${PlatformFrontendSettings__ArbeidsflateDialogUrl-$ARBEIDSFLATE/inbox/{dialogId}}"
+export PlatformFrontendSettings__ArbeidsflateProfileUrl="${PlatformFrontendSettings__ArbeidsflateProfileUrl-$ARBEIDSFLATE/profile}"
+export PlatformFrontendSettings__ArbeidsflatePartiesUrl="${PlatformFrontendSettings__ArbeidsflatePartiesUrl-$ARBEIDSFLATE/profile/parties}"
 # The app itself in the background, so $! is its pid (not a subshell's) and nothing keeps this script's stdout open.
 ( cd "$APP_DIR/App" || exit 1; nohup dotnet "$DLL" > "$LOG" 2>&1 < /dev/null & echo $! > "$PIDF" )
 for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
