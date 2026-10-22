@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 # Smoke test for the localtest app in the running stack:
-# - the proxy: the contract the nginx ingress had (routes by host and path, trailing-slash redirects, cookies without
-#   Secure, streaming, the app-frontend files) and the app route API the app runner uses (registers and removes a route
-#   for ttd/proxy-smoke only);
+# - the front door: the contract the nginx ingress had (routes by host and path, trailing-slash redirects, cookies
+#   without Secure, streaming, the app-frontend files), the 503 for a service that is off, and the registration API the
+#   app runners use (registers, provisions and removes ttd/proxy-smoke only, and the frontend dev server's route);
 # - the fake ID-porten and Maskinporten;
 # - Home: the old localtest login contract (start page, LogInTestUser and the party cookies of the selected party,
 #   authentication levels in the token, version probe, token helpers), all through production Authentication.
-# The app-route section needs the localtest app as the front door (it registers a route through the app's own API);
-# behind studioctl's localtest-v2 runtime studioctl-server is the front door, so skip it there with PROXY_CHECKS=0.
+# The registration section needs the localtest app as the front door (it registers routes through the app's own API);
+# behind studioctl's localtest-v2 runtime studioctl-server is still the front door on 8000 (until task 27), so skip it
+# there with PROXY_CHECKS=0, or point the script at the localtest container's own port.
 # USER_SELECT must be a user acting for an organisation (userId.orgPartyId); OWN_PARTY is that user's own party.
+# FAKE_APP is any address the localtest container reaches that is not an app (default the Register's), OFF_PREFIX a
+# platform prefix whose service is not running (default /correspondence/, an optional group).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
 BASE=${1:-http://local.altinn.cloud:8000}
-API="$BASE/localtest/api/proxy/apps"
+API="$BASE/localtest/api/apps"
+ROUTES="$BASE/localtest/api/routes"
+FAKE_APP=${FAKE_APP:-http://register:5020}
+OFF_PREFIX=${OFF_PREFIX:-/correspondence/}
+NO_APP="No app is registered for this path. Start it with studioctl run or an Aspire AppHost (or, with this app as the front door, run-app.sh <app-dir> <port>)."
 USER_SELECT=${USER_SELECT:-1337.500000}
 OWN_PARTY=${OWN_PARTY:-501337}
 USER_ID=${USER_SELECT%%.*}
@@ -34,7 +41,8 @@ expect "register prefix" 200 "$(code "$BASE/register/api/localtest/test-users")"
 expect "events prefix" 200 "$(code "$BASE/events/api/localtest/events")"
 expect "a prefix without its slash redirects" "301 /storage/" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{location}' "$BASE/storage")"
 expect "a file-like path is forwarded (register answers)" 404 "$(code "$BASE/register/no-such-file.json")"
-expect "unknown path: the proxy's own 404" "No app is registered for this path. Start it with studioctl run (or, with this app as the proxy, run-app.sh <app-dir> <port>)." "$(curl -s -m 10 "$BASE/nope/missing.js")"
+expect "unknown path: the front door's own 404" "$NO_APP" "$(curl -s -m 10 "$BASE/nope/missing.js")"
+expect "a service that is off: 503 problem details" "503 application/problem+json" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %{content_type}' "$BASE${OFF_PREFIX}x")"
 expect "the PDF host belongs to pdf3, /health included" 404 "$(code -H 'Host: pdf.local.altinn.cloud:8000' "$BASE/health")"
 SECURE=$(curl -s -m 10 -D - -o /dev/null -X POST "$BASE/Home/LogInTestUser" -d action=reauthenticate -d UserSelect=1337.501337 -d AuthenticationLevel=2 | grep -ci '^set-cookie:.*;\s*secure')
 COOKIES=$(curl -s -m 10 -D - -o /dev/null -X POST "$BASE/Home/LogInTestUser" -d action=reauthenticate -d UserSelect=1337.501337 -d AuthenticationLevel=2 | grep -ci '^set-cookie:')
@@ -44,17 +52,25 @@ FILE=$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{access-control-allow-
 expect "app-frontend bundle with CORS (needs FRONTEND_DIST)" "200 *" "$FILE"
 
 if [[ "${PROXY_CHECKS:-1}" != 0 ]]; then
-echo "== app routes"
-expect "bad app name" 400 "$(code -X PUT "$API/ttd/Not_Valid" -H Content-Type:application/json -d '{"upstream":"http://register:5020"}')"
-expect "upstream with a path" 400 "$(code -X PUT "$API/ttd/proxy-smoke" -H Content-Type:application/json -d '{"upstream":"http://register:5020/x"}')"
-# Any reachable server will do as the "app": Register answers 404 for /ttd/proxy-smoke/…, which proves the route.
-expect "register ttd/proxy-smoke" 200 "$(code -X PUT "$API/ttd/proxy-smoke" -H Content-Type:application/json -d '{"upstream":"http://register:5020"}')"
-expect "listed" 1 "$(curl -s -m 10 "$API" | python3 -c 'import json,sys; print(sum(r["org"]=="ttd" and r["app"]=="proxy-smoke" for r in json.load(sys.stdin)))')"
-expect "routed to the upstream (Register's empty 404, not the proxy's text)" "" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
+echo "== app registration"
+put() { curl -s -m 60 -o /dev/null -w '%{http_code}' -X PUT "$1" -H Content-Type:application/json -d "{\"url\":\"$2\"}"; }
+expect "bad app name" 400 "$(put "$API/ttd/Not_Valid" "$FAKE_APP")"
+expect "url with a path" 400 "$(put "$API/ttd/proxy-smoke" "$FAKE_APP/x")"
+expect "an org that is a platform prefix" 400 "$(put "$API/storage/proxy-smoke" "$FAKE_APP")"
+# Any reachable server will do as the "app": the Register answers 404 for /ttd/proxy-smoke/…, which proves the route,
+# and the provisioning fails on the missing application metadata, which keeps the route.
+expect "register ttd/proxy-smoke: routed, provisioning failed" 502 "$(put "$API/ttd/proxy-smoke" "$FAKE_APP")"
+expect "listed with the failed provisioning" "1 failed" "$(curl -s -m 10 "$API" | python3 -c 'import json,sys; r=[r for r in json.load(sys.stdin) if r["org"]=="ttd" and r["app"]=="proxy-smoke"]; print(len(r), r[0]["provisioning"]["state"] if r else "-")')"
+expect "routed to the address (Register's empty 404, not the front door's text)" "" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
 expect "app path without its slash redirects, query kept" "301 /ttd/proxy-smoke/?a=1" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{location}' "$BASE/ttd/proxy-smoke?a=1")"
-expect "remove" 204 "$(code -X DELETE "$API/ttd/proxy-smoke")"
-expect "gone: the proxy's 404 again" "No app is registered for this path. Start it with studioctl run (or, with this app as the proxy, run-app.sh <app-dir> <port>)." "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
-expect "remove again" 404 "$(code -X DELETE "$API/ttd/proxy-smoke")"
+expect "remove (deprovisions)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
+expect "gone: the front door's 404 again" "$NO_APP" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
+expect "remove again (idempotent)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
+DEV=(-s -m 10 -H "Host: app-frontend.local.altinn.cloud")
+expect "frontend dev server route set" 200 "$(put "$ROUTES/frontend-dev-server" "$FAKE_APP")"
+expect "its host goes to the dev server (Register's empty 404)" "" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
+expect "frontend dev server route removed" 204 "$(code -X DELETE "$ROUTES/frontend-dev-server")"
+expect "its host is the main host again" "$NO_APP" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
 fi
 
 echo "== identity providers"

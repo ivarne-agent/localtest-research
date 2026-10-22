@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Run an Altinn app from a source checkout against the localtest stack, register it, and route it through the proxy.
+# Run an Altinn app from a source checkout against the localtest stack and register it with the front door, which
+# routes it and provisions it from the running app (localtest/README.md, "What the app runner pushes").
 #
 #   ./run-app.sh <path-to-app-repo> [port]        e.g. ./run-app.sh ~/code/altinn-studio/src/test/apps/frontend-test 5005
 #
-# The app listens on 0.0.0.0:<port> on this machine; the proxy reaches it as host.docker.internal:<port>.
-# Needs the localtest app as the front door (it routes the app through that app's own proxy API). Under studioctl's
-# localtest-v2 runtime studioctl-server is the front door: use `studioctl run`, whose provisioner also pushes the
-# artefacts (with the Resource Registry's subject reload and Dialogporten's sync, which this script does not run).
+# The app listens on 0.0.0.0:<port> on this machine; the front door reaches it as host.docker.internal:<port>.
+# Needs the localtest app as the front door (it registers through that app's own API, PUT localtest/api/apps). Under
+# studioctl's localtest-v2 runtime studioctl-server is still the front door until task 27: use `studioctl run` there.
 # Platform URLs point at http://local.altinn.cloud:8000 (override with PLATFORM). Logs: .run/<org>-<app>.log, pid file next to it.
 set -euo pipefail
 APP_DIR=${1:?app directory}; PORT=${2:-5005}
@@ -52,43 +52,10 @@ export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local
 for i in $(seq 1 60); do curl -sf -o /dev/null "http://127.0.0.1:$PORT/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
 echo "app $ORG/$APP on port $PORT (pid $(cat "$PIDF"), log $LOG), ready after ${i}s"
 
-# Route it through the proxy: push the app's address (the proxy reaches this machine as host.docker.internal).
-code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$PLATFORM/localtest/api/proxy/apps/$ORG/$APP" \
-  -H 'Content-Type: application/json' -d "{\"upstream\":\"http://host.docker.internal:$PORT\"}")
-for i in $(seq 1 30); do curl -sf -o /dev/null "$PLATFORM/$ORG/$APP/api/v1/applicationmetadata" && break; sleep 1; done
-echo "proxy route $PLATFORM/$ORG/$APP/ -> host port $PORT: HTTP $code (reachable after ${i}s)"
-
-# Push the app's artefacts to the platform, as Studio does on deploy (see README.md, "What the app runner pushes").
-# Designer's own token (issuer studio, app studio.designer), exchanged by the production authentication endpoint.
-STUDIOTOKEN=$(curl -s "$PLATFORM/Home/GetTestStudioToken" | tr -d '"')
-push() { # method url file [content-type]
-  local code; code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $STUDIOTOKEN" -H "Content-Type: ${4:-application/json}" -X "$1" "$2" --data-binary @"$3"); echo "$code"
-}
-# 1. Register: the test users the app defines (testData.json as is), or none.
-if [[ -f "$APP_DIR/App/wwwroot/testData.json" ]]; then
-  curl -s -o /dev/null -w "register testData.json: HTTP %{http_code}\n" -H 'Content-Type: application/json' -X PUT "$PLATFORM/register/api/localtest/apps/$ORG/$APP" --data-binary @"$APP_DIR/App/wwwroot/testData.json" || true
-else
-  curl -s -o /dev/null -w "register (no testData.json): HTTP %{http_code}\n" -X PUT "$PLATFORM/register/api/localtest/apps/$ORG/$APP" || true
-fi
-# 2. Storage: application metadata and texts through the production endpoints (POST, or PUT when it already exists).
-code=$(push POST "$PLATFORM/storage/api/v1/applications?appId=$ORG/$APP" "$META")
-[[ "$code" == "201" || "$code" == "200" ]] || code=$(push PUT "$PLATFORM/storage/api/v1/applications/$ORG/$APP" "$META")
-echo "storage application metadata: HTTP $code"
-for f in "$APP_DIR"/App/config/texts/resource.*.json; do
-  [[ -f "$f" ]] || continue
-  lang=$(basename "$f" .json); lang=${lang#resource.}
-  code=$(push POST "$PLATFORM/storage/api/v1/applications/$ORG/$APP/texts" "$f")
-  [[ "$code" == "201" || "$code" == "200" ]] || code=$(push PUT "$PLATFORM/storage/api/v1/applications/$ORG/$APP/texts/$lang" "$f")
-  echo "storage texts $lang: HTTP $code"
-done
-# 3. Authorization: the app policy through the production endpoint, [ORG]/[org]/[APP]/[app] replaced as Designer does on
-#    deploy (AuthorizationPolicyService.ReplacePolicyPlaceholderTokens).
-POLICY="$APP_DIR/App/config/authorization/policy.xml"
-if [[ -f "$POLICY" ]]; then
-  code=$(sed -e "s/\[ORG\]/$ORG/g" -e "s/\[org\]/$ORG/g" -e "s/\[APP\]/$APP/g" -e "s/\[app\]/$APP/g" "$POLICY" | push POST "$PLATFORM/authorization/api/v1/policies?org=$ORG&app=$APP" /dev/stdin application/xml)
-  echo "authorization policy: HTTP $code"
-else
-  echo "authorization policy: none in $POLICY"
-fi
-# 4. Access Management keeps its own copy of parties, roles and packages: tell it the Register changed.
-curl -s -o /dev/null -w "access-management refresh: HTTP %{http_code}\n" -X POST "$PLATFORM/accessmanagement/api/localtest/refresh" || true
+# One registration: the front door routes /{org}/{app}/ to the app (it reaches this machine as host.docker.internal) and
+# provisions it from the app's own API, as Studio does on deploy; the answer is the provisioning result or the problem.
+RESULT=$(mktemp)
+code=$(curl -s -m 120 -o "$RESULT" -w '%{http_code}' -X PUT "$PLATFORM/localtest/api/apps/$ORG/$APP" \
+  -H 'Content-Type: application/json' -d "{\"url\":\"http://host.docker.internal:$PORT\"}")
+echo "registered $PLATFORM/$ORG/$APP/ -> host port $PORT: HTTP $code"
+cat "$RESULT"; echo; rm -f "$RESULT"
