@@ -61,6 +61,7 @@ A path matching no route still falls through to the localtest app.
 | 25 | [Service discovery in the components](#25-service-discovery-in-the-components) | research done and registration merged (2026-10-22, commits 688ea0ee..d6a2174f fast-forwarded onto main; report `planned-components/service-discovery.md`; the `#if LOCALTEST` registration in every vendored host, pass-through still on until each component's URLs are migrated; Dialogporten builds without upstream's locked restore instead of carrying lock files; coordinator rebuilt the localtest app and restored and published the Dialogporten Service host from a scratch copy, both clean; brief `/home/agent/code/.briefs/task25-service-discovery.md`) | small | no |
 | 26 | [The localtest container as the shared front door](#26-the-localtest-container-as-the-shared-front-door) | done (2026-10-22; commits b9e3aa31..f76b62ba fast-forwarded onto main; **scope: the localtest image only**, the runtimes' switch is in 27; the image: routes for every component by service name through the discovery package without pass-through, two 503 kinds ported from studioctl-server, `PUT/DELETE localtest/api/apps/{org}/{app}` doing route and provisioning in one call with the provisioning code copied into the image and the Studio token minted in-process, the dev-server route as a pushed route, port 8080, 68 tests, 36.5 MB Native AOT image; phase 2 on today's stack: PUT provisioned the sample app with every call made by the container (packet capture), DELETE idempotent, root 26, authentication 34, localtest 65 of 67 through 8000 (studioctl-server's two known gaps), 52 of 81 through a second container on 8001 (the 29 identity checks cannot apply beside the real front door), both 503s shown; fixes: idempotent DELETE on a Register 404, `run-app.sh` pid file, readable quotes in problem details; coordinator verified phase 1 and phase 2 branches (tests, image, nothing left running); pin bumped to sha-f76b62b (images run 39848837148 green; proven by the coordinator 2026-10-22 on plain images: root 26, authentication 32 with the two Dialogporten checks skipped on the default stack, localtest 65 of 67 with studioctl-server's two known gaps); brief `/home/agent/code/.briefs/task26-front-door.md`) | medium | yes |
 | 27 | [Manifest v2: services only](#27-manifest-v2-services-only) | 27a running (dispatched 2026-10-22 after 26's pin bump, Opus, phase 1 code-only; brief `/home/agent/code/.briefs/task27a-manifest-v2-studioctl.md`), 27b (Aspire package) brief ready `/home/agent/code/.briefs/task27b-manifest-v2-aspire.md`, dispatch pre-authorised (owner 2026-10-22: "Go ahead and dispatch 27 when 26 is done") (after 26; **includes the runtimes' switch to the localtest front door**: studioctl-server drops its proxy, route tables, 503 page and `AppProvisioner`, the Aspire package drops `Aspire.Hosting.Yarp` and the compiled-in provisioning sources, both publish 8000 from the localtest container and call its registration API) | large | yes |
+| 28 | [Browser-visible links across the stack](#28-browser-visible-links-across-the-stack) | unapproved (owner's request 2026-10-22; after 27) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -830,3 +831,19 @@ root containers of `default`, which is always on, and of `dialogporten`, `receip
 stays a runner constant meaning all groups); `containers` is the map of real services with `registry`, `tag`, `envs`,
 `dependsOn`, `volumes` and the optional `port`/`health`. The typed Aspire methods and the `--with` values are code
 constants checked against the group names by a test, as today. A container no group reaches is a loader error.
+
+## 28. Browser-visible links across the stack
+
+**Goal (2026-10-22, owner's request).** Every URL a browser can be sent to or click on, in every system, works on the
+stack: an inventory first (a Playwright crawl of `--with everything` signed in as a test user, plus a code reading of
+where each URL is built), each link classified as into the stack through the public origin, into a host that does not
+exist locally, or out to production; then fixes per component in the fakes or the front door, and a smoke test that
+follows every link and expects the right destination. Named acceptance case: an app's "back to inbox" lands in
+Arbeidsflate at `http://af.local.altinn.cloud:8000/`, signed in. Expected sites: apps (the inbox link app-frontend
+builds for the Altinn 2 inbox `/ui/messagebox` or for Arbeidsflate, profile, logout, the receipt link, the
+party-selection return, help and privacy links, CDN assets), Receipt (inbox, app, attachment links on the `platform.`
+host the fake rewrites), Arbeidsflate (the adapter's GUI-action links into app instances, profile, logout and its
+post-logout return, Altinn 2 links in menus), Authentication (every redirect target, logout's post-redirect, the
+ID-porten round trip), the localtest start page, the PDF generator's fetch of the app. Open: whether links out to
+production hosts (`altinn.no`, `info.altinn.no`, the CDN) stay as they are (coordinator's recommendation) or get a
+localtest placeholder page.
