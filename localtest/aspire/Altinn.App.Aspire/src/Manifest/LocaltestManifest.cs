@@ -296,39 +296,42 @@ internal sealed class LocaltestManifest
         new($"invalid localtest-v2 manifest: {message}", inner);
 }
 
+// The manifest's records have setters, not init accessors: the JSON source generator sets every init property in its
+// object initializer, so a key the file leaves out would be null instead of the default below.
+
 /// <summary>A group: its root containers, which start with their transitive dependencies.</summary>
 internal sealed record ManifestGroup
 {
     /// <summary>The group's name.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; set; } = "";
 
     /// <summary>The root containers.</summary>
-    public IReadOnlyList<string> Containers { get; init; } = [];
+    public IReadOnlyList<string> Containers { get; set; } = [];
 }
 
 /// <summary>One container: its image, environment, start order, volumes, port and health.</summary>
 internal sealed record ManifestContainer
 {
     /// <summary>The image repository, with the registry host.</summary>
-    public string Registry { get; init; } = "";
+    public string Registry { get; set; } = "";
 
     /// <summary>The image tag; a digest may follow it (<c>7.2-alpine@sha256:...</c>).</summary>
-    public string Tag { get; init; } = "";
+    public string Tag { get; set; } = "";
 
     /// <summary>The environment, literal strings.</summary>
-    public IReadOnlyDictionary<string, string> Envs { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> Envs { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The containers that start, and are healthy, before this one.</summary>
-    public IReadOnlyList<string> DependsOn { get; init; } = [];
+    public IReadOnlyList<string> DependsOn { get; set; } = [];
 
     /// <summary>Named volume to the path it is mounted at.</summary>
-    public IReadOnlyDictionary<string, string> Volumes { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> Volumes { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The container's port; zero is <see cref="LocaltestManifest.DefaultPort" />.</summary>
-    public int Port { get; init; }
+    public int Port { get; set; }
 
     /// <summary>An HTTP path, or <c>tcp</c>; empty is <see cref="LocaltestManifest.DefaultHealth" />.</summary>
-    public string? Health { get; init; }
+    public string? Health { get; set; }
 
     /// <summary>The image reference as written.</summary>
     [JsonIgnore]

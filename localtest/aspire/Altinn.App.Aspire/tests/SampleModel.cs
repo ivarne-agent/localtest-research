@@ -1,8 +1,6 @@
 using System.Reflection;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Aspire.Hosting.Yarp;
-using Yarp.ReverseProxy.Configuration;
 
 namespace Altinn.App.Aspire.Tests;
 
@@ -33,12 +31,30 @@ internal sealed class SampleModel
     /// <summary>The app, unless the model was built without it.</summary>
     public IResourceBuilder<ProjectResource>? App { get; }
 
-    public static SampleModel Build(bool withApp = true, Action<AltinnAppOptions>? configureApp = null)
+    public static SampleModel Build(bool withApp = true, Action<AltinnAppOptions>? configureApp = null) =>
+        Build(["dialogporten"], withApp, configureApp: configureApp);
+
+    /// <summary>A model with the named optional groups (none: the default stack).</summary>
+    public static SampleModel Build(
+        IReadOnlyList<string> groups,
+        bool withApp = false,
+        string dataDirectory = DataDirectory,
+        Action<AltinnAppOptions>? configureApp = null,
+        Action<AltinnLocaltestOptions>? configure = null
+    )
     {
         var builder = DistributedApplication.CreateBuilder(
             new DistributedApplicationOptions { Args = [], DisableDashboard = true }
         );
-        var localtest = builder.AddAltinnLocaltest(configure: o => o.DataDirectory = DataDirectory).WithDialogporten();
+        var localtest = builder.AddAltinnLocaltest(configure: o =>
+        {
+            o.DataDirectory = dataDirectory;
+            configure?.Invoke(o);
+        });
+        foreach (var group in groups)
+        {
+            localtest.WithGroup(group);
+        }
         var app = withApp ? builder.AddAltinnApp<SampleAppProject>(localtest, configure: configureApp) : null;
         return new SampleModel(builder, localtest, app);
     }
@@ -48,17 +64,16 @@ internal sealed class SampleModel
     public ContainerResource Container(string name) =>
         Builder.Resources.OfType<ContainerResource>().Single(r => r.Name == name);
 
-    public YarpResource FrontDoor => Builder.Resources.OfType<YarpResource>().Single();
+    /// <summary>The container resources, in the order they were added.</summary>
+    public IReadOnlyList<ContainerResource> Containers => [.. Builder.Resources.OfType<ContainerResource>()];
 
-    /// <summary>The YARP routes, read from the resource's internal list (the integration has no public read API).</summary>
-    public IReadOnlyList<RouteConfig> YarpRoutes =>
-        [.. Internal<IEnumerable<object>>(FrontDoor, "Routes").Select(r => Internal<RouteConfig>(r, "RouteConfig"))];
-
-    /// <summary>The YARP clusters' IDs, read the same way.</summary>
-    public IReadOnlyList<string> YarpClusterIds =>
+    /// <summary>The resources a container waits for to be healthy.</summary>
+    public static IReadOnlyList<string> HealthyWaits(IResource resource) =>
         [
-            .. Internal<IEnumerable<object>>(FrontDoor, "Clusters")
-                .Select(c => Internal<ClusterConfig>(c, "ClusterConfig").ClusterId),
+            .. resource
+                .Annotations.OfType<WaitAnnotation>()
+                .Where(w => w.WaitType == WaitType.WaitUntilHealthy)
+                .Select(w => w.Resource.Name),
         ];
 
     public static async Task<IReadOnlyList<string>> RuntimeArgs(IResource resource)
@@ -105,9 +120,6 @@ internal sealed class SampleModel
             ? expression.ValueExpression
             : null;
     }
-
-    private static T Internal<T>(object target, string property) =>
-        (T)target.GetType().GetProperty(property, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
 }
 
 /// <summary>The sample app's project, as the AppHost SDK generates <c>Projects.App</c> for it.</summary>

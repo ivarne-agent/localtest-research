@@ -7,18 +7,18 @@ namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
 /// The typed group aliases (<c>WithDialogporten()</c>, ...) on <see cref="AltinnLocaltestExtensions" /> are exactly
-/// the manifest's groups, so adding, renaming or removing a group in the manifest fails here until the methods match.
+/// the manifest's optional groups and <c>everything</c>, so adding, renaming or removing a group in the manifest fails
+/// here until the methods match.
 /// </summary>
 public sealed class GroupMethodsTests
 {
     [Fact]
     public void EveryManifestGroupHasATypedMethodAndNoMethodLacksAGroup()
     {
-        var expected = ManifestLoader.Default.Groups.Keys.ToDictionary(
-            MethodName,
-            group => group,
-            StringComparer.Ordinal
-        );
+        var expected = LocaltestManifest
+            .Default.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup)
+            .Append(LocaltestStack.Everything)
+            .ToDictionary(MethodName, group => group, StringComparer.Ordinal);
         var actual = typeof(AltinnLocaltestExtensions)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(m =>
@@ -58,6 +58,11 @@ public sealed class GroupMethodsTests
         Assert.DoesNotContain("receipt", names);
         Assert.Same(localtest, localtest.WithReceipt());
         Assert.Contains("receipt", builder.Resources.Select(r => r.Name));
+        localtest.WithDialogporten().WithArbeidsflate();
+        Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], localtest.Resource.Groups);
+        var count = builder.Resources.Count;
+        localtest.WithEverything();
+        Assert.Equal(count, builder.Resources.Count);
     }
 
     private static string MethodName(string group) =>

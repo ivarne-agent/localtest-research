@@ -3,10 +3,10 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace Altinn.App.Aspire.Tests;
 
-/// <summary>The application model the sample AppHost builds, without running it.</summary>
+/// <summary>The application model the package builds, without running it.</summary>
 public sealed class ModelTests
 {
-    private static readonly string[] _sampleComponents =
+    private static readonly string[] _default =
     [
         "postgres",
         "register",
@@ -14,13 +14,17 @@ public sealed class ModelTests
         "authentication",
         "authorization",
         "storage",
-        "access-management",
         "events",
         "resource-registry",
         "notifications",
-        "localtest-app",
+        "localtest",
         "pdf3",
         "workflow-engine",
+        "access-management",
+    ];
+
+    private static readonly string[] _dialogporten =
+    [
         "redis",
         "dialogporten-webapi",
         "dialogporten-graphql",
@@ -31,25 +35,132 @@ public sealed class ModelTests
     private readonly SampleModel _model = SampleModel.Build();
 
     [Fact]
+    public void TheDefaultStackIsTheDefaultGroupAndWhatItDependsOn()
+    {
+        var model = SampleModel.Build([]);
+
+        Assert.Equal(["altinn-localtest", .. _default], model.Resources.Select(r => r.Name));
+        Assert.Empty(model.Localtest.Resource.Groups);
+    }
+
+    [Fact]
     public void TheSampleAddsTheDefaultStackAndDialogporten()
     {
-        var names = _model.Resources.Select(r => r.Name).ToList();
-
         // AddProject adds the hidden app-rebuilder beside the app.
-        Assert.Equal(["localtest", "frontdoor", .. _sampleComponents, "app", "app-rebuilder"], names);
-        Assert.DoesNotContain(names, n => n.StartsWith("receipt", StringComparison.Ordinal));
-        Assert.DoesNotContain(names, n => n.StartsWith("correspondence", StringComparison.Ordinal));
-        Assert.DoesNotContain(names, n => n.StartsWith("arbeidsflate", StringComparison.Ordinal));
+        Assert.Equal(
+            ["altinn-localtest", .. _default, .. _dialogporten, "app", "app-rebuilder"],
+            _model.Resources.Select(r => r.Name)
+        );
         Assert.Equal(["dialogporten"], _model.Localtest.Resource.Groups);
         Assert.Equal(new Uri("http://local.altinn.cloud:8000/"), _model.Localtest.Resource.PlatformUri);
     }
 
     [Fact]
-    public void EveryComponentIsAPersistentChildOfTheLocaltestResource()
+    public void EverythingAddsEveryContainer()
     {
-        foreach (var name in _sampleComponents)
+        var model = SampleModel.Build(["everything"]);
+
+        Assert.Equal(
+            LocaltestManifest.Default.Names.Order(StringComparer.Ordinal),
+            model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)
+        );
+        Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], model.Localtest.Resource.Groups);
+    }
+
+    [Fact]
+    public void AGroupAddsOnlyWhatItStarts()
+    {
+        var model = SampleModel.Build(["correspondence"]);
+
+        // Correspondence depends on Redis and Dialogporten's WebApi (and what that depends on), not on its other hosts.
+        Assert.Equal(
+            [.. _default, "redis", "dialogporten-webapi", "correspondence"],
+            model.Containers.Select(c => c.Name)
+        );
+    }
+
+    [Theory]
+    [InlineData("default")]
+    [InlineData("routes")]
+    public void UnknownGroupsAndTheDefaultGroupAreRefused(string group)
+    {
+        var model = SampleModel.Build([]);
+
+        var error = Assert.Throws<ArgumentException>(() => model.Localtest.WithGroup(group));
+
+        Assert.Contains(group, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EveryContainerAnnouncesEveryRunningHttpContainer()
+    {
+        var expected = _default
+            .Concat(_dialogporten)
+            .Where(n => n is not "postgres" and not "redis")
+            .Select(n => $"services__{n}__http__0")
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        foreach (var container in _model.Containers)
         {
-            var container = _model.Container(name);
+            var environment = await _model.Environment(container);
+
+            Assert.Equal(
+                expected,
+                environment
+                    .Keys.Where(k => k.StartsWith("services__", StringComparison.Ordinal))
+                    .Order(StringComparer.Ordinal)
+            );
+        }
+        var storage = await _model.Environment(_model.Container("storage"));
+        Assert.Equal("http://storage:5010", storage["services__storage__http__0"]);
+        Assert.Equal("http://dialogporten-webapi:8080", storage["services__dialogporten-webapi__http__0"]);
+        Assert.Equal("http://local.altinn.cloud:8000/", storage["GeneralSettings__PlatformEndpoint"]);
+    }
+
+    [Fact]
+    public async Task AGroupEnabledLaterIsAnnouncedToTheContainersAddedBefore()
+    {
+        var model = SampleModel.Build([]);
+        Assert.DoesNotContain("services__receipt__http__0", (await model.Environment(model.Container("storage"))).Keys);
+
+        model.Localtest.WithReceipt();
+
+        Assert.Equal(
+            "http://receipt:5060",
+            (await model.Environment(model.Container("storage")))["services__receipt__http__0"]
+        );
+    }
+
+    [Fact]
+    public void OnlyTheLocaltestContainerPublishesAPort()
+    {
+        foreach (var container in _model.Containers.Where(c => c.Name != "localtest"))
+        {
+            Assert.Empty(container.Annotations.OfType<EndpointAnnotation>());
+        }
+        var endpoint = Assert.Single(_model.Container("localtest").Annotations.OfType<EndpointAnnotation>());
+        Assert.Equal(("http", 8000, 8080), (endpoint.Name, endpoint.Port, endpoint.TargetPort));
+        Assert.False(endpoint.IsProxied);
+        Assert.Equal("0.0.0.0", endpoint.TargetHost);
+    }
+
+    [Fact]
+    public void PostgresIsPublishedOnlyWhenAsked()
+    {
+        var model = SampleModel.Build([], configure: o => o.PostgresHostPort = 15432);
+
+        var endpoint = Assert.Single(model.Container("postgres").Annotations.OfType<EndpointAnnotation>());
+        Assert.Equal(
+            ("tcp", 15432, 5432, false),
+            (endpoint.Name, endpoint.Port, endpoint.TargetPort, endpoint.IsProxied)
+        );
+    }
+
+    [Fact]
+    public void EveryContainerIsAPersistentChildWithItsNameAsAliasAndOneHealthCheck()
+    {
+        foreach (var container in _model.Containers)
+        {
             Assert.Equal(
                 ContainerLifetime.Persistent,
                 container.Annotations.OfType<ContainerLifetimeAnnotation>().Single().Lifetime
@@ -58,226 +169,132 @@ public sealed class ModelTests
                 container.Annotations.OfType<ResourceRelationshipAnnotation>(),
                 r => r.Type == "Parent" && r.Resource == _model.Localtest.Resource
             );
+            // Aspire's own alias is the resource name, which is the manifest name.
+            Assert.Empty(container.Annotations.OfType<ContainerNetworkAliasAnnotation>());
+            var check = Assert.Single(container.Annotations.OfType<HealthCheckAnnotation>());
+            Assert.Equal(
+                container.Name == "localtest"
+                    ? "localtest_http_/health_200_check"
+                    : $"{container.Name}_in_network_check",
+                check.Key
+            );
         }
     }
 
     [Fact]
-    public void EveryContainerHasItsEndpointAndHealthCheck()
+    public async Task EveryContainerMapsThePublicHostsToTheHostGateway()
     {
-        var resolver = new ManifestResolver(ManifestLoader.Default, "/certs", getEnvironment: _ => null);
-        foreach (var component in resolver.Components(["dialogporten"]))
+        string[] hosts =
+        [
+            "local.altinn.cloud",
+            "pdf.local.altinn.cloud",
+            "workflow-engine.local.altinn.cloud",
+            "app-frontend.local.altinn.cloud",
+            "af.local.altinn.cloud",
+            "host.docker.internal",
+        ];
+        foreach (var container in _model.Containers)
         {
-            var container = _model.Container(component.Name == "localtest" ? "localtest-app" : component.Name);
-            var endpoints = container.Annotations.OfType<EndpointAnnotation>().ToList();
-            var endpoint = Assert.Single(endpoints);
-            Assert.Equal(component.ContainerPort, endpoint.TargetPort);
-            if (component.HostPort is { } hostPort)
-            {
-                Assert.Equal("http", endpoint.Name);
-                Assert.Equal(hostPort, endpoint.Port);
-                Assert.False(endpoint.IsProxied);
-            }
-            else
-            {
-                Assert.Equal("tcp", endpoint.Name);
-                Assert.Equal(component.Name == "postgres" ? 15432 : 16379, endpoint.Port);
-                Assert.False(endpoint.IsProxied);
-            }
-            Assert.Single(container.Annotations.OfType<HealthCheckAnnotation>());
+            Assert.Equal(
+                hosts.SelectMany(h => new[] { "--add-host", h + ":host-gateway" }),
+                await SampleModel.RuntimeArgs(container)
+            );
         }
     }
 
     [Fact]
-    public void ImagesComeFromTheManifest()
+    public void TheMountsAreTheCertificateAndTheNamedVolumes()
     {
-        var pin = ManifestLoader.Default.Images.Tag;
+        Assert.Equal(
+            [
+                (ContainerMountType.BindMount, "/data-directory/certs", "/certs", true),
+                (
+                    ContainerMountType.BindMount,
+                    "/data-directory/certs/localtest-accesstoken.pfx",
+                    "/accesstoken/accesstokencredentials.pfx",
+                    true
+                ),
+                (ContainerMountType.Volume, "localtest-v2-storage-blobs", "/data/blobs", false),
+            ],
+            _model
+                .Container("storage")
+                .Annotations.OfType<ContainerMountAnnotation>()
+                .Select(m => (m.Type, m.Source, m.Target, m.IsReadOnly))
+        );
+    }
+
+    [Fact]
+    public void ImagesFollowTheManifest()
+    {
+        var pin = LocaltestManifest.Default.Containers["storage"].Tag;
         var storage = _model.Container("storage").Annotations.OfType<ContainerImageAnnotation>().Single();
         var redis = _model.Container("redis").Annotations.OfType<ContainerImageAnnotation>().Single();
-        var pdf = _model.Container("pdf3");
 
         Assert.Equal(
             ("ghcr.io", "ivarne-agent/localtest-research/localtest-storage", pin),
             (storage.Registry, storage.Image, storage.Tag)
         );
         // Aspire drops the tag when a digest is set: the reference is library/redis@sha256:..., the same image.
-        Assert.Equal(("docker.io", "library/redis", null), (redis.Registry, redis.Image, redis.Tag));
+        Assert.Equal(("docker.io", "library/redis"), (redis.Registry, redis.Image));
         Assert.Equal("29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0", redis.SHA256);
         Assert.Equal(
             ImagePullPolicy.Always,
-            pdf.Annotations.OfType<ContainerImagePullPolicyAnnotation>().Single().ImagePullPolicy
+            _model.Container("pdf3").Annotations.OfType<ContainerImagePullPolicyAnnotation>().Single().ImagePullPolicy
         );
+        Assert.Empty(_model.Container("storage").Annotations.OfType<ContainerImagePullPolicyAnnotation>());
     }
 
     [Fact]
-    public async Task ComponentsMapTheIngressHostsToTheHostGateway()
+    public void TheTagOptionReplacesThePinsOnly()
     {
-        string[] ingress =
-        [
-            "--add-host",
-            "local.altinn.cloud:host-gateway",
-            "--add-host",
-            "pdf.local.altinn.cloud:host-gateway",
-            "--add-host",
-            "workflow-engine.local.altinn.cloud:host-gateway",
-            "--add-host",
-            "pgadmin.local.altinn.cloud:host-gateway",
-            "--add-host",
-            "app-frontend.local.altinn.cloud:host-gateway",
-            "--add-host",
-            "af.local.altinn.cloud:host-gateway",
-        ];
+        var model = SampleModel.Build(["dialogporten"], configure: o => o.Tag = "latest");
 
-        Assert.Equal(ingress, await SampleModel.RuntimeArgs(_model.Container("storage")));
+        Assert.Equal("latest", model.Container("storage").Annotations.OfType<ContainerImageAnnotation>().Single().Tag);
         Assert.Equal(
-            [.. ingress, "--add-host", "host.docker.internal:host-gateway"],
-            await SampleModel.RuntimeArgs(_model.Container("events"))
+            ImagePullPolicy.Always,
+            model.Container("storage").Annotations.OfType<ContainerImagePullPolicyAnnotation>().Single().ImagePullPolicy
         );
-        Assert.Empty(await SampleModel.RuntimeArgs(_model.Container("postgres")));
-        Assert.Empty(await SampleModel.RuntimeArgs(_model.Container("redis")));
+        Assert.Equal("tt02", model.Container("pdf3").Annotations.OfType<ContainerImageAnnotation>().Single().Tag);
+        Assert.NotNull(model.Container("redis").Annotations.OfType<ContainerImageAnnotation>().Single().SHA256);
     }
 
     [Fact]
-    public async Task EnvironmentMountsAliasesAndCommandFollowTheManifest()
-    {
-        var storage = _model.Container("storage");
-        var environment = await _model.Environment(storage);
-        Assert.Equal("http://local.altinn.cloud:8000/", environment["GeneralSettings__PlatformEndpoint"]);
-        Assert.Equal(
-            "/certs/localtest-accesstoken.pfx",
-            environment["AccessTokenSettings__AccessTokenSigningCertificateFullPath"]
-        );
-
-        var mounts = storage
-            .Annotations.OfType<ContainerMountAnnotation>()
-            .Select(m => (m.Type, m.Source, m.Target, m.IsReadOnly));
-        Assert.Equal(
-            [
-                (ContainerMountType.BindMount, "/data-directory/certs", "/certs", true),
-                (ContainerMountType.Volume, "localtest-v2-storage-blobs", "/data/blobs", false),
-            ],
-            mounts
-        );
-        var events = _model
-            .Container("events")
-            .Annotations.OfType<ContainerMountAnnotation>()
-            .Select(m => (m.Source, m.Target));
-        Assert.Contains(
-            ("/data-directory/certs/localtest-accesstoken.pfx", "/accesstoken/accesstokencredentials.pfx"),
-            events
-        );
-
-        // postgres and redis are their resource names already; the localtest app keeps its component name as an alias.
-        Assert.Empty(_model.Container("postgres").Annotations.OfType<ContainerNetworkAliasAnnotation>());
-        Assert.Equal(
-            ["localtest"],
-            _model.Container("localtest-app").Annotations.OfType<ContainerNetworkAliasAnnotation>().Select(a => a.Alias)
-        );
-
-        Assert.Equal(
-            [
-                "postgres",
-                "-c",
-                "shared_preload_libraries=pg_stat_statements",
-                "-c",
-                "timezone=UTC",
-                "-c",
-                "log_timezone=UTC",
-            ],
-            await SampleModel.Args(_model.Container("postgres"))
-        );
-        Assert.Equal(
-            ["redis-server", "--save", "", "--appendonly", "no"],
-            await SampleModel.Args(_model.Container("redis"))
-        );
-    }
-
-    [Fact]
-    public void DependenciesBecomeWaits()
+    public void DependenciesBecomeWaitsAndHttpContainersWaitForTheFrontDoorToStart()
     {
         static IEnumerable<(string, WaitType)> Waits(IResource r) =>
             r.Annotations.OfType<WaitAnnotation>().Select(w => (w.Resource.Name, w.WaitType));
 
         Assert.Equal(
             [
-                ("frontdoor", WaitType.WaitUntilStarted),
                 ("postgres", WaitType.WaitUntilHealthy),
                 ("register", WaitType.WaitUntilHealthy),
+                ("localtest", WaitType.WaitUntilStarted),
             ],
-            Waits(_model.Container("profile")).Order()
+            Waits(_model.Container("profile"))
         );
         Assert.Empty(Waits(_model.Container("postgres")));
-        Assert.Contains(
-            ("dialogporten-webapi", WaitType.WaitUntilHealthy),
+        Assert.Empty(Waits(_model.Container("redis")));
+        Assert.Empty(Waits(_model.Container("localtest")));
+        Assert.Equal(
+            [("dialogporten-webapi", WaitType.WaitUntilHealthy), ("localtest", WaitType.WaitUntilStarted)],
             Waits(_model.Container("dialogporten-graphql"))
         );
     }
 
     [Fact]
-    public void TheFrontDoorPublishesPort8000OnEveryInterface()
+    public void TheInNetworkProbeIsStudioctls()
     {
-        var endpoint = _model.FrontDoor.Annotations.OfType<EndpointAnnotation>().Single(e => e.Name == "http");
-
-        Assert.Equal(8000, endpoint.Port);
-        Assert.False(endpoint.IsProxied);
-        Assert.Equal("0.0.0.0", endpoint.TargetHost);
-        Assert.Single(_model.FrontDoor.Annotations.OfType<HealthCheckAnnotation>());
-    }
-
-    [Fact]
-    public void TheFrontDoorHasARouteForEveryManifestRouteOfAnAddedComponent()
-    {
-        var routes = _model.YarpRoutes;
-        var clusters = _model.YarpClusterIds;
-
-        // One cluster per routed component, named after its resource.
         Assert.Equal(
-            [
-                "register",
-                "profile",
-                "authentication",
-                "authorization",
-                "storage",
-                "access-management",
-                "events",
-                "resource-registry",
-                "notifications",
-                "localtest-app",
-                "pdf3",
-                "workflow-engine",
-                "dialogporten-webapi",
-                "dialogporten-graphql",
-                "dialogporten-adapter",
-                "app",
-            ],
-            clusters.Select(c => c.Replace("cluster_", "", StringComparison.Ordinal))
+            "for i in $(seq 1 10); do if { exec 3<>/dev/tcp/postgres/5432; } 2>/dev/null; then exec 3<&-; exit 0; fi; "
+                + "sleep 0.5; done; exit 1",
+            InNetworkHealthCheck.Script(new HealthTarget("postgres", 5432, null))
         );
-        Assert.Equal(clusters.Count, routes.Count);
-        Assert.DoesNotContain(routes, r => r.Match.Path!.StartsWith("/receipt", StringComparison.Ordinal));
-
-        var graphql = routes.Single(r => r.ClusterId == "cluster_dialogporten-graphql");
-        Assert.Equal("/dialogporten/graphql/{**catch-all}", graphql.Match.Path);
-        Assert.Equal(["local.altinn.cloud", "localhost", "127.0.0.1"], graphql.Match.Hosts);
-        Assert.Equal(-"/dialogporten/graphql".Length, graphql.Order);
         Assert.Equal(
-            [
-                new Dictionary<string, string> { ["RequestHeaderOriginalHost"] = "True" },
-                new Dictionary<string, string> { ["PathRemovePrefix"] = "/dialogporten/graphql" },
-                new Dictionary<string, string> { ["PathPrefix"] = "/graphql" },
-            ],
-            graphql.Transforms!.Select(t => t.ToDictionary())
+            "for i in $(seq 1 10); do if { exec 3<>/dev/tcp/storage/5010; } 2>/dev/null; then "
+                + "printf 'GET /health HTTP/1.0\\r\\nHost: storage\\r\\n\\r\\n' >&3; "
+                + "IFS= read -r -t 5 line <&3 || line=; exec 3<&-; case \"$line\" in *' 200 '*) exit 0;; esac; fi; "
+                + "sleep 0.5; done; exit 1",
+            InNetworkHealthCheck.Script(new HealthTarget("storage", 5010, "/health"))
         );
-
-        var localtest = routes.Single(r => r.ClusterId == "cluster_localtest-app");
-        Assert.Equal("/{**catch-all}", localtest.Match.Path);
-        Assert.Equal(FrontDoorRoutes.HostOnlyOrder, localtest.Order);
-        Assert.True(
-            routes
-                .Where(r => r != localtest && r.Match.Hosts!.Contains("local.altinn.cloud"))
-                .All(r => r.Order < localtest.Order)
-        );
-
-        var pdf = routes.Single(r => r.ClusterId == "cluster_pdf3");
-        Assert.Equal(["pdf.local.altinn.cloud"], pdf.Match.Hosts);
-        Assert.Equal("/{**catch-all}", pdf.Match.Path);
     }
 }

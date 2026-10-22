@@ -1,131 +1,212 @@
+using System.Globalization;
+using System.Text.Json;
 using Altinn.App.Aspire.Manifest;
+using Aspire.Hosting.ApplicationModel;
 
 namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
-/// The C# reader against studioctl's golden snapshot: for the default stack and for <c>--with everything</c>, every
-/// component the package would add has the name, start order, image, environment, ports, mounts, aliases, extra hosts,
-/// dependencies, command, container health check, health target and routes studioctl resolves. Excluded, because they
-/// are studioctl's own: the dev builds' image references (the <c>everything</c> snapshot is <c>--dev all</c>), SELinux
-/// relabelling of binds (<c>RelabelBinds</c>), the runtime user and user namespace (no component uses
-/// <c>hostUser</c>, asserted below), the network resource and its name, the image pull policies, and the front door's
-/// host routes (the Vite dev server, out of scope for the package).
+/// The package against studioctl's golden snapshots, read by relative path from the Go tree:
+/// <c>internal/cmd/env/localtestv2/testdata/environment.golden.json</c> (the containers of <c>env up</c> and of
+/// <c>env up --with everything --latest --dev-...</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
+/// (the app's environment). Per container, every field both runners have is compared byte for byte with the
+/// application model the package builds: the selection and its start order, the image reference (the default stack;
+/// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>
+/// variables, the mounts, the published port, the extra hosts, the network alias, the dependencies and the health
+/// target. Not compared, being one runner's own: the network, the container names, pull policies, SELinux
+/// relabelling, dev builds.
 /// </summary>
 public sealed class GoldenComparisonTests
 {
-    private static readonly Golden _golden = Golden.Load();
+    private const string DataDirectory = "/home/dev/.altinn-studio";
 
-    private static ManifestResolver Resolver() =>
-        new(ManifestLoader.Default, Golden.CertificateDirectory, tag: null, getEnvironment: _ => null);
+    private static readonly JsonElement _golden = Load("environment.golden.json");
 
-    public static TheoryData<string, string[]> Selections =>
-        new() { { "default", [] }, { "everything", ["everything"] } };
+    public static TheoryData<string> Selections => new() { "default", "everything" };
+
+    private static JsonElement Load(string file)
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "golden", file))
+        );
+        return document.RootElement.Clone();
+    }
+
+    private static SampleModel Model(string selection) =>
+        SampleModel.Build(selection == "everything" ? ["everything"] : [], dataDirectory: DataDirectory);
+
+    /// <summary>The snapshot's container resources, by manifest name, in start order.</summary>
+    private static List<(string Name, JsonElement Resource)> GoldenContainers(string selection) =>
+        [
+            .. _golden
+                .GetProperty(selection)
+                .GetProperty("resources")
+                .EnumerateArray()
+                .Where(r => r.GetProperty("id").GetString()!.StartsWith("container:", StringComparison.Ordinal))
+                .Select(r => (r.GetProperty("id").GetString()!["container:localtest-v2-".Length..], r)),
+        ];
+
+    private static List<string> Strings(JsonElement resource, string property) =>
+        resource.TryGetProperty(property, out var value) ? [.. value.EnumerateArray().Select(v => v.GetString()!)] : [];
 
     [Theory]
     [MemberData(nameof(Selections))]
-    public void ComponentsMatchTheGoldenFile(string selection, string[] groups)
+    public void TheSelectionAndItsStartOrderMatch(string selection)
     {
-        var resolver = Resolver();
-        var components = resolver.Components(resolver.ResolveGroups(groups));
-        var golden = _golden.Containers(selection);
+        var model = Model(selection);
+        var golden = GoldenContainers(selection).Select(c => c.Name).ToList();
 
         Assert.Equal(selection == "default" ? 13 : 22, golden.Count);
-        Assert.Equal(golden.Select(g => g.Name), components.Select(c => c.Name));
-        foreach (var (want, got) in golden.Zip(components))
-        {
-            if (!want.BuiltImage)
-            {
-                Assert.Equal(want.PulledImage, got.Image.Reference);
-            }
-            Assert.Equal(want.Environment, got.Environment);
-            Assert.Equal(
-                want.Ports,
-                got.HostPort is { } port
-                    ?
-                    [
-                        (
-                            port.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                            got.ContainerPort.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                        ),
-                    ]
-                    : []
-            );
-            Assert.Equal(
-                want.Volumes,
-                got.Mounts.Select(m => (m.IsVolume ? "volume" : "bind", m.Source, m.Target, m.ReadOnly)).ToList()
-            );
-            Assert.Equal(want.Command, got.Command);
-            Assert.Equal(want.ExtraHosts, got.ExtraHosts);
-            Assert.Equal(want.NetworkAliases, got.NetworkAliases);
-            Assert.Equal(want.DependsOn, got.DependsOn);
-            Assert.Equal(want.HealthCheckTest, got.ContainerHealthCheck);
-            Assert.False(got.HostUser);
-            Assert.Equal("", want.User);
-            Assert.Equal("", want.UsernsMode);
-        }
-    }
-
-    [Fact]
-    public void TheDefaultImagesArePulledAtThePin()
-    {
-        var golden = _golden.Containers("default");
-        Assert.All(golden, g => Assert.False(g.BuiltImage));
-        Assert.Contains(
-            Resolver().AllComponents(),
-            c => c.Image.Reference.EndsWith(":" + ManifestLoader.Default.Images.Tag, StringComparison.Ordinal)
+        Assert.Equal(golden, model.Localtest.Resource.Stack.Specs().Select(s => s.Name));
+        Assert.Equal(
+            golden.Order(StringComparer.Ordinal),
+            model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)
         );
     }
 
     [Theory]
     [MemberData(nameof(Selections))]
-    public void HealthTargetsMatchTheGoldenFile(string selection, string[] groups)
+    public async Task EveryContainerRunsAsStudioctlRunsIt(string selection)
     {
-        var resolver = Resolver();
-        var components = resolver.Components(resolver.ResolveGroups(groups));
-        var targets = components
-            .Where(c => c.HealthPath is not null && c.HostPort is not null)
-            .Select(c => $"{c.Name} http://127.0.0.1:{c.HostPort}{c.HealthPath}")
-            .Append(
-                $"proxy {resolver.Topology.Url(LocaltestTopology.App)}{ManifestLoader.Default.FrontDoor.HealthPath}"
-            );
+        var model = Model(selection);
+        var specs = model.Localtest.Resource.Stack.Specs().ToDictionary(s => s.Name);
+        foreach (var (name, golden) in GoldenContainers(selection))
+        {
+            var container = model.Container(name);
 
-        Assert.Equal(_golden.HealthTargets(selection), targets);
+            if (selection == "default")
+            {
+                Assert.Equal(golden.GetProperty("image").GetString(), "image:pulled:" + specs[name].Image.Reference);
+            }
+            var environment = await model.Environment(container);
+            Assert.Equal(
+                Strings(golden, "env").Order(StringComparer.Ordinal),
+                environment.Select(kv => kv.Key + "=" + kv.Value).Order(StringComparer.Ordinal)
+            );
+            Assert.Equal(
+                golden
+                    .GetProperty("volumes")
+                    .EnumerateArray()
+                    .Select(v =>
+                        (
+                            v.GetProperty("Type").GetString()!,
+                            v.GetProperty("HostPath").GetString(),
+                            v.GetProperty("ContainerPath").GetString()!,
+                            v.GetProperty("ReadOnly").GetBoolean()
+                        )
+                    ),
+                container
+                    .Annotations.OfType<ContainerMountAnnotation>()
+                    .Select(m =>
+                        (m.Type == ContainerMountType.Volume ? "volume" : "bind", m.Source, m.Target, m.IsReadOnly)
+                    )
+            );
+            Assert.Equal(
+                golden.TryGetProperty("ports", out var ports)
+                    ? ports
+                        .EnumerateArray()
+                        .Select(p =>
+                            (p.GetProperty("HostPort").GetString(), p.GetProperty("ContainerPort").GetString())
+                        )
+                        .ToList()
+                    : [],
+                container
+                    .Annotations.OfType<EndpointAnnotation>()
+                    .Select(e =>
+                        (
+                            e.Port?.ToString(CultureInfo.InvariantCulture),
+                            e.TargetPort?.ToString(CultureInfo.InvariantCulture)
+                        )
+                    )
+                    .ToList()
+            );
+            Assert.Equal(
+                Strings(golden, "extraHosts").SelectMany(host => new[] { "--add-host", host }),
+                await SampleModel.RuntimeArgs(container)
+            );
+            Assert.Equal(Strings(golden, "networkAliases"), [container.Name]);
+            Assert.Equal(
+                Strings(golden, "dependsOn").Select(d => d["container:localtest-v2-".Length..]),
+                SampleModel.HealthyWaits(container)
+            );
+            Assert.True(golden.GetProperty("waitForReady").GetBoolean());
+            Assert.True(golden.GetProperty("readinessProbe").GetBoolean());
+            Assert.Single(container.Annotations.OfType<HealthCheckAnnotation>());
+        }
     }
 
     [Theory]
     [MemberData(nameof(Selections))]
-    public void RoutesMatchTheGoldenFile(string selection, string[] groups)
+    public void TheHealthTargetsMatch(string selection)
     {
-        var resolver = Resolver();
-        var added = resolver.Components(resolver.ResolveGroups(groups)).Select(c => c.Name).ToHashSet();
-        var hostRoutes = ManifestLoader.Default.FrontDoor.HostRoutes.Select(r => r.Name).ToHashSet();
-        var golden = _golden.Routes(selection).Where(r => !hostRoutes.Contains(r.Component)).ToList();
-        var routes = resolver
-            .AllComponents()
-            .SelectMany(c => c.Routes)
-            .Select(r => new GoldenRoute(r.Component, r.Host, r.Prefix, r.Rewrite, added.Contains(r.Component)))
-            .ToList();
+        var specs = Model(selection).Localtest.Resource.Stack.Specs();
 
-        // studioctl writes every route and disables those of groups that are off; the package adds only the enabled ones.
-        Assert.Equal(golden, routes);
+        Assert.Equal(
+            Strings(_golden.GetProperty(selection), "healthTargets"),
+            specs.Select(s => $"{s.Name} {s.Health}")
+        );
+        Assert.Equal(
+            _golden.GetProperty(selection).GetProperty("frontDoorHealth").GetString(),
+            new Uri(Topology.PlatformUri, specs.Single(s => s.Name == Topology.FrontDoor).Health.Path).ToString()
+        );
     }
 
     [Fact]
-    public void GroupsAndVolumesMatchTheGoldenFile()
+    public void TheGroupsAndVolumesMatch()
     {
-        var resolver = Resolver();
-        foreach (var group in _golden.Root.GetProperty("groups").EnumerateObject())
+        var manifest = LocaltestManifest.Default;
+        var groups = _golden.GetProperty("groups");
+
+        Assert.Equal(manifest.GroupNames.Order(StringComparer.Ordinal), groups.EnumerateObject().Select(g => g.Name));
+        foreach (var group in groups.EnumerateObject())
         {
-            var implies = group.Value.GetProperty("implies");
-            IReadOnlyList<string> want =
-                implies.ValueKind == System.Text.Json.JsonValueKind.Null
-                    ? []
-                    : [.. implies.EnumerateArray().Select(i => i.GetString()!)];
-            Assert.Equal(want, resolver.Implies(group.Name));
+            Assert.Equal(
+                group.Value.EnumerateArray().Select(c => c.GetString()),
+                manifest.Select([LocaltestManifest.DefaultGroup, group.Name])
+            );
         }
+        Assert.Equal(Strings(_golden, "volumes"), manifest.VolumeNames);
+    }
+
+    public static TheoryData<string> AppCases =>
+        [
+            .. Load("app-environment.golden.json")
+                .GetProperty("cases")
+                .EnumerateArray()
+                .Select(c => c.GetProperty("name").GetString()!),
+        ];
+
+    /// <summary>Every case of studioctl's app environment snapshot, from the same inputs, byte for byte.</summary>
+    [Theory]
+    [MemberData(nameof(AppCases))]
+    public void TheAppEnvironmentMatches(string name)
+    {
+        var golden = Load("app-environment.golden.json")
+            .GetProperty("cases")
+            .EnumerateArray()
+            .Single(c => c.GetProperty("name").GetString() == name);
+        var signing = golden.GetProperty("signing");
+        var current = golden.GetProperty("current");
+
+        var environment = AppEnvironment.Build(
+            current.ValueKind == JsonValueKind.Null ? [] : [.. current.EnumerateArray().Select(e => e.GetString()!)],
+            golden.GetProperty("kestrelUrl").GetString()!,
+            int.Parse(golden.GetProperty("ingressPort").GetString()!, CultureInfo.InvariantCulture),
+            golden.GetProperty("appFrontendAssetBaseUrl").GetString()!,
+            golden.GetProperty("secretsDir").GetString()!,
+            golden.GetProperty("keysDir").GetString()!,
+            signing.GetProperty("FullPath").GetString() is { Length: > 0 } fullPath
+                ? new AppCertificate(
+                    fullPath,
+                    signing.GetProperty("KeysFolder").GetString()!,
+                    signing.GetProperty("FileName").GetString()!
+                )
+                : null
+        );
+
         Assert.Equal(
-            _golden.Root.GetProperty("volumes").EnumerateArray().Select(v => v.GetString()),
-            ManifestLoader.Default.Volumes.Select(v => v.Name)
+            golden.GetProperty("environment").EnumerateObject().Select(p => (p.Name, p.Value.GetString())),
+            environment.Select(kv => (kv.Key, (string?)kv.Value))
         );
     }
 }
