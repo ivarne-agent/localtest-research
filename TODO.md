@@ -809,5 +809,14 @@ written out, the data stores and the non-.NET clients by alias and conventional 
 container its service name as alias); each runner has its own logic for the `services__<name>__http__0` injection,
 one entry per running service, which is the only discovery mechanism. The first v2 manifest carries today's 76
 variables as the resolved strings, so the container environment is byte-identical to v1 (one golden), and task 25's
-per-component migration deletes them over time. Groups are imageless services (`dependsOn` only), as is `app`, whose
-`dependsOn` is the default stack. Health kinds: an HTTP path (default `/health` on 8080) or `tcp`. Runs after 26.
+per-component migration deletes them over time. Groups are imageless services (`dependsOn` only). Health kinds: an
+HTTP path (default `/health` on 8080) or `tcp`. Runs after 26.
+
+**Owner's corrections (2026-10-22).** The app is **not** in the manifest (it is not a service like the others): its
+environment and the signing/secrets layout are runner code in `studioctl run` and `AddAltinnApp`, parity kept by the
+app-environment golden both runners compare against; the default stack is marked by an imageless `default` entry
+(proposed, same mechanism as the groups). **Tags change only in a separate, tested step**: no workflow writes the
+manifest; the images workflow pushes `sha-<commit>` and whoever proved the tag bumps every entry with a small script
+and regenerates the golden (pinning some images to a floating tag is a separate decision). `--dev-<component>` takes
+the path to the Dockerfile or its directory and defaults to the current directory; the manifest carries no build
+information. The JSON Schema is dropped (the loader's test validates the file) unless the owner objects.
