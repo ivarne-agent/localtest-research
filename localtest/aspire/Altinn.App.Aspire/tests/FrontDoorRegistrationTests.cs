@@ -29,8 +29,13 @@ public sealed class FrontDoorRegistrationTests : IAsyncLifetime
         _frontDoor = builder.Build();
         _frontDoor.Run(async context =>
         {
-            using var reader = new StreamReader(context.Request.Body);
-            _requests.Enqueue((context.Request.Method, context.Request.Path.Value!, await reader.ReadToEndAsync()));
+            // Only the registration API is recorded: anything on this machine that probes loopback ports (studioctl-server's
+            // app discovery asks every listener for /{org}/{app}/api/v1/applicationmetadata) must not fail a test.
+            if (context.Request.Path.StartsWithSegments("/localtest/api", StringComparison.Ordinal))
+            {
+                using var reader = new StreamReader(context.Request.Body);
+                _requests.Enqueue((context.Request.Method, context.Request.Path.Value!, await reader.ReadToEndAsync()));
+            }
             context.Response.StatusCode = _status;
             await context.Response.WriteAsync(
                 _status == 200
