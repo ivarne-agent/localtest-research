@@ -116,7 +116,12 @@ and only the monorepo frontend with the local-host change reads them (the releas
 the start page); `AccessManagementChangeAndRedirectUrl` stays unset because the stack's Access Management does not
 serve `reportee/changeandredirect` (the inbox opens on the user's default party), and the login, logout, all-forms,
 access-management and help links keep the start page. The app's own configuration wins, as for every default: an
-empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the environment brings the start page back.
+empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the environment brings the start page back. Verified in a browser on
+2026-10-23 (task 28, screenshots in [`reviews/task28-back-to-inbox/`](reviews/task28-back-to-inbox/)). Two points about
+using it. The receipt's deep link needs the instance's dialog, which only the Dialogporten adapter creates, so use
+`--with arbeidsflate --with dialogporten` (the `arbeidsflate` group alone does not start the adapter, and without it
+the link falls back to the inbox). Arbeidsflate asks for level 3 (`idporten-loa-substantial`), so a user who signed in
+to the app at level 2 sees the test-user picker again; sign in at level 3 to land in the inbox already signed in.
 
 ## Where localtest is faster than production
 
