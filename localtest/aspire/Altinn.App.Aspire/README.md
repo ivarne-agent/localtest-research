@@ -132,7 +132,11 @@ studioctl's 20 s and 21.6 s.
   `http://local.altinn.cloud:8000`, the OpenID well-known endpoint, `GeneralSettings__*`, the certificate
   (`<data>/certs/localtest-accesstoken.pfx`, and the keys folder as a traversal from the app root for app-lib v9's 1.x
   client), the secrets directory `<data>/apps/<org>/<app>/secrets` with the development app codes written before the
-  AppHost starts (byte for byte studioctl's), and `AppSettings__AppFrontendAssetBaseUrl` with `WithFrontendDevServer`.
+  AppHost starts (byte for byte studioctl's), the app frontend's inbox, dialog, profile and parties links into the local
+  Arbeidsflate (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` on
+  `http://af.local.altinn.cloud:8000`, so "back to inbox" on a local host opens the inbox instead of the start page; read
+  only by the monorepo backend and frontend, see "What the app runner pushes" in `localtest/README.md`), and
+  `AppSettings__AppFrontendAssetBaseUrl` with `WithFrontendDevServer`.
   Aspire sets `OTEL_EXPORTER_OTLP_ENDPOINT` to its dashboard; `AppSettings__UseOpenTelemetry=true` unless turned off.
 
 ## Registration

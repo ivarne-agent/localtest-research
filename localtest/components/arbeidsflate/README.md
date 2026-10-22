@@ -11,6 +11,10 @@ Open it at **`http://af.local.altinn.cloud:8000`**, a host of its own (the SPA a
 hosts file: `sudo studioctl env hosts add` writes it with the stack's other names (or add `127.0.0.1 af.local.altinn.cloud`
 by hand). Containers resolve it through the host gateway without anything.
 
+Apps link into it: the app runners set `PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` to
+`/`, `/inbox/{dialogId}`, `/profile` and `/profile/parties` on this host, which the monorepo app frontend uses for "back
+to inbox" and the receipt's inbox link (`localtest/README.md`, "What the app runner pushes").
+
 | Container | Image | Host port | Route | Health |
 | --- | --- | --- | --- | --- |
 | `arbeidsflate` | `Dockerfile.frontend`: the SPA built by Vite, served by `nginx:1.25-alpine` | 8037 | the whole host `af.local.altinn.cloud` | `GET /` |

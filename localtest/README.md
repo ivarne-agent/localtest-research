@@ -105,6 +105,19 @@ phone number and settings reach Profile up to a minute after step 1, or at once 
 names and ids are live. An app path the runner has not
 registered is the localtest app's 404.
 
+Besides the platform endpoints, the app's environment sets the links the app frontend sends a browser to (task 28).
+Against localtest-v2 both runners default `PlatformFrontendSettings__ArbeidsflateInboxUrl` to
+`http://af.local.altinn.cloud:8000/`, `…ArbeidsflateDialogUrl` to `…/inbox/{dialogId}`, `…ArbeidsflateProfileUrl` to
+`…/profile` and `…ArbeidsflatePartiesUrl` to `…/profile/parties` (host and port from the topology, so another ingress
+port follows). app-lib sends them to the frontend in the bootstrap response, and on a local host the frontend uses a
+configured link and the start page otherwise, so "back to inbox" and the receipt's inbox link open the local
+Arbeidsflate instead of the start page. Only the monorepo backend (`src/App/backend`) has `PlatformFrontendSettings`,
+and only the monorepo frontend with the local-host change reads them (the released v4 bundle from the CDN still links
+the start page); `AccessManagementChangeAndRedirectUrl` stays unset because the stack's Access Management does not
+serve `reportee/changeandredirect` (the inbox opens on the user's default party), and the login, logout, all-forms,
+access-management and help links keep the start page. The app's own configuration wins, as for every default: an
+empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the environment brings the start page back.
+
 ## Where localtest is faster than production
 
 Production runs caches, schedules and queues that make a change visible minutes later; a tester should not wait for
