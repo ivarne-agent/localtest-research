@@ -220,7 +220,8 @@ pinned images `sha-f76b62b`, `--with dialogporten`: root 26 of 26, `components/a
 does not mount); with `--with correspondence --with receipt` (Correspondence without the Dialogporten group, only the
 WebApi and Redis it depends on): `components/correspondence` 78 of 78 and `components/receipt` 27 of 27. The tests read
 the containers without a route of their own (health endpoints, the direct cookie checks) from inside the stack's network
-through `smoke/lib/containers.sh`, since no component publishes a host port any more.
+through `smoke/lib/containers.sh`, since no component publishes a host port any more. After `env reset --yes`, `env up -r localtest-v2` on empty volumes
+took 21.6 s (every init script ran, every component migrated) and the root suite passed 26 of 26.
 
 The smoke tests that read a container's log or run a command in it (the root test's Storage log, the authorization
 test's policy store and PDP log, the dialogporten-adapter test's Storage log, the receipt's log, Correspondence's
