@@ -5,8 +5,8 @@
 #   ./smoke-test.sh [BASE]                                    (default http://local.altinn.cloud:8000; AF overrides the inbox)
 #
 # In order: readiness and the BFF's own health checks; the SPA (index.html with the stream URL start.sh wrote, an asset,
-# the CSP and no HSTS, a deep link, GraphiQL behind /api/); the BFF's session cookie without Secure from nginx's host
-# port (AF_NGINX, default http://127.0.0.1:8037) and unchanged through the front door; the login round trip as a browser does it, with a cookie jar
+# the CSP and no HSTS, a deep link, GraphiQL behind /api/); the BFF's session cookie without Secure from nginx itself
+# (AF_NGINX, its host port under the Aspire package, else from inside the stack's network) and unchanged through the front door; the login round trip as a browser does it, with a cookie jar
 # (/api/login -> Authentication authorize -> the fake ID-porten's picker as user 1337 -> upstream/callback -> /api/cb ->
 # the BFF's session cookie, which has no Secure flag); the fixture app pushed as the app runner does and one instance of
 # it for party PARTY_ID (default 500000, which user 1337 acts for) followed to its dialog; the GraphQL proxy (parties,
@@ -38,6 +38,8 @@ ST="$BASE/storage/api/v1"
 DP="$BASE/dialogporten"
 FAIL=0
 OK=0
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 
@@ -125,10 +127,16 @@ expect "  ... and no Strict-Transport-Security" "" "$(header "$T/dh" Strict-Tran
 expect "GET /api/graphiql: the BFF's GraphiQL, not the SPA's .html or asset locations" 200 "$(code "$AF/api/graphiql")"
 
 echo "== cookies over plain http (task 21b)"
-# The BFF sets its session cookie on /api/login. Straight to the component's nginx on its host port (bypassing the front
-# door) it carries no Secure (patch 0003, no forged X-Forwarded-Proto), and the front door passes it unchanged.
-NGINX=${AF_NGINX:-http://127.0.0.1:8037}
-curl -s -o /dev/null -D "$T/direct" -H "Host: $AF_HOSTPORT" "$NGINX/api/login"
+# The BFF sets its session cookie on /api/login. Straight to the component's nginx (bypassing the front door; AF_NGINX,
+# its host port under the Aspire package, else from inside the stack's network) it carries no Secure (patch 0003, no
+# forged X-Forwarded-Proto), and the front door passes it unchanged.
+NGINX=${AF_NGINX:-}
+if [[ -n "$NGINX" ]]; then
+  curl -s -o /dev/null -D "$T/direct" -H "Host: $AF_HOSTPORT" "$NGINX/api/login"
+else
+  NGINX=http://arbeidsflate:80
+  localtest_stack_headers "$NGINX/api/login" "Host: $AF_HOSTPORT" >"$T/direct"
+fi
 c -o /dev/null -D "$T/front" "$AF/api/login"
 DIRECT=$(cookie_attrs "$T/direct" arbeidsflate)
 expect "the BFF's session cookie from nginx ($NGINX) directly: set, without Secure" "yes no" \

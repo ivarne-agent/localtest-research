@@ -22,14 +22,15 @@
 # The resources are the Resource Registry seed's ttd-localtest-correspondence (see ../resource-registry/README.md); KRR and
 # Profile's correspondence lookups are the Register component's fakes.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# CORRESPONDENCE_URL overrides the host-port URL for /health and the cookie check (default http://127.0.0.1:8033). The database and
+# CORRESPONDENCE_URL names the component's own URL for /health and the cookie check (its host port under the Aspire package,
+# http://127.0.0.1:8033); by default they are read from inside the stack's network. The database and
 # restart checks use the container runtime (CTR, default podman, else docker) and the Postgres and Correspondence containers
 # (studioctl's localtest-v2-<name> or the Aspire package's <name>-<suffix>, see ../../smoke/lib/containers.sh; override with
 # LOCALTEST_CONTAINER_POSTGRES and LOCALTEST_CONTAINER_CORRESPONDENCE); without them those checks are skipped.
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 BASE=${1:-http://local.altinn.cloud:8000}
-DIRECT=${CORRESPONDENCE_URL:-http://127.0.0.1:8033}
+DIRECT=${CORRESPONDENCE_URL:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
 . "$HERE/../../smoke/lib/containers.sh"
@@ -38,6 +39,20 @@ LT="$BASE/correspondence/api/localtest"
 SO="$BASE/dialogporten/api/v1/serviceowner"
 EU="$BASE/dialogporten/api/v1/enduser"
 RESOURCE=ttd-localtest-correspondence
+# direct_get PATH [HEADER]...: the component's own response to a GET of PATH, headers and body (HTTP/1.0 from inside the
+# stack's network unless CORRESPONDENCE_URL is set).
+direct_get() {
+  local p=$1 h args=()
+  shift
+  if [[ -n "$DIRECT" ]]; then
+    for h in "$@"; do args+=(-H "$h"); done
+    curl -s -i "${args[@]}" "$DIRECT$p" | tr -d '\r'
+  else
+    _localtest_stack_get "http://correspondence:2525$p" "$@"
+  fi
+}
+direct_code() { direct_get "$1" | awk 'NR == 1 {print $2}'; }
+direct_body() { direct_get "$1" | awk 'body {print} !NF {body = 1}'; }
 SSN=01839012345 # Sophie Salt, user 1337, party 501337
 RECIPIENT="urn:altinn:person:identifier-no:$SSN"
 EMAIL=1337@altinnstudiotestusers.com
@@ -89,8 +104,8 @@ DPSO=$(orgtoken "digdir:dialogporten.serviceprovider")
 send() { curl -s -H "Authorization: Bearer ${AS:-$SENDER}" "$@"; } # AS: the sender's token, the service owner's by default
 
 echo "== health and migrations"
-for _ in $(seq 1 120); do [[ "$(code "$DIRECT/health")" == 200 ]] && break; sleep 1; done
-curl -s "$DIRECT/health" | check "GET /health on the host port: Healthy (the database answers)" 'd["status"] == "Healthy"'
+for _ in $(seq 1 120); do [[ "$(direct_code /health)" == 200 ]] && break; sleep 1; done
+direct_body /health | check "GET /health on the component itself: Healthy (the database answers)" 'd["status"] == "Healthy"'
 okwait "the inspection API answers through the proxy" 30 "$LT/status" 'True'
 curl -s "$LT/status" | check "status: all $MIGRATIONS EF migrations applied, none pending" \
   "d['migrations']['known'] == $MIGRATIONS and d['migrations']['applied'] == $MIGRATIONS and d['migrations']['pending'] == []"
@@ -287,18 +302,19 @@ CHALLENGE=$(curl -s -b "$JAR" -c "$JAR" -D "$TMP/challenge.h" -o /dev/null -w '%
 COOKIES=$(grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$TMP/challenge.h" | tr '[:upper:]' '[:lower:]')
 [[ $(grep -c . <<<"$COOKIES") == 2 && $(grep -c 'samesite=lax' <<<"$COOKIES") == 2 && "$COOKIES" != *secure* ]] \
   && pass "  ... the correlation and nonce cookies are SameSite=Lax without Secure (the fakes' cookie decision)" || fail "  ... cookies: $COOKIES"
-# Task 21b: the same challenge straight from the host port (bypassing the front door, with the public Host) carries the
+# Task 21b: the same challenge straight to the component (bypassing the front door, with the public Host) carries the
 # same cookie attributes, so the front door passes them unchanged and no longer has anything to strip.
 HOSTPORT=${BASE#http://}; HOSTPORT=${HOSTPORT%%/*}
-curl -s -b "$JAR" -H "Host: $HOSTPORT" -D "$TMP/challenge-direct.h" -o /dev/null "$DIRECT${DOWNLOAD#"$BASE"}"
+JAR_COOKIES=$(awk -F'\t' 'NF >= 7 && $1 !~ /^# / {printf "%s%s=%s", (n++ ? "; " : ""), $6, $7}' "$JAR")
+direct_get "${DOWNLOAD#"$BASE"}" "Host: $HOSTPORT" "Cookie: $JAR_COOKIES" | awk 'NR > 1 && !NF {exit} 1' >"$TMP/challenge-direct.h"
 cookie_attrs() { # HEADERS: the correlation and nonce cookies' attributes, without names, values and Expires, sorted
   grep -i '^set-cookie: .AspNetCore.\(Correlation\|OpenIdConnect.Nonce\)' "$1" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | cut -d';' -f2- |
     tr ';' '\n' | sed 's/^ *//' | grep -v '^expires=' | sort | paste -sd';'
 }
 DIRECT_COOKIES=$(cookie_attrs "$TMP/challenge-direct.h")
 [[ -n "$DIRECT_COOKIES" && "$DIRECT_COOKIES" != *secure* && "$DIRECT_COOKIES" == "$(cookie_attrs "$TMP/challenge.h")" ]] \
-  && pass "  ... from the host port ($DIRECT) the same cookies without Secure: the front door passes them unchanged (task 21b)" \
-  || fail "  ... host port: $DIRECT_COOKIES"
+  && pass "  ... from the component itself the same cookies without Secure: the front door passes them unchanged (task 21b)" \
+  || fail "  ... the component itself: $DIRECT_COOKIES"
 STATE=$(qp "$CHALLENGE" state)
 walk "$JAR" "$CHALLENGE" 6 || fail "  ... the walk from authorize did not end within 6 redirects: ${HOPS[*]}"
 [[ "$(urlpath "$(hop 0)")" == /correspondence/api/v1/idporten-callback && -n "$(qp "$(hop 0)" code)" ]] \
@@ -373,7 +389,7 @@ expect "correspondences/{unknown} is 404" 404 "$(code "$LT/correspondences/00000
 if [[ "${CORRESPONDENCE_RESTART:-0}" == 1 ]] && CC=$(container correspondence); then
   echo "== restart"
   "$RT" restart "$CC" >/dev/null
-  for _ in $(seq 1 120); do [[ "$(code "$DIRECT/health")" == 200 ]] && break; sleep 1; done
+  for _ in $(seq 1 120); do [[ "$(direct_code /health)" == 200 ]] && break; sleep 1; done
   curl -s "$LT/correspondences/$CID" | check "after a restart the correspondence is still there" 'd["id"] == "'"$CID"'"'
   curl -s "$LT/status" | check "  ... and no migration is pending" "d['migrations']['applied'] == $MIGRATIONS and d['migrations']['pending'] == []"
   "$RT" logs --since 2m "$CC" 2>&1 | grep -q "Applying migration" && fail "  ... a migration ran again" || pass "  ... no migration ran again"

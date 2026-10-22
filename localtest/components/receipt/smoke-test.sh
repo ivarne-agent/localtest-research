@@ -13,7 +13,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
 . "$HERE/../../smoke/lib/containers.sh"
 BASE=${1:-http://local.altinn.cloud:8000}
-HEALTH=${RECEIPT_HEALTH:-http://127.0.0.1:8034/health}
+HEALTH=${RECEIPT_HEALTH:-}
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FAIL=0
 expect() { # name expected actual
@@ -23,14 +23,17 @@ check() { # name python-expression-on-d (stdin is JSON)
   if python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if ($2) else 1)" 2>/dev/null; then echo "ok   $1"; else echo "FAIL $1"; FAIL=1; fi
 }
 code() { curl -s -o /dev/null -m 20 -w '%{http_code}' "$@"; }
+# health: the receipt's own /health, at RECEIPT_HEALTH when set (its host port under the Aspire package,
+# http://127.0.0.1:8034/health), else from inside the stack's network.
+health() { if [[ -n "$HEALTH" ]]; then curl -s -m 10 "$HEALTH"; else localtest_stack_body http://receipt:5060/health; fi; }
 location() { curl -s -o /dev/null -m 20 -w '%{redirect_url}' "$@"; }
 token() { curl -s "$BASE/Home/GetTestUserToken?userId=$1" | tr -d '"'; }
 query() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$1" "$2"; }
 path() { python3 -c "import sys,urllib.parse as u; p=u.urlparse(sys.argv[1]); print(f'{p.scheme}://{p.netloc}{p.path}')" "$1"; }
 
-# 1. Health, on the host port (the receipt's /health is at its root, not under /receipt).
-for _ in $(seq 1 60); do curl -sf -o /dev/null "$HEALTH" && break; sleep 1; done
-expect "health" "Healthy" "$(curl -s -m 10 "$HEALTH")"
+# 1. Health, on the component itself (the receipt's /health is at its root, not under /receipt).
+for _ in $(seq 1 60); do [[ "$(health)" == Healthy ]] && break; sleep 1; done
+expect "health" "Healthy" "$(health)"
 
 # 2. An archived instance: the fixture app's metadata and policy as the app runner pushes them, an instance for 500000,
 # one attachment, the process started and ended with the service-owner token.

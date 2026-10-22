@@ -12,15 +12,18 @@
 # Restart persistence: `PERSIST=set ./smoke-test.sh` leaves a favourite (DDG Fitness for 1337) and a language (en for
 # 1001); after `studioctl env down` and `env up`, `PERSIST=check ./smoke-test.sh` runs only the checks that they survived
 # and removes them.
-# The health endpoint is not under the proxy prefix, so it is read on the component's host port (HEALTH, default
-# http://127.0.0.1:8036/health).
+# The health endpoint is not under the proxy prefix, so it is read from inside the stack's network
+# (../../smoke/lib/containers.sh), or at HEALTH when set (the host port under the Aspire package: http://127.0.0.1:8036/health).
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 BASE=${1:-http://local.altinn.cloud:8000}
 API=$BASE/profile/api/v1
 LOCAL=$BASE/profile/api/localtest
 INBOXES=$BASE/notifications/api/localtest/inboxes
-HEALTH=${HEALTH:-http://127.0.0.1:8036/health}
+HEALTH=${HEALTH:-}
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
+. "$HERE/../../smoke/lib/containers.sh"
+
 PERSIST=${PERSIST:-}
 FAIL=0
 check() { # name python-expression-on-d (stdin is JSON)
@@ -31,6 +34,7 @@ expect() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1 (expected $2, got $3)"; FAIL=1; fi
 }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+health_code() { if [[ -n "$HEALTH" ]]; then code "$HEALTH"; else localtest_stack_code http://profile:5030/health; fi; }
 field() { python3 -I -c "import json,sys; print(json.load(sys.stdin)$1)"; }
 waitfor() { # url python-expression [curl args...]
   local url=$1 expr=$2; shift 2
@@ -58,7 +62,7 @@ as1337=(-H "Authorization: Bearer $USR")
 app=(-H "Authorization: Bearer $USR" -H "PlatformAccessToken: $PAT")
 post() { curl -s "${JSON[@]}" -X POST "$@"; }
 
-for _ in $(seq 1 90); do curl -sf -o /dev/null "$HEALTH" && curl -sf -o /dev/null "$LOCAL/status" && break; sleep 1; done
+for _ in $(seq 1 90); do [[ "$(health_code)" == 200 ]] && curl -sf -o /dev/null "$LOCAL/status" && break; sleep 1; done
 
 if [[ "$PERSIST" == check ]]; then
   echo "== restart persistence"
@@ -70,7 +74,7 @@ if [[ "$PERSIST" == check ]]; then
 fi
 
 echo "== health, migrations and the seed"
-expect "GET /health on the host port" 200 "$(code "$HEALTH")"
+expect "GET /health (the component itself)" 200 "$(health_code)"
 post "$LOCAL/sync" | check "POST localtest/sync: KRR sync, organisation address sync and settings seed all ok" \
   '[(s["step"], s["outcome"]) for s in d["steps"]] == [("krr", "ok"), ("organizationNotificationAddresses", "ok"), ("profileSettings", "ok")]'
 curl -s "$LOCAL/status" | check "status: the six migrations applied, none pending, a KRR change, the persons and settings seeded" \

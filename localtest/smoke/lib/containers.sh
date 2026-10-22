@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Container names for the smoke tests, under either runtime of the stack, and requests from inside the stack's network.
-# Source it; it defines four functions and sets nothing else:
+# Source it; it defines five functions and sets nothing else:
 #
 #   localtest_runtime          prints the container CLI: $CTR when set, otherwise podman, otherwise docker; status 1
 #                              (and a reason on stderr) when there is none.
@@ -21,10 +21,11 @@
 #                                            where every container answers by its name (http://dialogporten-graphql:8080);
 #                                            000 when nothing answers or there is no Postgres container. Since task 27a
 #                                            no other container than the front door publishes a port under studioctl. The
-#                                            request is HTTP/1.1 over bash's /dev/tcp in the Postgres container (the one
-#                                            image with bash; BusyBox wget leaves out a redirect's Set-Cookie headers) and
-#                                            follows no redirect.
+#                                            request is HTTP/1.0 (so no chunked answer) over bash's /dev/tcp in the Postgres
+#                                            container (the one image with bash; BusyBox wget leaves out a redirect's
+#                                            Set-Cookie headers) and follows no redirect.
 #   localtest_stack_headers URL [HEADER]...  prints that response's headers, one per line, without the status line.
+#   localtest_stack_body URL [HEADER]...     prints that response's body.
 
 localtest_runtime() {
   if [[ -n "${CTR:-}" ]]; then
@@ -83,7 +84,7 @@ localtest_container() {
   return 1
 }
 
-# _localtest_stack_get URL [HEADER]...: the raw response head of a GET from the Postgres container.
+# _localtest_stack_get URL [HEADER]...: the raw response of a GET from the Postgres container, CRs removed.
 _localtest_stack_get() {
   local url=$1 rt c
   shift
@@ -95,12 +96,12 @@ _localtest_stack_get() {
     h=${hp%%:*}; port=80; [[ $hp == *:* ]] && port=${hp##*:}
     { exec 3<>"/dev/tcp/$h/$port"; } 2>/dev/null || exit 0
     {
-      printf "GET %s HTTP/1.1\r\n" "$p"
+      printf "GET %s HTTP/1.0\r\n" "$p"
       grep -qi "^host:" <<<"$H" || printf "Host: %s\r\n" "$hp"
       while IFS= read -r l; do [[ -n $l ]] && printf "%s\r\n" "$l"; done <<<"$H"
       printf "Connection: close\r\n\r\n"
     } >&3
-    timeout 15 cat <&3 | tr -d "\r" | sed "/^$/q"'
+    timeout 15 cat <&3 | tr -d "\r" '
 }
 
 localtest_stack_code() {
@@ -108,5 +109,9 @@ localtest_stack_code() {
 }
 
 localtest_stack_headers() {
-  _localtest_stack_get "$@" | awk 'NR > 1 && NF'
+  _localtest_stack_get "$@" | awk 'NR > 1 && !NF {exit} NR > 1'
+}
+
+localtest_stack_body() {
+  _localtest_stack_get "$@" | awk 'body {print} !NF {body = 1}'
 }

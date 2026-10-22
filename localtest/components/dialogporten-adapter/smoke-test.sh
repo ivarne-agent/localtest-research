@@ -18,7 +18,8 @@
 # and (when podman or docker can read the container's log) Storage logs exactly one "adapter is not running" line for it.
 # Instances are left in Storage (soft-deleted in the first mode); dialogs persist like instances (env reset removes both).
 #
-# PARTY_ID overrides the instance owner; DIALOGPORTEN_ADAPTER_URL the adapter's host-port URL (default http://127.0.0.1:8035);
+# PARTY_ID overrides the instance owner; DIALOGPORTEN_ADAPTER_URL the adapter's URL for /health (by default it is read from
+# inside the stack's network; http://127.0.0.1:8035 under the Aspire package);
 # STORAGE_CONTAINER (or LOCALTEST_CONTAINER_STORAGE) the Storage container for the log check (default: studioctl's
 # localtest-v2-storage or the Aspire package's storage-<suffix>, see ../../smoke/lib/containers.sh).
 set -uo pipefail
@@ -31,7 +32,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 FX="$HERE/../../smoke/apps/ttd/testapp"
 BASE=${1:-http://local.altinn.cloud:8000}
 PARTY_ID=${PARTY_ID:-500000}
-ADAPTER_DIRECT=${DIALOGPORTEN_ADAPTER_URL:-http://127.0.0.1:8035}
+ADAPTER_DIRECT=${DIALOGPORTEN_ADAPTER_URL:-}
 ADP="$BASE/storage/dialogporten"
 ST="$BASE/storage/api/v1"
 DP="$BASE/dialogporten"
@@ -49,6 +50,11 @@ expect() { # name expected actual
   if [[ "$2" == "$3" ]]; then pass "$1"; else fail "$1 (expected $2, got $3)"; fi
 }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+# adapter_health: the adapter's own /health, at DIALOGPORTEN_ADAPTER_URL when set, else from inside the stack's network
+# (000 when there is no adapter).
+adapter_health() {
+  if [[ -n "$ADAPTER_DIRECT" ]]; then code --max-time 3 "$ADAPTER_DIRECT/health"; else localtest_stack_code http://dialogporten-adapter:5011/health; fi
+}
 py() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)" 2>/dev/null; }
 orgtoken() { curl -s "$BASE/Home/GetTestOrgToken?org=ttd&orgNumber=991825827&authenticationLevel=3&scopes=$1" | tr -d '"'; }
 # wait_until seconds url token python-expression-on-d: polls a JSON GET until the expression holds; leaves the body in $T/w.json
@@ -71,7 +77,7 @@ create_instance() {
 
 if ((OFF)); then
   echo "== the default stack: the dialogporten group is off"
-  expect "no adapter on its host port" 000 "$(code --max-time 3 "$ADAPTER_DIRECT/health")"
+  expect "no adapter answers" 000 "$(adapter_health)"
   # The front door writes the adapter's route disabled and answers 503 problem details for it; Storage's handler takes
   # that for "not running".
   curl -s -D "$T/oh" -o "$T/off.json" -X POST -H 'Content-Type: application/json' -d '{}' "$ADP/api/localtest/enqueue"
@@ -97,8 +103,8 @@ if ((OFF)); then
 fi
 
 echo "== readiness"
-for _ in $(seq 1 60); do [[ "$(code "$ADAPTER_DIRECT/health")" == 200 ]] && break; sleep 1; done
-expect "adapter /health (host port)" 200 "$(code "$ADAPTER_DIRECT/health")"
+for _ in $(seq 1 60); do [[ "$(adapter_health)" == 200 ]] && break; sleep 1; done
+expect "adapter /health (the adapter itself)" 200 "$(adapter_health)"
 expect "Dialogporten WebApi readiness" 200 "$(code "$DP/health/readiness")"
 
 echo "== the fixture app, pushed as the runner does"
