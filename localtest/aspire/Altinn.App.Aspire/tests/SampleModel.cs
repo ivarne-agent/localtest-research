@@ -6,28 +6,43 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Altinn.App.Aspire.Tests;
 
-/// <summary>The sample AppHost's model (<c>AddAltinnLocaltest().WithGroup("dialogporten")</c>), built and not run.</summary>
+/// <summary>
+/// The sample AppHost's model (<c>AddAltinnLocaltest().WithGroup("dialogporten")</c> and
+/// <c>AddAltinnApp&lt;Projects.App&gt;(localtest)</c>), built and not run.
+/// </summary>
 internal sealed class SampleModel
 {
-    private SampleModel(IDistributedApplicationBuilder builder, IResourceBuilder<AltinnLocaltestResource> localtest)
+    /// <summary>The data directory the model is built with.</summary>
+    public const string DataDirectory = "/data-directory";
+
+    private SampleModel(
+        IDistributedApplicationBuilder builder,
+        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<ProjectResource>? app
+    )
     {
         Builder = builder;
         Localtest = localtest;
+        App = app;
     }
 
     public IDistributedApplicationBuilder Builder { get; }
 
     public IResourceBuilder<AltinnLocaltestResource> Localtest { get; }
 
-    public static SampleModel Build()
+    /// <summary>The app, unless the model was built without it.</summary>
+    public IResourceBuilder<ProjectResource>? App { get; }
+
+    public static SampleModel Build(bool withApp = true, Action<AltinnAppOptions>? configureApp = null)
     {
         var builder = DistributedApplication.CreateBuilder(
             new DistributedApplicationOptions { Args = [], DisableDashboard = true }
         );
         var localtest = builder
-            .AddAltinnLocaltest(configure: o => o.DataDirectory = "/data-directory")
+            .AddAltinnLocaltest(configure: o => o.DataDirectory = DataDirectory)
             .WithGroup("dialogporten");
-        return new SampleModel(builder, localtest);
+        var app = withApp ? builder.AddAltinnApp<SampleAppProject>(localtest, configure: configureApp) : null;
+        return new SampleModel(builder, localtest, app);
     }
 
     public IReadOnlyList<IResource> Resources => [.. Builder.Resources];
@@ -79,6 +94,30 @@ internal sealed class SampleModel
         return values.Where(kv => kv.Value is string).ToDictionary(kv => kv.Key, kv => (string)kv.Value);
     }
 
+    /// <summary>An endpoint-valued environment variable rendered with the endpoint's properties as placeholders.</summary>
+    public async Task<string?> EnvironmentExpression(IResource resource, string key)
+    {
+        var values = new Dictionary<string, object>();
+        var context = new EnvironmentCallbackContext(Builder.ExecutionContext, resource, values);
+        foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+        {
+            await annotation.Callback(context);
+        }
+        return values.TryGetValue(key, out var value) && value is ReferenceExpression expression
+            ? expression.ValueExpression
+            : null;
+    }
+
     private static T Internal<T>(object target, string property) =>
         (T)target.GetType().GetProperty(property, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
+}
+
+/// <summary>The sample app's project, as the AppHost SDK generates <c>Projects.App</c> for it.</summary>
+internal sealed class SampleAppProject : IProjectMetadata
+{
+    public string ProjectPath =>
+        typeof(SampleAppProject)
+            .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(a => a.Key == "SampleAppProject")
+            .Value!;
 }

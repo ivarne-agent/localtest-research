@@ -35,7 +35,8 @@ public sealed class ModelTests
     {
         var names = _model.Resources.Select(r => r.Name).ToList();
 
-        Assert.Equal(["localtest", "frontdoor", .. _sampleComponents], names);
+        // AddProject adds the hidden app-rebuilder beside the app.
+        Assert.Equal(["localtest", "frontdoor", .. _sampleComponents, "app", "app-rebuilder"], names);
         Assert.DoesNotContain(names, n => n.StartsWith("receipt", StringComparison.Ordinal));
         Assert.DoesNotContain(names, n => n.StartsWith("correspondence", StringComparison.Ordinal));
         Assert.DoesNotContain(names, n => n.StartsWith("arbeidsflate", StringComparison.Ordinal));
@@ -246,6 +247,7 @@ public sealed class ModelTests
                 "dialogporten-webapi",
                 "dialogporten-graphql",
                 "dialogporten-adapter",
+                "app",
             ],
             clusters.Select(c => c.Replace("cluster_", "", StringComparison.Ordinal))
         );

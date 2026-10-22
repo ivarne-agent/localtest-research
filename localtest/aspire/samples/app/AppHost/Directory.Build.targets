@@ -1,8 +1,11 @@
 <Project>
   <!-- The package is a library, not a project resource: the file-based `#:project` directive cannot carry item metadata,
        so it is set here (without it the Aspire SDK treats the reference as an app to run and does not compile
-       against it, ASPIRE004). -->
+       against it, ASPIRE004). The app's reference stays a project resource, which generates Projects.App. -->
   <ItemGroup>
-    <ProjectReference Update="@(ProjectReference)" IsAspireProjectResource="false" />
+    <ProjectReference
+      Update="$(MSBuildThisFileDirectory)../../../Altinn.App.Aspire/src/Altinn.App.Aspire.csproj"
+      IsAspireProjectResource="false"
+    />
   </ItemGroup>
 </Project>

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ivarne-agent/localtest-research/main/localtest/testdata/test-users.schema.v3.json",
+  "persons": [
+    {
+      "ssn": "15038540189",
+      "userId": 20001,
+      "partyId": 520001,
+      "firstName": "Aspire",
+      "lastName": "Utvikler",
+      "userName": "AspireUtvikler",
+      "email": "aspire.utvikler@example.com",
+      "language": "nb",
+      "mobileNumber": "+4799520001",
+      "partyRoles": {
+        "520001": [
+          { "type": "altinn", "value": "priv" },
+          { "type": "altinn", "value": "regna" },
+          { "type": "altinn", "value": "dagl" }
+        ],
+        "520100": [{ "type": "altinn", "value": "DAGL" }]
+      }
+    },
+    {
+      "ssn": "02079130071",
+      "userId": 20002,
+      "partyId": 520002,
+      "firstName": "Aspire",
+      "lastName": "Tester",
+      "userName": "AspireTester",
+      "email": "aspire.tester@example.com",
+      "language": "nn",
+      "mobileNumber": "+4799520002",
+      "partyRoles": {
+        "520002": [
+          { "type": "altinn", "value": "priv" },
+          { "type": "altinn", "value": "regna" }
+        ]
+      }
+    }
+  ],
+  "orgs": [
+    {
+      "partyId": 520100,
+      "orgNumber": "310520004",
+      "name": "Aspire Testverksted AS",
+      "unitType": "AS",
+      "notificationAddresses": [{ "email": "varsling@aspire-testverksted.example.com" }]
+    }
+  ]
+}

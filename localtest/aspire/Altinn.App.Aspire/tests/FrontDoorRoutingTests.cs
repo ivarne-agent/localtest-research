@@ -97,6 +97,16 @@ public sealed class FrontDoorRoutingTests : IAsyncLifetime
     [InlineData("local.altinn.cloud:8000", "/receipt/500000/abc", "localtest-app", "/receipt/500000/abc")]
     [InlineData("local.altinn.cloud:8000", "/correspondence/api/v1/x", "localtest-app", "/correspondence/api/v1/x")]
     [InlineData("localhost:8000", "/register/api/v1/parties", "register", "/register/api/v1/parties")]
+    [InlineData(
+        "local.altinn.cloud:8000",
+        "/ttd/testapp/api/v1/applicationmetadata",
+        "app",
+        "/ttd/testapp/api/v1/applicationmetadata"
+    )]
+    [InlineData("local.altinn.cloud:8000", "/ttd/testapp", "app", "/ttd/testapp")]
+    [InlineData("localhost:8000", "/ttd/testapp/", "app", "/ttd/testapp/")]
+    [InlineData("local.altinn.cloud:8000", "/ttd/testappx/", "localtest-app", "/ttd/testappx/")]
+    [InlineData("local.altinn.cloud:8000", "/ttd/other/", "localtest-app", "/ttd/other/")]
     [InlineData("127.0.0.1:8000", "/", "localtest-app", "/")]
     [InlineData("pdf.local.altinn.cloud:8000", "/pdf", "pdf3", "/pdf")]
     [InlineData(

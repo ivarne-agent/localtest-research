@@ -28,5 +28,24 @@
       Link="golden/environment.golden.json"
       CopyToOutputDirectory="PreserveNewest"
     />
+    <!-- studioctl's snapshot of the app environment (internal/cmd/app) and the app codes it writes (internal/appsecrets). -->
+    <Content
+      Include="../../../studioctl/src/cli/internal/cmd/app/testdata/app-environment.golden.json"
+      Link="golden/app-environment.golden.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../../studioctl/src/cli/internal/appsecrets/testdata/app-codes.golden.json"
+      Link="golden/app-codes.golden.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+
+  <!-- The sample app's project file, which the sample model adds as the sample AppHost does. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SampleAppProject</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../samples/app/App/App.csproj'))</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>
