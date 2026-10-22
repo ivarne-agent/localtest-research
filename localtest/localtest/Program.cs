@@ -39,6 +39,10 @@ builder.Services.AddSingleton(sp => new AppRoutes(
     sp.GetRequiredService<ILogger<AppRoutes>>()));
 builder.Services.AddSingleton<Forwarder>();
 builder.Services.AddHttpClient();
+// Other components by name (http://<service>/...) from services__<service>__http__0; names without an entry pass
+// through to DNS (planned-components/service-discovery.md). The forwarder's own invoker does not resolve names.
+builder.Services.AddServiceDiscovery();
+builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
 var localtest = LocaltestSettings.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(localtest);
 builder.Services.AddSingleton(IdPortenSettings.FromConfiguration(builder.Configuration, localtest));
