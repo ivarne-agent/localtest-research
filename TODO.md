@@ -823,4 +823,10 @@ information. **The JSON Schema is dropped** (owner, 2026-10-22: "just another th
 test validates the file). **Groups and the default stack are runner code, not manifest entries** (owner: they must be
 explicit in code anyway, for the Aspire methods and the command-line arguments): each runner holds the root services of
 `default`, `dialogporten`, `receipt`, `correspondence`, `arbeidsflate` and `everything`, and the manifest's `dependsOn`
-closes them transitively; the manifest lists real services only, no imageless entries.
+closes them transitively; the manifest lists real services only, no imageless entries. **Revised (owner, 2026-10-22):
+two top-level sections**, `{"groups": [...], "containers": {...}}`: `groups` is a list of `{name, containers}` (the
+root containers of `default`, which is always on, and of `dialogporten`, `receipt`, `correspondence`, `arbeidsflate`;
+`dependsOn` closes them, so Correspondence implying Dialogporten is its dependency, not a group rule; `everything`
+stays a runner constant meaning all groups); `containers` is the map of real services with `registry`, `tag`, `envs`,
+`dependsOn`, `volumes` and the optional `port`/`health`. The typed Aspire methods and the `--with` values are code
+constants checked against the group names by a test, as today. A container no group reaches is a loader error.
