@@ -42,6 +42,13 @@
   The package is unchanged until task 27, which drops its YARP container, its route model and its compiled-in
   provisioning and publishes 8000 from the localtest container; `AddAltinnApp` then calls the registration on the app's
   ready event.
+- **Task 27b phase 1** (2026-10-23, branch `task/manifest-v2-aspire`, code and tests only): the package reads
+  studioctl's manifest v2 by relative path, runs one persistent container per selected manifest container (name and
+  alias the manifest key) with the `services__*` variables, publishes only the localtest container's 8080 as 8000, and
+  registers an app with that front door (`PUT localtest/api/apps/{org}/{app}`) on its ready event; the YARP container,
+  `Aspire.Hosting.Yarp`, the route model, the v1 manifest copy and the compiled-in provisioning are gone. Health checks
+  run inside the network (`exec` of studioctl's bash probe in the Postgres container). This reverses the 21d front-door
+  choice above and is what section 3 recommended. Phase 2 (the sample AppHost under Podman, the smoke suites) is open.
 - No statement in another plan is superseded by this one.
 
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md), written against this repository

@@ -29,7 +29,7 @@ internal static class FrontDoorClient
     public static string HostAddress(int port) =>
         $"{Uri.UriSchemeHttp}://{Topology.HostGatewayName}:{port.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>PUTs <c>{ "url": address }</c>; returns the status and the body on one line.</summary>
+    /// <summary>Sends a PUT of <c>{ "url": address }</c>; returns the status and the body on one line.</summary>
     public static Task<FrontDoorAnswer> PutAsync(
         Uri platform,
         string path,
@@ -47,7 +47,7 @@ internal static class FrontDoorClient
             cancellationToken
         );
 
-    /// <summary>DELETEs the path; returns the status and the body on one line.</summary>
+    /// <summary>Sends a DELETE of the path; returns the status and the body on one line.</summary>
     public static Task<FrontDoorAnswer> DeleteAsync(Uri platform, string path, CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Delete, new Uri(platform, path)), cancellationToken);
 
