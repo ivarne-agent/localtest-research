@@ -7,8 +7,7 @@
 
   <!--
     The fakes implement or use types that live in the vendored projects, so they are compiled into the project that owns
-    them from the adjacent fakes/ folder instead of being a separate project. Upstream restores in locked mode, and a
-    ProjectReference or PackageReference added from this file fails that restore (NU1004), while Compile items do not.
+    them from the adjacent fakes/ folder instead of being a separate project.
     fakes/Infrastructure is visible to all three hosts (it holds the shared configuration defaults and the Maskinporten
     fake, which needs the package Infrastructure references); each host's folder holds what only that host can see.
   -->
@@ -17,14 +16,12 @@
   </ItemGroup>
   <!--
     Service discovery by name for the #if LOCALTEST registration in the three hosts' Program.cs
-    (planned-components/service-discovery.md). Upstream restores in locked mode, so the hosts that get the package
-    restore against localtest's own lock files in locks/ (generated from upstream's plus this package) instead of the
-    vendored packages.lock.json, which stays untouched. After a re-pin, regenerate them with a plain
-    `dotnet restore` of each host (no locked mode) with these overrides active; the diff against the vendored lock file
-    must be the ServiceDiscovery package and its Abstractions only.
+    (planned-components/service-discovery.md). The package changes the hosts' dependencies, so their restore leaves
+    locked mode: here, and in the Dockerfiles, which drop upstream's locked-mode flag (a global property beats this one).
   -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
-    <NuGetLockFilePath>$(MSBuildThisFileDirectory)locks/$(MSBuildProjectName).packages.lock.json</NuGetLockFilePath>
+  <PropertyGroup>
+    <!-- Our pin is the upstream commit, so upstream's lock files guard nothing here. -->
+    <RestoreLockedMode>false</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />

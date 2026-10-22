@@ -18,8 +18,6 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:2fa828c68761b1b8c23d7662dc1344
 WORKDIR /src
 COPY localtest.build.props localtest.build.targets ./
 COPY fakes/ fakes/
-# localtest: the hosts' lock files with the service-discovery package (see localtest.build.targets)
-COPY locks/ locks/
 ENV DirectoryBuildPropsPath=/src/localtest.build.props \
     DirectoryBuildTargetsPath=/src/localtest.build.targets
 WORKDIR /src/vendor
@@ -47,7 +45,9 @@ COPY ["vendor/src/Digdir.Library.Utils.AspNet/Digdir.Library.Utils.AspNet.csproj
 COPY ["vendor/src/Digdir.Library.Utils.AspNet/packages.lock.json", "src/Digdir.Library.Utils.AspNet/"]
 
 # Restore
-RUN dotnet restore "src/Digdir.Domain.Dialogporten.Service/Digdir.Domain.Dialogporten.Service.csproj" --locked-mode
+# localtest: without upstream's --locked-mode, which as a global property would beat RestoreLockedMode=false in
+# localtest.build.targets; the service-discovery package changes the hosts' dependencies (NU1004 otherwise).
+RUN dotnet restore "src/Digdir.Domain.Dialogporten.Service/Digdir.Domain.Dialogporten.Service.csproj"
 
 # Copy rest of source
 COPY ["vendor/src/", "src/"]

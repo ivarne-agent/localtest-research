@@ -5,7 +5,7 @@
 - Copied paths, relative layout preserved: `Directory.Build.props`, `.editorconfig`, `global.json`, and under `src/` the nine projects
   the WebApi, GraphQL and Service hosts build from: `Digdir.Domain.Dialogporten.{WebApi,GraphQL,Service,Application,Domain,Infrastructure}`,
   `Digdir.Library.Entity.Abstractions`, `Digdir.Library.Entity.EntityFrameworkCore`, `Digdir.Library.Utils.AspNet`, each with its
-  `packages.lock.json` (upstream and the Dockerfiles restore with `--locked-mode`). The upstream per-host `Dockerfile`s and
+  `packages.lock.json` (upstream restores with `--locked-mode`; `../Dockerfile.*` do not since task 25, see `../localtest.build.targets`). The upstream per-host `Dockerfile`s and
   `Infrastructure/MigrationBundle.dockerfile` stay in their project folders as the reference for `../Dockerfile.*`.
   Not copied: the Janitor (no host needs it; its two Resource Registry syncs are MediatR commands the WebApi can send, task 9b), the
   samples, tools and `WebApiClient`, `tests/`, `docs/`, `scripts/`, the compose and nginx files, `.github/`, the solution files.
