@@ -234,9 +234,10 @@ public sealed class ModelTests
             ("ghcr.io", "ivarne-agent/localtest-research/localtest-storage", pin),
             (storage.Registry, storage.Image, storage.Tag)
         );
-        // Aspire drops the tag when a digest is set: the reference is library/redis@sha256:..., the same image.
-        Assert.Equal(("docker.io", "library/redis"), (redis.Registry, redis.Image));
-        Assert.Equal("29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0", redis.SHA256);
+        Assert.Equal(
+            ("ghcr.io", "ivarne-agent/localtest-research/localtest-redis", pin, null),
+            (redis.Registry, redis.Image, redis.Tag, redis.SHA256)
+        );
         Assert.Equal(
             ImagePullPolicy.Always,
             _model.Container("pdf3").Annotations.OfType<ContainerImagePullPolicyAnnotation>().Single().ImagePullPolicy
@@ -255,7 +256,27 @@ public sealed class ModelTests
             model.Container("storage").Annotations.OfType<ContainerImagePullPolicyAnnotation>().Single().ImagePullPolicy
         );
         Assert.Equal("tt02", model.Container("pdf3").Annotations.OfType<ContainerImageAnnotation>().Single().Tag);
-        Assert.NotNull(model.Container("redis").Annotations.OfType<ContainerImageAnnotation>().Single().SHA256);
+        Assert.Equal("latest", model.Container("redis").Annotations.OfType<ContainerImageAnnotation>().Single().Tag);
+    }
+
+    [Fact]
+    public void ADigestPinsTheImageAndATagWithoutOneFloats()
+    {
+        var pinned = StackSpec.ImageOf(
+            new ManifestContainer { Registry = "docker.io/library/redis", Tag = "7.2-alpine@sha256:29e8" },
+            "latest"
+        );
+        var floating = StackSpec.ImageOf(new ManifestContainer { Registry = "localhost:5000/x", Tag = "tt02" }, null);
+
+        Assert.Equal(
+            ("docker.io", "library/redis", "7.2-alpine", "29e8", false),
+            (pinned.Registry, pinned.Image, pinned.Tag, pinned.Sha256, pinned.Floating)
+        );
+        Assert.Equal("docker.io/library/redis:7.2-alpine@sha256:29e8", pinned.Reference);
+        Assert.Equal(
+            ("localhost:5000", "x", "tt02", true),
+            (floating.Registry, floating.Image, floating.Tag, floating.Floating)
+        );
     }
 
     [Fact]
