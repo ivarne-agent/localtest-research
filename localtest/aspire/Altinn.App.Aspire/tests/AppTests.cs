@@ -220,6 +220,9 @@ public sealed class AppTests
         {
             Assert.Contains($"(pid {Environment.ProcessId})", error.Message, StringComparison.Ordinal);
         }
+        // The AppHost's own persistent front door from its previous run holds the port: the next run reuses it.
+        PortGuard.EnsureFree(port, () => true);
+        Assert.Throws<InvalidOperationException>(() => PortGuard.EnsureFree(port, () => false));
         listener.Stop();
         PortGuard.EnsureFree(port);
     }

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -52,14 +53,14 @@ public static class AltinnLocaltestExtensions
 
         // The port check and the certificate run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
-            (_, _) =>
+            async (e, ct) =>
             {
                 if (builder.ExecutionContext.IsRunMode)
                 {
-                    PortGuard.EnsureFree(Topology.IngressPort);
+                    var own = await OwnFrontDoorRunningAsync(builder.Configuration, ct).ConfigureAwait(false);
+                    PortGuard.EnsureFree(Topology.IngressPort, () => own);
                 }
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
-                return Task.CompletedTask;
             }
         );
         parent.WithCommand(
@@ -195,6 +196,37 @@ public static class AltinnLocaltestExtensions
     public static IResourceBuilder<AltinnLocaltestResource> WithEverything(
         this IResourceBuilder<AltinnLocaltestResource> builder
     ) => builder.WithGroup("everything");
+
+    /// <summary>
+    /// Whether this AppHost's own localtest container runs, from a previous run (it is persistent): then it holds port
+    /// 8000, and the next run reuses it. Aspire names a persistent container after the resource and the first eight
+    /// characters of the AppHost's hash.
+    /// </summary>
+    private static async Task<bool> OwnFrontDoorRunningAsync(IConfiguration configuration, CancellationToken ct)
+    {
+        if (configuration["AppHost:Sha256"] is not { Length: >= 8 } hash)
+        {
+            return false;
+        }
+#pragma warning disable CA1308 // Aspire lower-cases the suffix.
+        var name = $"{Topology.FrontDoor}-{hash[..8].ToLowerInvariant()}";
+#pragma warning restore CA1308
+        try
+        {
+            var (exitCode, output) = await ContainerRuntime
+                .RunAsync(
+                    ContainerRuntime.Cli(configuration),
+                    ["container", "inspect", "--format", "{{.State.Running}}", name],
+                    ct
+                )
+                .ConfigureAwait(false);
+            return exitCode == 0 && output.Trim() == "true";
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
 
     private static async Task ReportWhenHealthyAsync(InitializeResourceEvent e, CancellationToken cancellationToken)
     {

@@ -13,11 +13,12 @@ internal static class PortGuard
 {
     /// <summary>
     /// Throws <see cref="InvalidOperationException" /> naming the holder when <paramref name="port" /> cannot be bound
-    /// on every interface or answers on loopback.
+    /// on every interface or answers on loopback, unless <paramref name="heldByThisAppHost" /> says the holder is this
+    /// AppHost's own front door: the localtest container is persistent, so it keeps the port between AppHost runs.
     /// </summary>
-    public static void EnsureFree(int port)
+    public static void EnsureFree(int port, Func<bool>? heldByThisAppHost = null)
     {
-        if (IsFree(port))
+        if (IsFree(port) || heldByThisAppHost?.Invoke() == true)
         {
             return;
         }
