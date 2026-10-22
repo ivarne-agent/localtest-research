@@ -803,3 +803,11 @@ with the discovery package (no trimming or dynamic-code annotations in the net10
 service in dependency order with alias equal to its name, its volumes, `services__*` for its dependencies, `envs`
 with service names substituted, 8000 published from `localtest`; one golden snapshot of the resolved environments;
 the schema, the checker, the placeholder vocabulary and the Aspire manifest reader's route model removed.
+
+**Decisions (2026-10-22).** No env substitution in the manifest: `envs` are literal strings (the public-origin URLs
+written out, the data stores and the non-.NET clients by alias and conventional port, because both runtimes give every
+container its service name as alias); each runner has its own logic for the `services__<name>__http__0` injection,
+one entry per running service, which is the only discovery mechanism. The first v2 manifest carries today's 76
+variables as the resolved strings, so the container environment is byte-identical to v1 (one golden), and task 25's
+per-component migration deletes them over time. Groups are imageless services (`dependsOn` only), as is `app`, whose
+`dependsOn` is the default stack. Health kinds: an HTTP path (default `/health` on 8080) or `tcp`. Runs after 26.
