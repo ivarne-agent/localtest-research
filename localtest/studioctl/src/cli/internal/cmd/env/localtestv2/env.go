@@ -81,9 +81,9 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	return nil
 }
 
-// GroupsChanged reports whether the optional component groups `env up` asks for differ from those the running
+// Changed reports whether `env up` asks for other optional groups or other images (--latest) than the running
 // environment was started with, in which case an environment that is already healthy still has to be converged.
-func (e *Env) GroupsChanged(opts envtypes.UpOptions) (bool, error) {
+func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	want, err := ResolveGroups(opts.With, opts.Without)
 	if err != nil {
 		return false, err
@@ -94,7 +94,7 @@ func (e *Env) GroupsChanged(opts envtypes.UpOptions) (bool, error) {
 	}
 	have := slices.Clone(state.Groups)
 	slices.Sort(have)
-	return !slices.Equal(want, have), nil
+	return !slices.Equal(want, have) || opts.LatestImages != state.LatestImages, nil
 }
 
 // Up starts the environment: writes the certificate and the state file, (re)starts studioctl-server so that it
@@ -114,6 +114,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
 		Groups:         opts.Groups,
+		LatestImages:   opts.LatestImages,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
 	}
@@ -308,8 +309,9 @@ func (e *Env) defaultOptions() *Options {
 	return defaultOptions(localtestv2.CertificateDir(e.cfg))
 }
 
-// currentOptions are the options of the environment as it was started: the optional groups come from the state file,
-// so status and logs cover the containers that exist and do not report a group that was never started as missing.
+// currentOptions are the options of the environment as it was started: the optional groups and the image tags come
+// from the state file, so status and logs cover the containers that exist, do not report a group that was never
+// started as missing, and name the images the containers were started from.
 func (e *Env) currentOptions() (*Options, error) {
 	opts := e.defaultOptions()
 	state, _, err := localtestv2.ReadState(e.cfg)
@@ -317,6 +319,7 @@ func (e *Env) currentOptions() (*Options, error) {
 		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	opts.Groups = state.Groups
+	opts.LatestImages = state.LatestImages
 	return opts, nil
 }
 

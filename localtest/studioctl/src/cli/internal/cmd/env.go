@@ -469,11 +469,11 @@ func (c *EnvCommand) runLocaltestV2Up(
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)
 	}
-	groupsChanged, err := env.GroupsChanged(upOpts)
+	changed, err := env.Changed(upOpts)
 	if err != nil {
-		return fmt.Errorf("compare component groups: %w", err)
+		return fmt.Errorf("compare with the running environment: %w", err)
 	}
-	if status.Running && len(flags.devComponents) == 0 && !groupsChanged {
+	if status.Running && len(flags.devComponents) == 0 && !changed {
 		return envUpOutput{
 			Runtime:        runtimeLocaltestV2,
 			Running:        true,

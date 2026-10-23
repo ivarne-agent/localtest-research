@@ -10,6 +10,8 @@ import (
 
 	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
+	envtypes "altinn.studio/studioctl/internal/cmd/env"
+	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/localtestv2"
 )
 
@@ -348,5 +350,33 @@ func TestTheProbeScripts(t *testing.T) {
 	}
 	if got := healthTargetOf("storage").String(); got != "http://storage:5010/health" {
 		t.Errorf("storage: %s", got)
+	}
+}
+
+func TestAnUpWithOtherGroupsOrImagesChangesTheRunningEnvironment(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir()}
+	if err := localtestv2.WriteState(cfg, localtestv2.State{
+		CertificateDir: localtestv2.CertificateDir(cfg),
+		Groups:         []string{"receipt"},
+		LatestImages:   false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	env := NewEnv(cfg, nil, nil)
+	for _, tc := range []struct {
+		name string
+		opts envtypes.UpOptions
+		want bool
+	}{
+		{name: "the same", opts: envtypes.UpOptions{With: []string{"receipt"}}, want: false},
+		{name: "another group", opts: envtypes.UpOptions{With: []string{"receipt", "dialogporten"}}, want: true},
+		{name: "no group", opts: envtypes.UpOptions{}, want: true},
+		{name: "latest", opts: envtypes.UpOptions{With: []string{"receipt"}, LatestImages: true}, want: true},
+	} {
+		got, err := env.Changed(tc.opts)
+		if err != nil || got != tc.want {
+			t.Errorf("%s: Changed() = %v, %v; want %v", tc.name, got, err, tc.want)
+		}
 	}
 }
