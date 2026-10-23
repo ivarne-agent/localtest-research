@@ -18,7 +18,8 @@ public sealed class AppProvisioning : IDisposable
     private readonly HttpClient _appClient;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public AppProvisioning(IHttpClientFactory httpClientFactory, StudioToken studioToken, IConfiguration configuration, ILogger<AppProvisioning> logger)
+    /// <param name="inProcess">Where steps 1, 3, 3b and 4 go in minimal mode (registered by <c>Emulation/</c>); null: over HTTP.</param>
+    public AppProvisioning(IHttpClientFactory httpClientFactory, StudioToken studioToken, IConfiguration configuration, ILogger<AppProvisioning> logger, IProvisioningTarget? inProcess = null)
     {
         _appClient = new HttpClient(new SocketsHttpHandler { UseProxy = false, ConnectTimeout = TimeSpan.FromSeconds(5) })
         {
@@ -36,7 +37,8 @@ public sealed class AppProvisioning : IDisposable
                 DialogportenRunning = () => !string.IsNullOrEmpty(configuration["services:dialogporten-adapter:http:0"]),
             },
             httpClientFactory.CreateClient(PlatformClientName),
-            logger);
+            logger,
+            inProcess);
     }
 
     /// <summary>Provisions <c>{org}/{app}</c> from the app at <paramref name="url"/>; the outcome, never an exception but cancellation.</summary>

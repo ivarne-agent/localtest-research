@@ -66,8 +66,10 @@ builder.Services.AddSingleton<AppProvisioning>();
 builder.Services.AddHttpClient(AuthenticationClient.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, LocaltestJsonContext.Default));
+Emulation.Add(builder);
 
 var app = builder.Build();
+Emulation.Map(app);
 
 // The dedicated hosts (the PDF generator, the workflow engine, Arbeidsflate, and the frontend dev server when one is
 // registered) belong to their destination entirely, the localtest app's own endpoints included.

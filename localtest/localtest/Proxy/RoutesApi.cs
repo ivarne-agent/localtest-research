@@ -67,8 +67,8 @@ public static class RoutesApi
 
         var routesApi = app.MapGroup("/localtest/api/routes");
 
-        routesApi.MapGet("/", (IConfiguration configuration, DevServerRoute devServer) => new RouteTable(
-            [.. PlatformRoutes.Table.Select(r => new PlatformRouteEntry(r.Host, r.Prefix, r.Service, r.Rewrite, configuration[$"services:{r.Service}:http:0"]))],
+        routesApi.MapGet("/", (HttpContext context, IConfiguration configuration, DevServerRoute devServer) => new RouteTable(
+            [.. PlatformRoutes.Table.Select(r => new PlatformRouteEntry(r.Host, r.Prefix, r.Service, r.Rewrite, Address(context, configuration, r.Service)))],
             devServer.Current));
 
         routesApi.MapPut("/" + DevServerRoute.Name, (RouteRequest request, DevServerRoute devServer) =>
@@ -90,6 +90,10 @@ public static class RoutesApi
         });
     }
 
+    /// <summary>A service's address: <c>emulated</c> when the front door emulates it (minimal mode), else its <c>services__</c> entry.</summary>
+    private static string? Address(HttpContext context, IConfiguration configuration, string service)
+        => context.RequestServices.GetService<IEmulatedServices>()?.Emulates(service) == true ? "emulated" : configuration[$"services:{service}:http:0"];
+
     /// <summary>The origin of an absolute http(s) URL without a path, query or fragment; null for anything else.</summary>
     private static string? Origin(string? value)
         => Uri.TryCreate(value, UriKind.Absolute, out var url)
@@ -102,5 +106,11 @@ public static class RoutesApi
 /// <summary><c>GET localtest/api/routes</c>.</summary>
 public sealed record RouteTable(PlatformRouteEntry[] Platform, DevServer? FrontendDevServer);
 
-/// <summary>A platform route and its service's address (<c>services__{service}__http__0</c>; null: not running).</summary>
+/// <summary>Which services the front door emulates itself (minimal mode, registered by <c>Emulation/</c>).</summary>
+public interface IEmulatedServices
+{
+    bool Emulates(string service);
+}
+
+/// <summary>A platform route and its service's address (<c>services__{service}__http__0</c>; <c>emulated</c>: the front door answers itself; null: not running).</summary>
 public sealed record PlatformRouteEntry(string? Host, string? Prefix, string Service, string? Rewrite, string? Address);

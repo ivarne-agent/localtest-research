@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +16,7 @@ public sealed class LocaltestProvisioner
 {
     private readonly LocaltestProvisionerOptions _options;
     private readonly HttpClient _client;
+    private readonly IProvisioningTarget _target;
     private readonly ILogger _logger;
 
     // Whether the last Dialogporten sync failed: logged once, then retried quietly until it answers.
@@ -25,13 +25,15 @@ public sealed class LocaltestProvisioner
     /// <param name="options">The host's callbacks.</param>
     /// <param name="client">Used for the platform and, through the sources the caller passes, the app; not disposed.</param>
     /// <param name="logger">Receives the step results; the caller picks the category.</param>
-    public LocaltestProvisioner(LocaltestProvisionerOptions options, HttpClient client, ILogger logger)
+    /// <param name="target">Where steps 1, 3, 3b and 4 go; default: the services over HTTP through <paramref name="client"/>.</param>
+    public LocaltestProvisioner(LocaltestProvisionerOptions options, HttpClient client, ILogger logger, IProvisioningTarget? target = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(logger);
         _options = options;
         _client = client;
+        _target = target ?? new HttpProvisioningTarget(client);
         _logger = logger;
     }
 
@@ -49,14 +51,7 @@ public sealed class LocaltestProvisioner
         var studioToken = await GetStudioToken(cancellationToken);
 
         // 1. Register: the app's test users as posted (an empty body: none).
-        await PlatformHttp.Send(
-            _client,
-            HttpMethod.Put,
-            Service("register", $"/register/api/localtest/apps/{org}/{app}"),
-            PlatformHttp.Json(artifacts.TestData),
-            null,
-            cancellationToken
-        );
+        await _target.PutTestData(appId, artifacts.TestData, cancellationToken);
 
         // 2. Storage: application metadata and texts through the production endpoints, created or replaced.
         await PlatformHttp.CreateOrReplace(
@@ -82,29 +77,14 @@ public sealed class LocaltestProvisioner
         // 3. The PDP: the policy with Designer's placeholder replacement.
         if (artifacts.Policy is { } policy && !string.IsNullOrWhiteSpace(policy))
         {
-            await PlatformHttp.Send(
-                _client,
-                HttpMethod.Post,
-                Service("authorization", $"/authorization/api/v1/policies?org={Uri.EscapeDataString(org)}&app={Uri.EscapeDataString(app)}"),
-                new StringContent(PolicyPlaceholders.Replace(policy, appId), Encoding.UTF8, "application/xml"),
-                studioToken,
-                cancellationToken
-            );
+            await _target.PutPolicy(appId, PolicyPlaceholders.Replace(policy, appId), studioToken, cancellationToken);
 
-            // 3b. The Resource Registry derives the app's subjects from the pushed policy, as Designer does on deploy
-            // (anonymous endpoint; the app's own resource is computed from Storage's application list).
-            await PlatformHttp.Send(
-                _client,
-                HttpMethod.Get,
-                Service("resource-registry", $"/resourceregistry/api/v1/resource/app_{Uri.EscapeDataString(org)}_{Uri.EscapeDataString(app)}/policy/subjects?reloadFromXacml=true"),
-                null,
-                null,
-                cancellationToken
-            );
+            // 3b. The Resource Registry derives the app's subjects from the pushed policy, as Designer does on deploy.
+            await _target.ReloadResourceSubjects(appId, cancellationToken);
         }
 
         // 4. Access Management keeps its own copy of parties, roles and resources.
-        await RefreshAccessManagement(cancellationToken);
+        await _target.RefreshAccessManagement(cancellationToken);
 
         // 5. Dialogporten (optional group): the Janitor's two Resource Registry syncs and a cache clear, so the app's
         // resource and subjects are known at once instead of after the 20-minute resource cache. After step 4 because the
@@ -136,18 +116,9 @@ public sealed class LocaltestProvisioner
     /// </summary>
     public async Task Deprovision(AppId appId, CancellationToken cancellationToken)
     {
-        await PlatformHttp.Send(
-            _client,
-            HttpMethod.Delete,
-            Service("register", $"/register/api/localtest/apps/{appId.Org}/{appId.App}"),
-            null,
-            null,
-            cancellationToken,
-            // The Register answers 404 for an app it has no test data for: nothing to remove, so a repeated or
-            // never-provisioned removal succeeds (the front door's DELETE is idempotent).
-            notFoundIsSuccess: true
-        );
-        await RefreshAccessManagement(cancellationToken);
+        await _target.RemoveTestData(appId, cancellationToken);
+        await _target.RemovePolicy(appId, cancellationToken);
+        await _target.RefreshAccessManagement(cancellationToken);
         if (_logger.IsEnabled(LogLevel.Information))
             _logger.LogInformation("Removed {AppId}'s test users from the platform", appId.ToString());
     }
@@ -210,16 +181,6 @@ public sealed class LocaltestProvisioner
             return DialogportenSync.Failed;
         }
     }
-
-    private Task RefreshAccessManagement(CancellationToken cancellationToken) =>
-        PlatformHttp.Send(
-            _client,
-            HttpMethod.Post,
-            Service("access-management", "/accessmanagement/api/localtest/refresh"),
-            null,
-            null,
-            cancellationToken
-        );
 
     private Task<string> GetStudioToken(CancellationToken cancellationToken) => _options.StudioToken(cancellationToken);
 

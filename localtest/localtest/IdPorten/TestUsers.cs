@@ -5,9 +5,10 @@ namespace Localtest.IdPorten;
 /// <summary>
 /// The seeded test users, read from the register component's <c>register/api/localtest/test-users</c> by its service
 /// name (<c>http://register/…</c>, resolved by service discovery), not through the front door. Cached for a few seconds, so a page render and the form post that follows see
-/// the same list without hammering the register.
+/// the same list without hammering the register. In minimal mode (<c>Emulation/</c>) an <paramref name="inProcess"/>
+/// source is registered and answers instead, from the emulated Register's store.
 /// </summary>
-public sealed class TestUsers(IHttpClientFactory httpClientFactory)
+public sealed class TestUsers(IHttpClientFactory httpClientFactory, ITestUserSource? inProcess = null)
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -18,6 +19,11 @@ public sealed class TestUsers(IHttpClientFactory httpClientFactory)
 
     public async Task<TestUser[]> GetAll(CancellationToken cancellationToken)
     {
+        if (inProcess is not null)
+        {
+            return await inProcess.GetAll(cancellationToken);
+        }
+
         if (_cached is { } cached && DateTimeOffset.UtcNow - _cachedAt < CacheFor)
         {
             return cached;
@@ -41,6 +47,12 @@ public sealed class TestUsers(IHttpClientFactory httpClientFactory)
             _lock.Release();
         }
     }
+}
+
+/// <summary>The test users from somewhere other than the Register over HTTP: the minimal mode's in-process store.</summary>
+public interface ITestUserSource
+{
+    Task<TestUser[]> GetAll(CancellationToken cancellationToken);
 }
 
 /// <summary>

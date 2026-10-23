@@ -74,24 +74,24 @@ public static class AuthorizationEmulation
         // The Authorization fake's helper: the request an app's PEP would send for a user, party, app and action.
         app.MapGet(prefix + "/api/localtest/decision", (int userId, int partyId, string org, string app, string? action, string? instanceId, string? task) =>
         {
-            var resource = new JsonArray { Attribute("urn:altinn:org", org), Attribute("urn:altinn:app", app), Attribute("urn:altinn:partyid", partyId.ToString(CultureInfo.InvariantCulture)) };
+            var resource = new JsonArray(Attribute("urn:altinn:org", org), Attribute("urn:altinn:app", app), Attribute("urn:altinn:partyid", partyId.ToString(CultureInfo.InvariantCulture)));
             if (!string.IsNullOrEmpty(instanceId))
             {
-                resource.Add(Attribute("urn:altinn:instance-id", instanceId));
+                resource.Add((JsonNode)Attribute("urn:altinn:instance-id", instanceId));
             }
 
             if (!string.IsNullOrEmpty(task))
             {
-                resource.Add(Attribute("urn:altinn:task", task));
+                resource.Add((JsonNode)Attribute("urn:altinn:task", task));
             }
 
             var request = new JsonObject
             {
                 ["request"] = new JsonObject
                 {
-                    ["accessSubject"] = new JsonArray { new JsonObject { ["attribute"] = new JsonArray { Attribute("urn:altinn:userid", userId.ToString(CultureInfo.InvariantCulture)) } } },
-                    ["action"] = new JsonArray { new JsonObject { ["attribute"] = new JsonArray { Attribute("urn:oasis:names:tc:xacml:1.0:action:action-id", action ?? "read", includeInResult: true) } } },
-                    ["resource"] = new JsonArray { new JsonObject { ["attribute"] = resource } },
+                    ["accessSubject"] = new JsonArray(new JsonObject { ["attribute"] = new JsonArray(Attribute("urn:altinn:userid", userId.ToString(CultureInfo.InvariantCulture))) }),
+                    ["action"] = new JsonArray(new JsonObject { ["attribute"] = new JsonArray(Attribute("urn:oasis:names:tc:xacml:1.0:action:action-id", action ?? "read", includeInResult: true)) }),
+                    ["resource"] = new JsonArray(new JsonObject { ["attribute"] = resource }),
                 },
             };
             using var document = JsonDocument.Parse(request.ToJsonString());
@@ -137,13 +137,13 @@ public static class AuthorizationEmulation
         var results = new JsonArray();
         if (references is null)
         {
-            results.Add(Result(categories.Select(c => (c.CategoryId, c.Category))));
+            results.Add((JsonNode)Result(categories.Select(c => (c.CategoryId, c.Category))));
         }
         else
         {
             foreach (var reference in references)
             {
-                results.Add(Result(categories.Where(c => c.Id is not null && reference.Contains(c.Id)).Select(c => (c.CategoryId, c.Category))));
+                results.Add((JsonNode)Result(categories.Where(c => c.Id is not null && reference.Contains(c.Id)).Select(c => (c.CategoryId, c.Category))));
             }
         }
 
@@ -165,7 +165,7 @@ public static class AuthorizationEmulation
             {
                 foreach (var attribute in Items(list).Where(a => Property(a, "includeInResult") is { ValueKind: JsonValueKind.True }))
                 {
-                    attributes.Add(new JsonObject
+                    attributes.Add((JsonNode)new JsonObject
                     {
                         ["attributeId"] = String(attribute, "attributeId"),
                         ["value"] = String(attribute, "value"),
@@ -177,7 +177,7 @@ public static class AuthorizationEmulation
 
             if (attributes.Count > 0)
             {
-                echoed.Add(new JsonObject { ["categoryId"] = categoryId, ["attribute"] = attributes });
+                echoed.Add((JsonNode)new JsonObject { ["categoryId"] = categoryId, ["attribute"] = attributes });
             }
         }
 

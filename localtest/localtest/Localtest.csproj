@@ -11,6 +11,12 @@
     <!-- The test project lives below this folder (tests/), with its own sources and build output. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
+  <!-- The minimal mode's files (Emulation/README.md): the test-data seed and the static PDF, in the binary. -->
+  <ItemGroup>
+    <Content Remove="Emulation/**" />
+    <EmbeddedResource Include="Emulation/TestData/testData.json" LogicalName="Localtest.Emulation.testData.json" />
+    <EmbeddedResource Include="Emulation/Pdf/minimal.pdf" LogicalName="Localtest.Emulation.minimal.pdf" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />

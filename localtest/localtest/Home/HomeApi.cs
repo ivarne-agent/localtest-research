@@ -74,6 +74,17 @@ public static class HomeApi
             .Append("label{display:block;margin:14px 0 4px;font-weight:600}select,input[type=text]{width:100%;padding:6px;box-sizing:border-box}")
             .Append("button{margin-top:18px;padding:8px 18px}.notice{color:#a00}</style></head><body>")
             .Append("<h1>Altinn localtest</h1><p>Log in as a test user. The production Altinn Authentication signs the user in; the selected party is set in the party cookies.</p>");
+        if (context.RequestServices.GetService<HomeBanner>() is { } banner)
+        {
+            html.Append("<p role=\"status\" style=\"background:#fff3cd;border-left:4px solid #b58100;padding:8px 12px\">").Append(Encode(banner.Text));
+            if (banner.Link is { } link)
+            {
+                html.Append(" (<a href=\"").Append(Encode(link)).Append("\">what this mode is</a>)");
+            }
+
+            html.Append("</p>");
+        }
+
         if (notice is not null || users.Length == 0)
         {
             html.Append("<p class=\"notice\">").Append(Encode(notice ?? "No test users: is the register component running?")).Append("</p>");
@@ -322,3 +333,6 @@ public static class HomeApi
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 }
+
+/// <summary>A one-line notice on the start page, registered by a mode that changes what the platform is (minimal mode).</summary>
+public sealed record HomeBanner(string Text, string? Link);

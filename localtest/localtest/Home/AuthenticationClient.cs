@@ -13,7 +13,11 @@ namespace Localtest.Home;
 /// and cookies from it, and service discovery keeps a <c>Host</c> that is set.
 /// The Authentication feature's code-flow helper (<c>Authentication/</c>) shares the upstream half of the sign-in.
 /// </summary>
-public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten)
+/// <remarks>
+/// In minimal mode (<c>Emulation/</c>) an <see cref="IInProcessAuthentication"/> is registered, and <see cref="SignIn"/>
+/// and <see cref="Exchange"/> go to it instead of over HTTP: the tokens are minted in process.
+/// </remarks>
+public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, LocaltestSettings localtest, AuthorizationCodes codes, IdPortenSettings idPorten, IInProcessAuthentication? inProcess = null)
 {
     /// <summary>The named client: Authentication's redirects and cookies are read, not followed or stored.</summary>
     public const string HttpClientName = "localtest-authentication";
@@ -28,6 +32,11 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, L
     /// </summary>
     public async Task<(SignInResult? Result, string? Error)> SignIn(TestUser user, string acr, CancellationToken cancellationToken)
     {
+        if (inProcess is not null)
+        {
+            return await inProcess.SignIn(user, acr, cancellationToken);
+        }
+
         var (callback, error) = await SignInUpstream("authentication/api/v1/authentication?goTo=" + Uri.EscapeDataString(localtest.PlatformEndpoint), user, acr, cancellationToken);
         if (callback is null)
         {
@@ -87,6 +96,11 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, L
     /// </summary>
     public async Task<(string? Token, string? Error)> Exchange(string provider, string externalToken, CancellationToken cancellationToken)
     {
+        if (inProcess is not null)
+        {
+            return await inProcess.Exchange(provider, externalToken, cancellationToken);
+        }
+
         using var client = httpClientFactory.CreateClient(HttpClientName);
         using var request = Request(HttpMethod.Get, $"authentication/api/v1/exchange/{provider}?test=true");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", externalToken);
@@ -133,4 +147,17 @@ public sealed class AuthenticationClient(IHttpClientFactory httpClientFactory, L
     }
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+}
+
+/// <summary>
+/// Authentication's sign-in and token exchanges in process instead of production Authentication over HTTP: the minimal
+/// mode's (<c>Emulation/</c>), which <see cref="AuthenticationClient"/> uses when one is registered.
+/// </summary>
+public interface IInProcessAuthentication
+{
+    /// <summary>As <see cref="AuthenticationClient.SignIn"/>: the user's token and the cookies of a browser sign-in.</summary>
+    Task<(AuthenticationClient.SignInResult? Result, string? Error)> SignIn(TestUser user, string acr, CancellationToken cancellationToken);
+
+    /// <summary>As <see cref="AuthenticationClient.Exchange"/> (with <c>test=true</c>).</summary>
+    Task<(string? Token, string? Error)> Exchange(string provider, string externalToken, CancellationToken cancellationToken);
 }

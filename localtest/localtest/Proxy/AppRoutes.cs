@@ -9,7 +9,8 @@ namespace Localtest.Proxy;
 /// The registered apps, one route each: <c>/{org}/{app}/…</c> → the app's own address, with the outcome of the last
 /// provisioning. The app runner registers them (<c>PUT localtest/api/apps/{org}/{app}</c>, <see cref="AppsApi"/>) and
 /// removes them. They are saved to a file on a volume, so a restarted front door keeps routing the apps that are still
-/// running; nothing watches the file.
+/// running; nothing watches the file. An empty file name (<c>Proxy__AppRoutesFile=</c>, the minimal mode) keeps them in
+/// memory only.
 /// </summary>
 public sealed partial class AppRoutes
 {
@@ -71,7 +72,7 @@ public sealed partial class AppRoutes
     {
         try
         {
-            if (!File.Exists(_file))
+            if (_file.Length == 0 || !File.Exists(_file))
             {
                 return;
             }
@@ -93,6 +94,11 @@ public sealed partial class AppRoutes
 
     private void Save()
     {
+        if (_file.Length == 0)
+        {
+            return;
+        }
+
         lock (_saveLock)
         {
             try
