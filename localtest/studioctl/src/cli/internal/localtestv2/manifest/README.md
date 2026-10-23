@@ -80,7 +80,7 @@ Every container gets, besides its `envs`:
 - each of its `volumes` as the named volume `localtest-v2-<id>` (`volumePrefix` in `containers.go`); `env reset`
   deletes those and no other.
 - in minimal mode: `services__<name>__http__0=http://localtest:8080` for each emulated container, a tmpfs at the path of
-  each of its `volumes` instead of the named volume (`size=1g` for Storage's blobs), and for the front door
+  each of its `volumes` instead of the named volume (`mode=1777`, so the images' non-root users can write, and `size=1g` for Storage's blobs), and for the front door
   `Proxy__AppRoutesFile=` (routes kept in memory). Nothing persists, so `env reset` has nothing to delete.
 
 Only the `localtest` container publishes a port: 8000 (the public origin) onto its 8080. The app's environment is not

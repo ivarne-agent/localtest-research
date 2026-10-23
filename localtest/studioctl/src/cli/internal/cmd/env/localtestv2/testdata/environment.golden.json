@@ -2656,6 +2656,7 @@
             "ContainerPath": "/var/lib/postgresql",
             "Type": "tmpfs",
             "SELinuxRelabel": "",
+            "Options": "mode=1777",
             "ReadOnly": false
           }
         ],
@@ -2724,7 +2725,7 @@
             "ContainerPath": "/data/blobs",
             "Type": "tmpfs",
             "SELinuxRelabel": "",
-            "Options": "size=1g",
+            "Options": "size=1g,mode=1777",
             "ReadOnly": false
           }
         ],
@@ -2799,6 +2800,7 @@
             "ContainerPath": "/data",
             "Type": "tmpfs",
             "SELinuxRelabel": "",
+            "Options": "mode=1777",
             "ReadOnly": false
           }
         ],

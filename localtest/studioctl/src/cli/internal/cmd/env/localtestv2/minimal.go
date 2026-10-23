@@ -29,10 +29,14 @@ const (
 	nothingToReset = "minimal mode keeps no data; nothing to reset"
 )
 
+// tmpfsMode makes every minimal-mode tmpfs writable for the image's own non-root user (Storage, the front door's app
+// user), as the named volume was: a tmpfs mount point is root's, 0755, whatever the image's directory was.
+const tmpfsMode = "mode=1777"
+
 // tmpfsOptions bound a minimal-mode tmpfs, by manifest volume id: Storage's blobs are the app's uploads.
 //
 //nolint:gochecknoglobals // A constant table.
-var tmpfsOptions = map[string]string{"storage-blobs": "size=1g"}
+var tmpfsOptions = map[string]string{"storage-blobs": "size=1g," + tmpfsMode}
 
 var (
 	errMinimalWithGroups = errors.New(
@@ -82,7 +86,7 @@ func manifestVolume(opts *Options, id, path string) types.VolumeMount {
 			ContainerPath:  path,
 			Type:           types.VolumeMountTypeTmpfs,
 			SELinuxRelabel: types.SELinuxRelabelNone,
-			Options:        tmpfsOptions[id],
+			Options:        tmpfsOptionsOf(id),
 			ReadOnly:       false,
 		}
 	}
@@ -146,4 +150,12 @@ func (e *Env) stopOnModeSwitch(ctx context.Context, minimal bool) error {
 		return fmt.Errorf("stop the environment running in the other mode: %w", err)
 	}
 	return nil
+}
+
+// tmpfsOptionsOf are the options of the tmpfs for a manifest volume id.
+func tmpfsOptionsOf(id string) string {
+	if options, ok := tmpfsOptions[id]; ok {
+		return options
+	}
+	return tmpfsMode
 }

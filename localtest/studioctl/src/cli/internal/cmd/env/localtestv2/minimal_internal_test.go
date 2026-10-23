@@ -78,9 +78,13 @@ func TestMinimalModeAnnouncesTheEmulatedServicesAtTheFrontDoor(t *testing.T) {
 func TestMinimalModeMountsTmpfsForEveryManifestVolume(t *testing.T) {
 	t.Parallel()
 	want := map[string][]types.VolumeMount{
-		"postgres":        {{ContainerPath: "/var/lib/postgresql", Type: types.VolumeMountTypeTmpfs}},
-		"storage":         {{ContainerPath: "/data/blobs", Type: types.VolumeMountTypeTmpfs, Options: "size=1g"}},
-		"localtest":       {{ContainerPath: "/data", Type: types.VolumeMountTypeTmpfs}},
+		"postgres": {
+			{ContainerPath: "/var/lib/postgresql", Type: types.VolumeMountTypeTmpfs, Options: "mode=1777"},
+		},
+		"storage": {
+			{ContainerPath: "/data/blobs", Type: types.VolumeMountTypeTmpfs, Options: "size=1g,mode=1777"},
+		},
+		"localtest":       {{ContainerPath: "/data", Type: types.VolumeMountTypeTmpfs, Options: "mode=1777"}},
 		"workflow-engine": nil,
 	}
 	for name, c := range containersOf(t, minimalOptions()) {
