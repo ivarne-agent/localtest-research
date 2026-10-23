@@ -77,6 +77,7 @@ A path matching no route still falls through to the localtest app.
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only; phase 2 proof after task 43 frees the stack); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **running** (dispatched 2026-10-23, Opus, analysis and stack proof) | medium | yes |
+| 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 running** (dispatched 2026-10-23, Opus, static inventory and design; phase 2 observes on the stack when it is free) | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1338,3 +1339,13 @@ platform's own origin (upstream PR to app-frontend-react). Details and the proof
 including a custom origin; both token kinds; proof on the stack with both sample apps and a custom origin; a document
 with the decision tables and the recommendation. The apps do not use `Altinn.ApiClients.Maskinporten` (task 15), to be
 confirmed.
+
+## 44. Egress domains of apps and the stack
+
+**Goal (2026-10-23, owner's request).** The list of external domain names an app (app-lib 8 and the monorepo backend),
+the browser frontends, pdf3, the workflow engine and each stack component call, with the caller, the purpose and
+whether the domain is fixed in code, configuration or data; where production egress enforcement would sit and in
+what format; a measurement design (OpenTelemetry `server.address` from the clients' spans, DNS and connection capture,
+a logging forward proxy, deny-by-default egress on localtest as a later task) with scripts; phase 2 observes on the
+full stack through every suite and a browser flow and reconciles observed against static. Document
+`localtest/reviews/2026-10-23-egress-domains.md`.
