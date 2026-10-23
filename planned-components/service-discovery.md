@@ -8,8 +8,17 @@ core, the configuration provider, and an explicit fallback for real hosts, becau
 every host it has no entry for, altinncdn.no and the public origin included). The shared bases of Dialogporten and
 Correspondence stay public and their requests are moved to the owning service by `LocaltestPrefixRouting`; flagged site
 1 (Access Management's `ResourceRegistryClient`) goes through the factory; the BFF reaches the platform through the front
-door by name. Built and unit-tested; the proof on a stack (phase 2) is pending. The tables below describe the state
-before.
+door by name. Proven on a stack on 2026-10-23 (phase 2): dev builds of the fifteen changed images with `--with
+everything`: root 26/26, Register 14, Profile 52, Authentication 34, Authorization 31, Resource Registry 43, Events 27,
+Notifications 64, Dialogporten 60, the adapter 39, Correspondence 78 (after the fix below), Receipt 27, Arbeidsflate 59,
+shared 12, the localtest app 65 of 67 (the 503-for-an-off-group and `FRONTEND_DIST` checks, which need an off group and
+the bundle); a browser instantiate of the sample app (sign-in, party, form, receipt) with its dialog in Dialogporten
+(`Awaiting`, one transmission, three activities). `--minimal` with `--dev-localtest --dev-storage`: root 23 + 3 skipped,
+a browser instantiate, and Storage's HttpClient log showing `POST http://authorization/…/decision` sent to
+`http://localtest:8080/…` and `POST http://register/…/parties/lookup` likewise; its outbox drops the sync with "The
+endpoint collection contains no endpoints". One fix came out of it: Correspondence's dialog-token key fetch used the
+synchronous `HttpClient.Send`, which the resolving handler does not override, so the name went to DNS on port 80; it
+uses `GetAsync` now. The tables below describe the state before.
 
 ## Status (2026-10-22)
 
