@@ -72,6 +72,7 @@ A path matching no route still falls through to the localtest app.
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **running** (dispatched 2026-10-23, Opus, measurement only) | small | yes |
+| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | brief ready (`/home/agent/code/.briefs/task39-configurable-origin.md`), awaiting dispatch; owner's decision 2026-10-23: configurable on `env up` and in Aspire options, random port for Aspire and for a future independent `run --minimal` | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1208,3 +1209,16 @@ result (GC settings in the images, AOT, shared layers, page cache counted as ava
 **Open (owner 2026-10-23): the public origin `http://local.altinn.cloud:8000` must be configurable, with a random port
 possible.** Coordinator's outline given; the scope question (collision avoidance only, or several stacks side by side)
 is with the owner before a brief.
+
+## 39. Configurable public host names and port
+
+**Goal (2026-10-23, owner's decision).** One origin per environment: `http`, a public host (default
+`local.altinn.cloud`) and a port (default 8000), the four dedicated hosts derived as subdomains. studioctl `env up
+--host --port` with `--port 0` picking a free port once and recording it in the state; Aspire `PublicHost`/`PublicPort`
+on both option classes with 0 = random, every derived value a `ReferenceExpression` over the front door's endpoint. The
+manifest stays literal for the default origin and the runner rewrites the five default host names (longest first) and
+the `:8000` after them; no placeholders. The front door derives its hosts from configuration; the fakes that embed the
+origin (Authentication's seeded clients) read it from the environment (reaches the stack after a pin bump: phase 2 uses
+`--dev-authentication`). `env hosts add/remove` take the configured names; `--add-host` maps them inside the containers;
+the suites get one override variable; the golden gets an `origin.test:18000` case with the Aspire parity test. Several
+instances are not implemented; the report lists what an independent `run --minimal` would still need.
