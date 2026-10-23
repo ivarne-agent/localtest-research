@@ -14,7 +14,7 @@
 - Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
   There are two sites, both pure additions in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` (line
-  numbers checked 2026-10-22): `:53-58`, right after `WebApplication.CreateBuilder`, the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`); the package comes
+  numbers checked 2026-10-22): `:53-58`, right after `WebApplication.CreateBuilder`, the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`); the package comes
   transitively from `Altinn.Authorization.ServiceDefaults`; and `:67-71` (`AddLocaltestAuthorization(builder)` after
   `ConfigureServices`).
 

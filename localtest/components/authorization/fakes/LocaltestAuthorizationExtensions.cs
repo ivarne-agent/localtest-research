@@ -29,7 +29,8 @@ namespace Altinn.Platform.Authorization.Localtest;
 /// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the OED PIP, the audit queue
 /// and the Key Vault backed token handling. Register (v1 parties), Profile (<c>internal/user</c>, answered by the profile
 /// component), Storage (instance authinfo), Access Management (roles, access packages, delegations) and the Resource
-/// Registry (resources, resource policies, access lists) stay production HTTP clients pointed at the localtest platform.
+/// Registry (resources, resource policies, access lists) stay production HTTP clients, pointed at the services by name
+/// (<c>http://register/register/api/v1/</c>, resolved from <c>services__register__http__0</c>, fakes/ServiceDiscovery).
 /// </summary>
 public static class LocaltestAuthorizationExtensions
 {
@@ -42,17 +43,19 @@ public static class LocaltestAuthorizationExtensions
 
         // Localtest values for settings the vendored appsettings.json carries at22/localhost values for. Inserted above
         // the JSON files but below the environment variables, so a single endpoint can still be pointed elsewhere
-        // (a standalone run without the ingress). The production services bind these lazily through IOptions.
+        // (a standalone run without the ingress). The production services bind these lazily through IOptions. Calls to
+        // another service use its name; the JwtCookie metadata (fetched outside the factory, naming a public jwks_uri)
+        // and the SBL links stay on the public origin.
         var defaults = new MemoryConfigurationSource
         {
             InitialData = new Dictionary<string, string?>
             {
                 ["Localtest:Authorization:PlatformEndpoint"] = platform,
-                ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-                ["PlatformSettings:ApiStorageEndpoint"] = platform + "storage/api/v1/",
-                ["PlatformSettings:ApiResourceRegistryEndpoint"] = platform + "resourceregistry/api/v1/",
-                ["PlatformSettings:ApiAccessManagementEndpoint"] = platform + "accessmanagement/api/v1/",
-                ["PlatformSettings:ApiProfileEndpoint"] = platform + "profile/api/v1/",
+                ["PlatformSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
+                ["PlatformSettings:ApiStorageEndpoint"] = "http://storage/storage/api/v1/",
+                ["PlatformSettings:ApiResourceRegistryEndpoint"] = "http://resource-registry/resourceregistry/api/v1/",
+                ["PlatformSettings:ApiAccessManagementEndpoint"] = "http://access-management/accessmanagement/api/v1/",
+                ["PlatformSettings:ApiProfileEndpoint"] = "http://profile/profile/api/v1/",
                 ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
                 ["GeneralSettings:RuntimeCookieName"] = "AltinnStudioRuntime",
                 ["GeneralSettings:BridgeApiEndpoint"] = platform + "sblbridge/",

@@ -4,7 +4,7 @@ namespace Altinn.Platform.Authorization.Localtest;
 /// <summary>Settings for the localtest PDP fakes, bound from <c>Localtest:Authorization</c>.</summary>
 public sealed class LocaltestAuthorizationOptions
 {
-    /// <summary>The localtest platform base URL (the ingress). Every platform endpoint default is derived from it.</summary>
+    /// <summary>The localtest platform base URL (the public origin): the OpenID metadata and the SBL links derive from it; the services are called by name.</summary>
     public string PlatformEndpoint { get; set; } = "http://local.altinn.cloud:8000/";
 
     /// <summary>

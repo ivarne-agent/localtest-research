@@ -71,7 +71,8 @@ public sealed class LocaltestDecisionController(IHttpClientFactory httpClientFac
             },
         };
 
-        var self = new Uri($"{Request.Scheme}://{Request.Host}/authorization/api/v1/decision");
+        // The production endpoint, by this component's own service name (services__authorization__http__0).
+        var self = new Uri("http://authorization/authorization/api/v1/decision");
         using var client = httpClientFactory.CreateClient();
         using var response = await client.PostAsJsonAsync(self, request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);

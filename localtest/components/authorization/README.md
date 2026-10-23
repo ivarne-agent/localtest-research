@@ -17,9 +17,15 @@ other localtest components.
 
 ## Directive sites
 
-Service discovery (task 25): a pure `#if LOCALTEST` addition (the package comes transitively from `Altinn.Authorization.ServiceDefaults`) right after `WebApplication.CreateBuilder` registers
-`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
-resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+Service discovery (task 25): a pure `#if LOCALTEST` addition (the package comes transitively from `Altinn.Authorization.ServiceDefaults`) right after `WebApplication.CreateBuilder` calls
+`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
+factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
+name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+**Service names (task 40):** the Register, Storage, the Resource Registry, Access Management and Profile are called as
+`http://<service>/<prefix>/…` (fakes' defaults), and the fake's `localtest/decision` calls the production endpoint as
+`http://authorization/authorization/api/v1/decision`; `Localtest__Authorization__PlatformEndpoint` stays the public
+origin (JwtCookie metadata, SBL links).
 
 The other, a pure addition in `vendor/src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, right after
 `ConfigureServices(builder.Services, builder.Configuration)`:
