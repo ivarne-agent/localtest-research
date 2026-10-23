@@ -1,0 +1,91 @@
+# memory-stats: F-after-sigint: F's 18 persistent containers left running after SIGINT to the AppHost (no AppHost, DCP, dashboard or apps)
+time: 2026-10-23T14:58:41+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        3405        1181        1026        4505        4544
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree           1181
+  MemAvailable      4543
+  Buffers            337
+  Cached            3745
+  Shmem             1027
+  Active(file)      2554
+  Inactive(file)     500
+  Active(anon)       275
+  Inactive(anon)    2841
+  AnonPages         2089
+  Mapped            2079
+  SReclaimable       424
+  SUnreclaim          92
+  KernelStack         11
+  PageTables          35
+  Percpu               2
+  VmallocUsed         12
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 3412 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 2267 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 139
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 3394 anon 1483 file 1804 shmem 886 kernel 107 file_mapped 1548 inactive_file 87 active_file 830
+
+## Per container
+
+$ podman stats --no-stream
+access-management-fb0a7819 296.1MB / 8.335GB 3.55%
+authentication-fb0a7819 87.68MB / 8.335GB 1.05%
+authorization-fb0a7819 71.09MB / 8.335GB 0.85%
+dialogporten-adapter-fb0a7819 264.9MB / 8.335GB 3.18%
+dialogporten-graphql-fb0a7819 135.3MB / 8.335GB 1.62%
+dialogporten-service-fb0a7819 167MB / 8.335GB 2.00%
+dialogporten-webapi-fb0a7819 309.4MB / 8.335GB 3.71%
+events-fb0a7819 293MB / 8.335GB 3.52%
+localtest-fb0a7819 24.04MB / 8.335GB 0.29%
+notifications-fb0a7819 75.17MB / 8.335GB 0.90%
+pdf3-fb0a7819 43.49MB / 8.335GB 0.52%
+postgres-fb0a7819 285.6MB / 8.335GB 3.43%
+profile-fb0a7819 120.8MB / 8.335GB 1.45%
+redis-fb0a7819 6.484MB / 8.335GB 0.08%
+register-fb0a7819 83.18MB / 8.335GB 1.00%
+resource-registry-fb0a7819 87.95MB / 8.335GB 1.06%
+storage-fb0a7819 310.1MB / 8.335GB 3.72%
+workflow-engine-fb0a7819 133.5MB / 8.335GB 1.60%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+access-management-fb0a7819              285    170    112    101      3   840825      0      361      170       91      101
+authentication-fb0a7819                  86     31     53     37      2   840679      0      152       31       84       37
+authorization-fb0a7819                   70     24     41     28      5   840739      0      122       24       71       28
+dialogporten-adapter-fb0a7819           258    167     87     54      4   842048      0      325      167      103       54
+dialogporten-graphql-fb0a7819           131     62     65     58      3   842090      0      195       62       74       58
+dialogporten-service-fb0a7819           165     76     86     68      3   842000      0      228       76       84       68
+dialogporten-webapi-fb0a7819            300    160    136    113      4   841714      0      373      160      101      113
+events-fb0a7819                         287    186     95     58      6   841159      0      345      186      101       58
+localtest-fb0a7819                       23     19      3      0      1   839191      0       38       19       19        0
+notifications-fb0a7819                   73     35     33     28      5   841117      0      116       35       54       28
+pdf3-fb0a7819                            43     34      6      0      4   839995      0       13        2       11        0
+postgres-fb0a7819                       307    143    135     87     29   839135      0       35        2       14       19
+profile-fb0a7819                        117     44     68     58      5   839821      0      167       44       65       58
+redis-fb0a7819                            7      3      3      0      1   839088      0        5        3        2        0
+register-fb0a7819                        81     28     51     40      2   839524      0      146       28       78       40
+resource-registry-fb0a7819               85     35     48     41      2   840383      0      150       35       75       41
+storage-fb0a7819                        301    198     96     70      7   839732      0      396      198      128       70
+workflow-engine-fb0a7819                129     69     58     47      2   840173      0      178       70       62       47
+SUM (18 containers)                    2749   1483   1178    886     88        -      -     3347
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               589     587      518       69         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+263      other:systemd-journal      213     118        2      116         0  /usr/lib/systemd/systemd-journald 
+827257   studioctl-server           122     110       30       60        20  /home/agent/sh/bin/studioctl-server/studioctl-server 
+838477   podman                      64      62       27       35         0  /usr/bin/podman --log-level=info system service 
+839064   podman                       4       2        1        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  podman                 75
+  studioctl-server      110
+PSS sums (MiB): stack host processes (the categories above except podman and build-server) 110; all host processes 923; all container processes (incl. conmon) 3245; unreadable processes 0
