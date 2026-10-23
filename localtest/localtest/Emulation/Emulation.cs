@@ -81,11 +81,12 @@ public static class Emulation
             return;
         }
 
-        var prefixes = PlatformRoutes.Table.Where(r => r.Prefix is not null).GroupBy(r => r.Service).ToDictionary(g => g.Key, g => g.First().Prefix!);
+        var prefixes = PlatformRoutes.PrefixOf;
+        var localtest = app.Services.GetRequiredService<LocaltestSettings>();
         app.Use(async (context, next) =>
         {
             var host = context.Request.Host.Host;
-            if (string.Equals(host, PlatformRoutes.Hosts.Pdf, StringComparison.OrdinalIgnoreCase))
+            if (localtest.IsHostOf(LocaltestSettings.PdfSubdomain, host))
             {
                 if (mode.Emulates(PdfEmulation.Service))
                 {
@@ -94,7 +95,7 @@ public static class Emulation
                     return;
                 }
             }
-            else if (PlatformRoutes.ResolveHost(host) is null
+            else if (PlatformRoutes.ResolveHost(host, localtest) is null
                 && context.RequestServices.GetRequiredService<DevServerRoute>().Resolve(host) is null
                 && PlatformRoutes.Resolve(context.Request.Path.Value ?? "/") is { Name: var service }
                 && mode.Emulates(service))

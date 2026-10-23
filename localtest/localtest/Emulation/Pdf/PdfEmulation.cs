@@ -1,7 +1,7 @@
 namespace Localtest.Emulated;
 
 /// <summary>
-/// pdf3 in minimal mode, on its own host (<c>pdf.local.altinn.cloud</c>): every <c>POST /pdf</c> answers the same
+/// pdf3 in minimal mode, on its own host (<c>pdf.{public host}</c>): every <c>POST /pdf</c> answers the same
 /// one-page PDF ("Minimal PDF without content", <c>minimal.pdf</c>, embedded), which is all app-lib's client needs (a
 /// success and bytes to store). <c>GET /</c> and <c>GET /pdf</c> answer a short text page naming the mode,
 /// <c>/health/ready</c> and <c>/health/live</c> 200; any other path 404, as pdf3.

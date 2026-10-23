@@ -67,8 +67,8 @@ public static class RoutesApi
 
         var routesApi = app.MapGroup("/localtest/api/routes");
 
-        routesApi.MapGet("/", (HttpContext context, IConfiguration configuration, DevServerRoute devServer) => new RouteTable(
-            [.. PlatformRoutes.Table.Select(r => new PlatformRouteEntry(r.Host, r.Prefix, r.Service, r.Rewrite, Address(context, configuration, r.Service)))],
+        routesApi.MapGet("/", (HttpContext context, IConfiguration configuration, DevServerRoute devServer, LocaltestSettings localtest) => new RouteTable(
+            [.. PlatformRoutes.Table(localtest).Select(r => new PlatformRouteEntry(r.Host, r.Prefix, r.Service, r.Rewrite, Address(context, configuration, r.Service)))],
             devServer.Current));
 
         routesApi.MapPut("/" + DevServerRoute.Name, (RouteRequest request, DevServerRoute devServer) =>

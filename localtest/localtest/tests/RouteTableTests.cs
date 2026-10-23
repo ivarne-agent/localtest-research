@@ -1,10 +1,20 @@
 using Localtest.Proxy;
+using Microsoft.Extensions.Configuration;
 
 namespace Localtest.Tests;
 
 /// <summary>The route table in code: order, rewrites, hosts, and the bare-prefix redirect.</summary>
 public sealed class RouteTableTests
 {
+    private static readonly LocaltestSettings Default = LocaltestSettings.FromConfiguration(new ConfigurationBuilder().Build());
+
+    private static readonly LocaltestSettings Custom = LocaltestSettings.FromConfiguration(
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Localtest:PlatformEndpoint"] = "http://origin.test:18000",
+            ["Localtest:PublicSubdomains"] = "pdf, workflow-engine,app-frontend,af",
+        }).Build());
+
     [Theory]
     [InlineData("/dialogporten/graphql", "dialogporten-graphql")]
     [InlineData("/dialogporten/graphql/x", "dialogporten-graphql")]
@@ -54,13 +64,53 @@ public sealed class RouteTableTests
     [InlineData("workflow-engine.local.altinn.cloud", "workflow-engine")]
     [InlineData("af.local.altinn.cloud", "arbeidsflate")]
     public void DedicatedHostsBelongToTheirService(string host, string service)
-        => Assert.Equal(service, PlatformRoutes.ResolveHost(host)?.Name);
+        => Assert.Equal(service, PlatformRoutes.ResolveHost(host, Default)?.Name);
 
     [Theory]
     [InlineData("local.altinn.cloud")]
     [InlineData("localhost")]
     [InlineData("app-frontend.local.altinn.cloud")]
-    public void TheMainHostAndTheDevServerHostAreNotPlatformHosts(string host) => Assert.Null(PlatformRoutes.ResolveHost(host));
+    public void TheMainHostAndTheDevServerHostAreNotPlatformHosts(string host) => Assert.Null(PlatformRoutes.ResolveHost(host, Default));
+
+    [Theory]
+    [InlineData("pdf.origin.test", "pdf3")]
+    [InlineData("workflow-engine.origin.test", "workflow-engine")]
+    [InlineData("af.origin.test", "arbeidsflate")]
+    [InlineData("pdf.local.altinn.cloud", null)]
+    [InlineData("origin.test", null)]
+    [InlineData("app-frontend.origin.test", null)]
+    public void TheDedicatedHostsAreSubdomainsOfTheConfiguredPublicHost(string host, string? service)
+        => Assert.Equal(service, PlatformRoutes.ResolveHost(host, Custom)?.Name);
+
+    [Fact]
+    public void ASubdomainTheRunnerDoesNotListIsOff()
+    {
+        var withoutArbeidsflate = new LocaltestSettings("http://origin.test:18000/", "/certs/x.pfx", ["pdf", "workflow-engine", "app-frontend"]);
+        Assert.Null(PlatformRoutes.ResolveHost("af.origin.test", withoutArbeidsflate));
+        Assert.Equal("pdf3", PlatformRoutes.ResolveHost("pdf.origin.test", withoutArbeidsflate)?.Name);
+        Assert.DoesNotContain(PlatformRoutes.Table(withoutArbeidsflate), r => r.Service == "arbeidsflate");
+        Assert.Contains(PlatformRoutes.Table(withoutArbeidsflate), r => r.Host == "pdf.origin.test" && r.Service == "pdf3");
+    }
+
+    [Fact]
+    public void ASubdomainTheFrontDoorDoesNotKnowIsAnError()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => new LocaltestSettings("http://origin.test:18000/", "/certs/x.pfx", ["pdf", "grafana"]));
+        Assert.Contains("grafana", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThePublicHostAndPortComeFromThePlatformEndpoint()
+    {
+        Assert.Equal("local.altinn.cloud", Default.PublicHostName);
+        Assert.Equal(8000, Default.PublicPort);
+        Assert.Equal(LocaltestSettings.KnownSubdomains, Default.PublicSubdomains);
+        Assert.Equal("origin.test", Custom.PublicHostName);
+        Assert.Equal(18000, Custom.PublicPort);
+        Assert.Equal("origin.test:18000", Custom.PublicHost);
+        Assert.Equal("http://af.origin.test:18000", Custom.OriginOf("af"));
+        Assert.Equal("pdf.origin.test", Custom.HostOf("pdf"));
+    }
 
     [Theory]
     [InlineData("/storage", true)]

@@ -10,7 +10,8 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 
 // The localtest app: the front door of the stack, and home of the localtest features that are not a platform
-// component: the proxy (Proxy/), one origin, local.altinn.cloud:8000 (published onto this app's 8080), split by host and
+// component: the proxy (Proxy/), one origin, by default local.altinn.cloud:8000 (Localtest:PlatformEndpoint, published
+// onto this app's 8080), split by host (its subdomains pdf., workflow-engine., af., app-frontend.) and
 // path prefix onto the platform services by name (service discovery from services__<name>__http__0, no pass-through)
 // and onto the apps the runners register, which are provisioned from their own API on registration (Provisioning/);
 // a fake ID-porten (IdPorten/) with the test-user picker and a
@@ -41,6 +42,7 @@ static string AppRoutesFile(IServiceProvider sp) => sp.GetRequiredService<IConfi
 builder.Services.AddSingleton(sp => new AppRoutes(AppRoutesFile(sp), sp.GetRequiredService<ILogger<AppRoutes>>()));
 builder.Services.AddSingleton(sp => new DevServerRoute(
     Path.Combine(Path.GetDirectoryName(AppRoutesFile(sp)) ?? "/data", "frontend-dev-server.json"),
+    sp.GetRequiredService<LocaltestSettings>(),
     sp.GetRequiredService<ILogger<DevServerRoute>>()));
 builder.Services.AddSingleton<Forwarder>();
 builder.Services.AddHttpClient();
@@ -69,6 +71,8 @@ builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.T
 Emulation.Add(builder);
 
 var app = builder.Build();
+// The public origin and its subdomains now, not at the first request: an unknown subdomain stops the start.
+var localtestSettings = app.Services.GetRequiredService<LocaltestSettings>();
 Emulation.Map(app);
 
 // The dedicated hosts (the PDF generator, the workflow engine, Arbeidsflate, and the frontend dev server when one is
@@ -76,7 +80,7 @@ Emulation.Map(app);
 app.Use(async (context, next) =>
 {
     var host = context.Request.Host.Host;
-    if ((PlatformRoutes.ResolveHost(host) ?? context.RequestServices.GetRequiredService<DevServerRoute>().Resolve(host)) is { } hostRoute)
+    if ((PlatformRoutes.ResolveHost(host, localtestSettings) ?? context.RequestServices.GetRequiredService<DevServerRoute>().Resolve(host)) is { } hostRoute)
     {
         await context.RequestServices.GetRequiredService<Forwarder>().Send(context, hostRoute);
         return;

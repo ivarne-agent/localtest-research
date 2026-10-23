@@ -3,7 +3,8 @@ using System.Text.Json;
 namespace Localtest.Proxy;
 
 /// <summary>
-/// The frontend dev server's route: every path on <see cref="PlatformRoutes.Hosts.FrontendDevServer"/> goes to the Vite
+/// The frontend dev server's route: every path on <c>app-frontend.{public host}</c>
+/// (<see cref="LocaltestSettings.FrontendDevServerSubdomain"/>) goes to the Vite
 /// server the runner registered (<c>PUT localtest/api/routes/frontend-dev-server</c>, for <c>studioctl run
 /// --dev-frontend</c>). Without one, that host is served like the main host, so the built app-frontend under
 /// <c>/app-frontend</c> answers. Saved to a file next to the app routes, like them.
@@ -13,13 +14,15 @@ public sealed class DevServerRoute
     public const string Name = "frontend-dev-server";
 
     private readonly string _file;
+    private readonly LocaltestSettings _localtest;
     private readonly ILogger<DevServerRoute> _logger;
     private readonly Lock _lock = new();
     private DevServer? _current;
 
-    public DevServerRoute(string file, ILogger<DevServerRoute> logger)
+    public DevServerRoute(string file, LocaltestSettings localtest, ILogger<DevServerRoute> logger)
     {
         _file = file;
+        _localtest = localtest;
         _logger = logger;
         try
         {
@@ -38,7 +41,7 @@ public sealed class DevServerRoute
 
     /// <summary>The route for a request on <paramref name="host"/> (without port), or null.</summary>
     public Route? Resolve(string host)
-        => _current is { } current && string.Equals(host, PlatformRoutes.Hosts.FrontendDevServer, StringComparison.OrdinalIgnoreCase)
+        => _current is { } current && _localtest.IsHostOf(LocaltestSettings.FrontendDevServerSubdomain, host)
             ? new Route(Name, current.Url, RouteKind.FrontendDevServer)
             : null;
 

@@ -15,7 +15,7 @@ internal sealed class FrontDoor : WebApplicationFactory<Program>
 {
     private readonly Dictionary<string, string?> _settings;
 
-    public FrontDoor(IDictionary<string, string?>? services = null, string? dataDirectory = null)
+    public FrontDoor(IDictionary<string, string?>? services = null, string? dataDirectory = null, IDictionary<string, string?>? settings = null)
     {
         DataDirectory = dataDirectory ?? Directory.CreateTempSubdirectory("localtest-tests-").FullName;
         var certificate = Path.Combine(DataDirectory, "test.pfx");
@@ -36,6 +36,11 @@ internal sealed class FrontDoor : WebApplicationFactory<Program>
         foreach (var (name, address) in services ?? new Dictionary<string, string?>())
         {
             _settings[$"services:{name}:http:0"] = address;
+        }
+
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+        {
+            _settings[key] = value;
         }
     }
 

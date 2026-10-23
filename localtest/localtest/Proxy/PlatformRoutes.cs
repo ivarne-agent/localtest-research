@@ -10,21 +10,16 @@ namespace Localtest.Proxy;
 /// </summary>
 public static class PlatformRoutes
 {
-    /// <summary>The public host names: the public origin's, read from here only, until the runtimes pass them.</summary>
-    public static class Hosts
-    {
-        public const string Pdf = "pdf.local.altinn.cloud";
-        public const string WorkflowEngine = "workflow-engine.local.altinn.cloud";
-        public const string Arbeidsflate = "af.local.altinn.cloud";
-        public const string FrontendDevServer = "app-frontend.local.altinn.cloud";
-    }
-
-    /// <summary>Host name (without port) → the service that owns every path on it, the localtest app's own included.</summary>
-    private static readonly (string Host, string Service)[] HostRoutes =
+    /// <summary>
+    /// Subdomain of the public host → the service that owns every path on it, the localtest app's own included. The host
+    /// is <c>{subdomain}.{public host}</c> (<see cref="LocaltestSettings.HostOf"/>); a subdomain the runner does not list
+    /// is off, and its host is served like the main host.
+    /// </summary>
+    private static readonly (string Subdomain, string Service)[] HostRoutes =
     [
-        (Hosts.Pdf, "pdf3"),
-        (Hosts.WorkflowEngine, "workflow-engine"),
-        (Hosts.Arbeidsflate, "arbeidsflate"),
+        (LocaltestSettings.PdfSubdomain, "pdf3"),
+        (LocaltestSettings.WorkflowEngineSubdomain, "workflow-engine"),
+        (LocaltestSettings.ArbeidsflateSubdomain, "arbeidsflate"),
     ];
 
     /// <summary>
@@ -76,10 +71,15 @@ public static class PlatformRoutes
     public static IEnumerable<string> Services
         => HostRoutes.Select(h => h.Service).Concat(Prefixes.Select(p => p.Service)).Distinct(StringComparer.Ordinal);
 
-    /// <summary>The table, for <c>GET localtest/api/routes</c>.</summary>
-    public static IEnumerable<(string? Host, string? Prefix, string Service, string? Rewrite)> Table
-        => HostRoutes.Select(h => ((string?)h.Host, (string?)null, h.Service, (string?)null))
+    /// <summary>The table at the public host, for <c>GET localtest/api/routes</c>: the host routes that are on, then the prefixes.</summary>
+    public static IEnumerable<(string? Host, string? Prefix, string Service, string? Rewrite)> Table(LocaltestSettings localtest)
+        => HostRoutes.Where(h => localtest.HostOf(h.Subdomain) is not null)
+            .Select(h => (localtest.HostOf(h.Subdomain), (string?)null, h.Service, (string?)null))
             .Concat(Prefixes.Select(p => ((string?)null, (string?)p.Prefix, p.Service, p.Rewrite)));
+
+    /// <summary>The path prefix of each service that has one.</summary>
+    public static IReadOnlyDictionary<string, string> PrefixOf
+        => Prefixes.GroupBy(p => p.Service).ToDictionary(g => g.Key, g => g.First().Prefix, StringComparer.Ordinal);
 
     /// <summary>The service's optional group, or null for a service of the default stack.</summary>
     public static string? GroupOf(string service) => Groups.GetValueOrDefault(service);
@@ -87,12 +87,15 @@ public static class PlatformRoutes
     /// <summary>The destination the forwarder resolves: <c>http://{service}</c>.</summary>
     public static string Destination(string service) => "http://" + service;
 
-    /// <summary>The service that owns every path on this host name (without port), or null for the main host.</summary>
-    public static Route? ResolveHost(string host)
+    /// <summary>
+    /// The service that owns every path on this host name (without port) at the public host, or null for the main host,
+    /// any other host, and the host of a subdomain that is off.
+    /// </summary>
+    public static Route? ResolveHost(string host, LocaltestSettings localtest)
     {
-        foreach (var (routeHost, service) in HostRoutes)
+        foreach (var (subdomain, service) in HostRoutes)
         {
-            if (string.Equals(host, routeHost, StringComparison.OrdinalIgnoreCase))
+            if (localtest.IsHostOf(subdomain, host))
             {
                 return Route.Platform(service);
             }
