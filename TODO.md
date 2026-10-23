@@ -69,7 +69,7 @@ A path matching no route still falls through to the localtest app.
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **done, merged** 2026-10-23 (`planned-components/minimal-emulation/README.md`); owner to decide whether to build phase 1 | medium | no |
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
-| 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **phase 1 verified, phase 2 running** (2026-10-23; extras: Storage's `VOLUME /data/blobs` dropped, Aspire reset removes with `--volumes`) | small | yes (phase 2) |
+| 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1133,3 +1133,12 @@ is up: it stops it and deletes nothing. When the environment is down, `env reset
 default stack's `localtest-v2-*` volumes), whatever mode ran last. This is what task 35 implemented (`Reset` spares the
 volumes only when the state says minimal; `Down` removes the state), so no change; the agent's suggestion to remember
 the mode after `down` is declined.
+
+**Phase 2 (pushed 48648ecc, verified by the coordinator and merged ff 2026-10-23).** Extras: `VOLUME /data/blobs`
+dropped from the Storage Dockerfile; Aspire's `LocaltestReset` builds `rm --force --volumes` (test updated, 77 pass).
+Proof with both images rebuilt (`--dev-localtest`, `--dev-storage`): the volume count stayed at 7 (three old anonymous
+volumes of unrelated exited containers plus the four `localtest-v2-*`) through default `env up` (root 26/26, the probes
+now on the plain Postgres image leaving nothing) and `env down`, minimal `env up`/`env down`, and two containers
+started by hand from the rebuilt images without mounts (`Mounts = []`); for contrast the pinned localtest image still
+creates one anonymous volume, removed by `rm --volumes`. Coordinator re-ran go build/test/lint and the Aspire tests.
+Worktree and branch removed. Open: none; the images reach users at the next pin bump.
