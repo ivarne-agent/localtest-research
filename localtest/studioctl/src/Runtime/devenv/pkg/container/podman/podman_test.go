@@ -38,6 +38,32 @@ func TestBuildCreateArgs_UserNamespaceAndRelabelBind(t *testing.T) {
 	}
 }
 
+func TestBuildCreateArgs_Tmpfs(t *testing.T) {
+	t.Parallel()
+
+	args := buildCreateArgs(types.ContainerConfig{
+		Name:  "storage",
+		Image: "alpine",
+		Volumes: []types.VolumeMount{
+			{ContainerPath: "/var/lib/postgresql", Type: types.VolumeMountTypeTmpfs},
+			{ContainerPath: "/data/blobs", Type: types.VolumeMountTypeTmpfs, Options: "size=1g"},
+		},
+	})
+
+	for _, want := range [][]string{
+		{"--tmpfs", "/var/lib/postgresql"},
+		{"--tmpfs", "/data/blobs:size=1g"},
+	} {
+		i := slices.Index(args, want[1])
+		if i < 1 || args[i-1] != want[0] {
+			t.Fatalf("buildCreateArgs() missing %q in %#v", want, args)
+		}
+	}
+	if slices.Contains(args, "-v") {
+		t.Fatalf("buildCreateArgs() mounts a tmpfs with -v: %#v", args)
+	}
+}
+
 func TestParsePodmanVersionIgnoresNonStringFields(t *testing.T) {
 	t.Parallel()
 

@@ -235,14 +235,7 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 		args = append(args, "-p", portArg)
 	}
 
-	for _, v := range cfg.Volumes {
-		volArg := fmt.Sprintf("%s:%s", v.HostPath, v.ContainerPath)
-		options := volumeOptions(v)
-		if len(options) > 0 {
-			volArg += ":" + strings.Join(options, ",")
-		}
-		args = append(args, "-v", volArg)
-	}
+	args = appendVolumeArgs(args, cfg.Volumes)
 
 	for _, e := range cfg.Env {
 		args = append(args, "-e", e)
@@ -274,6 +267,31 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 	args = append(args, cfg.Command...)
 
 	return args
+}
+
+// appendVolumeArgs appends a -v per bind or named volume mount and a --tmpfs per tmpfs mount.
+func appendVolumeArgs(args []string, volumes []types.VolumeMount) []string {
+	for _, v := range volumes {
+		if v.Type == types.VolumeMountTypeTmpfs {
+			args = append(args, "--tmpfs", tmpfsArg(v))
+			continue
+		}
+		volArg := fmt.Sprintf("%s:%s", v.HostPath, v.ContainerPath)
+		options := volumeOptions(v)
+		if len(options) > 0 {
+			volArg += ":" + strings.Join(options, ",")
+		}
+		args = append(args, "-v", volArg)
+	}
+	return args
+}
+
+// tmpfsArg is the --tmpfs value of a tmpfs mount: the path, and the options after a colon when there are any.
+func tmpfsArg(v types.VolumeMount) string {
+	if v.Options == "" {
+		return v.ContainerPath
+	}
+	return v.ContainerPath + ":" + v.Options
 }
 
 func volumeOptions(v types.VolumeMount) []string {

@@ -344,6 +344,7 @@ func buildDockerConfigs(
 		PortBindings:  portBindings,
 		Binds:         buildVolumeBinds(cfg.Volumes),
 		Mounts:        buildMounts(cfg.Volumes),
+		Tmpfs:         buildTmpfs(cfg.Volumes),
 		ExtraHosts:    cfg.ExtraHosts,
 		RestartPolicy: buildRestartPolicy(cfg.RestartPolicy),
 		NetworkMode:   dockercontainer.NetworkMode(primaryNetwork),
@@ -403,7 +404,8 @@ func buildRestartPolicy(policy string) dockercontainer.RestartPolicy {
 func buildMounts(volumes []types.VolumeMount) []dockermount.Mount {
 	mounts := make([]dockermount.Mount, 0, len(volumes))
 	for _, v := range volumes {
-		if v.Type == types.VolumeMountTypeBind && v.SELinuxRelabel != types.SELinuxRelabelNone {
+		if v.Type == types.VolumeMountTypeTmpfs ||
+			v.Type == types.VolumeMountTypeBind && v.SELinuxRelabel != types.SELinuxRelabelNone {
 			continue
 		}
 		mounts = append(mounts, dockermount.Mount{
@@ -414,6 +416,21 @@ func buildMounts(volumes []types.VolumeMount) []dockermount.Mount {
 		})
 	}
 	return mounts
+}
+
+// buildTmpfs maps each tmpfs mount's path to its options; nil when there is none.
+func buildTmpfs(volumes []types.VolumeMount) map[string]string {
+	var tmpfs map[string]string
+	for _, v := range volumes {
+		if v.Type != types.VolumeMountTypeTmpfs {
+			continue
+		}
+		if tmpfs == nil {
+			tmpfs = map[string]string{}
+		}
+		tmpfs[v.ContainerPath] = v.Options
+	}
+	return tmpfs
 }
 
 func buildVolumeBinds(volumes []types.VolumeMount) []string {
