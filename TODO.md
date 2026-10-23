@@ -68,7 +68,7 @@ A path matching no route still falls through to the localtest app.
 | 32 | [studioctl PR refresh with review](#32-studioctl-pr-refresh-with-review) | approved (owner 2026-10-23: "plan and execute a refresh of the studioctl PR; don't blindly copy, fix errors and simplify"); brief `/home/agent/code/.briefs/task32-studioctl-pr-refresh.md`; **done** 2026-10-23: A+B merged (2ccabb35), C pushed to the fork (`feat/studioctl-localtest-v2-stack` at dfc5fdd348, six commits on altinn-studio main f240887cfa); owner pastes the description from `/home/agent/code/pr-studioctl-localtest-v2-stack.md` and the comment file | large | yes |
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **done, merged** 2026-10-23 (`planned-components/minimal-emulation/README.md`); owner to decide whether to build phase 1 | medium | no |
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
-| 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **phase 1 verified, phase 2 running** (stack proof, 2026-10-23) | large | yes (phase 2) |
+| 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1085,3 +1085,24 @@ images; studioctl removes containers without `-v`, exactly as the spec's section
 (`localtest-v2-*`) and the old runtime's `localtest-workflow-engine-db-data`: a coordinator mistake, recoverable (both
 runtimes re-initialise empty volumes; task 32 measured 20 s); never prune, remove the anonymous ones by name. Candidate
 task: `env down`/`env reset` remove the anonymous volumes of the containers they remove (`rm -v`), in both runtimes.
+
+**Phase 2 (pushed 6d0adddc, verified by the coordinator and merged ff 2026-10-23).** `env up -r localtest-v2 --minimal
+--dev-localtest=localtest/localtest`: 65.5 s the first time (AOT image build and the `tt02` re-pull), 5.9 to 6.1 s with
+the cached image; four containers, no volume created; `env status` prints the mode line and the emulated list. Sample
+app registered and provisioned (`succeeded`, Dialogporten Skipped), metadata through 8000, `X-Localtest-Emulated:
+profile` on a profile response. Suites in the mode: root 23 ok with the 3 decision checks skipped by name;
+`localtest/localtest/smoke-test.sh` 89 of 90 (the `FRONTEND_DIST` check, as on the default stack) with all 9 emulated
+service checks ok; Register 6 read checks ok, 8 skipped by name; events and a posted e-mail order visible on the
+inspection endpoints. Browser flow in Chromium: Home with the banner, party selection, form, submit, receipt with the
+PDF; the download is byte-identical to `minimal.pdf` and extracts "Minimal PDF without content" (the sample app got
+`enablePdfCreation` for the run only); screenshots `localtest/localtest/docs/minimal/01..04.png`. Clean slate after
+`env down`/`env up`: instances 5 → 0, no registration, no event. Default stack with the same image over the minimal
+stack (mode switch stops first): 23.2 s on empty volumes, root 26/26, localtest 80/81, Register 14/14, no `emulated`
+route, no header, no banner. Fixes in phase 2: the health probes (Postgres image, declared `VOLUME`) mounted no tmpfs
+and left one anonymous volume per probe in both modes, which explains the hundreds of dangling volumes on this
+machine (050c36c5; after it a minimal `env up` adds no volume and a default one only its four named volumes); minimal
+tmpfs mounts are `mode=1777` because a tmpfs mount point is root's 0755 and Storage runs non-root (3976ccb9, golden
+updated). Coordinator re-ran go build/test/lint, devenv container tests, localtest tests 106, Aspire 77, and looked at
+the receipt screenshot. The agent's view on `env reset` after a minimal `env down`: `Down` removes the state file, so
+`Reset` sees no mode and deletes the `localtest-v2-*` volumes; it recommends remembering the mode (not changed).
+Observations: `make dev-install` takes a running stack down; the emulation's JSON escapes `+` as `\u002B` (valid).
