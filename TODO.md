@@ -981,3 +981,9 @@ containers instead of the default group's thirteen; whether pdf3 can be stubbed 
 Register, Profile, Authentication, Authorization (permit-all), Access Management, Events, the Resource Registry and
 Notifications emulated in the localtest container, which must then also answer the calls Storage and the workflow
 engine make to those services (their `services__*` pointed at `http://localtest:8080`). The agent was told.
+
+**Owner decisions 2026-10-23 (ephemeral, PDF).** In minimal mode Postgres and every read/write volume are ephemeral
+(anonymous or tmpfs, gone with the containers; `env reset` has nothing to remove; every start pays the database init and
+migrations, the research says what that costs and whether a pre-initialised image is worth it). pdf3 is not in the
+minimal set: the localtest container mocks the PDF service with one static file whose page says "Minimal PDF without
+content". Minimal set: postgres, storage, workflow-engine, localtest. The agent was told.
