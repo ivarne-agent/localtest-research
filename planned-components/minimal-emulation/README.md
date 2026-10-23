@@ -480,8 +480,11 @@ A tmpfs over a declared volume's path suppresses the anonymous volume, and it di
 `Proxy__AppRoutesFile` empty, `AppRoutes` and `DevServerRoute` neither load nor save, and the tmpfs on `/data` only
 prevents the anonymous volume. The registered app's test data, policy and route live and die together with the
 emulated stores, which is consistent. A front-door restart without a re-registration loses the app route. studioctl's
-`run` registers on start, and studioctl-server re-registers an app "when it comes back on another port". Whether it
-also re-registers after a front-door restart on the same port needs to be confirmed, and is an open question (8).
+`run` registers on start, and studioctl-server (task 32, proven 2026-10-23) asks the front door's
+`GET localtest/api/apps` on every refresh and registers again any running app it no longer lists, within about 5 s;
+so a front-door restart in this mode re-registers the running apps without anything new. Aspire registers on the
+app's ready event only; a front-door restart under Aspire needs the dashboard's `provision` command or an app restart
+(open question 4).
 
 **`env reset` in this mode** has nothing to remove: no named volumes. It stops the mode, as `env down` does, and says
 so ("minimal mode keeps no data; nothing to reset"). It does not touch the `localtest-v2-*` volumes of the default
@@ -656,7 +659,7 @@ both modes.
 | 1 | Permit-all hides authorization bugs in apps, and users may mistake the mode for proof | The banner and header (5); the docs say "authorization is not tested in minimal mode"; the policy PDP stays phase 3, on demand |
 | 2 | Drift: production adds a call or changes a response shape, and the emulation lags | The phase-1 gate runs an app-lib 8 and a monorepo app in CI against both modes; the emulation answers 501 with the path for any unknown route under an emulated prefix, so drift shows as a named failure |
 | 3 | Claim sets reconstructed in the token minter differ from production Authentication's | Take them from the vendored production `exchange` code and test them against the default stack's tokens (same claim types) |
-| 4 | Re-registration after a front-door restart (routes now in memory) | Confirm studioctl-server re-registers when the front door's `GET localtest/api/apps` no longer lists an app; add it if not. Aspire: the dashboard's `provision` command |
+| 4 | Re-registration after a front-door restart (routes now in memory) | studioctl: already done by task 32 (the server re-registers what the front door no longer lists). Aspire: register again when the localtest container's health goes from unhealthy to healthy, or document the dashboard's `provision` command |
 | 5 | Ephemeral Postgres pays initdb and migrations on every start | Accept (estimated 6 to 10 s); measure in phase 1; pre-initialised image only above 10 s (6.2) |
 | 6 | tmpfs uses memory; large uploads in tests | A size option on the blob tmpfs (1 GB); documented |
 | 7 | Optional groups unavailable in minimal mode | Accept for phase 1; `--with` refused with a message pointing at the default stack |
