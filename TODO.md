@@ -1280,3 +1280,11 @@ start deletes the state file and fails with a message naming the port and `--por
 and Docker's "port is already allocated" recognised); decision-table and mocked-client tests. Open edge: after a
 collision the containers that did start keep running without a state file until the next `env up` or `env down`.
 Coordinator re-ran go build/test/lint. Worktree and branch removed; dev studioctl rebuilt from main.
+
+**Pin bump 2026-10-23 (coordinator): `sha-48648ec` → `sha-6fd85ef`.** The images of the task-39 merge commit carry the
+front door's configurable hosts and the fakes' derived Arbeidsflate origin. Proof on the plain pin: default stack with
+dialogporten up in 37 s including pulls (18 containers); root 26/26, authentication 34/34, authorization 31/31,
+dialogporten 60/60, front door 80/81 (known); the routes listing shows the dedicated hosts; minimal mode with
+`--port 0` (35863) up in 6.7 s, four containers, no volume added, root 23/23 through `LOCALTEST_ORIGIN` with 3 named
+skips; after both downs only the four `localtest-v2-*` volumes. Old pin images removed (3.6 GB); logs in
+`/home/agent/code/.scripts/pin-6fd85ef/`.
