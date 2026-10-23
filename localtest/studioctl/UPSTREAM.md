@@ -1,26 +1,24 @@
 # Vendored copy of studioctl from Altinn/altinn-studio
 
 - Repository: https://github.com/Altinn/altinn-studio
-- Commit: [`89b1d7bc7057c54efb1cc47ef5f155c2c75ac55a`](https://github.com/Altinn/altinn-studio/tree/89b1d7bc7057c54efb1cc47ef5f155c2c75ac55a) (main, 2026-10-20)
+- Commit: [`b9089315198c8b947d3ff7c41001334af842a5d8`](https://github.com/Altinn/altinn-studio/tree/b9089315198c8b947d3ff7c41001334af842a5d8) (main, 2026-10-23)
 - Copied paths, monorepo layout preserved under `src/` so relative references resolve as upstream:
   - `src/cli`: studioctl (Go CLI), `studioctl-server` (C#), `studioctl-server-tests` and `common/dotnet`.
   - `src/Runtime/devenv`: Go module `altinn.studio/devenv`; `src/cli/go.mod` replaces it with `../Runtime/devenv`.
   - `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common`: `studioctl-server.csproj` compiles its `HostBridge/**`
     and `EnvTopology/**` sources by relative path.
   - `src/Runtime/localtest/infra`: staged into the install by `src/cli/cmd/dev/main.go` during `make dev-install`.
-- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `3ecc3fb`
-  ("baseline, unmodified"). It is never amended.
-- Everything after the baseline is our change to upstream. There is no `#if LOCALTEST` here: this code is meant to be
-  upstreamed as-is, so changes are ordinary commits. The first one is the localtest-v2 runtime (`7e3f1cd`, upstream
-  commit `43be33f73e`, also branch `feat/studioctl-localtest-v2` on `ivarne-agent/altinn-studio`). The later ones
-  (the Resource Registry, Notifications and Profile components, the Dialogporten group, the group table and the
-  receipt and correspondence groups, the 503 front door, the Dialogporten adapter, provisioning step 5, `env logs -c`
-  for a stopped container, the image pins, and in task 27a the move to manifest v2, which deleted studioctl-server's
-  proxy, its 503 pages and the provisioning adapter again in favour of the localtest container's front door) are listed by `git log --oneline 3ecc3fb..HEAD -- localtest/studioctl/src`;
-  [`README.md`](README.md) "What the localtest-v2 change adds" describes the result file by file.
-- The whole change is also on branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio` (the
-  current one; `feat/studioctl-localtest-v2` holds only the first commit). The coordinator refreshes it from this
-  repository's `main` with the patch below, so it can lag behind the latest studioctl commits here.
+- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `f45d4143`
+  ("baseline, unmodified"). It is never amended. The previous baseline was `3ecc3fb` (altinn-studio `89b1d7bc70`,
+  2026-10-20); the history of the change on top of it is `git log 3ecc3fb..5c4cd5b1 -- localtest/studioctl/src`.
+- Everything after the baseline is our change to upstream: the localtest-v2 runtime. There is no `#if LOCALTEST`
+  here: this code is meant to be upstreamed as-is, so changes are ordinary commits. The first commit after the
+  baseline (`5c4cd5b1`) re-applies the whole change as it stood on the previous baseline; the commits after it are the
+  task-32 review (`git log --oneline f45d4143..HEAD -- localtest/studioctl/src`). [`README.md`](README.md) "What the
+  localtest-v2 change adds" describes the result file by file.
+- The whole change is also on branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio`
+  ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)), re-authored from this tree as a few
+  logical commits, so it can lag behind the latest studioctl commits here.
 
 ## Regenerating the upstream patch
 
@@ -28,22 +26,36 @@ From the root of this repository, the whole change since the baseline, with path
 root (`src/...`); `--binary` is needed for the `.pfx` asset:
 
 ```sh
-git diff --binary --relative=localtest/studioctl 3ecc3fb HEAD -- localtest/studioctl/src > studioctl.patch
-git -C <monorepo> checkout -b <branch> origin/main
-git -C <monorepo> apply -3 --index < studioctl.patch
+git diff --binary --relative=localtest/studioctl f45d4143 HEAD -- localtest/studioctl/src > studioctl.patch
+git -C <monorepo> checkout -b <branch> b9089315198c8b947d3ff7c41001334af842a5d8
+git -C <monorepo> apply --index < studioctl.patch
 ```
 
-The output for `7e3f1cd` alone was checked to reverse-apply cleanly on the monorepo branch, so that commit is
-byte-identical to the upstream commit; no such check is recorded for the commits after it. To upstream a single commit instead of the whole range, use `git diff ... <commit>^ <commit>`.
+On the pinned commit the patch applies without a three-way merge; on a newer `origin/main` use `apply -3`, which needs
+the monorepo's own blobs and has them there.
 
 ## Syncing to a newer upstream commit
 
-1. In a monorepo checkout, apply the upstream change in the copied paths here, then update the pin above:
-   `git -C <monorepo> diff <old-pin> <new-pin> -- src/cli src/Runtime/devenv src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common src/Runtime/localtest/infra | git apply -3 --directory=localtest/studioctl`
-2. Resolve conflicts, rebuild (`go build ./... && go test ./...` in `src/cli`, `dotnet build studioctl-server/studioctl-server.csproj -c Release`)
-   and check that `make dev-install` and `env up -r localtest-v2` still work.
-3. Commit as one "sync" commit, separate from feature changes.
+The procedure used for `f45d4143` (task 32, 2026-10-23), from the root of this repository:
 
-Not verified: the sync command has not been exercised yet. In particular, `git apply -3` needs the blobs in this
-repository's object database to fall back to a three-way merge, which it may not have for the baseline paths; without
-them conflicts are rejected hunks instead of markers.
+1. Save the change: `git diff --binary <old-baseline> HEAD -- localtest/studioctl/src > ours.patch`.
+2. Replace the vendored tree with upstream's at the new commit and commit it unmodified, as the new baseline:
+
+   ```sh
+   git rm -rq localtest/studioctl/src && rm -rf localtest/studioctl/src
+   git -C <monorepo> archive --format=tar --prefix=localtest/studioctl/ <new-commit> \
+     src/cli src/Runtime/devenv src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common src/Runtime/localtest/infra \
+     | tar -x -C .
+   git add -A localtest/studioctl/src && git commit -m "studioctl: vendor ... at <new-commit> (baseline, unmodified)"
+   ```
+
+   Check that `git diff --stat <old-baseline> HEAD -- localtest/studioctl/src` equals the monorepo's
+   `git diff --stat <old-pin> <new-pin> -- <the four paths>`.
+3. Re-apply the change: `git apply -3 --index ours.patch`. This repository has the blobs of both sides (the old
+   baseline and our files), so a conflict becomes markers, not a rejected hunk. Resolve in favour of upstream's
+   structure with our behaviour kept, and commit as one "re-apply" commit.
+4. Rebuild and test (`go build ./... && go test ./...` and `make lint` in `src/cli`; `dotnet test
+   studioctl-server-tests/Studioctl.Tests.csproj`), then update the pin and the baseline above.
+
+For `f45d4143` the re-apply had no conflict: of the 57 changed files only `CHANGELOG.md` and
+`internal/cmd/run.go` had also changed upstream, in other places.
