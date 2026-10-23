@@ -173,6 +173,21 @@ public sealed class MultipleAppsTests : IAsyncLifetime
         Assert.Contains("'app'", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TwoResourcesOfOneAppIdAreRefused()
+    {
+        // They would share the front door's route and the secrets directory, and deprovisioning one would deregister both.
+        var model = SampleModel.Build(["dialogporten"], withApp: true);
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            model.Builder.AddAltinnApp<SampleAppProject>(model.Localtest, "again")
+        );
+
+        Assert.Contains("ttd/testapp", error.Message, StringComparison.Ordinal);
+        Assert.Contains("\"app\"", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(model.Resources, r => r.Name == "again");
+    }
+
     private static void Allocate(ProjectResource app, int port)
     {
         var endpoint = Assert.Single(app.Annotations.OfType<EndpointAnnotation>());
