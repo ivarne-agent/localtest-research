@@ -18,12 +18,13 @@ FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-alpine@sha256:1a5dbee0a1d2bb1d03
 WORKDIR /app
 COPY --from=build /app .
 # The image's non-root app user (1654) owns the data folder (the localtest-data volume: the app and dev-server routes).
+# No VOLUME: the runners mount /data (a named volume, or a tmpfs in minimal mode); the declaration only gave every other
+# container an anonymous volume.
 RUN mkdir -p /data /frontend && chown app:app /data
 # The conventional port of the stack's images; the runtime publishes the public port 8000 onto it.
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     Proxy__AppRoutesFile=/data/app-routes.json \
     Proxy__FrontendRoot=/frontend
-VOLUME /data
 EXPOSE 8080
 USER app
 ENTRYPOINT ["/app/Localtest"]
