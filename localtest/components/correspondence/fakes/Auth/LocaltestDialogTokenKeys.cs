@@ -1,4 +1,3 @@
-using Altinn.Correspondence.Core.Options;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ScottBrady.IdentityModel;
@@ -15,7 +14,6 @@ namespace Altinn.Correspondence.Localtest.Auth;
 /// </summary>
 public sealed class LocaltestDialogTokenKeys(
     IHttpClientFactory httpClientFactory,
-    IOptions<AltinnOptions> altinnOptions,
     IOptions<LocaltestCorrespondenceOptions> options,
     TimeProvider timeProvider,
     ILogger<LocaltestDialogTokenKeys> logger)
@@ -24,7 +22,7 @@ public sealed class LocaltestDialogTokenKeys(
     private volatile IReadOnlyList<SecurityKey> _keys = [];
     private DateTimeOffset? _lastFetch;
 
-    public string JwksUrl => $"{altinnOptions.Value.PlatformGatewayUrl.TrimEnd('/')}/dialogporten/api/v1/.well-known/jwks.json";
+    public string JwksUrl => options.Value.DialogTokenJwksUrl;
 
     public IReadOnlyList<string> KeyIds => [.. _keys.Select(k => k.KeyId)];
 

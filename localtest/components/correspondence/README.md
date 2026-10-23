@@ -62,9 +62,10 @@ lines):
    by type, so no fake reaches it. Without the site the download looped between Correspondence and Authentication (below).
    Reported first in `../arbeidsflate/README.md`, "Correspondence attachments (11b, implemented)".
 
-5. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
-   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
-   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+5. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` calls
+   `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
+   factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
+   name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 **Cookies without `Secure` (task 21b): no site, reported here first.** The correlation and nonce cookies are already
 `SameAsRequest`/`Lax` in the fakes (11b). The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the
@@ -137,14 +138,15 @@ Redis are set explicitly too. Everything else is a default the real setting over
 | --- | --- |
 | `DatabaseOptions:ConnectionString` | `Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest` (a password keeps Entra ID out) |
 | `AttachmentStorageOptions:ConnectionString` | `UseDevelopmentStorage=true` (required by the options class, never read) |
-| `AltinnOptions:PlatformGatewayUrl`, `OpenIdWellKnown`, `ArbeidsflateOriginsCommaSeparated` | `{platform}`, Authentication's OpenID configuration, `http://af.local.altinn.cloud:8000` |
+| `AltinnOptions:PlatformGatewayUrl`, `OpenIdWellKnown`, `ArbeidsflateOriginsCommaSeparated` | `{platform}`, Authentication's OpenID configuration, `http://af.local.altinn.cloud:8000`. `PlatformGatewayUrl` is the base of the nine platform clients and the OIDC authority and expected issuer, so it stays public; `fakes/ServiceDiscovery/LocaltestPrefixRouting.cs` (a copy of `../shared/fakes/`), outermost on those nine clients, moves each request to the service that owns its prefix (`http://register/register/…`) before service discovery resolves it (task 40) |
 | `AltinnIdProviderSettings:ClientId`, `ClientSecret` | `correspondence-localtest`, `correspondence-localtest-secret`: Authentication's seeded client for the browser download (upstream's Development file has the placeholders `clientId`/`clientSecret`) |
 | `DialogportenSettings:Issuer`, `IdportenSettings:Issuer` | `{platform}dialogporten/api/v1`, `{platform}localtest/api/idporten` (compared with the token's `iss` exactly) |
 | `MaskinportenSettings:ClientId`, `Environment`, `EncodedJwk`, `UseAltinnTestOrg`, `ExhangeToAltinnToken` | `991825827` (a client id is what selects the production clients instead of upstream's dev stubs), `test`, `e30=` (never read), `false`, `true`; `Scope` stays upstream's |
-| `Localtest:Maskinporten:Issuer`, `ExchangeEndpoint` | `{platform}localtest/api/maskinporten/`, `{platform}authentication/api/v1/exchange/maskinporten` |
+| `Localtest:Maskinporten:TokenEndpoint`, `ExchangeEndpoint` | not set: the fake's defaults, `http://localtest/localtest/api/maskinporten/token`, `http://authentication/authentication/api/v1/exchange/maskinporten` |
+| `Localtest:Correspondence:DialogTokenJwksUrl` | `http://dialogporten-webapi/dialogporten/api/v1/.well-known/jwks.json` (the issuer is checked against `DialogportenSettings:Issuer`) |
 | `GeneralSettings:CorrespondenceBaseUrl` | `{platform}`: the URLs in dialogs, notification condition endpoints and event sources (not localhost, or the condition endpoint is dropped) |
 | `GeneralSettings:RedisConnectionString` | `redis:6379,defaultDatabase=1` |
-| `GeneralSettings:ContactReservationRegistryBaseUrl` | `{platform}register/api/localtest/krr/` |
+| `GeneralSettings:ContactReservationRegistryBaseUrl` | `http://register/register/api/localtest/krr/` |
 | `GeneralSettings:DisableCallsToAltinn2`, `EnableDownloadAll`, `ArbeidsflateBaseUrl` | `true`, `true`, `http://af.local.altinn.cloud:8000` |
 | `GeneralSettings:WorkerCountPerReplica`, `MigrationWorkerCountPerReplica` | `2`, `0` (production 15 and a 4-worker migration server) |
 | `GeneralSettings:ApplicationInsightsConnectionString` | forced empty |

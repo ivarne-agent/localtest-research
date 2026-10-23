@@ -1,3 +1,4 @@
+using Altinn.Correspondence.Core.Options;
 using Altinn.Correspondence.Core.Repositories;
 using Altinn.Correspondence.Core.Services;
 using Altinn.Correspondence.Localtest.Auth;
@@ -6,6 +7,8 @@ using Altinn.Correspondence.Localtest.Inspection;
 using Altinn.Correspondence.Localtest.Storage;
 using Localtest.Shared.Cookies;
 using Localtest.Shared.Maskinporten;
+using Localtest.Shared.ServiceDiscovery;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -71,15 +74,14 @@ public static class LocaltestCorrespondence
             ["MaskinportenSettings:EncodedJwk"] = "e30=",
             ["MaskinportenSettings:UseAltinnTestOrg"] = "false",
             ["MaskinportenSettings:ExhangeToAltinnToken"] = "true",
-            ["Localtest:Maskinporten:Issuer"] = platform + "localtest/api/maskinporten/",
-            ["Localtest:Maskinporten:ExchangeEndpoint"] = platform + "authentication/api/v1/exchange/maskinporten",
+            // Localtest:Maskinporten:TokenEndpoint and ExchangeEndpoint: the fake's defaults, by service name.
             // The URLs written into dialogs, notification condition endpoints and event sources. Not localhost: the
             // condition endpoint is left out for a localhost base URL (CreateNotificationOrderHandler).
             ["GeneralSettings:CorrespondenceBaseUrl"] = platform,
             // The dialogporten group's Redis; Dialogporten uses database 0.
             ["GeneralSettings:RedisConnectionString"] = "redis:6379,defaultDatabase=1",
-            // KRR: an anonymous stand-in in the Register component's fakes, reached through the production client.
-            ["GeneralSettings:ContactReservationRegistryBaseUrl"] = platform + "register/api/localtest/krr/",
+            // KRR: an anonymous stand-in in the Register component's fakes, reached through the production client by name.
+            ["GeneralSettings:ContactReservationRegistryBaseUrl"] = "http://register/register/api/localtest/krr/",
             ["GeneralSettings:ArbeidsflateBaseUrl"] = arbeidsflate,
             ["GeneralSettings:DisableCallsToAltinn2"] = "true",
             // Production: 15 workers and a 4-worker migration server per replica.
@@ -139,6 +141,24 @@ public static class LocaltestCorrespondence
         // Every Maskinporten-backed client (the Altinn platform clients and KRR), with production semantics
         // (a copy of components/shared/fakes/Maskinporten).
         services.AddLocaltestMaskinporten(config);
+
+        // The nine platform clients share AltinnOptions:PlatformGatewayUrl, which is also the OIDC authority and the
+        // expected issuer, so it stays the public origin; outermost on those clients, LocaltestPrefixRouting (a copy of
+        // components/shared/fakes/ServiceDiscovery) moves each request to the service that owns its prefix
+        // (http://register/register/…), and service discovery resolves the name. Typed clients are named by their
+        // interfaces' short names (RegisterAltinnHttpClient).
+        LocaltestPrefixRouting.AddTo(
+            services,
+            sp => new Uri(sp.GetRequiredService<IOptions<AltinnOptions>>().Value.PlatformGatewayUrl),
+            nameof(IAltinnAuthorizationService),
+            nameof(IResourceRegistryService),
+            nameof(IAltinnRegisterService),
+            nameof(IAltinnProfileService),
+            nameof(IAltinnAccessManagementService),
+            nameof(IEventBus),
+            nameof(IAltinnNotificationService),
+            nameof(IDialogportenService),
+            nameof(IAltinnStorageService));
 
         // Cookies on plain http without Secure, SameSite=None as Lax: upstream's best-effort expiry of the correlation and
         // nonce cookies on the "Correlation failed" retry (DependencyInjection.cs, ExpireCookie) hard-codes both (a copy
