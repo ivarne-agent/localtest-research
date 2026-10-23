@@ -54,10 +54,12 @@ public static class LocaltestResourceRegistryExtensions
                 ["PostgreSQLSettings:AuthorizationDbAdminPwd"] = options.DatabasePassword,
                 ["PostgreSQLSettings:AuthorizationDbPwd"] = options.DatabasePassword,
 
-                // Other platform services, all behind the ingress. The org list stays on altinncdn.no, as in production.
-                ["PlatformSettings:StorageApiEndpoint"] = platform + "storage/api/v1/",
-                ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-                ["PlatformSettings:ApiAccessManagementEndpoint"] = platform + "accessmanagement/api/v1/",
+                // Other platform services by service name (http://<service>/<prefix>/…, resolved from
+                // services__<service>__http__0; fakes/ServiceDiscovery). The issuer and the OpenID metadata (fetched outside
+                // the factory, naming a public jwks_uri) stay on the public origin; the org list on altinncdn.no.
+                ["PlatformSettings:StorageApiEndpoint"] = "http://storage/storage/api/v1/",
+                ["PlatformSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
+                ["PlatformSettings:ApiAccessManagementEndpoint"] = "http://access-management/accessmanagement/api/v1/",
                 ["OidcProviders:altinn:Issuer"] = platform + "authentication/api/v1/openid/",
                 ["OidcProviders:altinn:WellKnownConfigEndpoint"] = platform + "authentication/api/v1/openid/.well-known/openid-configuration",
             },
@@ -80,6 +82,11 @@ public static class LocaltestResourceRegistryExtensions
         var config = builder.Configuration;
         var services = builder.Services;
         services.AddOptions<LocaltestResourceRegistryOptions>().BindConfiguration(Section);
+
+        // Service discovery: AddAltinnServiceDefaults registered AddServiceDiscovery() (with the pass-through provider)
+        // and the factory clients' handler; this drops the pass-through, so a service name without an entry fails at
+        // once, and keeps real hosts (altinncdn.no, the public origin) as they are.
+        global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
 
         // Platform access tokens: the production handler validates the apps' and components' tokens against the shared
         // test certificate (AccessTokenSettings:AccessTokenSigningCertificateFullPath) instead of Key Vault keys. The

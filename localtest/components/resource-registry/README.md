@@ -30,7 +30,11 @@ Both in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRe
 
 Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
 `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
-([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)). Since task 40
+`AddLocaltestResourceRegistry` removes its pass-through provider (`LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders`,
+`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`; ServiceDefaults has no setting for it): a service name without
+an entry fails at once, a real host (altinncdn.no, the public origin) is used as it is. Storage, the Register and Access
+Management are called by service name; the issuer and the OpenID metadata stay on the public origin.
 
 ## Postgres
 
@@ -48,7 +52,7 @@ not reset on start.
 | `IPublicSigningKeyProvider` (Key Vault) | `Infrastructure/LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, mounted at `/certs`), so the production `AccessTokenHandler` validates platform access tokens for real. The same certificate feeds the production `SigningCredentialsResolver` for the outgoing token to Register (`services.Configure<AccessTokenSettings>`) |
 | OIDC metadata over https only | `Infrastructure/LocaltestOidcMetadata`: the localtest Authentication component serves its metadata over http (copy of Access Management's) |
 | nothing | `Seed/LocaltestSeedService`: the seed of non-app resources, applied at start through the production service layer (`CreateResource`, `StorePolicy`), see below |
-| Configuration | Defaults below the environment variables: `PostgreSQLSettings:*` on the shared container, `PlatformSettings:{StorageApiEndpoint,ApiRegisterEndpoint,ApiAccessManagementEndpoint}`, `OidcProviders:altinn:*` on the Authentication component. Forced: `kvSetting:SecretUri` empty. The `AzureStorageConfiguration` dummies in `appsettings.json` stay (validated only when the real repository resolves them) |
+| Configuration | Defaults below the environment variables: `PostgreSQLSettings:*` on the shared container, `PlatformSettings:{StorageApiEndpoint,ApiRegisterEndpoint,ApiAccessManagementEndpoint}`, `OidcProviders:altinn:*` on the Authentication component (public origin). Forced: `kvSetting:SecretUri` empty. The `AzureStorageConfiguration` dummies in `appsettings.json` stay (validated only when the real repository resolves them) |
 
 Not replaced, so production code runs against the real thing: the controllers, `ResourceRegistryService`, the Postgres
 repositories, the org list from `https://altinncdn.no/orgs/altinn-orgs.json` (so `resource/orgs` is the real list, and
@@ -91,7 +95,7 @@ Defaults, with `{platform}` = `Localtest:ResourceRegistry:PlatformEndpoint` (def
 | Key | Default |
 | --- | --- |
 | `PostgreSQLSettings:AdminConnectionString`, `ConnectionString` | `Host=postgres;Port=5432;Database=resourceregistrydb;Username=platform_authorization_admin` / `platform_authorization`, `{0}` replaced by the `…Pwd` settings (`localtest`); the manifest sets them explicitly |
-| `PlatformSettings:StorageApiEndpoint`, `ApiRegisterEndpoint`, `ApiAccessManagementEndpoint` | `{platform}storage/api/v1/`, `{platform}register/api/v1/`, `{platform}accessmanagement/api/v1/` |
+| `PlatformSettings:StorageApiEndpoint`, `ApiRegisterEndpoint`, `ApiAccessManagementEndpoint` | `http://storage/storage/api/v1/`, `http://register/register/api/v1/`, `http://access-management/accessmanagement/api/v1/` (service names) |
 | `OidcProviders:altinn:Issuer`, `WellKnownConfigEndpoint` | `{platform}authentication/api/v1/openid/` and its `.well-known/openid-configuration` |
 | `Localtest:ResourceRegistry:PolicyStorePath` | `/policy-store` |
 
