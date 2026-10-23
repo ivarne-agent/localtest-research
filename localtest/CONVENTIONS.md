@@ -246,6 +246,8 @@ localtest-v2` deletes the `localtest-v2-*` volumes only, Aspire's `reset` comman
 `altinn-localtest-*` volumes only. Postgres runs its init scripts only on an empty volume, so each runtime's databases
 are created separately, on its first start or after its reset; a component that adds a script needs a reset (in each
 runtime) or the script by hand. studioctl's names are the ones it used before the ids, so its data carries over.
+studioctl removes each container with its anonymous volumes; no image in the stack needs one, since the runners mount
+every data path (the localtest image declares no `VOLUME`).
 
 **Why.** The runtimes shared the volumes until task 31, and a stopped Aspire container still holding a shared volume
 blocked studioctl's `env reset` twice. With a prefix each, the runtimes' data no longer mixes: a reset in one leaves the
