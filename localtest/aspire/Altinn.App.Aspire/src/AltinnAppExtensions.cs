@@ -35,7 +35,9 @@ public static class AltinnAppExtensions
     /// <param name="name">The app resource's name.</param>
     /// <param name="configure">Sets the options.</param>
     /// <returns>The app's project resource.</returns>
-    /// <exception cref="InvalidOperationException">The project has no readable application metadata with an id.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The project has no readable application metadata with an id, or its app is added already.
+    /// </exception>
     public static IResourceBuilder<ProjectResource> AddAltinnApp<TProject>(
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<AltinnLocaltestResource> localtest,
@@ -66,7 +68,9 @@ public static class AltinnAppExtensions
     /// <param name="name">The app resource's name.</param>
     /// <param name="configure">Sets the options.</param>
     /// <returns>The app's project resource.</returns>
-    /// <exception cref="InvalidOperationException">The project has no readable application metadata with an id.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The project has no readable application metadata with an id, or its app is added already.
+    /// </exception>
     public static IResourceBuilder<ProjectResource> AddAltinnApp(
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<AltinnLocaltestResource> localtest,
@@ -114,6 +118,17 @@ public static class AltinnAppExtensions
             Path.GetDirectoryName(Path.GetFullPath(projectPath))
             ?? throw new ArgumentException($"{projectPath} has no folder.", nameof(projectPath));
         var appId = ReadAppId(projectDirectory, name);
+        // One resource per app id: two would share the front door's route and the secrets directory, and deprovisioning
+        // one would deregister both.
+        var other = builder.Resources.FirstOrDefault(r =>
+            r.Annotations.OfType<AppProvisioningAnnotation>().Any(a => a.Provisioning.AppId == appId)
+        );
+        if (other is not null)
+        {
+            throw new InvalidOperationException(
+                $"AddAltinnApp(\"{name}\"): {appId} is already added as \"{other.Name}\"; add each app once."
+            );
+        }
 
         var app = addProject();
         // One endpoint without a proxy: Aspire assigns the port (the same for Port and TargetPort), and the app listens
