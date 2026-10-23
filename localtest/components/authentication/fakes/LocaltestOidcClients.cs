@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 
 namespace Altinn.Platform.Authentication.Localtest;
@@ -11,8 +12,9 @@ namespace Altinn.Platform.Authentication.Localtest;
 ///   <item><c>localtest-smoke</c>: the localtest app's code-flow helper (<c>localtest/api/authentication/token</c>), which
 ///   redirects to the helper's own callback. The localtest app keeps the same id, secret and redirect URI
 ///   (<c>localtest/localtest/Authentication/SeededClients.cs</c>); keep the two in step.</item>
-///   <item><c>arbeidsflate-localtest</c>: Arbeidsflate's BFF, with the URLs it will run on
-///   (<c>planned-components/dialogporten/arbeidsflate.md</c> section 3.4).</item>
+///   <item><c>arbeidsflate-localtest</c>: Arbeidsflate's BFF, with the URLs it runs on: <c>af.</c> and the public host,
+///   on the public port (<see cref="ArbeidsflateOrigin"/>; <c>planned-components/dialogporten/arbeidsflate.md</c> section
+///   3.4).</item>
 ///   <item><c>correspondence-localtest</c>: Correspondence's own OIDC client, which its attachment download challenges
 ///   when a browser follows an inbox link without a token (<c>DependencyInjection.cs</c>, <c>AddOpenIdConnect</c>); it
 ///   asks for <c>openid profile</c> only and gets the session's scope in the access token.</item>
@@ -25,7 +27,6 @@ public static class LocaltestOidcClients
     public const string SmokeClientSecret = "localtest-smoke-secret";
     public const string ArbeidsflateClientId = "arbeidsflate-localtest";
     public const string ArbeidsflateClientSecret = "arbeidsflate-localtest-secret";
-    public const string ArbeidsflateOrigin = "http://af.local.altinn.cloud:8000/";
     public const string CorrespondenceClientId = "correspondence-localtest";
     public const string CorrespondenceClientSecret = "correspondence-localtest-secret";
 
@@ -37,9 +38,20 @@ public static class LocaltestOidcClients
         "altinn:correspondence.forward.check",
     ];
 
+    /// <summary>
+    /// Arbeidsflate's origin with a trailing slash: the public platform endpoint's host with <c>af.</c> in front, on the
+    /// same scheme and port (<c>http://af.local.altinn.cloud:8000/</c> by default), as the runners route it.
+    /// </summary>
+    public static string ArbeidsflateOrigin(string platform)
+    {
+        var uri = new Uri(platform);
+        return new UriBuilder(uri) { Host = "af." + uri.Host, Path = "/" }.Uri.GetLeftPart(UriPartial.Authority) + "/";
+    }
+
     /// <summary>The configuration entries; <paramref name="platform"/> is the public platform endpoint with a trailing slash.</summary>
     public static IEnumerable<KeyValuePair<string, string?>> ConfigurationDefaults(string prefix, string platform)
     {
+        var arbeidsflate = ArbeidsflateOrigin(platform);
         var clients = new[]
         {
             new LocaltestOidcClient
@@ -56,9 +68,9 @@ public static class LocaltestOidcClients
                 ClientId = ArbeidsflateClientId,
                 ClientName = "Arbeidsflate (localtest)",
                 ClientSecret = ArbeidsflateClientSecret,
-                RedirectUris = [ArbeidsflateOrigin + "api/cb"],
-                PostLogoutRedirectUris = [ArbeidsflateOrigin],
-                FrontchannelLogoutUri = ArbeidsflateOrigin + "api/frontchannel-logout",
+                RedirectUris = [arbeidsflate + "api/cb"],
+                PostLogoutRedirectUris = [arbeidsflate],
+                FrontchannelLogoutUri = arbeidsflate + "api/frontchannel-logout",
                 AllowedScopes = [.. Scopes],
             },
             new LocaltestOidcClient

@@ -7,4 +7,10 @@ set -eu
 ns=$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)
 case "$ns" in *:*) ns="[$ns]" ;; esac
 echo "resolver ${ns:-127.0.0.11} valid=10s ipv6=off;" > /etc/nginx/conf.d/00-localtest-resolver.conf
+# The CSP in nginx/nginx.conf names the default public origin; the stack's origin is the one DIALOGPORTEN_STREAM_URL
+# (the runner's, {{origin}}/dialogporten/graphql/stream) is on.
+origin=$(printf '%s' "${DIALOGPORTEN_STREAM_URL:-}" | sed -nE 's#^(https?://[^/]+).*#\1#p')
+if [ -n "$origin" ]; then
+  sed -i "s#http://local.altinn.cloud:8000#$origin#g" /etc/nginx/conf.d/default.conf
+fi
 exec /start.sh

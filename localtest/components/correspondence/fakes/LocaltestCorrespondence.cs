@@ -26,9 +26,20 @@ public static class LocaltestCorrespondence
 {
     public const string DefaultPlatformEndpoint = "http://local.altinn.cloud:8000/";
 
+    /// <summary>
+    /// Arbeidsflate's origin without a trailing slash: the platform endpoint's host with <c>af.</c> in front, on the same
+    /// scheme and port (<c>http://af.local.altinn.cloud:8000</c> by default), as the runners route it.
+    /// </summary>
+    public static string ArbeidsflateOrigin(string platform)
+    {
+        var uri = new Uri(platform);
+        return new UriBuilder(uri) { Host = "af." + uri.Host, Path = "/" }.Uri.GetLeftPart(UriPartial.Authority);
+    }
+
     public static void AddLocaltestConfiguration(ConfigurationManager config)
     {
         var platform = Platform(config);
+        var arbeidsflate = ArbeidsflateOrigin(platform);
 
         // Localtest defaults. Program.cs adds appsettings.json, appsettings.Development.json (localhost, tt02) and the
         // environment variables a second time after CreateBuilder, so the defaults go just below that last environment
@@ -42,7 +53,7 @@ public static class LocaltestCorrespondence
             ["AttachmentStorageOptions:ConnectionString"] = "UseDevelopmentStorage=true",
             ["AltinnOptions:PlatformGatewayUrl"] = platform,
             ["AltinnOptions:OpenIdWellKnown"] = platform + "authentication/api/v1/openid/.well-known/openid-configuration",
-            ["AltinnOptions:ArbeidsflateOriginsCommaSeparated"] = "http://af.local.altinn.cloud:8000",
+            ["AltinnOptions:ArbeidsflateOriginsCommaSeparated"] = arbeidsflate,
             // The dialog token's iss, as the stack's Dialogporten writes it (no trailing slash).
             ["DialogportenSettings:Issuer"] = platform + "dialogporten/api/v1",
             ["IdportenSettings:Issuer"] = platform + "localtest/api/idporten",
@@ -69,7 +80,7 @@ public static class LocaltestCorrespondence
             ["GeneralSettings:RedisConnectionString"] = "redis:6379,defaultDatabase=1",
             // KRR: an anonymous stand-in in the Register component's fakes, reached through the production client.
             ["GeneralSettings:ContactReservationRegistryBaseUrl"] = platform + "register/api/localtest/krr/",
-            ["GeneralSettings:ArbeidsflateBaseUrl"] = "http://af.local.altinn.cloud:8000",
+            ["GeneralSettings:ArbeidsflateBaseUrl"] = arbeidsflate,
             ["GeneralSettings:DisableCallsToAltinn2"] = "true",
             // Production: 15 workers and a 4-worker migration server per replica.
             ["GeneralSettings:WorkerCountPerReplica"] = "2",

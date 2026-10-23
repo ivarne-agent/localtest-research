@@ -13,15 +13,22 @@ namespace Digdir.Domain.Dialogporten.GraphQL.Localtest;
 /// </summary>
 public static class LocaltestGraphQl
 {
-    /// <summary>The origin of Arbeidsflate (task 11), the browser client of the subscription stream. Required, at least one.</summary>
-    private const string ArbeidsflateOrigin = "http://af.local.altinn.cloud:8000";
+    /// <summary>
+    /// The origin of Arbeidsflate (task 11), the browser client of the subscription stream (required, at least one): the
+    /// platform endpoint's host with <c>af.</c> in front, on the same scheme and port, as the runners route it.
+    /// </summary>
+    private static string ArbeidsflateOrigin(string platform)
+    {
+        var uri = new Uri(platform);
+        return new UriBuilder(uri) { Host = "af." + uri.Host, Path = "/" }.Uri.GetLeftPart(UriPartial.Authority);
+    }
 
     public static void Apply(WebApplicationBuilder builder)
     {
         var options = LocaltestConfiguration.BindOptions(builder.Configuration);
         var defaults = new Dictionary<string, string?>(LocaltestConfiguration.JwtBearerSchemes(GraphQlSettings.SectionName, options.PlatformEndpoint))
         {
-            ["GraphQl:Cors:AllowedOrigins:0"] = ArbeidsflateOrigin,
+            ["GraphQl:Cors:AllowedOrigins:0"] = ArbeidsflateOrigin(options.PlatformEndpoint),
         };
         LocaltestConfiguration.AddDefaults(builder.Configuration, options, defaults);
 
