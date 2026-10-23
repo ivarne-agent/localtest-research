@@ -54,6 +54,10 @@ repository's `localtest/`.
   and denies private ranges.
 - **The workflow engine** calls the app back on a URL built from a template and the request's org and app, and its
   `webhook` command calls any absolute URI in the request; there is no SSRF guard.
+- **The localtest stack** reaches the internet for `altinncdn.no` (six components fetch the org list; the Receipt and
+  Arbeidsflate pages load fonts and logos from it), the Receipt page's Font Awesome and Google Fonts, and, on two
+  self-identified-user paths, `at22.altinn.cloud` (Register's SBL bridge, Authentication's Access Management
+  setting): those two are leaks to a shared test environment.
 - **Enforcement today:** none for app pods. The deployment chart has no NetworkPolicy, the apps run in the `default`
   namespace, and the only egress policy in the monorepo is pdf3's worker policy (CIDR, not FQDN). The docs tell
   external parties to allow-list the apps' outbound IP prefixes, so egress is open by design today.
@@ -216,7 +220,40 @@ door.
 
 ### 3.5 The stack's components (localtest only)
 
-<!-- COMPONENTS -->
+Only what goes to the **internet** while active in the localtest build; calls between components and to the public
+origin are in [`../../planned-components/service-discovery.md`](../../planned-components/service-discovery.md)
+section 2. Paths from `L/components/<name>/`. Every .NET image runs with `ASPNETCORE_ENVIRONMENT=Development`. No
+manifest `envs` value is an internet, at22 or tt02 URL; no image fetches anything at container start (Arbeidsflate's
+BFF runs pnpm through corepack at start; whether its update check reaches `registry.npmjs.org` is not known). No
+component exports telemetry on localtest: the OTLP, Application Insights, App Configuration and Key Vault settings
+are unset or forced empty by the fakes.
+
+| Component | Domain | Client (file:line) | When | Where |
+| --- | --- | --- | --- | --- |
+| Storage | `altinncdn.no/orgs/altinn-orgs.json` | `vendor/src/Storage/Repository/AltinnCdnOrganisationRepository.cs:72-76` (`appsettings.json:32`) | org number for `studio/instances/…` and `metrics/instances`; cached 600 s | config, not overridden by the fakes |
+| Authentication | `altinncdn.no/orgs/altinn-orgs.json` | `…/Altinn.Platform.Authentication/Services/OrganisationsService.cs:46,71` | `exchange/maskinporten` with a service-owner scope (the adapter, the BFF); cached 1 h | config |
+| Authentication | `platform.at22.altinn.cloud/accessmanagement/api/v1/` | `…/Integration/AccessManagement/AccessManagementClient.cs:87` (`appsettings.Development.json:59`) | `enduser/selfidentified/redeem-link` only | config, **a stack leak to at22** |
+| Authentication | at22 `OidcProviders:altinn`, `test.maskinporten.no` | `Services/OidcServerService.cs:1414-1423` | only a request with `iss=altinn` or `iss=https://test.maskinporten.no/` | config, dormant |
+| Register | `at22.altinn.cloud/sblbridge/profile/api/users/` | `…/Altinn.Register/Clients/SblProfileBridgeClient.cs:36,60` (`appsettings.json:44`) | `POST v2/internal/parties/self-identified` (an e-mail self-identified login) | config, **a stack leak to at22** |
+| Resource Registry | `altinncdn.no/orgs/altinn-orgs.json`, on failure `raw.githubusercontent.com/Altinn/altinn-cdn/master/orgs/altinn-orgs.json` | `…/Altinn.ResourceRegistry.Integration/Clients/OrgListClient.cs:40-45` (`appsettings.json:20-21`) | `resource/orgs` on every request (no cache); the service-owner cache (1 h) for resource lists, `updated`, owner filters | config, kept on purpose (`fakes/LocaltestResourceRegistryExtensions.cs:57`) |
+| Dialogporten (3 hosts) | `altinncdn.no/orgs/altinn-orgs.json` | `…/Infrastructure/InfrastructureExtensions.cs:536-538`, `ServiceOwnerNameRegistryClient.cs:46,57` | service-owner names per request, cached 24 h; also `/health/deep` (not the manifest's probe) | config |
+| Dialogporten adapter | `altinncdn.no/orgs/altinn-orgs.json` | `…/Common/Extensions/ServiceCollectionExtensions.cs:305-311` | each instance sync; cached 5 min (fail-safe 2 h) | config |
+| Notifications | an order's `ConditionEndpoint` (any host) | `…/Altinn.Notifications.Integrations/Extensions/ServiceCollectionExtensions.cs:64` | an order with a send condition | **data**, passes through |
+| Events | subscriber webhooks | `vendor/src/Events/Services/WebhookService.cs:35,49` | delivery | data; the fake delivers only to dot-less names, `host.docker.internal` and the platform host and captures the rest (`fakes/LocaltestEventsOptions.cs:12`) |
+| Arbeidsflate BFF | `altinncdn.no/orgs/altinn-orgs.json` | `vendor/packages/bff/src/graphql/organizations/service.ts:60` | GraphQL `organizations` when the Redis key is missing (24 h) | code |
+| Receipt page (browser) | `altinncdn.no` (org list, favicon, logo), `use.fontawesome.com`, `use.fortawesome.com`, `fonts.googleapis.com` | `vendor/src/backend/Altinn.Receipt/Views/Receipt/receipt.cshtml:12-20`, `frontend/src/utils/receiptUrlHelper.ts:5-6` | page load | code |
+| Arbeidsflate SPA (browser) | `altinncdn.no` (Inter CSS and fonts, org logos from the org list) | `vendor/packages/frontend/index.html:6`, `frontend/src/api/hooks/useDialogById.tsx:218` | page load, avatars | code; data. Application Insights is off (empty key); nginx's CSP (`nginx/nginx.conf:30`) allows `https:` in `connect-src` and `img-src` |
+
+Replaced or off under LOCALTEST (checked): Register's A2 bridge lookups (`ApiSource:Default=DB`) and NPR/SIRE jobs
+(`Altinn:IsTest`); Profile's KRR (`test.kontaktregisteret.no`) and Brreg (`kof-*.ppe.brreg.no`) clients; Access
+Management's and Authorization's SBL bridge, OED PIP and test token generator; Correspondence's Slack, Azure Resource
+Manager, Maskinporten JWK rotation and tt02/ID-porten settings; Notifications' Dialogporten client; every
+Maskinporten client (the localtest app's fake); Service Bus and Storage queues (local transports). The localtest app
+makes no internet call. The workflow engine's and pdf3's telemetry is off (section 3.3, 3.4).
+
+So a localtest stack needs the internet for **`altinncdn.no`** (six server-side org-list clients and two browser
+pages), possibly `raw.githubusercontent.com` (the Resource Registry's fallback), the Receipt page's font hosts, and
+**at22** on two self-identified-user paths, which are leaks from the stack to a shared test environment.
 
 ## 4. Where production enforcement would sit
 
@@ -274,7 +311,7 @@ without new runner code.
 **Deny-by-default on localtest, later (not now).** The way to keep the list honest over time: a Podman network with
 `internal: true` (no route out) for the stack, the front door as the only container also on an outbound network, and
 an allow-list in a forward proxy for what genuinely needs the internet (today `altinncdn.no` for the components' org
-lists, the apps' own lists). studioctl would need a network option per container in `containers.go` and a proxy
+lists, section 3.5; better a local copy of `altinn-orgs.json` served by the front door, which would empty the list). studioctl would need a network option per container in `containers.go` and a proxy
 container in the manifest (a new key, since `envs` cannot name runner-provided proxies); Aspire the same through
 `WithContainerRuntimeArgs`/a second network. The app on the host is outside the Podman network and would need the
 proxy variables from the app runner. A separate task.
@@ -327,10 +364,16 @@ checked on a trace of a page that loads an `altinncdn.no` image. Nothing has run
 6. **Cilium FQDN policies**: is Cilium's DNS proxy (ACNS) available in the apps clusters? That decides between
    per-app `toFQDNs` policies and a firewall or proxy per cluster.
 
+7. **The stack's own internet calls**: should the two at22 paths (Register's SBL bridge for self-identified users,
+   Authentication's Access Management endpoint) be pointed at the stack or failed fast, and should the front door
+   serve `altinn-orgs.json` (and the Resource Registry's GitHub fallback be dropped), so a stack needs no internet?
+
 ## 7. Not verified
 
 - The cluster's outbound path (NAT gateway, Azure Firewall, user-defined routes) and any egress rules outside the
   monorepo: the infra repository was not read.
 - The Application Insights ingestion host names (they come from each connection string, not from code).
 - Whether Chromium in pdf3 makes component-update calls despite `--disable-background-networking`.
+- Altinn.Authorization.ServiceDefaults (Register, Authentication, Resource Registry, Access Management) was read from
+  its DLL strings, not source; the Arbeidsflate npm packages (`@altinn/altinn-components`) were not read.
 - Anything at run time: phase 2.
