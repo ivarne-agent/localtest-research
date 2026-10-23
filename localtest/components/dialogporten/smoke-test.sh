@@ -20,7 +20,7 @@ set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 HERE=$(cd "$(dirname "$0")" && pwd)
 FX="$HERE/../../smoke/apps/ttd/testapp"
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 # shellcheck source=../../smoke/lib/containers.sh
 . "$HERE/../../smoke/lib/containers.sh"
 GRAPHQL_DIRECT=${DIALOGPORTEN_GRAPHQL_URL:-}
@@ -59,7 +59,7 @@ curl -s "$DP/api/v1/.well-known/jwks.json" | check "jwks.json lists localtest-pr
 curl -s "$DP/api/v1/.well-known/jwks.json" | check "jwks.json publishes the committed public halves" \
   '{k["x"] for k in d["keys"]} == {"Xg0SfHY0oNB6M3om3bY6jJ6JFE16gP4JY6mQeL-1FR4", "wzuM7xyqsySfrhbWomQh_cfa3HETBjleagfPZQwLva8"}'
 curl -s "$DP/api/v1/.well-known/oauth-authorization-server" | check "oauth-authorization-server issuer is the platform host's /dialogporten/api/v1" \
-  'd["issuer"] == "http://local.altinn.cloud:8000/dialogporten/api/v1"'
+  'd["issuer"] == "'"$BASE"'/dialogporten/api/v1"'
 
 echo "== the apps, pushed as the runner does"
 STUDIO=$(curl -s "$BASE/Home/GetTestStudioToken" | tr -d '"')
@@ -193,7 +193,7 @@ gql '{"query":"{ parties { party } }"}' | check "an end-user query with the org 
   'd["errors"][0]["extensions"]["code"] == "AUTH_NOT_AUTHORIZED"'
 
 echo "== CORS for Arbeidsflate (GraphQl:Cors:AllowedOrigins)"
-AF="http://af.local.altinn.cloud:8000"
+AF=$(sed -E 's#^(https?://)#\1af.#' <<<"$BASE")
 PREFLIGHT=$(curl -s -D - -o /dev/null -X OPTIONS "$DP/graphql" -H "Origin: $AF" -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: authorization,content-type' | tr -d '\r')
 expect "the preflight from $AF is answered" 204 "$(printf '%s' "$PREFLIGHT" | head -n 1 | cut -d' ' -f2)"

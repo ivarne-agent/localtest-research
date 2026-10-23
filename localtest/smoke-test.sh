@@ -11,7 +11,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=smoke/lib/containers.sh
 . "$HERE/smoke/lib/containers.sh"
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-BASE=${BASE:-http://local.altinn.cloud:8000}
+BASE=${BASE:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 FAIL=0
 check() { local label=$1 expected=$2 actual=$3; if [[ "$actual" == "$expected" ]]; then printf 'ok   %-60s %s\n' "$label" "$actual"; else printf 'FAIL %-60s %s (expected %s)\n' "$label" "$actual" "$expected"; FAIL=1; fi; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }

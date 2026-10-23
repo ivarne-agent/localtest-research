@@ -18,7 +18,9 @@
 # modes), OFF_PREFIX a platform prefix whose service is not running (default /correspondence/, an optional group).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
+# The public host and port, for the dedicated hosts (pdf., app-frontend.).
+PUBLIC=$(sed -E 's#^https?://([^/]+).*#\1#' <<<"$BASE")
 API="$BASE/localtest/api/apps"
 ROUTES="$BASE/localtest/api/routes"
 FAKE_APP=${FAKE_APP:-http://storage:5010}
@@ -47,7 +49,7 @@ expect "a prefix without its slash redirects" "301 /storage/" "$(curl -s -m 10 -
 expect "a file-like path is forwarded (storage answers)" 404 "$(code "$BASE/storage/no-such-file.json")"
 expect "unknown path: the front door's own 404" "$NO_APP" "$(curl -s -m 10 "$BASE/nope/missing.js")"
 expect "a service that is off: 503 problem details" "503 application/problem+json" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %{content_type}' "$BASE${OFF_PREFIX}x")"
-expect "the PDF host belongs to pdf3, /health included" 404 "$(code -H 'Host: pdf.local.altinn.cloud:8000' "$BASE/health")"
+expect "the PDF host belongs to pdf3, /health included" 404 "$(code -H "Host: pdf.$PUBLIC" "$BASE/health")"
 SECURE=$(curl -s -m 10 -D - -o /dev/null -X POST "$BASE/Home/LogInTestUser" -d action=reauthenticate -d UserSelect=1337.501337 -d AuthenticationLevel=2 | grep -ci '^set-cookie:.*;\s*secure')
 COOKIES=$(curl -s -m 10 -D - -o /dev/null -X POST "$BASE/Home/LogInTestUser" -d action=reauthenticate -d UserSelect=1337.501337 -d AuthenticationLevel=2 | grep -ci '^set-cookie:')
 expect "sign-in cookies set, none with Secure" "4 0" "$COOKIES $SECURE"
@@ -70,7 +72,7 @@ expect "app path without its slash redirects, query kept" "301 /ttd/proxy-smoke/
 expect "remove (deprovisions)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
 expect "gone: the front door's 404 again" "$NO_APP" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
 expect "remove again (idempotent)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
-DEV=(-s -m 10 -H "Host: app-frontend.local.altinn.cloud")
+DEV=(-s -m 10 -H "Host: app-frontend.$PUBLIC")
 expect "frontend dev server route set" 200 "$(put "$ROUTES/frontend-dev-server" "$FAKE_APP")"
 expect "its host goes to the dev server (Storage's empty 404)" "" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
 expect "frontend dev server route removed" 204 "$(code -X DELETE "$ROUTES/frontend-dev-server")"
@@ -188,7 +190,7 @@ emulated "profile: the user's profile with its party" profile "d[\"userId\"] == 
 emulated "authorization: Permit per request, the action echoed" authorization '[r["decision"] for r in d["response"]] == ["Permit", "Permit"] and [a["value"] for r in d["response"] for c in r["category"] for a in c["attribute"]] == ["read", "sign"]' \
   -X POST -H Content-Type:application/json "$BASE/authorization/api/v1/decision" -d '{"request":{"accessSubject":[{"id":"s1","attribute":[{"attributeId":"urn:altinn:userid","value":"1337","dataType":"string"}]}],"action":[{"id":"a1","attribute":[{"attributeId":"urn:oasis:names:tc:xacml:1.0:action:action-id","value":"read","dataType":"string","includeInResult":true}]},{"id":"a2","attribute":[{"attributeId":"urn:oasis:names:tc:xacml:1.0:action:action-id","value":"sign","dataType":"string","includeInResult":true}]}],"resource":[{"id":"r1","attribute":[{"attributeId":"urn:altinn:org","value":"ttd","dataType":"string"}]}],"multiRequests":{"requestReference":[{"referenceId":["s1","a1","r1"]},{"referenceId":["s1","a2","r1"]}]}}}'
 emulated "pdf3: POST /pdf answers the static PDF" pdf3 'b.startswith(b"%PDF-1.4") and b"Minimal PDF without content" in b' \
-  -X POST -H 'Host: pdf.local.altinn.cloud:8000' -H Content-Type:application/json "$BASE/pdf" -d '{"url":"http://local.altinn.cloud:8000/ttd/app/"}'
+  -X POST -H "Host: pdf.$PUBLIC" -H Content-Type:application/json "$BASE/pdf" -d '{"url":"'"$BASE"'/ttd/app/"}'
 emulated "authentication: discovery on the public origin" authentication 'd["issuer"] == "'"$BASE"'/authentication/api/v1/openid/"' \
   "$BASE/authentication/api/v1/openid/.well-known/openid-configuration"
 emulated "access-management: the user's authorized parties" access-management "$ORG_PARTY in [p[\"partyId\"] for p in d[\"data\"]]" \

@@ -9,7 +9,7 @@
 set -uo pipefail
 shopt -s lastpipe   # `inspect … | check` runs check in this shell, so a failure counts
 HERE=$(cd "$(dirname "$0")" && pwd)
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 FAIL=0
 check() { # name python-expression-on-d (stdin is JSON)
   if python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if ($2) else 1)" 2>/dev/null; then echo "ok   $1"; else echo "FAIL $1"; FAIL=1; fi

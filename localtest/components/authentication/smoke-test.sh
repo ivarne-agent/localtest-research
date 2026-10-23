@@ -9,7 +9,7 @@
 # else by name from inside the stack's network (../../smoke/lib/containers.sh).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -u
-BASE=${1:-${BASE:-http://local.altinn.cloud:8000}}
+BASE=${1:-${BASE:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}}
 AUTHN="$BASE/authentication/api/v1"
 HELPER="$BASE/localtest/api/authentication"
 FAIL=0
@@ -66,7 +66,7 @@ check "the fake ID-porten's discovery lists end_session_endpoint" "$BASE/localte
 
 echo "== a registered client with a browser (Arbeidsflate's BFF parameters)"
 read -r VERIFIER CHALLENGE < <(python3 -c 'import secrets,hashlib,base64; v=secrets.token_urlsafe(32); print(v, base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).rstrip(b"=").decode())')
-AF_REDIRECT="http://af.local.altinn.cloud:8000/api/cb"
+AF_REDIRECT="$(sed -E 's#^(https?://)#\1af.#' <<<"$BASE")/api/cb"
 LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -G "$AUTHN/authorize" --data-urlencode response_type=code --data-urlencode client_id=arbeidsflate-localtest --data-urlencode "redirect_uri=$AF_REDIRECT" --data-urlencode "scope=digdir:dialogporten.noconsent openid altinn:portal/enduser altinn:correspondence.forward.check" --data-urlencode acr_values=idporten-loa-substantial --data-urlencode state=af-state --data-urlencode nonce=af-nonce --data-urlencode "code_challenge=$CHALLENGE" --data-urlencode code_challenge_method=S256)
 # Production widens the upstream acr_values with selfregistered-email for a browser without a live session; the picker
 # preselects the highest level it knows.

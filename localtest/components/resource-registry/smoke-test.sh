@@ -8,7 +8,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 FX="$HERE/../../smoke/apps/ttd/testapp"
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 RR="$BASE/resourceregistry/api/v1/resource"
 FAIL=0
 check() { # name python-expression-on-d (stdin is JSON)

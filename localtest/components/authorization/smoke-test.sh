@@ -11,7 +11,7 @@
 # they say "skipped" and are not counted as failures.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); Z=$HERE
-BASE=${1:-http://local.altinn.cloud:8000}; PDP=$BASE; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}; PDP=$BASE; LOGS=${LOGS:-/tmp/authz-smoke}; mkdir -p "$LOGS"
 APPS=${APPS:-/home/agent/code/altinn-studio/src/test/apps}   # the frontend-test policy comes from the app itself
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh

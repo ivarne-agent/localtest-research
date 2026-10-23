@@ -30,8 +30,10 @@ set -uo pipefail
 shopt -s lastpipe
 HERE=$(cd "$(dirname "$0")" && pwd)
 FX="$HERE/../../smoke/apps/ttd/testapp"
-BASE=${1:-http://local.altinn.cloud:8000}
-AF=${AF:-http://af.local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
+AF=${AF:-$(sed -E 's#^(https?://)#\1af.#' <<<"$BASE")}
+# The public host: Authentication's cookie domain.
+PUBLIC_HOST=$(sed -E 's#^https?://([^:/]+).*#\1#' <<<"$BASE")
 PARTY_ID=${PARTY_ID:-500000}
 AUTHN="$BASE/authentication/api/v1"
 ST="$BASE/storage/api/v1"
@@ -154,8 +156,8 @@ expect "/api/cb -> / (token exchanged, session saved)" "$AF/" "$LAST"
 SESSION_LINE=$(grep -P '\tarbeidsflate\t' "$T/jar" | head -1)
 expect "the jar holds the arbeidsflate session cookie for $AF_HOST, without Secure" "$AF_HOST FALSE" \
   "$(echo "$SESSION_LINE" | awk -F'\t' '{print $1, $4}' | sed 's/^#HttpOnly_//')"
-expect "  ... and Authentication's AltinnStudioRuntime for local.altinn.cloud" yes \
-  "$(grep -qP 'local\.altinn\.cloud\t.*\tAltinnStudioRuntime\t' "$T/jar" && echo yes || echo no)"
+expect "  ... and Authentication's AltinnStudioRuntime for $PUBLIC_HOST" yes \
+  "$(grep -qP "${PUBLIC_HOST//./\\.}\t.*\tAltinnStudioRuntime\t" "$T/jar" && echo yes || echo no)"
 c -b "$T/jar" "$AF/api/isAuthenticated" >"$T/auth.json"
 check "GET /api/isAuthenticated" 'd["isAuthenticated"] is True' <"$T/auth.json"
 
@@ -214,8 +216,8 @@ echo "== the profile page against production Profile"
 gql "$T/jar" 'query { profile { language groups { name isFavorite parties } user { userId partyId profileSettingPreference { showClientUnits } } } }'
 check "profile: user 1337 from Profile's users/current" 'd["data"]["profile"]["user"]["userId"] == 1337' <"$T/g.json"
 UL_COOKIE=$(cookie_attrs "$T/gh" altinnPersistentContext)
-expect "  ... sets altinnPersistentContext for local.altinn.cloud, without Secure (patch 0003)" "yes no" \
-  "$(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx 'domain=local.altinn.cloud' && echo yes || echo no) $(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx secure && echo yes || echo no)"
+expect "  ... sets altinnPersistentContext for $PUBLIC_HOST, without Secure (patch 0003)" "yes no" \
+  "$(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx "domain=$PUBLIC_HOST" && echo yes || echo no) $(tr ';' '\n' <<<"$UL_COOKIE" | grep -qx secure && echo yes || echo no)"
 SHOW=$(py 'str(d["data"]["profile"]["user"]["profileSettingPreference"]["showClientUnits"]).lower()' <"$T/g.json")
 [[ "$SHOW" == true ]] || SHOW=false
 gql "$T/jar" 'mutation($p: String!) { addFavoriteParty(partyId: $p) { success } }' "{\"p\": \"$PARTY_UUID\"}"

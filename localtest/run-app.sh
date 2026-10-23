@@ -7,10 +7,10 @@
 # The app listens on 0.0.0.0:<port> on this machine; the front door reaches it as host.docker.internal:<port>.
 # Needs the localtest app as the front door (it registers through that app's own API, PUT localtest/api/apps), as under
 # studioctl's localtest-v2 runtime since task 27a (where studioctl-server registers the apps `studioctl run` starts).
-# Platform URLs point at http://local.altinn.cloud:8000 (override with PLATFORM). Logs: .run/<org>-<app>.log, pid file next to it.
+# Platform URLs point at http://local.altinn.cloud:8000 (override with PLATFORM or LOCALTEST_ORIGIN). Logs: .run/<org>-<app>.log, pid file next to it.
 set -euo pipefail
 APP_DIR=${1:?app directory}; PORT=${2:-5005}
-PLATFORM=${PLATFORM:-http://local.altinn.cloud:8000}
+PLATFORM=${PLATFORM:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 HERE=$(cd "$(dirname "$0")" && pwd)
 META="$APP_DIR/App/config/applicationmetadata.json"
 ORG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["org"])' "$META")
@@ -43,11 +43,11 @@ export PlatformSettings__ApiProfileEndpoint="$PLATFORM/profile/api/v1/"
 export PlatformSettings__ApiAuthenticationEndpoint="$PLATFORM/authentication/api/v1/"
 export PlatformSettings__ApiAuthorizationEndpoint="$PLATFORM/authorization/api/v1/"
 export PlatformSettings__ApiEventsEndpoint="$PLATFORM/events/api/v1/"
-export PlatformSettings__ApiPdf2Endpoint="http://pdf.local.altinn.cloud:8000/pdf"
+export PlatformSettings__ApiPdf2Endpoint="http://pdf.${PLATFORM#http://}/pdf"
 export PlatformSettings__ApiNotificationEndpoint="$PLATFORM/notifications/api/v1/"
 export PlatformSettings__ApiCorrespondenceEndpoint="$PLATFORM/correspondence/api/v1/"
 export PlatformSettings__ApiAccessManagementEndpoint="$PLATFORM/accessmanagement/api/v1/"
-export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.local.altinn.cloud:8000/api/v1/"
+export PlatformSettings__ApiWorkflowEngineEndpoint="http://workflow-engine.${PLATFORM#http://}/api/v1/"
 # The app frontend's inbox links into the local Arbeidsflate, as studioctl run and the Aspire package set them (README.md,
 # "What the app runner pushes"); an empty value in the caller's environment keeps the start page.
 ARBEIDSFLATE="http://af.${PLATFORM#http://}"

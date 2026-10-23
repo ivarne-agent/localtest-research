@@ -30,7 +30,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
 . "$HERE/../../smoke/lib/containers.sh"
 FX="$HERE/../../smoke/apps/ttd/testapp"
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 PARTY_ID=${PARTY_ID:-500000}
 ADAPTER_DIRECT=${DIALOGPORTEN_ADAPTER_URL:-}
 ADP="$BASE/storage/dialogporten"

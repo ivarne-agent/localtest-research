@@ -16,7 +16,7 @@
 # (../../smoke/lib/containers.sh), or at HEALTH when set (a host port you publish yourself: http://127.0.0.1:<port>/health).
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 API=$BASE/profile/api/v1
 LOCAL=$BASE/profile/api/localtest
 INBOXES=$BASE/notifications/api/localtest/inboxes

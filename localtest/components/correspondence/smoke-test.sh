@@ -29,7 +29,7 @@
 # LOCALTEST_CONTAINER_POSTGRES and LOCALTEST_CONTAINER_CORRESPONDENCE); without them those checks are skipped.
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 DIRECT=${CORRESPONDENCE_URL:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
@@ -367,7 +367,7 @@ callback_without_correlation() { # download URL -> where the callback sends the 
 }
 grep -v 'AspNetCore' "$JAR" >"$TMP/session-only.jar"
 expect "the callback without the correlation cookie restarts once (download?oidcRetry=1)" "$DOWNLOAD?oidcRetry=1" "$(callback_without_correlation "$DOWNLOAD")"
-expect "  ... and a second failure ends in the inbox, not in a loop" "http://af.local.altinn.cloud:8000/" \
+expect "  ... and a second failure ends in the inbox, not in a loop" "$(sed -E 's#^(https?://)#\1af.#' <<<"$BASE")/" \
   "$(callback_without_correlation "$DOWNLOAD?oidcRetry=1")"
 
 echo "== a scheduled publish, purged by the sender before it"

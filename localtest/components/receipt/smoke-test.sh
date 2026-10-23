@@ -12,7 +12,7 @@ set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=../../smoke/lib/containers.sh
 . "$HERE/../../smoke/lib/containers.sh"
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 HEALTH=${RECEIPT_HEALTH:-}
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FAIL=0

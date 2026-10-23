@@ -6,7 +6,7 @@
 # Needs the stack (Authentication reads altinncdn.no for the organisation code) and a NuGet cache or nuget.org.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
-BASE=${1:-http://local.altinn.cloud:8000}
+BASE=${1:-${LOCALTEST_ORIGIN:-http://local.altinn.cloud:8000}}
 HERE=$(cd "$(dirname "$0")" && pwd)
 FAIL=0
 # The cookie policy (fakes/Cookies/) in memory, no stack needed.
