@@ -214,24 +214,45 @@ studioctl-server and the Aspire package carry no proxy of their own.
    HTTP container (one with an HTTP health), itself included; Postgres and Redis get none. Not only for `dependsOn`:
    the call graph has cycles (Storage and Authorization, Authorization and Access Management, Register and
    Authorization), and `dependsOn` is start order only. A group that is off has no variables.
-3. **.NET components resolve names through the registered discovery**: Register, Authentication, Access Management and
-   the Resource Registry natively (`AltinnServiceDefaults`); the others through a three-line `#if LOCALTEST` block
-   after `WebApplication.CreateBuilder` (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http =>
-   http.AddServiceDiscovery())`) in Storage, Profile, Authorization, Events, Notifications, Receipt, Correspondence,
-   the Dialogporten adapter and Dialogporten's three hosts. Each component README names its site.
-4. **The pass-through provider stays on in the components** until each one's URLs are migrated: today every factory
-   client still calls the public origin (the fakes derive their URLs from one `Localtest__<X>__PlatformEndpoint`), and
-   pass-through lets such a name fall through to DNS. As each component's settings move to service names
-   (`http://register/register/api/v1/`), the provider goes off for it. As of 2026-10-23 no component has migrated; the
-   localtest app is the only one without pass-through.
+3. **.NET components resolve names through the registered discovery, without pass-through**: Register,
+   Authentication, Access Management and the Resource Registry register `AddServiceDiscovery()` natively
+   (`AltinnServiceDefaults`, which has no setting for the pass-through provider), and their fakes remove that provider
+   (`LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders`); the others call
+   `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` in a `#if LOCALTEST` block right after
+   `WebApplication.CreateBuilder` (Storage, Profile, Authorization, Events, Notifications, Receipt, Correspondence, the
+   Dialogporten adapter and Dialogporten's three hosts). The registration is one shared fake,
+   [`components/shared/fakes/ServiceDiscovery/`](components/shared/README.md), copied into each component; the localtest
+   app registers the same itself. Each component README names its site.
+4. **A call to another service names the service** (task 40): `http://<service>/<prefix>/…` without a port, resolved
+   from `services__<service>__http__0`; the fakes' defaults carry these (`http://register/register/api/v1/`), the
+   manifest only where an image reads the value from the environment. A name without an entry (its group is off, or a
+   typo) fails at once with the resolver's `InvalidOperationException` ("The endpoint collection contains no
+   endpoints"), never a DNS lookup; a client that treats "not running" as normal (Storage's outbox to the adapter)
+   checks for it (`LocaltestServiceDiscovery.NoAddress`). The configuration provider alone refuses every host it has no
+   entry for, so the shared fake adds one explicit fallback: a **real host** (one with a dot, an IP address, `localhost`)
+   is used as it is. That covers the public origin, `host.docker.internal` (apps, webhook subscribers), altinncdn.no and
+   a component's own loopback, and never a service name. Where one production base URL serves several services and is
+   also an issuer or handed out in links (Dialogporten's `Infrastructure:Altinn:BaseUri`, Correspondence's
+   `AltinnOptions:PlatformGatewayUrl`), the base stays public and `LocaltestPrefixRouting` (the same shared folder),
+   outermost on those clients, moves each request to the service that owns its path prefix, by the front door's table.
+   A client outside `IHttpClientFactory` never sees the resolver: Access Management's `ResourceRegistryClient` gets a
+   factory client under `LOCALTEST`; the metadata fetches outside the factory (JwtCookie, JwtBearer,
+   `HttpDocumentRetriever`) fetch public documents anyway ([What stays on the public
+   origin](#the-public-origin-and-host-names)). In minimal mode the emulated names resolve to the front door
+   (`http://localtest:8080`), which serves every host but its dedicated subdomains as the main host, so Storage's calls
+   to the PDP, the Register and Authentication land in the emulation.
 5. **Non-.NET clients use the alias and port directly**: the connection strings (`Host=postgres;Port=5432`,
-   `redis://redis:6379/2`), Arbeidsflate's nginx (`arbeidsflate-bff`), pdf3 and the workflow engine.
+   `redis://redis:6379/2`), Arbeidsflate's nginx (`arbeidsflate-bff`), pdf3 and the workflow engine. The Arbeidsflate
+   BFF reaches the platform through the front door by name, `http://localtest:8080` (`PLATFORM_BASEURL` is one base for
+   six services, routed by path prefix there).
 
 **Why.** It is how Aspire does it, so the same images run under both runtimes and an Aspire-hosted app gets the same
 variables as a container; a configuration-only resolver also makes "not running" a fast, explicit answer.
 
-**Code.** `serviceVariables` in `containers.go`; Aspire's `StackSpec`; the inventory, the call sites and the migration
-plan in [`../planned-components/service-discovery.md`](../planned-components/service-discovery.md).
+**Code.** `serviceVariables` in `containers.go`; Aspire's `StackSpec`; the shared registration in
+[`components/shared/fakes/ServiceDiscovery/`](components/shared/fakes/ServiceDiscovery/) (tested in
+`localtest/tests/ComponentServiceDiscoveryTests.cs`); the inventory, the call sites and the migration plan in
+[`../planned-components/service-discovery.md`](../planned-components/service-discovery.md).
 
 ## Port and health
 

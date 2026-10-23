@@ -23,11 +23,22 @@ Consumers of the cookie policy (`fakes/Cookies/`, copies identical to the files 
 | `components/authentication/fakes/Cookies/` | the runtime, party and session cookies and their expiries (hard-coded `Secure`) | `AddLocaltestAuthentication` |
 | `components/correspondence/fakes/Cookies/` | the retry path's expiry of the OIDC correlation and nonce cookies (hard-coded `Secure`, `SameSite=None`) | `AddLocaltestServices` |
 
+Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task 40; copies identical to the files here):
+
+| Copy | Used by | Registered from |
+| --- | --- | --- |
+| `LocaltestServiceDiscovery.cs` in `components/{storage,events,profile,notifications,receipt,authorization,dialogporten-adapter,correspondence,dialogporten}/fakes/ServiceDiscovery/` | the hosts without service discovery of their own (Dialogporten: compiled into each of its three hosts) | `AddLocaltestServiceDiscovery(builder.Services)` in the `#if LOCALTEST` block after `WebApplication.CreateBuilder` |
+| the same in `components/{authentication,access-management,resource-registry}/fakes/ServiceDiscovery/` and `components/register/fakes/Altinn.Register.Localtest/ServiceDiscovery/` | the four `AltinnServiceDefaults` hosts, which register `AddServiceDiscovery()` themselves | `AddLocaltestServiceEndpointProviders(services)` in the fakes' hook: removes the pass-through provider |
+| `LocaltestPrefixRouting.cs` in `components/dialogporten/fakes/Infrastructure/ServiceDiscovery/` and `components/correspondence/fakes/ServiceDiscovery/` | the clients on one shared public base (Dialogporten's four on `Infrastructure:Altinn:BaseUri`, Correspondence's nine on `PlatformGatewayUrl`) | `LocaltestPrefixRouting.AddTo(...)` in `LocaltestInfrastructure` / `AddLocaltestServices` |
+
+The localtest app's tests compile both files (`localtest/localtest/tests/ComponentServiceDiscoveryTests.cs`).
+
 | Path | What |
 | --- | --- |
 | `fakes/Maskinporten/` | `LocaltestMaskinportenService` (an `IMaskinportenService` for `Altinn.ApiClients.Maskinporten` 10.1.0), its options (`Localtest:Maskinporten`: `TokenEndpoint`, `ExchangeEndpoint`, by service name since task 40) and `AddLocaltestMaskinporten` |
 | `Maskinporten.Smoke/` | A net10.0 console host that compiles those three files against the package and asks the fake for a token |
 | `fakes/Cookies/` | `LocaltestCookiePolicy`: `AddLocaltestCookiePolicy()` registers an `IStartupFilter` that puts ASP.NET Core's cookie policy middleware in front of the host's pipeline; on plain http it removes `Secure` and turns `SameSite=None` into `Lax` |
+| `fakes/ServiceDiscovery/` | `LocaltestServiceDiscovery`: core, the configuration provider and a provider for real hosts (a dot, an IP, `localhost`; the configuration provider alone refuses any host it has no entry for), no pass-through, so a service name without `services__<name>__http__0` fails at once; `NoAddress` recognises that failure. `LocaltestPrefixRouting`: a handler that moves a request on the public origin to the service owning its path prefix, by the front door's table |
 | `Cookies.Smoke/` | A net10.0 host on ASP.NET Core's in-memory `TestServer` that compiles that file and checks the cookies it writes over http and https |
 | `smoke-test.sh` | Runs `Cookies.Smoke` (no stack needed), then the Maskinporten host twice against the running stack |
 

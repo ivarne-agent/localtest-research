@@ -1,6 +1,15 @@
 # Service discovery for the components
 
-**Superseded 2026-10-23 by task 27:** the runtime side is built (task 26: the localtest container's resolver without pass-through; task 27: manifest v2 without placeholders or host ports, every container aliased by its name and given `services__<name>__http__0` for every running HTTP container), so the `{{…}}` placeholders, `hostPort` and `Proxy__Upstreams__*` quoted below describe the v1 manifest; the per-component URL migrations of sections 6, 7 and 9 are still open; see [`localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md).
+**Superseded 2026-10-23 by task 27:** the runtime side is built (task 26: the localtest container's resolver without pass-through; task 27: manifest v2 without placeholders or host ports, every container aliased by its name and given `services__<name>__http__0` for every running HTTP container), so the `{{…}}` placeholders, `hostPort` and `Proxy__Upstreams__*` quoted below describe the v1 manifest; the per-component URL migrations of sections 6 and 9 are done since task 40 (below); see [`localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md).
+
+**Status 2026-10-23 (task 40, phase 1, branch `feat/service-names`):** every component calls the others by service name
+and runs without the pass-through provider, through one shared registration (`localtest/components/shared/fakes/ServiceDiscovery/`:
+core, the configuration provider, and an explicit fallback for real hosts, because the configuration provider refuses
+every host it has no entry for, altinncdn.no and the public origin included). The shared bases of Dialogporten and
+Correspondence stay public and their requests are moved to the owning service by `LocaltestPrefixRouting`; flagged site
+1 (Access Management's `ResourceRegistryClient`) goes through the factory; the BFF reaches the platform through the front
+door by name. Built and unit-tested; the proof on a stack (phase 2) is pending. The tables below describe the state
+before.
 
 ## Status (2026-10-22)
 
