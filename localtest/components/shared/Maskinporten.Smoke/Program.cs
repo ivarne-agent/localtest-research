@@ -19,7 +19,7 @@ var builder = Host.CreateApplicationBuilder();
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
 {
-    ["Localtest:Maskinporten:Issuer"] = baseUrl + "/localtest/api/maskinporten/",
+    ["Localtest:Maskinporten:TokenEndpoint"] = baseUrl + "/localtest/api/maskinporten/token",
     ["Localtest:Maskinporten:ExchangeEndpoint"] = baseUrl + "/authentication/api/v1/exchange/maskinporten",
 });
 

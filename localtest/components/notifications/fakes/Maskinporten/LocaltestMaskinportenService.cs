@@ -103,7 +103,7 @@ public sealed class LocaltestMaskinportenService(
             claims["consumer_org"] = settings.ConsumerOrgNo;
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, options.Value.Issuer + "token")
+        using var request = new HttpRequestMessage(HttpMethod.Post, options.Value.TokenEndpoint)
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {

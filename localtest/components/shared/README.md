@@ -25,7 +25,7 @@ Consumers of the cookie policy (`fakes/Cookies/`, copies identical to the files 
 
 | Path | What |
 | --- | --- |
-| `fakes/Maskinporten/` | `LocaltestMaskinportenService` (an `IMaskinportenService` for `Altinn.ApiClients.Maskinporten` 10.1.0), its options (`Localtest:Maskinporten`: `Issuer`, `ExchangeEndpoint`) and `AddLocaltestMaskinporten` |
+| `fakes/Maskinporten/` | `LocaltestMaskinportenService` (an `IMaskinportenService` for `Altinn.ApiClients.Maskinporten` 10.1.0), its options (`Localtest:Maskinporten`: `TokenEndpoint`, `ExchangeEndpoint`, by service name since task 40) and `AddLocaltestMaskinporten` |
 | `Maskinporten.Smoke/` | A net10.0 console host that compiles those three files against the package and asks the fake for a token |
 | `fakes/Cookies/` | `LocaltestCookiePolicy`: `AddLocaltestCookiePolicy()` registers an `IStartupFilter` that puts ASP.NET Core's cookie policy middleware in front of the host's pipeline; on plain http it removes `Secure` and turns `SameSite=None` into `Lax` |
 | `Cookies.Smoke/` | A net10.0 host on ASP.NET Core's in-memory `TestServer` that compiles that file and checks the cookies it writes over http and https |
@@ -45,7 +45,7 @@ The package hard-codes `https://*.maskinporten.no` and the exchange hosts per en
 its service with `TryAdd`).
 
 - `GetToken(IClientDefinition ...)` (both overloads, the ones `MaskinportenTokenHandler` calls) posts an unsigned
-  `jwt-bearer` assertion (`iss` = client id, `scope`, `consumer_org` when set) to `{Issuer}token`, the localtest app's token
+  `jwt-bearer` assertion (`iss` = client id, `scope`, `consumer_org` when set) to `TokenEndpoint` (`http://localtest/localtest/api/maskinporten/token`), the localtest app's token
   endpoint. When `ExhangeToAltinnToken` is true it exchanges the result through `ExchangeEndpoint`
   (production Authentication's `exchange/maskinporten`), with `?test=true` only when `UseAltinnTestOrg` is true, as the
   package does. Digdir's organisation number (the default) therefore becomes `ttd` with it and `digdir` without.
