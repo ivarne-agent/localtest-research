@@ -31,7 +31,10 @@ public static class AltinnAppExtensions
     /// </summary>
     /// <typeparam name="TProject">The project's metadata type.</typeparam>
     /// <param name="builder">The AppHost's builder.</param>
-    /// <param name="localtest">The platform, from <see cref="AltinnLocaltestExtensions.AddAltinnLocaltest" />.</param>
+    /// <param name="localtest">
+    /// The platform, from <see cref="AltinnLocaltestExtensions.AddAltinnLocaltest" /> or
+    /// <see cref="AltinnLocaltestMinimalExtensions.AddAltinnLocaltestMinimal" />.
+    /// </param>
     /// <param name="name">The app resource's name.</param>
     /// <param name="configure">Sets the options.</param>
     /// <returns>The app's project resource.</returns>
@@ -40,7 +43,7 @@ public static class AltinnAppExtensions
     /// </exception>
     public static IResourceBuilder<ProjectResource> AddAltinnApp<TProject>(
         this IDistributedApplicationBuilder builder,
-        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<AltinnLocaltestResourceBase> localtest,
         [ResourceName] string name = "app",
         Action<AltinnAppOptions>? configure = null
     )
@@ -63,7 +66,10 @@ public static class AltinnAppExtensions
     /// <c>Projects.*</c> metadata.
     /// </summary>
     /// <param name="builder">The AppHost's builder.</param>
-    /// <param name="localtest">The platform, from <see cref="AltinnLocaltestExtensions.AddAltinnLocaltest" />.</param>
+    /// <param name="localtest">
+    /// The platform, from <see cref="AltinnLocaltestExtensions.AddAltinnLocaltest" /> or
+    /// <see cref="AltinnLocaltestMinimalExtensions.AddAltinnLocaltestMinimal" />.
+    /// </param>
     /// <param name="projectPath">The app's project file.</param>
     /// <param name="name">The app resource's name.</param>
     /// <param name="configure">Sets the options.</param>
@@ -73,7 +79,7 @@ public static class AltinnAppExtensions
     /// </exception>
     public static IResourceBuilder<ProjectResource> AddAltinnApp(
         this IDistributedApplicationBuilder builder,
-        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<AltinnLocaltestResourceBase> localtest,
         string projectPath,
         [ResourceName] string name = "app",
         Action<AltinnAppOptions>? configure = null
@@ -102,7 +108,7 @@ public static class AltinnAppExtensions
 
     private static IResourceBuilder<ProjectResource> AddAltinnApp(
         IDistributedApplicationBuilder builder,
-        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<AltinnLocaltestResourceBase> localtest,
         string name,
         string projectPath,
         Action<AltinnAppOptions>? configure,
@@ -225,7 +231,7 @@ public static class AltinnAppExtensions
 
     private static void AddProvisioning(
         IDistributedApplicationBuilder builder,
-        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<AltinnLocaltestResourceBase> localtest,
         IResourceBuilder<ProjectResource> app,
         AppId appId,
         EndpointReference endpoint,

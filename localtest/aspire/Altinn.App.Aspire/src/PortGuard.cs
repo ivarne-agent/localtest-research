@@ -33,6 +33,34 @@ internal static class PortGuard
         );
     }
 
+    /// <summary>
+    /// The check before a start, given this AppHost's persistent front door (<c>localtest-&lt;hash&gt;</c>) when it
+    /// runs. The full stack's front door is persistent, so its own container holding the port is accepted: the run
+    /// reuses it. Minimal mode's front door is a session container, which an AppHost's stop removes; this AppHost's
+    /// persistent one, left running by a run of the full stack, holds the port that minimal mode needs, and is named.
+    /// </summary>
+    /// <param name="port">The front door's port.</param>
+    /// <param name="persistentFrontDoor">Whether the starting stack's front door is persistent (the full stack).</param>
+    /// <param name="ownFrontDoor">This AppHost's persistent front door's container when it runs, else null.</param>
+    /// <param name="cli">The container runtime's CLI, for the remedy.</param>
+    public static void EnsureFree(int port, bool persistentFrontDoor, string? ownFrontDoor, string cli)
+    {
+        if (persistentFrontDoor)
+        {
+            EnsureFree(port, () => ownFrontDoor is not null);
+            return;
+        }
+        if (ownFrontDoor is not null && !IsFree(port))
+        {
+            throw new InvalidOperationException(
+                $"Port {port.ToString(CultureInfo.InvariantCulture)} is in use by {ownFrontDoor}, this AppHost's "
+                    + "persistent front door from a run of the full stack (AddAltinnLocaltest); minimal mode starts its "
+                    + $"own. Remove it first (`{cli} rm --force {ownFrontDoor}`; the full stack's volumes stay)."
+            );
+        }
+        EnsureFree(port);
+    }
+
     /// <summary>Whether the port can be bound on every interface and nothing answers on loopback.</summary>
     public static bool IsFree(int port)
     {

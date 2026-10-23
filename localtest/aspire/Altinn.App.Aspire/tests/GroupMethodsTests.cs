@@ -8,7 +8,8 @@ namespace Altinn.App.Aspire.Tests;
 /// <summary>
 /// The typed group aliases (<c>WithDialogporten()</c>, ...) on <see cref="AltinnLocaltestExtensions" /> are exactly
 /// the manifest's optional groups and <c>everything</c>, so adding, renaming or removing a group in the manifest fails
-/// here until the methods match.
+/// here until the methods match. None of them, and no other method that enables a service, takes minimal mode's
+/// builder.
 /// </summary>
 public sealed class GroupMethodsTests
 {
@@ -63,6 +64,71 @@ public sealed class GroupMethodsTests
         var count = builder.Resources.Count;
         localtest.WithEverything();
         Assert.Equal(count, builder.Resources.Count);
+    }
+
+    /// <summary>
+    /// The methods that take minimal mode's builder are exactly those for what both forms support: no group method,
+    /// nothing else that enables a service. A method takes it when one of its parameters is an
+    /// <c>IResourceBuilder&lt;T&gt;</c> that <c>IResourceBuilder&lt;AltinnLocaltestMinimalResource&gt;</c> converts to
+    /// (by <c>IResourceBuilder&lt;out T&gt;</c>'s covariance) or binds to (a type parameter whose constraints it meets).
+    /// </summary>
+    [Fact]
+    public void OnlyWhatBothFormsSupportTakesTheMinimalBuilder()
+    {
+        var takingMinimal = typeof(AltinnLocaltestMinimalResource)
+            .Assembly.GetExportedTypes()
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(m => m.GetParameters().Any(p => TakesMinimal(p.ParameterType)))
+            .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(
+            ["AltinnAppExtensions.AddAltinnApp", "AltinnLocaltestExtensions.WithFrontendDevServer"],
+            takingMinimal
+        );
+        // The group methods take the full stack's builder only.
+        Assert.False(typeof(AltinnLocaltestResource).IsAssignableFrom(typeof(AltinnLocaltestMinimalResource)));
+        Assert.False(typeof(AltinnLocaltestMinimalResource).IsAssignableFrom(typeof(AltinnLocaltestResource)));
+        Assert.True(typeof(AltinnLocaltestResource).IsSealed);
+        Assert.True(typeof(AltinnLocaltestMinimalResource).IsSealed);
+        Assert.False(
+            typeof(IResourceBuilder<AltinnLocaltestResource>).IsAssignableFrom(
+                typeof(IResourceBuilder<AltinnLocaltestMinimalResource>)
+            )
+        );
+        Assert.True(
+            typeof(IResourceBuilder<AltinnLocaltestResourceBase>).IsAssignableFrom(
+                typeof(IResourceBuilder<AltinnLocaltestMinimalResource>)
+            )
+        );
+    }
+
+    [Fact]
+    public void WhatBothFormsSupportKeepsTheBuildersType()
+    {
+        var builder = DistributedApplication.CreateBuilder(
+            new DistributedApplicationOptions { Args = [], DisableDashboard = true }
+        );
+        var minimal = builder.AddAltinnLocaltestMinimal().WithFrontendDevServer(5173);
+
+        Assert.IsType<AltinnLocaltestMinimalResource>(minimal.Resource);
+        Assert.Equal(5173, minimal.Resource.Stack.FrontendDevServerPort);
+        Assert.Throws<InvalidOperationException>(() => minimal.Resource.Stack.AddGroups(["dialogporten"]));
+    }
+
+    private static bool TakesMinimal(Type parameter)
+    {
+        var minimal = typeof(AltinnLocaltestMinimalResource);
+        if (!parameter.IsGenericType || parameter.GetGenericTypeDefinition() != typeof(IResourceBuilder<>))
+        {
+            return parameter != typeof(object)
+                && parameter.IsAssignableFrom(typeof(IResourceBuilder<>).MakeGenericType(minimal));
+        }
+        var argument = parameter.GetGenericArguments()[0];
+        return argument.IsGenericParameter
+            ? argument.GetGenericParameterConstraints().All(c => c.IsAssignableFrom(minimal))
+            : argument.IsAssignableFrom(minimal);
     }
 
     private static string MethodName(string group) =>

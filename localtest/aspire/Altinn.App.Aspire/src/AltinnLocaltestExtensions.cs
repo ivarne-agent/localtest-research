@@ -1,8 +1,6 @@
-using System.Diagnostics;
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -20,7 +18,8 @@ public static class AltinnLocaltestExtensions
     /// <c>altinn-localtest-&lt;id&gt;</c>), the localtest container's port 8080 published as
     /// <c>http://local.altinn.cloud:8000</c>, the front door. Optional groups come from
     /// <see cref="AltinnLocaltestOptions.Groups" />, <see cref="WithGroup" /> or a typed alias such as
-    /// <see cref="WithDialogporten" />.
+    /// <see cref="WithDialogporten" />. For minimal mode (four containers, the rest emulated, nothing persisted) see
+    /// <see cref="AltinnLocaltestMinimalExtensions.AddAltinnLocaltestMinimal" />.
     /// </summary>
     /// <param name="builder">The AppHost's builder.</param>
     /// <param name="name">The parent resource's name.</param>
@@ -37,32 +36,11 @@ public static class AltinnLocaltestExtensions
         configure?.Invoke(options);
 
         var stack = new LocaltestStack(builder, LocaltestManifest.Default, options);
-        var parent = builder
-            .AddResource(new AltinnLocaltestResource(name, stack))
-            .WithInitialState(
-                new CustomResourceSnapshot
-                {
-                    ResourceType = "AltinnLocaltest",
-                    State = KnownResourceStates.NotStarted,
-                    Properties =
-                    [
-                        new ResourcePropertySnapshot("localtest.platformUri", Topology.PlatformUri.ToString()),
-                    ],
-                }
-            );
-        stack.Initialize(parent, options.Groups);
-
-        // The port check and the certificate run when the AppHost starts, not when the model is built.
-        builder.Eventing.Subscribe<BeforeStartEvent>(
-            async (e, ct) =>
-            {
-                if (builder.ExecutionContext.IsRunMode)
-                {
-                    var own = await OwnFrontDoorRunningAsync(builder.Configuration, ct).ConfigureAwait(false);
-                    PortGuard.EnsureFree(Topology.IngressPort, () => own);
-                }
-                LocaltestCertificate.Ensure(stack.CertificateDirectory);
-            }
+        var parent = LocaltestPlatform.Add(
+            builder,
+            new AltinnLocaltestResource(name, stack),
+            "AltinnLocaltest",
+            options.Groups
         );
         parent.WithCommand(
             LocaltestReset.CommandName,
@@ -76,7 +54,6 @@ public static class AltinnLocaltestExtensions
                 IconName = "ArrowReset",
             }
         );
-        builder.Eventing.Subscribe<InitializeResourceEvent>(parent.Resource, ReportWhenHealthyAsync);
         return parent;
     }
 
@@ -86,13 +63,12 @@ public static class AltinnLocaltestExtensions
     /// container is healthy (<c>PUT localtest/api/routes/frontend-dev-server</c>), and every app added with
     /// <c>AddAltinnApp</c> loads app-frontend from it (<c>AppSettings__AppFrontendAssetBaseUrl</c>).
     /// </summary>
+    /// <typeparam name="T">The localtest resource: the full stack or minimal mode.</typeparam>
     /// <param name="builder">The localtest resource.</param>
     /// <param name="port">The dev server's port on the host.</param>
     /// <returns>The same builder.</returns>
-    public static IResourceBuilder<AltinnLocaltestResource> WithFrontendDevServer(
-        this IResourceBuilder<AltinnLocaltestResource> builder,
-        int port = 8080
-    )
+    public static IResourceBuilder<T> WithFrontendDevServer<T>(this IResourceBuilder<T> builder, int port = 8080)
+        where T : AltinnLocaltestResourceBase
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(port);
@@ -197,75 +173,4 @@ public static class AltinnLocaltestExtensions
     public static IResourceBuilder<AltinnLocaltestResource> WithEverything(
         this IResourceBuilder<AltinnLocaltestResource> builder
     ) => builder.WithGroup("everything");
-
-    /// <summary>
-    /// Whether this AppHost's own localtest container runs, from a previous run (it is persistent): then it holds port
-    /// 8000, and the next run reuses it. Aspire names a persistent container after the resource and the first eight
-    /// characters of the AppHost's hash.
-    /// </summary>
-    private static async Task<bool> OwnFrontDoorRunningAsync(IConfiguration configuration, CancellationToken ct)
-    {
-        if (configuration["AppHost:Sha256"] is not { Length: >= 8 } hash)
-        {
-            return false;
-        }
-#pragma warning disable CA1308 // Aspire lower-cases the suffix.
-        var name = $"{Topology.FrontDoor}-{hash[..8].ToLowerInvariant()}";
-#pragma warning restore CA1308
-        try
-        {
-            var (exitCode, output) = await ContainerRuntime
-                .RunAsync(
-                    ContainerRuntime.Cli(configuration),
-                    ["container", "inspect", "--format", "{{.State.Running}}", name],
-                    ct
-                )
-                .ConfigureAwait(false);
-            return exitCode == 0 && output.Trim() == "true";
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            return false;
-        }
-    }
-
-    private static async Task ReportWhenHealthyAsync(InitializeResourceEvent e, CancellationToken cancellationToken)
-    {
-        var resource = (AltinnLocaltestResource)e.Resource;
-        // The AppHost's console, besides the resource's own log in the dashboard.
-        var console = e.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Altinn.App.Aspire");
-        var started = Stopwatch.StartNew();
-        await e
-            .Notifications.PublishUpdateAsync(resource, s => s with { State = KnownResourceStates.Starting })
-            .ConfigureAwait(false);
-        try
-        {
-            await Task.WhenAll(
-                    resource.Stack.Containers.Values.Select(async container =>
-                    {
-                        await e
-                            .Notifications.WaitForResourceHealthyAsync(container.Resource.Name, cancellationToken)
-                            .ConfigureAwait(false);
-                        console.LogContainerHealthy(container.Resource.Name, started.Elapsed.TotalSeconds);
-                    })
-                )
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            e.Logger.LogLocaltestFailed(exception);
-            console.LogLocaltestFailed(exception);
-            await e
-                .Notifications.PublishUpdateAsync(resource, s => s with { State = KnownResourceStates.FailedToStart })
-                .ConfigureAwait(false);
-            return;
-        }
-        console.LogLocaltestHealthy(resource.Name, started.Elapsed.TotalSeconds);
-        await e
-            .Notifications.PublishUpdateAsync(
-                resource,
-                s => s with { State = KnownResourceStates.Running, StartTimeStamp = DateTime.UtcNow }
-            )
-            .ConfigureAwait(false);
-    }
 }

@@ -6,7 +6,8 @@ namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
 /// The sample AppHost's model (<c>AddAltinnLocaltest().WithDialogporten()</c> and
-/// <c>AddAltinnApp&lt;Projects.App&gt;(localtest)</c>), built and not run.
+/// <c>AddAltinnApp&lt;Projects.App&gt;(localtest)</c>), or the minimal sample's
+/// (<c>AddAltinnLocaltestMinimal()</c>), built and not run.
 /// </summary>
 internal sealed class SampleModel
 {
@@ -15,18 +16,29 @@ internal sealed class SampleModel
 
     private SampleModel(
         IDistributedApplicationBuilder builder,
-        IResourceBuilder<AltinnLocaltestResource> localtest,
+        IResourceBuilder<AltinnLocaltestResourceBase> platform,
         IResourceBuilder<ProjectResource>? app
     )
     {
         Builder = builder;
-        Localtest = localtest;
+        Platform = platform;
         App = app;
     }
 
     public IDistributedApplicationBuilder Builder { get; }
 
-    public IResourceBuilder<AltinnLocaltestResource> Localtest { get; }
+    /// <summary>The localtest resource, the full stack or minimal mode.</summary>
+    public IResourceBuilder<AltinnLocaltestResourceBase> Platform { get; }
+
+    /// <summary>The full stack's localtest resource; a minimal model has none.</summary>
+    public IResourceBuilder<AltinnLocaltestResource> Localtest =>
+        Platform as IResourceBuilder<AltinnLocaltestResource>
+        ?? throw new InvalidOperationException("A minimal model has no full-stack resource.");
+
+    /// <summary>Minimal mode's localtest resource; a full model has none.</summary>
+    public IResourceBuilder<AltinnLocaltestMinimalResource> Minimal =>
+        Platform as IResourceBuilder<AltinnLocaltestMinimalResource>
+        ?? throw new InvalidOperationException("A full model has no minimal resource.");
 
     /// <summary>The app, unless the model was built without it.</summary>
     public IResourceBuilder<ProjectResource>? App { get; }
@@ -56,6 +68,30 @@ internal sealed class SampleModel
             localtest.WithGroup(group);
         }
         var app = withApp ? builder.AddAltinnApp<SampleAppProject>(localtest, configure: configureApp) : null;
+        return new SampleModel(builder, localtest, app);
+    }
+
+    /// <summary>The minimal sample's model: <c>AddAltinnLocaltestMinimal()</c>, and both sample apps when asked.</summary>
+    public static SampleModel BuildMinimal(
+        bool withApps = false,
+        string dataDirectory = DataDirectory,
+        Action<AltinnLocaltestMinimalOptions>? configure = null
+    )
+    {
+        var builder = DistributedApplication.CreateBuilder(
+            new DistributedApplicationOptions { Args = [], DisableDashboard = true }
+        );
+        var localtest = builder.AddAltinnLocaltestMinimal(configure: o =>
+        {
+            o.DataDirectory = dataDirectory;
+            configure?.Invoke(o);
+        });
+        IResourceBuilder<ProjectResource>? app = null;
+        if (withApps)
+        {
+            app = builder.AddAltinnApp<SampleAppProject>(localtest);
+            builder.AddAltinnApp<SampleApp2Project>(localtest, "app2");
+        }
         return new SampleModel(builder, localtest, app);
     }
 

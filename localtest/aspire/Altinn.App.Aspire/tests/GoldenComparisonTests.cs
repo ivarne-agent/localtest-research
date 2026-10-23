@@ -7,12 +7,13 @@ namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
 /// The package against studioctl's golden snapshots, read by relative path from the Go tree:
-/// <c>internal/cmd/env/localtestv2/testdata/environment.golden.json</c> (the containers of <c>env up</c> and of
-/// <c>env up --with everything --latest --dev-...</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
+/// <c>internal/cmd/env/localtestv2/testdata/environment.golden.json</c> (the containers of <c>env up</c>, of
+/// <c>env up --with everything --latest --dev-...</c> and of <c>env up --minimal</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
 /// (the app's environment). Per container, every field both runners have is compared byte for byte with the
 /// application model the package builds: the selection and its start order, the image reference (the default stack;
 /// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>
-/// variables, the mounts (a named volume by its manifest id: each runner prefixes the id with its own prefix), the
+/// variables, the mounts (a named volume by its manifest id: each runner prefixes the id with its own prefix; a tmpfs
+/// of minimal mode by its path and options, which the package passes as <c>--tmpfs path:options</c>), the
 /// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
 /// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds.
 /// </summary>
@@ -25,7 +26,7 @@ public sealed class GoldenComparisonTests
     /// <summary>studioctl's volume prefix, as the snapshot states it.</summary>
     private static readonly string _studioctlVolumePrefix = _golden.GetProperty("volumePrefix").GetString()!;
 
-    public static TheoryData<string> Selections => new() { "default", "everything" };
+    public static TheoryData<string> Selections => new() { "default", "everything", "minimal" };
 
     private static JsonElement Load(string file)
     {
@@ -36,7 +37,12 @@ public sealed class GoldenComparisonTests
     }
 
     private static SampleModel Model(string selection) =>
-        SampleModel.Build(selection == "everything" ? ["everything"] : [], dataDirectory: DataDirectory);
+        selection switch
+        {
+            "minimal" => SampleModel.BuildMinimal(dataDirectory: DataDirectory),
+            "everything" => SampleModel.Build(["everything"], dataDirectory: DataDirectory),
+            _ => SampleModel.Build([], dataDirectory: DataDirectory),
+        };
 
     /// <summary>The snapshot's container resources, by manifest name, in start order.</summary>
     private static List<(string Name, JsonElement Resource)> GoldenContainers(string selection) =>
@@ -56,6 +62,10 @@ public sealed class GoldenComparisonTests
         return name[prefix.Length..];
     }
 
+    /// <summary>The values that follow <paramref name="flag" /> in a container's runtime arguments, in order.</summary>
+    private static List<string> Pairs(IReadOnlyList<string> args, string flag) =>
+        [.. args.Select((arg, i) => (arg, i)).Where(a => a.arg == flag).Select(a => args[a.i + 1])];
+
     private static List<string> Strings(JsonElement resource, string property) =>
         resource.TryGetProperty(property, out var value) ? [.. value.EnumerateArray().Select(v => v.GetString()!)] : [];
 
@@ -66,8 +76,16 @@ public sealed class GoldenComparisonTests
         var model = Model(selection);
         var golden = GoldenContainers(selection).Select(c => c.Name).ToList();
 
-        Assert.Equal(selection == "default" ? 13 : 22, golden.Count);
-        Assert.Equal(golden, model.Localtest.Resource.Stack.Specs().Select(s => s.Name));
+        Assert.Equal(
+            selection switch
+            {
+                "default" => 13,
+                "everything" => 22,
+                _ => 4,
+            },
+            golden.Count
+        );
+        Assert.Equal(golden, model.Platform.Resource.Stack.Specs().Select(s => s.Name));
         Assert.Equal(
             golden.Order(StringComparer.Ordinal),
             model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)
@@ -79,12 +97,13 @@ public sealed class GoldenComparisonTests
     public async Task EveryContainerRunsAsStudioctlRunsIt(string selection)
     {
         var model = Model(selection);
-        var specs = model.Localtest.Resource.Stack.Specs().ToDictionary(s => s.Name);
+        var specs = model.Platform.Resource.Stack.Specs().ToDictionary(s => s.Name);
         foreach (var (name, golden) in GoldenContainers(selection))
         {
             var container = model.Container(name);
+            var runtimeArgs = await SampleModel.RuntimeArgs(container);
 
-            if (selection == "default")
+            if (selection != "everything")
             {
                 Assert.Equal(golden.GetProperty("image").GetString(), "image:pulled:" + specs[name].Image.Reference);
             }
@@ -105,16 +124,22 @@ public sealed class GoldenComparisonTests
                             type,
                             type == "volume" ? VolumeId(source, _studioctlVolumePrefix) : source,
                             v.GetProperty("ContainerPath").GetString()!,
-                            v.GetProperty("ReadOnly").GetBoolean()
+                            v.GetProperty("ReadOnly").GetBoolean(),
+                            v.TryGetProperty("Options", out var options) ? options.GetString()! : ""
                         );
                     }),
-                container
-                    .Annotations.OfType<ContainerMountAnnotation>()
-                    .Select(m =>
-                        m.Type == ContainerMountType.Volume
-                            ? ("volume", VolumeId(m.Source!, StackSpec.VolumePrefix), m.Target, m.IsReadOnly)
-                            : ("bind", m.Source!, m.Target, m.IsReadOnly)
-                    )
+                [
+                    .. container
+                        .Annotations.OfType<ContainerMountAnnotation>()
+                        .Select(m =>
+                            m.Type == ContainerMountType.Volume
+                                ? ("volume", VolumeId(m.Source!, StackSpec.VolumePrefix), m.Target, m.IsReadOnly, "")
+                                : ("bind", m.Source!, m.Target, m.IsReadOnly, "")
+                        ),
+                    .. Pairs(runtimeArgs, "--tmpfs")
+                        .Select(t => t.Split(':', 2))
+                        .Select(t => ("tmpfs", "", t[0], false, t.Length > 1 ? t[1] : "")),
+                ]
             );
             Assert.Equal(
                 golden.TryGetProperty("ports", out var ports)
@@ -135,9 +160,11 @@ public sealed class GoldenComparisonTests
                     )
                     .ToList()
             );
+            Assert.Equal(Strings(golden, "extraHosts"), Pairs(runtimeArgs, "--add-host"));
+            // Nothing else is passed to the runtime: the --tmpfs and --add-host pairs.
             Assert.Equal(
-                Strings(golden, "extraHosts").SelectMany(host => new[] { "--add-host", host }),
-                await SampleModel.RuntimeArgs(container)
+                2 * (Pairs(runtimeArgs, "--tmpfs").Count + Pairs(runtimeArgs, "--add-host").Count),
+                runtimeArgs.Count
             );
             Assert.Equal(Strings(golden, "networkAliases"), [container.Name]);
             Assert.Equal(
@@ -154,7 +181,7 @@ public sealed class GoldenComparisonTests
     [MemberData(nameof(Selections))]
     public void TheHealthTargetsMatch(string selection)
     {
-        var specs = Model(selection).Localtest.Resource.Stack.Specs();
+        var specs = Model(selection).Platform.Resource.Stack.Specs();
 
         Assert.Equal(
             Strings(_golden.GetProperty(selection), "healthTargets"),
@@ -185,6 +212,29 @@ public sealed class GoldenComparisonTests
         Assert.Equal(
             Strings(_golden, "volumes").Select(name => VolumeId(name, _studioctlVolumePrefix)),
             manifest.VolumeIds
+        );
+    }
+
+    /// <summary>
+    /// Minimal mode announces at the front door exactly the services studioctl announces there, and mounts no volume.
+    /// </summary>
+    [Fact]
+    public void MinimalModeEmulatesWhatStudioctlEmulatesAndMountsNoVolume()
+    {
+        var model = Model("minimal");
+        const string frontDoor = "=http://localtest:8080";
+        var golden = GoldenContainers("minimal")
+            .SelectMany(c => Strings(c.Resource, "env"))
+            .Where(e => e.EndsWith(frontDoor, StringComparison.Ordinal))
+            .Select(e => e["services__".Length..e.IndexOf("__http__0", StringComparison.Ordinal)])
+            .Where(name => name != Topology.FrontDoor)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(golden, model.Minimal.Resource.Emulated.Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(
+            model.Containers.SelectMany(c => c.Annotations.OfType<ContainerMountAnnotation>()),
+            m => m.Type == ContainerMountType.Volume
         );
     }
 

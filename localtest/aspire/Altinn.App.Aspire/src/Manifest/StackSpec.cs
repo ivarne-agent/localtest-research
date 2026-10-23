@@ -80,18 +80,38 @@ internal sealed record HealthTarget(string Name, int Port, string? Path)
         Tcp ? $"tcp {Name}:{Port.ToString(CultureInfo.InvariantCulture)}" : Topology.Url(Name, Port) + Path;
 }
 
-/// <summary>A bind mount (host path) or a named volume.</summary>
-/// <param name="IsVolume">True for a named volume, false for a bind mount.</param>
-/// <param name="Source">The volume's name (<see cref="StackSpec.VolumeName" />) or the host path.</param>
+/// <summary>What a mount is: a host path, a named volume, or a tmpfs (memory, gone with the container).</summary>
+internal enum MountKind
+{
+    /// <summary>A bind mount of a host path.</summary>
+    Bind,
+
+    /// <summary>A named volume.</summary>
+    Volume,
+
+    /// <summary>A tmpfs: minimal mode's form of every manifest volume.</summary>
+    Tmpfs,
+}
+
+/// <summary>A bind mount (host path), a named volume or a tmpfs.</summary>
+/// <param name="Kind">The kind of mount.</param>
+/// <param name="Source">The volume's name (<see cref="StackSpec.VolumeName" />) or the host path; empty for a tmpfs.</param>
 /// <param name="Target">The path in the container.</param>
 /// <param name="ReadOnly">Whether it is read-only.</param>
-internal sealed record MountSpec(bool IsVolume, string Source, string Target, bool ReadOnly);
+/// <param name="Options">A tmpfs's options (<c>mode=1777</c>, <c>size=1g,mode=1777</c>); empty for the others.</param>
+internal sealed record MountSpec(MountKind Kind, string Source, string Target, bool ReadOnly, string Options = "")
+{
+    /// <summary>The tmpfs's argument of <c>--tmpfs</c>, the same in Podman and Docker: <c>path:options</c>.</summary>
+    public string TmpfsArgument => Options.Length == 0 ? Target : Target + ":" + Options;
+}
 
 /// <summary>One container as it runs: the manifest's container resolved for one selection of groups.</summary>
 /// <param name="Name">The manifest name: the resource name and the network alias.</param>
 /// <param name="Image">The image.</param>
 /// <param name="Environment">The manifest's <c>envs</c> and the <c>services__</c> variables, sorted by name.</param>
-/// <param name="Mounts">The certificate (directory and legacy file), then the named volumes sorted by id.</param>
+/// <param name="Mounts">
+/// The certificate (directory and legacy file), then the named volumes (tmpfs in minimal mode) sorted by id.
+/// </param>
 /// <param name="Port">The container's port.</param>
 /// <param name="Health">The health check.</param>
 /// <param name="DependsOn">The containers that must be healthy first.</param>
@@ -126,6 +146,45 @@ internal static class StackSpec
     public static string VolumeName(string id) => VolumePrefix + id;
 
     /// <summary>
+    /// The mode bits of every minimal-mode tmpfs: writable for an image's own non-root user (Storage, the front door's
+    /// app user), as the named volume was; a tmpfs mount point is root's, 0755, whatever the image's directory was.
+    /// studioctl's <c>tmpfsMode</c> (<c>internal/cmd/env/localtestv2/minimal.go</c>).
+    /// </summary>
+    public const string TmpfsMode = "mode=1777";
+
+    /// <summary>
+    /// The options of a minimal-mode tmpfs by manifest volume id, beyond <see cref="TmpfsMode" />: Storage's blobs are
+    /// the app's uploads, bounded at 1 GB. studioctl's <c>tmpfsOptions</c>.
+    /// </summary>
+    private static readonly Dictionary<string, string> _tmpfsOptions = new(StringComparer.Ordinal)
+    {
+        ["storage-blobs"] = "size=1g," + TmpfsMode,
+    };
+
+    /// <summary>
+    /// The front door's file of registered app routes; minimal mode sets it empty, so the routes stay in memory.
+    /// </summary>
+    public const string AppRoutesFileVariable = "Proxy__AppRoutesFile";
+
+    /// <summary>The options of the minimal-mode tmpfs for a manifest volume id.</summary>
+    public static string TmpfsOptions(string id) => _tmpfsOptions.GetValueOrDefault(id, TmpfsMode);
+
+    /// <summary>
+    /// The containers minimal mode leaves to the front door: every HTTP container of the default group that the minimal
+    /// group does not start, in start order. studioctl's <c>emulated</c>, as a set (the variables are sorted by name).
+    /// </summary>
+    public static IReadOnlyList<string> Emulated(LocaltestManifest manifest)
+    {
+        var running = manifest.Select([LocaltestManifest.MinimalGroup]);
+        return
+        [
+            .. manifest
+                .Select([LocaltestManifest.DefaultGroup])
+                .Where(name => manifest.Containers[name].IsHttp && !running.Contains(name)),
+        ];
+    }
+
+    /// <summary>
     /// The containers of the default group and the named optional groups, in start order: the manifest's
     /// <c>envs</c> plus a <c>services__&lt;name&gt;__http__0</c> for every selected HTTP container, the certificate
     /// read-only from <paramref name="certificateDirectory" />, the named volumes, the extra hosts, and port 8000 on
@@ -140,16 +199,60 @@ internal static class StackSpec
         IEnumerable<string> groups,
         string certificateDirectory,
         string? tag = null
+    ) => Resolve(manifest, [LocaltestManifest.DefaultGroup, .. groups], [], certificateDirectory, tag, minimal: false);
+
+    /// <summary>
+    /// Minimal mode, as studioctl's <c>env up --minimal</c>: the containers of the minimal group in place of the
+    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string?)" />
+    /// resolves them but for three things: every emulated container (<see cref="Emulated" />) is announced at the
+    /// front door (<c>services__&lt;name&gt;__http__0=http://localtest:8080</c>), every manifest volume is a tmpfs
+    /// (<see cref="TmpfsOptions" />), and the front door keeps its app routes in memory
+    /// (<see cref="AppRoutesFileVariable" /> empty).
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
+    /// <param name="certificateDirectory">The host directory holding the shared certificate.</param>
+    /// <param name="tag">Replaces every <c>sha-</c> pin when set.</param>
+    public static IReadOnlyList<ContainerSpec> ResolveMinimal(
+        LocaltestManifest manifest,
+        string certificateDirectory,
+        string? tag = null
+    ) =>
+        Resolve(
+            manifest,
+            [LocaltestManifest.MinimalGroup],
+            Emulated(manifest),
+            certificateDirectory,
+            tag,
+            minimal: true
+        );
+
+    private static IReadOnlyList<ContainerSpec> Resolve(
+        LocaltestManifest manifest,
+        IEnumerable<string> groups,
+        IReadOnlyList<string> emulated,
+        string certificateDirectory,
+        string? tag,
+        bool minimal
     )
     {
-        var names = manifest.Select([LocaltestManifest.DefaultGroup, .. groups]);
+        var names = manifest.Select(groups);
         var services = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var name in names.Where(n => manifest.Containers[n].IsHttp))
         {
             services[$"services__{name}__http__0"] = Topology.Url(name, manifest.Containers[name].HttpPort);
         }
+        var frontDoor = Topology.Url(Topology.FrontDoor, manifest.Containers[Topology.FrontDoor].HttpPort);
+        foreach (var name in emulated)
+        {
+            services[$"services__{name}__http__0"] = frontDoor;
+        }
         var extraHosts = Topology.ExtraHostNames.Select(host => host + ":" + Topology.HostGateway).ToList();
-        return [.. names.Select(name => Container(manifest, name, services, extraHosts, certificateDirectory, tag))];
+        return
+        [
+            .. names.Select(name =>
+                Container(manifest, name, services, extraHosts, certificateDirectory, tag, minimal)
+            ),
+        ];
     }
 
     private static ContainerSpec Container(
@@ -158,7 +261,8 @@ internal static class StackSpec
         IReadOnlyDictionary<string, string> services,
         IReadOnlyList<string> extraHosts,
         string certificateDirectory,
-        string? tag
+        string? tag,
+        bool minimal
     )
     {
         var c = manifest.Containers[name];
@@ -167,18 +271,26 @@ internal static class StackSpec
         {
             environment[key] = value;
         }
+        if (minimal && name == Topology.FrontDoor)
+        {
+            environment[AppRoutesFileVariable] = "";
+        }
         List<MountSpec> mounts =
         [
-            new(false, certificateDirectory, Topology.CertificateDirectory, true),
+            new(MountKind.Bind, certificateDirectory, Topology.CertificateDirectory, true),
             new(
-                false,
+                MountKind.Bind,
                 Path.Combine(certificateDirectory, Topology.CertificateFileName),
                 Topology.LegacyCertificateFile,
                 true
             ),
             .. c
                 .Volumes.OrderBy(v => v.Key, StringComparer.Ordinal)
-                .Select(v => new MountSpec(true, VolumeName(v.Key), v.Value, false)),
+                .Select(v =>
+                    minimal
+                        ? new MountSpec(MountKind.Tmpfs, "", v.Value, false, TmpfsOptions(v.Key))
+                        : new MountSpec(MountKind.Volume, VolumeName(v.Key), v.Value, false)
+                ),
         ];
         return new ContainerSpec(
             name,

@@ -13,8 +13,7 @@ public sealed class AltinnLocaltestOptions
     /// The package's data directory on the host; it holds the shared test certificate (<c>certs/</c>), which every
     /// container mounts, and the apps' secrets. Default <c>~/.altinn-app-aspire</c>.
     /// </summary>
-    public string DataDirectory { get; set; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".altinn-app-aspire");
+    public string DataDirectory { get; set; } = DefaultDataDirectory;
 
     /// <summary>
     /// The optional groups to add (<c>dialogporten</c>, <c>receipt</c>, <c>correspondence</c>, <c>arbeidsflate</c>,
@@ -27,4 +26,8 @@ public sealed class AltinnLocaltestOptions
     /// nothing, as studioctl. The health checks do not need it.
     /// </summary>
     public int? PostgresHostPort { get; set; }
+
+    /// <summary>The default of <see cref="DataDirectory" />: <c>~/.altinn-app-aspire</c>.</summary>
+    internal static string DefaultDataDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".altinn-app-aspire");
 }

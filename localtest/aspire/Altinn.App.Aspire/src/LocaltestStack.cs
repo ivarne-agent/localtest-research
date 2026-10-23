@@ -9,7 +9,8 @@ namespace Altinn.App.Aspire;
 
 /// <summary>
 /// Adds the manifest's containers to the application model: the default group's when the stack is created, a group's
-/// when it is enabled. Each container is one persistent container resource named after its manifest key.
+/// when it is enabled. Each container is one container resource named after its manifest key: persistent, with the
+/// package's named volumes; in minimal mode the minimal group's, for the session, with a tmpfs for each volume.
 /// </summary>
 internal sealed class LocaltestStack
 {
@@ -23,25 +24,52 @@ internal sealed class LocaltestStack
     public const string Everything = "everything";
 
     private readonly IDistributedApplicationBuilder _builder;
-    private readonly AltinnLocaltestOptions _options;
+    private readonly string? _tag;
+    private readonly int? _postgresHostPort;
     private readonly SortedSet<string> _groups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IResourceBuilder<ContainerResource>> _containers = new(StringComparer.Ordinal);
-    private IResourceBuilder<AltinnLocaltestResource>? _parent;
+    private IResourceBuilder<AltinnLocaltestResourceBase>? _parent;
 
+    /// <summary>A stack of the default group and the optional groups.</summary>
     public LocaltestStack(
         IDistributedApplicationBuilder builder,
         LocaltestManifest manifest,
         AltinnLocaltestOptions options
     )
+        : this(builder, manifest, options.DataDirectory, options.Tag, options.PostgresHostPort, minimal: false) { }
+
+    /// <summary>A stack in minimal mode.</summary>
+    public LocaltestStack(
+        IDistributedApplicationBuilder builder,
+        LocaltestManifest manifest,
+        AltinnLocaltestMinimalOptions options
+    )
+        : this(builder, manifest, options.DataDirectory, options.Tag, options.PostgresHostPort, minimal: true) { }
+
+    private LocaltestStack(
+        IDistributedApplicationBuilder builder,
+        LocaltestManifest manifest,
+        string dataDirectory,
+        string? tag,
+        int? postgresHostPort,
+        bool minimal
+    )
     {
         _builder = builder;
-        _options = options;
+        _tag = tag;
+        _postgresHostPort = postgresHostPort;
         Manifest = manifest;
-        DataDirectory = options.DataDirectory;
-        CertificateDirectory = Path.Combine(options.DataDirectory, "certs");
+        Minimal = minimal;
+        DataDirectory = dataDirectory;
+        CertificateDirectory = Path.Combine(dataDirectory, "certs");
     }
 
     public LocaltestManifest Manifest { get; }
+
+    /// <summary>
+    /// Whether the stack runs in minimal mode: the minimal group, session containers, tmpfs, no optional groups.
+    /// </summary>
+    public bool Minimal { get; }
 
     /// <summary>The package's data directory on the host.</summary>
     public string DataDirectory { get; }
@@ -69,10 +97,12 @@ internal sealed class LocaltestStack
 
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>
-        StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _options.Tag);
+        Minimal
+            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, _tag)
+            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _tag);
 
-    /// <summary>Adds the default group's containers, then the groups of the options.</summary>
-    public void Initialize(IResourceBuilder<AltinnLocaltestResource> parent, IEnumerable<string> groups)
+    /// <summary>Adds the default group's containers (the minimal group's in minimal mode), then the given groups.</summary>
+    public void Initialize(IResourceBuilder<AltinnLocaltestResourceBase> parent, IEnumerable<string> groups)
     {
         _parent = parent;
         AddContainers();
@@ -83,10 +113,19 @@ internal sealed class LocaltestStack
     /// Enables groups (<c>everything</c> enables all) and adds the containers they start that are not added yet.
     /// </summary>
     /// <exception cref="ArgumentException">An unknown group, or the default one, which is always on.</exception>
+    /// <exception cref="InvalidOperationException">A group in minimal mode, which has none.</exception>
     public void AddGroups(IEnumerable<string> groups)
     {
         foreach (var group in groups)
         {
+            if (Minimal)
+            {
+                // Unreachable through the public API, which offers no group method on the minimal resource.
+                throw new InvalidOperationException(
+                    $"Minimal mode has no optional groups ({group}): they need the real Register, Authentication and "
+                        + "others. Use AddAltinnLocaltest() for the full stack."
+                );
+            }
             if (group == Everything)
             {
                 _groups.UnionWith(OptionalGroups);
@@ -137,7 +176,9 @@ internal sealed class LocaltestStack
         var container = _builder
             .AddContainer(spec.Name, image.Image, image.Tag ?? "latest")
             .WithParentRelationship(_parent!)
-            .WithLifetime(ContainerLifetime.Persistent);
+            // Minimal mode's containers live for the AppHost's run: a persistent one would keep its tmpfs across runs
+            // while it kept running, so the clean slate would depend on whether it was replaced.
+            .WithLifetime(Minimal ? ContainerLifetime.Session : ContainerLifetime.Persistent);
         if (image.Registry is not null)
         {
             container.WithImageRegistry(image.Registry);
@@ -162,13 +203,20 @@ internal sealed class LocaltestStack
         });
         foreach (var mount in spec.Mounts)
         {
-            if (mount.IsVolume)
+            switch (mount.Kind)
             {
-                container.WithVolume(mount.Source, mount.Target, mount.ReadOnly);
-            }
-            else
-            {
-                container.WithBindMount(mount.Source, mount.Target, mount.ReadOnly);
+                case MountKind.Volume:
+                    container.WithVolume(mount.Source, mount.Target, mount.ReadOnly);
+                    break;
+                case MountKind.Tmpfs:
+                    // Aspire has no tmpfs mount; the runtime's own flag, the same in Podman and Docker. Over a path an
+                    // image declares a VOLUME for (Postgres's), it also keeps the runtime from creating an anonymous
+                    // volume there.
+                    container.WithContainerRuntimeArgs("--tmpfs", mount.TmpfsArgument);
+                    break;
+                default:
+                    container.WithBindMount(mount.Source, mount.Target, mount.ReadOnly);
+                    break;
             }
         }
         // Aspire gives a container its resource name as network alias, which is the manifest name.
@@ -192,7 +240,7 @@ internal sealed class LocaltestStack
                 .WithHttpHealthCheck(spec.Health.Path, endpointName: HttpEndpoint);
             return;
         }
-        if (spec.Name == InNetworkHealthCheck.ProbeContainer && _options.PostgresHostPort is { } postgresPort)
+        if (spec.Name == InNetworkHealthCheck.ProbeContainer && _postgresHostPort is { } postgresPort)
         {
             container.WithEndpoint(
                 port: postgresPort,
