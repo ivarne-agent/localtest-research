@@ -263,6 +263,16 @@ Notifications 16, Access Management 23, Dialogporten's WebApi 29 (its migrations
   process was left to kill. The persistent containers stay, as designed.
 - Memory with the 18 containers: about 1.9 GB by `podman stats`, 4.3 GB used of 7.9 GB on the machine.
 
+Task 31 run (2026-10-23, Podman 5.7, arm64, the pins `sha-6d928ad`): `studioctl env reset -r localtest-v2 --yes`
+removed the four `localtest-v2-*` volumes that existed; `env up -r localtest-v2` (default stack, 24 s) created
+`localtest-v2-{postgres-data,policy-store,storage-blobs,localtest-data}` and no other named volume; the root suite 26 of
+26; `env down`. Then the sample AppHost (both apps, `WithDialogporten()`, 18 containers, on empty volumes): both apps
+provisioned 40 s after `dotnet run`, beside the four `localtest-v2-*` volumes the four `altinn-localtest-*` ones; the
+root suite through `smoke/lib/containers.sh` (after deprovisioning both apps and the PDP refresh) 26 of 26; the
+dashboard's `reset` (Playwright) removed the 18 containers and the four `altinn-localtest-*` volumes and left the four
+`localtest-v2-*` ones. SIGINT to the process group: the AppHost gone in 3 s, DCP and the apps within 45 s by
+themselves; nothing to kill.
+
 Found and fixed: the port guard refused every restart, because the persistent localtest container keeps port 8000
 between runs; it now accepts the port when this AppHost's own `localtest-<hash>` container runs.
 
