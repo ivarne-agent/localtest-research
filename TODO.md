@@ -70,6 +70,7 @@ A path matching no route still falls through to the localtest app.
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
+| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | brief ready (`/home/agent/code/.briefs/task37-aspire-minimal.md`), awaiting dispatch; owner's API decision 2026-10-23: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1142,3 +1143,14 @@ now on the plain Postgres image leaving nothing) and `env down`, minimal `env up
 started by hand from the rebuilt images without mounts (`Mounts = []`); for contrast the pinned localtest image still
 creates one anonymous volume, removed by `rm --volumes`. Coordinator re-ran go build/test/lint and the Aspire tests.
 Worktree and branch removed. Open: none; the images reach users at the next pin bump.
+
+## 37. Aspire minimal mode
+
+**Goal (2026-10-23, owner's decision).** The spec's phase 2 with the owner's API: `var localtest =
+builder.AddAltinnLocaltestMinimal();` returns a builder of a distinct resource type on which no group method compiles
+(mind `IResourceBuilder<out T>` covariance: a shared base and two sealed leaves, not inheritance from the full
+resource); `AddAltinnApp`, `WithFrontendDevServer`, `Tag` and `PostgresHostPort` work on both, `DataDirectory` and
+`Groups` do not apply; the four containers with the golden's `minimal` environment, tmpfs through container runtime
+arguments (`mode=1777`, blobs `size=1g,mode=1777`), empty `Proxy__AppRoutesFile`, session lifetime; the parity test
+gains the `minimal` case; README and docs; a minimal sample AppHost. Proof under Podman: four containers, no volume,
+both sample apps, root 23 with the named skips, clean slate after SIGINT and restart, the full AppHost still 26/26.
