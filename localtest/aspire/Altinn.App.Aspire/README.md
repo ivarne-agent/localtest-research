@@ -5,7 +5,7 @@ resources of an AppHost. It is a thin loader: it embeds studioctl's
 [manifest v2](../../studioctl/src/cli/internal/localtestv2/manifest/README.md)
 (`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`, by relative path, one copy) and starts what
 studioctl's `env up -r localtest-v2` starts: the same containers with the same images, environment, `services__*`
-variables, volumes and certificate, and the localtest container as the front door on `http://local.altinn.cloud:8000`,
+variables, mounts and certificate (on volumes of its own, `altinn-localtest-<id>`), and the localtest container as the front door on `http://local.altinn.cloud:8000`,
 the only published port. `AddAltinnApp` runs an Altinn app project beside it with the environment `studioctl run`
 gives an app and registers it with the front door, which routes it and provisions it. Tasks 21 and 27b of
 [`TODO.md`](../../../TODO.md). The conventions both runtimes follow (the manifest, the front door, service discovery,
@@ -15,7 +15,8 @@ ports and health, the certificate, the volumes, the app environment) are in
 Status (2026-10-23): task 27b done in code and tests (75) and **run under Podman** with the sample (`WithDialogporten()`,
 the pin `sha-6d928ad`): only the localtest container publishes a port (8000), the app is registered and provisioned
 through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman). Task
-30: two apps in one AppHost work, see [Several apps](#several-apps).
+30: two apps in one AppHost work, see [Several apps](#several-apps). Task 31: the package's volumes are its own (`altinn-localtest-<id>`), no
+longer shared with studioctl's (`localtest-v2-<id>`).
 The documentation stays in this repository until the package is adopted.
 
 | Path | What |
@@ -73,7 +74,7 @@ workflow run's artifact into a local folder source.
 | `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups differ |
 | `.WithFrontendDevServer(port = 8080)` | `studioctl run --dev-frontend`: once the front door is healthy, `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:<port>`, and every app loads app-frontend from `http://app-frontend.local.altinn.cloud:8000` |
 | `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`; pulled on every start). Default: the manifest's pins |
-| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` (world-readable, as studioctl writes it), the apps' secrets in `apps/<org>/<app>/secrets` |
+| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` (world-readable, as studioctl writes it), the apps' secrets in `apps/<org>/<app>/secrets`. The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
 | `AltinnLocaltestOptions.PostgresHostPort` | Publishes Postgres on this loopback port, for `psql`; default none, as studioctl |
 | `AddAltinnApp<TProject>(localtest, name = "app", configure = null)` | Adds an app project (`Projects.App` for `#:project ../App/App.csproj`): [The app](#the-app) |
@@ -93,7 +94,7 @@ studioctl's loader (`internal/cmd/env/localtestv2/containers.go`) builds it:
 | `envs` | `WithEnvironment`, literal | none |
 | the `services__<name>__http__0=http://<name>:<port>` of every selected HTTP container | the same, read when the AppHost starts, so a group added later is announced to every container | none |
 | the certificate | `<data>/certs` read-only at `/certs`, and its file at `/accesstoken/accesstokencredentials.pfx` | no SELinux relabel (not an Aspire option) |
-| `volumes` | `WithVolume(name, path)`, the manifest's names: **shared with studioctl** | none |
+| `volumes` | `WithVolume("altinn-localtest-" + id, path)`: the prefix (`StackSpec.VolumePrefix`, the default parent resource's name and a hyphen, whatever the parent is called) and the manifest's volume id | the names: studioctl's are `localtest-v2-<id>`, so the two runtimes' data never mixes |
 | the public hosts and `host.docker.internal` | `--add-host <host>:host-gateway` | none |
 | `dependsOn` | `WaitFor` (healthy); every HTTP container also `WaitForStart(localtest)` | studioctl waits for its probe |
 | `health` | [Health](#health) | |
@@ -155,7 +156,7 @@ cookies, as under studioctl, so app-lib's `keepAlive` cookie works over http.
 | --- | --- | --- |
 | the app | `provision` | The `PUT` again (after an edit of `testData.json`, the texts or the policy) |
 | the app | `deprovision` | After a confirmation, `DELETE localtest/api/apps/{org}/{app}`: the test users leave the Register, the route the front door |
-| `altinn-localtest` | `reset` | After a confirmation, `rm --force` of the containers by ID and `volume rm --force` of the manifest's volumes that exist, through the runtime's CLI; then restart the AppHost. The volumes are studioctl's too, so this resets a studioctl stack's data as well |
+| `altinn-localtest` | `reset` | After a confirmation, `rm --force` of the containers by ID and `volume rm --force` of the package's volumes (`altinn-localtest-<id>`) that exist, through the runtime's CLI; then restart the AppHost. studioctl's `localtest-v2-<id>` volumes stay |
 
 ## Several apps
 
@@ -205,19 +206,19 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (75 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (78 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
 | Golden file | This package's test |
 | --- | --- |
-| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, and `--with everything` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume names |
+| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, and `--with everything` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-` |
 | `internal/cmd/app/testdata/app-environment.golden.json` | `GoldenComparisonTests`: every case (native, inherited variables, ingress port 80, container) from the same inputs |
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
 
 Besides: `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
-health, port, env key or volume, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
+health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
 `correspondence` and `everything` selections, the `services__*` of every container and of a group added later, only
 8000 published, persistence, parent and health checks, the extra hosts, the mounts, images and the `Tag` option, the
 waits, the probe script), `AppTests` (the app's environment, endpoint, waits, commands, the metadata error, the port
@@ -238,7 +239,7 @@ ignores Ctrl-C sent with `kill -INT`).
 
 | Run | Platform healthy | App provisioned (from `dotnet run`) |
 | --- | --- | --- |
-| Containers created, volumes from an earlier studioctl stack | 22 s | 33 s |
+| Containers created, volumes from an earlier studioctl stack (shared until task 31) | 22 s | 33 s |
 | Restart, all 18 containers reused (same creation times) | 4 s | 11 s |
 | First start after the `reset` command (no volumes; Postgres ran its nine `CREATE DATABASE`) | 32 s | 40 s |
 

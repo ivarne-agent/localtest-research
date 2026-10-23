@@ -17,7 +17,7 @@ package's test (`manifest_internal_test.go`) validates the file, and `Parse` ref
       "port": 5010,
       "envs": { "GeneralSettings__PlatformEndpoint": "http://local.altinn.cloud:8000/" },
       "dependsOn": ["postgres"],
-      "volumes": { "localtest-v2-storage-blobs": "/data/blobs" }
+      "volumes": { "storage-blobs": "/data/blobs" }
     }
   }
 }
@@ -41,7 +41,7 @@ A map from the container's name to:
 | `tag` | The image tag (a digest may follow: `7.2-alpine@sha256:…`). The research images all carry one `sha-<commit>` pin |
 | `envs` | Environment variables, literal strings. No placeholders: the public origin is written out (`http://local.altinn.cloud:8000/`), the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), the certificate as `/certs/localtest-accesstoken.pfx` |
 | `dependsOn` | Containers that start, and are healthy, before this one |
-| `volumes` | Named volume to path in the container; `env reset` deletes them |
+| `volumes` | Volume id to path in the container. An id is lower-case letters and digits in hyphen-separated words (`storage-blobs`) and names one volume for the whole manifest: containers naming the same id share it (`policy-store`: the PDP, Access Management, the Resource Registry). Each runtime names the volume by its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>`; each runtime's reset deletes its own |
 | `port` | The container's HTTP (or TCP) port; default 8080 |
 | `health` | An HTTP path answering 200 when healthy (default `/health`), or `"tcp"` for a port that accepts connections (Postgres, Redis) |
 
@@ -66,6 +66,8 @@ Every container gets, besides its `envs`:
   `af.`) and `host.docker.internal` pointed at the host gateway;
 - the shared certificate directory read-only at `/certs`, and (until the Events, Notifications and Receipt images link
   it) the certificate file at `/accesstoken/accesstokencredentials.pfx`.
+- each of its `volumes` as the named volume `localtest-v2-<id>` (`volumePrefix` in `containers.go`); `env reset`
+  deletes those and no other.
 
 Only the `localtest` container publishes a port: 8000 (the public origin) onto its 8080. The app's environment is not
 in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `internal/cmd/app/testdata/app-environment.golden.json`.

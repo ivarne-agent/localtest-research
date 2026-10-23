@@ -10,8 +10,9 @@
 // published port (http://local.altinn.cloud:8000). Once an app is healthy it is registered with the front door
 // (PUT localtest/api/apps/ttd/testapp and .../ttd/testapp2), which routes it and provisions it from the app's own API
 // (test users, metadata, texts, policy); each app's provision and deprovision commands register and deregister that
-// app only, and altinn-localtest's reset command removes the containers and the volumes (shared with studioctl). Ctrl-C
-// leaves the containers running; the next start reuses them. Conventions: localtest/CONVENTIONS.md.
+// app only, and altinn-localtest's reset command removes the containers and the package's own volumes
+// (altinn-localtest-<id>; studioctl's localtest-v2-<id> stay). Ctrl-C leaves the containers running; the next start
+// reuses them. Conventions: localtest/CONVENTIONS.md.
 //
 // Run it with Podman: ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost.cs
 // (the tunnel's image does not build on Podman 5.7, see the package README), with no studioctl stack and no other

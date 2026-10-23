@@ -108,7 +108,7 @@ Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 
 | Production | Here | Why |
 | --- | --- | --- |
-| `IStorageRepository` (Azure Blob, a storage account per service owner) | `Storage/FileStorageRepository.cs`: files at `/mnt/storage/attachments/{id}` (the `localtest-v2-correspondence-blobs` volume) and `reports/{name}` with a `.meta.json` sidecar for the report's two counts and hash. The MD5 of the stream as lower-case hex, `HashMismatchException` and nothing kept on a checksum mismatch, `RequestFailedException` 404 for a missing blob, as production. The location URL and the "SAS" URL are `{origin}/correspondence/api/localtest/blobs/{id}` | No Azure Storage; the Storage component's file-backed pattern |
+| `IStorageRepository` (Azure Blob, a storage account per service owner) | `Storage/FileStorageRepository.cs`: files at `/mnt/storage/attachments/{id}` (the `correspondence-blobs` volume, `localtest-v2-correspondence-blobs` under studioctl) and `reports/{name}` with a `.meta.json` sidecar for the report's two counts and hash. The MD5 of the stream as lower-case hex, `HashMismatchException` and nothing kept on a checksum mismatch, `RequestFailedException` 404 for a missing blob, as production. The location URL and the "SAS" URL are `{origin}/correspondence/api/localtest/blobs/{id}` | No Azure Storage; the Storage component's file-backed pattern |
 | `IResourceManager` (Azure Resource Manager) | `AzureResources/LocaltestResourceManager.cs`: deploying storage accounts is a no-op, there are no IP ranges | The daily "Update IP restrictions" job would otherwise fail ten Hangfire retries on `DefaultAzureCredential`; now it logs one line |
 | `IMaskinportenService` (the package hard-codes `maskinporten.no`) | `Maskinporten/`, a copy of `../shared/fakes/Maskinporten/` | Production semantics: an unsigned assertion to the localtest app's Maskinporten token endpoint, then production Authentication's `exchange/maskinporten`. Client id `991825827` with `UseAltinnTestOrg` false, so Correspondence acts as `digdir`, as Dialogporten does. KRR gets the raw token (no exchange), as in production |
 | `JwtBearerOptions` / `OpenIdConnectOptions` `RequireHttpsMetadata` (true) | `Auth/LocaltestAuthentication.cs`: `ConfigureAll` to false | Authentication, the fake Maskinporten and Dialogporten publish their metadata over http. A `Configure`, not a `PostConfigure`, see the Dialogporten README |
@@ -205,8 +205,8 @@ migrations' own exception blocks. **`MigrateWithLock` swallows every exception**
 host then starts and `/health` still says Healthy. The `status` call and the smoke test therefore check the migration count.
 
 **No reset on start**: correspondences and their dialogs must stay in step, as Storage's instances and their dialogs. The only
-reset is `studioctl env reset -r localtest-v2`, which removes the shared Postgres volume and the
-`localtest-v2-correspondence-blobs` volume.
+reset is `studioctl env reset -r localtest-v2` (Aspire: the `reset` command), which removes the runtime's Postgres
+volume and its `correspondence-blobs` volume (`localtest-v2-correspondence-blobs` under studioctl).
 
 ## Differences from production
 

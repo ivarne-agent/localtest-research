@@ -121,6 +121,6 @@ cd localtest/components/authorization && studioctl env up -r localtest-v2 --dev-
 `--dev-<container>[=<path>]` builds the image from the Dockerfile at the path or in the directory (default: the current
 one). The front door cannot route the component's prefix to an instance running in an IDE; `--dev` rebuilds the image.
 
-In the stack the PDP gets the platform endpoint, the shared certificate at `/certs` and the `localtest-v2-policy-store` volume
-shared with Access Management and the Resource Registry; the front door (the localtest container) routes
+In the stack the PDP gets the platform endpoint, the shared certificate at `/certs` and the `policy-store` volume
+(`localtest-v2-policy-store` under studioctl) shared with Access Management and the Resource Registry; the front door (the localtest container) routes
 `/authorization/` to it ([`../../CONVENTIONS.md`](../../CONVENTIONS.md)).

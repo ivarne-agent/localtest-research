@@ -2,7 +2,7 @@
 
 The rules every part of the stack follows: the manifest, the runtimes (studioctl's `localtest-v2` and the Aspire
 package), the localtest app as the front door and the component images. Each section states the rule, the reason and
-where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28
+where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28 and 31
 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
@@ -28,7 +28,8 @@ lists the stack in two sections:
   reaches is an error.
 - `containers` holds real services only: no app, no routes, no host ports, no build information, no descriptions.
   `envs` are literal strings (no placeholders, no substitution); `port` defaults to 8080 and `health` to `/health`
-  (`"tcp"` for Postgres and Redis). An unknown key is an error.
+  (`"tcp"` for Postgres and Redis). `volumes` maps a volume id (`postgres-data`), not a runtime's volume name, to the
+  path in the container ([Volumes](#volumes)). An unknown key is an error.
 - There is no JSON Schema: the Go reader's test validates the file and `Parse` refuses an invalid one; the Aspire
   package runs the same checks on the same file, which it embeds by relative path.
 
@@ -62,7 +63,8 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Containers | `localtest-v2-<name>` on the network `localtest-v2_network` | resources named as the manifest, children of `altinn-localtest`, persistent containers `<name>-<hash>` |
 | Network alias | the manifest name | the manifest name |
 | Environment | `envs`, plus the `services__*` variables below | the same |
-| Volumes and certificate | the manifest's named volumes; the certificate mounts below | the same names (shared with studioctl) |
+| Volumes | `localtest-v2-<id>` for each manifest volume id | `altinn-localtest-<id>`: its own, not studioctl's |
+| Certificate | the certificate mounts below | the same |
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
 | A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
@@ -199,18 +201,32 @@ the path to `/certs`. The app runners point the app at the host copy.
 
 ## Volumes
 
-**Rule.** Data lives in five named volumes, the same names under both runtimes, so either runtime's reset clears both:
+**Rule.** Data lives in five named volumes. The manifest names each by an **id**; each runtime names the volume by
+its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>` (the default parent
+resource's name and a hyphen, whatever the parent is called). The same id on several containers is one volume.
 
-| Volume | Container | Path |
-| --- | --- | --- |
-| `localtest-v2-postgres-data` | postgres | `/var/lib/postgresql` |
-| `localtest-v2-policy-store` | authorization, access-management, resource-registry | `/policy-store` |
-| `localtest-v2-storage-blobs` | storage | `/data/blobs` |
-| `localtest-v2-localtest-data` | localtest (app routes, the dev-server route) | `/data` |
-| `localtest-v2-correspondence-blobs` | correspondence | `/mnt/storage` |
+| Id | Container | Path | studioctl | Aspire |
+| --- | --- | --- | --- | --- |
+| `postgres-data` | postgres | `/var/lib/postgresql` | `localtest-v2-postgres-data` | `altinn-localtest-postgres-data` |
+| `policy-store` | authorization, access-management, resource-registry | `/policy-store` | `localtest-v2-policy-store` | `altinn-localtest-policy-store` |
+| `storage-blobs` | storage | `/data/blobs` | `localtest-v2-storage-blobs` | `altinn-localtest-storage-blobs` |
+| `localtest-data` | localtest (app routes, the dev-server route) | `/data` | `localtest-v2-localtest-data` | `altinn-localtest-localtest-data` |
+| `correspondence-blobs` | correspondence | `/mnt/storage` | `localtest-v2-correspondence-blobs` | `altinn-localtest-correspondence-blobs` |
 
-`env reset -r localtest-v2` (Aspire: the `reset` command on `altinn-localtest`) deletes them. Postgres runs its init
-scripts only on an empty volume, so a component that adds one needs a reset or the script by hand.
+An id is lower-case letters and digits in hyphen-separated words; both readers refuse any other. `env reset -r
+localtest-v2` deletes the `localtest-v2-*` volumes only, Aspire's `reset` command on `altinn-localtest` the
+`altinn-localtest-*` volumes only. Postgres runs its init scripts only on an empty volume, so each runtime's databases
+are created separately, on its first start or after its reset; a component that adds a script needs a reset (in each
+runtime) or the script by hand. studioctl's names are the ones it used before the ids, so its data carries over.
+
+**Why.** The runtimes shared the volumes until task 31, and a stopped Aspire container still holding a shared volume
+blocked studioctl's `env reset` twice. With a prefix each, the runtimes' data no longer mixes: a reset in one leaves the
+other alone.
+
+**Code.** The ids and their check: `manifest.go` (`VolumeIDs`, `volumeID`); studioctl's prefix `volumePrefix` in
+`internal/cmd/env/localtestv2/containers.go`, used by `containerVolumes` and `Env.Reset`; Aspire's
+`StackSpec.VolumePrefix`, used by `StackSpec.Resolve` and `LocaltestReset`. The golden snapshot states studioctl's
+prefix (`volumePrefix`), and Aspire's comparison matches mounts by id.
 
 ## What the app runner pushes
 

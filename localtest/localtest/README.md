@@ -140,7 +140,8 @@ Aspire package's copy went in task 27b).
 | `GET routes` | The platform route table with each service's address, and the dev-server route |
 
 App routes are saved to `/data/app-routes.json` (`Proxy__AppRoutesFile`) and the dev-server route next to it
-(`frontend-dev-server.json`), on the `localtest-v2-localtest-data` volume, and read at start, so a recreated container keeps routing.
+(`frontend-dev-server.json`), on the `localtest-data` volume (`localtest-v2-localtest-data` under studioctl,
+`altinn-localtest-localtest-data` under Aspire), and read at start, so a recreated container keeps routing.
 Nothing watches the files.
 
 ### Port

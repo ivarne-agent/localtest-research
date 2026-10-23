@@ -12,6 +12,8 @@
 #     2. studioctl's `localtest-v2-<name>` (the localtest-v2 loader's container prefix plus the name) when it is running.
 #     3. The Aspire package's `<name>-<suffix>` (the resource is the manifest name, the suffix a hash of the AppHost's
 #        path: `storage-0de70ea0`). Exactly one running container may match; two AppHosts' stacks at once are an error.
+#     The two runtimes keep their data apart (volumes `localtest-v2-<id>` and `altinn-localtest-<id>`), so a check finds
+#     the data of the runtime whose container it gets, never the other's.
 #
 #   . "$HERE/../../smoke/lib/containers.sh"
 #   if RT=$(localtest_runtime) && C=$(localtest_container storage); then "$RT" logs "$C"; else echo "skip ..."; fi

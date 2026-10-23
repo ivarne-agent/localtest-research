@@ -152,7 +152,8 @@ group's own roots (a container another enabled group depends on still starts); a
 choice ([`CONVENTIONS.md`](CONVENTIONS.md#the-manifest)). A group that is off has no containers and no `services__`
 address, so its routes answer `503` "Component not running" with the `--with` command; a container that is on but does
 not answer gets `503` "Component not answering". `env down`, `env status`, `env logs [<container>]` and
-`env reset --yes` (deletes the volumes) take `-r localtest-v2` too.
+`env reset --yes` (deletes the runtime's `localtest-v2-*` volumes only; an Aspire AppHost's `altinn-localtest-*` stay,
+[`CONVENTIONS.md`](CONVENTIONS.md#volumes)) take `-r localtest-v2` too.
 
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
