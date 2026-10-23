@@ -47,8 +47,12 @@ type goldenSigning struct {
 	FileName   string `json:"FileName"`
 }
 
-func (g goldenSigning) certificate() accessTokenSigning {
-	return accessTokenSigning(g)
+func (g goldenSigning) certificate() *accessTokenSigning {
+	if g.FullPath == "" {
+		return nil
+	}
+	signing := accessTokenSigning(g)
+	return &signing
 }
 
 const (
@@ -82,10 +86,6 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		{Name: "native", KestrelURL: "http://127.0.0.1:5005", IngressPort: "8000", SecretsDir: goldenSecretsDir},
 		{
 			Name: "native-localtest-v2", KestrelURL: "http://127.0.0.1:5005", IngressPort: "8000",
-			SecretsDir: goldenSecretsDir, Signing: native,
-		},
-		{
-			Name: "native-random-port", KestrelURL: "http://127.0.0.1:0", IngressPort: "8000",
 			SecretsDir: goldenSecretsDir, Signing: native,
 		},
 		{

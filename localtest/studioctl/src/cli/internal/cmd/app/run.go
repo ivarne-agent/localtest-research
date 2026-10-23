@@ -144,8 +144,8 @@ func (s *Service) BuildDotnetRunSpec(
 		return DotnetRunSpec{}, signingErr
 	}
 	kestrelURL := baseURL
-	if !signing.isZero() {
-		// The certificate is set exactly when localtest-v2 is up, whose front door needs the app on every interface.
+	if signing != nil {
+		// localtest-v2 is up: its front door needs the app on every interface.
 		kestrelURL = "http://" + allInterfacesHost + ":" + port
 	}
 
@@ -162,34 +162,30 @@ func (s *Service) BuildDotnetRunSpec(
 	}, nil
 }
 
-// nativeAccessTokenSigning points a process run at the localtest-v2 certificate, or at nothing when that
+// nativeAccessTokenSigning points a process run at the localtest-v2 certificate, or returns nil when that
 // runtime is not up. KeysFolder is a traversal from the app root (the parent of the App/ working
 // directory) to the certificate directory, which is what the 1.x client resolves.
-func (s *Service) nativeAccessTokenSigning(appPath string) (accessTokenSigning, error) {
+func (s *Service) nativeAccessTokenSigning(appPath string) (*accessTokenSigning, error) {
 	state, up, err := localtestv2.ReadState(s.cfg)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("read localtest-v2 state: %w", err)
+		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	if !up {
-		return noAccessTokenSigning(), nil
+		return nil, nil //nolint:nilnil // nil is "no localtest-v2", not a failure.
 	}
 	appRoot, err := filepath.Abs(appPath)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("resolve app path: %w", err)
+		return nil, fmt.Errorf("resolve app path: %w", err)
 	}
 	rel, err := filepath.Rel(appRoot, state.CertificateDir)
 	if err != nil {
-		return accessTokenSigning{}, fmt.Errorf("relate certificate directory to app: %w", err)
+		return nil, fmt.Errorf("relate certificate directory to app: %w", err)
 	}
-	return accessTokenSigning{
+	return &accessTokenSigning{
 		FullPath:   state.CertificatePath(),
 		KeysFolder: "/" + filepath.ToSlash(rel) + "/",
 		FileName:   localtestv2.CertificateFileName,
 	}, nil
-}
-
-func noAccessTokenSigning() accessTokenSigning {
-	return accessTokenSigning{FullPath: "", KeysFolder: "", FileName: ""}
 }
 
 // ReadAppID returns the app id declared in an app directory's application metadata. Exported because
@@ -330,7 +326,7 @@ func (s *Service) BuildDockerRunSpec(
 				opts.AppFrontendAssetBaseUrl,
 				appsecrets.ContainerDir,
 				keysDirEnv,
-				noAccessTokenSigning(),
+				nil,
 			),
 			Command: args,
 			CapAdd:  nil,
