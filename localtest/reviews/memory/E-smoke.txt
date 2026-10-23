@@ -1,0 +1,91 @@
+# memory-stats: E-smoke: E right after localtest/smoke-test.sh (both apps deprovisioned with DELETE first; the processes kept running)
+time: 2026-10-23T14:53:37+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        2744         800         728        5222        5205
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree            800
+  MemAvailable      5202
+  Buffers            398
+  Cached            4376
+  Shmem              729
+  Active(file)      3326
+  Inactive(file)     719
+  Active(anon)       243
+  Inactive(anon)    2235
+  AnonPages         1751
+  Mapped            1400
+  SReclaimable       448
+  SUnreclaim          78
+  KernelStack          8
+  PageTables          26
+  Percpu               2
+  VmallocUsed         10
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 2783 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 1957 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 114
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 1667 anon 276 file 1343 shmem 263 kernel 49 file_mapped 309 inactive_file 68 active_file 1012
+
+## Per container
+
+$ podman stats --no-stream
+localtest-mwxskruk 17.07MB / 8.335GB 0.20%
+postgres-knfguhvw 231.2MB / 8.335GB 2.77%
+storage-jhkzmdbb 255.1MB / 8.335GB 3.06%
+workflow-engine-quarmjdj 107.9MB / 8.335GB 1.29%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+localtest-mwxskruk                       16     16      0      0      1   828186      0       36       16       21        0
+postgres-knfguhvw                       220     34    176    176     11   828253      0       36        2       15       19
+storage-jhkzmdbb                        248    190     46     46     12   828618      0      372      190      136       46
+workflow-engine-quarmjdj                103     55     45     45      2   828788      0      188       55       87       45
+SUM (4 containers)                      588    294    267    267     26        -      -      631
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               637     635      551       84         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+827545   build-server               454     410      220       39       151  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+827480   aspire-apphost             255     187       99       44        44  dotnet run apphost-minimal.cs 
+827921   aspire-dashboard           156     145       82       63         0  /home/agent/.nuget/packages/aspire.dashboard.sdk.linux-arm64/13.6.2/tools/Aspire.Dashboard 
+263      other:systemd-journal      208     117        2      115         0  /usr/lib/systemd/systemd-journald 
+827606   aspire-apphost             170     117       40       38        38  /home/agent/.local/share/dotnet/runfile/apphost-minimal-b4b481f47b7899f0f646b51118d74c76c1774aab7a3abf78e845f1
+828962   app                        162     115       41       38        36  /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/bin/Debug/net8.0/Altinn.Application
+828965   app2                       161     114       42       38        35  /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App2/bin/Debug/net8.0/Altinn.Applicatio
+827257   studioctl-server           120      99       30       51        18  /home/agent/sh/bin/studioctl-server/studioctl-server 
+827627   podman                     140      94       22       73         0  /usr/bin/podman --log-level=info system service 
+828907   app-launcher               126      68       40       15        13  dotnet run --project /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App2/App2.csproj -
+828916   app-launcher               127      68       40       15        13  dotnet run --project /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/App.csproj --n
+827696   dcp                        101      55       47        8         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp start-apiserver --monito
+827785   dcp                         89      43       32       11         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp run-controllers --kubeco
+828107   dcp                         67      24       19        5         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-container --cont
+827883   dcp                         67      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+827908   dcp                         67      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+827922   dcp                         66      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+828168   dcp                         67      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-container --cont
+828573   dcp                         67      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-container --cont
+828741   dcp                         66      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-container --cont
+828909   dcp                         66      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+828917   dcp                         66      23       19        4         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+827879   podman                      36      17        8        9         0  /usr/bin/podman events --since 1.034288875s --filter type=network --format json 
+827904   podman                      35      16        8        9         0  /usr/bin/podman events --filter type=container --format json 
+828161   podman                       4       2        0        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  app                   115
+  app-launcher          137
+  app2                  114
+  aspire-apphost        303
+  aspire-dashboard      145
+  build-server          410
+  dcp                   307
+  podman                133
+  studioctl-server       99
+PSS sums (MiB): stack host processes (the categories above except podman and build-server) 1219; all host processes 2544; all container processes (incl. conmon) 678; unreadable processes 0

@@ -129,6 +129,7 @@ for p in /proc/[0-9]*; do
     *App2/bin/* | *App2.dll*) key=app2 ;;
     *App/bin/* | *App.dll* | *Altinn.Application*) key=app ;;
     *VBCSCompiler* | *MSBuild.dll*) key=build-server ;;
+    "dotnet run --project") key=app-launcher ;;
     *chrom*) key=chromium ;;
     *dotnet*) key=dotnet-other ;;
     *podman* | *conmon*) key=podman ;;
