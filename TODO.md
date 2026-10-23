@@ -73,9 +73,9 @@ A path matching no route still falls through to the localtest app.
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
-| 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
+| 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 verified** 2026-10-23 (dc0211bb, 21 commits; needs a rebase; phase 2 waits for the stack) | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
-| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only; phase 2 proof after task 43 frees the stack); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
+| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done, one addition in progress** (2026-10-23: the monorepo's own studioctl must set the inbox and logout defaults, else CI's Cypress specs lose their targets; added to the same PR); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **running** (dispatched 2026-10-23, Opus, analysis and stack proof) | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 running** (dispatched 2026-10-23, Opus, static inventory and design; phase 2 observes on the stack when it is free) | medium | yes (phase 2) |
 
@@ -1368,3 +1368,29 @@ it is cheap (the agent was told).
 Task 44 addendum (owner 2026-10-23): the monorepo frontend's domains stay in the inventory, framed for a
 Content-Security-Policy (directive per domain, fixed in the bundle, in the settings or in app data; what a CSP for an
 app page would look like; whether the index page sets one today); phase 2 captures the browser's requests too.
+
+**Task 40 phase 1 (pushed dc0211bb, verified by the coordinator 2026-10-23).** Finding: `Microsoft.Extensions.
+ServiceDiscovery`'s configuration provider returns no endpoints for an unknown host (decompiled 10.8.0 and 9.5.2), so
+"configuration only" would break every real-host call; the shared fake `components/shared/fakes/ServiceDiscovery/
+LocaltestServiceDiscovery.cs` registers the core, the configuration provider and a "real host" provider (a dot, an IP
+or `localhost` passes through unchanged; a single-label name without `services__<name>__http__0` fails at once) and
+removes the pass-through factory by type name (the four `AltinnServiceDefaults` hosts have no setting for it). Access
+Management's `ResourceRegistryClient` gets a factory client; Dialogporten's 4 and Correspondence's 9 clients that share
+one production base URL get `LocaltestPrefixRouting` (moves `{origin}/<prefix>/…` to `http://<service>/<prefix>/…`,
+table tested against `PlatformRoutes`); the Arbeidsflate BFF points at `http://localtest:8080` by name. Per-key table
+in the agent's report; rule 4 values unchanged (JwtCookie metadata, issuers, redirect URIs, links, cookie domains).
+Manifest: no `{{origin}}` left in server-call values; golden +9 lines (Register's PDP endpoint by name in every case,
+Receipt's three and the BFF's three in `everything`). Minimal mode: `ServiceNameHostTests` (hosts `localtest`,
+`register`, `authorization`, `authentication` answered by the emulation). Checks: every changed component built with
+`LOCALTEST`; localtest tests 145, Go clean, Aspire 122 (coordinator re-ran). To watch in phase 2: Authentication's
+system-user client now calls the local Access Management; an Events webhook to a single-label non-service host fails
+at once; Correspondence's `EdDsaSecurityKeysCacheService` still fetches from the public origin.
+
+**Task 42 phase 1 (2026-10-23).** Frontend branch `feat/app-frontend-settings-only` on the fork (813c0ae8f9): host
+checks removed, links from the settings or hidden, cookie `Secure` from the page's scheme, tests rewritten; remaining
+host reads are devtools detection, same-host relative links and the app's own URLs. Research runner change
+`feat/arbeidsflate-links-fallback` (4b3f46af): the four links only when the `arbeidsflate` group is up, else the inbox
+link = the front door's Home; goldens with two new arbeidsflate cases; Aspire 125. Finding: the monorepo's own
+studioctl sets no `PlatformFrontendSettings`, so CI's Cypress specs would lose their inbox and logout targets;
+decision: the monorepo studioctl sets the inbox and logout defaults to the localtest base URL in the same PR (in
+progress). The full Vitest suite could not run on this machine (memory); the focused 212 pass.
