@@ -1081,5 +1081,7 @@ way: the front door's own `services__localtest__http__0` entry no longer counts 
 
 **Observation for a follow-up (coordinator, 2026-10-23).** Before phase 2 the machine held about 250 anonymous volumes
 left by earlier `env up`/`env down` cycles of the default stack (the declared `VOLUME`s of the Postgres and localtest
-images; studioctl removes containers without `-v`, exactly as the spec's section 6.1 says). Pruned by hand. Candidate
+images; studioctl removes containers without `-v`, exactly as the spec's section 6.1 says). Pruned by hand with `podman volume prune -f`, which also removed the unused named volumes of the default stack
+(`localtest-v2-*`) and the old runtime's `localtest-workflow-engine-db-data`: a coordinator mistake, recoverable (both
+runtimes re-initialise empty volumes; task 32 measured 20 s); never prune, remove the anonymous ones by name. Candidate
 task: `env down`/`env reset` remove the anonymous volumes of the containers they remove (`rm -v`), in both runtimes.
