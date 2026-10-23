@@ -4,16 +4,11 @@ namespace Altinn.App.Aspire.Manifest;
 
 /// <summary>
 /// What every container gets alike, which the runner decides and the manifest does not hold: the same constants as
-/// studioctl's loader (<c>internal/cmd/env/localtestv2/containers.go</c>) and topology (port 8000).
+/// studioctl's loader (<c>internal/cmd/env/localtestv2/containers.go</c>). The public origin's defaults are the
+/// manifest's (<see cref="LocaltestManifest.Public" />).
 /// </summary>
 internal static class Topology
 {
-    /// <summary>The public origin's host.</summary>
-    public const string PublicHost = "local.altinn.cloud";
-
-    /// <summary>The public origin's port, published from the front door.</summary>
-    public const int IngressPort = 8000;
-
     /// <summary>The container whose port is published as the public origin: the localtest app.</summary>
     public const string FrontDoor = "localtest";
 
@@ -35,28 +30,23 @@ internal static class Topology
     /// </summary>
     public const string LegacyCertificateFile = "/accesstoken/accesstokencredentials.pfx";
 
-    /// <summary>Arbeidsflate's (the inbox's) public host.</summary>
-    public const string ArbeidsflateHost = "af." + PublicHost;
+    /// <summary>Arbeidsflate's (the inbox's) subdomain of the public host.</summary>
+    public const string ArbeidsflateSubdomain = "af";
 
-    /// <summary>The frontend dev server's public host.</summary>
-    public const string FrontendDevServerHost = "app-frontend.local.altinn.cloud";
+    /// <summary>The frontend dev server's subdomain of the public host.</summary>
+    public const string FrontendDevServerSubdomain = "app-frontend";
 
-    /// <summary>The public origin with a trailing slash.</summary>
-    public static Uri PlatformUri { get; } = new(Url(PublicHost, IngressPort) + "/");
+    /// <summary>The PDF service's subdomain of the public host.</summary>
+    public const string PdfSubdomain = "pdf";
+
+    /// <summary>The workflow engine's subdomain of the public host.</summary>
+    public const string WorkflowEngineSubdomain = "workflow-engine";
 
     /// <summary>
-    /// The host names every container resolves to the host gateway, in studioctl's order: the public hosts, where the
-    /// front door's port is published, and <see cref="HostGatewayName" />.
+    /// The front door's list of the public host's subdomains, comma-separated, from the manifest (studioctl's
+    /// <c>publicSubdomainsVariable</c>): it routes each listed one and refuses to start on one it does not know.
     /// </summary>
-    public static IReadOnlyList<string> ExtraHostNames { get; } =
-    [
-        PublicHost,
-        "pdf." + PublicHost,
-        "workflow-engine." + PublicHost,
-        FrontendDevServerHost,
-        ArbeidsflateHost,
-        HostGatewayName,
-    ];
+    public const string PublicSubdomainsVariable = "Localtest__PublicSubdomains";
 
     /// <summary><c>http://host:port</c>, the port always written, as studioctl writes its public URLs.</summary>
     public static string Url(string host, int port) =>
@@ -108,7 +98,10 @@ internal sealed record MountSpec(MountKind Kind, string Source, string Target, b
 /// <summary>One container as it runs: the manifest's container resolved for one selection of groups.</summary>
 /// <param name="Name">The manifest name: the resource name and the network alias.</param>
 /// <param name="Image">The image.</param>
-/// <param name="Environment">The manifest's <c>envs</c> and the <c>services__</c> variables, sorted by name.</param>
+/// <param name="Environment">
+/// The manifest's <c>envs</c> resolved for the public origin, what the runner adds, and the <c>services__</c> variables,
+/// sorted by name.
+/// </param>
 /// <param name="Mounts">
 /// The certificate (directory and legacy file), then the named volumes (tmpfs in minimal mode) sorted by id.
 /// </param>
@@ -116,17 +109,17 @@ internal sealed record MountSpec(MountKind Kind, string Source, string Target, b
 /// <param name="Health">The health check.</param>
 /// <param name="DependsOn">The containers that must be healthy first.</param>
 /// <param name="ExtraHosts">The <c>--add-host</c> entries, <c>name:host-gateway</c>.</param>
-/// <param name="PublishedPort">The host port, for the front door only.</param>
+/// <param name="Published">Whether the container's port is published as the public origin's: the front door only.</param>
 internal sealed record ContainerSpec(
     string Name,
     ImageReference Image,
-    IReadOnlyDictionary<string, string> Environment,
+    IReadOnlyDictionary<string, OriginValue> Environment,
     IReadOnlyList<MountSpec> Mounts,
     int Port,
     HealthTarget Health,
     IReadOnlyList<string> DependsOn,
     IReadOnlyList<string> ExtraHosts,
-    int? PublishedPort
+    bool Published
 );
 
 /// <summary>Resolves the manifest into the containers one selection of groups runs, as studioctl's loader does.</summary>
@@ -186,24 +179,35 @@ internal static class StackSpec
 
     /// <summary>
     /// The containers of the default group and the named optional groups, in start order: the manifest's
-    /// <c>envs</c> plus a <c>services__&lt;name&gt;__http__0</c> for every selected HTTP container, the certificate
-    /// read-only from <paramref name="certificateDirectory" />, the named volumes, the extra hosts, and port 8000 on
-    /// the front door.
+    /// <c>envs</c> resolved for the public origin plus a <c>services__&lt;name&gt;__http__0</c> for every selected HTTP
+    /// container, the certificate read-only from <paramref name="certificateDirectory" />, the named volumes, the extra
+    /// hosts (the origin's host names), and the origin's port on the front door.
     /// </summary>
     /// <param name="manifest">The manifest.</param>
     /// <param name="groups">The optional groups that are on.</param>
     /// <param name="certificateDirectory">The host directory holding the shared certificate.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set (<c>latest</c>, as studioctl's <c>--latest</c>).</param>
+    /// <param name="origin">The public origin; null is the manifest's default.</param>
     public static IReadOnlyList<ContainerSpec> Resolve(
         LocaltestManifest manifest,
         IEnumerable<string> groups,
         string certificateDirectory,
-        string? tag = null
-    ) => Resolve(manifest, [LocaltestManifest.DefaultGroup, .. groups], [], certificateDirectory, tag, minimal: false);
+        string? tag = null,
+        PublicOrigin? origin = null
+    ) =>
+        Resolve(
+            manifest,
+            [LocaltestManifest.DefaultGroup, .. groups],
+            [],
+            certificateDirectory,
+            tag,
+            origin ?? manifest.Origin(),
+            minimal: false
+        );
 
     /// <summary>
     /// Minimal mode, as studioctl's <c>env up --minimal</c>: the containers of the minimal group in place of the
-    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string?)" />
+    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string?, PublicOrigin?)" />
     /// resolves them but for three things: every emulated container (<see cref="Emulated" />) is announced at the
     /// front door (<c>services__&lt;name&gt;__http__0=http://localtest:8080</c>), every manifest volume is a tmpfs
     /// (<see cref="TmpfsOptions" />), and the front door keeps its app routes in memory
@@ -212,10 +216,12 @@ internal static class StackSpec
     /// <param name="manifest">The manifest.</param>
     /// <param name="certificateDirectory">The host directory holding the shared certificate.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set.</param>
+    /// <param name="origin">The public origin; null is the manifest's default.</param>
     public static IReadOnlyList<ContainerSpec> ResolveMinimal(
         LocaltestManifest manifest,
         string certificateDirectory,
-        string? tag = null
+        string? tag = null,
+        PublicOrigin? origin = null
     ) =>
         Resolve(
             manifest,
@@ -223,6 +229,7 @@ internal static class StackSpec
             Emulated(manifest),
             certificateDirectory,
             tag,
+            origin ?? manifest.Origin(),
             minimal: true
         );
 
@@ -232,6 +239,7 @@ internal static class StackSpec
         IReadOnlyList<string> emulated,
         string certificateDirectory,
         string? tag,
+        PublicOrigin origin,
         bool minimal
     )
     {
@@ -246,11 +254,14 @@ internal static class StackSpec
         {
             services[$"services__{name}__http__0"] = frontDoor;
         }
-        var extraHosts = Topology.ExtraHostNames.Select(host => host + ":" + Topology.HostGateway).ToList();
+        var extraHosts = origin
+            .Hosts.Append(Topology.HostGatewayName)
+            .Select(host => host + ":" + Topology.HostGateway)
+            .ToList();
         return
         [
             .. names.Select(name =>
-                Container(manifest, name, services, extraHosts, certificateDirectory, tag, minimal)
+                Container(manifest, name, services, extraHosts, certificateDirectory, tag, origin, minimal)
             ),
         ];
     }
@@ -262,18 +273,27 @@ internal static class StackSpec
         IReadOnlyList<string> extraHosts,
         string certificateDirectory,
         string? tag,
+        PublicOrigin origin,
         bool minimal
     )
     {
         var c = manifest.Containers[name];
-        var environment = new SortedDictionary<string, string>(StringComparer.Ordinal);
-        foreach (var (key, value) in c.Envs.Concat(services))
+        var environment = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
+        foreach (var (key, value) in manifest.Envs(name, origin))
         {
             environment[key] = value;
         }
-        if (minimal && name == Topology.FrontDoor)
+        foreach (var (key, value) in services)
         {
-            environment[AppRoutesFileVariable] = "";
+            environment[key] = OriginValue.Literal(value);
+        }
+        if (name == Topology.FrontDoor)
+        {
+            environment[Topology.PublicSubdomainsVariable] = OriginValue.Literal(string.Join(",", origin.Subdomains));
+            if (minimal)
+            {
+                environment[AppRoutesFileVariable] = OriginValue.Literal("");
+            }
         }
         List<MountSpec> mounts =
         [
@@ -301,7 +321,7 @@ internal static class StackSpec
             new HealthTarget(name, c.HttpPort, c.IsHttp ? c.HealthCheck : null),
             c.DependsOn,
             extraHosts,
-            name == Topology.FrontDoor ? Topology.IngressPort : null
+            name == Topology.FrontDoor
         );
     }
 

@@ -19,7 +19,9 @@ public static class AltinnLocaltestMinimalExtensions
     /// manifest's <c>minimal</c> group (Postgres, Storage, the workflow engine and the localtest container) in place of
     /// the <c>default</c> one, the localtest container emulating the rest of the default group (Register, Profile,
     /// Authentication, Authorization permitting everything, Access Management, Events, the Resource Registry,
-    /// Notifications and the PDF service), its port 8080 published as <c>http://local.altinn.cloud:8000</c>. Nothing
+    /// Notifications and the PDF service), its port 8080 published as the public origin (<c>http://local.altinn.cloud:8000</c>
+    /// unless <see cref="AltinnLocaltestMinimalOptions.PublicHost" /> or <see cref="AltinnLocaltestMinimalOptions.PublicPort" />
+    /// says otherwise). Nothing
     /// persists: the containers live for the AppHost's run (session lifetime), each manifest volume is a tmpfs, and the
     /// front door keeps its app routes in memory, so every start is a clean slate. There are no optional groups, and no
     /// method enables another service on the returned builder; use <c>AddAltinnLocaltest()</c> for the real

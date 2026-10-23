@@ -10,6 +10,20 @@ public sealed class AltinnLocaltestOptions
     public string? Tag { get; set; }
 
     /// <summary>
+    /// The public origin's host: the front door answers on it and on its subdomains <c>pdf.</c>,
+    /// <c>workflow-engine.</c>, <c>app-frontend.</c> and <c>af.</c> (the manifest's list). Null (the default) is the
+    /// manifest's, <c>local.altinn.cloud</c>. Every name must resolve to this machine (the hosts file) for a browser;
+    /// inside the stack the containers resolve them to the host gateway.
+    /// </summary>
+    public string? PublicHost { get; set; }
+
+    /// <summary>
+    /// The public origin's port, the front door's published port. Null (the default) is the manifest's, 8000; 0 is a
+    /// free port Aspire allocates when the AppHost runs (every value derived from the origin then resolves to it).
+    /// </summary>
+    public int? PublicPort { get; set; }
+
+    /// <summary>
     /// The package's data directory on the host; it holds the shared test certificate (<c>certs/</c>), which every
     /// container mounts, and the apps' secrets. Default <c>~/.altinn-app-aspire</c>.
     /// </summary>

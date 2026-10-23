@@ -56,54 +56,54 @@ internal static class AppEnvironment
     /// <summary>The app-frontend asset base URL variable (the frontend dev server).</summary>
     public const string AppFrontendAssetBaseUrl = "AppSettings__AppFrontendAssetBaseUrl";
 
-    /// <summary>studioctl's OpenTelemetry collector, which Aspire replaces with its dashboard.</summary>
-    private static readonly string _otelUrl = Topology.Url("otel." + Topology.PublicHost, 4317);
-
     /// <summary>
     /// The environment, sorted: <paramref name="current" /> (the first value of a key wins, a malformed entry is
-    /// skipped), the run's own variables (always set), and the platform's defaults (set unless
-    /// <paramref name="current" /> has them).
+    /// skipped), the run's own variables (always set), and the platform's defaults at <paramref name="origin" /> (set
+    /// unless <paramref name="current" /> has them). A value derived from an origin whose port Aspire allocates has a
+    /// hole for the port.
     /// </summary>
-    public static SortedDictionary<string, string> Build(
+    public static SortedDictionary<string, OriginValue> Build(
         IEnumerable<string> current,
         string kestrelUrl,
-        int ingressPort,
-        string appFrontendAssetBaseUrl,
+        PublicOrigin origin,
+        OriginValue? appFrontendAssetBaseUrl,
         string secretsDirectory,
         string keysDirectory,
         AppCertificate? signing
     )
     {
-        var values = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        var values = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
         foreach (var entry in current)
         {
             var at = entry.IndexOf('=', StringComparison.Ordinal);
             if (at > 0)
             {
-                values.TryAdd(entry[..at], entry[(at + 1)..]);
+                values.TryAdd(entry[..at], OriginValue.Literal(entry[(at + 1)..]));
             }
         }
-        void Default(string key, string value) => values.TryAdd(key, value);
+        void Default(string key, OriginValue value) => values.TryAdd(key, value);
+        void DefaultText(string key, string value) => values.TryAdd(key, OriginValue.Literal(value));
 
-        var platform = Topology.Url(Topology.PublicHost, ingressPort);
-        values["STUDIOCTL_APP_RUN"] = "1";
-        values[SecretsDirectory] = secretsDirectory;
-        values[MaskinportenFileNameVariable] = MaskinportenFileName;
-        values[AppCodesFileNameVariable] = AppCodesFileName;
+        var platform = origin.Url;
+        values["STUDIOCTL_APP_RUN"] = OriginValue.Literal("1");
+        values[SecretsDirectory] = OriginValue.Literal(secretsDirectory);
+        values[MaskinportenFileNameVariable] = OriginValue.Literal(MaskinportenFileName);
+        values[AppCodesFileNameVariable] = OriginValue.Literal(AppCodesFileName);
         if (keysDirectory.Length > 0)
         {
-            values["ALTINN_KEYS_DIRECTORY"] = keysDirectory;
+            values["ALTINN_KEYS_DIRECTORY"] = OriginValue.Literal(keysDirectory);
         }
-        Default("ASPNETCORE_ENVIRONMENT", "Development");
-        Default(KestrelUrl, kestrelUrl);
-        if (appFrontendAssetBaseUrl.Length > 0)
+        DefaultText("ASPNETCORE_ENVIRONMENT", "Development");
+        DefaultText(KestrelUrl, kestrelUrl);
+        if (appFrontendAssetBaseUrl is not null)
         {
             values[AppFrontendAssetBaseUrl] = appFrontendAssetBaseUrl;
         }
-        Default("AppSettings__OpenIdWellKnownEndpoint", platform + "/authentication/api/v1/openid/");
-        Default("GeneralSettings__ExternalAppBaseUrl", platform + "/{org}/{app}/");
-        Default("GeneralSettings__HostName", Topology.PublicHost);
-        Default(OtlpEndpoint, _otelUrl);
+        Default("AppSettings__OpenIdWellKnownEndpoint", platform.Then("/authentication/api/v1/openid/"));
+        Default("GeneralSettings__ExternalAppBaseUrl", platform.Then("/{org}/{app}/"));
+        DefaultText("GeneralSettings__HostName", origin.Host);
+        // studioctl's OpenTelemetry collector, which Aspire replaces with its dashboard.
+        DefaultText(OtlpEndpoint, Topology.Url("otel." + origin.Host, 4317));
         foreach (
             var (key, component) in new[]
             {
@@ -119,28 +119,28 @@ internal static class AppEnvironment
             }
         )
         {
-            Default("PlatformSettings__" + key, $"{platform}/{component}/api/v1/");
+            Default("PlatformSettings__" + key, platform.Then($"/{component}/api/v1/"));
         }
-        Default("PlatformSettings__ApiPdf2Endpoint", Topology.Url("pdf." + Topology.PublicHost, ingressPort) + "/pdf");
+        Default("PlatformSettings__ApiPdf2Endpoint", origin.SubdomainUrl(Topology.PdfSubdomain).Then("/pdf"));
         Default(
             "PlatformSettings__ApiWorkflowEngineEndpoint",
-            Topology.Url("workflow-engine." + Topology.PublicHost, ingressPort) + "/api/v1/"
+            origin.SubdomainUrl(Topology.WorkflowEngineSubdomain).Then("/api/v1/")
         );
         if (signing is not null)
         {
-            Default("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath);
-            Default("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder);
-            Default("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName);
+            DefaultText("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath);
+            DefaultText("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder);
+            DefaultText("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName);
 
             // The app frontend's inbox, dialog, profile and parties links, into the local Arbeidsflate (the
             // frontend uses a configured link on a local host and the start page otherwise). Only the stack has
             // Arbeidsflate, and the certificate is set exactly when the app runs against it, as in studioctl. The
             // change-and-redirect link stays unset: the stack's Access Management does not serve it.
-            var arbeidsflate = Topology.Url(Topology.ArbeidsflateHost, ingressPort);
-            Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate + "/");
-            Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate + "/inbox/{dialogId}");
-            Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate + "/profile");
-            Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate + "/profile/parties");
+            var arbeidsflate = origin.SubdomainUrl(Topology.ArbeidsflateSubdomain);
+            Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate.Then("/"));
+            Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate.Then("/inbox/{dialogId}"));
+            Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate.Then("/profile"));
+            Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate.Then("/profile/parties"));
         }
         return values;
     }

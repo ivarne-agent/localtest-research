@@ -60,7 +60,7 @@ public sealed class FrontDoorRegistrationTests : IAsyncLifetime
         return (model, model.Builder.Build());
     }
 
-    private AppProvisioning Provisioning(int appPort) => new(new AppId("ttd", "testapp"), Platform(), () => appPort);
+    private AppProvisioning Provisioning(int appPort) => new(new AppId("ttd", "testapp"), Platform, () => appPort);
 
     [Fact]
     public async Task ProvisionPutsTheAppsAddressAndDeprovisionDeletesIt()
@@ -124,7 +124,7 @@ public sealed class FrontDoorRegistrationTests : IAsyncLifetime
         using var _ = built;
         var platform = Platform();
         await _frontDoor!.StopAsync(TestContext.Current.CancellationToken);
-        var provisioning = new AppProvisioning(new AppId("ttd", "testapp"), platform, () => 14364);
+        var provisioning = new AppProvisioning(new AppId("ttd", "testapp"), () => platform, () => 14364);
 
         var status = await provisioning.ProvisionAsync(
             built.Services,

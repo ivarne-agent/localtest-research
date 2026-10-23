@@ -143,6 +143,18 @@ internal sealed class SampleModel
         return values.Where(kv => kv.Value is string).ToDictionary(kv => kv.Key, kv => (string)kv.Value);
     }
 
+    /// <summary>An endpoint-valued environment variable's expression, or null for a string.</summary>
+    public async Task<ReferenceExpression?> EnvironmentExpressionValue(IResource resource, string key)
+    {
+        var values = new Dictionary<string, object>();
+        var context = new EnvironmentCallbackContext(Builder.ExecutionContext, resource, values);
+        foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+        {
+            await annotation.Callback(context);
+        }
+        return values.TryGetValue(key, out var value) ? value as ReferenceExpression : null;
+    }
+
     /// <summary>An endpoint-valued environment variable rendered with the endpoint's properties as placeholders.</summary>
     public async Task<string?> EnvironmentExpression(IResource resource, string key)
     {

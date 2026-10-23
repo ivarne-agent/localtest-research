@@ -10,4 +10,5 @@ namespace Altinn.App.Aspire.Manifest;
 )]
 [JsonSerializable(typeof(IReadOnlyList<ManifestGroup>))]
 [JsonSerializable(typeof(ManifestContainer))]
+[JsonSerializable(typeof(ManifestPublic))]
 internal sealed partial class ManifestJsonContext : JsonSerializerContext;

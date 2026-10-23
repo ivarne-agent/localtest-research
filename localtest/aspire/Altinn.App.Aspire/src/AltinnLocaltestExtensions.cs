@@ -15,8 +15,9 @@ public static class AltinnLocaltestExtensions
     /// <summary>
     /// Adds the localtest platform: the containers of the localtest-v2 manifest's <c>default</c> group as persistent
     /// containers (the images, environment, mounts and certificate studioctl runs, with the package's own volumes,
-    /// <c>altinn-localtest-&lt;id&gt;</c>), the localtest container's port 8080 published as
-    /// <c>http://local.altinn.cloud:8000</c>, the front door. Optional groups come from
+    /// <c>altinn-localtest-&lt;id&gt;</c>), the localtest container's port 8080 published as the public origin,
+    /// <c>http://local.altinn.cloud:8000</c> unless <see cref="AltinnLocaltestOptions.PublicHost" /> or
+    /// <see cref="AltinnLocaltestOptions.PublicPort" /> says otherwise: the front door. Optional groups come from
     /// <see cref="AltinnLocaltestOptions.Groups" />, <see cref="WithGroup" /> or a typed alias such as
     /// <see cref="WithDialogporten" />. For minimal mode (four containers, the rest emulated, nothing persisted) see
     /// <see cref="AltinnLocaltestMinimalExtensions.AddAltinnLocaltestMinimal" />.
@@ -58,7 +59,8 @@ public static class AltinnLocaltestExtensions
     }
 
     /// <summary>
-    /// Routes <c>app-frontend.local.altinn.cloud:8000</c> to a frontend dev server (Vite) on the host, as
+    /// Routes <c>app-frontend.</c> on the public host and port (<c>app-frontend.local.altinn.cloud:8000</c> by default) to a
+    /// frontend dev server (Vite) on the host, as
     /// <c>studioctl run --dev-frontend</c> does: the route is registered with the front door once the localtest
     /// container is healthy (<c>PUT localtest/api/routes/frontend-dev-server</c>), and every app added with
     /// <c>AddAltinnApp</c> loads app-frontend from it (<c>AppSettings__AppFrontendAssetBaseUrl</c>).
@@ -84,7 +86,7 @@ public static class AltinnLocaltestExtensions
                     {
                         var answer = await FrontDoorClient
                             .PutAsync(
-                                Topology.PlatformUri,
+                                stack.PlatformUri,
                                 FrontDoorClient.DevServerPath,
                                 FrontDoorClient.HostAddress(stack.FrontendDevServerPort!.Value),
                                 ct
@@ -96,7 +98,7 @@ public static class AltinnLocaltestExtensions
                     {
                         console.LogDevServerRouteFailed(
                             exception,
-                            new Uri(Topology.PlatformUri, FrontDoorClient.DevServerPath).ToString()
+                            new Uri(stack.PlatformUri, FrontDoorClient.DevServerPath).ToString()
                         );
                     }
                 }

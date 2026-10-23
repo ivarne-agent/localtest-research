@@ -37,7 +37,7 @@ internal static class LocaltestPlatform
                     State = KnownResourceStates.NotStarted,
                     Properties =
                     [
-                        new ResourcePropertySnapshot("localtest.platformUri", Topology.PlatformUri.ToString()),
+                        new ResourcePropertySnapshot("localtest.platformUri", stack.Origin.Url.Then("/").ToString()),
                         new ResourcePropertySnapshot("localtest.mode", stack.Minimal ? "minimal" : "default"),
                     ],
                 }
@@ -48,11 +48,13 @@ internal static class LocaltestPlatform
         builder.Eventing.Subscribe<BeforeStartEvent>(
             async (e, ct) =>
             {
-                if (builder.ExecutionContext.IsRunMode)
+                // An allocated port (PublicPort = 0) is free by construction.
+                if (builder.ExecutionContext.IsRunMode && stack.Origin.Port is { } port)
                 {
                     var own = await OwnFrontDoorAsync(builder.Configuration, ct).ConfigureAwait(false);
                     PortGuard.EnsureFree(
-                        Topology.IngressPort,
+                        port,
+                        stack.Origin.Host,
                         persistentFrontDoor: !stack.Minimal,
                         own,
                         ContainerRuntime.Cli(builder.Configuration)
@@ -67,7 +69,7 @@ internal static class LocaltestPlatform
 
     /// <summary>
     /// This AppHost's persistent localtest container when it runs, from a previous run of the full stack: then it holds
-    /// port 8000. Aspire names a persistent container after the resource and the first eight characters of the
+    /// the public port. Aspire names a persistent container after the resource and the first eight characters of the
     /// AppHost's hash.
     /// </summary>
     private static async Task<string?> OwnFrontDoorAsync(IConfiguration configuration, CancellationToken ct)
@@ -128,10 +130,22 @@ internal static class LocaltestPlatform
             return;
         }
         console.LogLocaltestHealthy(resource.Name, started.Elapsed.TotalSeconds);
+        // The origin with its port, which Aspire has allocated by now when PublicPort = 0.
+        var platformUri = resource.PlatformUri.ToString();
         await e
             .Notifications.PublishUpdateAsync(
                 resource,
-                s => s with { State = KnownResourceStates.Running, StartTimeStamp = DateTime.UtcNow }
+                s =>
+                    s with
+                    {
+                        State = KnownResourceStates.Running,
+                        StartTimeStamp = DateTime.UtcNow,
+                        Properties =
+                        [
+                            .. s.Properties.Where(p => p.Name != "localtest.platformUri"),
+                            new ResourcePropertySnapshot("localtest.platformUri", platformUri),
+                        ],
+                    }
             )
             .ConfigureAwait(false);
     }

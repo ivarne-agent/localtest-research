@@ -151,20 +151,20 @@ public sealed class MinimalModeTests
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
-        PortGuard.EnsureFree(port, persistentFrontDoor: true, "localtest-0123abcd", "podman");
+        PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: true, "localtest-0123abcd", "podman");
         var error = Assert.Throws<InvalidOperationException>(() =>
-            PortGuard.EnsureFree(port, persistentFrontDoor: false, "localtest-0123abcd", "podman")
+            PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: false, "localtest-0123abcd", "podman")
         );
         Assert.Contains("`podman rm --force localtest-0123abcd`", error.Message, StringComparison.Ordinal);
         var other = Assert.Throws<InvalidOperationException>(() =>
-            PortGuard.EnsureFree(port, persistentFrontDoor: false, null, "podman")
+            PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: false, null, "podman")
         );
         Assert.Contains("another localtest stack or AppHost", other.Message, StringComparison.Ordinal);
         Assert.Throws<InvalidOperationException>(() =>
-            PortGuard.EnsureFree(port, persistentFrontDoor: true, null, "podman")
+            PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: true, null, "podman")
         );
         listener.Stop();
-        PortGuard.EnsureFree(port, persistentFrontDoor: false, null, "podman");
-        PortGuard.EnsureFree(port, persistentFrontDoor: false, "localtest-0123abcd", "podman");
+        PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: false, null, "podman");
+        PortGuard.EnsureFree(port, "local.altinn.cloud", persistentFrontDoor: false, "localtest-0123abcd", "podman");
     }
 }

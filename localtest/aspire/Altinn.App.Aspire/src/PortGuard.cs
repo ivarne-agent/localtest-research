@@ -16,7 +16,14 @@ internal static class PortGuard
     /// on every interface or answers on loopback, unless <paramref name="heldByThisAppHost" /> says the holder is this
     /// AppHost's own front door: the localtest container is persistent, so it keeps the port between AppHost runs.
     /// </summary>
-    public static void EnsureFree(int port, Func<bool>? heldByThisAppHost = null)
+    public static void EnsureFree(int port, Func<bool>? heldByThisAppHost = null) =>
+        EnsureFree(port, "local.altinn.cloud", heldByThisAppHost);
+
+    /// <summary>
+    /// As <see cref="EnsureFree(int, Func{bool})" />, naming the public origin at <paramref name="host" /> in the
+    /// message.
+    /// </summary>
+    public static void EnsureFree(int port, string host, Func<bool>? heldByThisAppHost = null)
     {
         if (IsFree(port) || heldByThisAppHost?.Invoke() == true)
         {
@@ -27,7 +34,7 @@ internal static class PortGuard
             $"Port {port} is in use{(holder is null ? "" : $" by {holder}")}: another localtest stack or AppHost is running "
                 + "(studioctl-server for `studioctl env up -r localtest-v2`, or another AppHost's front door). "
                 + "Stop it first (`studioctl env down -r localtest-v2`, or stop the other AppHost and remove its front door "
-                + "container); the localtest platform needs the port for its front door on http://local.altinn.cloud:"
+                + $"container); the localtest platform needs the port for its front door on http://{host}:"
                 + port.ToString(CultureInfo.InvariantCulture)
                 + "."
         );
@@ -40,14 +47,15 @@ internal static class PortGuard
     /// persistent one, left running by a run of the full stack, holds the port that minimal mode needs, and is named.
     /// </summary>
     /// <param name="port">The front door's port.</param>
+    /// <param name="host">The public host, for the message.</param>
     /// <param name="persistentFrontDoor">Whether the starting stack's front door is persistent (the full stack).</param>
     /// <param name="ownFrontDoor">This AppHost's persistent front door's container when it runs, else null.</param>
     /// <param name="cli">The container runtime's CLI, for the remedy.</param>
-    public static void EnsureFree(int port, bool persistentFrontDoor, string? ownFrontDoor, string cli)
+    public static void EnsureFree(int port, string host, bool persistentFrontDoor, string? ownFrontDoor, string cli)
     {
         if (persistentFrontDoor)
         {
-            EnsureFree(port, () => ownFrontDoor is not null);
+            EnsureFree(port, host, () => ownFrontDoor is not null);
             return;
         }
         if (ownFrontDoor is not null && !IsFree(port))
@@ -58,7 +66,7 @@ internal static class PortGuard
                     + $"own. Remove it first (`{cli} rm --force {ownFrontDoor}`; the full stack's volumes stay)."
             );
         }
-        EnsureFree(port);
+        EnsureFree(port, host);
     }
 
     /// <summary>Whether the port can be bound on every interface and nothing answers on loopback.</summary>

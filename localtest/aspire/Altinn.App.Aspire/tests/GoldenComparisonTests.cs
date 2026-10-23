@@ -8,7 +8,8 @@ namespace Altinn.App.Aspire.Tests;
 /// <summary>
 /// The package against studioctl's golden snapshots, read by relative path from the Go tree:
 /// <c>internal/cmd/env/localtestv2/testdata/environment.golden.json</c> (the containers of <c>env up</c>, of
-/// <c>env up --with everything --latest --dev-...</c> and of <c>env up --minimal</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
+/// <c>env up --with everything --latest --dev-...</c>, of <c>env up --minimal</c> and of
+/// <c>env up --host origin.test --port 18000</c>, the package with <c>PublicHost</c> and <c>PublicPort</c> set alike) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
 /// (the app's environment). Per container, every field both runners have is compared byte for byte with the
 /// application model the package builds: the selection and its start order, the image reference (the default stack;
 /// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>
@@ -26,7 +27,7 @@ public sealed class GoldenComparisonTests
     /// <summary>studioctl's volume prefix, as the snapshot states it.</summary>
     private static readonly string _studioctlVolumePrefix = _golden.GetProperty("volumePrefix").GetString()!;
 
-    public static TheoryData<string> Selections => new() { "default", "everything", "minimal" };
+    public static TheoryData<string> Selections => new() { "default", "everything", "minimal", "customOrigin" };
 
     private static JsonElement Load(string file)
     {
@@ -41,6 +42,16 @@ public sealed class GoldenComparisonTests
         {
             "minimal" => SampleModel.BuildMinimal(dataDirectory: DataDirectory),
             "everything" => SampleModel.Build(["everything"], dataDirectory: DataDirectory),
+            // studioctl's env up --host origin.test --port 18000.
+            "customOrigin" => SampleModel.Build(
+                [],
+                dataDirectory: DataDirectory,
+                configure: o =>
+                {
+                    o.PublicHost = "origin.test";
+                    o.PublicPort = 18000;
+                }
+            ),
             _ => SampleModel.Build([], dataDirectory: DataDirectory),
         };
 
@@ -81,7 +92,8 @@ public sealed class GoldenComparisonTests
             {
                 "default" => 13,
                 "everything" => 22,
-                _ => 4,
+                "minimal" => 4,
+                _ => 13,
             },
             golden.Count
         );
@@ -181,7 +193,8 @@ public sealed class GoldenComparisonTests
     [MemberData(nameof(Selections))]
     public void TheHealthTargetsMatch(string selection)
     {
-        var specs = Model(selection).Platform.Resource.Stack.Specs();
+        var model = Model(selection);
+        var specs = model.Platform.Resource.Stack.Specs();
 
         Assert.Equal(
             Strings(_golden.GetProperty(selection), "healthTargets"),
@@ -189,7 +202,10 @@ public sealed class GoldenComparisonTests
         );
         Assert.Equal(
             _golden.GetProperty(selection).GetProperty("frontDoorHealth").GetString(),
-            new Uri(Topology.PlatformUri, specs.Single(s => s.Name == Topology.FrontDoor).Health.Path).ToString()
+            new Uri(
+                model.Platform.Resource.PlatformUri,
+                specs.Single(s => s.Name == Topology.FrontDoor).Health.Path
+            ).ToString()
         );
     }
 
@@ -277,11 +293,15 @@ public sealed class GoldenComparisonTests
         var signing = golden.GetProperty("signing");
         var current = golden.GetProperty("current");
 
+        var frontend = golden.GetProperty("appFrontendAssetBaseUrl").GetString()!;
         var environment = AppEnvironment.Build(
             current.ValueKind == JsonValueKind.Null ? [] : [.. current.EnumerateArray().Select(e => e.GetString()!)],
             golden.GetProperty("kestrelUrl").GetString()!,
-            int.Parse(golden.GetProperty("ingressPort").GetString()!, CultureInfo.InvariantCulture),
-            golden.GetProperty("appFrontendAssetBaseUrl").GetString()!,
+            LocaltestManifest.Default.Origin(
+                golden.TryGetProperty("publicHost", out var host) ? host.GetString() : null,
+                int.Parse(golden.GetProperty("ingressPort").GetString()!, CultureInfo.InvariantCulture)
+            ),
+            frontend.Length == 0 ? null : OriginValue.Literal(frontend),
             golden.GetProperty("secretsDir").GetString()!,
             golden.GetProperty("keysDir").GetString()!,
             signing.GetProperty("FullPath").GetString() is { Length: > 0 } fullPath
@@ -295,7 +315,7 @@ public sealed class GoldenComparisonTests
 
         Assert.Equal(
             golden.GetProperty("environment").EnumerateObject().Select(p => (p.Name, p.Value.GetString())),
-            environment.Select(kv => (kv.Key, (string?)kv.Value))
+            environment.Select(kv => (kv.Key, (string?)kv.Value.Text))
         );
     }
 }

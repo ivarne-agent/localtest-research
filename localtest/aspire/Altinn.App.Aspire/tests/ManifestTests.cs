@@ -12,6 +12,7 @@ public sealed class ManifestTests
             { "name": "default", "containers": ["web"] },
             { "name": "extra", "containers": ["worker"] }
           ],
+          "public": { "host": "example.test", "port": 8000, "subdomains": ["pdf"] },
           "containers": {
             "db": { "registry": "example.org/db", "tag": "1", "port": 5432, "health": "tcp",
                     "volumes": { "db-data": "/data" } },

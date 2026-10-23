@@ -18,21 +18,27 @@ internal sealed class AppProvisioning
     public const string StatusProperty = "altinn.provisioning";
 
     private readonly Func<int> _appPort;
+    private readonly Func<Uri> _platformUri;
+    private Uri? _platformOverride;
 
     /// <param name="appId">The app.</param>
-    /// <param name="platformUri">The front door.</param>
+    /// <param name="platformUri">The front door, once Aspire allocated its port when the stack's port is allocated.</param>
     /// <param name="appPort">The app's port on the host, once Aspire allocated it.</param>
-    public AppProvisioning(AppId appId, Uri platformUri, Func<int> appPort)
+    public AppProvisioning(AppId appId, Func<Uri> platformUri, Func<int> appPort)
     {
         AppId = appId;
-        PlatformUri = platformUri;
+        _platformUri = platformUri;
         _appPort = appPort;
     }
 
     public AppId AppId { get; }
 
-    /// <summary>The front door; the tests point it at a fake.</summary>
-    public Uri PlatformUri { get; set; }
+    /// <summary>The front door, read when it is called; the tests point it at a fake.</summary>
+    public Uri PlatformUri
+    {
+        get => _platformOverride ?? _platformUri();
+        set => _platformOverride = value;
+    }
 
     /// <summary>The last outcome; <see cref="ProvisioningState.NotRun" /> until the first call.</summary>
     public ProvisioningStatus Status { get; private set; } = ProvisioningStatus.NotRun;

@@ -8,7 +8,8 @@ namespace Altinn.App.Aspire.Manifest;
 /// The localtest-v2 manifest (<c>localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json</c>, its
 /// README beside it): the groups and the containers. Parsed and checked as studioctl's Go loader
 /// (<c>manifest.go</c>) does: known keys only, every reference resolves, no dependency cycle, every container reached
-/// by a group, the values in range.
+/// by a group, the values in range, the public section valid and every placeholder in <c>envs</c> one of the public
+/// origin's (<see cref="PublicOrigin" />).
 /// </summary>
 internal sealed partial class LocaltestManifest
 {
@@ -57,11 +58,13 @@ internal sealed partial class LocaltestManifest
 
     private LocaltestManifest(
         IReadOnlyList<ManifestGroup> groups,
+        ManifestPublic @public,
         Dictionary<string, ManifestContainer> containers,
         List<string> names
     )
     {
         Groups = groups;
+        Public = @public;
         _containers = containers;
         _names = names;
     }
@@ -71,6 +74,29 @@ internal sealed partial class LocaltestManifest
 
     /// <summary>The groups in file order.</summary>
     public IReadOnlyList<ManifestGroup> Groups { get; }
+
+    /// <summary>The public section: the origin's default host and port, and the dedicated subdomains.</summary>
+    public ManifestPublic Public { get; }
+
+    /// <summary>
+    /// The public origin at <paramref name="host" /> and <paramref name="port" /> with the manifest's subdomains: null
+    /// is the manifest's default, a port of 0 one Aspire allocates when the AppHost runs.
+    /// </summary>
+    public PublicOrigin Origin(string? host = null, int? port = null) =>
+        new(
+            host ?? Public.Host,
+            port switch
+            {
+                null => Public.Port,
+                0 => null,
+                _ => port,
+            },
+            Public.Subdomains
+        );
+
+    /// <summary>A container's envs with the placeholders resolved for <paramref name="origin" />.</summary>
+    public IReadOnlyDictionary<string, OriginValue> Envs(string name, PublicOrigin origin) =>
+        _containers[name].Envs.ToDictionary(kv => kv.Key, kv => origin.Resolve(kv.Value), StringComparer.Ordinal);
 
     /// <summary>The containers by name.</summary>
     public IReadOnlyDictionary<string, ManifestContainer> Containers => _containers;
@@ -125,6 +151,7 @@ internal sealed partial class LocaltestManifest
             }
             JsonElement? groupsElement = null;
             JsonElement? containersElement = null;
+            JsonElement? publicElement = null;
             foreach (var property in root.EnumerateObject())
             {
                 switch (property.Name)
@@ -135,7 +162,10 @@ internal sealed partial class LocaltestManifest
                     case "containers" when containersElement is null:
                         containersElement = property.Value;
                         break;
-                    case "groups" or "containers":
+                    case "public" when publicElement is null:
+                        publicElement = property.Value;
+                        break;
+                    case "groups" or "containers" or "public":
                         throw Invalid($"duplicate key {property.Name}");
                     default:
                         throw Invalid($"unknown key {property.Name}");
@@ -144,8 +174,11 @@ internal sealed partial class LocaltestManifest
             var groups = groupsElement is { ValueKind: not JsonValueKind.Null } g
                 ? g.Deserialize(ManifestJsonContext.Default.IReadOnlyListManifestGroup) ?? []
                 : [];
+            var @public = publicElement is { ValueKind: JsonValueKind.Object } p
+                ? p.Deserialize(ManifestJsonContext.Default.ManifestPublic) ?? new ManifestPublic()
+                : new ManifestPublic();
             var (containers, names) = ReadContainers(containersElement);
-            var manifest = new LocaltestManifest(groups, containers, names);
+            var manifest = new LocaltestManifest(groups, @public, containers, names);
             manifest.Check();
             return manifest;
         }
@@ -195,6 +228,7 @@ internal sealed partial class LocaltestManifest
         {
             CheckContainer(name, _containers[name]);
         }
+        CheckPublic();
         CheckGroups();
         if (StartOrder([.. _names]).Count != _names.Count)
         {
@@ -252,6 +286,41 @@ internal sealed partial class LocaltestManifest
             if (!seen.Add(dependency))
             {
                 throw Invalid(Fault($"dependsOn: duplicate \"{dependency}\""));
+            }
+        }
+    }
+
+    private void CheckPublic()
+    {
+        if (PublicOrigin.HostFault(Public.Host) is { } fault)
+        {
+            throw Invalid("public: " + fault);
+        }
+        if (Public.Port is < 1 or > MaxPort)
+        {
+            throw Invalid($"public: port {Public.Port}");
+        }
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var sub in Public.Subdomains)
+        {
+            if (!PublicOrigin.HostLabel().IsMatch(sub))
+            {
+                throw Invalid($"public: subdomain \"{sub}\"");
+            }
+            if (!seen.Add(sub))
+            {
+                throw Invalid($"public: duplicate subdomain {sub}");
+            }
+        }
+        var origin = Origin();
+        foreach (var name in _names)
+        {
+            foreach (var (key, value) in _containers[name].Envs.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                if (origin.PlaceholderFault(value) is { } placeholder)
+                {
+                    throw Invalid($"container {name}: envs {key}: {placeholder}");
+                }
             }
         }
     }
@@ -332,7 +401,7 @@ internal sealed record ManifestContainer
     /// <summary>The image tag; a digest may follow it (<c>7.2-alpine@sha256:...</c>).</summary>
     public string Tag { get; set; } = "";
 
-    /// <summary>The environment, literal strings.</summary>
+    /// <summary>The environment: literal strings but for the public origin's placeholders (<see cref="PublicOrigin" />).</summary>
     public IReadOnlyDictionary<string, string> Envs { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The containers that start, and are healthy, before this one.</summary>

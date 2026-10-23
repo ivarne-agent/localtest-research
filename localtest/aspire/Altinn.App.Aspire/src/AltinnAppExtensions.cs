@@ -160,7 +160,7 @@ public static class AltinnAppExtensions
         {
             foreach (var (key, value) in EnvironmentOf(stack, secretsDirectory, certificate))
             {
-                context.EnvironmentVariables[key] = value;
+                context.EnvironmentVariables[key] = stack.EnvironmentValue(value);
             }
         });
         if (options.OpenTelemetry)
@@ -184,17 +184,22 @@ public static class AltinnAppExtensions
                 url.DisplayLocation = UrlDisplayLocation.DetailsOnly;
             }
         );
-        app.WithUrl(
-            new Uri(localtest.Resource.PlatformUri, $"{appId.Org}/{appId.App}/").ToString(),
-            "App (front door)"
-        );
+        var frontDoorUrl = stack.Origin.Url.Then($"/{appId.Org}/{appId.App}/");
+        if (frontDoorUrl.IsLiteral)
+        {
+            app.WithUrl(frontDoorUrl.Text, "App (front door)");
+        }
+        else
+        {
+            app.WithUrl((ReferenceExpression)stack.EnvironmentValue(frontDoorUrl), "App (front door)");
+        }
 
         AddProvisioning(builder, localtest, app, appId, endpoint, options);
         return app;
     }
 
     /// <summary>The app's environment: studioctl run's, less the variables Aspire or the endpoint set.</summary>
-    internal static IEnumerable<KeyValuePair<string, string>> EnvironmentOf(
+    internal static IEnumerable<KeyValuePair<string, OriginValue>> EnvironmentOf(
         LocaltestStack stack,
         string secretsDirectory,
         AppCertificate certificate
@@ -203,10 +208,10 @@ public static class AltinnAppExtensions
             .Build(
                 [],
                 "",
-                Topology.IngressPort,
+                stack.Origin,
                 stack.FrontendDevServerPort is null
-                    ? ""
-                    : Topology.Url(Topology.FrontendDevServerHost, Topology.IngressPort),
+                    ? null
+                    : stack.Origin.SubdomainUrl(Topology.FrontendDevServerSubdomain),
                 secretsDirectory,
                 "",
                 certificate
@@ -238,7 +243,7 @@ public static class AltinnAppExtensions
         AltinnAppOptions options
     )
     {
-        var provisioning = new AppProvisioning(appId, localtest.Resource.PlatformUri, () => endpoint.Port);
+        var provisioning = new AppProvisioning(appId, () => localtest.Resource.PlatformUri, () => endpoint.Port);
         var key = $"{app.Resource.Name}_provisioning";
         builder
             .Services.AddHealthChecks()

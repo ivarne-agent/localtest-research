@@ -31,8 +31,8 @@ public sealed class AppTests
         var expected = AppEnvironment.Build(
             [],
             "unused",
-            8000,
-            "",
+            LocaltestManifest.Default.Origin(),
+            null,
             "/data-directory/apps/ttd/testapp/secrets",
             "",
             AppCertificate.ForProcess(appRoot, "/data-directory/certs")
@@ -44,7 +44,7 @@ public sealed class AppTests
             )
         )
         {
-            Assert.Equal((key, value), (key, environment[key]));
+            Assert.Equal((key, value.Text), (key, environment[key]));
         }
         Assert.DoesNotContain("AppSettings__AppFrontendAssetBaseUrl", environment.Keys);
         Assert.Equal("true", environment["AppSettings__UseOpenTelemetry"]);

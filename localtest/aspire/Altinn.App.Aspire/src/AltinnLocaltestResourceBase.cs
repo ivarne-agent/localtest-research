@@ -23,8 +23,12 @@ public abstract class AltinnLocaltestResourceBase : Resource
 
     internal LocaltestStack Stack { get; }
 
-    /// <summary>The public origin with a trailing slash: <c>http://local.altinn.cloud:8000/</c>.</summary>
-    public Uri PlatformUri => Manifest.Topology.PlatformUri;
+    /// <summary>
+    /// The public origin with a trailing slash: <c>http://local.altinn.cloud:8000/</c> by default, the options'
+    /// <c>PublicHost</c> and <c>PublicPort</c> otherwise. With <c>PublicPort = 0</c> it is known once Aspire has allocated
+    /// the port, when the AppHost runs; before that it throws.
+    /// </summary>
+    public Uri PlatformUri => Stack.PlatformUri;
 
     /// <summary>The package's data directory on the host (the certificate, the apps' secrets).</summary>
     public string DataDirectory => Stack.DataDirectory;

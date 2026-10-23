@@ -14,7 +14,7 @@ namespace Altinn.App.Aspire;
 /// </summary>
 internal sealed class LocaltestStack
 {
-    /// <summary>The name of the front door's HTTP endpoint, published on port 8000.</summary>
+    /// <summary>The name of the front door's HTTP endpoint, published on the public origin's port.</summary>
     public const string HttpEndpoint = "http";
 
     /// <summary>The name of Postgres's TCP endpoint, published only with <c>PostgresHostPort</c>.</summary>
@@ -36,7 +36,15 @@ internal sealed class LocaltestStack
         LocaltestManifest manifest,
         AltinnLocaltestOptions options
     )
-        : this(builder, manifest, options.DataDirectory, options.Tag, options.PostgresHostPort, minimal: false) { }
+        : this(
+            builder,
+            manifest,
+            options.DataDirectory,
+            options.Tag,
+            options.PostgresHostPort,
+            OriginOf(manifest, options.PublicHost, options.PublicPort),
+            minimal: false
+        ) { }
 
     /// <summary>A stack in minimal mode.</summary>
     public LocaltestStack(
@@ -44,7 +52,15 @@ internal sealed class LocaltestStack
         LocaltestManifest manifest,
         AltinnLocaltestMinimalOptions options
     )
-        : this(builder, manifest, options.DataDirectory, options.Tag, options.PostgresHostPort, minimal: true) { }
+        : this(
+            builder,
+            manifest,
+            options.DataDirectory,
+            options.Tag,
+            options.PostgresHostPort,
+            OriginOf(manifest, options.PublicHost, options.PublicPort),
+            minimal: true
+        ) { }
 
     private LocaltestStack(
         IDistributedApplicationBuilder builder,
@@ -52,10 +68,12 @@ internal sealed class LocaltestStack
         string dataDirectory,
         string? tag,
         int? postgresHostPort,
+        PublicOrigin origin,
         bool minimal
     )
     {
         _builder = builder;
+        Origin = origin;
         _tag = tag;
         _postgresHostPort = postgresHostPort;
         Manifest = manifest;
@@ -65,6 +83,35 @@ internal sealed class LocaltestStack
     }
 
     public LocaltestManifest Manifest { get; }
+
+    /// <summary>The public origin: the options' host and port, the manifest's defaults, a null port Aspire allocates.</summary>
+    public PublicOrigin Origin { get; }
+
+    /// <summary>
+    /// The front door's port as the host sees it: the published port, which Aspire knows once it has allocated the
+    /// endpoints, before any container or app starts. Every value derived from a public origin whose port Aspire
+    /// allocates refers to it.
+    /// </summary>
+    public EndpointReferenceExpression PublicPortExpression =>
+        FrontDoor.GetEndpoint(HttpEndpoint, KnownNetworkIdentifiers.LocalhostNetwork).Property(EndpointProperty.Port);
+
+    /// <summary>
+    /// The public origin with a trailing slash. With a port Aspire allocates, it is known once the endpoints are
+    /// allocated (when the AppHost runs); before that it throws.
+    /// </summary>
+    public Uri PlatformUri =>
+        new(
+            (
+                Origin.Port is { } port
+                    ? Origin.Url.Render(port)
+                    : Origin.Url.Render(
+                        FrontDoor.GetEndpoint(HttpEndpoint, KnownNetworkIdentifiers.LocalhostNetwork).Port
+                    )
+            ) + "/"
+        );
+
+    /// <summary>A value derived from the public origin, as an environment variable's value: a string or an expression.</summary>
+    public object EnvironmentValue(OriginValue value) => value.ToEnvironmentValue(PublicPortExpression);
 
     /// <summary>
     /// Whether the stack runs in minimal mode: the minimal group, session containers, tmpfs, no optional groups.
@@ -98,8 +145,8 @@ internal sealed class LocaltestStack
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>
         Minimal
-            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, _tag)
-            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _tag);
+            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, _tag, Origin)
+            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _tag, Origin);
 
     /// <summary>Adds the default group's containers (the minimal group's in minimal mode), then the given groups.</summary>
     public void Initialize(IResourceBuilder<AltinnLocaltestResourceBase> parent, IEnumerable<string> groups)
@@ -145,6 +192,20 @@ internal sealed class LocaltestStack
             }
         }
         AddContainers();
+    }
+
+    /// <summary>The public origin of the options, checked: a host name, a port from 0 (allocated) to 65535.</summary>
+    private static PublicOrigin OriginOf(LocaltestManifest manifest, string? host, int? port)
+    {
+        if (host is not null && PublicOrigin.HostFault(host) is { } fault)
+        {
+            throw new ArgumentException($"PublicHost: {fault}.", nameof(host));
+        }
+        if (port is < 0 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(port), port, "PublicPort: 0 (allocated) to 65535.");
+        }
+        return manifest.Origin(host, port);
     }
 
     private void AddContainers()
@@ -198,7 +259,7 @@ internal sealed class LocaltestStack
         {
             foreach (var (key, value) in Specs().Single(s => s.Name == name).Environment)
             {
-                context.EnvironmentVariables[key] = value;
+                context.EnvironmentVariables[key] = EnvironmentValue(value);
             }
         });
         foreach (var mount in spec.Mounts)
@@ -230,12 +291,14 @@ internal sealed class LocaltestStack
 
     private void AddEndpointsAndHealth(IResourceBuilder<ContainerResource> container, ContainerSpec spec)
     {
-        if (spec.PublishedPort is { } published)
+        if (spec.Published)
         {
             // Unproxied, on every interface: the containers reach the public origin through the host gateway, which a
             // loopback-only port would not answer. The health check is the front door's /health through that port.
+            // Without a port (PublicPort = 0) Aspire allocates a free one for the unproxied endpoint while it prepares
+            // the run, before it evaluates any environment.
             container
-                .WithHttpEndpoint(port: published, targetPort: spec.Port, name: HttpEndpoint, isProxied: false)
+                .WithHttpEndpoint(port: Origin.Port, targetPort: spec.Port, name: HttpEndpoint, isProxied: false)
                 .WithEndpoint(HttpEndpoint, endpoint => endpoint.TargetHost = "0.0.0.0")
                 .WithHttpHealthCheck(spec.Health.Path, endpointName: HttpEndpoint);
             return;
