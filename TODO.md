@@ -1465,3 +1465,10 @@ fails at the resolver with no delivery row (Events README corrected); Correspond
 fetches from the public origin (nothing reads it). The agent freed 14 GB (old pin images, unrelated images, caches).
 Side effect to fix on arrival: the agent had removed the `local.altinn.cloud` entries from `/etc/hosts`
 (restored with `env hosts add`). Coordinator re-ran go build/test/lint, localtest tests 145, Aspire 122.
+
+**Owner decisions 2026-10-23 (task 45).** Missing declaration = observe, present = enforce (no `--strict`). The
+proxy attributes the calling app by proxy credentials in the runner-set proxy URL (to verify .NET sends them), a
+container app also by address. DNS: the front door as the resolver for container-mode apps (records per app, NXDOMAIN
+for undeclared names), host-wide observation only for process apps. The stack's components call nothing external but
+`altinncdn.no`, so the stack network gets a firewall (host and the CDN only), the at22 paths are removed first. Plan
+updated (sections 1b, 3a–3c, phases 3b and 3c).
