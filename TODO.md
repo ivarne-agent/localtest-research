@@ -67,6 +67,7 @@ A path matching no route still falls through to the localtest app.
 | 31 | [Runtime-prefixed volumes](#31-runtime-prefixed-volumes) | done (2026-10-23; commits b9492e17..2c25542b fast-forwarded onto main: the manifest's `volumes` keys are ids (`postgres-data`, `storage-blobs`, `policy-store`, `localtest-data`, `correspondence-blobs`), studioctl prefixes `localtest-v2-` with mount names unchanged, the Aspire package prefixes `altinn-localtest-`, each reset removes its own volumes only, goldens compared by id, 78 Aspire tests; proven: `env reset` removed only `localtest-v2-*`, `env up` recreated them (24 s, root 26), the AppHost created `altinn-localtest-*` beside them (both sample apps provisioned in 40 s, root 26 through the containers helper), the dashboard reset removed only `altinn-localtest-*`; coordinator verified both phases; brief `/home/agent/code/.briefs/task31-volume-prefix.md`) | small | yes |
 | 32 | [studioctl PR refresh with review](#32-studioctl-pr-refresh-with-review) | approved (owner 2026-10-23: "plan and execute a refresh of the studioctl PR; don't blindly copy, fix errors and simplify"); brief `/home/agent/code/.briefs/task32-studioctl-pr-refresh.md`; **phase A verified, phase B running** (stack proof, dispatched 2026-10-23) | large | yes |
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **running** (dispatched 2026-10-23, Opus, docs only, parallel to 32 phase B) | medium | no |
+| 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -953,3 +954,23 @@ memory. Reference for what is sufficient: the monorepo's `src/Runtime/localtest`
 lines, file-backed, MVC) and app-lib's clients. The document decides how the front door picks emulation versus a real
 service, how registration provisions into memory, what fidelity is lost, how studioctl and Aspire expose it, reuse
 versus rewrite, and a phased plan. Deliverable `planned-components/minimal-emulation/README.md`; no code, no stack.
+
+**Owner decision 2026-10-23 (flag form).** The owner does not like `--dev NAME[=PATH]` and does not see the
+`--dev-workflow-engine` clash as a reason: the per-container form `--dev-<container>[=<path>]` comes back in a phase-B
+fix commit. `--dev-workflow-engine` stays one flag whose meaning follows the runtime (upstream's hidden host-process
+routing under `-r localtest`, a container build under `-r localtest-v2`); `env up` refusing the other runtime's flags
+keeps the two meanings apart. The agent was told during phase B.
+
+## 34. `studioctl run --mode container` against localtest-v2
+
+**Goal (2026-10-23, owner's request).** Container-mode apps must work against localtest-v2. Today (task 32) the mode is
+refused up front because the app container joined the old runtime's `localtest` network, which v2 never creates, and
+the run failed at container creation. What a working version needs, to discuss before a brief: the app container joins
+the `localtest-v2` network (or none, with the public host names mapped to the host gateway so `local.altinn.cloud:8000`
+resolves inside it); the certificate mounted at `/certs` as for the components (the `container` golden case gets its
+signing settings and Arbeidsflate links back); the registration address: studioctl-server already records
+`ContainerId`/`HostPort` per discovered app and registers `host.docker.internal:<hostPort>` today, which works when the
+container publishes a port, or the container's alias and internal port on the v2 network if we prefer no published
+port (then `FrontDoorUrl` needs the network address); `run --dev-frontend` and the registration wait in the container
+path (removed in task 32); the Aspire side is unaffected (apps are projects). Decide: network versus host gateway,
+published port versus alias, and whether the app image needs the CA bundle or `/accesstoken` file.
