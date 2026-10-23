@@ -19,6 +19,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
 | Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
+| Minimal mode: the platform services whose address is the front door's own, emulated in memory under their public prefixes (task 35); nothing of it is registered or mapped otherwise | `Emulation/` | the services' own paths ([Minimal mode](#minimal-mode)) |
 
 | File | What |
 | --- | --- |
@@ -35,9 +36,10 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Proxy/ComponentUnavailable.cs`, `Proxy/ServiceCalls.cs` | The 503 problem details and page ("not running", "not answering"), and how a call to a name without an address fails |
 | `Proxy/AppRoutes.cs`, `Proxy/DevServerRoute.cs`, `Proxy/RoutesApi.cs` | The registered apps (with their last provisioning) and the frontend dev server, saved on `/data`, and the API the runners use |
 | `Provisioning/` | The deploy steps, copied from studioctl's provisioning library (`AppId.cs` says what changed): `LocaltestProvisioner.cs`, `RunningAppSource.cs`, and `AppProvisioning.cs`, which runs them for a registration |
+| `Emulation/` | The minimal mode: `Emulation.cs` (the two calls `Program.cs` makes), `EmulationMode.cs`, one folder per emulated service, the test-data store with its copies of the Register's format files and seed, the static PDF; [its README](Emulation/README.md) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
-| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks; `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
+| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports; `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -241,6 +243,22 @@ The access token carries `pid`, `acr`, `urn:altinn:authlevel`, `urn:altinn:useri
 the requested ones), which is what Dialogporten's end-user API needs; `/Home/GetTestUserToken`'s cookie JWT has no
 `pid` by production design.
 
+## Minimal mode
+
+`studioctl env up -r localtest-v2 --minimal` runs `postgres`, `storage`, `workflow-engine` and this container, and
+gives every other HTTP service of the default stack this container's own address
+(`services__<name>__http__0=http://localtest:8080`). The front door then answers for Register, Profile, Authentication,
+Authorization (a PDP that permits everything), Access Management, Events, Notifications, the Resource Registry (`501`)
+and pdf3 (one static PDF) itself, in memory, from the test data, and marks every such answer with
+`X-Localtest-Emulated: <service>`. Storage and the workflow engine are the real ones. Everything else here works the
+same: the routes, the registration (provisioning into memory, and into Storage over HTTP), the fake ID-porten and
+Maskinporten, Home (with a banner naming the mode). `GET localtest/api/routes` reports `emulated` for those services,
+and the app routes are kept in memory (`Proxy__AppRoutesFile=`): every stop is a clean slate.
+
+What it is for, what is lost (authorization rules, real Register data, PDF content, the optional groups) and why:
+[`planned-components/minimal-emulation/README.md`](../../planned-components/minimal-emulation/README.md). What is
+emulated, the token claim sets, the test-data copies and the seams it plugs into: [`Emulation/README.md`](Emulation/README.md).
+
 ## Build notes
 
 - `PublishAot` with `IsAotCompatible` and warnings as errors: the AOT and trim analysers run on every build. YARP 2.3.0
@@ -262,6 +280,8 @@ the requested ones), which is what Dialogporten's end-user API needs; `/Home/Get
   warnings (task 26, `podman build`, arm64): the image grew from 35.5 MB to 36.5 MB.
 - Settings are read from the built configuration in the service registrations (`sp => …`), not from
   `builder.Configuration` before `Build()`, so the test host's configuration (`WebApplicationFactory`) reaches them.
+  The one exception is the minimal mode, which decides at `Emulation.Add` what to register; its tests pass their
+  settings with `UseSetting`, which the builder sees ([Emulation/README.md](Emulation/README.md#how-the-mode-switches-on)).
 - `tests/` sits inside the project folder: `Localtest.csproj` excludes it (`DefaultItemExcludes`) and so does
   `.dockerignore`.
 

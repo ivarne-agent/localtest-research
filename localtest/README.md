@@ -143,6 +143,8 @@ studioctl env up -r localtest-v2 --with correspondence   # also Correspondence, 
 studioctl env up -r localtest-v2 --with arbeidsflate     # also the inbox on http://af.local.altinn.cloud:8000, its BFF,
                                                          # Dialogporten's GraphQL host, WebApi and Redis
 studioctl env up -r localtest-v2 --with everything       # every optional group
+studioctl env up -r localtest-v2 --minimal               # four containers (postgres, storage, workflow-engine, localtest),
+                                                         # the rest emulated in the front door, nothing persisted
 sudo studioctl env hosts add -r localtest-v2             # once: the host names for the browser
 studioctl run                                            # in an app checkout
 ```
@@ -154,6 +156,13 @@ address, so its routes answer `503` "Component not running" with the `--with` co
 not answer gets `503` "Component not answering". `env down`, `env status`, `env logs [<container>]` and
 `env reset --yes` (deletes the runtime's `localtest-v2-*` volumes only; an Aspire AppHost's `altinn-localtest-*` stay,
 [`CONVENTIONS.md`](CONVENTIONS.md#volumes)) take `-r localtest-v2` too.
+
+**Minimal mode.** `--minimal` replaces the default group with `minimal`: the real Storage and workflow engine on an
+ephemeral Postgres, and the front door emulating Register, Profile, Authentication, a permit-all PDP, Access
+Management, Events, Notifications and the PDF service (one static page) in memory. Every volume is a tmpfs, so each
+start is a clean slate; `--with`/`--without` are refused, `env status` names the mode. For quick work and an app's own
+tests, not for authorization or platform bugs ([`CONVENTIONS.md`](CONVENTIONS.md#minimal-mode),
+[`localtest/Emulation/README.md`](localtest/Emulation/README.md)).
 
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,

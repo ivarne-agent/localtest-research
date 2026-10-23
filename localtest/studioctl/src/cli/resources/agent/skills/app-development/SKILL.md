@@ -148,6 +148,10 @@ Altinn Studio platform components.
   newest images, and `--dev-<container>[=<path>]` builds one from a Dockerfile or its directory (default:
   the current directory). Under localtest-v2 apps run as processes (`run --mode container` is refused), and
   `studioctl run --dev-frontend` expects the frontend dev server on the host's port 8080.
+- `studioctl env up -r localtest-v2 --minimal` starts only Postgres, Storage, the workflow engine and the localtest
+  container, which emulates the other services in memory and permits every request (no 403s, no role checks; every
+  PDF is one static page). Nothing persists between starts. Use it for quick work and an app's own tests, not to test
+  authorization; it takes no `--with`.
 
 ## Stop
 

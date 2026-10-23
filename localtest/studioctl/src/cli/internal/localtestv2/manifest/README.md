@@ -37,8 +37,10 @@ optional group. A container no group reaches is an error.
 engine, and Postgres through `dependsOn`. It is a constant name for the runners like `default`, not an optional group:
 `--with` and `everything` never name it, and it takes no optional group beside it. The emulated set is derived, not
 listed: every HTTP container of `default` that `minimal` does not start (Register, Profile, Authentication,
-Authorization, Access Management, Events, the Resource Registry, Notifications, pdf3), which the front door emulates. One group implying another is a dependency, not a group rule: `--with
-correspondence` starts Dialogporten's WebApi and Redis because Correspondence depends on them.
+Authorization, Access Management, Events, the Resource Registry, Notifications, pdf3), which the front door emulates.
+
+One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi and
+Redis because Correspondence depends on them.
 
 ## `containers`
 

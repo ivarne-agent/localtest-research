@@ -2,7 +2,7 @@
 
 The rules every part of the stack follows: the manifest, the runtimes (studioctl's `localtest-v2` and the Aspire
 package), the localtest app as the front door and the component images. Each section states the rule, the reason and
-where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28 and 31
+where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28, 31 and phase 1 of 35
 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
@@ -68,6 +68,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
 | A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
+| Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | not yet (phase 2 of the spec: `WithMinimal()`) |
 
 Run one at a time: both need port 8000.
 
@@ -78,6 +79,33 @@ Run one at a time: both need port 8000.
 `LocaltestStack.cs`, `InNetworkHealthCheck.cs`. Parity: both compare with
 `internal/cmd/env/localtestv2/testdata/environment.golden.json`
 ([`manifest-parity.yml`](../.github/workflows/manifest-parity.yml)).
+
+## Minimal mode
+
+**Rule.** The `minimal` group (`localtest`, `storage`, `workflow-engine`, and `postgres` through `dependsOn`) is the
+one group that **replaces** `default` instead of adding to it; like `default` and `everything` it is a constant of
+each runner, not an optional group, and `--with`/`--without` are refused with it. The emulated set is derived, not
+listed: every HTTP container of `default` that `minimal` does not start (register, profile, authentication,
+authorization, access-management, events, resource-registry, notifications, pdf3). The runner gives each of those
+`services__<name>__http__0=http://localtest:8080`, the front door's own address, in every started container, and the
+front door emulates a service whose address is its own ([`localtest/Emulation/`](localtest/Emulation/README.md)).
+Every manifest volume of a started container is a **tmpfs** instead of the named volume (Storage's blobs bounded at
+1 GB), and the front door keeps its app routes in memory (`Proxy__AppRoutesFile=`): nothing persists, a stop is a clean
+slate, and the `localtest-v2-*` volumes of the default stack are never mounted, so `env reset` has nothing to remove in
+the mode and switching back finds the default stack's data intact. A switch between the modes is `env down`, then
+`env up`. The state file records the mode; `env status` prints it and the emulated list. `--dev-<container>` works for
+the four containers only.
+
+**What is lost**: authorization (the PDP permits everything, no 403s, authentication levels not enforced), the
+Register's real data paths, Profile's settings, Authentication's OIDC provider for seeded clients, Events delivery,
+Notifications' pipeline, PDF content, the optional groups. The table and the reasons:
+[`../planned-components/minimal-emulation/README.md`](../planned-components/minimal-emulation/README.md), section 5.
+
+**Why.** Quick work and an app's own tests need Storage and the workflow engine (too central to fake) and a platform
+that answers; the real components stay the default for fidelity.
+
+**Code.** studioctl: `internal/cmd/env/localtestv2/minimal.go`; the front door: [`localtest/Emulation/`](localtest/Emulation/);
+devenv's `tmpfs` mount type (Podman `--tmpfs`, Docker `HostConfig.Tmpfs`). The golden snapshot has a `minimal` case.
 
 ## The public origin and host names
 
