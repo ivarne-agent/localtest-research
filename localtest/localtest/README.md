@@ -8,7 +8,9 @@ A small ASP.NET app published with Native AOT: one binary on `runtime-deps`, no 
 their service names, answers a `503` for a service that is not running, strips `Secure` from an app's cookies, and
 takes one registration call per app that routes and provisions it. studioctl (task 27a) and the Aspire package (task
 27b) run it as their only front door, publishing the public port 8000 onto the container's 8080: studioctl-server's
-discovery and the package's `AddAltinnApp` register the apps here.
+discovery and the package's `AddAltinnApp` register the apps here. The stack-wide rules this app implements (routes,
+service discovery without pass-through, the `503`s, the registration, the public host names) are summarised in
+[`../CONVENTIONS.md`](../CONVENTIONS.md#the-front-door).
 
 | Feature | Folder | API |
 | --- | --- | --- |
@@ -35,7 +37,7 @@ discovery and the package's `AddAltinnApp` register the apps here.
 | `Provisioning/` | The deploy steps, copied from studioctl's provisioning library (`AppId.cs` says what changed): `LocaltestProvisioner.cs`, `RunningAppSource.cs`, and `AppProvisioning.cs`, which runs them for a registration |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
 | `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks; `PROXY_CHECKS=0` skips the 14 registration checks, for a front door that is not this app (below) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks; `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -120,7 +122,7 @@ rest from the running app.
 
 | Call | What |
 | --- | --- |
-| `PUT apps/{org}/{app}` with `{ "url": "http://host.docker.internal:5005" }` | Validates (org and app are lower-case letters, digits and hyphens; not an org that is a platform prefix, `localtest` or `app-frontend`; the URL is an http(s) origin without a path or query; `400` otherwise), stores the route, then provisions from the app's API under `{url}/{org}/{app}/` (`api/v1/applicationmetadata`, `api/v1/meta/authorizationpolicy`, `api/v1/applicationlanguages`, `api/v1/texts/{lang}`, `testData.json`): the test users to the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access Management's refresh, and Dialogporten's sync when `dialogporten-adapter` has an address. `200` with the route and its provisioning (`state`, `at`, `result`: `textCount`, `hasPolicy`, `hasTestData`, `dialogporten` `Skipped`/`Synced`/`Failed`). A failed provisioning keeps the route and answers `502` problem details naming the failing request (or the service without an address); register again to retry. Idempotent: a repeat provisions again and keeps the registration time |
+| `PUT apps/{org}/{app}` with `{ "url": "http://host.docker.internal:5005" }` | Validates (org and app are lower-case letters, digits and hyphens; not an org that is a platform prefix, `localtest`, `app-frontend` or `health`; the URL is an http(s) origin without a path or query; `400` otherwise), stores the route, then provisions from the app's API under `{url}/{org}/{app}/` (`api/v1/applicationmetadata`, `api/v1/meta/authorizationpolicy`, `api/v1/applicationlanguages`, `api/v1/texts/{lang}`, `testData.json`): the test users to the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access Management's refresh, and Dialogporten's sync when `dialogporten-adapter` has an address. `200` with the route and its provisioning (`state`, `at`, `result`: `textCount`, `hasPolicy`, `hasTestData`, `dialogporten` `Skipped`/`Synced`/`Failed`). A failed provisioning keeps the route and answers `502` problem details naming the failing request (or the service without an address); register again to retry. Idempotent: a repeat provisions again and keeps the registration time |
 | `DELETE apps/{org}/{app}` | Removes the app's test users from the Register, refreshes Access Management and removes the route; `204`, also when there was no route. Storage, the policy store and the Resource Registry keep the app, as they keep one Designer no longer deploys. A failed deprovisioning still removes the route and answers `502` |
 | `GET apps` | Every route with its address, registration time and last provisioning |
 
@@ -138,7 +140,7 @@ Aspire package's copy went in task 27b).
 | `GET routes` | The platform route table with each service's address, and the dev-server route |
 
 App routes are saved to `/data/app-routes.json` (`Proxy__AppRoutesFile`) and the dev-server route next to it
-(`frontend-dev-server.json`), on the `localtest-data` volume, and read at start, so a recreated container keeps routing.
+(`frontend-dev-server.json`), on the `localtest-v2-localtest-data` volume, and read at start, so a recreated container keeps routing.
 Nothing watches the files.
 
 ### Port
@@ -263,6 +265,9 @@ the requested ones), which is what Dialogporten's end-user API needs; `/Home/Get
   `.dockerignore`.
 
 ## Verified (2026-10-22): task 26 on today's stack
+
+History: run before task 27a, when studioctl-server was still the front door on 8000; since 27a this image is the front
+door in both runtimes ([`../README.md`](../README.md#tests) has the later runs).
 
 `studioctl env up -r localtest-v2 --with dialogporten` (studioctl built from the branch) with this image as the
 `localtest` component, studioctl-server still the front door on 8000:
