@@ -97,7 +97,7 @@ func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	return !slices.Equal(want, have) || opts.LatestImages != state.LatestImages, nil
 }
 
-// Up starts the environment: writes the certificate and the state file, (re)starts studioctl-server so that it
+// Up starts the environment: writes the certificate and the state file, restarts studioctl-server so that it
 // registers the apps it discovers with the front door, applies the containers (each one's health checked before what
 // depends on it starts), and waits until the front door answers on the public origin.
 func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
@@ -118,8 +118,12 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
 	}
-	if err := studioctlserver.EnsureStarted(ctx, e.cfg, opts.Topology.IngressPort()); err != nil {
-		return fmt.Errorf("ensure studioctl-server: %w", err)
+	// A restart, not only a start: the server then registers every running app again once the front door answers,
+	// and a registration provisions the app for the groups that are up now, so an app registered before
+	// `env up --with dialogporten` is synced to Dialogporten too. The front door keeps its registrations on its volume,
+	// so a server that kept running would see nothing to do.
+	if err := studioctlserver.Restart(ctx, e.cfg, opts.Topology.IngressPort()); err != nil {
+		return fmt.Errorf("restart studioctl-server: %w", err)
 	}
 
 	probes := newProber(e.client, e.out.Verbosef).probes

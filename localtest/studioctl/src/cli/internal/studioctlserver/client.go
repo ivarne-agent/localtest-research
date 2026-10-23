@@ -975,6 +975,22 @@ func ReconcileIfRunning(ctx context.Context, cfg *config.Config, loadBalancerPor
 	return EnsureStarted(ctx, cfg, loadBalancerPort)
 }
 
+// Restart stops studioctl-server when it runs and starts it again, so that it discovers and registers every app
+// afresh.
+func Restart(ctx context.Context, cfg *config.Config, loadBalancerPort string) error {
+	done, err := Shutdown(ctx, cfg)
+	switch {
+	case errors.Is(err, ErrNotRunning):
+	case err != nil:
+		return err
+	default:
+		if err := <-done; err != nil {
+			return fmt.Errorf("stop studioctl-server: %w", err)
+		}
+	}
+	return EnsureStarted(ctx, cfg, loadBalancerPort)
+}
+
 // buildStartConfig describes how studioctl-server should run now. While the localtest-v2 runtime is up
 // (it leaves a state file), the server registers the apps it discovers with the front door in the localtest
 // container, and the host bridge is off: that container reaches the apps through the runtime's host gateway and has
