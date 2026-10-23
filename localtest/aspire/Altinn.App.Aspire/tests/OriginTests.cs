@@ -156,7 +156,8 @@ public sealed class OriginTests
 
     /// <summary>
     /// The arbeidsflate group moves the app frontend's inbox links into the local Arbeidsflate, also when it is enabled
-    /// after the app is added; without it only the inbox link is set, to the front door's Home.
+    /// after the app is added; without it only the inbox link is set, to the front door's Home. The logout link is the
+    /// platform's logout either way.
     /// </summary>
     [Fact]
     public async Task TheArbeidsflateGroupMovesTheInboxLinksIntoArbeidsflate()
@@ -172,7 +173,10 @@ public sealed class OriginTests
         );
         var without = await model.Environment(model.App!.Resource);
         Assert.Equal(
-            [("PlatformFrontendSettings__ArbeidsflateInboxUrl", "http://origin.test:18000/")],
+            [
+                ("PlatformFrontendSettings__ArbeidsflateInboxUrl", "http://origin.test:18000/"),
+                ("PlatformFrontendSettings__LogoutUrl", "http://origin.test:18000/authentication/api/v1/logout"),
+            ],
             without
                 .Where(kv => kv.Key.StartsWith("PlatformFrontendSettings__", StringComparison.Ordinal))
                 .Select(kv => (kv.Key, kv.Value))
@@ -187,6 +191,7 @@ public sealed class OriginTests
                 ("PlatformFrontendSettings__ArbeidsflateInboxUrl", "http://af.origin.test:18000/"),
                 ("PlatformFrontendSettings__ArbeidsflatePartiesUrl", "http://af.origin.test:18000/profile/parties"),
                 ("PlatformFrontendSettings__ArbeidsflateProfileUrl", "http://af.origin.test:18000/profile"),
+                ("PlatformFrontendSettings__LogoutUrl", "http://origin.test:18000/authentication/api/v1/logout"),
             ],
             with.Where(kv => kv.Key.StartsWith("PlatformFrontendSettings__", StringComparison.Ordinal))
                 .Select(kv => (kv.Key, kv.Value))

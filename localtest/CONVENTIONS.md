@@ -349,7 +349,9 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
   `PlatformFrontendSettings__ArbeidsflateInboxUrl` (`http://af.local.altinn.cloud:8000/`), `…DialogUrl`
   (`…/inbox/{dialogId}`), `…ProfileUrl` (`…/profile`) and `…PartiesUrl` (`…/profile/parties`). Without it (minimal mode
   included): `PlatformFrontendSettings__ArbeidsflateInboxUrl` only, on the front door's Home
-  (`http://local.altinn.cloud:8000/`).
+  (`http://local.altinn.cloud:8000/`). With or without it: `PlatformFrontendSettings__LogoutUrl` on the platform's
+  logout (`http://local.altinn.cloud:8000/authentication/api/v1/logout`, production Authentication or minimal mode's
+  emulation), which signs the user out and lands on Home.
 
 The Arbeidsflate links are read only by the monorepo backend (`src/App/backend`, app-lib's `PlatformFrontendSettings`)
 and the monorepo frontend, which shows a platform link only when its URL is configured and never derives one from the
@@ -357,7 +359,7 @@ page's host; the Home default keeps "back to inbox" with a target without Arbeid
 back to the inbox URL), and the profile and parties links stay hidden. The released app-frontend v4 bundle hard-codes
 the start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
 `AccessManagementChangeAndRedirectUrl` stays unset (the stack's Access Management does not serve
-`reportee/changeandredirect`), and so do the logout, all-forms, access-management and help links.
+`reportee/changeandredirect`), and so do the all-forms, access-management and help links.
 
 Then the runner registers the app with the front door (`PUT localtest/api/apps/{org}/{app}` with
 `http://host.docker.internal:<port>`): studioctl-server's discovery does it for every app it finds, a `studioctl run`

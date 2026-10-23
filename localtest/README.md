@@ -95,8 +95,10 @@ runners therefore set the inbox link: with the `arbeidsflate` group up, the Arbe
 (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url`) go to `http://af.local.altinn.cloud:8000`,
 so "back to inbox" and the receipt's inbox link open the local Arbeidsflate; without the group (minimal mode included)
 only `PlatformFrontendSettings__ArbeidsflateInboxUrl` is set, to the front door's Home
-(`http://local.altinn.cloud:8000/`), and the profile and parties links are hidden. Only the monorepo backend and
-frontend read them, the released v4 bundle still links the start page
+(`http://local.altinn.cloud:8000/`), and the profile and parties links are hidden. Both set
+`PlatformFrontendSettings__LogoutUrl` to the platform's logout
+(`http://local.altinn.cloud:8000/authentication/api/v1/logout`), which signs the user out and lands on Home. Only the
+monorepo backend and frontend read them, the released v4 bundle still links the start page
 ([`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes)). An empty
 `PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the app's environment hides the inbox links. The receipt's deep
 link needs the instance's dialog, which only the Dialogporten adapter creates, so use `--with arbeidsflate --with

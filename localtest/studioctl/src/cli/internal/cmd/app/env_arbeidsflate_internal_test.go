@@ -98,3 +98,29 @@ func TestTheSigningCarriesTheArbeidsflateGroupFromTheState(t *testing.T) {
 		}
 	}
 }
+
+// Every localtest-v2 run gets the platform's logout as the app frontend's logout link, with or without the
+// arbeidsflate group; a run without localtest-v2 gets none.
+func TestALocaltestV2RunLinksLogoutToThePlatformLogout(t *testing.T) {
+	t.Parallel()
+	const want = "PlatformFrontendSettings__LogoutUrl=http://local.altinn.cloud:8000/authentication/api/v1/logout"
+	for _, signing := range []*accessTokenSigning{
+		{FullPath: goldenCertDir + "/" + localtestv2.CertificateFileName, arbeidsflate: false},
+		{FullPath: goldenCertDir + "/" + localtestv2.CertificateFileName, arbeidsflate: true},
+		nil,
+	} {
+		entries := newAppRunEnv(
+			nil,
+			"http://127.0.0.1:5005",
+			envtopology.NewLocal("8000"),
+			"",
+			goldenSecretsDir,
+			"",
+			signing,
+		)
+		got := slices.Contains(entries, want)
+		if got != (signing != nil) {
+			t.Fatalf("signing %+v: logout link set %v, want %v", signing, got, signing != nil)
+		}
+	}
+}

@@ -138,6 +138,9 @@ internal static class AppEnvironment
             // it (minimal mode included) only the inbox link is set, to the front door's Home, so "back to inbox" keeps
             // a target. The certificate is set exactly when the app runs against the stack, as in studioctl. The
             // change-and-redirect link stays unset: the stack's Access Management does not serve it.
+            // The app frontend's "Logg ut", shown only when configured: the platform's own logout, which signs the user
+            // out and lands on the front door's Home (production Authentication, or minimal mode's emulation of it).
+            Default("PlatformFrontendSettings__LogoutUrl", platform.Then("/authentication/api/v1/logout"));
             if (!arbeidsflate)
             {
                 Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", platform.Then("/"));

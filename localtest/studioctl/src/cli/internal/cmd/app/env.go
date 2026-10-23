@@ -116,6 +116,9 @@ func (e appEnv) addRunDefaults(
 		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
 		e.addArbeidsflateLinks(topology, signing.arbeidsflate)
+		// The app frontend's "Logg ut", which it shows only when configured: the platform's own logout, which signs the
+		// user out and lands on the front door's Home (production Authentication, or minimal mode's emulation of it).
+		e.setDefault("PlatformFrontendSettings__LogoutUrl", endpoints.platform+"/authentication/api/v1/logout")
 	}
 }
 
@@ -126,7 +129,7 @@ func (e appEnv) addRunDefaults(
 // inbox" keeps a target; the dialog link falls back to the inbox link in the frontend, and the profile and parties
 // links stay hidden. AccessManagementChangeAndRedirectUrl stays unset: the stack's Access Management does not serve
 // reportee/changeandredirect (it is the UI backend's), so the links go to the inbox without a party switch. The other
-// members (login, logout, all forms, access management, help) stay unset.
+// members (login, all forms, access management, help) stay unset; the logout link is set beside this.
 func (e appEnv) addArbeidsflateLinks(topology envtopology.Local, arbeidsflateUp bool) {
 	if !arbeidsflateUp {
 		e.setDefault(

@@ -280,10 +280,10 @@ dashboard's variables where the development certificate is not trusted.
   dialog, profile and parties links into the local Arbeidsflate
   (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` on `http://af.local.altinn.cloud:8000`),
   without it only the inbox link, to the front door's Home (`http://local.altinn.cloud:8000/`), so "back to inbox" keeps
-  a target (the monorepo frontend shows a platform link only when it is configured; read only by the monorepo backend
-  and frontend, see "What the app runner pushes" in `localtest/README.md`), and `AppSettings__AppFrontendAssetBaseUrl`
-  with `WithFrontendDevServer`. Aspire sets `OTEL_EXPORTER_OTLP_ENDPOINT` to its dashboard;
-  `AppSettings__UseOpenTelemetry=true` unless turned off.
+  a target, and the logout link on the platform's logout (`…/authentication/api/v1/logout`) (the monorepo frontend shows
+  a platform link only when it is configured; read only by the monorepo backend and frontend, see "What the app runner
+  pushes" in `localtest/README.md`), and `AppSettings__AppFrontendAssetBaseUrl` with `WithFrontendDevServer`. Aspire
+  sets `OTEL_EXPORTER_OTLP_ENDPOINT` to its dashboard; `AppSettings__UseOpenTelemetry=true` unless turned off.
 
 ## Registration
 
