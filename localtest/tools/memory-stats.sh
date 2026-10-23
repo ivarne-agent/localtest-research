@@ -128,13 +128,14 @@ for p in /proc/[0-9]*; do
     *apphost*.dll* | *apphost* | *AppHost*) key=aspire-apphost ;;
     *App2/bin/* | *App2.dll*) key=app2 ;;
     *App/bin/* | *App.dll* | *Altinn.Application*) key=app ;;
+    *VBCSCompiler* | *MSBuild.dll*) key=build-server ;;
     *chrom*) key=chromium ;;
     *dotnet*) key=dotnet-other ;;
     *podman* | *conmon*) key=podman ;;
   esac
   if [[ -n $key ]]; then
     CAT_PSS[$key]=$((${CAT_PSS[$key]:-0} + pss))
-    [[ $key == podman ]] || STACK_PSS=$((STACK_PSS + pss))
+    [[ $key == podman || $key == build-server ]] || STACK_PSS=$((STACK_PSS + pss))
     ((pss >= 1024)) || continue
   elif ((pss < 20480)); then
     continue
@@ -150,6 +151,6 @@ printf '%s' "$ROWS" | sort -k4,4nr
 echo
 echo "PSS by category (MiB):"
 for k in "${!CAT_PSS[@]}"; do printf '  %-18s %6s\n' "$k" "$(kb_mib "${CAT_PSS[$k]}")"; done | sort
-echo "PSS sums (MiB): stack host processes (the categories above except podman) $(kb_mib "$STACK_PSS");" \
+echo "PSS sums (MiB): stack host processes (the categories above except podman and build-server) $(kb_mib "$STACK_PSS");" \
   "all host processes $(kb_mib "$HOST_PSS"); all container processes (incl. conmon) $(kb_mib "$CTR_PSS");" \
   "unreadable processes $HIDDEN"

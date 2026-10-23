@@ -1,0 +1,85 @@
+# memory-stats: B-smoke: B right after localtest/smoke-test.sh (app deprovisioned with DELETE localtest/api/apps/ttd/testapp and the PDP refresh first, as the README says; the app process kept running)
+time: 2026-10-23T14:47:09+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        2539        1413         745        4830        5409
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree           1413
+  MemAvailable      5408
+  Buffers            331
+  Cached            4121
+  Shmem              745
+  Active(file)      2926
+  Inactive(file)     780
+  Active(anon)       201
+  Inactive(anon)    2089
+  AnonPages         1545
+  Mapped            1862
+  SReclaimable       378
+  SUnreclaim          78
+  KernelStack          9
+  PageTables          26
+  Percpu               1
+  VmallocUsed         10
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 2549 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 1712 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 114
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 2390 anon 800 file 1488 shmem 506 kernel 103 file_mapped 1088 inactive_file 174 active_file 807
+
+## Per container
+
+$ podman stats --no-stream
+localtest-v2-access-management 258.8MB / 8.335GB 3.11%
+localtest-v2-authentication 80.9MB / 8.335GB 0.97%
+localtest-v2-authorization 82MB / 8.335GB 0.98%
+localtest-v2-events 62.75MB / 8.335GB 0.75%
+localtest-v2-localtest 21.17MB / 8.335GB 0.25%
+localtest-v2-notifications 64.49MB / 8.335GB 0.77%
+localtest-v2-pdf3 46.03MB / 8.335GB 0.55%
+localtest-v2-postgres 188.6MB / 8.335GB 2.26%
+localtest-v2-profile 115.4MB / 8.335GB 1.38%
+localtest-v2-register 79.71MB / 8.335GB 0.96%
+localtest-v2-resource-registry 86.52MB / 8.335GB 1.04%
+localtest-v2-storage 316.5MB / 8.335GB 3.80%
+localtest-v2-workflow-engine 114.7MB / 8.335GB 1.38%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+localtest-v2-access-management          252    146    103     88      3   792215      0      339      146      106       88
+localtest-v2-authentication              81     36     43     36      2   792082      0      167       36       95       36
+localtest-v2-authorization               81     35     35     29     11   792049      0      150       35       86       29
+localtest-v2-events                      60     20     30     29     11   792382      0      140       20       92       29
+localtest-v2-localtest                   21     19      1      0      1   791204      0       41       19       21        0
+localtest-v2-notifications               62     23     27     26     11   792347      0      136       23       87       26
+localtest-v2-pdf3                        46     34      8      0      4   791560      0       14        2       12        0
+localtest-v2-postgres                   222    105     99     52     19   791261      0       36        2       15       19
+localtest-v2-profile                    111     42     58     55     11   791790      0      189       42       92       55
+localtest-v2-register                    78     29     46     38      2   791288      0      153       29       86       38
+localtest-v2-resource-registry           84     39     42     39      2   791910      0      169       39       91       39
+localtest-v2-storage                    307    219     76     71     12   791480      0      428      219      139       71
+localtest-v2-workflow-engine            109     61     46     46      2   791582      0      194       61       87       46
+SUM (13 containers)                    1513    809    613    509     91        -      -     2158
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               609     607      522       85         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+800170   dotnet-other               253     241      108       65        68  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+800210   app                        174     154       48       71        34  dotnet /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/bin/Debug/net8.0/Altinn.Appl
+263      other:systemd-journal      166      96        2       94         0  /usr/lib/systemd/systemd-journald 
+791114   studioctl-server           110      95       26       51        19  /home/agent/sh/bin/studioctl-server/studioctl-server 
+805626   podman                      51      49       17       32         0  /usr/bin/podman --log-level=info system service 
+791196   podman                       4       2        0        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  app                   154
+  dotnet-other          241
+  podman                 56
+  studioctl-server       95
+PSS sums (MiB): stack host processes (the categories above except podman) 490; all host processes 1281; all container processes (incl. conmon) 2140; unreadable processes 0

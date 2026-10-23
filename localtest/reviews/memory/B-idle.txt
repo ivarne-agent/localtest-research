@@ -1,0 +1,85 @@
+# memory-stats: B-idle: A plus studioctl run of localtest/aspire/samples/app/App (ttd/testapp), idle 60 s
+time: 2026-10-23T14:46:56+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        2468        1486         735        4818        5480
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree           1487
+  MemAvailable      5481
+  Buffers            331
+  Cached            4109
+  Shmem              735
+  Active(file)      2923
+  Inactive(file)     782
+  Active(anon)       197
+  Inactive(anon)    2005
+  AnonPages         1467
+  Mapped            1849
+  SReclaimable       378
+  SUnreclaim          77
+  KernelStack          9
+  PageTables          26
+  Percpu               1
+  VmallocUsed         10
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 2475 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 1650 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 113
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 2303 anon 723 file 1477 shmem 496 kernel 103 file_mapped 1078 inactive_file 173 active_file 807
+
+## Per container
+
+$ podman stats --no-stream
+localtest-v2-access-management 228.3MB / 8.335GB 2.74%
+localtest-v2-authentication 73.34MB / 8.335GB 0.88%
+localtest-v2-authorization 69.16MB / 8.335GB 0.83%
+localtest-v2-events 63.34MB / 8.335GB 0.76%
+localtest-v2-localtest 18.06MB / 8.335GB 0.22%
+localtest-v2-notifications 64.29MB / 8.335GB 0.77%
+localtest-v2-pdf3 46.03MB / 8.335GB 0.55%
+localtest-v2-postgres 186.4MB / 8.335GB 2.24%
+localtest-v2-profile 106.4MB / 8.335GB 1.28%
+localtest-v2-register 72.9MB / 8.335GB 0.87%
+localtest-v2-resource-registry 74.9MB / 8.335GB 0.90%
+localtest-v2-storage 310.5MB / 8.335GB 3.72%
+localtest-v2-workflow-engine 110.7MB / 8.335GB 1.33%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+localtest-v2-access-management          223    118    101     86      3   792215      0      310      118      106       86
+localtest-v2-authentication              71     28     41     34      2   792082      0      157       28       94       34
+localtest-v2-authorization               67     23     33     27     11   792049      0      135       23       85       27
+localtest-v2-events                      61     20     30     29     11   792382      0      141       20       92       29
+localtest-v2-localtest                   18     16      1      0      1   791204      0       38       16       21        0
+localtest-v2-notifications               61     23     27     26     11   792347      0      136       23       87       26
+localtest-v2-pdf3                        46     34      8      0      4   791560      0       14        2       12        0
+localtest-v2-postgres                   220    103     98     52     18   791261      0       36        2       15       19
+localtest-v2-profile                    102     35     57     54     11   791790      0      180       35       92       54
+localtest-v2-register                    71     25     44     36      2   791288      0      146       25       85       36
+localtest-v2-resource-registry           73     29     42     39      2   791910      0      158       29       91       39
+localtest-v2-storage                    296    211     74     68     12   791480      0      418      211      139       68
+localtest-v2-workflow-engine            106     58     46     46      2   791582      0      191       58       87       46
+SUM (13 containers)                    1414    723    599    496     91        -      -     2060
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               608     606      521       85         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+800170   dotnet-other               253     241      108       65        68  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+800210   app                        173     153       48       71        34  dotnet /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/bin/Debug/net8.0/Altinn.Appl
+263      other:systemd-journal      162      95        2       93         0  /usr/lib/systemd/systemd-journald 
+791114   studioctl-server           110      95       26       51        18  /home/agent/sh/bin/studioctl-server/studioctl-server 
+801541   podman                      49      47       16       31         0  /usr/bin/podman --log-level=info system service 
+791196   podman                       4       2        0        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  app                   153
+  dotnet-other          241
+  podman                 54
+  studioctl-server       95
+PSS sums (MiB): stack host processes (the categories above except podman) 489; all host processes 1275; all container processes (incl. conmon) 2040; unreadable processes 0
