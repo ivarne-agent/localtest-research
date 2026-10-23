@@ -64,9 +64,11 @@ jobs:
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
         run: dotnet test tests -c Release --no-build
-      - name: Build the sample AppHost and app
+      - name: Build the sample AppHosts and apps
         working-directory: localtest/aspire/samples/app
-        run: dotnet build -c Release AppHost/apphost.cs
+        run: |
+          dotnet build -c Release AppHost/apphost.cs
+          dotnet build -c Release AppHost/apphost-minimal.cs
       - name: Pack
         working-directory: ${{ env.PACKAGE_DIR }}
         env:
