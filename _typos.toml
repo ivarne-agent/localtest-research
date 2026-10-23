@@ -1,0 +1,3 @@
+[default.extend-words]
+# Azure Kubernetes Service, not a typo of "ask".
+aks = "aks"
