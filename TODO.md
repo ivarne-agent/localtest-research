@@ -68,7 +68,7 @@ A path matching no route still falls through to the localtest app.
 | 32 | [studioctl PR refresh with review](#32-studioctl-pr-refresh-with-review) | approved (owner 2026-10-23: "plan and execute a refresh of the studioctl PR; don't blindly copy, fix errors and simplify"); brief `/home/agent/code/.briefs/task32-studioctl-pr-refresh.md`; **done** 2026-10-23: A+B merged (2ccabb35), C pushed to the fork (`feat/studioctl-localtest-v2-stack` at dfc5fdd348, six commits on altinn-studio main f240887cfa); owner pastes the description from `/home/agent/code/pr-studioctl-localtest-v2-stack.md` and the comment file | large | yes |
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **done, merged** 2026-10-23 (`planned-components/minimal-emulation/README.md`); owner to decide whether to build phase 1 | medium | no |
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
-| 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
+| 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **phase 1 verified, phase 2 running** (stack proof, 2026-10-23) | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1056,3 +1056,30 @@ build context is `localtest/localtest/` only); blob tmpfs capped at 1 GB; header
 banner; Aspire's `WithMinimal` is phase 2 (the package only has to keep passing). Phase 2 of the task is the proof:
 the mode built with `--dev-localtest`, the sample app through instantiate, submit, receipt and PDF in a browser, clean
 slate after `env down`/`env up`, and the default stack unchanged with the same image.
+
+**Phase 1 (pushed e1c412aa, verified by the coordinator 2026-10-23).** Isolation holds: `Program.cs` carries only
+`Emulation.Add(builder)` and `Emulation.Map(app)`; seams are `Provisioning/IProvisioningTarget.cs` (one interface, the
+HTTP code moved behind it unchanged, the in-process target in `Emulation/`), `IdPorten/TestUsers.cs` (`ITestUserSource`),
+`Home/AuthenticationClient.cs` (`IInProcessAuthentication`), `Home/HomeApi.cs` (banner), `Proxy/RoutesApi.cs` and
+`AppRoutes.cs` (`emulated` address; empty routes file = in memory), `Localtest.csproj` (embedded seed and PDF). About
+2,950 application lines under `Emulation/` (Authentication 627, Notifications 429, Register 370, store 348, Authorization
+245, Events 233, Access Management 155, Emulation 172, Profile 64, Pdf 61, Resource Registry 19) plus 448 copied
+test-data lines and about 960 lines of tests; the copies are checked byte-for-byte against the Register fake's files,
+which therefore moved to source-generated JSON (default-stack code, behaviour unchanged, a test proves the canonical
+JSON; the Register image will carry it at the next pin bump). Claim-type tables with `file:line` references into the
+vendored Authentication; JWKS kid = certificate thumbprint. studioctl: `minimal.go` (derived emulated set,
+`http://localtest:8080`, tmpfs with `size=1g` on the blobs, mode switch stops first), devenv `tmpfs` mount type (Podman
+`--tmpfs`, Docker `HostConfig.Tmpfs`; hashes unchanged without options), refusals, `env status`/`env reset`, Arbeidsflate
+links unset; golden +292 lines, `default`/`everything` cases byte-identical. Aspire: `MinimalGroup` constant, tests
+adapted, no `WithMinimal`. Checks (coordinator re-ran): localtest tests 106, go test and lint clean, devenv build and
+vet, Aspire 77; agent: AOT publish without warnings, binary 20.6 MB (+2.4 MB), AOT binary as a process passed 74 of
+the localtest suite's checks (2 need Storage and the frontend dist). Deviations recorded by the agent: `pdf.` host
+`/health` 404 as pdf3; `authentication?goTo=` goes through the ID-porten picker with PKCE as production; a marker
+resource for empty-role parties in `authorizedparties`; the dev-server route file still lands on `/data` (tmpfs);
+`env down` clears the recorded mode so a following `env reset` acts on the default volumes (to decide). Fixed on the
+way: the front door's own `services__localtest__http__0` entry no longer counts for the self-loop check.
+
+**Observation for a follow-up (coordinator, 2026-10-23).** Before phase 2 the machine held about 250 anonymous volumes
+left by earlier `env up`/`env down` cycles of the default stack (the declared `VOLUME`s of the Postgres and localtest
+images; studioctl removes containers without `-v`, exactly as the spec's section 6.1 says). Pruned by hand. Candidate
+task: `env down`/`env reset` remove the anonymous volumes of the containers they remove (`rm -v`), in both runtimes.
