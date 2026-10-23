@@ -9,7 +9,7 @@ is off by default (apps never call Dialogporten, and the three hosts and Redis c
 0.26 GB more) and started with
 
 ```sh
-studioctl env up -r localtest-v2 --with dialogporten      # --dev dialogporten-webapi=Dockerfile.webapi (and -graphql, -service) builds from this folder
+studioctl env up -r localtest-v2 --with dialogporten      # --dev-dialogporten-webapi=Dockerfile.webapi (and -graphql, -service) builds from this folder
 ```
 
 | Container | Image | Port (in the stack) | Public route | Health |

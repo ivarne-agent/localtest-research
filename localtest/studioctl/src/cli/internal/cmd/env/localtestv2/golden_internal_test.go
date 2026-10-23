@@ -25,7 +25,7 @@ type goldenEnvironment struct {
 	Groups map[string][]string `json:"groups"`
 	// Default is `env up` with no flags: pulled images at the pin, no optional group.
 	Default goldenOptions `json:"default"`
-	// Everything is `env up --with everything --latest --dev storage --dev dialogporten-webapi=Dockerfile.webapi` on
+	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
 	// a runtime with SELinux relabelling.
 	Everything goldenOptions `json:"everything"`
 	// VolumePrefix is this runtime's volume prefix; a mount's HostPath and each of Volumes is it plus a volume id.

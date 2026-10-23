@@ -136,7 +136,7 @@ Altinn Studio platform components.
 - `STUDIOCTL_INTERNAL_DEV=true studioctl env up` builds supported LocalTest/runtime service images from the current
   monorepo checkout.
 - `studioctl env up --dev-workflow-engine` routes the workflow-engine component to a host process, normally at
-  `http://localhost:9090`.
+  `http://localhost:9090` (under `-r localtest-v2` the same flag builds the workflow-engine container instead, below).
 - `studioctl run --dev-frontend` serves frontend assets from the current monorepo checkout while the app frontend
   development server is running.
 - `studioctl env up -r localtest-v2` runs the production platform services (Register, Profile, Authentication, the PDP,
@@ -145,7 +145,7 @@ Altinn Studio platform components.
   with what they depend on (`arbeidsflate` is the inbox on `http://af.local.altinn.cloud:8000`, which needs a hosts
   entry: `studioctl env hosts add`). A path whose group is off answers `503` naming the `--with` that starts it.
   Only one runtime runs at a time, and the other `env` commands follow the one last started. `--latest` runs the
-  newest images, and `--dev <container>[=<path>]` (repeatable) builds one from a Dockerfile or its directory (default:
+  newest images, and `--dev-<container>[=<path>]` builds one from a Dockerfile or its directory (default:
   the current directory). Under localtest-v2 apps run as processes (`run --mode container` is refused), and
   `studioctl run --dev-frontend` expects the frontend dev server on the host's port 8080.
 

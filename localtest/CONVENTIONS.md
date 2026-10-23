@@ -67,7 +67,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Certificate | the certificate mounts below | the same |
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
-| A build from source | `--dev <container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
+| A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
 
 Run one at a time: both need port 8000.
 

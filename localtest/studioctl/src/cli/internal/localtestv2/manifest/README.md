@@ -50,7 +50,7 @@ A map from the container's name to:
 
 Nothing else is allowed (an unknown key is an error): no descriptions, routes, host ports, commands, health-check
 commands or build information. A container's notes belong in its component's README; a command belongs in its image
-(`localtest/postgres/Dockerfile`, `localtest/redis/Dockerfile`); a dev build is `env up --dev <container>=<path>`.
+(`localtest/postgres/Dockerfile`, `localtest/redis/Dockerfile`); a dev build is `env up --dev-<container>=<path>`.
 
 **Transitional (task 27a):** the component images still listen on their own ports (5010, 5020, …), so most containers
 name their `port`; the default 8080 applies to the localtest app and Dialogporten's hosts. The per-component image

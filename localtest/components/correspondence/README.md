@@ -8,7 +8,7 @@ Dialogporten's WebApi (its `dependsOn`), not Dialogporten's Service and GraphQL 
 adds them):
 
 ```sh
-studioctl env up -r localtest-v2 --with correspondence      # --dev correspondence builds the image from this folder
+studioctl env up -r localtest-v2 --with correspondence      # --dev-correspondence builds the image from this folder
 ```
 
 | Container | Image | Port (in the stack) | Public route | Health |
@@ -255,7 +255,7 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
-- The image is in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev correspondence` builds it from this
+- The image is in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev-correspondence` builds it from this
   folder.
 
 ## Tests

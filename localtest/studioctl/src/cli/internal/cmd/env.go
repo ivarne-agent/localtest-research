@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 
 	"altinn.studio/devenv/pkg/container"
@@ -327,9 +329,10 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
 			"  --open           Open localtest in browser after starting",
 			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
-			"  --dev NAME[=PATH]",
+			"  --dev-NAME[=PATH]",
 			"                   Build the localtest-v2 container NAME from PATH, a Dockerfile or a directory holding one",
-			"                   (default: the current directory), and run it instead of the pinned image (repeatable)",
+			"                   (default: the current directory), and run it instead of the pinned image; NAME is one of",
+			"                   "+strings.Join(envlocaltestv2.DevContainers(), ", "),
 			"  --with GROUP     Start an optional localtest-v2 group: its containers and what they depend on ("+groupNames+"; repeatable)",
 			"  --without GROUP  Leave out an optional localtest-v2 group's own containers (repeatable)",
 			"  --json           Output as JSON",
@@ -346,16 +349,16 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.openBrowser, "open", false, "Open localtest in browser after starting")
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
 	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
-	fs.BoolVar(&f.devWorkflowEngine, "dev-workflow-engine", false, "Route workflow-engine to a host process")
-	fs.Func("dev", "Build a localtest-v2 container from source: NAME[=PATH] (repeatable)", func(value string) error {
-		name, path, _ := strings.Cut(strings.TrimSpace(value), "=")
-		name = strings.TrimSpace(name)
-		if name == "" {
-			return fmt.Errorf("%w: --dev takes NAME[=PATH]", ErrInvalidFlagValue)
+	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is one flag with two meanings,
+	// one per runtime, which never meet since env up refuses the other runtime's flags: under localtest it routes the
+	// workflow engine to a host process (upstream's hidden flag), under localtest-v2 it builds the container.
+	for _, name := range envlocaltestv2.DevContainers() {
+		value := &devFlag{name: name, dev: f.devComponents, set: nil}
+		if name == devWorkflowEngineContainer {
+			value.set = func() { f.devWorkflowEngine = true }
 		}
-		f.devComponents[name] = strings.TrimSpace(path)
-		return nil
-	})
+		fs.Var(value, "dev-"+name, "Build the localtest-v2 container "+name+" from a Dockerfile")
+	}
 	fs.Func("with", "Start an optional localtest-v2 component group (repeatable)", func(value string) error {
 		f.with = append(f.with, strings.TrimSpace(value))
 		return nil
@@ -411,8 +414,11 @@ func validateUpFlagsForRuntime(flags envUpFlags) error {
 	var foreign []string
 	switch flags.runtime {
 	case runtimeLocaltest:
-		if len(flags.devComponents) > 0 {
-			foreign = append(foreign, "--dev")
+		for _, name := range slices.Sorted(maps.Keys(flags.devComponents)) {
+			// --dev-workflow-engine without a path is the localtest runtime's own flag.
+			if name != devWorkflowEngineContainer || flags.devComponents[name] != "" {
+				foreign = append(foreign, "--dev-"+name)
+			}
 		}
 		if len(flags.with) > 0 {
 			foreign = append(foreign, "--with")
@@ -429,9 +435,6 @@ func validateUpFlagsForRuntime(flags envUpFlags) error {
 		}
 		if flags.pgAdmin {
 			foreign = append(foreign, "--pgadmin")
-		}
-		if flags.devWorkflowEngine {
-			foreign = append(foreign, "--dev-workflow-engine")
 		}
 	}
 	if len(foreign) == 0 {
@@ -1303,4 +1306,36 @@ func commandOutput(out *ui.Output, jsonOutput bool) *ui.Output {
 		return silentOutput()
 	}
 	return out
+}
+
+// devWorkflowEngineContainer is the localtest-v2 container whose --dev- flag is also the localtest runtime's
+// --dev-workflow-engine.
+const devWorkflowEngineContainer = "workflow-engine"
+
+// devFlag is --dev-<container>[=<path>]: a bare flag builds from the current directory (an empty path).
+type devFlag struct {
+	dev  map[string]string
+	set  func()
+	name string
+}
+
+func (d *devFlag) String() string {
+	return ""
+}
+
+func (d *devFlag) Set(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "true" {
+		value = ""
+	}
+	d.dev[d.name] = value
+	if d.set != nil {
+		d.set()
+	}
+	return nil
+}
+
+// IsBoolFlag lets the flag stand without a value.
+func (d *devFlag) IsBoolFlag() bool {
+	return true
 }

@@ -134,7 +134,7 @@ checked from inside the stack's network) and the front door routes `/storage/dia
 `services__` address: `/storage/dialogporten/...` answers 503 problem details ("Component not
 running", `component: dialogporten-adapter`, `group: dialogporten`), which Storage's handler takes for "not running".
 Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter` at the manifest's pin;
-`--dev dialogporten-adapter` builds it from this folder.
+`--dev-dialogporten-adapter` builds it from this folder.
 
 ## Smoke test
 

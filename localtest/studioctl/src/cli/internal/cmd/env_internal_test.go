@@ -120,11 +120,11 @@ func TestParseUpFlagsDevWorkflowEngine(t *testing.T) {
 	}
 }
 
-func TestParseUpFlagsDevTakesAContainerAndAnOptionalPath(t *testing.T) {
+func TestParseUpFlagsDevPerContainerWithAnOptionalPath(t *testing.T) {
 	t.Parallel()
 
 	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
-	got, _, err := command.parseUpFlags([]string{"--dev", "storage", "--dev=postgres=postgres/Dockerfile"})
+	got, _, err := command.parseUpFlags([]string{"--dev-storage", "--dev-postgres=postgres/Dockerfile"})
 	if err != nil {
 		t.Fatalf("parseUpFlags() error = %v", err)
 	}
@@ -135,9 +135,8 @@ func TestParseUpFlagsDevTakesAContainerAndAnOptionalPath(t *testing.T) {
 	if got.devWorkflowEngine {
 		t.Fatal("devWorkflowEngine = true, want false")
 	}
-	_, _, err = command.parseUpFlags([]string{"--dev", "=Dockerfile"})
-	if err == nil || !strings.Contains(err.Error(), "--dev takes NAME[=PATH]") {
-		t.Fatalf("parseUpFlags(--dev =Dockerfile) error = %v, want the NAME[=PATH] error", err)
+	if _, _, err := command.parseUpFlags([]string{"--dev-nosuch"}); err == nil {
+		t.Fatal("parseUpFlags(--dev-nosuch) error = nil, want an undefined flag")
 	}
 }
 
@@ -155,14 +154,17 @@ func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
 			want:  "--with, --latest",
 		},
 		{
-			name:  "localtest dev",
-			flags: envUpFlags{runtime: runtimeLocaltest, devComponents: map[string]string{"storage": ""}},
-			want:  "--dev",
+			name: "localtest dev",
+			flags: envUpFlags{
+				runtime:       runtimeLocaltest,
+				devComponents: map[string]string{"storage": "", "workflow-engine": "Dockerfile"},
+			},
+			want: "--dev-storage, --dev-workflow-engine",
 		},
 		{
 			name:  "localtest-v2",
-			flags: envUpFlags{runtime: runtimeLocaltestV2, monitoring: true, devWorkflowEngine: true},
-			want:  "--monitoring, --dev-workflow-engine",
+			flags: envUpFlags{runtime: runtimeLocaltestV2, monitoring: true, pgAdmin: true},
+			want:  "--monitoring, --pgadmin",
 		},
 	} {
 		err := validateUpFlagsForRuntime(tc.flags)
@@ -170,10 +172,23 @@ func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
 			t.Errorf("%s: validateUpFlagsForRuntime() = %v, want %q refused", tc.name, err, tc.want)
 		}
 	}
-	if err := validateUpFlagsForRuntime(
-		envUpFlags{runtime: runtimeLocaltestV2, with: []string{"receipt"}},
-	); err != nil {
-		t.Errorf("validateUpFlagsForRuntime(localtest-v2 --with) = %v, want nil", err)
+	for _, flags := range []envUpFlags{
+		{runtime: runtimeLocaltestV2, with: []string{"receipt"}},
+		// --dev-workflow-engine is each runtime's own flag.
+		{
+			runtime:           runtimeLocaltestV2,
+			devComponents:     map[string]string{"workflow-engine": ""},
+			devWorkflowEngine: true,
+		},
+		{
+			runtime:           runtimeLocaltest,
+			devComponents:     map[string]string{"workflow-engine": ""},
+			devWorkflowEngine: true,
+		},
+	} {
+		if err := validateUpFlagsForRuntime(flags); err != nil {
+			t.Errorf("validateUpFlagsForRuntime(%+v) = %v, want nil", flags, err)
+		}
 	}
 }
 

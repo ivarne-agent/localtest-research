@@ -130,7 +130,7 @@ creates `storagedb` and its roles with `postgres-init/10-storage.sh` and `vendor
 OpenID metadata, the PDP, Register and the apps through `local.altinn.cloud:8000`, the front door (the localtest
 container), which routes `/storage/` to Storage by `services__storage__http__0` without stripping the prefix (Storage's
 routes start with `/storage/api/v1/`); see [`../../CONVENTIONS.md`](../../CONVENTIONS.md). To run a change made here:
-`cd localtest/components/storage && studioctl env up -r localtest-v2 --dev storage`.
+`cd localtest/components/storage && studioctl env up -r localtest-v2 --dev-storage`.
 
 ## Image
 

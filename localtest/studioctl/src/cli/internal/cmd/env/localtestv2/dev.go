@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -16,9 +17,9 @@ var (
 	errDevPath             = errors.New("--dev path")
 )
 
-// resolveDevBuilds turns the --dev <container>[=<path>] values (container name to path, empty for the current
+// resolveDevBuilds turns the --dev-<container>[=<path>] values (container name to path, empty for the current
 // directory) into builds. A directory is the build context and holds the Dockerfile; a file is the Dockerfile, built
-// with the current directory as its context when the file is inside it (cd localtest && --dev postgres=postgres/Dockerfile)
+// with the current directory as its context when the file is inside it (cd localtest && --dev-postgres=postgres/Dockerfile)
 // and with the file's own directory otherwise. Relative paths are relative to cwd.
 func resolveDevBuilds(dev map[string]string, cwd string) (map[string]DevBuild, error) {
 	if len(dev) == 0 {
@@ -33,7 +34,7 @@ func resolveDevBuilds(dev map[string]string, cwd string) (map[string]DevBuild, e
 		}
 		build, err := devBuild(path, cwd)
 		if err != nil {
-			return nil, fmt.Errorf("--dev %s: %w", name, err)
+			return nil, fmt.Errorf("--dev-%s: %w", name, err)
 		}
 		builds[name] = build
 	}
@@ -64,4 +65,9 @@ func devBuild(path, cwd string) (DevBuild, error) {
 		buildContext = filepath.Clean(cwd)
 	}
 	return DevBuild{Context: buildContext, Dockerfile: path}, nil
+}
+
+// DevContainers lists the containers --dev-<container> can build: every container of the manifest.
+func DevContainers() []string {
+	return slices.Clone(stack().Names())
 }

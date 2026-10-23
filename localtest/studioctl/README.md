@@ -23,7 +23,7 @@ The monorepo layout is kept, so relative paths resolve as upstream.
 cd localtest/studioctl/src/cli
 make dev-install                            # builds build/dev-home/bin/{studioctl,studioctl-server}
 export STUDIOCTL_HOME=$PWD/build/dev-home
-build/dev-home/bin/studioctl env up -r localtest-v2 [--with <group>] [--without <group>] [--dev <container>[=<path>]] [--latest]
+build/dev-home/bin/studioctl env up -r localtest-v2 [--with <group>] [--without <group>] [--dev-<container>[=<path>]] [--latest]
 build/dev-home/bin/studioctl env logs [-c <container>]
 build/dev-home/bin/studioctl env down        # env reset also deletes the manifest's volumes
 ```
@@ -31,11 +31,11 @@ build/dev-home/bin/studioctl env down        # env reset also deletes the manife
 - `--with <group>` starts an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`, or
   `everything`): its root containers and what they depend on. `--without <group>` leaves out a group's own roots; a
   container another enabled group depends on still starts. The groups are in the manifest; `everything` is a constant.
-- `--dev <container>[=<path>]` (repeatable) builds the container's image from a Dockerfile, or a
+- `--dev-<container>[=<path>]` builds the container's image from a Dockerfile, or a
   directory holding `Dockerfile`, default the current directory, tags it `localtest-v2-dev-<container>` and runs it
   instead of the pinned image. A Dockerfile inside the current directory builds with the current directory as context
-  (`cd localtest && … --dev postgres=postgres/Dockerfile`), one elsewhere with its own directory. Example:
-  `cd localtest/components/storage && studioctl env up -r localtest-v2 --dev storage`.
+  (`cd localtest && … --dev-postgres=postgres/Dockerfile`), one elsewhere with its own directory. Example:
+  `cd localtest/components/storage && studioctl env up -r localtest-v2 --dev-storage`.
 - `--latest` runs the research images at `latest` instead of their `sha-` pin.
 - `env logs -c <container>` shows the container's log also when it has stopped (the shared
   `internal/cmd/env/localtest/log_streamer.go`). `make dev-install` runs `studioctl self install`, which stops every
@@ -70,9 +70,9 @@ Paths below are under `src/cli/`.
 | Where | What |
 | --- | --- |
 | `internal/localtestv2/manifest/` | The manifest (`manifest.json`, `README.md`) and its reader and validation (`manifest.go`): known keys, references, no cycles, every container reached by a group, values in range; the groups' transitive selection in start order |
-| `internal/cmd/env/localtestv2/` | The runtime. `containers.go`: one container per selected manifest entry, in dependency order, alias its name, the public hosts and `host.docker.internal` on the host gateway, the certificate at `/certs`, its `envs` then `services__*` for every running HTTP container, port 8000 published from `localtest` only (all interfaces, so the containers reach it through the gateway). `groups.go`: `--with`/`--without`/`everything`. `dev.go`: `--dev <container>` paths. `health.go`: each container's health (HTTP path or TCP) checked from a short-lived probe container on the stack's network (the manifest's Postgres image, bash `/dev/tcp`), created through the container client and gating what depends on it; then the front door's `/health` through port 8000. `env.go`: up, down, reset (the manifest's volumes), logs, status. `certs.go`: the embedded test certificate |
+| `internal/cmd/env/localtestv2/` | The runtime. `containers.go`: one container per selected manifest entry, in dependency order, alias its name, the public hosts and `host.docker.internal` on the host gateway, the certificate at `/certs`, its `envs` then `services__*` for every running HTTP container, port 8000 published from `localtest` only (all interfaces, so the containers reach it through the gateway). `groups.go`: `--with`/`--without`/`everything`. `dev.go`: `--dev-<container>` paths. `health.go`: each container's health (HTTP path or TCP) checked from a short-lived probe container on the stack's network (the manifest's Postgres image, bash `/dev/tcp`), created through the container client and gating what depends on it; then the front door's `/health` through port 8000. `env.go`: up, down, reset (the manifest's volumes), logs, status. `certs.go`: the embedded test certificate |
 | `../Runtime/devenv/pkg/resource` | `ContainerLifecycleOptions.ReadinessProbe`: a check the executor runs once a container is ready and before its dependents start |
-| `internal/cmd/env.go`, `internal/cmd/env/types.go` | The flags (`--with`, `--without`, `--latest`, the repeatable `--dev <container>[=<path>]`); `UpOptions.DevComponents` maps container to path; `env up` refuses the flags the chosen runtime does not have |
+| `internal/cmd/env.go`, `internal/cmd/env/types.go` | The flags (`--with`, `--without`, `--latest`, `--dev-<container>[=<path>]` for every manifest container); `UpOptions.DevComponents` maps container to path; `env up` refuses the flags the chosen runtime does not have |
 | `internal/cmd/env/runtime.go`, `registry/` | `-r <runtime>` with one runtime at a time, defaulting to the last one started |
 | `internal/cmd/env/localtest/env.go`, `log_streamer.go` | The localtest runtime refuses to start while localtest-v2 holds the port; the log streamer shows a stopped container's log |
 | `internal/envtopology/` | The `arbeidsflate` host `af.local.altinn.cloud` (`env hosts add`, the containers' host mappings) |

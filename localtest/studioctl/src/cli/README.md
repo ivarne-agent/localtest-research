@@ -139,7 +139,7 @@ the directory holding it (default: the current directory); studioctl builds it a
 
 ```sh
 cd ~/code/localtest-research/localtest/components/storage
-studioctl env up -r localtest-v2 --dev storage                  # or --dev storage=<path>
+studioctl env up -r localtest-v2 --dev-storage                  # or --dev-storage=<path>
 ```
 
 The conventions the runtime follows (the manifest, the front door, service discovery, ports, the

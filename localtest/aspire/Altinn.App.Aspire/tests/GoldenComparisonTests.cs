@@ -8,7 +8,7 @@ namespace Altinn.App.Aspire.Tests;
 /// <summary>
 /// The package against studioctl's golden snapshots, read by relative path from the Go tree:
 /// <c>internal/cmd/env/localtestv2/testdata/environment.golden.json</c> (the containers of <c>env up</c> and of
-/// <c>env up --with everything --latest --dev ...</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
+/// <c>env up --with everything --latest --dev-...</c>) and <c>internal/cmd/app/testdata/app-environment.golden.json</c>
 /// (the app's environment). Per container, every field both runners have is compared byte for byte with the
 /// application model the package builds: the selection and its start order, the image reference (the default stack;
 /// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>

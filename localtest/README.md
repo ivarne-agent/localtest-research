@@ -14,7 +14,7 @@ are thin loaders of the [manifest](studioctl/src/cli/internal/localtestv2/manife
 environment, `services__*` variables, volumes and certificate, and the localtest container as the front door, the only
 published port (8000 onto its 8080). Routes, the `503` pages and the app registration therefore behave the same under
 both, and [`manifest-parity.yml`](../.github/workflows/manifest-parity.yml) holds both to studioctl's golden files. What
-differs: `--dev <container>` builds (studioctl only), the health mechanism (probe containers, or `exec` into Postgres),
+differs: `--dev-<container>` builds (studioctl only), the health mechanism (probe containers, or `exec` into Postgres),
 the container names (`localtest-v2-<name>`, or Aspire's `<name>-<hash>`) and the dashboard. Run one at a time: both need
 port 8000.
 
@@ -52,7 +52,7 @@ port 8000.
 | `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, then one `PUT localtest/api/apps/{org}/{app}`) and stop all of them (`DELETE`); `studioctl run` does the same |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
 | `run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform ([Tests](#tests)) |
-| `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`) for the old `localtest` runtime (`STUDIOCTL_IMAGE_PDF3`); under localtest-v2 run a pdf3 build with `--dev pdf3=<path>` instead |
+| `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`) for the old `localtest` runtime (`STUDIOCTL_IMAGE_PDF3`); under localtest-v2 run a pdf3 build with `--dev-pdf3=<path>` instead |
 | `smoke-test.sh` | End-to-end check of the running stack through the front door |
 
 No component publishes a host port: everything is reached through `http://local.altinn.cloud:8000` and its host names,
@@ -160,15 +160,15 @@ not answer gets `503` "Component not answering". `env down`, `env status`, `env 
 tagged `sha-<commit>` and `latest`; the manifest pins one build, moved only by `tools/bump-tag.sh`
 ([`CONVENTIONS.md`](CONVENTIONS.md#tags)).
 
-**`--dev`.** `studioctl env up -r localtest-v2 --dev <container>[=<path>]` (repeatable) builds
+**`--dev`.** `studioctl env up -r localtest-v2 --dev-<container>[=<path>]` builds
 that container from a Dockerfile, or a directory holding one, by default the current directory, and runs it as
 `localtest-v2-dev-<container>` instead of the pinned image. A file inside the current directory builds with the
 current directory as context:
 
 ```sh
-cd components/storage && studioctl env up -r localtest-v2 --dev storage
-cd components/dialogporten && studioctl env up -r localtest-v2 --with dialogporten --dev dialogporten-webapi=Dockerfile.webapi
-cd localtest && studioctl env up -r localtest-v2 --dev postgres=postgres/Dockerfile
+cd components/storage && studioctl env up -r localtest-v2 --dev-storage
+cd components/dialogporten && studioctl env up -r localtest-v2 --with dialogporten --dev-dialogporten-webapi=Dockerfile.webapi
+cd localtest && studioctl env up -r localtest-v2 --dev-postgres=postgres/Dockerfile
 ```
 
 Postgres runs its init scripts only on an empty volume: after a component adds one, run it by hand (see the component's

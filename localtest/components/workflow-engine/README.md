@@ -40,7 +40,7 @@ manifest's `health`, see [`../../CONVENTIONS.md`](../../CONVENTIONS.md#port-and-
 ## In the stack
 
 studioctl's `localtest-v2` runtime runs the monorepo's own workflow-engine image (as its classic localtest does), not
-one built from this vendored copy (`--dev workflow-engine` builds this folder's instead). It is not a .NET component
+one built from this vendored copy (`--dev-workflow-engine` builds this folder's instead). It is not a .NET component
 registered for service discovery: it reaches Postgres by alias and port (`postgres:5432`) and the apps through the public
 origin. This copy is for building and testing the engine with the rest of this repository's
 stack; its Dockerfile mirrors the monorepo's, so the two images match apart from the `localtest:` lines.
