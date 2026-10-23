@@ -310,7 +310,8 @@ public sealed class GoldenComparisonTests
                     signing.GetProperty("KeysFolder").GetString()!,
                     signing.GetProperty("FileName").GetString()!
                 )
-                : null
+                : null,
+            golden.TryGetProperty("arbeidsflate", out var arbeidsflate) && arbeidsflate.GetBoolean()
         );
 
         Assert.Equal(

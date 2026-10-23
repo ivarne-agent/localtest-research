@@ -60,7 +60,7 @@ internal static class AppEnvironment
     /// The environment, sorted: <paramref name="current" /> (the first value of a key wins, a malformed entry is
     /// skipped), the run's own variables (always set), and the platform's defaults at <paramref name="origin" /> (set
     /// unless <paramref name="current" /> has them). A value derived from an origin whose port Aspire allocates has a
-    /// hole for the port.
+    /// hole for the port. <paramref name="arbeidsflate" /> is set while the stack runs the <c>arbeidsflate</c> group.
     /// </summary>
     public static SortedDictionary<string, OriginValue> Build(
         IEnumerable<string> current,
@@ -69,7 +69,8 @@ internal static class AppEnvironment
         OriginValue? appFrontendAssetBaseUrl,
         string secretsDirectory,
         string keysDirectory,
-        AppCertificate? signing
+        AppCertificate? signing,
+        bool arbeidsflate
     )
     {
         var values = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
@@ -132,15 +133,23 @@ internal static class AppEnvironment
             DefaultText("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder);
             DefaultText("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName);
 
-            // The app frontend's inbox, dialog, profile and parties links, into the local Arbeidsflate (the
-            // frontend uses a configured link on a local host and the start page otherwise). Only the stack has
-            // Arbeidsflate, and the certificate is set exactly when the app runs against it, as in studioctl. The
+            // The app frontend's Arbeidsflate links; it shows a platform link only when one is configured. With the
+            // arbeidsflate group the inbox, dialog, profile and parties links go into the local Arbeidsflate; without
+            // it (minimal mode included) only the inbox link is set, to the front door's Home, so "back to inbox" keeps
+            // a target. The certificate is set exactly when the app runs against the stack, as in studioctl. The
             // change-and-redirect link stays unset: the stack's Access Management does not serve it.
-            var arbeidsflate = origin.SubdomainUrl(Topology.ArbeidsflateSubdomain);
-            Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate.Then("/"));
-            Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate.Then("/inbox/{dialogId}"));
-            Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate.Then("/profile"));
-            Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate.Then("/profile/parties"));
+            if (!arbeidsflate)
+            {
+                Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", platform.Then("/"));
+            }
+            else
+            {
+                var arbeidsflateUrl = origin.SubdomainUrl(Topology.ArbeidsflateSubdomain);
+                Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflateUrl.Then("/"));
+                Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflateUrl.Then("/inbox/{dialogId}"));
+                Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflateUrl.Then("/profile"));
+                Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflateUrl.Then("/profile/parties"));
+            }
         }
         return values;
     }

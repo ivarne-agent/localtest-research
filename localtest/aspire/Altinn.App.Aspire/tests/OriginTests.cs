@@ -149,8 +149,49 @@ public sealed class OriginTests
         );
         var app = await model.Environment(model.App!.Resource);
         Assert.Equal("http://origin.test:18000/storage/api/v1/", app["PlatformSettings__ApiStorageEndpoint"]);
-        Assert.Equal("http://af.origin.test:18000/", app["PlatformFrontendSettings__ArbeidsflateInboxUrl"]);
+        // Without the arbeidsflate group the inbox link is the front door's Home.
+        Assert.Equal("http://origin.test:18000/", app["PlatformFrontendSettings__ArbeidsflateInboxUrl"]);
         Assert.Equal("origin.test", app["GeneralSettings__HostName"]);
+    }
+
+    /// <summary>
+    /// The arbeidsflate group moves the app frontend's inbox links into the local Arbeidsflate, also when it is enabled
+    /// after the app is added; without it only the inbox link is set, to the front door's Home.
+    /// </summary>
+    [Fact]
+    public async Task TheArbeidsflateGroupMovesTheInboxLinksIntoArbeidsflate()
+    {
+        var model = SampleModel.Build(
+            [],
+            withApp: true,
+            configure: o =>
+            {
+                o.PublicHost = "origin.test";
+                o.PublicPort = 18000;
+            }
+        );
+        var without = await model.Environment(model.App!.Resource);
+        Assert.Equal(
+            [("PlatformFrontendSettings__ArbeidsflateInboxUrl", "http://origin.test:18000/")],
+            without
+                .Where(kv => kv.Key.StartsWith("PlatformFrontendSettings__", StringComparison.Ordinal))
+                .Select(kv => (kv.Key, kv.Value))
+                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+        );
+
+        model.Localtest.WithArbeidsflate();
+        var with = await model.Environment(model.App.Resource);
+        Assert.Equal(
+            [
+                ("PlatformFrontendSettings__ArbeidsflateDialogUrl", "http://af.origin.test:18000/inbox/{dialogId}"),
+                ("PlatformFrontendSettings__ArbeidsflateInboxUrl", "http://af.origin.test:18000/"),
+                ("PlatformFrontendSettings__ArbeidsflatePartiesUrl", "http://af.origin.test:18000/profile/parties"),
+                ("PlatformFrontendSettings__ArbeidsflateProfileUrl", "http://af.origin.test:18000/profile"),
+            ],
+            with.Where(kv => kv.Key.StartsWith("PlatformFrontendSettings__", StringComparison.Ordinal))
+                .Select(kv => (kv.Key, kv.Value))
+                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+        );
     }
 
     [Fact]

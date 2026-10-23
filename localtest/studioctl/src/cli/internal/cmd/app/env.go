@@ -27,8 +27,8 @@ type accessTokenSigning struct {
 	FullPath   string
 	KeysFolder string
 	FileName   string
-	// minimal is set while localtest-v2 runs in minimal mode, which has no Arbeidsflate to link to.
-	minimal bool
+	// arbeidsflate is set while localtest-v2 runs the arbeidsflate group, the local Arbeidsflate the inbox links go to.
+	arbeidsflate bool
 }
 
 // newAppRunEnv builds the environment an app is started with. secretsDir is required - every run is given a
@@ -115,20 +115,26 @@ func (e appEnv) addRunDefaults(
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
-		if !signing.minimal {
-			e.addArbeidsflateLinks(topology)
-		}
+		e.addArbeidsflateLinks(topology, signing.arbeidsflate)
 	}
 }
 
-// addArbeidsflateLinks points the app frontend's inbox, dialog, profile and parties links at the local
-// Arbeidsflate, which only localtest-v2 has, and not in minimal mode. The app frontend
-// reads them from app-lib's PlatformFrontendSettings in the bootstrap response; on a local host it uses a
-// configured link and falls back to the localtest start page otherwise, so without these "back to inbox"
-// is the start page. AccessManagementChangeAndRedirectUrl stays unset: the stack's Access Management does not
-// serve reportee/changeandredirect (it is the UI backend's), so the links go to the inbox without a party
-// switch. The other members (login, logout, all forms, access management, help) keep the start page.
-func (e appEnv) addArbeidsflateLinks(topology envtopology.Local) {
+// addArbeidsflateLinks sets the app frontend's Arbeidsflate links, which it reads from app-lib's
+// PlatformFrontendSettings in the bootstrap response and shows only when one is configured: it no longer derives a link
+// from the page's host. With the arbeidsflate group up the inbox, dialog, profile and parties links go into the local
+// Arbeidsflate. Without it (minimal mode included) only the inbox link is set, to the front door's Home, so "back to
+// inbox" keeps a target; the dialog link falls back to the inbox link in the frontend, and the profile and parties
+// links stay hidden. AccessManagementChangeAndRedirectUrl stays unset: the stack's Access Management does not serve
+// reportee/changeandredirect (it is the UI backend's), so the links go to the inbox without a party switch. The other
+// members (login, logout, all forms, access management, help) stay unset.
+func (e appEnv) addArbeidsflateLinks(topology envtopology.Local, arbeidsflateUp bool) {
+	if !arbeidsflateUp {
+		e.setDefault(
+			"PlatformFrontendSettings__ArbeidsflateInboxUrl",
+			topology.PublicBaseURL(envtopology.ComponentPlatform)+"/",
+		)
+		return
+	}
 	arbeidsflate := topology.PublicBaseURL(envtopology.ComponentArbeidsflate)
 	e.setDefault("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate+"/")
 	e.setDefault("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate+"/inbox/{dialogId}")

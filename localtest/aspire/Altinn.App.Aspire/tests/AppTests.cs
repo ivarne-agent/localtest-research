@@ -35,7 +35,8 @@ public sealed class AppTests
             null,
             "/data-directory/apps/ttd/testapp/secrets",
             "",
-            AppCertificate.ForProcess(appRoot, "/data-directory/certs")
+            AppCertificate.ForProcess(appRoot, "/data-directory/certs"),
+            arbeidsflate: false
         );
 
         foreach (

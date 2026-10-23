@@ -198,6 +198,9 @@ public static class AltinnAppExtensions
         return app;
     }
 
+    /// <summary>The optional group that runs Arbeidsflate, which the app frontend's inbox links go into.</summary>
+    internal const string ArbeidsflateGroup = "arbeidsflate";
+
     /// <summary>The app's environment: studioctl run's, less the variables Aspire or the endpoint set.</summary>
     internal static IEnumerable<KeyValuePair<string, OriginValue>> EnvironmentOf(
         LocaltestStack stack,
@@ -214,7 +217,8 @@ public static class AltinnAppExtensions
                     : stack.Origin.SubdomainUrl(Topology.FrontendDevServerSubdomain),
                 secretsDirectory,
                 "",
-                certificate
+                certificate,
+                stack.EnabledGroups.Contains(ArbeidsflateGroup)
             )
             .Where(kv => kv.Key is not AppEnvironment.KestrelUrl and not AppEnvironment.OtlpEndpoint);
 

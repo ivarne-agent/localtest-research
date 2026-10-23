@@ -167,7 +167,7 @@ public static class AltinnLocaltestExtensions
     /// <returns>The same builder.</returns>
     public static IResourceBuilder<AltinnLocaltestResource> WithArbeidsflate(
         this IResourceBuilder<AltinnLocaltestResource> builder
-    ) => builder.WithGroup("arbeidsflate");
+    ) => builder.WithGroup(AltinnAppExtensions.ArbeidsflateGroup);
 
     /// <summary>Enables every optional group.</summary>
     /// <param name="builder">The localtest resource.</param>

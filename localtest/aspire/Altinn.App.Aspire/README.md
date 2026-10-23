@@ -111,8 +111,9 @@ var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.
   resolve to this machine. `studioctl env hosts add` writes the default names only; for a custom host add
   `127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test` to
   `/etc/hosts` yourself. The package does not check it.
-- Prefer a host that starts with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on
-  party selection for other three-label hosts.
+- For v4 apps (app-lib 8, the released app frontend), until the app-frontend-react fix, prefer a host that starts
+  with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on party selection for other
+  three-label hosts. The monorepo app frontend works on any host.
 - Proven on 2026-10-23: the minimal sample with `PublicPort = 0` (port 24054 that run; every container's and both apps'
   values carried it; both apps registered and provisioned; root suite 23 + 3 skipped after deregistering the sample
   apps) and the full sample at `altinn.test:18000` (root 26/26 after `DELETE localtest/api/apps/ttd/testapp` and its
@@ -275,10 +276,12 @@ dashboard's variables where the development certificate is not trusted.
   `http://local.altinn.cloud:8000`, the OpenID well-known endpoint, `GeneralSettings__*`, the certificate
   (`<data>/certs/localtest-accesstoken.pfx`, and the keys folder as a traversal from the app root for app-lib v9's 1.x
   client), the secrets directory `<data>/apps/<org>/<app>/secrets` with the development app codes written before the
-  AppHost starts (byte for byte studioctl's), the app frontend's inbox, dialog, profile and parties links into the local
-  Arbeidsflate (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` on
-  `http://af.local.altinn.cloud:8000`, so "back to inbox" on a local host opens the inbox instead of the start page; read
-  only by the monorepo backend and frontend, see "What the app runner pushes" in `localtest/README.md`), and
+  AppHost starts (byte for byte studioctl's), the app frontend's inbox links: with `WithArbeidsflate()` the inbox, dialog, profile and
+  parties links into the local Arbeidsflate (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url`
+  on `http://af.local.altinn.cloud:8000`), without it only the inbox link, to the front door's Home
+  (`http://local.altinn.cloud:8000/`), so "back to inbox" keeps a target (the monorepo frontend shows a platform link only
+  when it is configured; read only by the monorepo backend and frontend, see "What the app runner pushes" in
+  `localtest/README.md`), and
   `AppSettings__AppFrontendAssetBaseUrl` with `WithFrontendDevServer`.
   Aspire sets `OTEL_EXPORTER_OTLP_ENDPOINT` to its dashboard; `AppSettings__UseOpenTelemetry=true` unless turned off.
 

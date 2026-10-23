@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -185,7 +186,8 @@ func (s *Service) nativeAccessTokenSigning(appPath string) (*accessTokenSigning,
 		FullPath:   state.CertificatePath(),
 		KeysFolder: "/" + filepath.ToSlash(rel) + "/",
 		FileName:   localtestv2.CertificateFileName,
-		minimal:    state.Minimal,
+		// The group's name is the component's: the manifest's arbeidsflate group runs the arbeidsflate container.
+		arbeidsflate: slices.Contains(state.Groups, string(envtopology.ComponentArbeidsflate)),
 	}, nil
 }
 

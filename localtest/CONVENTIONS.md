@@ -159,8 +159,10 @@ registration address (`host.docker.internal:<app port>`) does not depend on the 
 **The released app frontend** derives the platform's host from the page's (`getHostname` in app-frontend): it accepts
 a host whose first label is `local` (or `altinn3local`), or one of four or five labels as in the deployed environments,
 and throws "Unknown domain" on the pages that build platform URLs from it (party selection, the re-login link). At
-`altinn.test` a single-party user's form works and party selection fails (task 39, phase 2); a custom host of three
-labels that starts with `local.` (`local.altinn.test`) avoids it.
+`altinn.test` a single-party user's form works and party selection fails (task 39, phase 2); for v4 apps until the
+app-frontend-react fix, a custom host of three labels that starts with `local.` (`local.altinn.test`) avoids it. The
+monorepo app frontend takes every platform link from `PlatformFrontendSettings` and inspects no host, so it works on any
+origin.
 
 **What stays on the public origin** even where a service name would work: token issuers, OIDC discovery documents and
 their `jwks_uri`, redirect URIs, links handed to a browser (self links, dialog links, receipt links), cookie domains.
@@ -343,15 +345,19 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
   `RUNTIME_APP_SECRETS_APPCODES_FILENAME` (and `ALTINN_KEYS_DIRECTORY` for a container run);
 - `AppSettings__AppFrontendAssetBaseUrl` with `--dev-frontend` / `WithFrontendDevServer`;
 - against localtest-v2 only: the certificate (`AccessTokenSettings__AccessTokenSigningCertificateFullPath`,
-  `…KeysFolder`, `…FileName`) and the Arbeidsflate links `PlatformFrontendSettings__ArbeidsflateInboxUrl`
-  (`http://af.local.altinn.cloud:8000/`), `…DialogUrl` (`…/inbox/{dialogId}`), `…ProfileUrl` (`…/profile`) and
-  `…PartiesUrl` (`…/profile/parties`).
+  `…KeysFolder`, `…FileName`) and the Arbeidsflate links. With the `arbeidsflate` group up:
+  `PlatformFrontendSettings__ArbeidsflateInboxUrl` (`http://af.local.altinn.cloud:8000/`), `…DialogUrl`
+  (`…/inbox/{dialogId}`), `…ProfileUrl` (`…/profile`) and `…PartiesUrl` (`…/profile/parties`). Without it (minimal mode
+  included): `PlatformFrontendSettings__ArbeidsflateInboxUrl` only, on the front door's Home
+  (`http://local.altinn.cloud:8000/`).
 
 The Arbeidsflate links are read only by the monorepo backend (`src/App/backend`, app-lib's `PlatformFrontendSettings`)
-and the monorepo frontend with its local-host change; the released app-frontend v4 bundle hard-codes the start page for
-a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
+and the monorepo frontend, which shows a platform link only when its URL is configured and never derives one from the
+page's host; the Home default keeps "back to inbox" with a target without Arbeidsflate (the frontend's dialog link falls
+back to the inbox URL), and the profile and parties links stay hidden. The released app-frontend v4 bundle hard-codes the
+start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
 `AccessManagementChangeAndRedirectUrl` stays unset (the stack's Access Management does not serve
-`reportee/changeandredirect`).
+`reportee/changeandredirect`), and so do the logout, all-forms, access-management and help links.
 
 Then the runner registers the app with the front door (`PUT localtest/api/apps/{org}/{app}` with
 `http://host.docker.internal:<port>`): studioctl-server's discovery does it for every app it finds, a `studioctl run`

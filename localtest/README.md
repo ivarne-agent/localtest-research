@@ -89,13 +89,16 @@ an edited `testData.json` becomes visible after the next registration. Profile i
 organisation address sync and settings seed read the Register's test data every minute (task 14), or at once with
 `POST profile/api/localtest/sync`. An app path no runner has registered is the localtest app's 404.
 
-**The inbox links** (task 28). Against localtest-v2 both runners default the app frontend's Arbeidsflate links
-(`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url`) to `http://af.local.altinn.cloud:8000`, so
-"back to inbox" and the receipt's inbox link open the local Arbeidsflate instead of the start page; only the monorepo
-backend and frontend read them, the released v4 bundle still links the start page
-([`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes)). An empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=`
-in the app's environment brings the start page back. The receipt's deep link needs the instance's dialog, which only
-the Dialogporten adapter creates, so use `--with arbeidsflate --with dialogporten`; Arbeidsflate asks for level 3, so
+**The inbox links** (tasks 28 and 42). The monorepo app frontend shows a platform link only when its
+`PlatformFrontendSettings` URL is configured; it no longer derives one from the page's host. Against localtest-v2 both
+runners therefore set the inbox link: with the `arbeidsflate` group up, the Arbeidsflate links
+(`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url`) go to `http://af.local.altinn.cloud:8000`, so
+"back to inbox" and the receipt's inbox link open the local Arbeidsflate; without the group (minimal mode included) only
+`PlatformFrontendSettings__ArbeidsflateInboxUrl` is set, to the front door's Home (`http://local.altinn.cloud:8000/`),
+and the profile and parties links are hidden. Only the monorepo backend and frontend read them, the released v4 bundle
+still links the start page ([`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes)). An empty
+`PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the app's environment hides the inbox links. The receipt's deep
+link needs the instance's dialog, which only the Dialogporten adapter creates, so use `--with arbeidsflate --with dialogporten`; Arbeidsflate asks for level 3, so
 sign in to the app at level 3 to land in the inbox signed in. Verified in a browser on 2026-10-23 (screenshots in
 [`reviews/task28-back-to-inbox/`](reviews/task28-back-to-inbox/)).
 
@@ -175,9 +178,10 @@ the dedicated hosts on `pdf.altinn.test`, `workflow-engine.altinn.test`, `app-fr
 (`127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test`); `env up`
 refuses with that line while a name does not resolve to loopback. Under Aspire: `PublicHost` and `PublicPort` (0 for a
 port Aspire allocates) on both option classes ([package README](aspire/Altinn.App.Aspire/README.md#the-public-origin)).
-Prefer a host that starts with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on
-party selection for any other three-label host. Proven on 2026-10-23 at `http://altinn.test:18000` (root 26/26,
-authentication 34/34, Dialogporten 60/60, a sign-in in the browser, screenshot
+For v4 apps (app-lib 8, the released app frontend), until the app-frontend-react fix, prefer a host that starts with
+`local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on party selection for any other
+three-label host. The monorepo app frontend takes its platform links from the settings and works on any host. Proven on
+2026-10-23 at `http://altinn.test:18000` (root 26/26, authentication 34/34, Dialogporten 60/60, a sign-in in the browser, screenshot
 [`localtest/docs/origin/`](localtest/docs/origin/app-after-sign-in-altinn-test-18000.png)) and with `--minimal --port 0`
 (root 23 + 3 skipped). The rule and what follows the origin: [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
 
