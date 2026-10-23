@@ -156,6 +156,12 @@ stack every container resolves the configured names and `host.docker.internal` t
 (`--add-host <host>:host-gateway`), so a container reaches the public origin the way a browser does. The apps'
 registration address (`host.docker.internal:<app port>`) does not depend on the origin.
 
+**The released app frontend** derives the platform's host from the page's (`getHostname` in app-frontend): it accepts
+a host whose first label is `local` (or `altinn3local`), or one of four or five labels as in the deployed environments,
+and throws "Unknown domain" on the pages that build platform URLs from it (party selection, the re-login link). At
+`altinn.test` a single-party user's form works and party selection fails (task 39, phase 2); a custom host of three
+labels that starts with `local.` (`local.altinn.test`) avoids it.
+
 **What stays on the public origin** even where a service name would work: token issuers, OIDC discovery documents and
 their `jwks_uri`, redirect URIs, links handed to a browser (self links, dialog links, receipt links), cookie domains.
 These are values a browser or a token sees, so they must be the address a browser can open. The component fakes derive

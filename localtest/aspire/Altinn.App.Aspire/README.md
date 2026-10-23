@@ -111,6 +111,12 @@ var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.
   resolve to this machine. `studioctl env hosts add` writes the default names only; for a custom host add
   `127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test` to
   `/etc/hosts` yourself. The package does not check it.
+- Prefer a host that starts with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on
+  party selection for other three-label hosts.
+- Proven on 2026-10-23: the minimal sample with `PublicPort = 0` (port 24054 that run; every container's and both apps'
+  values carried it; both apps registered and provisioned; root suite 23 + 3 skipped after deregistering the sample
+  apps) and the full sample at `altinn.test:18000` (root 26/26 after `DELETE localtest/api/apps/ttd/testapp` and its
+  sibling, the documented procedure).
 - A host that is not a lower-case name (a port, an IP address) or a port outside 0 to 65535 throws when the stack is
   added.
 - The component images derive Arbeidsflate's origin from their platform endpoint since task 39; until the manifest's

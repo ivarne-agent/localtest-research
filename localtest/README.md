@@ -175,7 +175,11 @@ the dedicated hosts on `pdf.altinn.test`, `workflow-engine.altinn.test`, `app-fr
 (`127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test`); `env up`
 refuses with that line while a name does not resolve to loopback. Under Aspire: `PublicHost` and `PublicPort` (0 for a
 port Aspire allocates) on both option classes ([package README](aspire/Altinn.App.Aspire/README.md#the-public-origin)).
-The rule and what follows the origin: [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
+Prefer a host that starts with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on
+party selection for any other three-label host. Proven on 2026-10-23 at `http://altinn.test:18000` (root 26/26,
+authentication 34/34, Dialogporten 60/60, a sign-in in the browser, screenshot
+[`localtest/docs/origin/`](localtest/docs/origin/app-after-sign-in-altinn-test-18000.png)) and with `--minimal --port 0`
+(root 23 + 3 skipped). The rule and what follows the origin: [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
 
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
