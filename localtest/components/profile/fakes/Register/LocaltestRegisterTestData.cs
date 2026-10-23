@@ -23,10 +23,7 @@ public sealed class LocaltestRegisterTestData(HttpClient httpClient, IOptions<Lo
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
-    private string BaseUrl => options.Value.PlatformEndpoint.TrimEnd('/') + "/register/api/localtest/";
-
-    /// <summary>The KRR stand-in's URL, which the configuration names as the KRR change log endpoint (for the logs).</summary>
-    public static string KrrPersonsUrl(string platformEndpoint) => platformEndpoint.TrimEnd('/') + "/register/api/localtest/krr/rest/v2/personer";
+    private string BaseUrl => options.Value.RegisterEndpoint.TrimEnd('/') + "/localtest/";
 
     public async Task<IReadOnlyList<TestUser>> GetUsers(CancellationToken cancellationToken)
         => await httpClient.GetFromJsonAsync<List<TestUser>>(BaseUrl + "test-users", Web, cancellationToken) ?? [];
@@ -59,7 +56,7 @@ public sealed class LocaltestRegisterTestData(HttpClient httpClient, IOptions<Lo
             using var response = await httpClient.GetAsync(BaseUrl + "test-users", cancellationToken);
             return response.IsSuccessStatusCode;
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException || global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.NoAddress(e))
         {
             return false;
         }

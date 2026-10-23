@@ -37,18 +37,23 @@ Three, all in `src/Altinn.Profile/Program.cs`, all pure additions; there is no `
    the defaults must be in place first. They sit just below the environment variables.
 2. After `services.AddSyncJobs(config);`: `#if LOCALTEST` `AddLocaltestServices(services, config)` `#endif`, after
    `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
-3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
-   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
-   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` calls
+   `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
+   factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
+   name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+**Service names (task 40):** the Register (`http://register/register/api/`, its localtest API for the seed included), the
+PDP (`http://authorization/authorization/api/v1/`) and Notifications (`http://notifications/notifications/api/`) by name;
+`Localtest__Profile__PlatformEndpoint` stays the public origin for the JwtCookie metadata.
 
 ## What is replaced
 
 | File (`fakes/`) | Lines | Production | Here |
 | --- | --- | --- | --- |
-| `LocaltestProfileExtensions.cs` | 125 | settings from the deployment | the two entry points: configuration defaults below the environment (endpoints derived from `Localtest:Profile:PlatformEndpoint`, both sync jobs on every minute, 10 s Register id cache), Key Vault and Application Insights forced off; the DI replacements below |
-| `LocaltestProfileOptions.cs` | 18 | | `Localtest:Profile:PlatformEndpoint`, `StartupSyncWaitSeconds` |
+| `LocaltestProfileExtensions.cs` | 127 | settings from the deployment | the two entry points: configuration defaults below the environment (the OpenID metadata from `Localtest:Profile:PlatformEndpoint`, the service endpoints by name, both sync jobs on every minute, 10 s Register id cache), Key Vault and Application Insights forced off; the DI replacements below |
+| `LocaltestProfileOptions.cs` | 27 | | `Localtest:Profile:PlatformEndpoint`, `RegisterEndpoint`, `StartupSyncWaitSeconds` |
 | `Auth/LocaltestPublicSigningKeyProvider.cs` | 40 | Key Vault signing keys | the shared test certificate validates the apps' platform access tokens through the production handler (copy of Notifications') |
-| `Register/LocaltestRegisterTestData.cs` | 77 | | reads the Register's anonymous `register/api/localtest/` API: `test-users`, `organizations`, the KRR stand-in |
+| `Register/LocaltestRegisterTestData.cs` | 74 | | reads the Register's anonymous `register/api/localtest/` API: `test-users`, `organizations`, the KRR stand-in |
 | `Krr/LocaltestContactRegisterClient.cs` | 111 | `IContactRegisterHttpClient`: KRR's change log `hentEndringer` with a Maskinporten token | the Register's KRR stand-in's answer for every test person, as one change log entry per person (below) |
 | `Brreg/LocaltestOrganizationNotificationAddressRegistry.cs` | 173 | `IOrganizationNotificationAddressUpdateClient` and `IOrganizationNotificationAddressSyncClient`: brreg's `kof-reception` and `kof-sync` (KoFuVi), Maskinporten | writes get a local registry id; the change log seeds organisations' official addresses from the test data and reports Profile's own writes back as accepted (below) |
 | `Seed/LocaltestProfileSettingsSeeder.cs` | 103 | nothing (users set their own) | `profile_settings` once per test user without a row, and its recurring job |
@@ -100,7 +105,8 @@ reported.
 
 | Setting | Default | |
 | --- | --- | --- |
-| `Localtest:Profile:PlatformEndpoint` | `http://local.altinn.cloud:8000/` | The platform origin. The OpenID metadata, `RegisterSettings:ApiRegisterEndpoint`, `PlatformSettings:ApiAuthorizationEndpoint`, `NotificationsSettings:ApiNotificationsEndpoint` and the Register's localtest API derive from it |
+| `Localtest:Profile:PlatformEndpoint` | `http://local.altinn.cloud:8000/` | The platform origin. The OpenID metadata derives from it (public; task 40 moved the service calls to service names) |
+| `Localtest:Profile:RegisterEndpoint` | `http://register/register/api/` | The Register's API by service name; the seed reads its localtest API (`localtest/test-users`, …) under it |
 | `Localtest:Profile:StartupSyncWaitSeconds` | `90` | How long the start waits for the Register before it leaves the seed to the jobs |
 | `JobSettings:KrrSyncEnabled`, `OrgSyncEnabled` | `true` (upstream `false`) | The two syncs, with the stand-ins |
 | `JobSettings:KrrSyncWaitTimeInMinutes`, `OrgSyncWaitTimeInMinutes` | `1` (upstream `10`) | Also the settings seed's interval |

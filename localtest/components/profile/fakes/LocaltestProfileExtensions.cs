@@ -41,14 +41,16 @@ public static class LocaltestProfileExtensions
             : DefaultPlatformEndpoint).TrimEnd('/') + "/";
 
         // Localtest defaults: override the vendored appsettings.json (localhost ports, kontaktregisteret.no, brreg), but sit
-        // just below the environment variables, so GeneralSettings__…, JobSettings__… etc. still win.
+        // just below the environment variables, so GeneralSettings__…, JobSettings__… etc. still win. Calls to another
+        // service use its name (http://<service>/<prefix>/…, from services__<service>__http__0, fakes/ServiceDiscovery); the
+        // JwtCookie metadata, fetched outside the factory and naming a public jwks_uri, stays on the public origin.
         var defaults = new Dictionary<string, string?>
         {
             ["Localtest:Profile:PlatformEndpoint"] = platform,
             ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
-            ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
-            ["RegisterSettings:ApiRegisterEndpoint"] = platform + "register/api/",
-            ["NotificationsSettings:ApiNotificationsEndpoint"] = platform + "notifications/api/",
+            ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
+            ["RegisterSettings:ApiRegisterEndpoint"] = LocaltestProfileOptions.DefaultRegisterEndpoint,
+            ["NotificationsSettings:ApiNotificationsEndpoint"] = "http://notifications/notifications/api/",
 
             // Production: 600 s. A renamed or re-registered app test user shows at once.
             ["CoreSettings:ProfileCacheLifetimeSeconds"] = "10",
@@ -60,8 +62,8 @@ public static class LocaltestProfileExtensions
             ["JobSettings:KrrSyncWaitTimeInMinutes"] = "1",
             ["JobSettings:OrgSyncEnabled"] = "true",
             ["JobSettings:OrgSyncWaitTimeInMinutes"] = "1",
-            ["ContactAndReservationSettings:ChangesLogEndpoint"] = LocaltestRegisterTestData.KrrPersonsUrl(platform),
-            ["OrganizationNotificationAddressSettings:ChangesLogEndpoint"] = platform + "register/api/localtest/organizations",
+            ["ContactAndReservationSettings:ChangesLogEndpoint"] = LocaltestProfileOptions.DefaultRegisterEndpoint + "localtest/krr/rest/v2/personer",
+            ["OrganizationNotificationAddressSettings:ChangesLogEndpoint"] = LocaltestProfileOptions.DefaultRegisterEndpoint + "localtest/organizations",
         };
 
         var source = new MemoryConfigurationSource { InitialData = defaults };

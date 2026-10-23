@@ -60,7 +60,7 @@ var builder = WebApplication.CreateBuilder(args);
 // localtest: resolve other components by name (http://<service>/...) from services__<service>__http__0; a name
 // without an entry fails at once, a real host (a dot, an IP, localhost) is used as it is (no pass-through;
 // fakes/ServiceDiscovery, planned-components/service-discovery.md).
-Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services);
+global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services);
 #endif
 
 ConfigureWebHostCreationLogging();

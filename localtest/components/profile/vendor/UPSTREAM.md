@@ -25,7 +25,7 @@ Three, all in `src/Altinn.Profile/Program.cs`, all pure additions (no `#if !LOCA
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);` … `#endif`.
    It must come after `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
 3. Lines 54-59, right after `var builder = WebApplication.CreateBuilder(args);`: the service-discovery registration
-   (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25,
+   (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25,
    `planned-components/service-discovery.md`).
 
 ## Syncing to a newer upstream commit
