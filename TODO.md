@@ -1127,3 +1127,9 @@ message (podman-rm(1) `--volumes`: anonymous only; Engine API `v=1`: anonymous o
 (same code without the flag). `VOLUME /data` dropped from the localtest Dockerfile; probe tmpfs removed; golden
 unchanged; conventions sentence and a CHANGELOG "Fixed" line. Phase 2 adds: Storage's `VOLUME /data/blobs` dropped and
 Aspire's `LocaltestReset` removing with `--volumes`.
+
+**Owner decision 2026-10-23 (`env reset` and minimal mode).** Reset applies to the minimal environment only while it
+is up: it stops it and deletes nothing. When the environment is down, `env reset` clears the full environment (the
+default stack's `localtest-v2-*` volumes), whatever mode ran last. This is what task 35 implemented (`Reset` spares the
+volumes only when the state says minimal; `Down` removes the state), so no change; the agent's suggestion to remember
+the mode after `down` is declined.
