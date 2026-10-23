@@ -125,7 +125,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 	if err := p.ensureImage(ctx); err != nil {
 		return err
 	}
-	name := containerPrefix + "probe-" + target.name
+	name := probeContainerOf(target.name)
 	p.remove(ctx, name)
 	if _, err := p.client.CreateContainer(ctx, types.ContainerConfig{
 		Labels:         nil,
@@ -170,6 +170,11 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 		case <-time.After(probePollInterval):
 		}
 	}
+}
+
+// probeContainerOf names the probe container of a manifest container.
+func probeContainerOf(name string) string {
+	return containerPrefix + "probe-" + name
 }
 
 func probeFinished(status string) bool {

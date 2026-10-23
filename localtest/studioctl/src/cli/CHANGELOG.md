@@ -32,6 +32,7 @@ Section ordering: Added, Changed, Fixed, Removed, Security, Deprecated.
 
 ### Fixed
 
+- `studioctl env up -r localtest-v2` removes the containers and the network it started when the start fails, for example on a port in use, so a failed start no longer leaves the environment half up. When a container does not become healthy, the containers are left running so you can read their logs with `env logs`; `env down` removes them. Your named volumes are kept.
 - `studioctl env down`, `env reset` and `studioctl run --mode container` no longer leave an unnamed volume behind for each container they remove, which piled up in `docker volume ls` or `podman volume ls`. Your named volumes, and the data in them, are kept as before.
 - `studioctl app upgrade v9` moves app implementations of `IEFormidlingMetadata` and `IEFormidlingReceivers` to the v9 signatures, which take `IInstanceDataAccessor` instead of `Instance`. Before, the app did not build until they were changed by hand. The method reads the instance from the accessor, so the rest of its body is unchanged. ([#21009](https://github.com/Altinn/altinn-studio/pull/21009))
 - `studioctl app upgrade v9` also reports implementations of and calls to `SendEFormidlingShipment(Instance, ValidAltinnEFormidlingConfiguration)`, which v9 removed as well. ([#21009](https://github.com/Altinn/altinn-studio/pull/21009))

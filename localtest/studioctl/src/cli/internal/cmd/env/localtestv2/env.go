@@ -147,24 +147,8 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 		return fmt.Errorf("restart studioctl-server: %w", err)
 	}
 
-	probes := newProber(e.client, e.out.Verbosef).probes
-	if err := e.applyResources(ctx, resources(opts, probes), len(opts.Dev) > 0); err != nil {
-		if portTaken(err) {
-			// The recorded port never bound: forget it, so the environment is not up and a later --port 0 picks again.
-			if forgetErr := e.forgetState(ctx, nil); forgetErr != nil {
-				e.out.Verbosef("forget localtest-v2 state: %v", forgetErr)
-			}
-			return fmt.Errorf(
-				"%w: port %d is in use by another process; '%s env up -r %s --port 0' picks a free one, or give "+
-					"another --port: %w",
-				errPortTaken, opts.Origin.Port, osutil.CurrentBin(), Name, err,
-			)
-		}
+	if err := e.startContainers(ctx, opts); err != nil {
 		return err
-	}
-	e.out.Println("Waiting for the front door to answer...")
-	if err := waitFrontDoor(ctx, e.out, frontDoorHealthURL(opts)); err != nil {
-		return fmt.Errorf("localtest-v2 did not become healthy: %w", err)
 	}
 	e.out.Success("Environment healthy")
 
@@ -456,25 +440,33 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 }
 
 func (e *Env) hasManagedResources(ctx context.Context) (bool, error) {
+	managed, err := e.managedResources(ctx)
+	return len(managed) > 0, err
+}
+
+// managedResources lists the resources of this runtime that exist, sorted: its containers and its network.
+func (e *Env) managedResources(ctx context.Context) ([]string, error) {
 	graph, err := buildResourceGraph(resources(e.teardownOptions(), nil))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	exec, err := newResourceExecutor(e.client)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	snapshot, err := exec.Status(ctx, graph, executor.SkipResource(isImageResource))
 	if err != nil {
-		return false, fmt.Errorf("get resource status: %w", err)
+		return nil, fmt.Errorf("get resource status: %w", err)
 	}
-	for _, observed := range snapshot.Resources {
+	var managed []string
+	for id, observed := range snapshot.Resources {
 		if !observed.Managed || observed.Status == executor.StatusDestroyed {
 			continue
 		}
-		return true, nil
+		managed = append(managed, id.String())
 	}
-	return false, nil
+	slices.Sort(managed)
+	return managed, nil
 }
 
 func (e *Env) applyResources(ctx context.Context, resources []resource.Resource, building bool) error {
