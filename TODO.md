@@ -71,7 +71,7 @@ A path matching no route still falls through to the localtest app.
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
-| 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **running** (dispatched 2026-10-23, Opus, measurement only) | small | yes |
+| 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | brief ready (`/home/agent/code/.briefs/task39-configurable-origin.md`), awaiting dispatch; owner's decision 2026-10-23: configurable on `env up` and in Aspire options, random port for Aspire and for a future independent `run --minimal` | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -1224,3 +1224,15 @@ origin (Authentication's seeded clients) read it from the environment (reaches t
 checks resolution and prints the lines to add); `--add-host` maps the configured names inside the containers;
 the suites get one override variable; the golden gets an `origin.test:18000` case with the Aspire parity test. Several
 instances are not implemented; the report lists what an independent `run --minimal` would still need.
+
+**Outcome (merged 2026-10-23).** `free` "used" (MiB, idle): baseline 928; default stack 1809 (containers 1072);
+with an app 2468; `--with everything` 2797 (containers 2108, no OOM, cache filled the rest); minimal 1332 (containers
+424, Postgres's tmpfs 175 the largest item); Aspire minimal with two apps 2638 (host side 1219: AppHost 0.3 GiB, DCP 0.3
+GiB over 11 processes, dashboard, apps); Aspire full 3802 (containers 1927, host 1143). Reconciliation: used = anon +
+shmem + non-reclaimable kernel + 120–190 held back; "available" includes the page cache, among it 0.8–1.1 GiB charged
+to Podman's parent cgroup that `podman stats` never shows. Why it fits: idle .NET services hold 15–60 MiB anon (server
+GC is on in every image but .NET 10's adapts to live data; no limits set); JIT code lives in a shared memfd region of
+17–99 MiB per process; only the front door is AOT; the 14 .NET containers carry 10 runtime copies over four patch
+versions, so layer sharing saves little. Storage triples once an app registers. Roslyn's build server (240–410 MiB)
+stays after `studioctl run`/`dotnet run`. Unexplained: F's containers used more after the AppHost stopped. Side note:
+the agent's `pgrep` pattern once matched its own shell. Worktree and branch removed.
