@@ -5,19 +5,23 @@
 #   app runners use (registers, provisions and removes ttd/proxy-smoke only, and the frontend dev server's route);
 # - the fake ID-porten and Maskinporten;
 # - Home: the old localtest login contract (start page, LogInTestUser and the party cookies of the selected party,
-#   authentication levels in the token, version probe, token helpers), all through production Authentication.
+#   authentication levels in the token, version probe, token helpers), all through production Authentication;
+# - in minimal mode (studioctl env up --minimal, read from GET localtest/api/routes, or LOCALTEST_MINIMAL=1), one check
+#   per emulated service: the X-Localtest-Emulated header and one representative answer. Everything above runs in both
+#   modes: the emulation serves the same paths (Authentication's sign-in and exchanges, Register's test-users, Events'
+#   inspection API and stream).
 # The registration section needs the localtest app as the front door (it registers routes through the app's own API);
 # it is under studioctl's localtest-v2 runtime (task 27a) and the Aspire package (task 27b); behind another front door
 # skip it with PROXY_CHECKS=0.
 # USER_SELECT must be a user acting for an organisation (userId.orgPartyId); OWN_PARTY is that user's own party.
-# FAKE_APP is any address the localtest container reaches that is not an app (default the Register's), OFF_PREFIX a
-# platform prefix whose service is not running (default /correspondence/, an optional group).
+# FAKE_APP is any address the localtest container reaches that is not an app (default Storage's, which runs in both
+# modes), OFF_PREFIX a platform prefix whose service is not running (default /correspondence/, an optional group).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -uo pipefail
 BASE=${1:-http://local.altinn.cloud:8000}
 API="$BASE/localtest/api/apps"
 ROUTES="$BASE/localtest/api/routes"
-FAKE_APP=${FAKE_APP:-http://register:5020}
+FAKE_APP=${FAKE_APP:-http://storage:5010}
 OFF_PREFIX=${OFF_PREFIX:-/correspondence/}
 NO_APP="No app is registered for this path. Start it with studioctl run or an Aspire AppHost (or, with this app as the front door, run-app.sh <app-dir> <port>)."
 USER_SELECT=${USER_SELECT:-1337.500000}
@@ -40,7 +44,7 @@ expect "authentication prefix" 200 "$(code "$BASE/authentication/api/v1/openid/.
 expect "register prefix" 200 "$(code "$BASE/register/api/localtest/test-users")"
 expect "events prefix" 200 "$(code "$BASE/events/api/localtest/events")"
 expect "a prefix without its slash redirects" "301 /storage/" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{location}' "$BASE/storage")"
-expect "a file-like path is forwarded (register answers)" 404 "$(code "$BASE/register/no-such-file.json")"
+expect "a file-like path is forwarded (storage answers)" 404 "$(code "$BASE/storage/no-such-file.json")"
 expect "unknown path: the front door's own 404" "$NO_APP" "$(curl -s -m 10 "$BASE/nope/missing.js")"
 expect "a service that is off: 503 problem details" "503 application/problem+json" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %{content_type}' "$BASE${OFF_PREFIX}x")"
 expect "the PDF host belongs to pdf3, /health included" 404 "$(code -H 'Host: pdf.local.altinn.cloud:8000' "$BASE/health")"
@@ -57,18 +61,18 @@ put() { curl -s -m 60 -o /dev/null -w '%{http_code}' -X PUT "$1" -H Content-Type
 expect "bad app name" 400 "$(put "$API/ttd/Not_Valid" "$FAKE_APP")"
 expect "url with a path" 400 "$(put "$API/ttd/proxy-smoke" "$FAKE_APP/x")"
 expect "an org that is a platform prefix" 400 "$(put "$API/storage/proxy-smoke" "$FAKE_APP")"
-# Any reachable server will do as the "app": the Register answers 404 for /ttd/proxy-smoke/…, which proves the route,
+# Any reachable server will do as the "app": Storage answers 404 for /ttd/proxy-smoke/…, which proves the route,
 # and the provisioning fails on the missing application metadata, which keeps the route.
 expect "register ttd/proxy-smoke: routed, provisioning failed" 502 "$(put "$API/ttd/proxy-smoke" "$FAKE_APP")"
 expect "listed with the failed provisioning" "1 failed" "$(curl -s -m 10 "$API" | python3 -c 'import json,sys; r=[r for r in json.load(sys.stdin) if r["org"]=="ttd" and r["app"]=="proxy-smoke"]; print(len(r), r[0]["provisioning"]["state"] if r else "-")')"
-expect "routed to the address (Register's empty 404, not the front door's text)" "" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
+expect "routed to the address (Storage's empty 404, not the front door's text)" "" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
 expect "app path without its slash redirects, query kept" "301 /ttd/proxy-smoke/?a=1" "$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{location}' "$BASE/ttd/proxy-smoke?a=1")"
 expect "remove (deprovisions)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
 expect "gone: the front door's 404 again" "$NO_APP" "$(curl -s -m 10 "$BASE/ttd/proxy-smoke/api/v1/applicationmetadata")"
 expect "remove again (idempotent)" 204 "$(code -m 60 -X DELETE "$API/ttd/proxy-smoke")"
 DEV=(-s -m 10 -H "Host: app-frontend.local.altinn.cloud")
 expect "frontend dev server route set" 200 "$(put "$ROUTES/frontend-dev-server" "$FAKE_APP")"
-expect "its host goes to the dev server (Register's empty 404)" "" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
+expect "its host goes to the dev server (Storage's empty 404)" "" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
 expect "frontend dev server route removed" 204 "$(code -X DELETE "$ROUTES/frontend-dev-server")"
 expect "its host is the main host again" "$NO_APP" "$(curl "${DEV[@]}" "$BASE/ttd/proxy-smoke/x")"
 fi
@@ -119,7 +123,7 @@ PICKED=$(pick --data-urlencode "redirect_uri=$CB_URI" -d AuthenticationLevel=3 |
 pq() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$PICKED" "$1"; }
 expect "the code comes back with state and iss" "smoke-state $IDP" "$(pq state) $(pq iss)"
 token() { curl -s -m 10 -X POST "$IDP/token" -d grant_type=authorization_code -d "code=$(pq code)" -d client_id=localtest "$@"; }
-expect "a wrong redirect_uri at the token endpoint is refused (and spends the code)" invalid_grant "$(token --data-urlencode redirect_uri=$BASE/elsewhere -d "code_verifier=$VERIFIER" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("error"))')"
+expect "a wrong redirect_uri at the token endpoint is refused (and spends the code)" invalid_grant "$(token --data-urlencode "redirect_uri=$BASE/elsewhere" -d "code_verifier=$VERIFIER" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("error"))')"
 PICKED=$(pick --data-urlencode "redirect_uri=$CB_URI" -d AuthenticationLevel=3 | cut -d' ' -f2)
 ID_TOKEN=$(token --data-urlencode "redirect_uri=$CB_URI" -d "code_verifier=$VERIFIER" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id_token"])')
 KID=$(python3 -c "import sys,base64,json; h=sys.argv[1].split('.')[0]; h+='='*(-len(h)%4); print(json.loads(base64.urlsafe_b64decode(h))['kid'])" "$ID_TOKEN")
@@ -161,4 +165,37 @@ expect "GetTestOrgToken default service-owner scopes" "altinn:serviceowner/insta
 expect "GetTestStudioToken carries urn:altinn:app=studio.designer" "studio.designer" "$(claim "$(curl -s -m 30 "$BASE/Home/GetTestStudioToken")" urn:altinn:app)"
 rm -f "$H"
 
-[[ $FAIL == 0 ]] && echo "all ok" || { echo "some checks failed"; exit 1; }
+MINIMAL=${LOCALTEST_MINIMAL:-$(curl -s -m 10 "$ROUTES" | python3 -c 'import json,sys; print(1 if any(r.get("address") == "emulated" for r in json.load(sys.stdin)["platform"]) else 0)' 2>/dev/null || echo 0)}
+if [[ "$MINIMAL" == 1 ]]; then
+echo "== emulated services (minimal mode)"
+# The header and the body of one request: "<header> <python expression over the JSON body d, or the raw body b>".
+emulated() { # name service python-expression curl-args...
+  local name=$1 service=$2 expr=$3; shift 3
+  local hdr body; hdr=$(mktemp); body=$(mktemp)
+  curl -s -m 30 -D "$hdr" -o "$body" "$@"
+  local got; got=$(grep -i '^X-Localtest-Emulated:' "$hdr" | awk '{print $2}' | tr -d '\r')
+  local ok; ok=$(python3 -I -c "import json,sys; b=open(sys.argv[1],'rb').read(); d=None
+try: d=json.loads(b)
+except Exception: pass
+print('yes' if ($expr) else 'no')" "$body" 2>/dev/null)
+  expect "$name" "$service yes" "$got ${ok:-no}"; rm -f "$hdr" "$body"
+}
+USER_TOKEN=$(curl -s -m 30 "$BASE/Home/GetTestUserToken?userId=$USER_ID")
+emulated "register: party lookup by organisation number" register 'd["partyId"] == 500000 and len(d["name"]) > 0' \
+  -X POST -H Content-Type:application/json "$BASE/register/api/v1/parties/lookup" -d '{"orgNo":"897069644"}'
+emulated "profile: the user's profile with its party" profile "d[\"userId\"] == $USER_ID and d[\"party\"][\"partyId\"] == $OWN_PARTY" \
+  "$BASE/profile/api/v1/users/$USER_ID"
+emulated "authorization: Permit per request, the action echoed" authorization '[r["decision"] for r in d["response"]] == ["Permit", "Permit"] and [a["value"] for r in d["response"] for c in r["category"] for a in c["attribute"]] == ["read", "sign"]' \
+  -X POST -H Content-Type:application/json "$BASE/authorization/api/v1/decision" -d '{"request":{"accessSubject":[{"id":"s1","attribute":[{"attributeId":"urn:altinn:userid","value":"1337","dataType":"string"}]}],"action":[{"id":"a1","attribute":[{"attributeId":"urn:oasis:names:tc:xacml:1.0:action:action-id","value":"read","dataType":"string","includeInResult":true}]},{"id":"a2","attribute":[{"attributeId":"urn:oasis:names:tc:xacml:1.0:action:action-id","value":"sign","dataType":"string","includeInResult":true}]}],"resource":[{"id":"r1","attribute":[{"attributeId":"urn:altinn:org","value":"ttd","dataType":"string"}]}],"multiRequests":{"requestReference":[{"referenceId":["s1","a1","r1"]},{"referenceId":["s1","a2","r1"]}]}}}'
+emulated "pdf3: POST /pdf answers the static PDF" pdf3 'b.startswith(b"%PDF-1.4") and b"Minimal PDF without content" in b' \
+  -X POST -H 'Host: pdf.local.altinn.cloud:8000' -H Content-Type:application/json "$BASE/pdf" -d '{"url":"http://local.altinn.cloud:8000/ttd/app/"}'
+emulated "authentication: discovery on the public origin" authentication 'd["issuer"] == "'"$BASE"'/authentication/api/v1/openid/"' \
+  "$BASE/authentication/api/v1/openid/.well-known/openid-configuration"
+emulated "access-management: the user's authorized parties" access-management "$ORG_PARTY in [p[\"partyId\"] for p in d[\"data\"]]" \
+  -H "Authorization: Bearer $USER_TOKEN" "$BASE/accessmanagement/api/v1/enduser/authorizedparties?includeSubParties=true"
+emulated "events: the inspection list" events '"items" in d' "$BASE/events/api/localtest/events?limit=1"
+emulated "notifications: the inspection list" notifications '"items" in d' "$BASE/notifications/api/localtest/messages?limit=1"
+emulated "resource-registry: 501 naming the mode" resource-registry 'd["status"] == 501 and d["mode"] == "minimal"' "$BASE/resourceregistry/api/v1/resource"
+fi
+
+if [[ $FAIL == 0 ]]; then echo "all ok"; else echo "some checks failed"; exit 1; fi

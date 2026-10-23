@@ -5,6 +5,11 @@
 #   ./smoke-test.sh [REGISTER_URL]   (default http://127.0.0.1:5020, a register run as a plain process; against the
 #                                     stack pass http://local.altinn.cloud:8000)
 # Profile is its own component since task 14 (../profile/smoke-test.sh has the Profile checks that used to be here).
+# In minimal mode (studioctl env up --minimal: the localtest container emulates the Register; read from the front door's
+# GET localtest/api/routes, or forced with LOCALTEST_MINIMAL=1) the read checks run against the emulation (the seeded
+# users, reserved flags, role codes and acting-for list, the organisations' notification addresses, the two party lists)
+# and the KRR stand-in and the app registration API, which the emulation does not have (registration provisions in
+# process there), are skipped by name with the reason.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -29,6 +34,8 @@ PAT=$("$HERE/../../certs/mint-platform-access-token.sh" platform localtest)
 post() { curl -sS -H Content-Type:application/json -X POST "$@"; }
 
 for _ in $(seq 1 30); do curl -sf "$REGISTER/health" >/dev/null && break; sleep 1; done
+MINIMAL=${LOCALTEST_MINIMAL:-$(curl -s "$REGISTER/localtest/api/routes" 2>/dev/null | python3 -I -c 'import json,sys; print(1 if any(r["service"] == "register" and r.get("address") == "emulated" for r in json.load(sys.stdin)["platform"]) else 0)' 2>/dev/null || echo 0)}
+skip_minimal() { echo "skip $1 (minimal mode: $2)"; }
 
 curl -sS "$REGISTER/register/api/localtest/test-users" | check "seeded Cypress users" \
   '{(u["userId"], u["partyId"], u["displayName"]) for u in d} >= {(12345, 512345, "Ola Nordmann"), (1001, 510001, "Pengelens Partner"), (1337, 501337, "Sophie Salt"), (1002, 510002, "Gjentagende Forelder"), (1004, 510004, "selvregistrert.bruker@example.com"), (2001, 512001, "MultiParty Prompt"), (2002, 512002, "Kari Nordvik")}'
@@ -42,6 +49,17 @@ post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist
   'd[0]["partyId"] == 500000 and [c["partyId"] for c in d[0]["childParties"]] == [500001, 500002, 500003] and d[0]["organization"]["name"] == "DDG Fitness"'
 post -H "PlatformAccessToken: $PAT" "$REGISTER/register/api/v1/parties/partylist" -d '[512345, 510004]' | check "person and self-identified parties" \
   '{p["partyId"]: p["name"] for p in d} == {512345: "Ola Nordmann", 510004: "selvregistrert.bruker@example.com"} and [p for p in d if p["partyId"] == 512345][0]["person"]["name"] == "Ola Nordmann"'
+if [[ "$MINIMAL" == 1 ]]; then
+  for name in "krr personer: Sophie Salt not reserved, Rik Forelder (reserved) JA, unknown number absent" "krr personer: empty lookup"; do
+    skip_minimal "$name" "no KRR stand-in: Correspondence and Profile's KRR sync, which read it, do not run"
+  done
+  for name in "register app with posted test data (apps only)" "the app's user is listed" "app without test data brings back the seed" \
+    "refresh" "broken testData.json is a 400" "unregister restores the seed"; do
+    skip_minimal "$name" "registration provisions the emulated Register in process, not over register/api/localtest/apps"
+  done
+  exit $fail
+fi
+
 # KRR stand-in, as Correspondence's production client and the Profile component's KRR change log read it (anonymous).
 post "$REGISTER/register/api/localtest/krr/rest/v2/personer" -d '{"personidentifikatorer":["01839012345","08829698278","00000000000"]}' | check "krr personer: Sophie Salt not reserved, Rik Forelder (reserved) JA, unknown number absent" \
   'd["personer"] == [{"personidentifikator": "01839012345", "reservasjon": "NEI", "status": "AKTIV", "varslingsstatus": "KAN_VARSLES", "kontaktinformasjon": {"epostadresse": "1337@altinnstudiotestusers.com", "mobiltelefonnummer": "'"$SOPHIE_MOBILE"'"}}, {"personidentifikator": "08829698278", "reservasjon": "JA", "status": "AKTIV", "varslingsstatus": "KAN_IKKE_VARSLES", "kontaktinformasjon": {"epostadresse": "test@test.com", "mobiltelefonnummer": "+4799001003"}}]'

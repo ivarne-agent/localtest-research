@@ -3,7 +3,9 @@
 # production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
 # 26 checks, the last one (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
 # storage-<suffix> under the Aspire package, see smoke/lib/containers.sh) skipped without podman or docker or the
-# container.
+# container. In minimal mode (studioctl env up --minimal: the front door emulates the platform and its PDP permits
+# everything; read from GET localtest/api/routes, or forced with LOCALTEST_MINIMAL=1, or off with LOCALTEST_MINIMAL=0)
+# the three checks that need real authorization decisions are skipped by name with the reason: 23 checks.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=smoke/lib/containers.sh
@@ -15,6 +17,11 @@ check() { local label=$1 expected=$2 actual=$3; if [[ "$actual" == "$expected" ]
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 for _ in $(seq 1 60); do curl -sf -o /dev/null "$BASE/health" && curl -sf -o /dev/null "$BASE/authentication/api/v1/openid/.well-known/openid-configuration" && break; sleep 1; done
+# Minimal mode: the front door reports an emulated service's address as "emulated".
+MINIMAL=${LOCALTEST_MINIMAL:-$(curl -s "$BASE/localtest/api/routes" | python3 -c 'import sys,json; print(1 if any(r.get("address") == "emulated" for r in json.load(sys.stdin)["platform"]) else 0)' 2>/dev/null || echo 0)}
+[[ "$MINIMAL" == 1 ]] && echo "minimal mode: the PDP permits everything; the checks of real authorization decisions are skipped"
+# Runs the check unless minimal mode cannot answer it: undefined there (planned-components/minimal-emulation, section 7).
+decided() { local label=$1; if [[ "$MINIMAL" == 1 ]]; then printf 'skip %-60s %s\n' "$label" "(minimal mode: the emulated PDP permits everything)"; else check "$@"; fi; }
 
 # Sign-in through the picker, as a browser would.
 J=$(mktemp); LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/ttd/testapp/")
@@ -51,19 +58,19 @@ check "proxy: unregistered app path is a 404" "404" "$(code "$BASE/ttd/not-runni
 
 dec() { curl -s "$BASE/authorization/api/localtest/decision?userId=$1&partyId=$2&org=ttd&app=testapp&action=$3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["response"][0]["decision"])'; }
 check "PDP: Sophie (DAGL) may read ttd/testapp for 500000" "Permit" "$(dec 1337 500000 read)"
-check "PDP: Sophie has nothing on 500005" "NotApplicable" "$(dec 1337 500005 read)"
+decided "PDP: Sophie has nothing on 500005" "NotApplicable" "$([[ "$MINIMAL" == 1 ]] || dec 1337 500005 read)"
 
 R=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $USR" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/instances?appId=ttd/testapp" -d '{"instanceOwner":{"partyId":"500000"},"appId":"ttd/testapp","org":"ttd"}')
 check "storage: user creates an instance for 500000" "201" "$(echo "$R" | tail -1)"
 ID=$(echo "$R" | head -1 | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
-check "storage: instance for 500005 is refused by the PDP" "403" "$(code -H "Authorization: Bearer $USR" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/instances?appId=ttd/testapp" -d '{"instanceOwner":{"partyId":"500005"},"appId":"ttd/testapp","org":"ttd"}')"
+decided "storage: instance for 500005 is refused by the PDP" "403" "$([[ "$MINIMAL" == 1 ]] || code -H "Authorization: Bearer $USR" -H 'Content-Type: application/json' -X POST "$BASE/storage/api/v1/instances?appId=ttd/testapp" -d '{"instanceOwner":{"partyId":"500005"},"appId":"ttd/testapp","org":"ttd"}')"
 check "storage: the app starts the process (org token)" "200" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/instances/$ID/process" -d '{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","currentTask":{"flow":2,"elementId":"Task_1","name":"Utfylling","altinnTaskType":"data","started":"2026-10-17T07:00:00Z"}}')"
 DR=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $USR" -H 'Content-Type: text/plain' -H 'Content-Disposition: attachment; filename=hello.txt' -X POST --data-binary 'hello localtest' "$BASE/storage/api/v1/instances/$ID/data?dataType=attachment")
 check "storage: user uploads data in Task_1" "201" "$(echo "$DR" | tail -1)"
 DID=$(echo "$DR" | head -1 | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
 check "storage: user reads the data back" "hello localtest" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/instances/$ID/data/$DID")"
 check "storage: file scan result" "Clean" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/instances/$ID" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["fileScanResult"])')"
-check "storage: user without the role cannot upload" "403" "$(code -H "Authorization: Bearer $U2" -H 'Content-Type: text/plain' -X POST --data-binary x "$BASE/storage/api/v1/instances/$ID/data?dataType=attachment")"
+decided "storage: user without the role cannot upload" "403" "$([[ "$MINIMAL" == 1 ]] || code -H "Authorization: Bearer $U2" -H 'Content-Type: text/plain' -X POST --data-binary x "$BASE/storage/api/v1/instances/$ID/data?dataType=attachment")"
 check "storage: the app ends the process" "200" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/instances/$ID/process" -d '{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","ended":"2026-10-17T07:05:00Z","endEvent":"EndEvent_1"}')"
 check "storage: service owner lists instances" "200" "$(code -H "Authorization: Bearer $ORG" "$BASE/storage/api/v1/instances?org=ttd&appId=ttd/testapp")"
 # Storage's own log since the start of this run (what the removed standalone Storage smoke test checked).
