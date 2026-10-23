@@ -46,6 +46,9 @@ internal sealed class FrontDoorRegistration
     /// <summary>The apps this server registered, by app id: the address and the app instance it registered.</summary>
     private readonly Dictionary<string, Registered> _registered = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The apps to register again on the next refresh: the last registration failed or was partial.</summary>
+    private readonly HashSet<string> _retry = new(StringComparer.OrdinalIgnoreCase);
+
     public FrontDoorRegistration(
         FrontDoorRegistrationOptions options,
         IHttpClientFactory httpClientFactory,
@@ -85,7 +88,7 @@ internal sealed class FrontDoorRegistration
             : null;
         foreach (var (appId, wanted) in current)
         {
-            if (_registered.GetValueOrDefault(appId) == wanted)
+            if (_registered.GetValueOrDefault(appId) == wanted && !_retry.Contains(appId))
             {
                 if (listed is null || listed.Contains(Key(appId, wanted.Url)))
                     continue;
@@ -96,8 +99,13 @@ internal sealed class FrontDoorRegistration
                         wanted.Url
                     );
             }
-            if (await Register(client, platform, appId, wanted.Url, cancellationToken))
+            var outcome = await Register(client, platform, appId, wanted.Url, cancellationToken);
+            if (outcome is not Outcome.Failed)
                 _registered[appId] = wanted;
+            if (outcome is Outcome.Registered)
+                _retry.Remove(appId);
+            else
+                _retry.Add(appId);
         }
 
         foreach (var appId in _registered.Keys.Where(appId => !current.ContainsKey(appId)).ToArray())
@@ -105,6 +113,7 @@ internal sealed class FrontDoorRegistration
             await Deregister(client, platform, appId, cancellationToken);
             _registered.Remove(appId);
         }
+        _retry.RemoveWhere(appId => !current.ContainsKey(appId));
     }
 
     /// <summary>The app instance: its process or container, so that a restarted app is registered again.</summary>
@@ -144,7 +153,7 @@ internal sealed class FrontDoorRegistration
         }
     }
 
-    private async Task<bool> Register(
+    private async Task<Outcome> Register(
         HttpClient client,
         Uri platform,
         string appId,
@@ -161,7 +170,19 @@ internal sealed class FrontDoorRegistration
                 _jsonOptions,
                 cancellationToken
             );
-            var body = await ReadBody(response, cancellationToken);
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+            var body = ForLog(raw);
+            if (response.IsSuccessStatusCode && DialogportenSyncFailed(raw))
+            {
+                if (_logger.IsEnabled(LogLevel.Warning))
+                    _logger.LogWarning(
+                        "Registered {AppId} with the localtest-v2 front door at {Url}, but Dialogporten's sync failed: {Result}; registering it again on the next refresh",
+                        appId,
+                        url,
+                        body
+                    );
+                return Outcome.Partial;
+            }
             if (response.IsSuccessStatusCode)
             {
                 if (_logger.IsEnabled(LogLevel.Information))
@@ -171,7 +192,7 @@ internal sealed class FrontDoorRegistration
                         url,
                         body
                     );
-                return true;
+                return Outcome.Registered;
             }
             if (_logger.IsEnabled(LogLevel.Warning))
                 _logger.LogWarning(
@@ -195,7 +216,31 @@ internal sealed class FrontDoorRegistration
                 endpoint
             );
         }
-        return false;
+        return Outcome.Failed;
+    }
+
+    /// <summary>
+    /// Whether the registration's answer says Dialogporten's sync failed (<c>provisioning.result.dialogporten</c>), as
+    /// when the app is registered while the <c>dialogporten</c> group is still starting. The front door does not retry
+    /// it; registering again does.
+    /// </summary>
+    private static bool DialogportenSyncFailed(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("provisioning", out var provisioning)
+                && provisioning.ValueKind == JsonValueKind.Object
+                && provisioning.TryGetProperty("result", out var result)
+                && result.ValueKind == JsonValueKind.Object
+                && result.TryGetProperty("dialogporten", out var dialogporten)
+                && dialogporten.ValueKind == JsonValueKind.String
+                && dialogporten.GetString() == "Failed";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private async Task Deregister(HttpClient client, Uri platform, string appId, CancellationToken cancellationToken)
@@ -204,7 +249,7 @@ internal sealed class FrontDoorRegistration
         try
         {
             using var response = await client.DeleteAsync(endpoint, cancellationToken);
-            var body = await ReadBody(response, cancellationToken);
+            var body = ForLog(await response.Content.ReadAsStringAsync(cancellationToken));
             if (response.IsSuccessStatusCode)
             {
                 if (_logger.IsEnabled(LogLevel.Information))
@@ -228,14 +273,22 @@ internal sealed class FrontDoorRegistration
         }
     }
 
-    private static async Task<string> ReadBody(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static string ForLog(string body)
     {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         body = body.ReplaceLineEndings(" ");
         return body.Length <= MaxLoggedBody ? body : body[..MaxLoggedBody] + "...";
     }
 
     private sealed record RegistrationRequest(string Url);
+
+    private enum Outcome
+    {
+        Failed,
+        Registered,
+
+        /// <summary>Registered, but a step to repeat failed (Dialogporten's sync).</summary>
+        Partial,
+    }
 
     private sealed record Registered(Uri Url, string Instance);
 

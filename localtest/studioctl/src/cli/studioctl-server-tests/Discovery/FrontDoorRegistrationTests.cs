@@ -64,6 +64,24 @@ public sealed class FrontDoorRegistrationTests
     }
 
     [Fact]
+    public async Task RegistersAnAppAgainUntilDialogportensSyncSucceeds()
+    {
+        var frontDoor = new FakeFrontDoor { Dialogporten = "Failed" };
+        var registration = Registration(frontDoor, enabled: true);
+        var app = App("ttd/frontend-test", 5005);
+
+        await registration.Reconcile([app], TestContext.Current.CancellationToken);
+        await registration.Reconcile([app], TestContext.Current.CancellationToken);
+        frontDoor.Dialogporten = "Synced";
+        await registration.Reconcile([app], TestContext.Current.CancellationToken);
+        await registration.Reconcile([app], TestContext.Current.CancellationToken);
+        await registration.Reconcile([], TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, frontDoor.Calls.Count(call => call.StartsWith("PUT ", StringComparison.Ordinal)));
+        Assert.Single(frontDoor.Calls, call => call.StartsWith("DELETE ", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task RegistersARestartedAppAgain()
     {
         var frontDoor = new FakeFrontDoor();
@@ -159,6 +177,9 @@ public sealed class FrontDoorRegistrationTests
 
         public HttpStatusCode GetStatus { get; set; } = HttpStatusCode.OK;
 
+        /// <summary>The Dialogporten sync result a successful registration answers.</summary>
+        public string Dialogporten { get; set; } = "Synced";
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken
@@ -188,7 +209,9 @@ public sealed class FrontDoorRegistrationTests
                 Apps.RemoveAll(entry => entry.StartsWith(appId + " ", StringComparison.Ordinal));
             return new HttpResponseMessage(request.Method == HttpMethod.Put ? PutStatus : HttpStatusCode.OK)
             {
-                Content = new StringContent("{}"),
+                Content = new StringContent(
+                    $"{{\"provisioning\":{{\"state\":\"succeeded\",\"result\":{{\"dialogporten\":\"{Dialogporten}\"}}}}}}"
+                ),
             };
         }
     }
