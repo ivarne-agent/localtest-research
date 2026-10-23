@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"altinn.studio/devenv/pkg/container"
@@ -98,6 +99,9 @@ func (o envStatusOutput) Print(out *ui.Output) error {
 		out.Printlnf("%s is running%s", o.Runtime, mode)
 	default:
 		out.Printlnf("%s is running.", o.Runtime)
+	}
+	if o.Status.Origin != "" {
+		out.Printlnf("Origin: %s", o.Status.Origin)
 	}
 	out.Println("")
 	renderLocaltestStatus(out, o.Status)
@@ -332,8 +336,10 @@ func (c *EnvCommand) withContainerClient(
 
 // envUpFlags holds parsed flags for the env up command.
 type envUpFlags struct {
-	runtime           string
 	devComponents     map[string]string
+	publicPort        *int
+	runtime           string
+	publicHost        string
 	with              []string
 	without           []string
 	detach            bool
@@ -368,6 +374,10 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
 			"  --minimal        Run localtest-v2 in minimal mode: Postgres, Storage, the workflow engine and the localtest",
 			"                   container, which emulates the other services; nothing is kept between starts",
+			"  --host HOST      The localtest-v2 public host (default local.altinn.cloud); HOST and its subdomains pdf.,",
+			"                   workflow-engine., app-frontend. and af. must resolve to 127.0.0.1 (the hosts file)",
+			"  --port PORT      The localtest-v2 public port (default 8000); 0 picks a free port",
+			"                   A running environment keeps its host and port; other values restart it",
 			"  --dev-NAME[=PATH]",
 			"                   Build the localtest-v2 container NAME from PATH, a Dockerfile or a directory holding one",
 			"                   (default: the current directory), and run it instead of the pinned image; NAME is one of",
@@ -389,6 +399,15 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
 	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
 	fs.BoolVar(&f.minimal, "minimal", false, "Run localtest-v2 in minimal mode")
+	fs.StringVar(&f.publicHost, "host", "", "The localtest-v2 public host")
+	fs.Func("port", "The localtest-v2 public port; 0 picks a free port", func(value string) error {
+		port, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return fmt.Errorf("%w: --port %q is not a number", ErrInvalidFlagValue, value)
+		}
+		f.publicPort = &port
+		return nil
+	})
 	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is one flag with two meanings,
 	// one per runtime, which never meet since env up refuses the other runtime's flags: under localtest it routes the
 	// workflow engine to a host process (upstream's hidden flag), under localtest-v2 it builds the container.
@@ -454,24 +473,7 @@ func validateUpFlagsForRuntime(flags envUpFlags) error {
 	var foreign []string
 	switch flags.runtime {
 	case runtimeLocaltest:
-		for _, name := range slices.Sorted(maps.Keys(flags.devComponents)) {
-			// --dev-workflow-engine without a path is the localtest runtime's own flag.
-			if name != devWorkflowEngineContainer || flags.devComponents[name] != "" {
-				foreign = append(foreign, "--dev-"+name)
-			}
-		}
-		if len(flags.with) > 0 {
-			foreign = append(foreign, "--with")
-		}
-		if len(flags.without) > 0 {
-			foreign = append(foreign, "--without")
-		}
-		if flags.latestImages {
-			foreign = append(foreign, "--latest")
-		}
-		if flags.minimal {
-			foreign = append(foreign, "--minimal")
-		}
+		foreign = localtestV2OnlyFlags(flags)
 	case runtimeLocaltestV2:
 		if flags.monitoring {
 			foreign = append(foreign, "--monitoring")
@@ -489,6 +491,33 @@ func validateUpFlagsForRuntime(flags envUpFlags) error {
 	)
 }
 
+// localtestV2OnlyFlags are the given flags only the localtest-v2 runtime has.
+func localtestV2OnlyFlags(flags envUpFlags) []string {
+	var foreign []string
+	for _, name := range slices.Sorted(maps.Keys(flags.devComponents)) {
+		// --dev-workflow-engine without a path is the localtest runtime's own flag.
+		if name != devWorkflowEngineContainer || flags.devComponents[name] != "" {
+			foreign = append(foreign, "--dev-"+name)
+		}
+	}
+	for _, option := range []struct {
+		name  string
+		given bool
+	}{
+		{"--with", len(flags.with) > 0},
+		{"--without", len(flags.without) > 0},
+		{"--latest", flags.latestImages},
+		{"--minimal", flags.minimal},
+		{"--host", flags.publicHost != ""},
+		{"--port", flags.publicPort != nil},
+	} {
+		if option.given {
+			foreign = append(foreign, option.name)
+		}
+	}
+	return foreign
+}
+
 func (c *EnvCommand) runLocaltestV2Up(
 	ctx context.Context,
 	client container.ContainerClient,
@@ -501,6 +530,8 @@ func (c *EnvCommand) runLocaltestV2Up(
 		Without:           flags.without,
 		Detach:            flags.detach,
 		DevWorkflowEngine: false,
+		PublicPort:        flags.publicPort,
+		PublicHost:        flags.publicHost,
 		LatestImages:      flags.latestImages,
 		Minimal:           flags.minimal,
 		Monitoring:        false,
@@ -555,6 +586,8 @@ func (c *EnvCommand) runLocaltestUp(
 		Without:           nil,
 		Detach:            flags.detach,
 		DevWorkflowEngine: flags.devWorkflowEngine,
+		PublicPort:        nil,
+		PublicHost:        "",
 		LatestImages:      false,
 		Minimal:           false,
 		Monitoring:        flags.monitoring,

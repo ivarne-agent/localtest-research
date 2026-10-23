@@ -132,14 +132,16 @@ func checkMinimal(opts envtypes.UpOptions) error {
 	return nil
 }
 
-// stopOnModeSwitch stops the running environment when it runs in the other mode: a switch between the default stack
-// and minimal mode is down, then up, so no container of one keeps running beside the other.
-func (e *Env) stopOnModeSwitch(ctx context.Context, minimal bool) error {
+// stopOnSwitch stops the running environment when it runs in the other mode or at another public origin: a switch
+// between the default stack and minimal mode, or to another host or port, is down, then up, so no container of one
+// keeps running beside the other.
+func (e *Env) stopOnSwitch(ctx context.Context, opts *Options) error {
 	state, up, err := localtestv2.ReadState(e.cfg)
 	if err != nil {
 		return fmt.Errorf("read localtest-v2 state: %w", err)
 	}
-	if !up || state.Minimal == minimal {
+	current := state.Origin()
+	if !up || (state.Minimal == opts.Minimal && current.Host == opts.Origin.Host && current.Port == opts.Origin.Port) {
 		return nil
 	}
 	hasResources, err := e.hasManagedResources(ctx)
@@ -147,7 +149,7 @@ func (e *Env) stopOnModeSwitch(ctx context.Context, minimal bool) error {
 		return err
 	}
 	if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
-		return fmt.Errorf("stop the environment running in the other mode: %w", err)
+		return fmt.Errorf("stop the environment running in the other mode or at the other origin: %w", err)
 	}
 	return nil
 }

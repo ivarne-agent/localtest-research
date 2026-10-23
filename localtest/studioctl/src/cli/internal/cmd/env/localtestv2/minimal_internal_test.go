@@ -211,13 +211,15 @@ func TestAnUpInTheSameModeDoesNotStopTheEnvironment(t *testing.T) {
 	cfg := testConfig(t)
 	writeTestState(t, cfg, true)
 	client := mock.New()
-	if err := NewEnv(cfg, nil, client).stopOnModeSwitch(t.Context(), true); err != nil {
+	minimal := defaultOptions("")
+	minimal.Minimal = true
+	if err := NewEnv(cfg, nil, client).stopOnSwitch(t.Context(), minimal); err != nil {
 		t.Fatal(err)
 	}
 	if len(client.Calls) != 0 {
 		t.Fatalf("the same mode looked at the containers: %v", client.Calls)
 	}
-	if err := NewEnv(cfg, nil, client).stopOnModeSwitch(t.Context(), false); err != nil {
+	if err := NewEnv(cfg, nil, client).stopOnSwitch(t.Context(), defaultOptions("")); err != nil {
 		t.Fatal(err)
 	}
 	if len(client.Calls) == 0 {

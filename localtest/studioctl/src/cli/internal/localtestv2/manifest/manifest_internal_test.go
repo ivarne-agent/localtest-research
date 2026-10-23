@@ -256,14 +256,18 @@ func assertStartOrder(t *testing.T, m *Manifest, order []string) {
 	}
 }
 
-// The manifest's values are the strings the containers get: nothing in them is resolved later.
-func TestTheEnvironmentIsLiteral(t *testing.T) {
+// The manifest's values are the container's own: the services__ variables are the runner's, and nothing but the public
+// origin's placeholders is resolved.
+func TestTheEnvironmentIsTheContainersOwn(t *testing.T) {
 	t.Parallel()
 	m := MustDefault()
 	for _, name := range m.Names() {
-		for key, value := range m.Containers[name].Envs {
+		for key, value := range m.Envs(name, m.Origin("origin.test", 18000)) {
 			if strings.Contains(value, "{{") || strings.HasPrefix(key, "services__") {
-				t.Errorf("%s: %s=%s is not a literal value of the container's own", name, key, value)
+				t.Errorf("%s: %s=%s is not a resolved value of the container's own", name, key, value)
+			}
+			if strings.Contains(value, "local.altinn.cloud") || strings.Contains(value, ":8000") {
+				t.Errorf("%s: %s=%s names the default origin instead of a placeholder", name, key, value)
 			}
 		}
 	}

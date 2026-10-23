@@ -356,7 +356,10 @@ func (c *RunCommand) runTarget(
 	dotnetArgs []string,
 	flags runFlags,
 ) error {
-	topology := envtopology.NewLocal(envtopology.DefaultIngressPortString())
+	topology, err := publicTopology(c.cfg)
+	if err != nil {
+		return err
+	}
 	switch flags.mode {
 	case runModeProcess:
 		return c.runDotnet(ctx, target, dotnetArgs, topology, flags)

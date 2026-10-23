@@ -230,5 +230,5 @@ func ignoreError(error) {}
 
 // frontDoorHealthURL is the front door's own health endpoint on the public origin.
 func frontDoorHealthURL(opts *Options) string {
-	return strings.TrimRight(opts.Topology.LocaltestURL(), "/") + stack().Containers[frontDoor].HealthCheck()
+	return opts.Origin.URL() + stack().Containers[frontDoor].HealthCheck()
 }

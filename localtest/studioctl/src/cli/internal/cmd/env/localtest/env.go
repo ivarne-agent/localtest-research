@@ -576,6 +576,7 @@ func localtestStatus(
 	requireDesired bool,
 ) *Status {
 	status := Status{
+		Origin:     "",
 		Mode:       "",
 		Emulated:   nil,
 		Containers: []ContainerStatus{},

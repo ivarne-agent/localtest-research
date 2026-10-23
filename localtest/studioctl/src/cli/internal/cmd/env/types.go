@@ -30,22 +30,18 @@ type Resetter interface {
 
 // UpOptions configures environment startup.
 type UpOptions struct {
-	// DevComponents are the localtest-v2 containers to build from source instead of pulling, by manifest name: the
-	// path to the Dockerfile or to the directory holding it, empty for the current directory.
-	DevComponents map[string]string
-	// With and Without name the optional localtest-v2 component groups to start or leave out, over their defaults.
+	DevComponents     map[string]string
+	PublicPort        *int
+	PublicHost        string
 	With              []string
 	Without           []string
 	Detach            bool
 	DevWorkflowEngine bool
-	// LatestImages runs the localtest-v2 research images at "latest" instead of their pinned sha- tag.
-	LatestImages bool
-	// Minimal starts localtest-v2 in minimal mode: the front door, Storage, the workflow engine and Postgres, the
-	// front door emulating the rest.
-	Minimal     bool
-	Monitoring  bool
-	OpenBrowser bool
-	PgAdmin     bool
+	LatestImages      bool
+	Minimal           bool
+	Monitoring        bool
+	OpenBrowser       bool
+	PgAdmin           bool
 }
 
 // LogsOptions configures log streaming.

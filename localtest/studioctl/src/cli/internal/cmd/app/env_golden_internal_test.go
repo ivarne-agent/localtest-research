@@ -31,6 +31,7 @@ type goldenAppEnvCase struct {
 	Name                    string            `json:"name"`
 	KestrelURL              string            `json:"kestrelUrl"`
 	IngressPort             string            `json:"ingressPort"`
+	PublicHost              string            `json:"publicHost,omitempty"`
 	AppFrontendAssetBaseURL string            `json:"appFrontendAssetBaseUrl"`
 	SecretsDir              string            `json:"secretsDir"`
 	KeysDir                 string            `json:"keysDir"`
@@ -100,6 +101,10 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 			SecretsDir: goldenSecretsDir, Signing: native,
 		},
 		{
+			Name: "native-localtest-v2-custom-origin", KestrelURL: "http://127.0.0.1:5005", IngressPort: "18000",
+			PublicHost: "origin.test", SecretsDir: goldenSecretsDir, Signing: native,
+		},
+		{
 			Name: "container", KestrelURL: "http://*:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
 			KeysDir: ContainerKeysDir,
 		},
@@ -117,7 +122,7 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 		entries := newAppRunEnv(
 			c.Current,
 			c.KestrelURL,
-			envtopology.NewLocal(c.IngressPort),
+			envtopology.NewLocalAt(c.PublicHost, c.IngressPort),
 			c.AppFrontendAssetBaseURL,
 			c.SecretsDir,
 			c.KeysDir,

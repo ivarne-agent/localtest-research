@@ -24,6 +24,11 @@ const (
 	// has its own prefix, so a reset in one runtime leaves the other's data alone.
 	volumePrefix = "localtest-v2-"
 
+	// publicSubdomainsVariable tells the front door the manifest's subdomains of the public host, comma-separated: it
+	// serves a route of its own on each one listed, refuses to start on one it does not know, and leaves a route off
+	// whose subdomain is not listed. The public host and port are in its Localtest__PlatformEndpoint.
+	publicSubdomainsVariable = "Localtest__PublicSubdomains"
+
 	// frontDoor is the container whose port the runtime publishes on the host, as the public origin's port (8000): the
 	// localtest app, which routes by host and path prefix to the other containers by their services__ variables.
 	frontDoor = "localtest"
@@ -73,9 +78,10 @@ type Options struct {
 	// Dev are the containers built from source instead of pulled, by manifest name.
 	Dev map[string]DevBuild
 	// Groups are the optional groups that are on, sorted; the default group always is.
-	Groups   []string
-	CertDir  string
-	Topology envtopology.Local
+	Groups  []string
+	CertDir string
+	// Origin is the public origin: its host and port, the front door's published port, and the subdomains.
+	Origin manifest.Origin
 	// LatestImages runs the research images at "latest" instead of their pinned sha- tag.
 	LatestImages bool
 	RelabelBinds bool
@@ -88,11 +94,16 @@ func defaultOptions(certDir string) *Options {
 		Dev:          nil,
 		Groups:       nil,
 		CertDir:      certDir,
-		Topology:     envtopology.NewLocal(envtopology.DefaultIngressPortString()),
+		Origin:       stack().DefaultOrigin(),
 		LatestImages: false,
 		RelabelBinds: false,
 		Minimal:      false,
 	}
+}
+
+// topology is the public URLs at the options' origin.
+func (opts *Options) topology() envtopology.Local {
+	return envtopology.NewLocalAt(opts.Origin.Host, strconv.Itoa(opts.Origin.Port))
 }
 
 // selected lists the containers the options start, in start order: the default group's and the enabled groups' root
@@ -211,7 +222,7 @@ func containerResource(
 	if name == frontDoor {
 		// Every interface, not loopback only: the containers reach the public origin through the host gateway.
 		ports = []types.PortMapping{{
-			HostPort:      opts.Topology.IngressPort(),
+			HostPort:      strconv.Itoa(opts.Origin.Port),
 			ContainerPort: strconv.Itoa(c.HTTPPort()),
 			HostIP:        "",
 			Protocol:      "",
@@ -226,7 +237,7 @@ func containerResource(
 		DependsOn:   deps,
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
-		Env:         containerEnv(c, minimalEnv(opts, name), services),
+		Env:         containerEnv(stack().Envs(name, opts.Origin), runnerEnv(opts, name), services),
 		Labels:      nil,
 		Command:     nil,
 		ExtraHosts:  extraHosts(opts),
@@ -245,14 +256,25 @@ func containerResource(
 	}
 }
 
-// containerEnv is the container's own environment from the manifest with what the mode adds, then the services__
-// variables.
-func containerEnv(c manifest.Container, mode, services map[string]string) []string {
-	own := maps.Clone(c.Envs)
+// runnerEnv is what the runner adds to a container's own environment: the front door gets the public subdomains, and
+// in minimal mode its app routes stay in memory.
+func runnerEnv(opts *Options, name string) map[string]string {
+	if name != frontDoor {
+		return nil
+	}
+	env := map[string]string{publicSubdomainsVariable: strings.Join(opts.Origin.Subdomains, ",")}
+	maps.Copy(env, minimalEnv(opts, name))
+	return env
+}
+
+// containerEnv is the container's own environment from the manifest, resolved for the origin, with what the runner
+// adds (frontDoorEnv, minimal mode), then the services__ variables.
+func containerEnv(envs, added, services map[string]string) []string {
+	own := maps.Clone(envs)
 	if own == nil {
 		own = map[string]string{}
 	}
-	maps.Copy(own, mode)
+	maps.Copy(own, added)
 	env := make([]string, 0, len(own)+len(services))
 	for _, key := range slices.Sorted(maps.Keys(own)) {
 		env = append(env, key+"="+own[key])
@@ -309,17 +331,10 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 	return volumes
 }
 
-// extraHosts resolves the public host names and hostGatewayName to the host gateway, where the front door's port is
-// published and the apps run.
+// extraHosts resolves the public host names (the origin's host and the manifest's subdomains of it) and
+// hostGatewayName to the host gateway, where the front door's port is published and the apps run.
 func extraHosts(opts *Options) []string {
-	hosts := []string{
-		opts.Topology.AppHostName(),
-		opts.Topology.PDFHostName(),
-		opts.Topology.WorkflowEngineHostName(),
-		opts.Topology.FrontendDevServerHostName(),
-		opts.Topology.ArbeidsflateHostName(),
-		hostGatewayName,
-	}
+	hosts := append(opts.Origin.Hosts(), hostGatewayName)
 	entries := make([]string, 0, len(hosts))
 	for _, host := range hosts {
 		entries = append(entries, host+":"+hostGateway)

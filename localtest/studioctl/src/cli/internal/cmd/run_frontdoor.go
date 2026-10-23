@@ -18,13 +18,26 @@ import (
 
 // Against localtest-v2, the front door (the localtest container) routes /{org}/{app}/ to an app once studioctl-server
 // has registered it, and provisions the app from its API on registration; a run waits for that. With --dev-frontend,
-// the run also routes app-frontend.local.altinn.cloud, where the app's assets then point, to the frontend dev server on
+// the run also routes app-frontend.<public host>, where the app's assets then point, to the frontend dev server on
 // the host's port 8080, where the localtest runtime's host bridge sent that host too (`yarn docker` in the app frontend
 // builds and serves dist there with CORS, `yarn start --port 8080` runs Vite there), and removes the route when the run
 // stops. Without localtest-v2 both do nothing.
 const frontendDevServerPort = 8080
 
 var errFrontDoorRegistration = errors.New("the localtest-v2 front door has not registered the app")
+
+// publicTopology is the public URLs an app run and its environment use: the running localtest-v2 environment's origin
+// (env up --host, --port), else the default.
+func publicTopology(cfg *config.Config) (envtopology.Local, error) {
+	if cfg == nil {
+		return envtopology.NewLocal(envtopology.DefaultIngressPortString()), nil
+	}
+	topology, err := localtestv2.CurrentTopology(cfg)
+	if err != nil {
+		return topology, fmt.Errorf("read localtest-v2 state: %w", err)
+	}
+	return topology, nil
+}
 
 // waitForFrontDoorRegistration waits, while the localtest-v2 runtime is up, until the front door lists the app at the
 // address of baseURL's port with a provisioning that succeeded at or after since.

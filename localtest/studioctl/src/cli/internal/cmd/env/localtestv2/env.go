@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,14 +47,15 @@ var (
 
 // Env implements envtypes.Env for the localtest-v2 runtime.
 type Env struct {
-	cfg    *config.Config
-	out    *ui.Output
-	client container.ContainerClient
+	cfg        *config.Config
+	out        *ui.Output
+	client     container.ContainerClient
+	lookupHost lookupHostFunc
 }
 
 // NewEnv creates the localtest-v2 environment manager.
 func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient) *Env {
-	return &Env{cfg: cfg, out: out, client: client}
+	return &Env{cfg: cfg, out: out, client: client, lookupHost: net.DefaultResolver.LookupHost}
 }
 
 // Name returns the runtime name.
@@ -60,8 +63,9 @@ func (e *Env) Name() string {
 	return Name
 }
 
-// Preflight validates prerequisites before startup: the localtest runtime must not hold port 8000, the groups must be
-// known, and a dev build must name a container and a Dockerfile.
+// Preflight validates prerequisites before startup: the localtest runtime must not hold the public origin's port, the
+// groups must be known, a dev build must name a container and a Dockerfile, and a custom public host must resolve to
+// this machine.
 func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if err := envlocaltest.CheckForLegacyLocaltest(ctx, e.client); err != nil {
 		return fmt.Errorf("check for legacy localtest: %w", err)
@@ -82,24 +86,26 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if _, err := ResolveGroups(opts.With, opts.Without); err != nil {
 		return err
 	}
-	return nil
+	return e.checkOrigin(ctx, opts)
 }
 
-// Changed reports whether `env up` asks for another mode, other optional groups, other images (--latest) or other dev
-// builds than the running environment was started with, in which case an environment that is already healthy still has
-// to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage again.
+// Changed reports whether `env up` asks for another mode, another public origin, other optional groups, other images
+// (--latest) or other dev builds than the running environment was started with, in which case an environment that is
+// already healthy still has to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage
+// again.
 func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	want, err := ResolveGroups(opts.With, opts.Without)
 	if err != nil {
 		return false, err
 	}
-	state, _, err := localtestv2.ReadState(e.cfg)
+	state, up, err := localtestv2.ReadState(e.cfg)
 	if err != nil {
 		return false, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	have := slices.Clone(state.Groups)
 	slices.Sort(have)
 	return opts.Minimal != state.Minimal ||
+		originChanged(opts, state, up) ||
 		!slices.Equal(want, have) ||
 		opts.LatestImages != state.LatestImages ||
 		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
@@ -112,18 +118,20 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	toolchain := e.client.Toolchain()
 	e.out.Verbosef("Using container toolchain: %s via %s", toolchain.Platform, toolchain.AccessMode)
 
-	opts, err := e.options(upOpts)
+	opts, err := e.options(ctx, upOpts)
 	if err != nil {
 		return err
 	}
 	if err := ensureCertificate(opts.CertDir); err != nil {
 		return err
 	}
-	if err := e.stopOnModeSwitch(ctx, opts.Minimal); err != nil {
+	if err := e.stopOnSwitch(ctx, opts); err != nil {
 		return err
 	}
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
+		PublicHost:     opts.Origin.Host,
+		PublicPort:     opts.Origin.Port,
 		Groups:         opts.Groups,
 		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
@@ -135,7 +143,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	// and a registration provisions the app for the groups that are up now, so an app registered before
 	// `env up --with dialogporten` is synced to Dialogporten too. The front door keeps its registrations on its volume,
 	// so a server that kept running would see nothing to do.
-	if err := studioctlserver.Restart(ctx, e.cfg, opts.Topology.IngressPort()); err != nil {
+	if err := studioctlserver.Restart(ctx, e.cfg, strconv.Itoa(opts.Origin.Port)); err != nil {
 		return fmt.Errorf("restart studioctl-server: %w", err)
 	}
 
@@ -149,7 +157,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	}
 	e.out.Success("Environment healthy")
 
-	localtestURL := opts.Topology.LocaltestURL()
+	localtestURL := opts.topology().LocaltestURL()
 	if upOpts.OpenBrowser {
 		if err := osutil.OpenContext(ctx, localtestURL); err != nil {
 			e.out.Warningf("Failed to open browser: %v", err)
@@ -261,6 +269,7 @@ func (e *Env) Status(ctx context.Context) (*envlocaltest.Status, error) {
 	}
 
 	status := envlocaltest.Status{
+		Origin:     current.Origin.URL(),
 		Mode:       "",
 		Emulated:   emulated(current),
 		Containers: []envlocaltest.ContainerStatus{},
@@ -345,8 +354,8 @@ func (e *Env) defaultOptions() *Options {
 	return defaultOptions(localtestv2.CertificateDir(e.cfg))
 }
 
-// currentOptions are the options of the environment as it was started: the optional groups and the image tags come
-// from the state file, so status and logs cover the containers that exist, do not report a group that was never
+// currentOptions are the options of the environment as it was started: the optional groups, the image tags and the
+// public origin come from the state file, so status and logs cover the containers that exist, do not report a group that was never
 // started as missing, and name the images the containers were started from.
 func (e *Env) currentOptions() (*Options, error) {
 	opts := e.defaultOptions()
@@ -357,6 +366,7 @@ func (e *Env) currentOptions() (*Options, error) {
 	opts.Groups = state.Groups
 	opts.LatestImages = state.LatestImages
 	opts.Minimal = state.Minimal
+	opts.Origin = state.Origin()
 	return opts, nil
 }
 
@@ -368,7 +378,7 @@ func (e *Env) teardownOptions() *Options {
 	return opts
 }
 
-func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
+func (e *Env) options(ctx context.Context, upOpts envtypes.UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
 	_, _, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
 	opts.LatestImages = upOpts.LatestImages
@@ -381,6 +391,17 @@ func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 	if opts.Dev, err = e.devBuilds(upOpts.DevComponents); err != nil {
 		return nil, err
 	}
+	state, up, err := localtestv2.ReadState(e.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
+	}
+	host, port := requestedOrigin(upOpts, state, up)
+	if port == 0 {
+		if port, err = freePort(ctx); err != nil {
+			return nil, err
+		}
+	}
+	opts.Origin = stack().Origin(host, port)
 	return opts, nil
 }
 
