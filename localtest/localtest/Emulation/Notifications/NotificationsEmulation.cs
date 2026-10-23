@@ -140,7 +140,7 @@ public static class NotificationsEmulation
     }
 
     private static async Task<JsonObject> Body(HttpRequest request)
-        => await JsonNode.ParseAsync(request.Body, cancellationToken: request.HttpContext.RequestAborted) as JsonObject ?? [];
+        => await EmulationJson.ReadObject(request) ?? [];
 
     private static IEnumerable<JsonObject> Recipients(JsonNode? list) => list is JsonArray array ? array.OfType<JsonObject>() : [];
 

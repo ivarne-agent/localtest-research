@@ -188,9 +188,10 @@ func (e *Env) Down(ctx context.Context) error {
 // Reset stops the environment if needed and deletes its volumes: the manifest's, with this runtime's prefix only. In
 // minimal mode there are none to delete, and the default stack's are left alone.
 func (e *Env) Reset(ctx context.Context) error {
-	state, _, err := localtestv2.ReadState(e.cfg)
-	if err != nil {
-		return fmt.Errorf("read localtest-v2 state: %w", err)
+	// An unreadable state file resets as before: the mode only spares the volumes when it is known to be minimal.
+	state, _, stateErr := localtestv2.ReadState(e.cfg)
+	if stateErr != nil {
+		e.out.Verbosef("read localtest-v2 state: %v", stateErr)
 	}
 	hasResources, err := e.hasManagedResources(ctx)
 	if err != nil {

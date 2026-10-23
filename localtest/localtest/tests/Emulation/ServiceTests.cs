@@ -191,6 +191,8 @@ public sealed class ServiceTests : IAsyncLifetime
             using var more = await _client.PostAsync("/events/api/v1/app", MinimalFrontDoor.Json($$"""{"source":"x","type":"t{{i}}","specversion":"1.0"}"""), Ct);
         }
 
+        using var invalid = await _client.PostAsync("/events/api/v1/app", MinimalFrontDoor.Json("{"), Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         Assert.Equal("t1", (await Get("/events/api/localtest/events?limit=1")).GetProperty("items")[0].GetProperty("type").GetString());
         var subscription = await Post("/events/api/v1/subscriptions", """{"EndPoint":"http://local.altinn.cloud:8000/ttd/testapp/api/v1/eventsreceiver","SourceFilter":"http://local.altinn.cloud:8000/ttd/testapp","TypeFilter":"app.instance.process.completed"}""", HttpStatusCode.Created);
         Assert.Equal("/app/ttd/testapp", subscription.GetProperty("consumer").GetString());

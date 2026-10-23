@@ -49,6 +49,19 @@ public static class EmulationJson
         }
     }
 
+    /// <summary>The request body as a JSON object; null for an empty, invalid or non-object body.</summary>
+    public static async Task<System.Text.Json.Nodes.JsonObject?> ReadObject(HttpRequest request)
+    {
+        try
+        {
+            return await System.Text.Json.Nodes.JsonNode.ParseAsync(request.Body, cancellationToken: request.HttpContext.RequestAborted) as System.Text.Json.Nodes.JsonObject;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The request body as a JSON document; null for an empty or invalid body.</summary>
     public static async Task<JsonDocument?> ReadDocument(HttpRequest request)
     {

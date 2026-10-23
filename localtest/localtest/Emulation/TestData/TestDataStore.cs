@@ -229,6 +229,12 @@ public sealed class TestDataSnapshot
 
             foreach (var (forPartyId, packages) in person.AccessPackages)
             {
+                // Packages on the own party are not a grant for another party (the own party is listed once).
+                if (forPartyId == person.PartyId.ToString(CultureInfo.InvariantCulture))
+                {
+                    continue;
+                }
+
                 if (Grant(forPartyId, "access packages") is { } grant)
                 {
                     grant.Packages.AddRange(packages.Where(p => !grant.Packages.Contains(p)));

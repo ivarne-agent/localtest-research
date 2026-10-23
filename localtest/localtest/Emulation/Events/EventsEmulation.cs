@@ -20,7 +20,7 @@ public static class EventsEmulation
 
         v1.MapPost("/app", async (HttpRequest request, EventLog log) =>
         {
-            if (await JsonNode.ParseAsync(request.Body, cancellationToken: request.HttpContext.RequestAborted) is not JsonObject cloudEvent)
+            if (await EmulationJson.ReadObject(request) is not { } cloudEvent)
             {
                 return EmulationResults.Problem(StatusCodes.Status400BadRequest, "Not a cloud event", "The body must be a JSON object.", Service);
             }
@@ -30,7 +30,7 @@ public static class EventsEmulation
 
         v1.MapPost("/subscriptions", async (HttpRequest request, EventLog log) =>
         {
-            var body = await JsonNode.ParseAsync(request.Body, cancellationToken: request.HttpContext.RequestAborted) as JsonObject ?? [];
+            var body = await EmulationJson.ReadObject(request) ?? [];
             string? Field(string name) => body.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value?.ToString();
             var subscription = log.Subscribe(Field("endPoint"), Field("sourceFilter"), Field("subjectFilter"), Field("alternativeSubjectFilter"), Field("typeFilter"));
             return Results.Text(subscription.ToJsonString(), "application/json", statusCode: StatusCodes.Status201Created);
@@ -140,6 +140,8 @@ public sealed class EventLog
             cloudEvent["time"] = now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
         }
 
+        // Read once, whole, before readers share it: a parsed JsonNode fills its children in lazily.
+        _ = cloudEvent.ToJsonString();
         lock (_lock)
         {
             _events.AddLast(new StoredEvent(++_sequence, now, cloudEvent));

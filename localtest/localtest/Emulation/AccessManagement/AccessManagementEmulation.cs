@@ -87,7 +87,7 @@ public static class AccessManagementEmulation
     /// <summary>Echoes the request as a <c>DelegationResponse</c> with every right in <paramref name="status"/>, and records it.</summary>
     private static async Task<IResult> Delegate(HttpRequest request, string resourceId, string instanceId, string status, DelegationLog log)
     {
-        var body = await JsonNode.ParseAsync(request.Body, cancellationToken: request.HttpContext.RequestAborted) as JsonObject ?? [];
+        var body = await EmulationJson.ReadObject(request) ?? [];
         var rights = new JsonArray();
         if (body["rights"] is JsonArray requested)
         {

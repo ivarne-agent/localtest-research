@@ -94,6 +94,15 @@ public sealed class TestDataTests
         Assert.Equal(8, store.Current.Users.Count);
     }
 
+    [Fact]
+    public void AccessPackagesOnTheOwnPartyAreNotAGrant()
+    {
+        var store = new TestDataStore(NullLogger<TestDataStore>.Instance);
+        store.Register("ttd", "own", System.Text.Encoding.UTF8.GetBytes("""{"persons":[{"ssn":"","userId":7001,"partyId":570001,"email":"a@example.com","partyRoles":{},"accessPackages":{"570001":["lonn"]}}],"orgs":[]}"""));
+
+        Assert.Empty(store.Current.UsersByUserId[7001].Grants);
+    }
+
     [Theory]
     [InlineData("01899699552", true)]
     [InlineData("01899699553", false)]
