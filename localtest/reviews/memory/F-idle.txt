@@ -80,7 +80,7 @@ SUM (18 containers)                    1927    902    937    709     88        -
 
 pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
 1899     other:claude               591     589      512       77         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
-838518   build-server               446     403      216       39       148  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+838518   build-server               446     403      216       39       148  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:<random>
 838487   aspire-apphost             235     167       80       44        43  dotnet run apphost.cs 
 838763   aspire-dashboard           151     139       77       63         0  /home/agent/.nuget/packages/aspire.dashboard.sdk.linux-arm64/13.6.2/tools/Aspire.Dashboard 
 838621   aspire-apphost             180     127       46       38        43  /home/agent/.local/share/dotnet/runfile/apphost-fdedb0f8f81f0331e290437183622f0cbc00dea5eda5c87d672f35f4cc755f

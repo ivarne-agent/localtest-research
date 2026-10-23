@@ -52,7 +52,7 @@ SUM (4 containers)                      653    318    310    288     26        -
 
 pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
 1899     other:claude               626     625      540       84         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
-823040   build-server               249     237      104       65        68  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+823040   build-server               249     237      104       65        68  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:<random>
 823181   app                        171     151       44       71        35  dotnet /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/bin/Debug/net8.0/Altinn.Appl
 263      other:systemd-journal      191     110        2      108         0  /usr/lib/systemd/systemd-journald 
 818619   studioctl-server           110      94       25       51        18  /home/agent/sh/bin/studioctl-server/studioctl-server 

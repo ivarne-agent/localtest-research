@@ -115,7 +115,7 @@ for p in /proc/[0-9]*; do
     /libpod_parent/* | /machine.slice/*) CTR_PSS=$((CTR_PSS + pss)); continue ;;
   esac
   HOST_PSS=$((HOST_PSS + pss))
-  cmd=$(tr '\0\n' '  ' < "$p/cmdline" 2>/dev/null | cut -c1-110 || true)
+  cmd=$(tr '\0\n' '  ' < "$p/cmdline" 2>/dev/null | sed -E 's/-pipename:[^ ]*/-pipename:<random>/' | cut -c1-110 || true)
   [[ -n $cmd ]] || continue
   # Classify by the program and its first argument only, so a shell whose script mentions a name does not match.
   head2=$(tr '\0\n' ' \n' < "$p/cmdline" 2>/dev/null | awk '{ print $1, $2, $3; exit }' || true)
