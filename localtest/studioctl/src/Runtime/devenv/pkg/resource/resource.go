@@ -139,6 +139,8 @@ type LifecycleOptions struct {
 }
 
 // ContainerLifecycleOptions customizes container-specific lifecycle behavior.
+//
+//nolint:govet // The embedded options come first (embeddedstructfieldcheck), which fieldalignment cannot have.
 type ContainerLifecycleOptions struct {
 	LifecycleOptions
 

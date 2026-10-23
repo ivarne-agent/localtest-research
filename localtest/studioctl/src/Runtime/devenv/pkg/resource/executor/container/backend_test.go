@@ -316,6 +316,8 @@ func TestContainerBackend_WaitForContainerReady_FailsOnUnhealthy(t *testing.T) {
 	}
 }
 
+var errNotYet = errors.New("not yet")
+
 func TestContainerBackend_WaitForContainerReady_RunsTheReadinessProbeOnceReady(t *testing.T) {
 	t.Parallel()
 
@@ -323,7 +325,6 @@ func TestContainerBackend_WaitForContainerReady_RunsTheReadinessProbeOnceReady(t
 	client.ContainerInspectFunc = func(context.Context, string) (types.ContainerInfo, error) {
 		return types.ContainerInfo{State: types.ContainerState{Status: "running", Running: true}}, nil
 	}
-	errNotYet := errors.New("not yet")
 	probed := 0
 	ctr := &resource.Container{Name: "storage", Image: resource.RefID("image:unused")}
 	ctr.Lifecycle.WaitForReady = true
