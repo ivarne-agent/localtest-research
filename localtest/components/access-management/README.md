@@ -23,7 +23,7 @@ Registry and Notifications are called by service name; the issuer, the OpenID me
 stay on the public origin (`Localtest__AccessManagement__PlatformEndpoint`).
 
 Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers checked 2026-10-21: `Program.cs:19-35`,
-`AccessManagementHost.cs:70-73` and `:168-170`; on 2026-10-23 `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs:25-30` and `:42-51`).
+`AccessManagementHost.cs:70-73` and `:168-170`; on 2026-10-23 `src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs:25-30` and `:42-51`).
 
 1. `src/Altinn.AccessManagement/Program.cs`: `#if !LOCALTEST` keeps the production init selection (`RunInitOnly`
    exits after init, `RunIntegrationTests` inits then serves); `#else` ensures the database and roles exist

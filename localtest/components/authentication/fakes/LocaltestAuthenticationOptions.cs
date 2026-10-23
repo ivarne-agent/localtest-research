@@ -8,16 +8,8 @@ namespace Altinn.Platform.Authentication.Localtest;
 public sealed class LocaltestAuthenticationOptions
 {
     /// <summary>
-    /// Base URL this service uses for its own platform calls (openid metadata, the fake ID-porten's token endpoint and
-    /// metadata, register, Profile).
-    /// Defaults to <c>GeneralSettings:PlatformEndpoint</c>, which studioctl's stack uses (the compose file once set the localtest
-    /// app's service name here).
-    /// </summary>
-    public string? InternalPlatformEndpoint { get; set; }
-
-    /// <summary>
     /// Base URL of the Profile API the production <c>ProfileService</c> calls (<c>internal/user</c>), answered by the
-    /// profile component. Defaults to <c>{InternalPlatformEndpoint}profile/api/v1/</c>.
+    /// profile component. Defaults to <c>http://profile/profile/api/v1/</c>, the service name.
     /// </summary>
     public string? ProfileEndpoint { get; set; }
 

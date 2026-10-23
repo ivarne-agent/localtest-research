@@ -33,23 +33,20 @@ public static class LocaltestAuthenticationExtensions
             ? configured
             : "http://local.altinn.cloud:8000/").TrimEnd('/') + "/";
 
-        // URLs the browser follows use the public platform endpoint; calls this service makes itself use the
-        // internal one (set it when a container cannot reach the public host name; studioctl maps the ingress host names to
-        // the host gateway, so it is unset there). They are the same when running on one machine without containers.
-        var internalPlatform = (builder.Configuration["Localtest:Authentication:InternalPlatformEndpoint"] is { Length: > 0 } internalConfigured
-            ? internalConfigured
-            : platform).TrimEnd('/') + "/";
-        var internalAuthn = internalPlatform + "authentication/api/v1/";
-        // The fake ID-porten in the localtest app (localtest/localtest/IdPorten/); its issuer is the public URL.
+        // URLs the browser follows, issuers and the metadata whose URL must contain a token's issuer use the public
+        // platform endpoint; calls this service makes to another service use its service name (http://<service>/<prefix>/…,
+        // resolved from services__<service>__http__0; fakes/ServiceDiscovery).
+        // The fake ID-porten in the localtest app (localtest/localtest/IdPorten/); its issuer is the public URL, and the
+        // token endpoint and the metadata (whose issuer is checked against the configured one) are called by name.
         var idporten = platform + "localtest/api/idporten";
-        var internalIdporten = internalPlatform + "localtest/api/idporten";
+        var internalIdporten = "http://localtest/localtest/api/idporten";
 
         // The fake Maskinporten, also in the localtest app. Production's exchange accepts a token whose iss the
         // well-known URL contains, and the fake's issuer is the public {platform}localtest/api/maskinporten/.
         var maskinportenWellKnown = platform + "localtest/api/maskinporten/.well-known/oauth-authorization-server";
         var profile = builder.Configuration["Localtest:Authentication:ProfileEndpoint"] is { Length: > 0 } profileConfigured
             ? profileConfigured.TrimEnd('/') + "/"
-            : internalPlatform + "profile/api/v1/";
+            : "http://profile/profile/api/v1/";
 
         // Lowest-priority defaults; environment variables and appsettings still win. Provider settings are bound
         // lazily through options, so adding them here, after the production registrations, is in time. AltinnHost has
@@ -97,18 +94,21 @@ public static class LocaltestAuthenticationExtensions
             ["Altinn:Npgsql:authentication:Migrate:Enabled"] = "false",
             ["FeatureManagement:AuditLog"] = "false",
             ["kvSetting:SecretUri"] = string.Empty,
-            ["PlatformSettings:ApiNotificationsEndpoint"] = internalPlatform + "notifications/api/v1/",
+            ["PlatformSettings:ApiNotificationsEndpoint"] = "http://notifications/notifications/api/v1/",
             ["PlatformSettings:ApiProfileEndpoint"] = profile,
-            ["PlatformSettings:ApiResourceRegistryEndpoint"] = internalPlatform + "resourceregistry/api/v1/",
-            ["PlatformSettings:ApiRegisterInternalEndpoint"] = internalPlatform + "register/api/v2/internal/",
-            ["PlatformSettings:ApiRegisterEndpoint"] = internalPlatform + "register/api/v1/",
-            ["PlatformSettings:ApiAuthorizationEndpoint"] = internalPlatform + "authorization/api/v1/",
+            ["PlatformSettings:ApiResourceRegistryEndpoint"] = "http://resource-registry/resourceregistry/api/v1/",
+            ["PlatformSettings:ApiRegisterInternalEndpoint"] = "http://register/register/api/v2/internal/",
+            ["PlatformSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
+            ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
+            // The system-user client; upstream's appsettings point at at22.
+            ["AccessManagementSettings:ApiAccessManagementEndpoint"] = "http://access-management/accessmanagement/api/v1/",
             ["GeneralSettings:IdPortenAlternativeWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
             ["GeneralSettings:IdPortenWellKnownConfigEndpoint"] = internalIdporten + "/.well-known/openid-configuration",
             ["GeneralSettings:MaskinportenWellKnownAlternativeConfigEndpoint"] = maskinportenWellKnown,
             ["GeneralSettings:MaskinportenWellKnownConfigEndpoint"] = maskinportenWellKnown,
             ["GeneralSettings:DefaultOidcProvider"] = "idporten",
-            ["GeneralSettings:OpenIdWellKnownEndpoint"] = internalAuthn + "openid/",
+            // Its own metadata for the JwtCookie handler (fetched outside the factory, naming a public jwks_uri).
+            ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
             ["GeneralSettings:PlatformEndpoint"] = platform,
             ["GeneralSettings:BaseUrl"] = platform.TrimEnd('/'),
             ["GeneralSettings:HostName"] = new Uri(platform).Host,
@@ -116,6 +116,11 @@ public static class LocaltestAuthenticationExtensions
 
         var services = builder.Services;
         services.AddOptions<LocaltestAuthenticationOptions>().BindConfiguration("Localtest:Authentication");
+
+        // Service discovery: AddAltinnServiceDefaults registered AddServiceDiscovery() (with the pass-through provider)
+        // and the factory clients' handler; this drops the pass-through, so a service name without an entry fails at
+        // once, and keeps real hosts (the public origin, altinncdn.no, a client's logout URL) as they are.
+        global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
         services.TryAddSingleton(TimeProvider.System);
 
         // Upstream identity and Profile are production code: the OIDC client and token validation against the localtest

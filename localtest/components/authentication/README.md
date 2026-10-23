@@ -20,7 +20,10 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 
 Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
 `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
-([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)). Since task 40
+`AddLocaltestAuthentication` removes its pass-through provider (`LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders`,
+`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`; ServiceDefaults has no setting for it): a service name without
+an entry fails at once, a real host (the public origin, altinncdn.no, a client's logout URL) is used as it is.
 
 1. `AuthenticationHost.cs`: `AddLocaltestAuthentication(builder)` just before the persistence layer. Its settings
    are read eagerly there and its repositories use TryAdd, so the in-memory ones registered first win.
@@ -51,18 +54,21 @@ ASP.NET Core's cookie policy middleware in front of the host's pipeline through 
 
 Everything else is configuration (`fakes/LocaltestAuthenticationExtensions.cs`):
 
-- The `idporten` OIDC provider points at the localtest app's fake ID-porten (`localtest/api/idporten/`): issuer,
-  authorize (public), token and metadata. The level table `OidcProviders:idporten:AuthLevels` comes from
+- The `idporten` OIDC provider points at the localtest app's fake ID-porten (`localtest/api/idporten/`): issuer and
+  authorize on the public origin, token and metadata (and the exchange's ID-porten metadata) by service name,
+  `http://localtest/localtest/api/idporten/…` (task 40; the callback's issuer is checked against the configured one). The level table `OidcProviders:idporten:AuthLevels` comes from
   `Login/LocaltestAuthLevels.cs`; the localtest app's picker has the same table (`IdPorten/AuthLevels.cs`).
 - `MaskinportenWellKnownConfigEndpoint` (and the alternative) point at the fake Maskinporten
   (`localtest/api/maskinporten/.well-known/oauth-authorization-server`). The exchange accepts a token when that URL
   contains its `iss`, so the public URL is used.
-- `PlatformSettings:ApiProfileEndpoint` points at the profile component (production Profile), which answers
-  `internal/user` (`Localtest:Authentication:ProfileEndpoint` overrides it). Until task 14 the register component
+- `PlatformSettings:ApiProfileEndpoint` points at the profile component (production Profile, `http://profile/profile/api/v1/`),
+  which answers `internal/user` (`Localtest:Authentication:ProfileEndpoint` overrides it). Until task 14 the register component
   answered it.
 - Everything derived from `GeneralSettings:PlatformEndpoint` is forced (the vendored `appsettings.json` carries at22
-  values); `PlatformEndpoint` itself comes from the environment. `Localtest:Authentication:InternalPlatformEndpoint`
-  points the service's own calls elsewhere when the public host name is not reachable from where it runs.
+  values); `PlatformEndpoint` itself comes from the environment. The calls to other services are forced to service
+  names (task 40, replacing `Localtest:Authentication:InternalPlatformEndpoint`): Notifications, Profile, the Resource
+  Registry, the Register (v1 and v2 internal), the PDP and Access Management (`AccessManagementSettings:ApiAccessManagementEndpoint`,
+  at22 upstream) as `http://<service>/<prefix>/…`; its own OpenID metadata for the JwtCookie handler stays public.
 - `GeneralSettings:OidcRefreshTokenPepper` is `bG9jYWx0ZXN0LXBlcHBlcg==`, base64 of `localtest-pepper`: production
   decodes it (`Convert.FromBase64String`) to hash client secrets and refresh tokens. (It was the plain string until
   2026-10-20, which made every client-secret check answer `invalid_client` "Server configuration error".)
