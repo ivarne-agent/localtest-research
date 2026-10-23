@@ -34,15 +34,16 @@ public static partial class LocaltestAdapterExtensions
         {
             [$"{LocaltestAdapterOptions.SectionName}:PlatformEndpoint"] = platform,
 
-            // One origin for everything. GetPlatformUri and GetAppUriForOrg (Settings.cs, LOCALTEST site) derive the
-            // links in the dialogs from BaseUri; the internal endpoints are where the Refit clients send their requests.
+            // GetPlatformUri and GetAppUriForOrg (Settings.cs, LOCALTEST site) derive the links in the dialogs from BaseUri,
+            // the public origin; the internal endpoints are where the Refit clients send their requests: Storage and the
+            // Register by service name (http://<service>/, the paths carry the prefix; fakes/ServiceDiscovery).
             ["DialogportenAdapter:Altinn:BaseUri"] = platform,
-            ["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = platform,
-            ["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = platform,
+            ["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = "http://storage/",
+            ["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = "http://register/",
             ["DialogportenAdapter:Altinn:SubscriptionKey"] = "localtest",
             // DialogportenAdapter:Altinn:AltinnCdn stays upstream's https://altinncdn.no: the org list is read from the
             // internet, as Authentication, the Resource Registry and Dialogporten read it.
-            ["DialogportenAdapter:Dialogporten:BaseUri"] = platform + "dialogporten",
+            ["DialogportenAdapter:Dialogporten:BaseUri"] = "http://dialogporten-webapi/dialogporten",
             // Public: Arbeidsflate calls the delete action and the transmission receipts with the dialog token.
             ["DialogportenAdapter:Adapter:BaseUri"] = platform + "storage/dialogporten",
             ["DialogportenAdapter:Adapter:FeatureFlag:EnableSubmissionTransmissions"] = "true",
@@ -60,8 +61,7 @@ public static partial class LocaltestAdapterExtensions
             ["DialogportenAdapter:Maskinporten:Scope"] = MaskinportenScope,
             ["DialogportenAdapter:Maskinporten:ExhangeToAltinnToken"] = "true",
             ["DialogportenAdapter:Maskinporten:UseAltinnTestOrg"] = "false",
-            ["Localtest:Maskinporten:Issuer"] = platform + "localtest/api/maskinporten/",
-            ["Localtest:Maskinporten:ExchangeEndpoint"] = platform + "authentication/api/v1/exchange/maskinporten",
+            // Localtest:Maskinporten:TokenEndpoint and ExchangeEndpoint: the fake's defaults, by service name.
 
             // Bound by Settings, read only by the Azure Service Bus bootstrap, which is behind #if !LOCALTEST.
             ["WolverineSettings:ServiceBusConnectionString"] = "unused-in-localtest",

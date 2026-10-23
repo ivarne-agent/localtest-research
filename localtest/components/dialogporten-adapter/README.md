@@ -41,7 +41,7 @@ All in `vendor/src/Altinn.DialogportenAdapter.WebApi/`, lines in `vendor/UPSTREA
 4. `Features/Command/Sync/StorageDialogportenDataMerger.cs`, `element.SelfLinks.Platform` in the attachment and the
    transmission-attachment factory: Storage hard-codes `https://platform.{host}/storage/...` in its Interface package;
    `#else` `LocaltestLinks.ToLocalPlatformUrl` puts the same path on the stack's origin.
-5. `Program.cs`, four additions: service discovery right after `CreateBuilder` (task 25, [`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)), the configuration defaults before `ConfigureDialogportenAdapterServices` (which reads
+5. `Program.cs`, four additions: service discovery right after `CreateBuilder` (task 25; since task 40 `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` from `fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`, without pass-through: a name without an entry fails at once, a real host is used as it is; [`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)), the configuration defaults before `ConfigureDialogportenAdapterServices` (which reads
    the settings eagerly), the service replacements after it (the Maskinporten fake must replace the package's `TryAdd`),
    and the localtest routes after the production ones.
 
@@ -59,22 +59,24 @@ Nothing in the sync logic, the merger's content, the receipt or the delete flow 
 
 ### Configuration defaults
 
-`fakes/LocaltestAdapterExtensions.AddLocaltestConfiguration` derives everything from `Localtest:Adapter:PlatformEndpoint`
-(default `http://local.altinn.cloud:8000/`, set by studioctl) and inserts it just below the environment variables, so the
+`fakes/LocaltestAdapterExtensions.AddLocaltestConfiguration` derives the public values from `Localtest:Adapter:PlatformEndpoint`
+(default `http://local.altinn.cloud:8000/`, set by studioctl), names the services it calls by service name (task 40), and
+inserts it all just below the environment variables, so the
 vendored `appsettings*.json` (tt02 and `PopulateFromEnvironmentVariable` values) are overridden while a
 `DialogportenAdapter__...` variable still wins:
 
 | Key | Value |
 | --- | --- |
-| `DialogportenAdapter:Altinn:BaseUri`, `InternalStorageEndpoint`, `InternalRegisterEndpoint` | `{platform}` |
+| `DialogportenAdapter:Altinn:BaseUri` | `{platform}` (public: the links in the dialogs) |
+| `DialogportenAdapter:Altinn:InternalStorageEndpoint`, `InternalRegisterEndpoint` | `http://storage/`, `http://register/` (the Refit paths carry the prefixes) |
 | `DialogportenAdapter:Altinn:SubscriptionKey` | `localtest` (APIM's header, ignored) |
 | `DialogportenAdapter:Altinn:AltinnCdn` | not set: upstream's `https://altinncdn.no`, read from the internet as Dialogporten and the Resource Registry do |
-| `DialogportenAdapter:Dialogporten:BaseUri` | `{platform}dialogporten` |
+| `DialogportenAdapter:Dialogporten:BaseUri` | `http://dialogporten-webapi/dialogporten` |
 | `DialogportenAdapter:Adapter:BaseUri` | `{platform}storage/dialogporten` (public: Arbeidsflate calls the delete action and the receipts) |
 | `DialogportenAdapter:Adapter:FeatureFlag:EnableSubmissionTransmissions` | `true` (as tt02: a submission becomes a transmission with the adapter's receipt) |
 | `DialogportenAdapter:Authentication:JwtBearerWellKnown` | `{platform}authentication/api/v1/openid/.well-known/openid-configuration` |
 | `DialogportenAdapter:Maskinporten:*` | `Environment=test`, `TokenExchangeEnvironment=tt02`, `ClientId=localtest-dialogporten-adapter`, a dummy `EncodedJwk`, production's `Scope`, `ExhangeToAltinnToken=true`, `UseAltinnTestOrg=false` |
-| `Localtest:Maskinporten:Issuer`, `ExchangeEndpoint` | `{platform}localtest/api/maskinporten/`, `{platform}authentication/api/v1/exchange/maskinporten` |
+| `Localtest:Maskinporten:TokenEndpoint`, `ExchangeEndpoint` | not set: the fake's defaults, `http://localtest/localtest/api/maskinporten/token`, `http://authentication/authentication/api/v1/exchange/maskinporten` |
 | `WolverineSettings:ServiceBusConnectionString` | `unused-in-localtest` (bound by `Settings`, read only behind `#if !LOCALTEST`) |
 | `Logging:LogLevel:Altinn.DialogportenAdapter` | `Information` (upstream `Warning`): each sync, skip and no-op, and each enqueue |
 

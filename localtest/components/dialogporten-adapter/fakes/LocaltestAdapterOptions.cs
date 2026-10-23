@@ -10,6 +10,9 @@ public sealed class LocaltestAdapterOptions
 {
     public const string SectionName = "Localtest:Adapter";
 
-    /// <summary>The platform origin every other component (Storage, Register, Authentication, Dialogporten) is reached through.</summary>
+    /// <summary>
+    /// The public origin: the links in the dialogs and the OpenID metadata derive from it. Storage, the Register,
+    /// Authentication and Dialogporten are called by service name.
+    /// </summary>
     public string PlatformEndpoint { get; set; } = "http://local.altinn.cloud:8000/";
 }

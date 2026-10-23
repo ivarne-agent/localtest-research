@@ -16,7 +16,7 @@
 
 | File | Site |
 | --- | --- |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:31-36` | `#if LOCALTEST` right after `WebApplication.CreateBuilder`: the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`) |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs:31-36` | `#if LOCALTEST` right after `WebApplication.CreateBuilder`: the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`) |
 | `src/Altinn.DialogportenAdapter.WebApi/Program.cs:48-50` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestConfiguration(builder.Configuration)`: the localtest defaults, before `ConfigureDialogportenAdapterServices` reads `Settings` eagerly |
 | `src/Altinn.DialogportenAdapter.WebApi/Program.cs:55-57` | `#if LOCALTEST` `LocaltestAdapterExtensions.AddLocaltestAdapter(builder)`: http OpenID metadata, the Maskinporten fake (after the package's `TryAdd`) |
 | `src/Altinn.DialogportenAdapter.WebApi/Program.cs:62-64` | `#if LOCALTEST` `LocaltestAdapterExtensions.MapLocaltestRoutes(app)`: the anonymous enqueue endpoint |
