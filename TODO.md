@@ -72,7 +72,7 @@ A path matching no route still falls through to the localtest app.
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
-| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
+| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **phase 1 verified, phase 2 running** (2026-10-23; one regression to fix first: the localtest test suite took 17 min) | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1236,3 +1236,23 @@ GC is on in every image but .NET 10's adapts to live data; no limits set); JIT c
 versions, so layer sharing saves little. Storage triples once an app registers. Roslyn's build server (240–410 MiB)
 stays after `studioctl run`/`dotnet run`. Unexplained: F's containers used more after the AppHost stopped. Side note:
 the agent's `pgrep` pattern once matched its own shell. Worktree and branch removed.
+
+**Phase 1 (pushed 0b0b999d, verified by the coordinator 2026-10-23).** Manifest: top-level `public` (host, port,
+subdomains `pdf, workflow-engine, app-frontend, af`), 32 literals rewritten to `{{origin}}`, `{{host}}`,
+`{{origin:af}}`; both readers (`manifest/origin.go`, `Manifest/PublicOrigin.cs`) validate the vocabulary with
+table-driven tests. studioctl `env up --host --port` (`0` picks a free port, recorded in the state; a plain `env up`
+keeps it; other values restart; refused under `-r localtest`); `env status` prints `Origin:`; `run`, `app env`, the
+dev-server route and the server's front-door URL follow the state; with a custom host `env up` checks loopback
+resolution and prints the `/etc/hosts` line. Aspire: `PublicHost`/`PublicPort` on both option classes, `0` = a port
+Aspire allocates (`WithHttpEndpoint(port: null, targetPort: 8080, isProxied: false)`, confirmed in decompiled
+Aspire.Hosting 13.6.2 to allocate before containers start); values as `ReferenceExpression` over the localhost-network
+endpoint property. Front door: host and port from `Localtest:PlatformEndpoint`, `Localtest:PublicSubdomains` parsed
+(unknown → start-up error, unlisted → route off); the `PlatformRoutes.Hosts` constants replaced. Fakes: Authentication's
+seeded Arbeidsflate client URIs, Correspondence's Arbeidsflate origins, Dialogporten GraphQL's CORS origin and the
+Arbeidsflate image's CSP/cookie patch derive `af.` from the platform endpoint (reach the stack after a pin bump).
+Suites: `LOCALTEST_ORIGIN`. Golden: +876 lines (new `customOrigin` case `origin.test:18000`; the default cases gained
+only `Localtest__PublicSubdomains`), app golden +45; Aspire parity compares both. Checks: go clean, localtest tests 123,
+Aspire 122, csharpier/typos clean, both samples build. Regression found by the coordinator: the localtest test suite
+took 17 min (name resolution suspected); the agent fixes it before phase 2. Future independent `run --minimal` needs:
+per-instance container/network/volume names, state file, server registration with several front doors, certificate
+directory, graph id and probe names, runtime checks.
