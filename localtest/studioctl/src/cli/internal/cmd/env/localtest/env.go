@@ -576,6 +576,8 @@ func localtestStatus(
 	requireDesired bool,
 ) *Status {
 	status := Status{
+		Mode:       "",
+		Emulated:   nil,
 		Containers: []ContainerStatus{},
 		Running:    false,
 		AnyRunning: false,
@@ -750,6 +752,7 @@ func (e *Env) cleanupWorkflowEngineDbData(ctx context.Context, targetAbs string)
 			ContainerPath:  "/cleanup",
 			Type:           containertypes.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
+			Options:        "",
 			ReadOnly:       false,
 		}},
 		Networks: nil,

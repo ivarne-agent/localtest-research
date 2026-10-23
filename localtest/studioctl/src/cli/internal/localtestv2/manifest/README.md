@@ -29,9 +29,15 @@ package's test (`manifest_internal_test.go`) validates the file, and `Parse` ref
 ## `groups`
 
 A list of `{name, containers}`. `containers` are the group's root containers; a group starts them and everything they
-depend on (`dependsOn`, transitively). `default` is always on; the others are what `env up --with <group>` adds and
-`--without <group>` removes. `everything` is not in the file: it is a constant of the runner meaning every group. A
-container no group reaches is an error. One group implying another is a dependency, not a group rule: `--with
+depend on (`dependsOn`, transitively). `default` is always on; the optional groups are what `env up --with <group>`
+adds and `--without <group>` removes. `everything` is not in the file: it is a constant of the runner meaning every
+optional group. A container no group reaches is an error.
+
+`minimal` is the one group that **replaces** `default` (`env up --minimal`): the front door, Storage and the workflow
+engine, and Postgres through `dependsOn`. It is a constant name for the runners like `default`, not an optional group:
+`--with` and `everything` never name it, and it takes no optional group beside it. The emulated set is derived, not
+listed: every HTTP container of `default` that `minimal` does not start (Register, Profile, Authentication,
+Authorization, Access Management, Events, the Resource Registry, Notifications, pdf3), which the front door emulates. One group implying another is a dependency, not a group rule: `--with
 correspondence` starts Dialogporten's WebApi and Redis because Correspondence depends on them.
 
 ## `containers`
@@ -71,6 +77,9 @@ Every container gets, besides its `envs`:
   it) the certificate file at `/accesstoken/accesstokencredentials.pfx`.
 - each of its `volumes` as the named volume `localtest-v2-<id>` (`volumePrefix` in `containers.go`); `env reset`
   deletes those and no other.
+- in minimal mode: `services__<name>__http__0=http://localtest:8080` for each emulated container, a tmpfs at the path of
+  each of its `volumes` instead of the named volume (`size=1g` for Storage's blobs), and for the front door
+  `Proxy__AppRoutesFile=` (routes kept in memory). Nothing persists, so `env reset` has nothing to delete.
 
 Only the `localtest` container publishes a port: 8000 (the public origin) onto its 8080. The app's environment is not
 in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `internal/cmd/app/testdata/app-environment.golden.json`.

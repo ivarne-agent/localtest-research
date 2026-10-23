@@ -40,9 +40,12 @@ type UpOptions struct {
 	DevWorkflowEngine bool
 	// LatestImages runs the localtest-v2 research images at "latest" instead of their pinned sha- tag.
 	LatestImages bool
-	Monitoring   bool
-	OpenBrowser  bool
-	PgAdmin      bool
+	// Minimal starts localtest-v2 in minimal mode: the front door, Storage, the workflow engine and Postgres, the
+	// front door emulating the rest.
+	Minimal     bool
+	Monitoring  bool
+	OpenBrowser bool
+	PgAdmin     bool
 }
 
 // LogsOptions configures log streaming.

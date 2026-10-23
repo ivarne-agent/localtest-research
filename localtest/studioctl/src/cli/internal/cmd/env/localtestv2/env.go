@@ -73,6 +73,9 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if err != nil && !errors.Is(err, container.ErrContainerNotFound) {
 		return fmt.Errorf("inspect container %s: %w", v1components.ContainerLocaltest, err)
 	}
+	if err := checkMinimal(opts); err != nil {
+		return err
+	}
 	if _, err := e.devBuilds(opts.DevComponents); err != nil {
 		return err
 	}
@@ -82,7 +85,8 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	return nil
 }
 
-// Changed reports whether `env up` asks for other optional groups, other images (--latest) or other dev builds than
+// Changed reports whether `env up` asks for another mode, other optional groups, other images (--latest) or other dev
+// builds than
 // the running environment was started with, in which case an environment that is already healthy still has to be
 // converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage again.
 func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
@@ -96,7 +100,8 @@ func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	}
 	have := slices.Clone(state.Groups)
 	slices.Sort(have)
-	return !slices.Equal(want, have) ||
+	return opts.Minimal != state.Minimal ||
+		!slices.Equal(want, have) ||
 		opts.LatestImages != state.LatestImages ||
 		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
 }
@@ -115,11 +120,15 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err := ensureCertificate(opts.CertDir); err != nil {
 		return err
 	}
+	if err := e.stopOnModeSwitch(ctx, opts.Minimal); err != nil {
+		return err
+	}
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
 		Groups:         opts.Groups,
 		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
+		Minimal:        opts.Minimal,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
 	}
@@ -177,8 +186,13 @@ func (e *Env) Down(ctx context.Context) error {
 	return nil
 }
 
-// Reset stops the environment if needed and deletes its volumes: the manifest's, with this runtime's prefix only.
+// Reset stops the environment if needed and deletes its volumes: the manifest's, with this runtime's prefix only. In
+// minimal mode there are none to delete, and the default stack's are left alone.
 func (e *Env) Reset(ctx context.Context) error {
+	state, _, err := localtestv2.ReadState(e.cfg)
+	if err != nil {
+		return fmt.Errorf("read localtest-v2 state: %w", err)
+	}
 	hasResources, err := e.hasManagedResources(ctx)
 	if err != nil {
 		return err
@@ -190,6 +204,10 @@ func (e *Env) Reset(ctx context.Context) error {
 	}
 	if err := e.forgetState(ctx, nil); err != nil {
 		return err
+	}
+	if state.Minimal {
+		e.out.Println(nothingToReset)
+		return nil
 	}
 	e.out.Println("Deleting persisted localtest-v2 data...")
 	for _, volume := range volumeNames() {
@@ -242,7 +260,16 @@ func (e *Env) Status(ctx context.Context) (*envlocaltest.Status, error) {
 		return nil, fmt.Errorf("get resource status: %w", err)
 	}
 
-	status := envlocaltest.Status{Containers: []envlocaltest.ContainerStatus{}, Running: false, AnyRunning: false}
+	status := envlocaltest.Status{
+		Mode:       "",
+		Emulated:   emulated(current),
+		Containers: []envlocaltest.ContainerStatus{},
+		Running:    false,
+		AnyRunning: false,
+	}
+	if current.Minimal {
+		status.Mode = ModeMinimal
+	}
 	ready := 0
 	for _, res := range graph.All() {
 		ctr, ok := res.(*resource.Container)
@@ -329,6 +356,7 @@ func (e *Env) currentOptions() (*Options, error) {
 	}
 	opts.Groups = state.Groups
 	opts.LatestImages = state.LatestImages
+	opts.Minimal = state.Minimal
 	return opts, nil
 }
 
@@ -344,6 +372,7 @@ func (e *Env) options(upOpts envtypes.UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
 	_, _, opts.RelabelBinds = v1components.RuntimeUser(e.client.Toolchain())
 	opts.LatestImages = upOpts.LatestImages
+	opts.Minimal = upOpts.Minimal
 	groups, err := ResolveGroups(upOpts.With, upOpts.Without)
 	if err != nil {
 		return nil, err

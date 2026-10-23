@@ -17,7 +17,7 @@ func TestTheEmbeddedManifestParses(t *testing.T) {
 	if len(m.Names()) != 22 {
 		t.Fatalf("%d containers, want 22", len(m.Names()))
 	}
-	want := []string{DefaultGroup, "dialogporten", "receipt", "correspondence", "arbeidsflate"}
+	want := []string{DefaultGroup, MinimalGroup, "dialogporten", "receipt", "correspondence", "arbeidsflate"}
 	if got := m.GroupNames(); !slices.Equal(got, want) {
 		t.Fatalf("groups %v, want %v", got, want)
 	}
@@ -232,6 +232,15 @@ func TestSelectStartsTheRootsAndTheirDependenciesInOrder(t *testing.T) {
 	assertStartOrder(t, m, all)
 	if len(m.Select(nil)) != 0 {
 		t.Fatalf("no group selects %v", m.Select(nil))
+	}
+}
+
+func TestTheMinimalGroupStartsTheFrontDoorStorageAndTheWorkflowEngine(t *testing.T) {
+	t.Parallel()
+	m := MustDefault()
+	want := []string{"postgres", "storage", "localtest", "workflow-engine"}
+	if got := m.Select([]string{MinimalGroup}); !slices.Equal(got, want) {
+		t.Fatalf("minimal: %v, want %v", got, want)
 	}
 }
 

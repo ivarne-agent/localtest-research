@@ -79,6 +79,8 @@ type Options struct {
 	// LatestImages runs the research images at "latest" instead of their pinned sha- tag.
 	LatestImages bool
 	RelabelBinds bool
+	// Minimal starts the minimal group instead of the default one, the front door emulating the rest (minimal.go).
+	Minimal bool
 }
 
 func defaultOptions(certDir string) *Options {
@@ -89,12 +91,16 @@ func defaultOptions(certDir string) *Options {
 		Topology:     envtopology.NewLocal(envtopology.DefaultIngressPortString()),
 		LatestImages: false,
 		RelabelBinds: false,
+		Minimal:      false,
 	}
 }
 
 // selected lists the containers the options start, in start order: the default group's and the enabled groups' root
-// containers and everything they depend on.
+// containers and everything they depend on; in minimal mode the minimal group's instead.
 func selected(opts *Options) []string {
+	if opts.Minimal {
+		return stack().Select([]string{manifest.MinimalGroup})
+	}
 	return stack().Select(append([]string{manifest.DefaultGroup}, opts.Groups...))
 }
 
@@ -125,7 +131,7 @@ func resources(opts *Options, probes readinessProbes) []resource.Resource {
 		},
 	}
 	names := selected(opts)
-	services := serviceVariables(names)
+	services := serviceVariables(names, emulated(opts))
 	out := make([]resource.Resource, 0, 1+2*len(names))
 	out = append(out, network)
 	images := map[resource.ResourceID]bool{}
@@ -145,14 +151,18 @@ func resources(opts *Options, probes readinessProbes) []resource.Resource {
 }
 
 // serviceVariables announce every running HTTP container to every container, the way Aspire's service discovery
-// does: services__<name>__http__0=http://<name>:<port>, the container's name being its network alias.
-func serviceVariables(running []string) map[string]string {
+// does: services__<name>__http__0=http://<name>:<port>, the container's name being its network alias. An emulated
+// container (minimal mode) is announced at the front door, which answers for it.
+func serviceVariables(running, emulated []string) map[string]string {
 	vars := map[string]string{}
 	for _, name := range running {
 		c := stack().Containers[name]
 		if c.IsHTTP() {
 			vars["services__"+name+"__http__0"] = "http://" + name + ":" + strconv.Itoa(c.HTTPPort())
 		}
+	}
+	for _, name := range emulated {
+		vars["services__"+name+"__http__0"] = frontDoorAddress()
 	}
 	return vars
 }
@@ -216,7 +226,7 @@ func containerResource(
 		DependsOn:   deps,
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
-		Env:         containerEnv(c, services),
+		Env:         containerEnv(c, minimalEnv(opts, name), services),
 		Labels:      nil,
 		Command:     nil,
 		ExtraHosts:  extraHosts(opts),
@@ -235,11 +245,17 @@ func containerResource(
 	}
 }
 
-// containerEnv is the container's own environment from the manifest, then the services__ variables.
-func containerEnv(c manifest.Container, services map[string]string) []string {
-	env := make([]string, 0, len(c.Envs)+len(services))
-	for _, key := range slices.Sorted(maps.Keys(c.Envs)) {
-		env = append(env, key+"="+c.Envs[key])
+// containerEnv is the container's own environment from the manifest with what the mode adds, then the services__
+// variables.
+func containerEnv(c manifest.Container, mode, services map[string]string) []string {
+	own := maps.Clone(c.Envs)
+	if own == nil {
+		own = map[string]string{}
+	}
+	maps.Copy(own, mode)
+	env := make([]string, 0, len(own)+len(services))
+	for _, key := range slices.Sorted(maps.Keys(own)) {
+		env = append(env, key+"="+own[key])
 	}
 	for _, key := range slices.Sorted(maps.Keys(services)) {
 		env = append(env, key+"="+services[key])
@@ -262,7 +278,7 @@ func volumeNames() []string {
 	return names
 }
 
-// containerVolumes are the shared certificate, read-only, and the container's named volumes.
+// containerVolumes are the shared certificate, read-only, and the container's named volumes (tmpfs in minimal mode).
 func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 	relabel := types.SELinuxRelabelNone
 	if opts.RelabelBinds {
@@ -275,6 +291,7 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 			ContainerPath:  certificateDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
+			Options:        "",
 			ReadOnly:       true,
 		},
 		types.VolumeMount{
@@ -282,17 +299,12 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 			ContainerPath:  legacyCertificateFile,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
+			Options:        "",
 			ReadOnly:       true,
 		},
 	)
 	for _, id := range slices.Sorted(maps.Keys(c.Volumes)) {
-		volumes = append(volumes, types.VolumeMount{
-			HostPath:       volumeName(id),
-			ContainerPath:  c.Volumes[id],
-			Type:           types.VolumeMountTypeVolume,
-			SELinuxRelabel: types.SELinuxRelabelNone,
-			ReadOnly:       false,
-		})
+		volumes = append(volumes, manifestVolume(opts, id, c.Volumes[id]))
 	}
 	return volumes
 }

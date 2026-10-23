@@ -87,16 +87,52 @@ func (o envStatusOutput) Print(out *ui.Output) error {
 		out.Printlnf("%s is not running.", o.Runtime)
 		return nil
 	}
-	if !o.Status.Running {
-		out.Printlnf("%s is running with issues.", o.Runtime)
-		out.Println("")
-		renderLocaltestStatus(out, o.Status)
-		return nil
+	mode := ""
+	if o.Status.Mode != "" {
+		mode = " (" + o.Status.Mode + " mode)"
 	}
-	out.Printlnf("%s is running.", o.Runtime)
+	switch {
+	case !o.Status.Running:
+		out.Printlnf("%s is running with issues%s.", o.Runtime, mode)
+	case mode != "":
+		out.Printlnf("%s is running%s", o.Runtime, mode)
+	default:
+		out.Printlnf("%s is running.", o.Runtime)
+	}
 	out.Println("")
 	renderLocaltestStatus(out, o.Status)
+	if len(o.Status.Emulated) > 0 {
+		out.Print(emulatedLine(o.Status.Emulated))
+	}
 	return nil
+}
+
+// emulatedLineWidth is where emulatedLine wraps the list of emulated services.
+const emulatedLineWidth = 72
+
+// emulatedLine names the services the localtest container emulates, wrapped at emulatedLineWidth.
+func emulatedLine(names []string) string {
+	var b strings.Builder
+	column := 0
+	for i, name := range names {
+		word := name + ","
+		if i == len(names)-1 {
+			word = name + ": emulated in localtest"
+		}
+		switch {
+		case column == 0:
+		case column+1+len(word) > emulatedLineWidth:
+			b.WriteString("\n")
+			column = 0
+		default:
+			b.WriteByte(' ')
+			column++
+		}
+		b.WriteString(word)
+		column += len(word)
+	}
+	b.WriteString("\n")
+	return b.String()
 }
 
 type envResetOutput struct {
@@ -303,6 +339,7 @@ type envUpFlags struct {
 	detach            bool
 	devWorkflowEngine bool
 	latestImages      bool
+	minimal           bool
 	monitoring        bool
 	pgAdmin           bool
 	openBrowser       bool
@@ -329,6 +366,8 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
 			"  --open           Open localtest in browser after starting",
 			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
+			"  --minimal        Run localtest-v2 in minimal mode: Postgres, Storage, the workflow engine and the localtest",
+			"                   container, which emulates the other services; nothing is kept between starts",
 			"  --dev-NAME[=PATH]",
 			"                   Build the localtest-v2 container NAME from PATH, a Dockerfile or a directory holding one",
 			"                   (default: the current directory), and run it instead of the pinned image; NAME is one of",
@@ -349,6 +388,7 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.openBrowser, "open", false, "Open localtest in browser after starting")
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
 	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
+	fs.BoolVar(&f.minimal, "minimal", false, "Run localtest-v2 in minimal mode")
 	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is one flag with two meanings,
 	// one per runtime, which never meet since env up refuses the other runtime's flags: under localtest it routes the
 	// workflow engine to a host process (upstream's hidden flag), under localtest-v2 it builds the container.
@@ -429,6 +469,9 @@ func validateUpFlagsForRuntime(flags envUpFlags) error {
 		if flags.latestImages {
 			foreign = append(foreign, "--latest")
 		}
+		if flags.minimal {
+			foreign = append(foreign, "--minimal")
+		}
 	case runtimeLocaltestV2:
 		if flags.monitoring {
 			foreign = append(foreign, "--monitoring")
@@ -459,6 +502,7 @@ func (c *EnvCommand) runLocaltestV2Up(
 		Detach:            flags.detach,
 		DevWorkflowEngine: false,
 		LatestImages:      flags.latestImages,
+		Minimal:           flags.minimal,
 		Monitoring:        false,
 		OpenBrowser:       flags.openBrowser,
 		PgAdmin:           false,
@@ -512,6 +556,7 @@ func (c *EnvCommand) runLocaltestUp(
 		Detach:            flags.detach,
 		DevWorkflowEngine: flags.devWorkflowEngine,
 		LatestImages:      false,
+		Minimal:           false,
 		Monitoring:        flags.monitoring,
 		OpenBrowser:       flags.openBrowser,
 		PgAdmin:           flags.pgAdmin,

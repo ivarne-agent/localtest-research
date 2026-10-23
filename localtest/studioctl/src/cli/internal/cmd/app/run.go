@@ -185,6 +185,7 @@ func (s *Service) nativeAccessTokenSigning(appPath string) (*accessTokenSigning,
 		FullPath:   state.CertificatePath(),
 		KeysFolder: "/" + filepath.ToSlash(rel) + "/",
 		FileName:   localtestv2.CertificateFileName,
+		minimal:    state.Minimal,
 	}, nil
 }
 
@@ -367,6 +368,7 @@ func appMounts(secretsDir, keysDir string) []types.VolumeMount {
 			ContainerPath:  appsecrets.ContainerDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: types.SELinuxRelabelNone,
+			Options:        "",
 			ReadOnly:       true,
 		},
 	}
@@ -376,6 +378,7 @@ func appMounts(secretsDir, keysDir string) []types.VolumeMount {
 			ContainerPath:  ContainerKeysDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: types.SELinuxRelabelNone,
+			Options:        "",
 			ReadOnly:       false,
 		})
 	}

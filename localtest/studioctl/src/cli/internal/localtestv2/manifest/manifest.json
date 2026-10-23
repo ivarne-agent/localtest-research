@@ -1,6 +1,7 @@
 {
   "groups": [
     { "name": "default", "containers": ["postgres", "register", "profile", "authentication", "authorization", "storage", "access-management", "events", "resource-registry", "notifications", "localtest", "pdf3", "workflow-engine"] },
+    { "name": "minimal", "containers": ["localtest", "storage", "workflow-engine"] },
     { "name": "dialogporten", "containers": ["dialogporten-graphql", "dialogporten-service", "dialogporten-adapter"] },
     { "name": "receipt", "containers": ["receipt"] },
     { "name": "correspondence", "containers": ["correspondence"] },

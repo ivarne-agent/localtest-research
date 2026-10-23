@@ -20,6 +20,9 @@ import (
 const (
 	// DefaultGroup is the group that is always on.
 	DefaultGroup = "default"
+	// MinimalGroup is the group that replaces the default one in minimal mode: the front door, Storage and the
+	// workflow engine (and Postgres through dependsOn); the front door emulates the rest of the default group.
+	MinimalGroup = "minimal"
 	// DefaultPort is a container's HTTP port when the manifest names none.
 	DefaultPort = 8080
 	// DefaultHealth is a container's health path when the manifest names none.

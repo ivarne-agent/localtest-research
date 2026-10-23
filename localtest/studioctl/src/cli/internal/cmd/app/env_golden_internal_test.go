@@ -51,8 +51,7 @@ func (g goldenSigning) certificate() *accessTokenSigning {
 	if g.FullPath == "" {
 		return nil
 	}
-	signing := accessTokenSigning(g)
-	return &signing
+	return &accessTokenSigning{FullPath: g.FullPath, KeysFolder: g.KeysFolder, FileName: g.FileName, minimal: false}
 }
 
 const (

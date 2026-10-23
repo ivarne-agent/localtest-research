@@ -154,6 +154,11 @@ func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
 			want:  "--with, --latest",
 		},
 		{
+			name:  "localtest minimal",
+			flags: envUpFlags{runtime: runtimeLocaltest, minimal: true},
+			want:  "--minimal",
+		},
+		{
 			name: "localtest dev",
 			flags: envUpFlags{
 				runtime:       runtimeLocaltest,
@@ -174,6 +179,7 @@ func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
 	}
 	for _, flags := range []envUpFlags{
 		{runtime: runtimeLocaltestV2, with: []string{"receipt"}},
+		{runtime: runtimeLocaltestV2, minimal: true},
 		// --dev-workflow-engine is each runtime's own flag.
 		{
 			runtime:           runtimeLocaltestV2,

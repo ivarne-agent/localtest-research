@@ -33,6 +33,9 @@ type State struct {
 	Dev []string `json:"dev,omitempty"`
 	// LatestImages is set when the environment runs the research images at latest (env up --latest).
 	LatestImages bool `json:"latestImages,omitempty"`
+	// Minimal is set when the environment runs in minimal mode (env up --minimal): the minimal group, the front door
+	// emulating the rest of the default group, nothing persisted.
+	Minimal bool `json:"minimal,omitempty"`
 }
 
 // CertificatePath is the host path of the shared test certificate.
@@ -67,7 +70,7 @@ func ReadState(cfg *config.Config) (State, bool, error) {
 }
 
 func noState() State {
-	return State{CertificateDir: "", Groups: nil, Dev: nil, LatestImages: false}
+	return State{CertificateDir: "", Groups: nil, Dev: nil, LatestImages: false, Minimal: false}
 }
 
 // WriteState records that the runtime is up.
