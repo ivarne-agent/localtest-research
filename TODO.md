@@ -72,7 +72,7 @@ A path matching no route still falls through to the localtest app.
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
-| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **phase 2 verified, phase 3 (the `--port 0` recovery, code-only) running** 2026-10-23 | large | yes (phase 2) |
+| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1273,3 +1273,10 @@ labels), so party selection says "Unknown domain" at `altinn.test`; docs recomme
 door ignores `Localtest__PublicSubdomains` and still names the default dedicated hosts: the new front door reaches a
 stack after a pin bump. `--port 0` race: studioctl releases the port seconds before Podman binds it; on a collision the
 state kept the port and recovery needed `env down`; phase 3 fixes the recovery. `/etc/hosts` restored.
+
+**Phase 3 (pushed 6fd85eff, verified by the coordinator and merged ff 2026-10-23).** `env up --port 0` keeps the
+recorded port only while the front door container runs, else picks a new free port; a port-in-use failure at container
+start deletes the state file and fails with a message naming the port and `--port 0` (Podman's "address already in use"
+and Docker's "port is already allocated" recognised); decision-table and mocked-client tests. Open edge: after a
+collision the containers that did start keep running without a state file until the next `env up` or `env down`.
+Coordinator re-ran go build/test/lint. Worktree and branch removed; dev studioctl rebuilt from main.
