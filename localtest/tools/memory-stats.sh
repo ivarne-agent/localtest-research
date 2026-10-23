@@ -46,8 +46,10 @@ FREE_KB=$(proc_kb /proc/meminfo MemFree)
 BUFCACHE_KB=$(($(proc_kb /proc/meminfo Buffers) + $(proc_kb /proc/meminfo Cached) + $(proc_kb /proc/meminfo SReclaimable)))
 USED_KB=$((TOTAL_KB - FREE_KB - BUFCACHE_KB))
 KERNEL_KB=$(($(proc_kb /proc/meminfo SUnreclaim) + $(proc_kb /proc/meminfo KernelStack) + $(proc_kb /proc/meminfo PageTables) + $(proc_kb /proc/meminfo Percpu)))
-echo "derived (MiB): used = MemTotal - MemFree - Buffers - Cached - SReclaimable = $(kb_mib "$USED_KB");" \
-  "kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = $(kb_mib "$KERNEL_KB")"
+echo "derived (MiB): MemTotal - MemAvailable = $(kb_mib $((TOTAL_KB - $(proc_kb /proc/meminfo MemAvailable))))" \
+  "(free's \"used\" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = $(kb_mib "$USED_KB")" \
+  "(the older \"used\", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu =" \
+  "$(kb_mib "$KERNEL_KB")"
 echo
 PODROOT=
 for d in "$CG/libpod_parent" "$CG/machine.slice"; do [[ -r $d/memory.stat ]] && PODROOT=$d && break; done
@@ -133,6 +135,7 @@ for p in /proc/[0-9]*; do
   if [[ -n $key ]]; then
     CAT_PSS[$key]=$((${CAT_PSS[$key]:-0} + pss))
     [[ $key == podman ]] || STACK_PSS=$((STACK_PSS + pss))
+    ((pss >= 1024)) || continue
   elif ((pss < 20480)); then
     continue
   else
