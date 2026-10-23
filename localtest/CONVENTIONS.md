@@ -354,8 +354,8 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
 The Arbeidsflate links are read only by the monorepo backend (`src/App/backend`, app-lib's `PlatformFrontendSettings`)
 and the monorepo frontend, which shows a platform link only when its URL is configured and never derives one from the
 page's host; the Home default keeps "back to inbox" with a target without Arbeidsflate (the frontend's dialog link falls
-back to the inbox URL), and the profile and parties links stay hidden. The released app-frontend v4 bundle hard-codes the
-start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
+back to the inbox URL), and the profile and parties links stay hidden. The released app-frontend v4 bundle hard-codes
+the start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
 `AccessManagementChangeAndRedirectUrl` stays unset (the stack's Access Management does not serve
 `reportee/changeandredirect`), and so do the logout, all-forms, access-management and help links.
 
