@@ -7,8 +7,9 @@ Dialogporten. It is the **optional group `arbeidsflate`** (`studioctl env up -r 
 `--with arbeidsflate` starts `arbeidsflate`, `arbeidsflate-bff`, Redis and Dialogporten's GraphQL and WebApi hosts, not
 the Service host or the adapter. The inbox shows Dialogporten's dialogs, which come from the Dialogporten adapter (apps'
 instances, so add `--with dialogporten`) and, with `--with correspondence`, from Correspondence. Neither container is
-.NET: the BFF and nginx reach the others by alias and port (`postgres:5432`, `redis:6379`, `arbeidsflate-bff:80`), not
-through service discovery.
+.NET: the BFF and nginx reach the others by alias and port (`postgres:5432`, `redis:6379`, `arbeidsflate-bff:80`, and the
+platform through the front door, `localtest:8080`, since task 40), not through service discovery. What a browser or a token
+sees stays on the public origin: `HOSTNAME`, the OIDC discovery (`OIDC_PLATFORM_URL`), the cookie domain, the stream URL.
 
 Open it at **`http://af.local.altinn.cloud:8000`**, a host of its own (the SPA and the BFF use absolute paths, `/`,
 `/assets`, `/api/...`, so they cannot live under a prefix of `local.altinn.cloud`). The browser needs the name in the
@@ -129,15 +130,15 @@ The BFF's environment, set by studioctl (the `arbeidsflate-bff` component in the
 | `HOSTNAME` | `http://af.local.altinn.cloud:8000` | `redirect_uri` is `HOSTNAME/api/cb`, equal byte for byte to the seeded client's |
 | `OIDC_PLATFORM_URL` | `http://local.altinn.cloud:8000/authentication/api/v1/openid` | Authentication's discovery (patch 0001 keeps the scheme) |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | `arbeidsflate-localtest` / `arbeidsflate-localtest-secret` | The client Authentication seeds (`../authentication/README.md`, "Seeded clients") |
-| `PLATFORM_BASEURL` | `http://local.altinn.cloud:8000` | Profile, Register, the Resource Registry, Notifications, Correspondence, `exchange/maskinporten` |
-| `DIALOGPORTEN_URL` | `http://local.altinn.cloud:8000/dialogporten` | `/graphql` (the front door's rewrite to the GraphQL host) and `/health` (the WebApi) |
+| `PLATFORM_BASEURL` | `http://localtest:8080` | Profile, Register, the Resource Registry, Notifications, Correspondence, `exchange/maskinporten` and `exchange/id-porten`: one base for six services, so it names the front door by its service name and port, which routes them by path prefix as on the public host (task 40; the alternative, a variable per service, needs a new patch) |
+| `DIALOGPORTEN_URL` | `http://localtest:8080/dialogporten` | `/graphql` and `/graphql/stream` (the front door's rewrite to the GraphQL host) and `/health` (the WebApi), through the front door by name for the same reason |
 | `DB_CONNECTION_STRING` | `postgres://arbeidsflate:localtest@postgres:5432/arbeidsflate` | TypeORM; `DB_USE_AAD_AUTH` stays false |
 | `REDIS_CONNECTION_STRING` | `redis://redis:6379/2` | The shared `redis` container, database 2 |
 | `SESSION_SECRET` | a fixed string of 50 characters | Signs the session cookie (at least 32) |
 | `AUTH_CONTEXT_COOKIE_DOMAIN` | `local.altinn.cloud` | The `altinnPersistentContext` language cookie the BFF writes for the apps |
 | `ENVIRONMENT`, `NODE_ENV` | `test`, `production` | `prod` would filter organisations; production's compose and Bicep run `production` |
 | `ENABLE_GRAPHIQL`, `ENABLE_INIT_SESSION_ENDPOINT` | `true`, `true` | As upstream everywhere but production: GraphiQL at `/api/graphiql`, the test seam below |
-| `MASKINPORTEN_ISSUER`, `MASKINPORTEN_CLIENT_ID` | `http://local.altinn.cloud:8000/localtest/api/maskinporten/`, `991825827` | The fake Maskinporten (the BFF posts to `{issuer}token`); a nine-digit client id is the organisation number (Digdir). `MASKINPORTEN_SCOPE` keeps upstream's default (`altinn:register/partylookup.admin altinn:serviceowner/notifications.create`). Used for the profile page's username lookup in the Register |
+| `MASKINPORTEN_ISSUER`, `MASKINPORTEN_CLIENT_ID` | `http://localtest:8080/localtest/api/maskinporten/`, `991825827` | The fake Maskinporten in the front door, by name (the BFF posts to `{issuer}token` and puts it in the assertion's `aud`, which the fake ignores; the token's `iss` is the front door's public issuer); a nine-digit client id is the organisation number (Digdir). `MASKINPORTEN_SCOPE` keeps upstream's default (`altinn:register/partylookup.admin altinn:serviceowner/notifications.create`). Used for the profile page's username lookup in the Register |
 | `PORT` | `80` | From the image (upstream's `ENV PORT=80`) |
 | unset | `APP_CONFIG_CONNECTION_STRING`, `OTEL_*`, `ALTINN2_*`, `OCP_APIM_SUBSCRIPTION_KEY`, `REGISTER_SUBSCRIPTION_KEY`, `PERSON_URN_ENC_KEYS` | Feature flags and the alert banner fall back to upstream's defaults (a warning per request); no telemetry; Altinn 2 is not called; no API Management; the built-in development key encrypts person URNs in GraphQL responses |
 
