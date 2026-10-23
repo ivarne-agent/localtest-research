@@ -130,6 +130,14 @@ of them. A group starts its own containers and what they depend on; `--without <
 a group's own containers. A request for a component whose group is off answers `503` with the
 `env up` command that starts it.
 
+`--minimal` runs a smaller stack: Postgres, Storage, the workflow engine and the localtest container,
+which emulates Register, Profile, Authentication, authorization, Access Management, Events, the
+Resource Registry, Notifications and the PDF generator. Nothing is kept between starts (each
+container's data is in memory), so `env reset` has nothing to delete, and authorization permits
+everything. It takes no `--with` or `--without`, and `--dev-<container>` only for the four containers
+it starts. `env status` says when the stack runs in minimal mode, and `env up` with or without
+`--minimal` stops a stack running in the other mode first.
+
 Only one runtime runs at a time. `env up` records which one it started, and `env down`, `env status`,
 `env logs` and `env reset` act on that one unless `-r` says otherwise.
 
