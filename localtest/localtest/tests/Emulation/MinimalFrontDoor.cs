@@ -42,6 +42,8 @@ internal sealed class MinimalFrontDoor : WebApplicationFactory<Program>
             ["Proxy:FrontendRoot"] = Path.Combine(DataDirectory, "no-frontend"),
             ["Localtest:AccessTokenCertificatePath"] = Certificate,
         };
+        // As every runtime sets it, in both modes: the front door's own entry.
+        _settings["services:localtest:http:0"] = Self;
         foreach (var name in emulated ?? EmulationMode.Emulatable)
         {
             _settings[$"services:{name}:http:0"] = Self;

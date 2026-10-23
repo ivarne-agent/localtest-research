@@ -19,7 +19,9 @@ run unchanged).
   host and port ([`EmulationMode.cs`](EmulationMode.cs)). studioctl's `--minimal` sets it for every HTTP container of
   `default` that `minimal` does not start: `register`, `profile`, `authentication`, `authorization`,
   `access-management`, `events`, `resource-registry`, `notifications`, `pdf3`.
-- **No entry** is still 503 "not running"; **a foreign address** is still forwarded.
+- **No entry** is still 503 "not running"; **a foreign address** is still forwarded. Only the services the front door
+  routes to count: its own entry, `services__localtest__http__0=http://localtest:8080`, which every runtime sets in
+  both modes, is not a service it could forward to itself.
 - **A self-address for a service this folder cannot emulate** stops the start with an error naming it, instead of a
   forwarding loop.
 - **The mode is read from the builder's configuration** (the container's environment), unlike the rest of the app,

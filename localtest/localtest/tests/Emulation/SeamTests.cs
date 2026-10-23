@@ -72,6 +72,20 @@ public sealed class SeamTests
     }
 
     [Fact]
+    public void TheFrontDoorsOwnEntryIsNotAnEmulatedService()
+    {
+        // The default stack: every runtime gives the front door its own address too (services__localtest__http__0).
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["services:localtest:http:0"] = "http://localtest:8080",
+            ["services:register:http:0"] = "http://register:5020",
+            ["services:postgres:http:0"] = "http://localtest:8080",
+        }).Build();
+
+        Assert.Null(EmulationMode.FromConfiguration(configuration));
+    }
+
+    [Fact]
     public void TheSelfAddressIsConfigurableAndComparedByOrigin()
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

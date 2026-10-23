@@ -1,3 +1,5 @@
+using Localtest.Proxy;
+
 namespace Localtest.Emulated;
 
 /// <summary>
@@ -41,15 +43,18 @@ public sealed class EmulationMode
     public bool Emulates(string service) => _services.Contains(service);
 
     /// <summary>
-    /// The mode from the <c>services:{name}:http:0</c> entries: null when no service has the front door's address (the
-    /// default stack: nothing is emulated). Throws when a service without an emulation has it, which would make the
-    /// forwarder send that service's requests to itself, forever.
+    /// The mode from the <c>services:{name}:http:0</c> entries: null when no service the front door routes to has the
+    /// front door's address (the default stack: nothing is emulated). The front door's own entry
+    /// (<c>services__localtest__http__0</c>, which every runtime sets) and any other name it does not route to are not
+    /// services it could forward to itself, and are ignored. Throws when a routed service without an emulation has the
+    /// address, which would make the forwarder send that service's requests to itself, forever.
     /// </summary>
     public static EmulationMode? FromConfiguration(IConfiguration configuration)
     {
         var self = Normalise(configuration["Localtest:SelfAddress"] is { Length: > 0 } configured ? configured : DefaultSelfAddress);
+        var routed = PlatformRoutes.Services.ToHashSet(StringComparer.Ordinal);
         var own = configuration.GetSection("services").GetChildren()
-            .Where(service => service["http:0"] is { Length: > 0 } address && Normalise(address) == self)
+            .Where(service => routed.Contains(service.Key) && service["http:0"] is { Length: > 0 } address && Normalise(address) == self)
             .Select(service => service.Key)
             .ToList();
         if (own.Count == 0)
