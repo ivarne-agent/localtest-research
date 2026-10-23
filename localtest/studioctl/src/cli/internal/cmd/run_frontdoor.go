@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -14,42 +12,22 @@ import (
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
+	"altinn.studio/studioctl/internal/localtestv2/frontdoor"
+	"altinn.studio/studioctl/internal/osutil"
 )
 
-// The localtest-v2 front door (the localtest container) routes /{org}/{app}/ to an app once the app is registered with
-// it, and provisions the app from its API on registration. studioctl-server registers every app it discovers, a run's
-// and one started from an IDE alike (PUT localtest/api/apps/{org}/{app} with the address below); a run waits until the
-// front door lists the app at that address with a provisioning that succeeded since the run started.
-const (
-	frontDoorAppsPath       = "/localtest/api/apps"
-	frontDoorPollInterval   = 500 * time.Millisecond
-	frontDoorRequestTimeout = 5 * time.Second
-	frontDoorProvisioned    = "succeeded"
-	// frontDoorClockSlack allows for the container's clock against the host's when comparing registration times.
-	frontDoorClockSlack = time.Second
-)
+// Against localtest-v2, the front door (the localtest container) routes /{org}/{app}/ to an app once studioctl-server
+// has registered it, and provisions the app from its API on registration; a run waits for that. With --dev-frontend,
+// the run also routes app-frontend.local.altinn.cloud, where the app's assets then point, to the frontend dev server on
+// the host's port 8080, where the localtest runtime's host bridge sent that host too (`yarn docker` in the app frontend
+// builds and serves dist there with CORS, `yarn start --port 8080` runs Vite there), and removes the route when the run
+// stops. Without localtest-v2 both do nothing.
+const frontendDevServerPort = 8080
 
 var errFrontDoorRegistration = errors.New("the localtest-v2 front door has not registered the app")
 
-// frontDoorAppURL is an app's address as the front door reaches it: the host's port through the runtime's host gateway.
-func frontDoorAppURL(port int) string {
-	return "http://host.docker.internal:" + strconv.Itoa(port)
-}
-
-// frontDoorRoute is one entry of GET localtest/api/apps.
-type frontDoorRoute struct {
-	Provisioning *struct {
-		At    time.Time `json:"at"`
-		State string    `json:"state"`
-		Error string    `json:"error"`
-	} `json:"provisioning"`
-	Org string `json:"org"`
-	App string `json:"app"`
-	URL string `json:"url"`
-}
-
 // waitForFrontDoorRegistration waits, while the localtest-v2 runtime is up, until the front door lists the app at the
-// address of baseURL's port with a provisioning that succeeded at or after since. Without the runtime it returns at once.
+// address of baseURL's port with a provisioning that succeeded at or after since.
 func waitForFrontDoorRegistration(
 	ctx context.Context,
 	cfg *config.Config,
@@ -71,76 +49,54 @@ func waitForFrontDoorRegistration(
 		return fmt.Errorf("app URL %q has no port: %w", baseURL, err)
 	}
 	org, app, _ := strings.Cut(appID, "/")
-	want := frontDoorAppURL(port)
-	appsURL := strings.TrimRight(topology.LocaltestURL(), "/") + frontDoorAppsPath
+	want := frontdoor.AppURL(port)
 
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := &http.Client{Timeout: frontDoorRequestTimeout}
-	var last string
-	for {
-		routes, err := frontDoorRoutes(waitCtx, client, appsURL)
-		if err != nil {
-			last = err.Error()
-		} else {
-			done, state := registered(routes, org, app, want, since.Add(-frontDoorClockSlack))
-			if done {
-				return nil
-			}
-			last = state
-		}
-		select {
-		case <-waitCtx.Done():
-			if ctx.Err() != nil {
-				return fmt.Errorf("wait for the front door: %w", ctx.Err())
-			}
-			return fmt.Errorf("%w %s at %s within %s: %s", errFrontDoorRegistration, appID, want, timeout, last)
-		case <-time.After(frontDoorPollInterval):
-		}
+	err = frontdoor.NewClient(topology.LocaltestURL()).WaitForApp(waitCtx, org, app, want, since)
+	switch {
+	case err == nil:
+		return nil
+	case ctx.Err() != nil:
+		return fmt.Errorf("wait for the front door: %w", ctx.Err())
+	case errors.Is(err, frontdoor.ErrUnreachable):
+		return fmt.Errorf(
+			"%w %s within %s: the front door at %s does not answer; check '%s env status -r %s'",
+			errFrontDoorRegistration, appID, timeout, topology.LocaltestURL(), osutil.CurrentBin(), runtimeLocaltestV2,
+		)
+	default:
+		return fmt.Errorf("%w %s at %s within %s: %w", errFrontDoorRegistration, appID, want, timeout, err)
 	}
 }
 
-// registered reports whether the routes have the app at want, provisioned since; otherwise it describes what they have.
-func registered(routes []frontDoorRoute, org, app, want string, since time.Time) (bool, string) {
-	for _, route := range routes {
-		if route.Org != org || route.App != app {
-			continue
-		}
-		if route.URL != want {
-			return false, "registered at " + route.URL
-		}
-		p := route.Provisioning
-		switch {
-		case p == nil:
-			return false, "registered, provisioning"
-		case p.At.Before(since):
-			return false, "registered, provisioned before this run"
-		case p.State != frontDoorProvisioned:
-			return false, "provisioning " + p.State + ": " + p.Error
-		}
-		return true, ""
+// registerDevFrontend routes the frontend dev server host to the dev server for a `--dev-frontend` run against
+// localtest-v2, and returns what removes the route again; without the flag or the runtime it does nothing.
+func (c *RunCommand) registerDevFrontend(
+	ctx context.Context,
+	topology envtopology.Local,
+	flags runFlags,
+) (func(), error) {
+	noop := func() {}
+	if !flags.devFrontend || c.cfg == nil {
+		return noop, nil
 	}
-	return false, "not registered"
+	if _, up, err := localtestv2.ReadState(c.cfg); err != nil || !up {
+		return noop, err //nolint:wrapcheck // ReadState's error names the state file.
+	}
+	client := frontdoor.NewClient(topology.LocaltestURL())
+	if err := client.PutFrontendDevServer(ctx, frontdoor.AppURL(frontendDevServerPort)); err != nil {
+		return noop, fmt.Errorf("route the frontend dev server: %w", err)
+	}
+	c.out.Verbosef(
+		"Routed %s to the frontend dev server on port %d",
+		topology.FrontendDevServerHostName(),
+		frontendDevServerPort,
+	)
+	return func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), studioctlServerCleanupTimeout)
+		defer cancel()
+		if err := client.DeleteFrontendDevServer(cleanupCtx); err != nil {
+			c.out.Verbosef("failed to remove the frontend dev server route: %v", err)
+		}
+	}, nil
 }
-
-func frontDoorRoutes(ctx context.Context, client *http.Client, appsURL string) ([]frontDoorRoute, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, appsURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("GET %s: %w", appsURL, err)
-	}
-	defer func() { ignoreCloseError(resp.Body.Close()) }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: GET %s: HTTP %d", errFrontDoorRegistration, appsURL, resp.StatusCode)
-	}
-	var routes []frontDoorRoute
-	if err := json.NewDecoder(resp.Body).Decode(&routes); err != nil {
-		return nil, fmt.Errorf("decode %s: %w", appsURL, err)
-	}
-	return routes, nil
-}
-
-func ignoreCloseError(error) {}
