@@ -149,6 +149,17 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 
 	probes := newProber(e.client, e.out.Verbosef).probes
 	if err := e.applyResources(ctx, resources(opts, probes), len(opts.Dev) > 0); err != nil {
+		if portTaken(err) {
+			// The recorded port never bound: forget it, so the environment is not up and a later --port 0 picks again.
+			if forgetErr := e.forgetState(ctx, nil); forgetErr != nil {
+				e.out.Verbosef("forget localtest-v2 state: %v", forgetErr)
+			}
+			return fmt.Errorf(
+				"%w: port %d is in use by another process; '%s env up -r %s --port 0' picks a free one, or give "+
+					"another --port: %w",
+				errPortTaken, opts.Origin.Port, osutil.CurrentBin(), Name, err,
+			)
+		}
 		return err
 	}
 	e.out.Println("Waiting for the front door to answer...")
@@ -395,7 +406,7 @@ func (e *Env) options(ctx context.Context, upOpts envtypes.UpOptions) (*Options,
 	if err != nil {
 		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
-	host, port := requestedOrigin(upOpts, state, up)
+	host, port := requestedOrigin(upOpts, state, up, up && e.frontDoorRunning(ctx))
 	if port == 0 {
 		if port, err = freePort(ctx); err != nil {
 			return nil, err

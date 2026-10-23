@@ -28,6 +28,7 @@ var (
 	errNoFreePort   = errors.New("no free port")
 	errNotLoopback  = errors.New("not a loopback address")
 	errNoResolution = errors.New("no address")
+	errPortTaken    = errors.New("the public port is taken")
 )
 
 // checkOrigin refuses a --host or --port that cannot be the public origin's, and a custom host that does not resolve
@@ -40,7 +41,7 @@ func (e *Env) checkOrigin(ctx context.Context, opts envtypes.UpOptions) error {
 	if err != nil {
 		return fmt.Errorf("read localtest-v2 state: %w", err)
 	}
-	host, _ := requestedOrigin(opts, state, up)
+	host, _ := requestedOrigin(opts, state, up, true)
 	return checkResolution(ctx, e.lookupHost, stack().Origin(host, 0))
 }
 
@@ -62,10 +63,15 @@ func checkOriginFlags(opts envtypes.UpOptions) error {
 	return nil
 }
 
-// requestedOrigin is the origin env up asks for: the flags over the running environment's origin (when there is a
-// state file) over the manifest's default. A --port 0 is the running environment's port, or zero (pick one) when none
-// runs.
-func requestedOrigin(opts envtypes.UpOptions, state localtestv2.State, up bool) (host string, port int) {
+// requestedOrigin is the origin env up asks for: the flags over the recorded origin (when there is a state file) over
+// the manifest's default. A --port 0 keeps the recorded port only while the front door runs on it (running); otherwise,
+// as after a start whose port was taken, it is zero: pick a free one.
+func requestedOrigin(
+	opts envtypes.UpOptions,
+	state localtestv2.State,
+	up bool,
+	running bool,
+) (host string, port int) {
 	current := stack().DefaultOrigin()
 	if up {
 		current = state.Origin()
@@ -76,7 +82,7 @@ func requestedOrigin(opts envtypes.UpOptions, state localtestv2.State, up bool) 
 	}
 	if opts.PublicPort != nil {
 		port = *opts.PublicPort
-		if port == 0 && up {
+		if port == 0 && up && running {
 			port = current.Port
 		}
 	}
@@ -88,9 +94,25 @@ func originChanged(opts envtypes.UpOptions, state localtestv2.State, up bool) bo
 	if !up {
 		return false
 	}
-	host, port := requestedOrigin(opts, state, up)
+	host, port := requestedOrigin(opts, state, up, true)
 	current := state.Origin()
 	return host != current.Host || port != current.Port
+}
+
+// frontDoorRunning reports whether the front door's container runs, so a recorded port is in use by this environment.
+func (e *Env) frontDoorRunning(ctx context.Context) bool {
+	info, err := e.client.ContainerInspect(ctx, containerOf(frontDoor))
+	return err == nil && info.State.Running
+}
+
+// portTaken reports whether starting a container failed because its published port is in use on the host: Podman's
+// "address already in use", Docker's "port is already allocated".
+func portTaken(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	return strings.Contains(text, "address already in use") || strings.Contains(text, "port is already allocated")
 }
 
 // freePort asks the system for a free TCP port. It asks on the loopback interface, where a port taken by another

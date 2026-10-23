@@ -3,15 +3,21 @@ package localtestv2
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"strings"
 	"testing"
 
 	"altinn.studio/devenv/pkg/container/mock"
+	"altinn.studio/devenv/pkg/container/types"
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/localtestv2"
 )
 
-var errNoSuchHost = errors.New("no such host")
+var (
+	errNoSuchHost = errors.New("no such host")
+	errApply      = errors.New("start environment")
+)
 
 func TestTheRequestedOriginKeepsTheRunningOneUnlessTheFlagsSayOtherwise(t *testing.T) {
 	t.Parallel()
@@ -58,7 +64,7 @@ func TestTheRequestedOriginKeepsTheRunningOneUnlessTheFlagsSayOtherwise(t *testi
 			localtestv2.State{CertificateDir: "/c"}, true, "origin.test", 8000, true),
 	}
 	for _, c := range cases {
-		host, p := requestedOrigin(c.opts, c.state, c.up)
+		host, p := requestedOrigin(c.opts, c.state, c.up, c.up)
 		if host != c.wantHost || p != c.wantPort {
 			t.Errorf("%s: %s:%d, want %s:%d", c.name, host, p, c.wantHost, c.wantPort)
 		}
@@ -180,8 +186,92 @@ func TestPortZeroPicksAFreePortAndTheStateRecordsIt(t *testing.T) {
 	if current.Origin.URL() != opts.Origin.URL() {
 		t.Errorf("status and down see %s, up started %s", current.Origin.URL(), opts.Origin.URL())
 	}
-	again, err := env.options(t.Context(), envtypes.UpOptions{PublicPort: new(0)})
-	if err != nil || again.Origin.URL() != opts.Origin.URL() {
-		t.Errorf("a second --port 0 moved the origin to %s (%v)", again.Origin.URL(), err)
+}
+
+// A --port 0 keeps the recorded port only while the front door runs on it; a state whose start never bound its port
+// (taken by another process) or whose containers are gone picks a new free port. An explicit port is always taken.
+func TestPortZeroKeepsTheRecordedPortOnlyWhileTheFrontDoorRuns(t *testing.T) {
+	t.Parallel()
+	recorded := localtestv2.State{CertificateDir: "/c", PublicHost: "origin.test", PublicPort: 18000}
+	cases := []struct {
+		name     string
+		opts     envtypes.UpOptions
+		wantPort int
+		up       bool
+		running  bool
+	}{
+		{"recorded and running: keep", envtypes.UpOptions{PublicPort: new(0)}, 18000, true, true},
+		{"recorded, front door not running: pick", envtypes.UpOptions{PublicPort: new(0)}, 0, true, false},
+		{"nothing recorded: pick", envtypes.UpOptions{PublicPort: new(0)}, 0, false, false},
+		{"recorded, not running, no --port: the recorded port", envtypes.UpOptions{}, 18000, true, false},
+		{"an explicit port is taken as given", envtypes.UpOptions{PublicPort: new(18001)}, 18001, true, false},
+	}
+	for _, c := range cases {
+		host, p := requestedOrigin(c.opts, recorded, c.up, c.running)
+		if p != c.wantPort {
+			t.Errorf("%s: port %d, want %d", c.name, p, c.wantPort)
+		}
+		if c.up && host != "origin.test" {
+			t.Errorf("%s: host %s, want the recorded one", c.name, host)
+		}
+	}
+}
+
+func TestASecondPortZeroPicksAgainUnlessTheFrontDoorRuns(t *testing.T) {
+	t.Parallel()
+	// Hold the recorded port, so a fresh pick cannot be the same port by chance.
+	var lc net.ListenConfig
+	held, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ignoreError(held.Close()) })
+	addr, ok := held.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("listener address %v", held.Addr())
+	}
+	recordedPort := addr.Port
+	cfg := testConfig(t)
+	if writeErr := localtestv2.WriteState(
+		cfg,
+		localtestv2.State{CertificateDir: "/c", PublicPort: recordedPort},
+	); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+
+	gone := NewEnv(cfg, nil, mock.New())
+	picked, err := gone.options(t.Context(), envtypes.UpOptions{PublicPort: new(0)})
+	if err != nil || picked.Origin.Port == recordedPort || picked.Origin.Port <= 0 {
+		t.Errorf("front door not running: port %d (%v), want a new one, not %d", picked.Origin.Port, err, recordedPort)
+	}
+
+	client := mock.New()
+	client.ContainerInspectFunc = func(_ context.Context, name string) (types.ContainerInfo, error) {
+		if name != containerOf(frontDoor) {
+			return types.ContainerInfo{}, types.ErrContainerNotFound
+		}
+		var info types.ContainerInfo
+		info.State.Running = true
+		return info, nil
+	}
+	kept, err := NewEnv(cfg, nil, client).options(t.Context(), envtypes.UpOptions{PublicPort: new(0)})
+	if err != nil || kept.Origin.Port != recordedPort {
+		t.Errorf("front door running: port %d (%v), want the recorded %d", kept.Origin.Port, err, recordedPort)
+	}
+}
+
+func TestATakenPortIsRecognised(t *testing.T) {
+	t.Parallel()
+	for text, want := range map[string]bool{
+		"start container localtest-v2-localtest: rootlessport listen tcp 0.0.0.0:18000: bind: address already in use": true,
+		"Bind for 0.0.0.0:8000 failed: port is already allocated":                                                     true,
+		"pull image: manifest unknown": false,
+	} {
+		if got := portTaken(fmt.Errorf("%w: %s", errApply, text)); got != want {
+			t.Errorf("portTaken(%q) = %v, want %v", text, got, want)
+		}
+	}
+	if portTaken(nil) {
+		t.Error("portTaken(nil)")
 	}
 }
