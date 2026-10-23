@@ -83,13 +83,13 @@ public static class NotificationsEmulation
                 ["sendersReference"] = messages.FirstOrDefault()?.SendersReference,
                 ["type"] = "Notification",
                 ["status"] = cancelled ? "Order_Cancelled" : "Order_Completed",
-                ["lastUpdate"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["lastUpdate"] = DateTimeOffset.UtcNow.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
                 ["recipients"] = new JsonArray([.. messages.Select(m => (JsonNode)new JsonObject
                 {
                     ["type"] = m.Channel == "email" ? "Email" : "SMS",
                     ["destination"] = m.Address,
                     ["status"] = m.Channel == "email" ? "Email_Delivered" : "SMS_Delivered",
-                    ["lastUpdate"] = m.CapturedAt.ToString("O", CultureInfo.InvariantCulture),
+                    ["lastUpdate"] = m.CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
                 })]),
             };
             return Results.Text(shipment.ToJsonString(), "application/json");
@@ -262,7 +262,7 @@ public static class NotificationsEmulation
             {
                 ["status"] = cancelled ? "Cancelled" : "Completed",
                 ["description"] = cancelled ? "Order processing was stopped due to order being cancelled." : "Order processing is completed. All notifications have been generated.",
-                ["lastUpdate"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["lastUpdate"] = DateTimeOffset.UtcNow.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
             },
             ["notificationsStatusSummary"] = new JsonObject { ["email"] = Summary("email"), ["sms"] = Summary("sms") },
         };
@@ -288,7 +288,7 @@ public static class NotificationsEmulation
                 ["id"] = m.NotificationId.ToString(),
                 ["succeeded"] = true,
                 ["recipient"] = channel == "email" ? new JsonObject { ["emailAddress"] = m.Address } : new JsonObject { ["mobileNumber"] = m.Address },
-                ["sendStatus"] = new JsonObject { ["status"] = "Delivered", ["lastUpdate"] = m.CapturedAt.ToString("O", CultureInfo.InvariantCulture) },
+                ["sendStatus"] = new JsonObject { ["status"] = "Delivered", ["lastUpdate"] = m.CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture) },
             })]),
         };
         return Results.Text(result.ToJsonString(), "application/json");
@@ -332,9 +332,9 @@ public sealed record StoredMessage(
         ["notificationId"] = NotificationId.ToString(),
         ["creator"] = Creator,
         ["sendersReference"] = SendersReference,
-        ["capturedAt"] = CapturedAt.ToString("O", CultureInfo.InvariantCulture),
+        ["capturedAt"] = CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
         ["outcome"] = "Delivered",
-        ["outcomeAt"] = CapturedAt.ToString("O", CultureInfo.InvariantCulture),
+        ["outcomeAt"] = CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
     };
 }
 
@@ -415,8 +415,8 @@ public sealed class NotificationLog
             ["channel"] = g.Key.Channel,
             ["receiving"] = true,
             ["messageCount"] = g.Count(),
-            ["createdAt"] = g.First().CapturedAt.ToString("O", CultureInfo.InvariantCulture),
-            ["lastMessageAt"] = g.Last().CapturedAt.ToString("O", CultureInfo.InvariantCulture),
+            ["createdAt"] = g.First().CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
+            ["lastMessageAt"] = g.Last().CapturedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
         });
 
     public void Clear()

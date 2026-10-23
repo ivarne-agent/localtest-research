@@ -137,7 +137,7 @@ public sealed class EventLog
 
         if (string.IsNullOrEmpty(cloudEvent["time"]?.ToString()))
         {
-            cloudEvent["time"] = now.ToString("O", CultureInfo.InvariantCulture);
+            cloudEvent["time"] = now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
         }
 
         lock (_lock)
@@ -167,7 +167,7 @@ public sealed class EventLog
                 ["typeFilter"] = typeFilter,
                 ["consumer"] = app,
                 ["createdBy"] = app,
-                ["created"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["created"] = DateTimeOffset.UtcNow.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
             };
             _subscriptions.Add(subscription);
             return (JsonObject)subscription.DeepClone();
@@ -208,7 +208,7 @@ public sealed record StoredEvent(long SequenceNo, DateTimeOffset RegisteredTime,
         ["sequenceNo"] = SequenceNo,
         ["id"] = Id,
         ["time"] = CloudEvent["time"]?.ToString(),
-        ["registeredTime"] = RegisteredTime.ToString("O", CultureInfo.InvariantCulture),
+        ["registeredTime"] = RegisteredTime.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
         ["type"] = Type,
         ["source"] = Source,
         ["subject"] = Subject,
