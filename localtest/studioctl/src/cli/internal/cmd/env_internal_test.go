@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,6 +117,63 @@ func TestParseUpFlagsDevWorkflowEngine(t *testing.T) {
 	}
 	if !got.devWorkflowEngine {
 		t.Fatal("devWorkflowEngine = false, want true")
+	}
+}
+
+func TestParseUpFlagsDevTakesAContainerAndAnOptionalPath(t *testing.T) {
+	t.Parallel()
+
+	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
+	got, _, err := command.parseUpFlags([]string{"--dev", "storage", "--dev=postgres=postgres/Dockerfile"})
+	if err != nil {
+		t.Fatalf("parseUpFlags() error = %v", err)
+	}
+	want := map[string]string{"storage": "", "postgres": "postgres/Dockerfile"}
+	if !maps.Equal(got.devComponents, want) {
+		t.Fatalf("devComponents = %v, want %v", got.devComponents, want)
+	}
+	if got.devWorkflowEngine {
+		t.Fatal("devWorkflowEngine = true, want false")
+	}
+	_, _, err = command.parseUpFlags([]string{"--dev", "=Dockerfile"})
+	if err == nil || !strings.Contains(err.Error(), "--dev takes NAME[=PATH]") {
+		t.Fatalf("parseUpFlags(--dev =Dockerfile) error = %v, want the NAME[=PATH] error", err)
+	}
+}
+
+func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		want  string
+		flags envUpFlags
+	}{
+		{
+			name:  "localtest",
+			flags: envUpFlags{runtime: runtimeLocaltest, with: []string{"dialogporten"}, latestImages: true},
+			want:  "--with, --latest",
+		},
+		{
+			name:  "localtest dev",
+			flags: envUpFlags{runtime: runtimeLocaltest, devComponents: map[string]string{"storage": ""}},
+			want:  "--dev",
+		},
+		{
+			name:  "localtest-v2",
+			flags: envUpFlags{runtime: runtimeLocaltestV2, monitoring: true, devWorkflowEngine: true},
+			want:  "--monitoring, --dev-workflow-engine",
+		},
+	} {
+		err := validateUpFlagsForRuntime(tc.flags)
+		if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), tc.want+" not supported") {
+			t.Errorf("%s: validateUpFlagsForRuntime() = %v, want %q refused", tc.name, err, tc.want)
+		}
+	}
+	if err := validateUpFlagsForRuntime(
+		envUpFlags{runtime: runtimeLocaltestV2, with: []string{"receipt"}},
+	); err != nil {
+		t.Errorf("validateUpFlagsForRuntime(localtest-v2 --with) = %v, want nil", err)
 	}
 }
 

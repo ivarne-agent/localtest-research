@@ -326,10 +326,9 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
 			"  --open           Open localtest in browser after starting",
 			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
-			"  --dev-NAME[=PATH]",
-			"                   Build a localtest-v2 container from PATH, a Dockerfile or a directory holding one",
-			"                   (default: the current directory), and run it instead of the pinned image",
-			"  --dev NAME[=PATH]  The same as --dev-NAME[=PATH] (repeatable)",
+			"  --dev NAME[=PATH]",
+			"                   Build the localtest-v2 container NAME from PATH, a Dockerfile or a directory holding one",
+			"                   (default: the current directory), and run it instead of the pinned image (repeatable)",
 			"  --with GROUP     Start an optional localtest-v2 group: its containers and what they depend on ("+groupNames+"; repeatable)",
 			"  --without GROUP  Leave out an optional localtest-v2 group's own containers (repeatable)",
 			"  --json           Output as JSON",
@@ -346,18 +345,14 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 	fs.BoolVar(&f.openBrowser, "open", false, "Open localtest in browser after starting")
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
 	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
-	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is also the localtest
-	// runtime's hidden flag that routes the workflow engine to a host process.
-	for _, name := range envlocaltestv2.DevContainers() {
-		value := &devFlag{name: name, dev: f.devComponents, set: nil}
-		if name == devWorkflowEngineContainer {
-			value.set = func() { f.devWorkflowEngine = true }
-		}
-		fs.Var(value, "dev-"+name, "Build a localtest-v2 container from a Dockerfile")
-	}
+	fs.BoolVar(&f.devWorkflowEngine, "dev-workflow-engine", false, "Route workflow-engine to a host process")
 	fs.Func("dev", "Build a localtest-v2 container from source: NAME[=PATH] (repeatable)", func(value string) error {
 		name, path, _ := strings.Cut(strings.TrimSpace(value), "=")
-		f.devComponents[strings.TrimSpace(name)] = strings.TrimSpace(path)
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return fmt.Errorf("%w: --dev takes NAME[=PATH]", ErrInvalidFlagValue)
+		}
+		f.devComponents[name] = strings.TrimSpace(path)
 		return nil
 	})
 	fs.Func("with", "Start an optional localtest-v2 component group (repeatable)", func(value string) error {
@@ -393,6 +388,9 @@ func (c *EnvCommand) runUp(ctx context.Context, args []string) error {
 	if flags.jsonOutput && !flags.detach {
 		return fmt.Errorf("%w: --json requires --detach=true", ErrInvalidFlagValue)
 	}
+	if err := validateUpFlagsForRuntime(flags); err != nil {
+		return err
+	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
 		switch flags.runtime {
@@ -404,6 +402,44 @@ func (c *EnvCommand) runUp(ctx context.Context, args []string) error {
 			return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
 		}
 	})
+}
+
+// validateUpFlagsForRuntime refuses the flags the chosen runtime does not have, rather than ignoring them: a bare
+// `env up --with dialogporten` after a localtest run would otherwise start localtest without the group.
+func validateUpFlagsForRuntime(flags envUpFlags) error {
+	var foreign []string
+	switch flags.runtime {
+	case runtimeLocaltest:
+		if len(flags.devComponents) > 0 {
+			foreign = append(foreign, "--dev")
+		}
+		if len(flags.with) > 0 {
+			foreign = append(foreign, "--with")
+		}
+		if len(flags.without) > 0 {
+			foreign = append(foreign, "--without")
+		}
+		if flags.latestImages {
+			foreign = append(foreign, "--latest")
+		}
+	case runtimeLocaltestV2:
+		if flags.monitoring {
+			foreign = append(foreign, "--monitoring")
+		}
+		if flags.pgAdmin {
+			foreign = append(foreign, "--pgadmin")
+		}
+		if flags.devWorkflowEngine {
+			foreign = append(foreign, "--dev-workflow-engine")
+		}
+	}
+	if len(foreign) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: %s not supported by the %s runtime; pick the runtime with -r",
+		ErrInvalidFlagValue, strings.Join(foreign, ", "), flags.runtime,
+	)
 }
 
 func (c *EnvCommand) runLocaltestV2Up(
@@ -1266,36 +1302,4 @@ func commandOutput(out *ui.Output, jsonOutput bool) *ui.Output {
 		return silentOutput()
 	}
 	return out
-}
-
-// devWorkflowEngineContainer is the localtest-v2 container whose --dev flag is also the localtest runtime's
-// --dev-workflow-engine.
-const devWorkflowEngineContainer = "workflow-engine"
-
-// devFlag is --dev-<container>[=<path>]: a bare flag builds from the current directory (an empty path).
-type devFlag struct {
-	dev  map[string]string
-	set  func()
-	name string
-}
-
-func (d *devFlag) String() string {
-	return ""
-}
-
-func (d *devFlag) Set(value string) error {
-	value = strings.TrimSpace(value)
-	if value == "true" {
-		value = ""
-	}
-	d.dev[d.name] = value
-	if d.set != nil {
-		d.set()
-	}
-	return nil
-}
-
-// IsBoolFlag lets the flag stand without a value.
-func (d *devFlag) IsBoolFlag() bool {
-	return true
 }
