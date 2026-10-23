@@ -8,7 +8,9 @@ studioctl's `env up -r localtest-v2` starts: the same containers with the same i
 variables, volumes and certificate, and the localtest container as the front door on `http://local.altinn.cloud:8000`,
 the only published port. `AddAltinnApp` runs an Altinn app project beside it with the environment `studioctl run`
 gives an app and registers it with the front door, which routes it and provisions it. Tasks 21 and 27b of
-[`TODO.md`](../../../TODO.md).
+[`TODO.md`](../../../TODO.md). The conventions both runtimes follow (the manifest, the front door, service discovery,
+ports and health, the certificate, the volumes, the app environment) are in
+[`localtest/CONVENTIONS.md`](../../CONVENTIONS.md); this README describes how the package implements them.
 
 Status (2026-10-22): task 27b done in code and tests (70) and **run under Podman** with the sample (`WithDialogporten()`,
 the pin `sha-6d928ad`): only the localtest container publishes a port (8000), the app is registered and provisioned
@@ -78,9 +80,6 @@ workflow run's artifact into a local folder source.
 | `AltinnAppOptions.OpenTelemetry` | Default `true`: `AppSettings__UseOpenTelemetry=true`, so the app's telemetry reaches the dashboard |
 | `AltinnAppOptions.ProvisionWhenReady` | Default `true`: register the app when it is healthy; `false` leaves it to the `provision` command |
 
-`OnlyComponents` (21d, for diagnosis: a subset such as Postgres alone) is gone: the README documented no use beyond
-diagnosis, and the in-network health checks need Postgres anyway.
-
 ## How the manifest becomes resources
 
 Per selected container (`default` and the enabled groups' roots, closed over `dependsOn`, in start order), as
@@ -111,9 +110,8 @@ connection for `tcp`. Postgres checks itself at its network address, which its i
 One check tries 10 times half a second apart; Aspire calls it again (after 1, 2, ... 5 s) until it passes. Once it
 passed for a container ID it stays healthy without an exec until the container is replaced: a start gate, as
 studioctl's, not a liveness probe. The runtime is `ASPIRE_CONTAINER_RUNTIME` (otherwise `docker`); the container IDs
-come from the resources' snapshots. The alternatives the brief named (a loopback port per container for the probe, or
-healthy-when-running with only the front door's `/health`) publish ports or lose the start order Postgres and
-Dialogporten's migrations need. Measured under Podman ([Run under Podman](#run-under-podman)): every container is
+come from the resources' snapshots. Aspire ignores an image's `HEALTHCHECK` for `WaitFor`, which is why the package
+runs the check itself. Measured under Podman ([Run under Podman](#run-under-podman)): every container is
 healthy 1 to 6 s after what it waits for, the stack in 22 s on existing volumes and 32 s on empty ones, close to
 studioctl's 20 s and 21.6 s.
 
@@ -149,8 +147,8 @@ Dialogporten when its adapter runs; [`localtest/localtest/README.md`](../../loca
 The answer is logged on the AppHost's console and in the app's log; a refusal (`502` with the failing step) or an
 unreachable front door turns the app's `app_provisioning` check **degraded** (the dashboard's warning; the app keeps
 running) and the property `altinn.provisioning` holds the last outcome. Nothing is deregistered when the app stops: the
-front door keeps the route, and the next start registers it again. Since the front door strips `Secure` from an app's
-cookies, the 21e keepAlive gap is closed.
+front door keeps the route, and the next start registers it again. The front door strips `Secure` from an app's
+cookies, as under studioctl, so app-lib's `keepAlive` cookie works over http.
 
 | Resource | Command | What |
 | --- | --- | --- |
@@ -230,7 +228,8 @@ between runs; it now accepts the port when this AppHost's own `localtest-<hash>`
 
 ## History
 
-Recorded with the package's YARP front door (21d to 21f, 2026-10-22), Podman 5.7 rootful, arm64; what still applies:
+Runs of the package before task 27b (21d to 21f, 2026-10-22, Podman 5.7 rootful, arm64), when it still carried its
+own proxy; the findings that still apply:
 
 - Persistent containers survive Ctrl-C of the AppHost and are reused by the next start (healthy in 3 s), unless their
   configuration changed; a start that creates them on existing volumes took 27 s, a first start on empty volumes after
