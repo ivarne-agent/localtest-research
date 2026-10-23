@@ -243,6 +243,7 @@ func (c *EnvCommand) resolvedHostsFlags(name string, args []string) (envHostsFla
 	}
 	flags.runtime, err = c.resolveRuntime(flags.runtime)
 	if flags.runtime == "" {
+		// No configuration to read the last runtime from.
 		flags.runtime = runtimeLocaltest
 	}
 	return flags, false, err
@@ -890,7 +891,7 @@ func (c *EnvCommand) runHostsAdd(_ context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != "" && flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
+	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
 		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
 	}
 
@@ -957,7 +958,7 @@ func (c *EnvCommand) runHostsStatus(_ context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != "" && flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
+	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
 		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
 	}
 
@@ -1000,7 +1001,7 @@ func (c *EnvCommand) runHostsRemove(_ context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != "" && flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
+	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
 		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
 	}
 
