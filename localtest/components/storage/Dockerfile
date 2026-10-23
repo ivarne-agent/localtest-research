@@ -37,9 +37,10 @@ WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /src/vendor/src/Storage/Migration ./Migration
 # localtest: blobs live in a volume owned by the app user; settings production gets from its deployment.
+# No VOLUME: the runners mount /data/blobs (a named volume, or a tmpfs in minimal mode); the declaration only gave every
+# other container an anonymous volume.
 # No HEALTHCHECK: podman builds OCI images, which drop the instruction; studioctl polls the health endpoint instead.
 COPY --from=build --chown=$APP_UID /data/blobs /data/blobs
-VOLUME /data/blobs
 ENV ASPNETCORE_ENVIRONMENT=Development \
     ASPNETCORE_URLS=http://+:5010 \
     Localtest__Storage__BlobRootPath=/data/blobs
