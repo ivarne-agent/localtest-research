@@ -1472,3 +1472,5 @@ container app also by address. DNS: the front door as the resolver for container
 for undeclared names), host-wide observation only for process apps. The stack's components call nothing external but
 `altinncdn.no`, so the stack network gets a firewall (host and the CDN only), the at22 paths are removed first. Plan
 updated (sections 1b, 3a–3c, phases 3b and 3c).
+Addendum (owner 2026-10-23): Events is different, its webhook deliveries are data-driven egress; the `events`
+container stays open and observed, not blocked (the workflow engine's webhook command likewise).

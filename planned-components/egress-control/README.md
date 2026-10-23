@@ -19,7 +19,9 @@ works on localtest works in production and nothing undeclared leaves the cluster
   without `externalHosts` gets the inventory and no refusals; an app with it (even empty) is refused everything
   undeclared.
 - **The stack's own components call nothing external except `altinncdn.no`**, so they are blocked outright by a
-  firewall on the stack network (section 3c); the two at22 paths found by task 44 are bugs to remove.
+  firewall on the stack network (section 3c); the two at22 paths found by task 44 are bugs to remove. **Events is
+  different**: its webhook deliveries go wherever subscribers point, so it stays open and observed (section 3c); the
+  workflow engine's webhook command likewise.
 
 ## 2. The declaration
 
@@ -100,6 +102,13 @@ for the hosts file; the rule set is removed on `env down`) or a Podman network w
 exception; which of the two is cheaper and survives Docker and Aspire is a phase-1 question. Until the org list is
 served locally (task 44 open question 3), `altinncdn.no` stays the one hole; after that the stack network is fully
 internal. The two self-identified-user paths that reach at22 are removed first (their own small task).
+
+**Events is the exception (owner, 2026-10-23).** Its webhook delivery goes to whatever endpoint a subscriber
+registered: data-driven egress that no fixed list can hold, in production as on localtest. So the `events` container
+is not behind the block: it keeps its route out, and its deliveries are observed instead of refused, through the same
+inventory (the delivery log it already keeps, plus the firewall's counters for its destinations). The workflow engine's
+`webhook` command is the same class (any URI from the request) and gets the same treatment. Everything else in the
+stack stays fully blocked.
 
 ## 4. The inventory surface
 
