@@ -66,16 +66,6 @@ func (t healthTarget) String() string {
 	return "http://" + t.name + ":" + strconv.Itoa(t.port) + t.path
 }
 
-// healthTargets are the selected containers' checks, in start order.
-func healthTargets(opts *Options) []healthTarget {
-	names := selected(opts)
-	targets := make([]healthTarget, 0, len(names))
-	for _, name := range names {
-		targets = append(targets, healthTargetOf(name))
-	}
-	return targets
-}
-
 // probeScript is the bash a probe runs: up to attempts tries a second apart, exit 0 at the first success. The HTTP
 // check reads the status line only; the request is HTTP/1.0, so the server closes the connection.
 func probeScript(t healthTarget, attempts int) string {

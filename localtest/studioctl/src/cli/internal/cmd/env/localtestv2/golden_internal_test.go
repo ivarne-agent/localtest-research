@@ -98,10 +98,10 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 
 func goldenOf(t *testing.T, opts *Options) goldenOptions {
 	t.Helper()
-	targets := healthTargets(opts)
-	described := make([]string, 0, len(targets))
-	for _, target := range targets {
-		described = append(described, target.name+" "+target.String())
+	names := selected(opts)
+	described := make([]string, 0, len(names))
+	for _, name := range names {
+		described = append(described, name+" "+healthTargetOf(name).String())
 	}
 	probes := func(healthTarget) func(context.Context) error {
 		return func(context.Context) error { return nil }
