@@ -77,7 +77,7 @@ A path matching no route still falls through to the localtest app.
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done** (2026-10-23: fork branch `feat/app-frontend-settings-only` at 53a2d94090 = the frontend commit plus the monorepo studioctl setting the inbox and logout defaults to the localtest start page; hand-over `/home/agent/code/pr-app-frontend-settings-only.md`); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
-| 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 running** (dispatched 2026-10-23, Opus, static inventory and design; phase 2 observes on the stack when it is free) | medium | yes (phase 2) |
+| 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 verified** 2026-10-23 (ec2a31b2; phase 2 observes on the stack after task 40's proof) | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1411,3 +1411,26 @@ monorepo resolver drops the `GetTestOrgToken` branch or uses it only without a c
 real client would replace the local one and the local exchange answers 401 (two options in the document). Task 15 does
 not affect the apps' `MaskinportenClient` (app-lib 8 references the package only for legacy paths). Probe scripts in
 `.scripts/task43/`. Worktree and branch removed.
+
+**Phase 1 (pushed ec2a31b2, verified by the coordinator 2026-10-23; `localtest/reviews/2026-10-23-egress-domains.md`,
+scripts `localtest/tools/egress/`).** App pod (monorepo backend): `platform.<env>` for every platform API, the OIDC
+metadata, the exchange and eFormidling; in-cluster pdf3 (whose relay calls `studio.platform.<env>.altinn.cloud`) and
+the workflow engine; `altinncdn.no` for the org list (code); Application Insights; the Maskinporten authority from the
+secret; per feature `studioprodsc.blob.core.windows.net`, `api.fiks.ks.no:443` and `io.fiks.ks.no:5671`, Nets, Key
+Vault and Entra ID, the app's own host, and the app's own code. Reached only through the platform: ID-porten, e-mail
+and SMS, Dialogporten, KRR, Brreg, the population register, subscribers. Browser as a CSP: the app origin,
+`altinncdn.no` (font, style, img, connect), `tile.openstreetmap.org` and `cache.kartverket.no` for the Map component,
+`data:`/`blob:`, app-named hosts; `IndexPageGenerator` sets no CSP (a nonce would be needed for the inline bootstrap).
+pdf3 opens any requested URL; the workflow engine's webhook calls any URI. Stack components: six clients fetch the org
+list from `altincdn.no`, the Resource Registry falls back to `raw.githubusercontent.com`, Receipt loads Font Awesome and
+Google Fonts, and two self-identified-user paths reach **at22** (Register's SBL bridge, Authentication's Access
+Management setting): leaks to a shared test environment. Enforcement today: none for app pods (no NetworkPolicy, apps
+in `default`; only pdf3's worker has a Cilium egress policy); options: Cilium `toFQDNs` (needs the DNS proxy,
+unconfirmed), plain NetworkPolicy (CIDR only), Azure Firewall FQDN rules (Fiks on 5671 needs a network rule), a proxy
+(the Fiks client ignores it). The infra repository could not be read (no `AZURE_DEVOPS_PAT`). Methods for phase 2:
+packet capture (DNS plus SNI on the bridge and the uplink, attributed to containers and processes) as ground truth, an
+OTLP collector for the app's client spans (`AppSettings__UseOpenTelemetry=true`, which studioctl does not set),
+Playwright traces for the browser; the logging proxy rejected (Node, Chromium and AMQP ignore it). Open questions
+1–7 in the document (one allow-list per app for egress, CSP and localtest; egress-denied localtest by default; the
+platform serving `altinn-orgs.json`; the OTLP collector move; checking webhook and pdf3 URLs; Cilium's DNS proxy; the
+at22 paths). Coordinator: typos (after allowing `AKS`), shellcheck clean.
