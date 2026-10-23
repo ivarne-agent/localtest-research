@@ -76,7 +76,7 @@ A path matching no route still falls through to the localtest app.
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 verified** 2026-10-23 (dc0211bb, 21 commits; needs a rebase; phase 2 waits for the stack) | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done** (2026-10-23: fork branch `feat/app-frontend-settings-only` at 53a2d94090 = the frontend commit plus the monorepo studioctl setting the inbox and logout defaults to the localtest start page; hand-over `/home/agent/code/pr-app-frontend-settings-only.md`); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
-| 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **running** (dispatched 2026-10-23, Opus, analysis and stack proof) | medium | yes |
+| 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 running** (dispatched 2026-10-23, Opus, static inventory and design; phase 2 observes on the stack when it is free) | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -1394,3 +1394,20 @@ link = the front door's Home; goldens with two new arbeidsflate cases; Aspire 12
 studioctl sets no `PlatformFrontendSettings`, so CI's Cypress specs would lose their inbox and logout targets;
 decision: the monorepo studioctl sets the inbox and logout defaults to the localtest base URL in the same PR (in
 progress). The full Vitest suite could not run on this machine (memory); the focused 212 pass.
+
+**Outcome (merged 2026-10-23).** Nothing changes now. At the default origin both libraries take the service-owner
+token from `/Home/GetTestOrgToken` (`ttd`, Storage 200, the monorepo app's 8 workflow callbacks 200). The apps detect
+localtest by `GeneralSettings:HostName` being `local.altinn.cloud` or `altinn3local.no`, so **at a custom origin the
+short-cut is off: the monorepo app does not start without a stored Maskinporten client (`MaskinportenSettingsStartupCheck`),
+and app-lib 8 fails at first use**; task 39's custom host therefore works today only for apps with a client (or the
+`local.altinn.cloud` host). The real client path against the fakes already works end to end at both origins (the fake
+issues, Authentication exchanges, Storage as the org 200), but always as `digdir`: the client never sends `test=true`
+and `ttd` has no organisation number. The switch to the proper fakes when the new localtest becomes the default:
+(1) the runners write a local `maskinporten-settings.json` (authority `<origin>/localtest/api/maskinporten/` with the
+trailing slash, a client id, a generated RSA JWK; skipped when the developer stored a client; ~60 lines Go, ~40 C#,
+golden), (2) Authentication's fakes answer `ttd` for 991825827 in the exchange (~30 lines, a pin bump), (3) the
+monorepo resolver drops the `GetTestOrgToken` branch or uses it only without a client (~10 lines), (4) the runners set
+`AppSettings__RuntimeSecretsDirectory` for app-lib 8 (it reads that, not `RUNTIME_APP_SECRETS_*`). Open: a developer's
+real client would replace the local one and the local exchange answers 401 (two options in the document). Task 15 does
+not affect the apps' `MaskinportenClient` (app-lib 8 references the package only for legacy paths). Probe scripts in
+`.scripts/task43/`. Worktree and branch removed.
