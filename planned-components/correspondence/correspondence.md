@@ -1,5 +1,7 @@
 # Correspondence for the new localtest stack
 
+**Superseded 2026-10-23 by task 27:** the studioctl wiring described here (a component entry in `components.go`, a host port, an image spec with a `STUDIOCTL_IMAGE_LOCALTEST_V2_*` override, a route in studioctl-server) is gone: a component is now one entry in manifest v2 without a host port, and its route is in the localtest container's `PlatformRoutes.cs`; the group no longer implies `dialogporten`, it closes over `dependsOn`; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 Research date: 2026-10-20 (task 7 of [`../../TODO.md`](../../TODO.md)). Read-only, plus a scratch build and two scratch
 starts of the host against a throwaway Postgres in the session scratchpad (section 4.3). No image was built, and no
 container or studioctl command was run. The only calls to the running stack were GETs: a token from

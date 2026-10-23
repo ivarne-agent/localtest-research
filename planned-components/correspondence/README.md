@@ -1,5 +1,7 @@
 # Plan: Correspondence in the new localtest
 
+**Superseded 2026-10-23 by task 27:** the studioctl wiring described here (a component entry in `components.go`, a host port, an image spec with a `STUDIOCTL_IMAGE_LOCALTEST_V2_*` override, a route in studioctl-server) is gone: a component is now one entry in manifest v2 without a host port, and its route is in the localtest container's `PlatformRoutes.cs`; `--with correspondence` now starts only the Dialogporten WebApi and Redis it depends on, not the whole `dialogporten` group; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented with a known gap** as task 7 (2026-10-21; `TODO.md` gives `043c483..e96f904`, on `main`
@@ -102,7 +104,7 @@ when the stack runs with `--with correspondence`. A sent correspondence is visib
 
 The default stack is unchanged.
 
-**Plan (2026-10-20).** [`planned-components/correspondence/correspondence.md`](planned-components/correspondence/correspondence.md).
+**Plan (2026-10-20).** [`planned-components/correspondence/correspondence.md`](correspondence.md).
 Vendor `Altinn/altinn-correspondence` at `6dcf561` (Option A). Settle the open questions in section 10 first.
 
 **Scope.**

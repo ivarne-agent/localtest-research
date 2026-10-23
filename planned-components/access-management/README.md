@@ -1,5 +1,7 @@
 # Access Management: vendor the production service
 
+**Superseded 2026-10-23 by task 26:** the refresh (provisioning step 4) is run by the localtest container on an app's registration, not by studioctl-server; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented**: steps 1 to 6 (2026-10-17 to 2026-10-18, `05c82c1` to `74bc8b1`) in

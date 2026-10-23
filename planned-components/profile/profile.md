@@ -1,5 +1,7 @@
 # Profile beyond the Register
 
+**Superseded 2026-10-23 by task 27:** the studioctl wiring described here (a component entry in `components.go`, a host port, an image spec with a `STUDIOCTL_IMAGE_LOCALTEST_V2_*` override, a route in studioctl-server) is gone: a component is now one entry in manifest v2 without a host port, and its route is in the localtest container's `PlatformRoutes.cs`; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 Research date: 2026-10-20 (task 14 of [`../../TODO.md`](../../TODO.md)), written against this repository at `a3776b3`.
 The work was read-only apart from one scratch build and two scratch starts of the Profile host (section 4, "What was run"). Nothing
 was built as an image. No Postgres, podman or studioctl command was run. The running stack on

@@ -1,5 +1,7 @@
 # Localtest app review (2026-10-20)
 
+> **Superseded 2026-10-23 by task 26:** the localtest app is now the front door in both runtimes (routes in code, upstreams by service name without pass-through, app registration and provisioning on `localtest/api/apps`, 8080 in the container published as 8000), so its `Proxy/` row (`AppRoutesApi.cs`, `localtest/api/proxy/apps`) describes an earlier app; the identity findings are unchanged; see [`localtest/CONVENTIONS.md`](../CONVENTIONS.md).
+
 > **Superseded in part (2026-10-21):** compose was replaced by studioctl's `localtest-v2` runtime on 2026-10-20 (the
 > container is `localtest-v2-localtest`). Added after this review and not covered by it: the fake ID-porten's
 > `endsession` and the headless code-flow helper `localtest/api/authentication/` (task 2), and the app's own proxy

@@ -1,5 +1,7 @@
 # Service discovery for the components
 
+**Superseded 2026-10-23 by task 27:** the runtime side is built (task 26: the localtest container's resolver without pass-through; task 27: manifest v2 without placeholders or host ports, every container aliased by its name and given `services__<name>__http__0` for every running HTTP container), so the `{{…}}` placeholders, `hostPort` and `Proxy__Upstreams__*` quoted below describe the v1 manifest; the per-component URL migrations of sections 6, 7 and 9 are still open; see [`localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-22)
 
 - **Research done, prototype on a branch**, task 25: can every vendored component resolve the other services by name

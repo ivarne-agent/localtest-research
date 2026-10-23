@@ -1,5 +1,7 @@
 # Plan: fake ID-porten, fake Maskinporten and the /Home contract move into the localtest app
 
+**Superseded 2026-10-23 by task 26:** the localtest app is now the front door under studioctl too, so its `Proxy/PlatformRoutes.cs` is on every path; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented** (2026-10-20, steps 1 to 4, `1485935`, `180fd3c`), as its own status line below says. Since then the

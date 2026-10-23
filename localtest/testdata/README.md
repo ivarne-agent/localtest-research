@@ -224,8 +224,9 @@ production: Notifications adds users' own contact points for an organisation onl
 
 ## Seed and app files together
 
-The app runner posts an app's file as is (`PUT register/api/localtest/apps/{org}/{app}`; an empty body registers an app
-without test data). On every registration, unregistration and refresh the Register builds a new store from the seed and
+When an app is registered with the front door, the localtest container posts the app's file as is (provisioning step 1,
+`PUT register/api/localtest/apps/{org}/{app}`; an empty body registers an app without test data; see
+[What the app runner pushes](../README.md#what-the-app-runner-pushes)). On every registration, unregistration and refresh the Register builds a new store from the seed and
 the posted files ([`components/register/README.md`](../components/register/README.md#app-test-data)):
 
 - if **every** registered app posted test data, only the apps' data is loaded (the seed is left out);

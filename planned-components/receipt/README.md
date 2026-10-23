@@ -1,5 +1,7 @@
 # Plan: the platform receipt in the new localtest
 
+**Superseded 2026-10-23 by task 27:** the studioctl wiring described here (a component entry in `components.go`, a host port, an image spec with a `STUDIOCTL_IMAGE_LOCALTEST_V2_*` override, a route in studioctl-server) is gone: a component is now one entry in manifest v2 without a host port, and its route is in the localtest container's `PlatformRoutes.cs`; Receipt is the optional group `receipt`, not in the default stack; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented** as task 16 (2026-10-21, `f40027a..319a712`) in
@@ -85,7 +87,7 @@ instances, self-identified users and the PDF link were not tried. How production
 instance, as in production. It is the target of the Dialogporten adapter's go-to action for archived instances (task
 10) and of Arbeidsflate's archived dialogs (task 11).
 
-**Plan.** [`planned-components/receipt/receipt.md`](planned-components/receipt/receipt.md). Vendor `Altinn/altinn-receipt`
+**Plan.** [`planned-components/receipt/receipt.md`](receipt.md). Vendor `Altinn/altinn-receipt`
 at `babc0ed` (whole repository, `git subtree`) as `localtest/components/receipt/`.
 
 **Design.**

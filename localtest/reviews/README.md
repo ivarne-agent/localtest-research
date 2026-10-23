@@ -26,7 +26,8 @@ changed is marked with a dated "Superseded" note at the top of the review; the r
   workflow engine follow since 2026-10-20 as well.
 
 - **HEALTHCHECK** lines are dead everywhere: podman builds OCI images, which drop them. Health checks are left for the
-  studioctl integration. (studioctl now polls each component's health path over HTTP.)
+  studioctl integration. (Both runtimes now check each container's health path from inside the stack's network; see
+  [`../CONVENTIONS.md`](../CONVENTIONS.md#port-and-health).)
 - **Re-pinning.** Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and
   share libraries; they were re-pinned together to `3d518103` on 2026-10-20 with `../tools/repin-vendor.py`.
 - **Sync instructions** (`vendor/UPSTREAM.md`) exist for every vendored component.
@@ -36,6 +37,6 @@ changed is marked with a dated "Superseded" note at the top of the review; the r
   fonts and logo read from `altinncdn.no`. A local copy served by the localtest app would remove that.
 - **Profile.** The register component answers Profile's endpoints; Authentication and Authorization use their
   production Profile clients against it. *Superseded 2026-10-21 (task 14): production Profile is its own component
-  (`../components/profile/`, host port 8036); Authentication, Authorization and Access Management call it, and the
+  (`../components/profile/`; no host port since task 27); Authentication, Authorization and Access Management call it, and the
   Register serves no Profile endpoint.*
 - **Internet** (above) stays: task 3 (a local altinncdn.no) was decided against on 2026-10-20.

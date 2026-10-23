@@ -1,5 +1,7 @@
 # HTTPS for the Aspire-hosted stack
 
+**Superseded 2026-10-23 by task 27:** the front door this research terminates TLS on (the package's stock YARP container) is gone; the localtest container is the front door in both runtimes, so any HTTPS work starts there (task 24); see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-22)
 
 - **Research done** as task 23 of [`../../TODO.md`](../../TODO.md): can the Aspire-hosted stack serve

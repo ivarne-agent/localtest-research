@@ -1,5 +1,7 @@
 # MVP sketch: one compose file, one folder per component, vendored source changed only by directives
 
+**Superseded 2026-10-23 by task 26:** studioctl-server is no longer the front door and does not provision apps: the localtest container does both in both runtimes, and manifest v2 (task 27) lists the containers; see [`localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 The model is what every component in [`../localtest/components/`](../localtest/components/) follows, with the

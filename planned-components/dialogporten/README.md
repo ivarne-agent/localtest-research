@@ -1,8 +1,10 @@
 # Plan: Dialogporten, the Dialogporten adapter and Arbeidsflate in the new localtest
 
+**Superseded 2026-10-23 by task 26:** the host routing read as "studioctl-server host routing" below is the localtest container's (`af.local.altinn.cloud` among its dedicated hosts), and the groups close over `dependsOn` (task 27); see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
-Four of the five strands are implemented; Arbeidsflate is open. Answers to the collected questions below:
+All five strands are implemented (Arbeidsflate as task 11 on 2026-10-21; the line was corrected on 2026-10-23). Answers to the collected questions below:
 [`../README.md`](../README.md), "Answers to the plans' open questions".
 
 | Strand | Status | Task, commits (`TODO.md`) | Where, smoke test on 2026-10-21 |
@@ -11,7 +13,7 @@ Four of the five strands are implemented; Arbeidsflate is open. Answers to the c
 | Resource Registry | Implemented | 5a `e0cba40..b6f4c47`, 5b `9b7278d..aaa099e` | `components/resource-registry/` (43) |
 | Dialogporten core | Implemented, optional group `dialogporten` | 9a `4ab03f0..76b8787`, 9b `4749bd7..d7827bf` | `components/dialogporten/` (60) |
 | Adapter and Storage outbox | Implemented, adapter in the `dialogporten` group, Storage's outbox on in the default stack | 10, `c940fd6..3c9b03f` | `components/dialogporten-adapter/` (39) |
-| Arbeidsflate | Open: task 11, unapproved | 11 | none |
+| Arbeidsflate | Implemented: task 11 and 11b (2026-10-21), optional group `arbeidsflate` | 11 | [`../../localtest/components/arbeidsflate/`](../../localtest/components/arbeidsflate/README.md) |
 
 Decided otherwise than proposed here:
 

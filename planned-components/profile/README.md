@@ -1,5 +1,7 @@
 # Plan: Profile beyond the Register
 
+**Superseded 2026-10-23 by task 27:** Profile has no host port any more (host port 8036 is gone); it is reached through the front door at `/profile` and by name inside the stack (`http://profile:5030`); see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented** as task 14 (2026-10-21; `TODO.md` gives `ad2c094..097b474`, on `main` `f7b7f50..097b474`) in
@@ -121,7 +123,7 @@ because task 7 adds Profile controllers to the Register that this task deletes.
 
 The Register component no longer answers `/profile`.
 
-**Plan (2026-10-20).** [`planned-components/profile/profile.md`](planned-components/profile/profile.md). Vendor at
+**Plan (2026-10-20).** [`planned-components/profile/profile.md`](profile.md). Vendor at
 `d1f9871` (Option A) with the defaults of section 8 unless the owner says otherwise:
 
 - default stack

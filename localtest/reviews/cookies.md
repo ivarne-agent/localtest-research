@@ -1,5 +1,7 @@
 # Cookies with `Secure` on a plain-http stack (2026-10-21, task 21b)
 
+> **Superseded 2026-10-23 by task 26:** the `Secure` stripping on app routes now happens only in the localtest container, the front door in both runtimes; studioctl-server's `PlatformTransformer` and the Aspire package's plain YARP no longer forward anything, and the component cookie findings are unchanged; see [`localtest/CONVENTIONS.md`](../CONVENTIONS.md).
+
 Every cookie the stack sets with `Secure`, read from the vendored code, the fakes, the patches and the localtest app at
 `f8735996`, and from app-lib (the monorepo's `src/App/backend` at `altinn-studio` `origin/main` `3ccccf7867`, which the
 test apps reference by project, and `Altinn/app-lib-dotnet` `v8.12.15`). Searched with

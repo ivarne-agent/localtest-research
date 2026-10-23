@@ -1,5 +1,7 @@
 # Aspire host for the components: mapping, front door, provisioning, fit
 
+**Superseded 2026-10-23 by task 27:** the package is now a thin loader of manifest v2 with the localtest container as its front door: no `Aspire.Hosting.Yarp` front door, no compiled-in provisioning, no probe ports and no image override variables, so the front-door and provisioning sections are history; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 Research date 2026-10-21 (Europe/Oslo), task 20 of [`../../TODO.md`](../../TODO.md). Written against this repository
 at `2c2d3aa` (the vendored studioctl's `localtestv2/` runtime, image pin `tagLocaltestV2 = "sha-3143730"` in
 `internal/config/images.go`), `Altinn/altinn-studio` `origin/main` at `3ccccf7867` (app-lib v9 and the app template

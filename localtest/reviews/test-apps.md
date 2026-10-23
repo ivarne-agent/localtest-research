@@ -1,5 +1,7 @@
 # Test apps whose policy or test data production code rejects (2026-10-21)
 
+> **Superseded 2026-10-23 by task 26:** provisioning (step 3b included) moved from studioctl-server's `AppProvisioner` into the localtest container, run on `PUT localtest/api/apps/{org}/{app}`; the policy findings themselves are unchanged; see [`localtest/CONVENTIONS.md`](../CONVENTIONS.md).
+
 The monorepo's test apps under `altinn-studio/src/test/apps/` (read at `origin/main` `6e5a6a9920`, 2026-10-21), checked
 against what production code in the stack does with them. Not fixed here (`TODO.md` task 12, decision of 2026-10-21):
 each finding is for an upstream fix in the monorepo.

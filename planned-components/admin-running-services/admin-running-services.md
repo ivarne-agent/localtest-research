@@ -1,5 +1,7 @@
 # Admin of running services and the inspection GUI: overlap, data path and recommendation
 
+**Superseded 2026-10-23 by task 26:** the route table is no longer studioctl-server's: the localtest container lists it (`GET localtest/api/routes`) and the registered apps (`GET localtest/api/apps`); see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 Research date 2026-10-20 (Europe/Oslo), task 17 of [`../../TODO.md`](../../TODO.md). Written against `Altinn/altinn-studio`
 `origin/main` at `9493f65300` (2026-10-20 14:03), `Altinn/altinn-studio-docs` `origin/master` at `dd8bba13`, this
 repository at `94a0f93`, and GitHub issues and pull requests read with `gh` the same day. Nothing was built, run or

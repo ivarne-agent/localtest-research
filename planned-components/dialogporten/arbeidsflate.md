@@ -1,5 +1,7 @@
 # Arbeidsflate: vendoring plan for `localtest/components/arbeidsflate/`
 
+**Superseded 2026-10-23 by task 26:** the localtest app's upstreams are no longer configured defaults: every route resolves its service by name through service discovery, and the app is the front door in both runtimes; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented**: task 11, 2026-10-21: [`../../localtest/components/arbeidsflate/`](../../localtest/components/arbeidsflate/README.md)

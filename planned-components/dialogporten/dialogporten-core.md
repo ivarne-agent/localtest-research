@@ -1,5 +1,7 @@
 # Dialogporten core: vendoring plan for `localtest/components/dialogporten/`
 
+**Superseded 2026-10-23 by task 26:** the routes, including the `/dialogporten/graphql` rewrite, are in the localtest container's `PlatformRoutes.cs`, not studioctl-server, and the provisioning sync runs there (`Proxy__Upstreams__dialogporten-*` is gone: upstreams resolve by service name); see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented** as task 9: 9a (2026-10-20, `4ab03f0..76b8787`) and 9b (2026-10-20, `4749bd7..d7827bf`), in

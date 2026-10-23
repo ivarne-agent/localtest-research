@@ -1,5 +1,7 @@
 # Plan: the new localtest in studioctl
 
+**Superseded 2026-10-23 by task 27:** studioctl-server is no longer the front door and no longer provisions (task 26 moved both into the localtest container), and the runtime is a thin loader of manifest v2 (no image pins in `config/images.go`, no `STUDIOCTL_IMAGE_LOCALTEST_V2_*`, no host ports); studioctl-server only registers the apps it discovers; see [`localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 Landed in the vendored studioctl ([`../localtest/studioctl/`](../localtest/studioctl/UPSTREAM.md), ordinary commits on
@@ -120,7 +122,7 @@ Notifications and Correspondence stay out of scope; their prefixes keep answerin
   one `register<Name>Components` file per component on the pdf3/workflow-engine pattern: image (pulled, or in dev
   mode `localDevImage` with `ContextPath` = the component folder), `ContainerSpec` (name, environment, volumes,
   dependencies, `ExtraHosts`), and no published ports. The environment is today's
-  [`docker-compose.yml`](../localtest/docker-compose.yml) per service: the platform endpoint, Postgres connection
+  `docker-compose.yml` (deleted in `84514a3`) per service: the platform endpoint, Postgres connection
   strings, `AccessTokenSettings__AccessTokenSigningCertificateFullPath`, the policy-store path. Events also gets
   `host.docker.internal:host-gateway`, so webhooks to the developer's machine arrive.
 - `core.go`: the `localtest` container runs the localtest app image. It keeps the network aliases

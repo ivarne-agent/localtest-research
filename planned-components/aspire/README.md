@@ -1,7 +1,14 @@
 # Research: an Aspire host for the components
 
-## Status (2026-10-22)
+## Status (2026-10-22, current line 2026-10-23)
 
+- **Current (2026-10-23):** the package
+  [`localtest/aspire/Altinn.App.Aspire/`](../../localtest/aspire/Altinn.App.Aspire/README.md) is a thin loader of
+  studioctl's manifest v2 (task 27b): the manifest's containers as persistent resources under `altinn-localtest`, the
+  localtest container as the front door and the only published port (8000), health through `exec` of studioctl's bash
+  probe in the Postgres container, and `AddAltinnApp` registering the app with the front door on its ready event. The
+  YARP front door, the app section of the manifest, the provisioning library and the JSON Schema in
+  this report are history; the rules are in [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
 - **Research done** as task 20 (2026-10-21); the owner chose the hosting package (task 21 in [`TODO.md`](../../TODO.md)),
   with the stock `Aspire.Hosting.Yarp` as the front door (the 21d decisions), not the localtest app this report
   recommends in section 3.

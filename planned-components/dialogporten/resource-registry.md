@@ -1,5 +1,7 @@
 # Resource Registry for the inbox stack
 
+**Superseded 2026-10-23 by task 26:** the provisioner, step 3b included, is the localtest container (`PUT localtest/api/apps/{org}/{app}`), not studioctl-server; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 ## Status (2026-10-21)
 
 - **Implemented** as task 5 (2026-10-20): 5a `e0cba40..b6f4c47` (component, seed, studioctl runtime component and

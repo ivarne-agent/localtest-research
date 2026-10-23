@@ -1,5 +1,7 @@
 # The inspection GUI: inventory, gaps, architecture and plan
 
+**Superseded 2026-10-23 by task 26:** the route table, the `503` pages and the app routes moved from studioctl-server into the localtest container (`GET localtest/api/routes`, `GET localtest/api/apps`, which replaced `localtest/api/proxy/apps`), so the sections about studioctl-server owning the routes are history; see [`localtest/CONVENTIONS.md`](../../localtest/CONVENTIONS.md).
+
 Research date 2026-10-20 (Europe/Oslo), task 8 of [`../../TODO.md`](../../TODO.md). Written against `origin/main` at
 `178f3da`, plus the two branches being merged that day: `origin/task/dialogporten-integration` (Dialogporten's
 `api/v1/localtest/` endpoints, task 9b) and `origin/task/authentication-oidc-provider` (the localtest app's
