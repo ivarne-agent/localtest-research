@@ -72,7 +72,7 @@ A path matching no route still falls through to the localtest app.
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
-| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **phase 1 verified, phase 2 running** (2026-10-23; one regression to fix first: the localtest test suite took 17 min) | large | yes (phase 2) |
+| 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **phase 2 verified, phase 3 (the `--port 0` recovery, code-only) running** 2026-10-23 | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1256,3 +1256,20 @@ Aspire 122, csharpier/typos clean, both samples build. Regression found by the c
 took 17 min (name resolution suspected); the agent fixes it before phase 2. Future independent `run --minimal` needs:
 per-instance container/network/volume names, state file, server registration with several front doors, certificate
 directory, graph id and probe names, runtime checks.
+
+**Phase 2 (pushed cde7303f, verified by the coordinator 2026-10-23).** The 17-minute test run was not reproduced:
+the agent's seven runs took 4–9 s (slowest test 0.57 s; strace shows only loopback plus one pre-existing DNS query
+for `register` from `SeamTests`; with DNS dropped still 2 s), and the coordinator's re-run took 3 s; unexplained,
+not a blocker. Runs: studioctl at `altinn.test:18000` with Dialogporten and dev builds of Authentication and the
+GraphQL host (`--dev-dialogporten-graphql=Dockerfile.graphql` from the component folder): root 26/26, authentication
+34/34 (the seeded Arbeidsflate client redirects to `af.altinn.test:18000`), Dialogporten 60/60 (CORS for the custom
+origin); `studioctl run` and `app env` on the custom origin; browser sign-in with cookies on `.altinn.test` and the
+issuer on the new origin (screenshot `localtest/localtest/docs/origin/`); `--minimal --port 0` → `Origin:
+http://local.altinn.cloud:37639`, root 23+3; Aspire minimal with `PublicPort = 0` → port 24054 in the front door,
+Storage, the workflow engine and both apps' environments (apps at `host.docker.internal:24055/24056`), root 23+3;
+Aspire full at `altinn.test:18000` root 26/26; default origin root 26/26; `env up --host nothere.test` refused with
+the hosts line. Found: the released app frontend's `getHostname` accepts only a first label `local` (or four or five
+labels), so party selection says "Unknown domain" at `altinn.test`; docs recommend `local.<…>` hosts. The pinned front
+door ignores `Localtest__PublicSubdomains` and still names the default dedicated hosts: the new front door reaches a
+stack after a pin bump. `--port 0` race: studioctl releases the port seconds before Podman binds it; on a collision the
+state kept the port and recovery needed `env down`; phase 3 fixes the recovery. `/etc/hosts` restored.
