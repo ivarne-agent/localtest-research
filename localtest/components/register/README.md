@@ -22,6 +22,10 @@ has read its own settings, so ServiceDefaults runs in environment `UNKNOWN` (not
 `IsTest` off. That is intended: `LOCAL` would get platform tokens from the remote test token generator instead of
 signing them with the shared certificate. A setting ServiceDefaults must see has to come from the environment.
 
+Service discovery (task 25) needs no site: the Register registers it natively through `AltinnServiceDefaults`
+(`AddServiceDiscovery()` with the factory clients' defaults), so a name resolves from `services__<name>__http__0`
+([`../../CONVENTIONS.md`](../../CONVENTIONS.md#service-discovery)). It listens on 5020 in the stack, with no host port.
+
 ## Endpoints added by the fakes
 
 Localtest-only (anonymous), under `register/api/localtest/`:

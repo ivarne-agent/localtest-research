@@ -98,12 +98,12 @@ is no directive site for it.
 The localtest part is in `fakes/Dialogporten/`: `LocaltestDialogportenSyncHandler` (a public `*Handler` class with a
 static `Handle`, which Wolverine discovers in the host assembly) takes the command off the local queue and
 `LocaltestDialogportenAdapterClient` posts `{ appId, partyId, instanceId, instanceCreatedAt, isMigration }` to
-`{DialogportenAdapterEndpoint}api/localtest/enqueue`, anonymous, through the proxy. The adapter puts it on its own
+`{DialogportenAdapterEndpoint}api/localtest/enqueue`, anonymous, through the front door. The adapter puts it on its own
 queue, where its production handler and retry policies take over (`../dialogporten-adapter/README.md`).
 
 Storage always sends, whether or not the adapter runs; nothing in its configuration depends on the `dialogporten` group.
-When the group is off studioctl-server answers the adapter's disabled route with 503 problem details ("Component not
-running"); a refused connection, 404 (no route claims the path, so it would reach Storage's own `/storage`), 502 and 504
+When the group is off the front door (the localtest container) answers the adapter's route with 503 problem details
+("Component not running": `dialogporten-adapter` has no `services__` address); a refused connection, 404 (no route claims the path, so it would reach Storage's own `/storage`), 502 and 504
 count the same: one line at
 Information, `Dialogporten sync of instance {partyId}/{guid} dropped: the Dialogporten adapter is not running ...`, and
 the command is dropped. Nothing is retried and the handler never throws, so Wolverine never retries either. Any other
@@ -123,14 +123,14 @@ fresh database is migrated in about a second.
 
 ## In the stack
 
-studioctl's `localtest-v2` runtime runs Storage with the Postgres connection strings (the `localtest-postgres` image
+The runtime (studioctl's `localtest-v2`, or the Aspire package) runs Storage on port 5010 (no host port) with the Postgres connection strings (the `localtest-postgres` image
 creates `storagedb` and its roles with `postgres-init/10-storage.sh` and `vendor/infra/postgres_init.sql`),
 `GeneralSettings__PlatformEndpoint`, the shared certificate at `/certs`
 (`AccessTokenSettings__AccessTokenSigningCertificateFullPath`) and a blob volume at `/data/blobs`. Storage reaches the
-OpenID metadata, the PDP, Register and the apps through `local.altinn.cloud:8000`, which studioctl-server serves;
-studioctl-server routes `/storage/` to Storage without stripping the prefix (Storage's routes start with
-`/storage/api/v1/`). To run a change made here: `STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up
--r localtest-v2 --dev storage`.
+OpenID metadata, the PDP, Register and the apps through `local.altinn.cloud:8000`, the front door (the localtest
+container), which routes `/storage/` to Storage by `services__storage__http__0` without stripping the prefix (Storage's
+routes start with `/storage/api/v1/`); see [`../../CONVENTIONS.md`](../../CONVENTIONS.md). To run a change made here:
+`cd localtest/components/storage && studioctl env up -r localtest-v2 --dev-storage`.
 
 ## Image
 
@@ -149,7 +149,8 @@ marked `localtest:`:
 - No `HEALTHCHECK`: `podman build` produces OCI images, which have no healthcheck field, so podman drops the
   instruction with a warning. The `HEALTHCHECK` lines in the other components' Dockerfiles have no effect for the same
   reason. A check here would also have to be exec form (`CMD ["program", …]`), because the chiseled image has no shell,
-  `wget` or `curl`. studioctl polls `/health` over HTTP instead.
+  `wget` or `curl`. The runtimes check `/health` over HTTP from inside the stack's network instead (a probe container under
+  studioctl, an `exec` in the Postgres container under Aspire).
 - Compose era (until 2026-10-20): a `storage-blobs` volume created by the earlier root-run image was owned by root and
   had to be handed to the app user once: `podman run --rm -v localtest_storage-blobs:/d docker.io/library/postgres:16-alpine chown -R 1654:1654 /d`.
   studioctl's volume is `localtest-v2-storage-blobs`, created for the non-root image.

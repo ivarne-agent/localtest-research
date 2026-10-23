@@ -2,8 +2,10 @@
 
 The production Altinn Dialogporten adapter (`vendor/`, see `UPSTREAM.md`): it turns Storage's instances into dialogs in
 Dialogporten and keeps them in step, so an app's instances show up in the inbox (Arbeidsflate) as they do in production.
-Part of the optional `dialogporten` group (`studioctl env up -r localtest-v2 --with dialogporten`; `--with correspondence`
-and `--with everything` imply it), with Dialogporten's three hosts and Redis (`../dialogporten/`).
+A root of the optional `dialogporten` group (`studioctl env up -r localtest-v2 --with dialogporten`, or `--with everything`),
+with Dialogporten's three hosts and Redis (`../dialogporten/`). `--with correspondence` and `--with arbeidsflate` do not
+start it: groups close over `dependsOn` ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)), and nothing depends
+on the adapter.
 
 How an instance becomes a dialog: Storage writes an outbox row with every instance change (production code), its outbox
 service publishes a `SyncInstanceCommand` to Wolverine, and in `Development` a localtest handler in Storage's fakes posts
@@ -88,7 +90,7 @@ The image runs with `ASPNETCORE_ENVIRONMENT=Development`. In the adapter that on
 | `POST storage/dialogporten/api/v1/syncDialog`, `POST .../syncDialog/simple/{partyId}/{instanceGuid}` | Production: a JWT from the stack's Authentication with the scope `altinn:storage/instances.syncadapter` (`/Home/GetTestOrgToken?orgNumber=991825827&scopes=altinn:storage/instances.syncadapter`). The manual re-sync of one instance, for one changed while the group was off |
 | `DELETE storage/dialogporten/api/v1/instance/{partyId}/{instanceGuid}` | Production: a dialog token from Dialogporten with the `delete` action (Arbeidsflate's delete button). Soft-deletes the instance in Storage; the outbox then deletes the dialog |
 | `GET storage/dialogporten/api/v1/receipt/{dialogId}/{transmissionId}?lang=` | Production: a dialog token for that dialog. The adapter renders the receipt as Markdown from Dialogporten, Storage, the Register and the CDN |
-| `GET /health`, `GET /openapi/v1.json` | Anonymous; no public route (host port 8035) |
+| `GET /health`, `GET /openapi/v1.json` | Anonymous; no public route (`dialogporten-adapter:5011` inside the stack, no host port) |
 
 No localtest source mints dialog tokens: the smoke test reads one from Dialogporten's end-user API with a code-flow token.
 
@@ -124,14 +126,15 @@ production (create, delete). A tester sees that a sync is not instant, but does 
 
 ## In the stack
 
-studioctl's `localtest-v2` runtime starts `localtest-v2-dialogporten-adapter` with the `dialogporten` group, after Storage,
-the Register, Authentication and Dialogporten's WebApi, with `Localtest__Adapter__PlatformEndpoint` set to the public
-origin, published on host port 8035 (`/health` is polled there) and routed under `/storage/dialogporten` on the platform
-host. The proxy matches the longest prefix, so the adapter's paths win over Storage's `/storage`. Without the group there
-is no container, and the route is written disabled: `/storage/dialogporten/...` answers 503 problem details ("Component not
+The runtime starts the `dialogporten-adapter` container (studioctl: `localtest-v2-dialogporten-adapter`) with the
+`dialogporten` group, after Storage, the Register, Authentication and Dialogporten's WebApi, with
+`Localtest__Adapter__PlatformEndpoint` set to the public origin. It listens on 5011 (no host port; its `/health` is
+checked from inside the stack's network) and the front door routes `/storage/dialogporten` to it by
+`services__dialogporten-adapter__http__0`, before Storage's `/storage`. Without the group there is no container and no
+`services__` address: `/storage/dialogporten/...` answers 503 problem details ("Component not
 running", `component: dialogporten-adapter`, `group: dialogporten`), which Storage's handler takes for "not running".
-Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter`, override
-with `STUDIOCTL_IMAGE_LOCALTEST_V2_DIALOGPORTEN_ADAPTER`; `--dev dialogporten-adapter` builds it from this folder.
+Image `ghcr.io/ivarne-agent/localtest-research/localtest-dialogporten-adapter` at the manifest's pin;
+`--dev-dialogporten-adapter` builds it from this folder.
 
 ## Smoke test
 
@@ -150,7 +153,7 @@ receipt is the adapter's; the code-flow token for user 1337 → the end-user dia
 `text/markdown` (401 without a token or with a user token); `syncDialog/simple` twice 204 with the revision unchanged;
 the delete with the dialog token 204 → Storage `isSoftDeleted` → the dialog's `deletedAt` within 10 s.
 
-Without the group: no adapter on 8035, the enqueue path a 503 from the front door naming the component and group, an instance created as usual without `dialog.id`, and
+Without the group: no adapter container, the enqueue path a 503 from the front door naming the component and group, an instance created as usual without `dialog.id`, and
 (through `podman logs`) exactly one "adapter is not running" line in Storage's log for it and no outbox warning.
 
 ## Memory
@@ -203,5 +206,5 @@ Not verified: Arbeidsflate (task 11) using the links, attachments opened through
 and an archived instance's go-to link followed to the receipt (the `receipt` group serves it since task 16; no test
 chains the two).
 
-Superseded 2026-10-21: the published image is pinned (`sha-3c9b03f`, proven with `--with everything`; now `sha-0485d0a`
-in `config/images.go`), so `--with dialogporten` no longer needs `--dev dialogporten-adapter`.
+Superseded 2026-10-21: the published image is pinned (`sha-3c9b03f`, proven with `--with everything`; since task 27 the
+pin is in the manifest, `sha-6d928ad` on 2026-10-23), so `--with dialogporten` no longer needs `--dev dialogporten-adapter`.

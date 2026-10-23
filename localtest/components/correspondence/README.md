@@ -2,15 +2,18 @@
 
 Production Altinn Correspondence (`vendor/`, see `vendor/UPSTREAM.md`): the API host, with its background work in Hangfire
 inside the same process, on a `correspondence` database in the shared Postgres 18, as the **optional component group
-`correspondence`** of the `localtest-v2` runtime. The group implies `dialogporten`, so one flag starts both:
+`correspondence`** of the `localtest-v2` runtime. A group starts its root and what it depends on
+([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)): `--with correspondence` starts Correspondence, Redis and
+Dialogporten's WebApi (its `dependsOn`), not Dialogporten's Service and GraphQL hosts or the adapter (`--with dialogporten`
+adds them):
 
 ```sh
-studioctl env up -r localtest-v2 --with correspondence      # --dev correspondence builds the image from this folder
+studioctl env up -r localtest-v2 --with correspondence      # --dev-correspondence builds the image from this folder
 ```
 
-| Container | Image | Host port | Public route | Health |
+| Container | Image | Port (in the stack) | Public route | Health |
 | --- | --- | --- | --- | --- |
-| `correspondence` | `localtest-correspondence` | 8033 (container 2525) | `local.altinn.cloud/correspondence` (unchanged path: the host's routes start with `/correspondence/api/v1`) | `/health` (production's database check; `/healthz` is liveness only) |
+| `correspondence` | `localtest-correspondence` | 2525 (no host port) | `local.altinn.cloud/correspondence` (unchanged path: the host's routes start with `/correspondence/api/v1`) | `/health` (production's database check; `/healthz` is liveness only) |
 
 Apps reach it at `PlatformSettings:ApiCorrespondenceEndpoint` (`{origin}/correspondence/api/v1/`, which studioctl already
 gives them); today only the signing flow (`signering-brukerstyrt`) sends correspondence. Without the group the route answers
@@ -155,15 +158,15 @@ and skips the storage account deployment.
 
 Correspondence connects to Redis eagerly at start (`ConnectionMultiplexer.Connect` for the Data Protection keys,
 `Program.cs:149`) and aborts without it; with `abortConnect=false` and no Redis every HybridCache and OIDC-state call waits
-5 seconds and fails. So it uses the Redis of the `dialogporten` group, database 1 (Dialogporten uses 0). That is one reason
-the group implies `dialogporten`.
+5 seconds and fails. So it uses the shared `redis` container, database 1 (Dialogporten uses 0, Arbeidsflate 2), which is in
+its `dependsOn`, so `--with correspondence` starts it.
 
 ## Dialogporten is required
 
 The publish job marks a correspondence `Failed` when it has no dialog ("Dialogporten dialog not created",
 `PublishCorrespondenceHandler.cs`); the dialog is created by an earlier Hangfire job. Correspondence also validates dialog
-tokens against Dialogporten's JWKS. It therefore never runs without the Dialogporten group, and studioctl starts it after the
-Dialogporten WebApi is healthy (migrated, JWKS served). A dialog that cannot be created leaves the correspondence
+tokens against Dialogporten's JWKS. It therefore never runs without Dialogporten's WebApi (its `dependsOn`), and the runtime starts it after the
+WebApi is healthy (migrated, JWKS served). A dialog that cannot be created leaves the correspondence
 `Initialized` for a long time: Hangfire's default `AutomaticRetry` (10 attempts with growing delays) runs first; the
 `jobs` view shows it.
 
@@ -252,12 +255,12 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
-- The image is not pinned in `config/images.go` to a build that exists until this branch is on main and the tag is bumped; until
-  then use `--dev correspondence` or `STUDIOCTL_IMAGE_LOCALTEST_V2_CORRESPONDENCE`.
+- The image is in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev-correspondence` builds it from this
+  folder.
 
 ## Tests
 
-`./smoke-test.sh [BASE]` needs the stack with `--with correspondence` and checks, in order: `/health` on the host port and all 69
+`./smoke-test.sh [BASE]` needs the stack with `--with correspondence` and checks, in order: `/health` (from inside the stack's network, `correspondence:2525`) and all 69
 migrations (the `status` call, and in the database itself when `podman` reaches `localtest-v2-postgres`, plus the owner role
 being no superuser); 401 without a token, 403 without `altinn:correspondence.write`, 400 `CORR-01036` for an unknown resource;
 with a service owner's token: `POST attachment`, the upload with its
@@ -280,7 +283,7 @@ and job list. Before the scheduled publish, **the browser download** (task 11b) 
 with only user 1337's session cookies (from the code-flow helper, as the browser has them after the inbox login), each redirect
 followed one at a time with a cookie jar and every walk bounded: the challenge to `authorize` for `correspondence-localtest` (exact
 redirect URI, `openid profile`, S256, upstream's `acr_values`), the correlation and nonce cookies `SameSite=Lax` without `Secure`,
-the same attributes from the host port 8033 directly (task 21b: the front door passes them unchanged),
+the same attributes from the container directly (`correspondence:2525` from inside the stack's network; task 21b: the front door passes them unchanged),
 `authorize` straight to `idporten-callback?code=` (no picker), the callback to `download?session={guid}`, 200 with the bytes as an
 attachment; the reused `session` (a new challenge, no bytes); no cookie (the picker, no loop); a code issued to `localtest-smoke`
 at the callback (one restart with `oidcRetry=1`, then the bytes); the restart's expiry of the two cookies without `Secure`

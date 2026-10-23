@@ -72,7 +72,7 @@ has none, so a restart changes nothing. The provisioner does not push platform s
 
 ## Used by
 
-- The app runner (studioctl-server's `AppProvisioner`), as step 3b, after the policy push and before the Access
+- The app provisioning (the front door's `Provisioning/` since task 26; studioctl-server's `AppProvisioner` before), as step 3b, after the policy push and before the Access
   Management refresh: `GET resourceregistry/api/v1/resource/app_{org}_{app}/policy/subjects?reloadFromXacml=true`,
   as Designer does at deploy. It reads the pushed policy from the policy store and upserts the app's subject pairs
   (soft-deleting removed ones). Anonymous in production and here.
@@ -90,7 +90,7 @@ Defaults, with `{platform}` = `Localtest:ResourceRegistry:PlatformEndpoint` (def
 
 | Key | Default |
 | --- | --- |
-| `PostgreSQLSettings:AdminConnectionString`, `ConnectionString` | `Host=postgres;Port=5432;Database=resourceregistrydb;Username=platform_authorization_admin` / `platform_authorization`, `{0}` replaced by the `…Pwd` settings (`localtest`); studioctl sets them explicitly |
+| `PostgreSQLSettings:AdminConnectionString`, `ConnectionString` | `Host=postgres;Port=5432;Database=resourceregistrydb;Username=platform_authorization_admin` / `platform_authorization`, `{0}` replaced by the `…Pwd` settings (`localtest`); the manifest sets them explicitly |
 | `PlatformSettings:StorageApiEndpoint`, `ApiRegisterEndpoint`, `ApiAccessManagementEndpoint` | `{platform}storage/api/v1/`, `{platform}register/api/v1/`, `{platform}accessmanagement/api/v1/` |
 | `OidcProviders:altinn:Issuer`, `WellKnownConfigEndpoint` | `{platform}authentication/api/v1/openid/` and its `.well-known/openid-configuration` |
 | `Localtest:ResourceRegistry:PolicyStorePath` | `/policy-store` |

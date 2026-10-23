@@ -67,7 +67,7 @@ the consumer's additive hook; no vendored file changes.
 - On a request that is not https (`HttpRequest.IsHttps`): `Secure` off, and `SameSite=None` becomes `Lax` (a browser refuses
   `None` without `Secure`). Everything else is the host's.
 - On https nothing changes, so production's attributes hold wherever TLS is in front. The consumers do not honour
-  `X-Forwarded-Proto`, so behind the stack's front doors every request is http.
+  `X-Forwarded-Proto`, so behind the stack's front door every request is http.
 - The options go to `UseCookiePolicy` directly; a host's own `CookiePolicyOptions` (and its own `UseCookiePolicy`, if any) are
   untouched.
 

@@ -10,7 +10,8 @@ Only the two registers outside the stack are replaced, by stand-ins that read th
 so test users' contact details and organisations' official addresses reach Profile through production's own sync code.
 
 Until task 14 the Register component answered `/profile` with three fake controllers; they are deleted, and the route is
-this component's (host port 8036, container port 5030).
+this component's (container port 5030, no host port; the front door routes `/profile` to it by
+`services__profile__http__0`, see [`../../CONVENTIONS.md`](../../CONVENTIONS.md)).
 
 In the default stack it starts after Postgres and the Register (its only deps: the database, and the test data for the
 seed). Authentication, Authorization, Access Management and Notifications, and Receipt and Correspondence in their
@@ -104,8 +105,8 @@ reported.
 | `JobSettings:KrrSyncEnabled`, `OrgSyncEnabled` | `true` (upstream `false`) | The two syncs, with the stand-ins |
 | `JobSettings:KrrSyncWaitTimeInMinutes`, `OrgSyncWaitTimeInMinutes` | `1` (upstream `10`) | Also the settings seed's interval |
 | `CoreSettings:ProfileCacheLifetimeSeconds` | `10` (production `600`) | The Register id cache |
-| `PostgreSqlSettings:AdminConnectionString`, `ConnectionString` | upstream's `localhost`; studioctl sets `Host=postgres` | `{0}` is the password (`ProfileDbAdminPwd`, `ProfileDbPwd`, both `Password` in upstream's appsettings) |
-| `AccessTokenSettings:AccessTokenSigningCertificateFullPath` | set by studioctl | The shared certificate: validates incoming platform tokens (fake provider) and signs outgoing ones (production generator, `platform`/`profile`, to the Register and Notifications) |
+| `PostgreSqlSettings:AdminConnectionString`, `ConnectionString` | upstream's `localhost`; the manifest sets `Host=postgres;Port=5432` | `{0}` is the password (`ProfileDbAdminPwd`, `ProfileDbPwd`, both `Password` in upstream's appsettings) |
+| `AccessTokenSettings:AccessTokenSigningCertificateFullPath` | `/certs/localtest-accesstoken.pfx` (manifest) | The shared certificate: validates incoming platform tokens (fake provider) and signs outgoing ones (production generator, `platform`/`profile`, to the Register and Notifications) |
 
 The image sets `ASPNETCORE_ENVIRONMENT=Development` (the JWT handler reads the OpenID metadata over http only there) and
 `ASPNETCORE_URLS=http://+:5030` (upstream's compose file sets it).
@@ -199,6 +200,9 @@ ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:15036 \
   'PostgreSqlSettings__ConnectionString=Host=127.0.0.1;Port=5432;Username=platform_profile;Password={0};Database=profiledb' \
   dotnet vendor/src/Altinn.Profile/bin/Release/net10.0/Altinn.Profile.dll
 ```
+
+This needs a Postgres reachable from the host with `profiledb` initialised: the stack publishes none (only the front
+door's 8000; the Aspire package's `PostgresHostPort` publishes one on loopback, so use that port).
 
 On a machine whose default SDK is a preview (11.0), pin 10.0 with a `global.json` next to the folder you build from.
 

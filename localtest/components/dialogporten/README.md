@@ -1,27 +1,30 @@
 # dialogporten
 
 Production Dialogporten (`vendor/`, see `vendor/UPSTREAM.md`): the WebApi, GraphQL and Service hosts on a `dialogporten`
-database in the shared Postgres 18, with a Redis, as an **optional component group** of the `localtest-v2` runtime. The group
-also holds the Dialogporten adapter (`../dialogporten-adapter/`, host port 8035), and the `correspondence` group implies it. It
+database in the shared Postgres 18, with a Redis, as an **optional component group** of the `localtest-v2` runtime. The group's
+roots are the GraphQL and Service hosts and the Dialogporten adapter (`../dialogporten-adapter/`); the WebApi and Redis come
+with them as their `dependsOn`. Groups close over `dependsOn` ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)), so
+`--with correspondence` starts the WebApi and Redis only, and `--with arbeidsflate` the WebApi, GraphQL host and Redis. It
 is off by default (apps never call Dialogporten, and the three hosts and Redis cost about 0.5 GB of memory, the adapter about
 0.26 GB more) and started with
 
 ```sh
-studioctl env up -r localtest-v2 --with dialogporten      # --dev dialogporten builds the three images from this folder
+studioctl env up -r localtest-v2 --with dialogporten      # --dev-dialogporten-webapi=Dockerfile.webapi (and -graphql, -service) builds from this folder
 ```
 
-| Container | Image | Host port | Public route | Health |
+| Container | Image | Port (in the stack) | Public route | Health |
 | --- | --- | --- | --- | --- |
-| `redis` | `docker.io/library/redis:7.2-alpine` by digest | none | none | `redis-cli ping` (container health check) |
-| `dialogporten-webapi` | `localtest-dialogporten-webapi` | 8030 | `local.altinn.cloud/dialogporten` (unchanged path: the host serves itself under `UsePathBase("/dialogporten")`) | `/health/readiness` |
-| `dialogporten-graphql` | `localtest-dialogporten-graphql` | 8031 | `local.altinn.cloud/dialogporten/graphql[/...]`, forwarded as `/graphql[/...]` | `/health/readiness` |
-| `dialogporten-service` | `localtest-dialogporten-service` | 8032 | none (it consumes the in-process bus) | `/health/readiness` |
+| `redis` | `localtest-redis` (`../../redis/Dockerfile`: `redis:7.2-alpine` by digest, no persistence) | 6379 | none | `tcp` |
+| `dialogporten-webapi` | `localtest-dialogporten-webapi` | 8080 | `local.altinn.cloud/dialogporten` (unchanged path: the host serves itself under `UsePathBase("/dialogporten")`) | `/health/readiness` |
+| `dialogporten-graphql` | `localtest-dialogporten-graphql` | 8080 | `local.altinn.cloud/dialogporten/graphql[/...]`, forwarded as `/graphql[/...]` | `/health/readiness` |
+| `dialogporten-service` | `localtest-dialogporten-service` | 8080 | none (it consumes the in-process bus) | `/health/readiness` |
 
 The WebApi, GraphQL and Service hosts all migrate the database at start (production's `DevelopmentMigratorHostedService`, active in
-`Development`), and two of them at once collide on the schema ("column ... already exists"). The runtime therefore waits for the WebApi's container health
-check (a GET of `/health/readiness` over bash's `/dev/tcp`, the aspnet image has no curl) before it starts the other two.
-Without `--with dialogporten` (or `--with correspondence`, `--with everything`) none of the group's five containers (these four
-and the adapter) or their health checks exists, and the proxy answers `/dialogporten/...`
+`Development`), and two of them at once collide on the schema ("column ... already exists"). The runtime therefore waits for the WebApi's health
+check (a GET of `/health/readiness` over bash's `/dev/tcp` from inside the stack's network, see
+[`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-runtimes)) before it starts the other two.
+Without `--with dialogporten` (or `--with everything`) none of the group's five containers (these four and the adapter)
+exists unless another group depends on it (above), and the front door answers `/dialogporten/...`
 with `503` problem details ("Component not running", `group` `dialogporten`, the `--with dialogporten` command).
 
 | Path | What |
@@ -82,23 +85,25 @@ that has not used it holds nothing to clear and reads the marker from Redis when
 the fourteen caches share one marker key in Redis (FusionCache warns about this at start); since the endpoint clears all of them
 together, nothing is cleared that would not be anyway.
 
-## Provisioning: studioctl-server's step 5
+## Provisioning: step 5
 
-studioctl-server's `AppProvisioner` deploys each app it discovers (`../../README.md`, "What the app runner pushes"). With the group
+The front door (the localtest app's `Provisioning/`, since task 26) provisions each app registered with it
+(`../../README.md`, "What the app runner pushes"). With the group
 up it adds **step 5, `POST dialogporten/api/v1/localtest/sync`**, after step 4 (Access Management's refresh): the subject sync reads
 what step 3b made the registry derive from the pushed policy, and the cache clear also drops the authorized-parties cache, which
 then reads the test users Access Management has just refreshed. A freshly pushed app is therefore known to Dialogporten at once
 instead of after the 20-minute resource cache (the gap 9a documented).
 
-- **Whether the group runs** comes from the route table `env up` writes together with the state file's `groups` (the
-  bound-topology file studioctl-server already watches for its proxy): the `dialogporten-webapi` route exists exactly when the
-  group is on. No probe and no second copy of the group list; the server is not restarted when only the groups change, so the
-  state file is not part of its start configuration either. Without the group the log says
-  `Dialogporten sync for ttd/stateless-app skipped: the dialogporten group is not running`.
-- **The group can come later.** When `env up --with dialogporten` runs while apps are provisioned, the next refresh syncs once for
-  all of them (`Dialogporten synced the Resource Registry for the provisioned apps: ...`).
-- **A failure does not fail the provisioning** (Dialogporten is optional): it is logged once as a warning and retried on every
-  refresh until it answers, which is what happens while the hosts are still starting.
+- **Whether the group runs** is whether `dialogporten-adapter` has a `services__dialogporten-adapter__http__0` address in
+  the localtest container (since task 26; no probe and no copy of the group list). Without it the step is skipped.
+  (Until task 26 studioctl-server's `AppProvisioner` read it from its route table and logged
+  `Dialogporten sync for ttd/stateless-app skipped: the dialogporten group is not running`.)
+- **The group can come later, but needs a registration.** The localtest app runs the sync only while it provisions an app
+  (`Provisioning/LocaltestProvisioner.cs`); nothing syncs on its own when `env up --with dialogporten` runs after the apps
+  were registered (studioctl-server's refresh loop that did, until task 26, is gone). Register the app again (restart
+  `studioctl run`, the Aspire `provision` command, or the `PUT`), or call `POST dialogporten/api/v1/localtest/sync`.
+- **A failure does not fail the provisioning** (Dialogporten is optional): it is logged as a warning and the registration
+  reports `dialogporten` `Failed` (which happens while the hosts are still starting); register again to retry.
 
 ## Events
 
@@ -196,7 +201,8 @@ Upstream uses Redis in all three hosts, and the group keeps it (one container, a
 
 Removing it would cost two directive sites in the shared Infrastructure project (subscriptions to the in-memory transport, the Redis cache and
 backplane registrations off) and lose the live inbox updates in Arbeidsflate (task 11). Redis is 7.2 (the last BSD-licensed Redis, nearest to the 6.0
-upstream's compose runs), pinned by digest, no persistence (`--save "" --appendonly no`), no published port; Valkey would do as well.
+upstream's compose runs), pinned by digest in `../../redis/Dockerfile`, no persistence (`--save "" --appendonly no`), no published port; Valkey would do as well.
+Correspondence (database 1) and the Arbeidsflate BFF (database 2) share it; clients reach it by alias and port (`redis:6379`).
 
 ## Differences from production
 

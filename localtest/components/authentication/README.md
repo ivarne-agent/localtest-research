@@ -191,7 +191,7 @@ identity number, `nonce`, `sid`, `aud`); `invalid_client` for a wrong secret, `i
 refresh rotation and reuse detection; logout through `endsession` and `handleloggedout`, after which the session's
 refresh token is refused; and, with the dialogporten group up, Dialogporten's end-user dialog list with the code-flow
 access token (the cookie JWT, without `pid`, is refused with 403). Since task 21b also the sign-in's callback straight on
-Authentication's host port 8021: its four cookies without `Secure`, and the same attributes through the front door. That
+Authentication (`authentication:5101`, from inside the stack's network since task 27a): its four cookies without `Secure`, and the same attributes through the front door. That
 is 34 checks with the group and 32 without it, where the last two are skipped.
 
 On the stack (2026-10-20, `env up -r localtest-v2 --with dialogporten --dev authentication --dev localtest`): 32 ok,
@@ -218,7 +218,8 @@ The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`
 from ghcr. To run a change made here instead, build it from this checkout:
 
 ```sh
-STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up -r localtest-v2 --dev authentication
+cd localtest/components/authentication && studioctl env up -r localtest-v2 --dev-authentication
 ```
 
-studioctl cannot route the component's prefix to an instance running in an IDE yet; `--dev` rebuilds the image.
+`--dev-<container>[=<path>]` builds the image from the Dockerfile at the path or in the directory (default: the current
+one). The front door cannot route the component's prefix to an instance running in an IDE; `--dev` rebuilds the image.

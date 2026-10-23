@@ -45,7 +45,7 @@ subscription service), `AppsDomain` is one string matched with `Contains`/`EndsW
 shares, and replacing `OutboundService` would mean copying it. The other fix, apps on their own host
 (`{org}.apps.local.altinn.cloud`), touches studioctl's routes, app-lib's URLs and the Cypress setup. So the sites keep
 production's host test and add one condition under `#else`: a source whose first path segment is a platform component's
-prefix (the routes studioctl serves on the platform host: `dialogporten`, `correspondence`, `storage`, `events`, ...) is
+prefix (the routes the front door serves on the platform host: `dialogporten`, `correspondence`, `storage`, `events`, ...) is
 not an app source. Dialogporten's events are then cached per dialog URL and a Dialogporten source filter is a generic
 subscription, both as in production; app sources are unchanged.
 
@@ -89,7 +89,8 @@ clock and that the read API holds back an event published after one older than 3
 
 Outgoing platform access tokens (Events calls Register as `platform`/`events`) need no fake. Events never binds the
 client's `AccessTokenSettings`, so the production `SigningCredentialsResolver` reads its default path,
-`../accesstoken/accesstokencredentials.pfx` from `/app`; studioctl mounts the shared certificate there too.
+`../accesstoken/accesstokencredentials.pfx` from `/app`; both runtimes mount the shared certificate there too, until this
+image links that path to `/certs` ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-certificate)).
 
 ## Inspection API (`events/api/localtest/`, anonymous)
 
@@ -127,7 +128,7 @@ Defaults, inserted just below the environment variables, with `{platform}` = `Lo
 | `Localtest:Events:Delivery` | `LocalOnly`: deliver to the platform host, its subdomains, single-label hosts (container names; `localhost` is the events container itself) and `host.docker.internal`, the developer's machine (a receiver there must listen on more than 127.0.0.1, for example `0.0.0.0`); capture everything else. `CaptureAll` sends nothing; `All` sends everything, as production does |
 
 Forced: `kvSetting:SecretUri` empty, `ApplicationInsights:ConnectionString` empty, all six
-`WolverineSettings:Enable*` false (no Service Bus). studioctl sets `PostgreSQLSettings__AdminConnectionString` and
+`WolverineSettings:Enable*` false (no Service Bus). The manifest sets `PostgreSQLSettings__AdminConnectionString` and
 `__ConnectionString` (`Host=postgres;…;Database=eventsdb`, `{0}` is replaced by upstream's `Password` settings).
 `ASPNETCORE_ENVIRONMENT=Development` (set by the Dockerfile) lets the JWT handler read the OpenID metadata over http.
 It also brings the developer exception page and Swagger, and Development's Debug logging, which the image lowers to

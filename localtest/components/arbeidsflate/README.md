@@ -3,8 +3,12 @@
 Production Arbeidsflate, the Altinn inbox (`vendor/`, upstream `Altinn/dialogporten-frontend`, see `vendor/UPSTREAM.md`):
 the React SPA and the Fastify BFF (backend for frontend) that signs the user in, keeps the session and proxies GraphQL to
 Dialogporten. It is the **optional group `arbeidsflate`** (`studioctl env up -r localtest-v2 --with arbeidsflate`, or
-`--with everything`), which implies the `dialogporten` group and nothing else: the inbox shows Dialogporten's dialogs,
-which come from the Dialogporten adapter (apps' instances) and, with `--with correspondence`, from Correspondence.
+`--with everything`). Groups close over `dependsOn` ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)):
+`--with arbeidsflate` starts `arbeidsflate`, `arbeidsflate-bff`, Redis and Dialogporten's GraphQL and WebApi hosts, not
+the Service host or the adapter. The inbox shows Dialogporten's dialogs, which come from the Dialogporten adapter (apps'
+instances, so add `--with dialogporten`) and, with `--with correspondence`, from Correspondence. Neither container is
+.NET: the BFF and nginx reach the others by alias and port (`postgres:5432`, `redis:6379`, `arbeidsflate-bff:80`), not
+through service discovery.
 
 Open it at **`http://af.local.altinn.cloud:8000`**, a host of its own (the SPA and the BFF use absolute paths, `/`,
 `/assets`, `/api/...`, so they cannot live under a prefix of `local.altinn.cloud`). The browser needs the name in the
@@ -15,13 +19,13 @@ Apps link into it: the app runners set `PlatformFrontendSettings__Arbeidsflate{I
 `/`, `/inbox/{dialogId}`, `/profile` and `/profile/parties` on this host, which the monorepo app frontend uses for "back
 to inbox" and the receipt's inbox link (`localtest/README.md`, "What the app runner pushes").
 
-| Container | Image | Host port | Route | Health |
+| Container | Image | Port (in the stack) | Route | Health |
 | --- | --- | --- | --- | --- |
-| `arbeidsflate` | `Dockerfile.frontend`: the SPA built by Vite, served by `nginx:1.25-alpine` | 8037 | the whole host `af.local.altinn.cloud` | `GET /` |
-| `arbeidsflate-bff` | `Dockerfile.bff`: Node 24, the TypeScript sources run through `@swc-node/register` | 8038 | none (nginx proxies `/api/` to its network alias `arbeidsflate-bff`) | `GET /api/readiness` |
+| `arbeidsflate` | `Dockerfile.frontend`: the SPA built by Vite, served by `nginx:1.25-alpine` | 80 | the whole host `af.local.altinn.cloud` | `GET /` |
+| `arbeidsflate-bff` | `Dockerfile.bff`: Node 24, the TypeScript sources run through `@swc-node/register` | 80 | none (nginx proxies `/api/` to its network alias `arbeidsflate-bff`) | `GET /api/readiness` |
 
 State: a database `arbeidsflate` in the shared Postgres (saved searches, favourite groups, a profile row per user), and
-database 2 of the `dialogporten` group's Redis (sessions, `idp-sid:*` for front-channel logout, Maskinporten and
+database 2 of the shared Redis (sessions, `idp-sid:*` for front-channel logout, Maskinporten and
 organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisioned and nothing is reset on start.
 
 ## Layout
@@ -95,8 +99,8 @@ at start, and in phase 2 a restarted BFF container had a new address and nginx a
 ## Hosting shape
 
 ```
-browser ── http://af.local.altinn.cloud:8000/* ──► studioctl-server (the front door, keeps Host and Set-Cookie)
-                                                   └► 127.0.0.1:8037  arbeidsflate (nginx)
+browser ── http://af.local.altinn.cloud:8000/* ──► the localtest container (the front door, keeps Host and Set-Cookie)
+                                                   └► arbeidsflate:80  (nginx, by services__arbeidsflate__http__0)
                                                         ├ /api/*  ──► arbeidsflate-bff:80 (no forged X-Forwarded-Proto)
                                                         └ /*      ──► the SPA (index.html for every client route)
 browser ── http://local.altinn.cloud:8000/dialogporten/graphql/stream ──► Dialogporten GraphQL (SSE, CORS for af.)
@@ -104,8 +108,9 @@ BFF     ── http://local.altinn.cloud:8000/{authentication,dialogporten,profi
            (through the host gateway, as every component reaches the platform)
 ```
 
-studioctl declares the host as the topology component `arbeidsflate` (`af.local.altinn.cloud`), so it is one of the
-ingress hosts every container maps to the host gateway (Authentication's server-side front-channel logout reaches the BFF
+The front door routes the host to `arbeidsflate` in code (`localtest/Proxy/PlatformRoutes.cs`); studioctl declares it as
+the topology component `arbeidsflate` (`af.local.altinn.cloud`), so it is one of the
+public hosts every container maps to the host gateway (Authentication's server-side front-channel logout reaches the BFF
 that way) and one of the names `studioctl env hosts add` writes. With the group off, every request on the host answers
 the front door's `503` problem details naming the group and the `--with arbeidsflate` command.
 
@@ -127,7 +132,7 @@ The BFF's environment, set by studioctl (the `arbeidsflate-bff` component in the
 | `PLATFORM_BASEURL` | `http://local.altinn.cloud:8000` | Profile, Register, the Resource Registry, Notifications, Correspondence, `exchange/maskinporten` |
 | `DIALOGPORTEN_URL` | `http://local.altinn.cloud:8000/dialogporten` | `/graphql` (the front door's rewrite to the GraphQL host) and `/health` (the WebApi) |
 | `DB_CONNECTION_STRING` | `postgres://arbeidsflate:localtest@postgres:5432/arbeidsflate` | TypeORM; `DB_USE_AAD_AUTH` stays false |
-| `REDIS_CONNECTION_STRING` | `redis://redis:6379/2` | The group's Redis, database 2 |
+| `REDIS_CONNECTION_STRING` | `redis://redis:6379/2` | The shared `redis` container, database 2 |
 | `SESSION_SECRET` | a fixed string of 50 characters | Signs the session cookie (at least 32) |
 | `AUTH_CONTEXT_COOKIE_DOMAIN` | `local.altinn.cloud` | The `altinnPersistentContext` language cookie the BFF writes for the apps |
 | `ENVIRONMENT`, `NODE_ENV` | `test`, `production` | `prod` would filter organisations; production's compose and Bicep run `production` |
@@ -192,9 +197,8 @@ refreshed every 6 hours) are upstream's. The migrations at start are listed in `
 
 ## Known gaps
 
-- The images are not in the pinned build (`images.go`) until this component is on `main`, the workflow has built it and
-  the tag is bumped; until then use `--dev arbeidsflate` or `STUDIOCTL_IMAGE_LOCALTEST_V2_ARBEIDSFLATE` and
-  `..._ARBEIDSFLATE_BFF`.
+- Both images are in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev-arbeidsflate` and
+  `--dev-arbeidsflate-bff=Dockerfile.bff` build them from this folder.
 - **An existing Postgres volume needs the init script once.** A volume created before this component predates
   `90-arbeidsflate.sh` (Postgres runs init scripts on an empty volume only), and the BFF then fails to connect: run
   `studioctl env reset -r localtest-v2 --yes` once (it also empties Storage and Dialogporten), or the script by hand (`podman exec -i localtest-v2-postgres sh <
@@ -312,10 +316,10 @@ click its attachment.
 
 ## Tests
 
-`./smoke-test.sh [BASE]` needs `--with arbeidsflate` (the `dialogporten` group comes with it) and goes through the front
+`./smoke-test.sh [BASE]` needs `--with arbeidsflate --with dialogporten` (the instance's dialog needs the adapter) and goes through the front
 door: readiness and the BFF's `/api/health` (Postgres, Redis, OIDC over http, Dialogporten); the SPA (the stream URL in
 `index.html`, an asset with its cache headers, the CSP and no HSTS on a deep link, GraphiQL behind `/api/`); the BFF's
-session cookie without `Secure` straight from nginx's host port 8037 and unchanged through the front door (task 21b); the login
+session cookie without `Secure` straight from nginx (`arbeidsflate:80`, from inside the stack's network) and unchanged through the front door (task 21b); the login
 round trip with a cookie jar as user 1337 (picker, `/api/cb`, the session cookie without `Secure`,
 `/api/isAuthenticated`); the fixture app pushed and an instance of it for party 500000 followed to its dialog; GraphQL
 through the BFF (parties, the dialog in `searchDialogs`, `dialogById` with a dialog token, no CORS headers on the
@@ -379,10 +383,10 @@ sudo studioctl env hosts add -r localtest-v2              # once: af.local.altin
 studioctl env reset -r localtest-v2 --yes                # once, if the Postgres volume predates this component
 # studioctl may build the two images of the --dev name side by side; on a small machine build them one at a time
 # first, so that the runtime's builds below are cache hits (the tags are the ones studioctl gives a --dev build):
-podman build -f Dockerfile.bff -t localtest-v2-arbeidsflate-bff:dev .
-podman build -f Dockerfile.frontend -t localtest-v2-arbeidsflate:dev .
-STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest \
-  studioctl env up -r localtest-v2 --with arbeidsflate --dev arbeidsflate
+podman build -f Dockerfile.bff -t localtest-v2-dev-arbeidsflate-bff .
+podman build -f Dockerfile.frontend -t localtest-v2-dev-arbeidsflate .
+studioctl env up -r localtest-v2 --with arbeidsflate --with dialogporten \
+  --dev-arbeidsflate=Dockerfile.frontend --dev-arbeidsflate-bff=Dockerfile.bff   # or without --dev: the pinned images
 ```
 
 Then open `http://af.local.altinn.cloud:8000`, sign in as a test user, choose the party in the account menu, and start

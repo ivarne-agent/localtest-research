@@ -3,7 +3,8 @@
 Production Altinn Receipt (`vendor/`, see `vendor/UPSTREAM.md`), the platform receipt for archived instances at
 `/receipt/{instanceOwnerPartyId}/{instanceGuid}`: the page Dialogporten's go-to action and the Dialogporten adapter
 link archived instances to. It is the **optional group `receipt`** (`studioctl env up -r localtest-v2 --with receipt`,
-or `--with everything`), implying no other group. It is stateless: no database, queue or blob store, and nothing is
+or `--with everything`), which starts only the `receipt` container: everything it depends on is in the default stack
+([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)). It is stateless: no database, queue or blob store, and nothing is
 provisioned. Its backend reads the instance from Storage, the owner from Register and the user from Profile (the
 profile component) with the user's `AltinnStudioRuntime` cookie, adding a `platform`/`receipt` platform access token
 for Register and Profile; the browser reads Storage's application metadata and texts and altinncdn.no's org list.
@@ -21,7 +22,7 @@ for Register and Profile; the browser reads Storage's application metadata and t
 | Production | Here |
 | --- | --- |
 | `IStorage` (`StorageWrapper`) returning Storage's instance as is | `SelfLinksStorage` wraps the production `StorageWrapper` and rewrites each data element's `selfLinks.platform` from `https://platform.{GeneralSettings:Hostname}/` to `Localtest:Receipt:PlatformEndpoint` (the stack's public origin). Storage keeps the production link format, whose host neither resolves nor serves TLS locally; the frontend uses the link for attachment and PDF downloads and makes it relative once its host is the page's. Same endpoint, same cookie, same authorization |
-| Settings from the deployment (chart values) | Environment variables from studioctl: `GeneralSettings__OpenIdWellKnownEndpoint`, `GeneralSettings__Hostname` (`local.altinn.cloud`), the four `PlatformSettings__Api*Endpoint` on the public origin (the browser follows the sign-in redirect), `Localtest__Receipt__PlatformEndpoint`; `ASPNETCORE_ENVIRONMENT=Development` (cookie metadata over http) and `ASPNETCORE_URLS=http://+:5060` in the image |
+| Settings from the deployment (chart values) | Environment variables from the manifest: `GeneralSettings__OpenIdWellKnownEndpoint`, `GeneralSettings__Hostname` (`local.altinn.cloud`), the four `PlatformSettings__Api*Endpoint` on the public origin (the browser follows the sign-in redirect), `Localtest__Receipt__PlatformEndpoint`; `ASPNETCORE_ENVIRONMENT=Development` (cookie metadata over http) and `ASPNETCORE_URLS=http://+:5060` in the image |
 | The platform access token's signing certificate (Key Vault in production, mount not public) | The shared test certificate bind-mounted read-only at `/accesstoken/accesstokencredentials.pfx`, the path the production `SigningCredentialsResolver` reads when `AccessTokenSettings` is not bound, as for Events and Notifications |
 
 Not faked and not a site: Key Vault (`kvSetting:SecretUri` is empty), Azure Monitor (only with a Key Vault connection
@@ -47,7 +48,7 @@ production" in `../../README.md`.
 
 ## Using it
 
-Open the receipt on `local.altinn.cloud`, never on `localhost:<port>` or `127.0.0.1:8034`: upstream's frontend sends
+Open the receipt on `local.altinn.cloud`, never on `localhost:<port>` (the container publishes no host port anyway): upstream's frontend sends
 `localhost` to `platform.at22.altinn.cloud`. Signed out, it redirects to the sign-in picker and back. With the group
 off, `/receipt/...` answers `503` problem details naming the group and the `--with receipt` command.
 
@@ -76,7 +77,9 @@ bundle in `wwwroot/receipt/js/react/`); the whole `env up`, build included, took
   shapes. That `env logs` command first failed for a stopped container ("no containers are running"); it now shows the
   stopped container's log (`../../studioctl/README.md`).
 - `env up -r localtest-v2 --with correspondence --without dialogporten` (and `--with everything --without receipt`)
-  exits 1 in the preflight with the group error, before any container, image or proxy starts.
+  exits 1 in the preflight with the group error, before any container, image or proxy starts. (No longer since task 27a,
+  2026-10-22: groups close over `dependsOn`, so `--without dialogporten` leaves out that group's roots only and
+  Correspondence still starts the WebApi it depends on.)
 - Regressions on the default stack (group off): the root `../../smoke-test.sh` 23 of 23 (its unregistered-path 404
   included), `../../run-platform-regression.sh --no-apps` 44 of 44 Cypress tests in the six specs, no retries (apps
   with `studioctl run --dev-frontend`, the monorepo's built `src/App/frontend/dist` served on 8080 with
@@ -87,7 +90,6 @@ bundle in `wwwroot/receipt/js/react/`); the whole `env up`, build included, took
 - Only an organisation-owned instance viewed by a user with a role (party 500000, user 1337) is in the smoke test;
   person-owned instances, self-identified users and service-owner visits are not.
 - The fixture has no PDF, so the PDF link is not exercised (it goes through the same decorator).
-- The localtest app's own pre-studioctl proxy (`run-app.sh`, `Proxy/PlatformRoutes.cs`) has no `/receipt/` route.
 - Upstream's xUnit tests are not run.
 - The smoke test does not follow an archived dialog's go-to URL to the receipt: task 10's adapter emits it (with the
   `dialogporten` group as well), but no test chains the two yet; Arbeidsflate (task 11) is not in the stack.

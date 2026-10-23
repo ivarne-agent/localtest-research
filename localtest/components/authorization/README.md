@@ -101,8 +101,9 @@ requests built from the token claims as the PEP does, roles and packages from Ac
 Again on 2026-10-21 (task 14, `internal/user` from the profile component): 30 of 30, as recorded in
 `../profile/README.md` and `../../README.md`.
 
-The "store:" listing (`podman exec`) and the closing check on the log (`podman logs` since the start of the run) read
-studioctl's container `localtest-v2-authorization` (`CONTAINER=` overrides it). The log check is the 31st check: it
+The "store:" listing (`podman exec`) and the closing check on the log (`podman logs` since the start of the run) find the
+container through [`../../smoke/lib/containers.sh`](../../smoke/lib/containers.sh) (studioctl's `localtest-v2-authorization`
+or the Aspire package's `authorization-<hash>`; `CONTAINER=` overrides it). The log check is the 31st check: it
 expects no `fail:`/`crit:` entry other than the three the run provokes itself (the unknown instance's 404, logged
 twice, and the app without a policy) and prints the first ones when there are. Without podman or the container both
 say "skipped" and do not fail the run (changed 2026-10-21, task 12; the compose-era name made them show nothing and 0
@@ -114,10 +115,12 @@ The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`
 from ghcr. To run a change made here instead, build it from this checkout:
 
 ```sh
-STUDIOCTL_LOCALTEST_V2_SRC=<this repository>/localtest studioctl env up -r localtest-v2 --dev authorization
+cd localtest/components/authorization && studioctl env up -r localtest-v2 --dev-authorization
 ```
 
-studioctl cannot route the component's prefix to an instance running in an IDE yet; `--dev` rebuilds the image.
+`--dev-<container>[=<path>]` builds the image from the Dockerfile at the path or in the directory (default: the current
+one). The front door cannot route the component's prefix to an instance running in an IDE; `--dev` rebuilds the image.
 
-In the stack the PDP gets the platform endpoint, the shared certificate at `/certs` and the `policy-store` volume shared
-with Access Management; studioctl-server routes `/authorization/` to it.
+In the stack the PDP gets the platform endpoint, the shared certificate at `/certs` and the `localtest-v2-policy-store` volume
+shared with Access Management and the Resource Registry; the front door (the localtest container) routes
+`/authorization/` to it ([`../../CONVENTIONS.md`](../../CONVENTIONS.md)).
