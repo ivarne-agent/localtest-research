@@ -385,3 +385,11 @@ func TestAnUpWithOtherGroupsOrImagesChangesTheRunningEnvironment(t *testing.T) {
 		}
 	}
 }
+
+func TestTheProbeMountsATmpfsWhereThePostgresImageDeclaresAVolume(t *testing.T) {
+	t.Parallel()
+	mounts := probeVolumes()
+	if len(mounts) != 1 || mounts[0].ContainerPath != "/var/lib/postgresql" || mounts[0].Type != types.VolumeMountTypeTmpfs {
+		t.Fatalf("probe mounts %+v, want one tmpfs at /var/lib/postgresql (no anonymous volume per probe)", mounts)
+	}
+}

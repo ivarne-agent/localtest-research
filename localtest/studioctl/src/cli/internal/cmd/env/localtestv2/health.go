@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,7 +139,7 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 		RestartPolicy:  "",
 		ExtraHosts:     nil,
 		NetworkAliases: nil,
-		Volumes:        nil,
+		Volumes:        probeVolumes(),
 		Networks:       []string{networkName},
 		Ports:          nil,
 		Env:            nil,
@@ -170,6 +172,25 @@ func (p *prober) run(ctx context.Context, target healthTarget) error {
 		case <-time.After(probePollInterval):
 		}
 	}
+}
+
+// probeVolumes are tmpfs mounts at the paths the probe image's container has volumes at: the Postgres image declares
+// VOLUME /var/lib/postgresql, so a probe without a mount there gets an anonymous volume, which the removal (podman rm
+// without -v) leaves behind, one per probe and env up.
+func probeVolumes() []types.VolumeMount {
+	c := stack().Containers[probeImageContainer]
+	mounts := make([]types.VolumeMount, 0, len(c.Volumes))
+	for _, id := range slices.Sorted(maps.Keys(c.Volumes)) {
+		mounts = append(mounts, types.VolumeMount{
+			HostPath:       "",
+			ContainerPath:  c.Volumes[id],
+			Type:           types.VolumeMountTypeTmpfs,
+			SELinuxRelabel: types.SELinuxRelabelNone,
+			Options:        "",
+			ReadOnly:       false,
+		})
+	}
+	return mounts
 }
 
 func probeFinished(status string) bool {
