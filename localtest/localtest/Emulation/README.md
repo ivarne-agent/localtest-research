@@ -5,7 +5,7 @@ localtest-v2 --minimal` runs four containers (`postgres`, `storage`, `workflow-e
 default group's thirteen. Storage and the workflow engine are the real images. The design, its reasons and what is lost
 are in the spec, [`planned-components/minimal-emulation/README.md`](../../../planned-components/minimal-emulation/README.md);
 this page is the code's side: what this folder holds, how it plugs into the rest of the image, and the points the spec
-left open. Phase 1 (task 35) built it; the proof on the stack is phase 2.
+left open. Task 35 built it (phase 1) and proved it on the stack (phase 2, [Verified](#verified-2026-10-23-task-35-phase-2)).
 
 **The owner's rule: this folder is separate, and nothing else depends on it.** With no `services__<name>__http__0`
 equal to the front door's own address, [`Emulation.Add`](Emulation.cs) registers nothing and `Emulation.Map` maps
@@ -161,3 +161,48 @@ already registers (`TestUsers`, `AuthenticationClient`, `AppProvisioning`), so `
 4. State in a singleton registered in `Emulation.Add`; data from `TestDataStore.Current`.
 5. Tests in `tests/Emulation/` with `MinimalFrontDoor`; a check in `localtest/localtest/smoke-test.sh`'s minimal section;
    the table above, and the spec's section 5 if fidelity is lost.
+
+## Verified (2026-10-23, task 35 phase 2)
+
+On this machine (arm64, Podman), studioctl from this branch, the pinned `sha-6d928ad` images, the front door built from
+this folder (`--dev-localtest=localtest/localtest`):
+
+- **`studioctl env up -r localtest-v2 --minimal --dev-localtest=localtest/localtest`**: four containers, healthy in
+  65.5 s on the first run (the AOT image build and a re-pull of the workflow engine's `tt02`), 5.9 and 6.1 s with the
+  image cached, 36.7 s once when the `tt02` digest check was slow. No volume is created (tmpfs everywhere). `env status`:
+
+  ```
+  localtest-v2 is running (minimal mode)
+
+  Container                     Status   Image
+  localtest-v2-localtest        running  04f314f5f547
+  localtest-v2-postgres         running  ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-6d928ad (86ac6f312885)
+  localtest-v2-storage          running  ghcr.io/ivarne-agent/localtest-research/localtest-storage:sha-6d928ad (797099538a61)
+  localtest-v2-workflow-engine  running  ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app:tt02 (ada436f9b197)
+  register, profile, authentication, authorization, access-management,
+  events, resource-registry, notifications, pdf3: emulated in localtest
+  ```
+
+- **`studioctl run`** of `localtest/aspire/samples/app/App` (`ttd/testapp`): registered and provisioned (metadata and
+  texts in Storage, test data and policy in memory), answering through 8000. With the app's `testData.json` only its two
+  users load (the apps-only rule).
+- **Suites**: the root `smoke-test.sh` 23 ok, the 3 decision checks skipped by name (the app stopped first, so the seed's
+  users are back); `localtest/smoke-test.sh` 89 of 90 (the app-frontend bundle needs `FRONTEND_DIST`, as in the default
+  stack), the 9 emulated-service checks among them; the Register suite's 6 read checks ok, 8 skipped by name.
+- **Browser** (`playwright-cli`, Chromium): the start page with the banner, party selection from the emulated parties,
+  the form filled in and submitted, the receipt with the PDF; the downloaded PDF is the 602-byte `minimal.pdf`, its text
+  "Minimal PDF without content" ([`../docs/minimal/`](../docs/minimal/)). The sample app makes no PDF of its own, so its
+  metadata was given `enablePdfCreation` and a `ref-data-as-pdf` data type for the run (not committed). Events received
+  `app.instance.created` and `app.instance.process.completed` (the app run with
+  `--AppSettings:RegisterEventsWithEventsComponent=true`); an e-mail order to the app's user by national identity
+  number reached `aspire.utvikler@example.com`, `Delivered`, in `notifications/api/localtest/inboxes`.
+- **Clean slate**: after `env down` and `env up --minimal` again, Storage has no instance of the app (5 before, 0
+  after), no app is registered, no event is kept.
+- **The default stack unchanged**: `env up -r localtest-v2 --dev-localtest=localtest/localtest` (no `--minimal`, from
+  the running minimal stack: it stopped the four first, then started the thirteen, 23.2 s) on empty named volumes; the
+  root suite 26 of 26, `localtest/smoke-test.sh` 80 of 81 (the same `FRONTEND_DIST` check), the Register suite 14 of 14;
+  `GET localtest/api/routes` has no `emulated`, no `X-Localtest-Emulated` header, no banner.
+
+Two fixes came out of it: the minimal tmpfs mounts are `mode=1777` (Storage, a non-root user, could not create
+`/data/blobs/ttd` on a root-owned tmpfs), and the health probes, which run in the Postgres image, mount a tmpfs at its
+declared `VOLUME /var/lib/postgresql` (each probe left an anonymous volume behind, in both modes).
