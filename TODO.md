@@ -48,7 +48,7 @@ A path matching no route still falls through to the localtest app.
 | 12 | [Review leftovers](#12-review-leftovers) | done for the audit findings (2026-10-21, commits 6ba99ee..90c6bc4: Postgres in UTC, two Events directive sites for Dialogporten sources, authorization and root smoke tests fixed, Storage standalone test removed, `reviews/test-apps.md`; still open: HEAD on the localtest app, a WebSocket test, the Events reset not draining queues, Slack deliveries without their event, the Altinn 2 roles stub; pin sha-3143730, proven 2026-10-21 on plain images) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
-| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | approved (owner 2026-10-23: "dispatch agents on the maskinporten package"); brief `/home/agent/code/.briefs/task15-maskinporten-package.md`; **running** (dispatched 2026-10-23, Opus; upstream branch in the reference clone, no fork exists) | small | no |
+| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | approved (owner 2026-10-23: "dispatch agents on the maskinporten package"); brief `/home/agent/code/.briefs/task15-maskinporten-package.md`; **branch ready, awaiting the owner's fork** (2026-10-23: `feat/configurable-endpoints` at bca2659 in `.reference/altinn-apiclient-maskinporten`, patch in `.scripts/maskinporten-package/`, hand-over `/home/agent/code/pr-maskinporten-configurable-endpoints.md`; the token cannot fork) | small | no |
 | 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin sha-902ddfc, proven 2026-10-21) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
@@ -1349,3 +1349,13 @@ what format; a measurement design (OpenTelemetry `server.address` from the clien
 a logging forward proxy, deny-by-default egress on localtest as a later task) with scripts; phase 2 observes on the
 full stack through every suite and a browser flow and reconciles observed against static. Document
 `localtest/reviews/2026-10-23-egress-domains.md`.
+
+**Outcome (2026-10-23, task 15 phase 1).** Upstream change prepared: `TokenEndpoint` and `TokenExchangeEndpoint` on
+`MaskinportenSettings`/`IMaskinportenSettings` (empty = unset; absolute http(s) URL validated with the property
+named), used before the `Environment`/`TokenExchangeEnvironment` switches; the assertion `aud` follows `Environment`
+when set, else the token endpoint's base; `UseAltinnTestOrg` appends `test=true` correctly; a new xUnit test project
+(25 tests, the repo had none; CI does not run tests) and a README section. Interface addition is a minor-version break
+in the repo's own precedent (#83). The fork was refused (403), so the owner forks and pushes (steps in the hand-over);
+release is tag-driven (`v10.2.0` asked for). Follow-up after the release: bump Dialogporten, Notifications, the
+adapter, Correspondence and the shared copy, delete their `IMaskinportenService` fakes, and give each a throwaway RSA
+JWK (the placeholders `e30=`/`{"kty":"RSA"}` will fail once the package signs). Coordinator ran the tests.
