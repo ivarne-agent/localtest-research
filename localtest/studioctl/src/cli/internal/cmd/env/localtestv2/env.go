@@ -86,9 +86,8 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 }
 
 // Changed reports whether `env up` asks for another mode, other optional groups, other images (--latest) or other dev
-// builds than
-// the running environment was started with, in which case an environment that is already healthy still has to be
-// converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage again.
+// builds than the running environment was started with, in which case an environment that is already healthy still has
+// to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage again.
 func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	want, err := ResolveGroups(opts.With, opts.Without)
 	if err != nil {

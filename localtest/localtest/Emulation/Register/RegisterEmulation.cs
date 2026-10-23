@@ -70,12 +70,17 @@ public sealed class RegisterEmulation
         v1.MapPost("/apps/parties/query", (HttpRequest request, TestDataStore store) => Query(request, store.Current));
         v1.MapPost("/access-management/parties/query", (HttpRequest request, TestDataStore store) => Query(request, store.Current));
 
-        // The Register fake's view for the picker and tools (Home and the ID-porten picker read the store in process).
+        // The Register fake's views for the picker and tools (Home and the ID-porten picker read the store in process).
         app.MapGet(prefix + "/api/localtest/test-users", (TestDataStore store) =>
         {
             var data = store.Current;
             return Results.Json(data.Users.Select(u => TestUser(data, u)).ToArray(), EmulationJsonContext.Default.TestUserEntryArray);
         });
+        app.MapGet(prefix + "/api/localtest/organizations", (TestDataStore store) => Results.Json(
+            store.Current.ByPartyId.Values.Where(p => p.Org is not null).OrderBy(p => p.PartyId)
+                .Select(p => new TestOrgEntry(p.PartyId, p.PartyUuid, p.OrgNumber!, p.Name, p.ParentPartyId, p.UnitType, [.. p.Org!.NotificationAddresses.Select(a => new TestNotificationAddressEntry(a.Email, a.MobileNumber))]))
+                .ToArray(),
+            EmulationJsonContext.Default.TestOrgEntryArray));
     }
 
     /// <summary><c>GET persons</c> with <c>X-Ai-NationalIdentityNumber</c> and <c>X-Ai-LastName</c> (Base64 UTF-8).</summary>

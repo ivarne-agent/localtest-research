@@ -64,6 +64,11 @@ public sealed class ServiceTests : IAsyncLifetime
         Assert.Equal("DDG Fitness Oslo", (await Get("/register/api/v1/organizations/897069660")).GetProperty("name").GetString());
         var users = await Get("/register/api/localtest/test-users");
         Assert.Equal(8, users.GetArrayLength());
+        var sophie = users.EnumerateArray().Single(u => u.GetProperty("userId").GetInt32() == 1337);
+        Assert.Superset(new HashSet<int> { 500000, 500001, 500800 }, sophie.GetProperty("actingFor").EnumerateArray().Select(a => a.GetProperty("partyId").GetInt32()).ToHashSet());
+        var orgs = (await Get("/register/api/localtest/organizations")).EnumerateArray().ToDictionary(o => o.GetProperty("partyId").GetInt32());
+        Assert.Equal("varsling@ddgfitness.no", orgs[500000].GetProperty("notificationAddresses")[0].GetProperty("email").GetString());
+        Assert.Equal(0, orgs[500600].GetProperty("notificationAddresses").GetArrayLength());
     }
 
     [Fact]

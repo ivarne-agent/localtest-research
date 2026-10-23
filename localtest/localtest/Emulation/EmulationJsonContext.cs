@@ -14,6 +14,7 @@ namespace Localtest.Emulated;
 [JsonSerializable(typeof(UrnQuery))]
 [JsonSerializable(typeof(PartyQueryResult))]
 [JsonSerializable(typeof(TestUserEntry[]))]
+[JsonSerializable(typeof(TestOrgEntry[]))]
 [JsonSerializable(typeof(UserProfile))]
 [JsonSerializable(typeof(AuthorizedPartiesResponse))]
 [JsonSerializable(typeof(DiscoveryDocument))]

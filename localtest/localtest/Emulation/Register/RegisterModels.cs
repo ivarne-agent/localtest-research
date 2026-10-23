@@ -86,6 +86,11 @@ public sealed record TestUserPartyEntry(int PartyId, Guid PartyUuid, string? Org
 
 public sealed record ActingForEntry(int PartyId, Guid PartyUuid, string PartyType, string? OrgNumber, string? Ssn, string DisplayName, string? UnitType, int? ParentPartyId, IReadOnlyList<string> RoleCodes);
 
+/// <summary>The Register fake's <c>organizations</c> entry.</summary>
+public sealed record TestOrgEntry(int PartyId, Guid PartyUuid, string OrgNumber, string DisplayName, int? ParentPartyId, string? UnitType, IReadOnlyList<TestNotificationAddressEntry> NotificationAddresses);
+
+public sealed record TestNotificationAddressEntry(string? Email, string? MobileNumber);
+
 /// <summary>How the emulated services turn the test data into the Register's models.</summary>
 public static class RegisterModels
 {
