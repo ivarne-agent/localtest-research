@@ -16,7 +16,8 @@ Status (2026-10-23): task 27b done in code and tests (75) and **run under Podman
 the pin `sha-6d928ad`): only the localtest container publishes a port (8000), the app is registered and provisioned
 through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman). Task
 30: two apps in one AppHost work, see [Several apps](#several-apps). Task 31: the package's volumes are its own (`altinn-localtest-<id>`), no
-longer shared with studioctl's (`localtest-v2-<id>`).
+longer shared with studioctl's (`localtest-v2-<id>`). Task 37: [minimal mode](#minimal-mode),
+`AddAltinnLocaltestMinimal()`, in code, tests and the parity golden; its run under Podman is pending.
 The documentation stays in this repository until the package is adopted.
 
 | Path | What |
@@ -24,11 +25,11 @@ The documentation stays in this repository until the package is adopted.
 | `src/` | The package (`Altinn.App.Aspire`, net10.0, one dependency: `Aspire.Hosting`) |
 | `src/Manifest/` | The manifest reader and its validation, the run specification of each container (`StackSpec`), the app environment (`AppEnvironment`, a port of studioctl's `internal/cmd/app/env.go`) |
 | `tests/` | xunit v3: the reader, the golden comparisons with studioctl's snapshots, the application model, the registration against a fake front door |
-| [`../samples/app/`](../samples/app) | The sample: `App/`, the `ttd/testapp` fixture completed into an app on app-lib 8.12.15; `App2/`, a copy of it as `ttd/testapp2` that exists only to show two apps in one AppHost; and `AppHost/apphost.cs`, a single-file AppHost that adds the default stack, the `dialogporten` group and both apps |
+| [`../samples/app/`](../samples/app) | The sample: `App/`, the `ttd/testapp` fixture completed into an app on app-lib 8.12.15; `App2/`, a copy of it as `ttd/testapp2` that exists only to show two apps in one AppHost; `AppHost/apphost.cs`, a single-file AppHost that adds the default stack, the `dialogporten` group and both apps; and `AppHost/apphost-minimal.cs`, the same apps against [minimal mode](#minimal-mode) |
 
 The build is standalone (its own `Directory.Build.props`, `.editorconfig`, csharpier configuration and `global.json`,
 SDK 10.0.401): `dotnet build src`, `dotnet test tests`, `dotnet csharpier check .`. The sample builds with
-`dotnet build ../samples/app/AppHost/apphost.cs`; its `Directory.Build.targets` marks the package's project reference
+`dotnet build ../samples/app/AppHost/apphost.cs` (and `apphost-minimal.cs`); its `Directory.Build.targets` marks the package's project reference
 as a library (`IsAspireProjectResource=false`), which the `#:project` directive cannot say.
 
 ## Use
@@ -81,6 +82,8 @@ workflow run's artifact into a local folder source.
 | `AddAltinnApp(localtest, projectPath, name = "app", configure = null)` | The same by the `.csproj`'s path, for an AppHost without the generated `Projects.*` |
 | `AltinnAppOptions.OpenTelemetry` | Default `true`: `AppSettings__UseOpenTelemetry=true`, so the app's telemetry reaches the dashboard |
 | `AltinnAppOptions.ProvisionWhenReady` | Default `true`: register the app when it is healthy; `false` leaves it to the `provision` command |
+| `AddAltinnLocaltestMinimal(name = "altinn-localtest-minimal", configure = null)` | [Minimal mode](#minimal-mode): four containers, the rest emulated, nothing persisted. Its builder takes `AddAltinnApp` and `WithFrontendDevServer`, no group method |
+| `AltinnLocaltestMinimalOptions.Tag`, `.PostgresHostPort` | As in `AltinnLocaltestOptions` |
 
 ## How the manifest becomes resources
 
@@ -116,6 +119,77 @@ come from the resources' snapshots. Aspire ignores an image's `HEALTHCHECK` for 
 runs the check itself. Measured under Podman ([Run under Podman](#run-under-podman)): every container is
 healthy 1 to 6 s after what it waits for, the stack in 22 s on existing volumes and 32 s on empty ones, close to
 studioctl's 20 s and 21.6 s.
+
+## Minimal mode
+
+```csharp
+var localtest = builder.AddAltinnLocaltestMinimal();
+builder.AddAltinnApp<Projects.App>(localtest);
+```
+
+The Aspire form of `studioctl env up -r localtest-v2 --minimal` (phase 2 of
+[`planned-components/minimal-emulation/README.md`](../../../planned-components/minimal-emulation/README.md); the rule in
+[`localtest/CONVENTIONS.md`, "Minimal mode"](../../CONVENTIONS.md#minimal-mode)). The sample:
+[`../samples/app/AppHost/apphost-minimal.cs`](../samples/app/AppHost/apphost-minimal.cs), both apps.
+
+**What runs.** The manifest's `minimal` group: `postgres`, `storage`, `workflow-engine` and `localtest`, the front door
+on `http://local.altinn.cloud:8000`, under the parent `altinn-localtest-minimal`. Each container is built as in the full
+stack ([How the manifest becomes resources](#how-the-manifest-becomes-resources): image, `envs`, certificate, extra
+hosts, `WaitFor`, [Health](#health)), with three differences, the same as studioctl's (`minimal.go`), held to its
+golden snapshot's `minimal` case byte for byte:
+
+| | Full stack | Minimal mode |
+| --- | --- | --- |
+| `services__<name>__http__0` | every selected HTTP container | the four, and `http://localtest:8080` for every emulated one |
+| a manifest volume | `WithVolume("altinn-localtest-<id>", path)` | `WithContainerRuntimeArgs("--tmpfs", "<path>:mode=1777")`; Storage's blobs `size=1g,mode=1777` |
+| the front door's `Proxy__AppRoutesFile` | unset: the default `/data/app-routes.json`, on the volume | empty: the app routes and the dev-server route stay in memory |
+| lifetime | `ContainerLifetime.Persistent`, `<name>-<hash>`, reused by the next run | `ContainerLifetime.Session`: removed when the AppHost stops |
+
+**What is emulated.** The localtest container answers for every HTTP container of the `default` group that minimal mode
+does not start (`AltinnLocaltestMinimalResource.Emulated`): Register, Profile, Authentication, Authorization (it
+permits everything), Access Management, Events, the Resource Registry, Notifications and PDF (one static page)
+([`localtest/localtest/Emulation/`](../../localtest/Emulation/README.md)). `GET localtest/api/routes` shows them as
+`emulated`, and the Home page shows a banner.
+
+**What is lost.** Authorization (no 403, authentication levels not enforced), the Register's real data paths, Profile's
+settings, Authentication's OIDC provider for seeded clients, Events delivery, Notifications' pipeline, PDF content, and
+the optional groups (Dialogporten, Arbeidsflate, Correspondence, Receipt need the real components). The table and the
+reasons: the spec's section 5. Use `AddAltinnLocaltest()` for those.
+
+**Nothing persists.** tmpfs is memory and goes with the container; a tmpfs over the Postgres image's declared `VOLUME`
+also keeps the runtime from creating an anonymous volume there. With session lifetime, stopping the AppHost removes the
+four containers, so every start is a clean slate: empty databases, no instances, no blobs, no registered app until each
+app is healthy again and registers itself (its `provision` command does it by hand, as after a front-door restart). A
+persistent container would keep its tmpfs across runs while it kept running, so the clean slate would depend on whether
+it was replaced. The full stack's `altinn-localtest-*` volumes are never mounted: switching back finds them intact.
+`--tmpfs` is the same flag in Podman and Docker.
+
+**The API.** `AddAltinnLocaltestMinimal()` returns `IResourceBuilder<AltinnLocaltestMinimalResource>`. It and
+`AltinnLocaltestResource` are sealed leaves of `AltinnLocaltestResourceBase`; neither derives from the other, so
+`IResourceBuilder<out T>`'s covariance does not carry the group methods (`WithGroup`, `WithDialogporten`,
+`WithReceipt`, `WithCorrespondence`, `WithArbeidsflate`, `WithEverything`, all on
+`IResourceBuilder<AltinnLocaltestResource>`) to the minimal builder: a call does not compile. What both forms support
+takes the base: `AddAltinnApp` (the registration, provisioning and the `provision`/`deprovision` commands, as in the full
+stack) and `WithFrontendDevServer<T>` (which returns the builder's own type). `GroupMethodsTests` asserts through
+reflection that these are the only public methods that take the minimal builder.
+
+| Option | Full stack | Minimal mode |
+| --- | --- | --- |
+| `Tag` | replaces the `sha-` pins | the same |
+| `PostgresHostPort` | publishes Postgres on a loopback port | the same: `psql` into the run's tmpfs database |
+| `DataDirectory` | the certificate and the apps' secrets | not offered: minimal mode keeps no data, and the certificate and secrets stay in the default `~/.altinn-app-aspire`, shared with the full stack |
+| `Groups` | optional groups | not offered: there are none |
+
+**Commands.** No `reset`: there is nothing to reset, the AppHost's stop removes everything. The apps' `provision` and
+`deprovision` are as in the full stack.
+
+**The port guard** runs as in the full stack and refuses a held port 8000, naming the holder. The full stack accepts
+this AppHost's own persistent `localtest-<hash>`, which it reuses; minimal mode's front door is a session container, so
+the same persistent container left running by a full-stack run is refused by name, with the command that removes it.
+
+**Under Podman**, the same flags as the full stack ([Use](#use)):
+`ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost-minimal.cs`, and the
+dashboard's variables where the development certificate is not trusted.
 
 ## The app
 
@@ -156,7 +230,7 @@ cookies, as under studioctl, so app-lib's `keepAlive` cookie works over http.
 | --- | --- | --- |
 | the app | `provision` | The `PUT` again (after an edit of `testData.json`, the texts or the policy) |
 | the app | `deprovision` | After a confirmation, `DELETE localtest/api/apps/{org}/{app}`: the test users leave the Register, the route the front door |
-| `altinn-localtest` | `reset` | After a confirmation, `rm --force` of the containers by ID and `volume rm --force` of the package's volumes (`altinn-localtest-<id>`) that exist, through the runtime's CLI; then restart the AppHost. studioctl's `localtest-v2-<id>` volumes stay |
+| `altinn-localtest` (the full stack; minimal mode has none) | `reset` | After a confirmation, `rm --force` of the containers by ID and `volume rm --force` of the package's volumes (`altinn-localtest-<id>`) that exist, through the runtime's CLI; then restart the AppHost. studioctl's `localtest-v2-<id>` volumes stay |
 
 ## Several apps
 
@@ -206,13 +280,13 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (78 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (92 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
 | Golden file | This package's test |
 | --- | --- |
-| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, and `--with everything` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-` |
+| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, `--with everything` and `--minimal` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-`. In the `minimal` case a tmpfs compares by its path and options (`--tmpfs path:options` in the runtime arguments), and `MinimalModeEmulatesWhatStudioctlEmulatesAndMountsNoVolume` holds the emulated set to the snapshot's |
 | `internal/cmd/app/testdata/app-environment.golden.json` | `GoldenComparisonTests`: every case (native, inherited variables, ingress port 80, container) from the same inputs |
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
 
@@ -223,7 +297,11 @@ health, port, env key, volume id or volume path, no `default` group, trailing da
 8000 published, persistence, parent and health checks, the extra hosts, the mounts, images and the `Tag` option, the
 waits, the probe script), `AppTests` (the app's environment, endpoint, waits, commands, the metadata error, the port
 guard, the reset's commands), `FrontDoorRegistrationTests` (the `PUT` and `DELETE` against an in-process fake front
-door, a `502` and an unreachable front door as a degraded app, the dev-server route) and `GroupMethodsTests`.
+door, a `502` and an unreachable front door as a degraded app, the dev-server route), `GroupMethodsTests` (the typed
+group methods against the manifest's groups; through reflection, that the only public methods taking minimal mode's
+builder are `AddAltinnApp` and `WithFrontendDevServer`) and `MinimalModeTests` (the minimal sample's model: the four
+containers, session lifetime, the tmpfs mounts, the emulated set, the in-memory routes, both apps, no reset command,
+the options, the port guard).
 
 `.github/workflows/manifest-parity.yml` runs studioctl's Go tests (which fail on a stale snapshot) and these on every
 pull request and push to `main` that touches the manifest, the Go loaders or the package. Not covered: behaviour at run
@@ -294,6 +372,8 @@ own proxy; the findings that still apply:
 
 ## Not verified
 
+- Minimal mode under Podman (task 37 phase 2): the tmpfs mounts, the session lifetime, the clean slate on a restart,
+  the smoke suites.
 - `WithFrontendDevServer` against a running Vite server. (The `provision` and `deprovision` commands were run from the
   dashboard in task 30, on the second app; see [Several apps](#several-apps).)
 - An SELinux host (bind mounts without relabelling), rootless Podman, Docker.

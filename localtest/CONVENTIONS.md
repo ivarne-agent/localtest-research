@@ -68,7 +68,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
 | A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
-| Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | not yet (phase 2 of the spec: `WithMinimal()`) |
+| Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | `AddAltinnLocaltestMinimal()`, its own resource type |
 
 Run one at a time: both need port 8000.
 
@@ -94,7 +94,10 @@ Every manifest volume of a started container is a **tmpfs** instead of the named
 slate, and the `localtest-v2-*` volumes of the default stack are never mounted, so `env reset` has nothing to remove in
 the mode and switching back finds the default stack's data intact. A switch between the modes is `env down`, then
 `env up`. The state file records the mode; `env status` prints it and the emulated list. `--dev-<container>` works for
-the four containers only.
+the four containers only. **Aspire**: `builder.AddAltinnLocaltestMinimal()` returns a builder of its own resource type
+(`AltinnLocaltestMinimalResource`) that no group method takes; the four containers have session lifetime, so an
+AppHost's stop is the clean slate, and there is no `reset` command
+([package README, "Minimal mode"](aspire/Altinn.App.Aspire/README.md#minimal-mode)).
 
 **What is lost**: authorization (the PDP permits everything, no 403s, authentication levels not enforced), the
 Register's real data paths, Profile's settings, Authentication's OIDC provider for seeded clients, Events delivery,
@@ -105,7 +108,9 @@ Notifications' pipeline, PDF content, the optional groups. The table and the rea
 that answers; the real components stay the default for fidelity.
 
 **Code.** studioctl: `internal/cmd/env/localtestv2/minimal.go`; the front door: [`localtest/Emulation/`](localtest/Emulation/);
-devenv's `tmpfs` mount type (Podman `--tmpfs`, Docker `HostConfig.Tmpfs`). The golden snapshot has a `minimal` case.
+devenv's `tmpfs` mount type (Podman `--tmpfs`, Docker `HostConfig.Tmpfs`); Aspire: `AltinnLocaltestMinimalExtensions.cs`,
+`StackSpec.ResolveMinimal`, `LocaltestStack` (`--tmpfs` through `WithContainerRuntimeArgs`, session lifetime). The golden
+snapshot has a `minimal` case, which both runtimes' tests compare with.
 
 ## The public origin and host names
 

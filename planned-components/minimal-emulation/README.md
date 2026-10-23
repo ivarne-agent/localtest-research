@@ -571,7 +571,10 @@ register, profile, authentication, authorization, access-management,
 events, resource-registry, notifications, pdf3: emulated in localtest
 ```
 
-**Aspire.** `AddAltinnLocaltest(o => o.Minimal = true)` or `.WithMinimal()`, beside `WithGroup`
+**Aspire.** *Owner's decision of 2026-10-23, built by task 37:* `builder.AddAltinnLocaltestMinimal()` on a resource
+type of its own, with no method that enables another service and no `reset` command
+([package README](../../localtest/aspire/Altinn.App.Aspire/README.md#minimal-mode)); what follows is the design it
+replaced. `AddAltinnLocaltest(o => o.Minimal = true)` or `.WithMinimal()`, beside `WithGroup`
 ([`AltinnLocaltestExtensions.cs:141`](../../localtest/aspire/Altinn.App.Aspire/src/AltinnLocaltestExtensions.cs)).
 It is exclusive with `With…()` (an exception at build time), and its parts are:
 
@@ -633,7 +636,7 @@ both modes.
 | Phase | Scope | Gate (smoke) |
 | --- | --- | --- |
 | **1. Basic flow** | Everything in sections 3 and 4 except the policy PDP; studioctl `--minimal` with tmpfs; the static PDF | Root [`smoke-test.sh`](../../localtest/smoke-test.sh): the sign-in, token, push, instance, data and process checks (about 20 of 26); the PDP's NotApplicable and the two 403 checks are skipped in minimal mode. [`localtest/smoke-test.sh`](../../localtest/localtest/smoke-test.sh): routing, registration, ID-porten, Maskinporten, Home (its dummy upstream `register:5020` moves to `storage:5010`). The Register suite's read checks against the emulated paths. The Cypress subset of an app-lib 8 app and a monorepo-backend app through instantiate, fill in, sign, submit, receipt. The measured start time |
-| **2. Aspire and docs** | `WithMinimal()`, session lifetime, the parity golden case, the docs page | The same suites against the Aspire stack |
+| **2. Aspire and docs** | `AddAltinnLocaltestMinimal()` (was `WithMinimal()`), session lifetime, the parity golden case, the docs page | The same suites against the Aspire stack |
 | **3. Optional, on demand** | The policy-evaluating PDP (ABAC under AOT, verified first); Events delivery to subscribers; Notifications status flow | The root suite's 403 and NotApplicable checks; the Authorization suite's decision checks |
 
 **Suites that run against minimal mode:**

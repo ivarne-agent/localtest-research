@@ -9,7 +9,7 @@ runner sets) are in [`CONVENTIONS.md`](CONVENTIONS.md).
 
 **Two runtimes, one manifest.** The stack runs under studioctl (`studioctl env up -r localtest-v2`, [Run it](#run-it))
 or as container resources of a .NET Aspire AppHost through the hosting package
-[`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()`, `AddAltinnApp<T>()`). Both
+[`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()` or `AddAltinnLocaltestMinimal()`, `AddAltinnApp<T>()`). Both
 are thin loaders of the [manifest](studioctl/src/cli/internal/localtestv2/manifest/README.md): the same containers,
 environment, `services__*` variables, volumes and certificate, and the localtest container as the front door, the only
 published port (8000 onto its 8080). Routes, the `503` pages and the app registration therefore behave the same under
@@ -40,7 +40,7 @@ port 8000.
 | `testdata/` | The `testData.json` format the stack reads (the Register's seed and every app's file): field reference, consumers, merge rules and the JSON Schema `test-users.schema.v3.json` |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
 | `aspire/Altinn.App.Aspire/` | The Aspire hosting package: the manifest's containers as persistent containers of an AppHost, `AddAltinnApp<Projects.App>(localtest)` with `studioctl run`'s environment and the front-door registration; published to GitHub Packages by `.github/workflows/aspire-package.yml` |
-| `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHost that runs it (`AppHost/apphost.cs`) |
+| `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHosts that run it with a second copy, on the full stack (`AppHost/apphost.cs`) and in minimal mode (`AppHost/apphost-minimal.cs`) |
 | `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
 | `tools/bump-tag.sh` | Moves every research image's `sha-<commit>` pin in the manifest to one build ([`CONVENTIONS.md`](CONVENTIONS.md#tags)) |
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
@@ -162,7 +162,8 @@ ephemeral Postgres, and the front door emulating Register, Profile, Authenticati
 Management, Events, Notifications and the PDF service (one static page) in memory. Every volume is a tmpfs, so each
 start is a clean slate; `--with`/`--without` are refused, `env status` names the mode. For quick work and an app's own
 tests, not for authorization or platform bugs ([`CONVENTIONS.md`](CONVENTIONS.md#minimal-mode),
-[`localtest/Emulation/README.md`](localtest/Emulation/README.md)).
+[`localtest/Emulation/README.md`](localtest/Emulation/README.md)). Under Aspire: `builder.AddAltinnLocaltestMinimal()`,
+session containers on tmpfs ([package README](aspire/Altinn.App.Aspire/README.md#minimal-mode)).
 
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
