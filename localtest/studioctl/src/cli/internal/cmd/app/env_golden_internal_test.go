@@ -62,11 +62,6 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		KeysFolder: "/../../.altinn-studio/localtest-v2/certs/",
 		FileName:   "localtest-accesstoken.pfx",
 	}
-	container := goldenSigning{
-		FullPath:   containerCertificateDir + "/localtest-accesstoken.pfx",
-		KeysFolder: containerCertificateDir + "/",
-		FileName:   "localtest-accesstoken.pfx",
-	}
 	inherited := []string{
 		"PATH=/usr/bin",
 		"ASPNETCORE_ENVIRONMENT=Staging",
@@ -107,7 +102,7 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		},
 		{
 			Name: "container", KestrelURL: "http://*:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
-			KeysDir: ContainerKeysDir, Signing: container,
+			KeysDir: ContainerKeysDir,
 		},
 		{
 			Name: "container-frontend-option", KestrelURL: "http://*:5005", IngressPort: "8000",

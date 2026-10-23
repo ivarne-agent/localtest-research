@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -781,5 +782,27 @@ func TestBuildDotnetRunSpec_ListensOnEveryInterfaceForTheLocaltestV2FrontDoor(t 
 	assertEnvContainsAll(t, spec.Env, []string{"Kestrel__EndPoints__Http__Url=http://0.0.0.0:5005"})
 	if spec.BaseURL != "http://127.0.0.1:5005" {
 		t.Fatalf("BaseURL = %q, want the loopback URL", spec.BaseURL)
+	}
+}
+
+// A container run joins the localtest runtime's network, which localtest-v2 does not create, so it is refused up front.
+func TestBuildDockerRunSpec_RefusesLocaltestV2(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir(), Version: config.NewVersion("test-version")}
+	if err := localtestv2.WriteState(
+		cfg,
+		localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg)},
+	); err != nil {
+		t.Fatal(err)
+	}
+	appPath := t.TempDir()
+	writeAppMetadata(t, appPath, `{"id":"ttd/test-app"}`)
+	_, err := appsvc.NewService(cfg).BuildDockerRunSpec(repocontext.Detection{
+		AppRoot:   appPath,
+		InAppRepo: true,
+	}, nil, defaultTopology(), appsvc.DockerRunOptions{})
+	if !errors.Is(err, appsvc.ErrContainerModeLocaltestV2) {
+		t.Fatalf("BuildDockerRunSpec() error = %v, want ErrContainerModeLocaltestV2", err)
 	}
 }

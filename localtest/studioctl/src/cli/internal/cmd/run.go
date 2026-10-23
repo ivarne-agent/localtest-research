@@ -898,16 +898,9 @@ func (c *RunCommand) registerContainerAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, hostPort, runInfo, monitor, startupTimeout)
 	if err != nil {
-		return "", err
-	}
-
-	if err := waitForFrontDoorRegistration(
-		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -1434,7 +1427,7 @@ func (c *RunCommand) runDocker(
 		c.printAppReady(target.AppID, displayURL, containerRunDetails(info.Name)...)
 	}
 
-	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, topology, flags)
+	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, flags)
 }
 
 func (c *RunCommand) runStartedContainerApp(
@@ -1445,13 +1438,8 @@ func (c *RunCommand) runStartedContainerApp(
 	info containerruntime.ContainerInfo,
 	baseURL string,
 	displayURL string,
-	topology envtopology.Local,
 	flags runFlags,
 ) error {
-	removeDevFrontend, err := c.registerDevFrontend(ctx, topology, flags)
-	if err != nil {
-		return c.withAppContainerCleanup(ctx, client, containerID, err)
-	}
 	if flags.detach {
 		return c.detachedDockerOutput(
 			target.AppID,
@@ -1462,7 +1450,6 @@ func (c *RunCommand) runStartedContainerApp(
 		).Print(c.out)
 	}
 	defer c.unregisterAppBestEffort(ctx, target.AppID)
-	defer removeDevFrontend()
 
 	runErr := c.followContainer(ctx, client, containerID)
 	removeErr := c.removeForegroundContainer(ctx, client, containerID)

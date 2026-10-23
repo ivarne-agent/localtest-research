@@ -290,18 +290,11 @@
       "environment": {
         "ALTINN_KEYS_DIRECTORY": "/mnt/keys",
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "AccessTokenSettings__AccessTokenSigningCertificateFileName": "localtest-accesstoken.pfx",
-        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
-        "AccessTokenSettings__AccessTokenSigningKeysFolder": "/certs/",
         "AppSettings__OpenIdWellKnownEndpoint": "http://local.altinn.cloud:8000/authentication/api/v1/openid/",
         "GeneralSettings__ExternalAppBaseUrl": "http://local.altinn.cloud:8000/{org}/{app}/",
         "GeneralSettings__HostName": "local.altinn.cloud",
         "Kestrel__EndPoints__Http__Url": "http://*:5005",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel.local.altinn.cloud:4317",
-        "PlatformFrontendSettings__ArbeidsflateDialogUrl": "http://af.local.altinn.cloud:8000/inbox/{dialogId}",
-        "PlatformFrontendSettings__ArbeidsflateInboxUrl": "http://af.local.altinn.cloud:8000/",
-        "PlatformFrontendSettings__ArbeidsflatePartiesUrl": "http://af.local.altinn.cloud:8000/profile/parties",
-        "PlatformFrontendSettings__ArbeidsflateProfileUrl": "http://af.local.altinn.cloud:8000/profile",
         "PlatformSettings__ApiAccessManagementEndpoint": "http://local.altinn.cloud:8000/accessmanagement/api/v1/",
         "PlatformSettings__ApiAuthenticationEndpoint": "http://local.altinn.cloud:8000/authentication/api/v1/",
         "PlatformSettings__ApiAuthorizationEndpoint": "http://local.altinn.cloud:8000/authorization/api/v1/",
@@ -325,9 +318,9 @@
       "secretsDir": "/mnt/app-secrets",
       "keysDir": "/mnt/keys",
       "signing": {
-        "FullPath": "/certs/localtest-accesstoken.pfx",
-        "KeysFolder": "/certs/",
-        "FileName": "localtest-accesstoken.pfx"
+        "FullPath": "",
+        "KeysFolder": "",
+        "FileName": ""
       },
       "current": null
     },
