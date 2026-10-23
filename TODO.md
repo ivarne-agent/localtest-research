@@ -78,6 +78,7 @@ A path matching no route still falls through to the localtest app.
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done** (2026-10-23: fork branch `feat/app-frontend-settings-only` at 53a2d94090 = the frontend commit plus the monorepo studioctl setting the inbox and logout defaults to the localtest start page; hand-over `/home/agent/code/pr-app-frontend-settings-only.md`); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 verified** 2026-10-23 (ec2a31b2; phase 2 observes on the stack after task 40's proof) | medium | yes (phase 2) |
+| 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1434,3 +1435,16 @@ Playwright traces for the browser; the logging proxy rejected (Node, Chromium an
 1–7 in the document (one allow-list per app for egress, CSP and localtest; egress-denied localtest by default; the
 platform serving `altinn-orgs.json`; the OTLP collector move; checking webhook and pdf3 URLs; Cilium's DNS proxy; the
 at22 paths). Coordinator: typos (after allowing `AKS`), shellcheck clean.
+
+## 45. Egress control: declared hosts enforced on localtest
+
+**Plan (2026-10-23) in `planned-components/egress-control/README.md`.** An `externalHosts` field in
+`applicationmetadata.json` (platform origin, own host, pdf3, workflow engine, telemetry and the CDN implied); the
+front door as a forward proxy for the app (the runners set the proxy variables with `NO_PROXY` for the public host),
+allowing the implied and declared hosts, refusing the rest with 403 naming the host and the field, and keeping a
+per-app inventory (host, port, allowed/refused, counts, classification) served at `localtest/api/apps/{org}/{app}/egress`,
+on Home and by `studioctl app egress`; optional OTLP attribution; later the production egress rules and the CSP
+generated from the same field. Gaps named: raw sockets (closed by container mode on a closed network) and clients
+that opt out of the proxy (flagged by telemetry). Phases: 1 inventory (observe), 2 enforcement with `--strict`,
+3 attribution, 4 upstream (model, schema, Studio, deploy). Open questions 1–5 for the owner, the first being the
+default for apps without the field (recommendation: observe until the field is in the schema).
