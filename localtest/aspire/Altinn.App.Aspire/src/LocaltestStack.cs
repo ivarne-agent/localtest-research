@@ -61,9 +61,11 @@ internal sealed class LocaltestStack
     /// <summary>The frontend dev server's port on the host, when one is registered with the front door.</summary>
     public int? FrontendDevServerPort { get; set; }
 
-    /// <summary>The optional groups <see cref="AddGroups" /> takes: the manifest's, less the default.</summary>
+    /// <summary>
+    /// The optional groups <see cref="AddGroups" /> takes: the manifest's, less the default and the minimal one.
+    /// </summary>
     public IReadOnlyList<string> OptionalGroups =>
-        [.. Manifest.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup)];
+        [.. Manifest.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup && g != LocaltestManifest.MinimalGroup)];
 
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>

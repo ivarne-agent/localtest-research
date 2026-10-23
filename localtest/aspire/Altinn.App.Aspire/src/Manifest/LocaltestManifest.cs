@@ -15,6 +15,12 @@ internal sealed partial class LocaltestManifest
     /// <summary>The group that is always on.</summary>
     public const string DefaultGroup = "default";
 
+    /// <summary>
+    /// The group that replaces the default one in minimal mode (the front door emulating the rest); not an optional
+    /// group.
+    /// </summary>
+    public const string MinimalGroup = "minimal";
+
     /// <summary>A container's port when the manifest names none.</summary>
     public const int DefaultPort = 8080;
 

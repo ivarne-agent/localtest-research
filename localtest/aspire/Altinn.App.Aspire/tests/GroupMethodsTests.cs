@@ -16,7 +16,7 @@ public sealed class GroupMethodsTests
     public void EveryManifestGroupHasATypedMethodAndNoMethodLacksAGroup()
     {
         var expected = LocaltestManifest
-            .Default.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup)
+            .Default.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup && g != LocaltestManifest.MinimalGroup)
             .Append(LocaltestStack.Everything)
             .ToDictionary(MethodName, group => group, StringComparer.Ordinal);
         var actual = typeof(AltinnLocaltestExtensions)

@@ -175,10 +175,12 @@ public sealed class GoldenComparisonTests
         Assert.Equal(manifest.GroupNames.Order(StringComparer.Ordinal), groups.EnumerateObject().Select(g => g.Name));
         foreach (var group in groups.EnumerateObject())
         {
-            Assert.Equal(
-                group.Value.EnumerateArray().Select(c => c.GetString()),
-                manifest.Select([LocaltestManifest.DefaultGroup, group.Name])
-            );
+            // The minimal group replaces the default one; the snapshot lists it alone.
+            string[] selection =
+                group.Name == LocaltestManifest.MinimalGroup
+                    ? [LocaltestManifest.MinimalGroup]
+                    : [LocaltestManifest.DefaultGroup, group.Name];
+            Assert.Equal(group.Value.EnumerateArray().Select(c => c.GetString()), manifest.Select(selection));
         }
         Assert.Equal(
             Strings(_golden, "volumes").Select(name => VolumeId(name, _studioctlVolumePrefix)),

@@ -29,7 +29,10 @@ public sealed class ManifestTests
     {
         var manifest = LocaltestManifest.Default;
 
-        Assert.Equal(["default", "dialogporten", "receipt", "correspondence", "arbeidsflate"], manifest.GroupNames);
+        Assert.Equal(
+            ["default", "minimal", "dialogporten", "receipt", "correspondence", "arbeidsflate"],
+            manifest.GroupNames
+        );
         Assert.Equal(22, manifest.Names.Count);
         Assert.Equal("postgres", manifest.Names[0]);
         var localtest = manifest.Containers["localtest"];
