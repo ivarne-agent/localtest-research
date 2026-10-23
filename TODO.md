@@ -73,7 +73,7 @@ A path matching no route still falls through to the localtest app.
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
-| 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 verified** 2026-10-23 (dc0211bb, 21 commits; needs a rebase; phase 2 waits for the stack) | large | yes (phase 2) |
+| 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **done, merged** 2026-10-23 (ff to e2a9b82c); the images carry it at the next pin bump | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done** (2026-10-23: fork branch `feat/app-frontend-settings-only` at 53a2d94090 = the frontend commit plus the monorepo studioctl setting the inbox and logout defaults to the localtest start page; hand-over `/home/agent/code/pr-app-frontend-settings-only.md`); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
@@ -1448,3 +1448,20 @@ generated from the same field. Gaps named: raw sockets (closed by container mode
 that opt out of the proxy (flagged by telemetry). Phases: 1 inventory (observe), 2 enforcement with `--strict`,
 3 attribution, 4 upstream (model, schema, Studio, deploy). Open questions 1–5 for the owner, the first being the
 default for apps without the field (recommendation: observe until the field is in the schema).
+
+**Task 40 phase 2 (pushed e2a9b82c, verified by the coordinator and merged ff 2026-10-23).** Fifteen changed
+components as dev builds (prebuilt one by one, then one `env up --with everything` in 59 s), every suite at its
+expected count: root 26, Register 14, Profile 52, Authentication 34, Authorization 31, Resource Registry 43, Events
+27, Notifications 64, Dialogporten 60, adapter 39, Receipt 27, Arbeidsflate 59, shared 12, workflow-engine 3,
+localtest app 65/67 (the "service off" check cannot hold with everything on, plus the bundle check), Correspondence
+78/78 after the fix. Bug found by the migration: Correspondence's dialog-token JWKS fetch used the synchronous
+`HttpClient.Send`, which bypasses the service-discovery handler (async path only) and went to DNS as
+`dialogporten-webapi:80`; the pass-through had hidden it (05988923). Browser flow on the default stack with a
+Dialogporten sync (dialog `Awaiting`, one transmission, three activities). Minimal mode with `--dev-localtest` and
+`--dev-storage`: root 23+3, two browser instantiates, Storage's `decision` and `parties/lookup` calls logged going to
+`http://localtest:8080`, its outbox dropping syncs with "adapter not running". Observations: Authentication's
+system-user client could not be exercised (no suite reaches it); an Events webhook to a single-label non-service host
+fails at the resolver with no delivery row (Events README corrected); Correspondence's upstream key cache still
+fetches from the public origin (nothing reads it). The agent freed 14 GB (old pin images, unrelated images, caches).
+Side effect to fix on arrival: the agent had removed the `local.altinn.cloud` entries from `/etc/hosts`
+(restored with `env hosts add`). Coordinator re-ran go build/test/lint, localtest tests 145, Aspire 122.
