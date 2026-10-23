@@ -70,7 +70,7 @@ A path matching no route still falls through to the localtest app.
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
-| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | medium | yes (phase 2) |
+| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **phase 1 verified** 2026-10-23 (85d611fe; phase 2 waits for a pin bump that carries the emulation, since the package has no dev build) | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1154,3 +1154,17 @@ resource); `AddAltinnApp`, `WithFrontendDevServer`, `Tag` and `PostgresHostPort`
 arguments (`mode=1777`, blobs `size=1g,mode=1777`), empty `Proxy__AppRoutesFile`, session lifetime; the parity test
 gains the `minimal` case; README and docs; a minimal sample AppHost. Proof under Podman: four containers, no volume,
 both sample apps, root 23 with the named skips, clean slate after SIGINT and restart, the full AppHost still 26/26.
+
+**Phase 1 (pushed 85d611fe, verified by the coordinator 2026-10-23).** `AltinnLocaltestResourceBase` (abstract,
+`private protected` constructor) with two sealed leaves; the group methods stay on `IResourceBuilder<AltinnLocaltestResource>`;
+`AddAltinnApp` takes the base, `WithFrontendDevServer<T>` is generic; a reflection test asserts those two are the only
+public methods accepting the minimal builder. Parent `altinn-localtest-minimal`; `StackSpec.ResolveMinimal` derives the
+emulated set (9) and injects `http://localtest:8080`; `Proxy__AppRoutesFile=` empty; tmpfs via `--tmpfs path:mode=1777`
+(`size=1g,mode=1777` on the blobs); session lifetime; no `reset` command (nothing persists); the port guard refuses a
+full stack's persistent front door with the `rm` command named. Options: `Tag` and `PostgresHostPort` apply;
+`DataDirectory` and `Groups` not offered (`AltinnLocaltestMinimalOptions`). Parity: the golden's `minimal` case compared
+(order, images, env, tmpfs by path and options, port, hosts, dependencies, health); drift tests confirmed. Tests 92
+(coordinator re-ran); csharpier, typos, actionlint clean; both sample AppHosts build; nothing under `localtest/studioctl`
+changed. Docs: package README "Minimal mode", conventions, localtest README, spec status. Phase 2 needs a localtest
+image with the emulation: the pin `sha-6d928ad` predates task 35 and the package has no dev build, so the pin bump
+comes first.
