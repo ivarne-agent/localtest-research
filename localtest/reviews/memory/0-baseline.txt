@@ -1,0 +1,54 @@
+# memory-stats: 0-baseline: nothing running
+time: 2026-10-23T14:44:18+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949         928        3217         136        4028        7020
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree           3217
+  MemAvailable      7021
+  Buffers            324
+  Cached            3376
+  Shmem              136
+  Active(file)      2810
+  Inactive(file)     753
+  Active(anon)        93
+  Inactive(anon)     619
+  AnonPages          577
+  Mapped             311
+  SReclaimable       330
+  SUnreclaim          63
+  KernelStack          2
+  PageTables           6
+  Percpu               1
+  VmallocUsed          4
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): used = MemTotal - MemFree - Buffers - Cached - SReclaimable = 707; kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 73
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 889 anon 0 file 877 shmem 0 kernel 12 file_mapped 0 inactive_file 126 active_file 751
+
+## Per container
+
+$ podman stats --no-stream
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+SUM (0 containers)                        0      0      0      0      0        -      -        0
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               577     575      490       85         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+715382   studioctl-server           140     127       46       61        21  /home/agent/sh/bin/studioctl-server/studioctl-server 
+263      other:systemd-journal      161      94        2       91         0  /usr/lib/systemd/systemd-journald 
+789956   podman                      47      45       14       31         0  /usr/bin/podman --log-level=info system service 
+
+PSS by category (MiB):
+  podman                 45
+  studioctl-server      127
+PSS sums (MiB): stack host processes (the categories above except podman) 127; all host processes 874; all container processes (incl. conmon) 0; unreadable processes 0
