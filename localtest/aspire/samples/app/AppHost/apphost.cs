@@ -1,15 +1,17 @@
 #:sdk Aspire.AppHost.Sdk@13.6.2
 #:project ../../../Altinn.App.Aspire/src/Altinn.App.Aspire.csproj
 #:project ../App/App.csproj
+#:project ../App2/App2.csproj
 
-// The sample app ttd/testapp (../App) against the localtest platform (the default stack plus the dialogporten group),
-// as `studioctl env up -r localtest-v2 --with dialogporten` and `studioctl run` run it: the manifest's containers as
+// The sample apps ttd/testapp (../App) and ttd/testapp2 (../App2, a copy of ../App that exists only to show two apps
+// in one AppHost) against the localtest platform (the default stack plus the dialogporten group), as
+// `studioctl env up -r localtest-v2 --with dialogporten` and `studioctl run` run them: the manifest's containers as
 // persistent containers under the resource altinn-localtest, the localtest container as the front door and the only
-// published port (http://local.altinn.cloud:8000). Once the app is healthy it is registered with the front door
-// (PUT localtest/api/apps/ttd/testapp), which routes it and provisions it from the app's own API (test users,
-// metadata, texts, policy); the app's provision and deprovision commands register and deregister it again, and
-// altinn-localtest's reset command removes the containers and the volumes (shared with studioctl). Ctrl-C leaves the
-// containers running; the next start reuses them. Conventions: localtest/CONVENTIONS.md.
+// published port (http://local.altinn.cloud:8000). Once an app is healthy it is registered with the front door
+// (PUT localtest/api/apps/ttd/testapp and .../ttd/testapp2), which routes it and provisions it from the app's own API
+// (test users, metadata, texts, policy); each app's provision and deprovision commands register and deregister that
+// app only, and altinn-localtest's reset command removes the containers and the volumes (shared with studioctl). Ctrl-C
+// leaves the containers running; the next start reuses them. Conventions: localtest/CONVENTIONS.md.
 //
 // Run it with Podman: ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost.cs
 // (the tunnel's image does not build on Podman 5.7, see the package README), with no studioctl stack and no other
@@ -27,5 +29,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var localtest = builder.AddAltinnLocaltest().WithDialogporten();
 builder.AddAltinnApp<Projects.App>(localtest);
+// A second app: one AddAltinnApp per app, each with its own resource name.
+builder.AddAltinnApp<Projects.App2>(localtest, "app2");
 
 await builder.Build().RunAsync();
