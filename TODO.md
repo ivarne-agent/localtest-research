@@ -69,7 +69,7 @@ A path matching no route still falls through to the localtest app.
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **done, merged** 2026-10-23 (`planned-components/minimal-emulation/README.md`); owner to decide whether to build phase 1 | medium | no |
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
-| 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | small | yes (phase 2) |
+| 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **phase 1 verified, phase 2 running** (2026-10-23; extras: Storage's `VOLUME /data/blobs` dropped, Aspire reset removes with `--volumes`) | small | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1118,3 +1118,12 @@ removes containers with their anonymous volumes on both backends (Podman `rm --v
 volumes are never touched by either), `VOLUME /data` dropped from the localtest Dockerfile, task 35's probe tmpfs
 removed as redundant, one sentence in the conventions. Proof: default and minimal `env up`/`env down` add nothing but
 the named volumes; a hand-started localtest container has no anonymous volume.
+
+**Phase 1 (pushed e6e15ea9, verified by the coordinator 2026-10-23).** Podman `rm --volumes` and Docker
+`RemoveVolumes: true` built in one helper per backend and used by every removal path (`ContainerRemove` and the
+best-effort cleanups), with a test per backend; callers inheriting it: the old runtime's `env down`/`env reset`, the
+helper container, `run --mode container`, `stop`, `self/transition`, the v2 probes. Doc references in the commit
+message (podman-rm(1) `--volumes`: anonymous only; Engine API `v=1`: anonymous only). Upstream devenv has no opinion
+(same code without the flag). `VOLUME /data` dropped from the localtest Dockerfile; probe tmpfs removed; golden
+unchanged; conventions sentence and a CHANGELOG "Fixed" line. Phase 2 adds: Storage's `VOLUME /data/blobs` dropped and
+Aspire's `LocaltestReset` removing with `--volumes`.
