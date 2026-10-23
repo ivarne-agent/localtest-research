@@ -39,6 +39,11 @@ public static class LocaltestRegisterExtensions
         var services = builder.Services;
         services.AddOptions<LocaltestRegisterOptions>().BindConfiguration("Localtest:Register");
 
+        // Service discovery: AddAltinnServiceDefaults registered AddServiceDiscovery() (with the pass-through provider)
+        // and the factory clients' handler; this drops the pass-through, so a service name without an entry fails at
+        // once (the PDP is http://authorization/…, from services__authorization__http__0), and keeps real hosts as they are.
+        global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
+
         // Persistence: in-memory snapshots built from testData.json plus registered apps' test data, reached
         // through Core's own unit-of-work manager. Everything reads RegisterStoreProvider.Current.
         services.TryAddSingleton(TimeProvider.System);

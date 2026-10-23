@@ -30,7 +30,7 @@
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "GeneralSettings__OpenIdWellKnownEndpoint": "{{origin}}/authentication/api/v1/openid/",
-        "PlatformSettings__ApiAuthorizationEndpoint": "{{origin}}/authorization/api/v1/"
+        "PlatformSettings__ApiAuthorizationEndpoint": "http://authorization/authorization/api/v1/"
       }
     },
     "profile": {

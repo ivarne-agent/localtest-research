@@ -18,6 +18,8 @@
     <!-- Versions follow vendor/Directory.Packages.props. -->
     <PackageReference Include="Altinn.Common.AccessToken" Version="5.1.11" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.1" />
+    <!-- ServiceDiscovery/: the version Altinn.Authorization.ServiceDefaults 5.5.0 brings into the host. -->
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.5.2" />
   </ItemGroup>
 
   <ItemGroup>
