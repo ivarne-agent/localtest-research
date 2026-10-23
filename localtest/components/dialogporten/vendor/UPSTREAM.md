@@ -23,7 +23,7 @@ the three `WebApplication.CreateBuilder(args)` calls are at WebApi `Program.cs:6
 ## Directive sites
 
 Three pure additions, one per host, each right after `var builder = WebApplication.CreateBuilder(args);` (line numbers checked
-2026-10-22). Each block also holds the service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`), after the `Apply` call; the package is added in `../localtest.build.targets`,
+2026-10-22). Each block also holds the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`), after the `Apply` call; the package is added in `../localtest.build.targets`,
 which turns the locked restore off (the three Dockerfiles drop `--locked-mode` for the same reason):
 
 | File | Adds |

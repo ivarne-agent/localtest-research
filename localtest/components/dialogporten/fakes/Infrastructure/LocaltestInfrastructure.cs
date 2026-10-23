@@ -12,8 +12,9 @@ public static class LocaltestInfrastructure
     /// The package hard-codes <c>maskinporten.no</c> and the per-environment exchange hosts, so configuration cannot
     /// redirect it. The three Maskinporten-backed clients (events, party names, authorization) keep their production
     /// handlers and settings; only the token they ask for comes from the localtest token endpoint and Authentication's
-    /// <c>exchange/maskinporten</c>.
+    /// <c>exchange/maskinporten</c>. The four clients on <c>Infrastructure:Altinn:BaseUri</c> call the services by name
+    /// (<see cref="LocaltestServiceNames"/>).
     /// </summary>
     public static IServiceCollection Apply(IServiceCollection services, IConfiguration configuration)
-        => services.AddLocaltestMaskinporten(configuration);
+        => LocaltestServiceNames.Apply(services.AddLocaltestMaskinporten(configuration));
 }

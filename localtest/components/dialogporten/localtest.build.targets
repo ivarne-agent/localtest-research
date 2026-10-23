@@ -25,6 +25,8 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.GraphQL' Or '$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.Service'">
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <!-- The registration without pass-through (a copy of components/shared/fakes/ServiceDiscovery), in each host. -->
+    <Compile Include="$(MSBuildThisFileDirectory)fakes/ServiceDiscovery/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Digdir.Domain.Dialogporten.WebApi'">
     <Compile Include="$(MSBuildThisFileDirectory)fakes/WebApi/**/*.cs" LinkBase="Localtest" />

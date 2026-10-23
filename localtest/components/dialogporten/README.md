@@ -43,8 +43,9 @@ One per host, right after `var builder = WebApplication.CreateBuilder(args);` in
 `LocaltestWebApi.Apply(builder)`, `LocaltestGraphQl.Apply(builder)` and `LocaltestService.Apply(builder)`. Each (1) inserts the
 configuration defaults below the environment variables and above the JSON files, and (2) installs a service-provider factory that applies the replacements to the
 finished service collection, so they win over production's registrations whatever their order. The same three blocks also
-register service discovery (task 25): `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`,
-so factory clients can resolve `http://<service>/` from `services__<service>__http__0`; the package is added in `localtest.build.targets`,
+register service discovery (task 25; since task 40 `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` from `fakes/ServiceDiscovery/`,
+a copy of `../shared/fakes/` compiled into each host, without pass-through: a name without an entry fails at once, a real host is used as
+it is), so factory clients resolve `http://<service>/` from `services__<service>__http__0`; the package is added in `localtest.build.targets`,
 which turns the locked restore off, and the Dockerfiles restore without `--locked-mode` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
 One `#if !LOCALTEST` block (added with the Dialogporten adapter, task 10): the Application project's `IsValidHttpsUrl` validators
@@ -157,8 +158,8 @@ everything else is a default that the real setting overrides (`Infrastructure__D
 | --- | --- |
 | `Infrastructure:DialogDbConnectionString` | `Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=localtest;Include Error Detail=True` |
 | `Infrastructure:Redis:ConnectionString` | `redis:6379` |
-| `Infrastructure:Altinn:BaseUri`, `EventsBaseUri`, `SubscriptionKey` | `{platform}`, `{platform}`, `localtest` (the header must not be null) |
-| `Infrastructure:Maskinporten:*` | `Environment` test, `ClientId` `localtest-dialogporten`, upstream's development `Scope` list (events publish and admin, party lookup, authorize, authorized parties), `EncodedJwk` the base64 of `{"kty":"RSA"}` (validated non-empty, never read), `UseAltinnTestOrg` false; `Localtest:Maskinporten:Issuer` and `ExchangeEndpoint` under `{platform}` |
+| `Infrastructure:Altinn:BaseUri`, `EventsBaseUri`, `SubscriptionKey` | `{platform}` (public: `MetadataLinkProvider` builds client-facing links from it), `http://events/`, `localtest` (the header must not be null). The four clients on `BaseUri` (Resource Registry, Access Management metadata, party names, the PDP with authorized parties) call the services by name: `Infrastructure/LocaltestServiceNames.cs`, outermost on those clients, moves `{platform}<prefix>/…` to `http://<service>/<prefix>/…` before service discovery resolves it (task 40) |
+| `Infrastructure:Maskinporten:*` | `Environment` test, `ClientId` `localtest-dialogporten`, upstream's development `Scope` list (events publish and admin, party lookup, authorize, authorized parties), `EncodedJwk` the base64 of `{"kty":"RSA"}` (validated non-empty, never read), `UseAltinnTestOrg` false; `Localtest:Maskinporten:TokenEndpoint` and `ExchangeEndpoint` the fake's defaults (`http://localtest/…`, `http://authentication/…`) |
 | `Infrastructure:Warmup:Enabled` | `false` (its optional phases call the Resource Registry and search as a synthetic pid) |
 | `Application:Dialogporten:BaseUri` | `{platform}dialogporten` (token issuer, event sources, OpenAPI server) |
 | `Application:Dialogporten:Ed25519KeyPairs:{Primary,Secondary}` | the committed test pairs below |

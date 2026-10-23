@@ -44,10 +44,10 @@ static void BuildAndRun(string[] args)
     var builder = WebApplication.CreateBuilder(args);
 #if LOCALTEST
     Digdir.Domain.Dialogporten.GraphQL.Localtest.LocaltestGraphQl.Apply(builder);
-    // localtest: resolve other components by name (http://<service>/...) from services__<service>__http__0; names
-    // without an entry pass through to DNS (planned-components/service-discovery.md).
-    builder.Services.AddServiceDiscovery();
-    builder.Services.ConfigureHttpClientDefaults(http => http.AddServiceDiscovery());
+    // localtest: resolve other components by name (http://<service>/...) from services__<service>__http__0; a name
+    // without an entry fails at once, a real host (a dot, an IP, localhost) is used as it is (no pass-through;
+    // fakes/ServiceDiscovery, planned-components/service-discovery.md).
+    global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services);
 #endif
 
     builder.Configuration
