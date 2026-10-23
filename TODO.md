@@ -1216,9 +1216,11 @@ is with the owner before a brief.
 `local.altinn.cloud`) and a port (default 8000), the four dedicated hosts derived as subdomains. studioctl `env up
 --host --port` with `--port 0` picking a free port once and recording it in the state; Aspire `PublicHost`/`PublicPort`
 on both option classes with 0 = random, every derived value a `ReferenceExpression` over the front door's endpoint. The
-manifest stays literal for the default origin and the runner rewrites the five default host names (longest first) and
-the `:8000` after them; no placeholders. The front door derives its hosts from configuration; the fakes that embed the
+manifest (owner 2026-10-23) declares the public host, port and the list of dedicated subdomains in a new top-level
+section and uses a small fixed placeholder vocabulary in `envs` (`{{origin}}`, `{{host}}`, `{{port}}`,
+`{{origin:<sub>}}`, `{{host:<sub>}}`), validated by the reader; `services__*` stay literal. The front door derives its hosts from configuration; the fakes that embed the
 origin (Authentication's seeded clients) read it from the environment (reaches the stack after a pin bump: phase 2 uses
-`--dev-authentication`). `env hosts add/remove` take the configured names; `--add-host` maps them inside the containers;
+`--dev-authentication`). the hosts file is the user's own with a custom host (studioctl's `env hosts` manages only the default names; `env up`
+checks resolution and prints the lines to add); `--add-host` maps the configured names inside the containers;
 the suites get one override variable; the golden gets an `origin.test:18000` case with the Aspire parity test. Several
 instances are not implemented; the report lists what an independent `run --minimal` would still need.
