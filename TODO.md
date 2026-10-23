@@ -974,3 +974,10 @@ container publishes a port, or the container's alias and internal port on the v2
 port (then `FrontDoorUrl` needs the network address); `run --dev-frontend` and the registration wait in the container
 path (removed in task 32); the Aspire side is unaffected (apps are projects). Decide: network versus host gateway,
 published port versus alias, and whether the app image needs the CA bundle or `/accesstoken` file.
+
+**Owner decision 2026-10-23 (scope).** Storage and the workflow engine are not emulated: too central to apps. Minimal
+means the localtest container plus the real `storage`, `workflow-engine` and `pdf3` images with `postgres` (five
+containers instead of the default group's thirteen; whether pdf3 can be stubbed is still for the research), with
+Register, Profile, Authentication, Authorization (permit-all), Access Management, Events, the Resource Registry and
+Notifications emulated in the localtest container, which must then also answer the calls Storage and the workflow
+engine make to those services (their `services__*` pointed at `http://localtest:8080`). The agent was told.
