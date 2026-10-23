@@ -67,7 +67,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Certificate | the certificate mounts below | the same |
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
-| A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
+| A build from source | `--dev <container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
 
 Run one at a time: both need port 8000.
 
@@ -257,8 +257,9 @@ a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](
 
 Then the runner registers the app with the front door (`PUT localtest/api/apps/{org}/{app}` with
 `http://host.docker.internal:<port>`): studioctl-server's discovery does it for every app it finds, a `studioctl run`
-and an app started from an IDE alike, and `studioctl run` waits until `GET localtest/api/apps` lists the app as
-provisioned; `AddAltinnApp` does it on the app's ready event. The provisioning steps are in
+and an app started from an IDE alike, again when the app restarts or the front door no longer lists it, and
+`studioctl run` waits until `GET localtest/api/apps` lists the app as provisioned (a process run only:
+`run --mode container` is refused against localtest-v2); `AddAltinnApp` does it on the app's ready event. The provisioning steps are in
 [`README.md`](README.md#what-the-app-runner-pushes). Per app are the port, the registration (route and test users), the
 secrets directory `apps/<org>/<app>/secrets` and the `provision`/`deprovision` commands; the rest of the environment is
 the same for every app, and several apps run against one stack ([Several

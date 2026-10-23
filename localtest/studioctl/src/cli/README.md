@@ -139,14 +139,15 @@ the directory holding it (default: the current directory); studioctl builds it a
 
 ```sh
 cd ~/code/localtest-research/localtest/components/storage
-studioctl env up -r localtest-v2 --dev-storage                  # or --dev-storage=<path>, --dev storage=<path>
+studioctl env up -r localtest-v2 --dev storage                  # or --dev storage=<path>
 ```
 
 The conventions the runtime follows (the manifest, the front door, service discovery, ports, the
 certificate, the volumes) are in the research repository's `localtest/CONVENTIONS.md`.
 
-Not in localtest-v2 yet: the
-monitoring stack and pgAdmin, container-mode apps (`run --mode container`), and `doctor` checks.
+Not in localtest-v2 yet: the monitoring stack and pgAdmin (`env up` refuses `--monitoring` and
+`--pgadmin` there), container-mode apps (`run --mode container` is refused while localtest-v2 is up),
+and `doctor` checks.
 
 ## Install from source (for contributors)
 

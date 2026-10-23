@@ -100,7 +100,7 @@ studioctl's loader (`internal/cmd/env/localtestv2/containers.go`) builds it:
 | `health` | [Health](#health) | |
 | the front door | the localtest container's `http` endpoint, host port 8000 onto `port` (8080), unproxied, on every interface (the containers reach it through the host gateway); its check is `/health` through 8000 | none |
 
-Nothing else is published. `--dev-<container>` builds have no counterpart (`Tag`, or a locally built image by hand).
+Nothing else is published. `--dev <container>` builds have no counterpart (`Tag`, or a locally built image by hand).
 
 ### Health
 

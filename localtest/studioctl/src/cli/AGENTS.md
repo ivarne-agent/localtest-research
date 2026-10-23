@@ -75,12 +75,13 @@ Invariants:
   `localtest/tools/bump-tag.sh`), literal environment, `dependsOn`, volumes, port and health. `env up --latest` follows
   main. Change the manifest, not Go code, to change a container; the golden file in
   `internal/cmd/env/localtestv2/testdata/` shows the effect. The runtime lives in `internal/cmd/env/localtestv2/`
-  (network, containers, `services__*` variables, probe-container health, `--dev-<container>` builds). The front door
+  (network, containers, `services__*` variables, probe-container health, `--dev <container>` builds). The front door
   is the localtest app's container, the only published port; studioctl-server's discovery registers apps with it
-  (`Discovery/FrontDoorRegistration.cs`), `studioctl run` waits for that registration (`run_frontdoor.go`) and with
-  `--dev-frontend` registers the frontend dev server's route (`run_devserver.go`), and `internal/localtestv2` holds the
-  state file both sides read. studioctl carries no proxy, route table or provisioning for localtest-v2: those are the
-  localtest image's. Conventions: `localtest/CONVENTIONS.md` in the research repository.
+  (`Discovery/FrontDoorRegistration.cs`), `studioctl run` waits for that registration and with `--dev-frontend`
+  registers the frontend dev server's route (`run_frontdoor.go`, through the client in
+  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file both sides read. studioctl carries
+  no proxy, route table or provisioning for localtest-v2: those are the localtest image's. Conventions:
+  `localtest/CONVENTIONS.md` in the research repository.
 
 ### Releases
 

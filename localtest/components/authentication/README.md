@@ -218,8 +218,8 @@ The stack runs through studioctl's `localtest-v2` runtime (see `../../README.md`
 from ghcr. To run a change made here instead, build it from this checkout:
 
 ```sh
-cd localtest/components/authentication && studioctl env up -r localtest-v2 --dev-authentication
+cd localtest/components/authentication && studioctl env up -r localtest-v2 --dev authentication
 ```
 
-`--dev-<container>[=<path>]` builds the image from the Dockerfile at the path or in the directory (default: the current
+`--dev <container>[=<path>]` builds the image from the Dockerfile at the path or in the directory (default: the current
 one). The front door cannot route the component's prefix to an instance running in an IDE; `--dev` rebuilds the image.
