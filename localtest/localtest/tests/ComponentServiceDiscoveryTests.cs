@@ -33,6 +33,8 @@ public sealed class ComponentServiceDiscoveryTests
             () => client.GetAsync(new Uri("http://dialogporten-adapter/storage/dialogporten/api/localtest/enqueue"), TestContext.Current.CancellationToken));
 
         Assert.Equal("The endpoint collection contains no endpoints", exception.Message);
+        Assert.True(LocaltestServiceDiscovery.NoAddress(new HttpRequestException("wrapped", exception)));
+        Assert.False(LocaltestServiceDiscovery.NoAddress(new HttpRequestException("Connection refused")));
         Assert.Empty(sent);
     }
 
