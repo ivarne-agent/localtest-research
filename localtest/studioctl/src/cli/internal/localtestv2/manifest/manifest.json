@@ -223,9 +223,9 @@
         "GeneralSettings__OpenIdWellKnownEndpoint": "{{origin}}/authentication/api/v1/openid/",
         "Localtest__Receipt__PlatformEndpoint": "{{origin}}/",
         "PlatformSettings__ApiAuthenticationEndpoint": "{{origin}}/authentication/api/v1/",
-        "PlatformSettings__ApiProfileEndpoint": "{{origin}}/profile/api/v1/",
-        "PlatformSettings__ApiRegisterEndpoint": "{{origin}}/register/api/v1/",
-        "PlatformSettings__ApiStorageEndpoint": "{{origin}}/storage/api/v1/"
+        "PlatformSettings__ApiProfileEndpoint": "http://profile/profile/api/v1/",
+        "PlatformSettings__ApiRegisterEndpoint": "http://register/register/api/v1/",
+        "PlatformSettings__ApiStorageEndpoint": "http://storage/storage/api/v1/"
       },
       "dependsOn": ["register", "profile", "authentication", "storage"]
     },

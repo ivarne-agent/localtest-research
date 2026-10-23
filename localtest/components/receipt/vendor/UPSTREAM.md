@@ -22,8 +22,7 @@ All three in `src/backend/Altinn.Receipt/Program.cs` (line numbers checked 2026-
    `https://platform.{GeneralSettings:Hostname}{path}{query}` `#else` the request's own scheme and host `#endif`. There
    is no `platform.` host and no TLS locally, and the proxy keeps the browser's `Host`.
 3. Lines 36-41, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
-   service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http =>
-   http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`).
+   service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
 
 The frontend has no sites: it is built unchanged.
 
