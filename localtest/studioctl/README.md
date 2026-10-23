@@ -2,7 +2,9 @@
 
 A vendored copy of the studioctl source from `Altinn/altinn-studio`, so the `localtest-v2` runtime can be developed
 next to the components it starts and upstreamed later. Pin, copied paths, baseline commit, how to produce the upstream
-patch and how to sync: [`UPSTREAM.md`](UPSTREAM.md). Design: [`../../planned-components/studioctl-integration.md`](../../planned-components/studioctl-integration.md).
+patch and how to sync: [`UPSTREAM.md`](UPSTREAM.md). The stack's conventions (manifest, front door, service
+discovery, ports, certificate, volumes, the app environment): [`../CONVENTIONS.md`](../CONVENTIONS.md). Original design
+(a dated record): [`../../planned-components/studioctl-integration.md`](../../planned-components/studioctl-integration.md).
 
 ## Layout
 
@@ -75,8 +77,9 @@ Paths below are under `src/cli/`.
 | `internal/cmd/env/localtest/env.go`, `log_streamer.go` | The localtest runtime refuses to start while localtest-v2 holds the port; the log streamer shows a stopped container's log |
 | `internal/envtopology/` | The `arbeidsflate` host `af.local.altinn.cloud` (`env hosts add`, the containers' host mappings) |
 | `internal/localtestv2/state.go` | The state file (certificate directory, enabled groups) studioctl and studioctl-server read |
-| `internal/cmd/app/{env,config,run}.go` | The app environment (runner code, pinned by `testdata/app-environment.golden.json`) with the certificate variables while localtest-v2 is up; the app then listens on `0.0.0.0` (a container publishes on every interface), because the front door reaches it as `host.docker.internal:<port>` |
+| `internal/cmd/app/{env,config,run}.go` | The app environment (runner code, pinned by `testdata/app-environment.golden.json`; `studioctl app env` prints it) with the certificate variables and the Arbeidsflate links (`PlatformFrontendSettings__Arbeidsflate*Url`) while localtest-v2 is up; the app then listens on `0.0.0.0` (a container publishes on every interface), because the front door reaches it as `host.docker.internal:<port>` |
 | `internal/cmd/run_frontdoor.go`, `run.go` | `studioctl run` waits until `GET localtest/api/apps` lists the app at `http://host.docker.internal:<port>` with a provisioning that succeeded since the run started |
+| `internal/cmd/run_devserver.go` | `studioctl run --dev-frontend` against localtest-v2: `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:8080`, so the front door routes `app-frontend.local.altinn.cloud` to the dev server; `DELETE` when the run stops |
 | `internal/studioctlserver/client.go` | While localtest-v2 is up, studioctl-server runs with `Localtest__RegisterApps=true` and without the host bridge; `env up`/`down` restart it when that changes |
 | `studioctl-server/Discovery/FrontDoorRegistration.cs`, `AppRegistry.cs`, `ServiceCollectionExtensions.cs`, `Studioctl/Endpoints.cs` | Discovery registers each app it finds (a `studioctl run`'s or one started from an IDE) with `PUT {Localtest:Url}localtest/api/apps/{org}/{app}` and the address `http://host.docker.internal:<port>`, logs the provisioning result, retries a failure on the next refresh, and `DELETE`s an app that is gone; the status endpoint reports `localtest.registerApps`. The front door, the 503 pages and the provisioning are the localtest image's (`../../localtest/README.md`) |
 | `studioctl-server-tests/`, `*_test.go` | Tests of the above |

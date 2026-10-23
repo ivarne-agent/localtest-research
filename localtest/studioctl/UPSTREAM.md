@@ -15,7 +15,8 @@
   commit `43be33f73e`, also branch `feat/studioctl-localtest-v2` on `ivarne-agent/altinn-studio`). The later ones
   (the Resource Registry, Notifications and Profile components, the Dialogporten group, the group table and the
   receipt and correspondence groups, the 503 front door, the Dialogporten adapter, provisioning step 5, `env logs -c`
-  for a stopped container, the image pins) are listed by `git log --oneline 3ecc3fb..HEAD -- localtest/studioctl/src`;
+  for a stopped container, the image pins, and in task 27a the move to manifest v2, which deleted studioctl-server's
+  proxy, its 503 pages and the provisioning adapter again in favour of the localtest container's front door) are listed by `git log --oneline 3ecc3fb..HEAD -- localtest/studioctl/src`;
   [`README.md`](README.md) "What the localtest-v2 change adds" describes the result file by file.
 - The whole change is also on branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio` (the
   current one; `feat/studioctl-localtest-v2` holds only the first commit). The coordinator refreshes it from this

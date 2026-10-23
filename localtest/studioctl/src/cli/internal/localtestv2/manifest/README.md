@@ -13,7 +13,7 @@ package's test (`manifest_internal_test.go`) validates the file, and `Parse` ref
   "containers": {
     "storage": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-storage",
-      "tag": "sha-f76b62b",
+      "tag": "sha-6d928ad",
       "port": 5010,
       "envs": { "GeneralSettings__PlatformEndpoint": "http://local.altinn.cloud:8000/" },
       "dependsOn": ["postgres"],
@@ -51,8 +51,9 @@ commands or build information. A container's notes belong in its component's REA
 
 **Transitional (task 27a):** the component images still listen on their own ports (5010, 5020, …), so most containers
 name their `port`; the default 8080 applies to the localtest app and Dialogporten's hosts. The per-component image
-changes of task 25 move them to 8080 and drop the key. Redis still runs the upstream image (by digest) until
-`localtest/redis/Dockerfile` is published and pinned.
+changes of task 25 move them to 8080 and drop the key. Redis runs this repository's image (`localtest/redis/`) at the
+same pin since `sha-6d928ad`. The conventions behind these rules (and the table of today's ports):
+[`localtest/CONVENTIONS.md`](../../../../../../CONVENTIONS.md).
 
 ## What the runner adds
 
