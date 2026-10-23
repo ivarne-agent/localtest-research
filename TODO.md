@@ -74,7 +74,7 @@ A path matching no route still falls through to the localtest app.
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
-| 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **running** (dispatched 2026-10-23, Opus, code-only) | small | no |
+| 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1311,3 +1311,10 @@ decided by the agent and named in the error.
 
 **Owner 2026-10-23 on container-mode apps (task 34):** keep the option of running apps in containers locally; the
 host-gateway versus stack-network trade-off is with the owner (coordinator's description given in chat).
+
+**Outcome (merged 2026-10-23).** `failedstart.go`: a create or start error, a port in use or a cancellation partway
+through removes what the start created (containers, probes, the network if this runtime made it; named volumes kept),
+deletes the state file and returns the original error (the task-39 port message kept); a health timeout leaves the
+containers and the state for inspection and says so (`env logs`, `env down`); cleanup failures are joined. Tests with
+an in-memory runtime on the mock client for the three cases. Known: a container that exits at once counts as a start
+error and is removed with its logs (devenv's error type is private). Coordinator re-ran go build/test/lint.
