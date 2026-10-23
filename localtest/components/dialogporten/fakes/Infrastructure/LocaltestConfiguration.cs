@@ -56,7 +56,7 @@ public static class LocaltestConfiguration
                 $"Host={options.DatabaseHost};Port={options.DatabasePort};Database={options.DatabaseName};Username={options.DatabaseUser};Password={options.DatabasePassword};Include Error Detail=True",
             ["Infrastructure:Redis:ConnectionString"] = options.RedisConnectionString,
             // Public: MetadataLinkProvider builds the links handed to clients from it. The four clients on it call the
-            // services by name through LocaltestServiceNames; Events has a base of its own, its service name.
+            // services by name through LocaltestPrefixRouting (LocaltestInfrastructure); Events has a base of its own, its service name.
             ["Infrastructure:Altinn:BaseUri"] = platform,
             ["Infrastructure:Altinn:EventsBaseUri"] = "http://events/",
             ["Infrastructure:Altinn:SubscriptionKey"] = "localtest",

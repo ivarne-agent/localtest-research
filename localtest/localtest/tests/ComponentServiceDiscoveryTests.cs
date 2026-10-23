@@ -1,4 +1,5 @@
 using System.Net;
+using Localtest.Proxy;
 using Localtest.Shared.ServiceDiscovery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,6 +83,47 @@ public sealed class ComponentServiceDiscoveryTests
     [InlineData("10.0.0.1", true)]
     [InlineData("[::1]", true)]
     public void ARealHostIsOneThatIsNotASingleLabel(string host, bool real) => Assert.Equal(real, LocaltestServiceDiscovery.IsRealHost(host));
+
+    [Fact]
+    public void ThePrefixRoutingMatchesTheFrontDoorsTable()
+    {
+        var origin = new Uri("http://local.altinn.cloud:8000/");
+        var table = PlatformRoutes.Table(LocaltestSettings.FromConfiguration(new ConfigurationBuilder().Build()))
+            .Where(r => r.Host is null && r.Rewrite is null)
+            .ToList();
+        Assert.NotEmpty(table);
+        foreach (var (_, prefix, service, _) in table)
+        {
+            Assert.Equal($"http://{service}{prefix}/api/v1/x?y=1", LocaltestPrefixRouting.ServiceUri(new Uri(origin, prefix + "/api/v1/x?y=1"), origin)?.ToString());
+        }
+
+        // The rewritten GraphQL path, another host and a path no service owns stay as they are.
+        Assert.Null(LocaltestPrefixRouting.ServiceUri(new Uri("http://local.altinn.cloud:8000/dialogporten/graphql"), origin));
+        Assert.Null(LocaltestPrefixRouting.ServiceUri(new Uri("http://af.local.altinn.cloud:8000/register/x"), origin));
+        Assert.Null(LocaltestPrefixRouting.ServiceUri(new Uri("http://local.altinn.cloud:8000/localtest/api/x"), origin));
+        Assert.Null(LocaltestPrefixRouting.ServiceUri(new Uri("http://local.altinn.cloud:8000/registerx/y"), origin));
+    }
+
+    [Fact]
+    public async Task ThePrefixRoutingRunsBeforeTheResolver()
+    {
+        var sent = new List<Uri>();
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["services:register:http:0"] = "http://localtest-v2-register:5020" })
+            .Build());
+        services.AddLogging();
+        services.AddLocaltestServiceDiscovery();
+        services.AddHttpClient("IRegister", c => c.BaseAddress = new Uri("http://local.altinn.cloud:8000/")).ConfigurePrimaryHttpMessageHandler(() => new Capture(sent));
+        LocaltestPrefixRouting.AddTo(services, _ => new Uri("http://local.altinn.cloud:8000/"), "IRegister");
+        using var provider = services.BuildServiceProvider();
+        using var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("IRegister");
+
+        await client.GetAsync("register/api/v1/parties/1", TestContext.Current.CancellationToken);
+        await client.GetAsync("localtest/api/x", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["http://localtest-v2-register:5020/register/api/v1/parties/1", "http://local.altinn.cloud:8000/localtest/api/x"], sent.Select(u => u.ToString()));
+    }
 
     private static (HttpClient Client, List<Uri> Sent, ServiceProvider Provider) Client(Action<IServiceCollection> register)
     {

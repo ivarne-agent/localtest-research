@@ -23,6 +23,7 @@
   <ItemGroup>
     <!-- The components' service-discovery registration (copied into each component's fakes), tested here. -->
     <Compile Include="../../components/shared/fakes/ServiceDiscovery/LocaltestServiceDiscovery.cs" Link="Shared/LocaltestServiceDiscovery.cs" />
+    <Compile Include="../../components/shared/fakes/ServiceDiscovery/LocaltestPrefixRouting.cs" Link="Shared/LocaltestPrefixRouting.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
