@@ -70,7 +70,7 @@ A path matching no route still falls through to the localtest app.
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
-| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **phase 1 verified** 2026-10-23 (85d611fe; phase 2 waits for a pin bump that carries the emulation, since the package has no dev build) | medium | yes (phase 2) |
+| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **phase 1 verified, phase 2 running** (2026-10-23, on the new pin sha-48648ec) | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1168,3 +1168,13 @@ full stack's persistent front door with the `rm` command named. Options: `Tag` a
 changed. Docs: package README "Minimal mode", conventions, localtest README, spec status. Phase 2 needs a localtest
 image with the emulation: the pin `sha-6d928ad` predates task 35 and the package has no dev build, so the pin bump
 comes first.
+
+**Pin bump 2026-10-23 (coordinator): `sha-6d928ad` → `sha-48648ec`.** The images built by the workflow for the task-36
+merge commit carry tasks 35 and 36 (the minimal-mode emulation, no `VOLUME` declarations in our Dockerfiles, the
+Register fake's source-generated test-data parser). Proof on the plain pin: default stack with dialogporten up in 61 s
+including pulls; root 26/26, authentication 34/34, authorization 31/31, dialogporten 60/60, front door 80/81 (known);
+minimal mode up in 5.9 s, four containers, no volume added, root 23/23 with 3 named skips; after both downs the only
+volumes are the four `localtest-v2-*`. Observation: our Redis image inherits `VOLUME /data` from its base, so one
+anonymous volume exists while the dialogporten group runs and goes with the container (conventions sentence corrected).
+Old pin images removed to make room (3.6 GB); logs in `/home/agent/code/.scripts/pin-48648ec/`. Note to self: a
+`find -name bin` cleanup under `src/cli` deletes `build/dev-home/bin`; exclude `build/`.
