@@ -23,7 +23,7 @@ The monorepo layout is kept, so relative paths resolve as upstream.
 cd localtest/studioctl/src/cli
 make dev-install                            # builds build/dev-home/bin/{studioctl,studioctl-server}
 export STUDIOCTL_HOME=$PWD/build/dev-home
-build/dev-home/bin/studioctl env up -r localtest-v2 [--with <group>] [--without <group>] [--dev-<container>[=<path>]] [--latest]
+build/dev-home/bin/studioctl env up -r localtest-v2 [--with <group>] [--without <group>] [--dev-<container>[=<path>]] [--latest] [--minimal] [--host <name>] [--port <n>]
 build/dev-home/bin/studioctl env logs [-c <container>]
 build/dev-home/bin/studioctl env down        # env reset also deletes the manifest's volumes
 ```
@@ -37,6 +37,13 @@ build/dev-home/bin/studioctl env down        # env reset also deletes the manife
   (`cd localtest && … --dev-postgres=postgres/Dockerfile`), one elsewhere with its own directory. Example:
   `cd localtest/components/storage && studioctl env up -r localtest-v2 --dev-storage`.
 - `--latest` runs the research images at `latest` instead of their `sha-` pin.
+- `--host <name>` and `--port <n>` move the public origin (default `http://local.altinn.cloud:8000`, the manifest's
+  `public` section): the front door's published port, every `{{origin}}` value, the containers' host-gateway names
+  (`<name>` and its `pdf.`, `workflow-engine.`, `app-frontend.`, `af.` subdomains). `--port 0` picks a free port. The
+  state file records both; `env status` prints `Origin:`, and `env down`, `run`, `app env` and studioctl-server use the
+  recorded origin. A plain `env up` keeps it; `env up` with other values stops the environment and starts it at the new
+  origin. A custom host must resolve to loopback (the user's own `/etc/hosts` line; `env hosts add` writes the default
+  names only): `env up` refuses with the line to add otherwise.
 - `env logs -c <container>` shows the container's log also when it has stopped (the shared
   `internal/cmd/env/localtest/log_streamer.go`). `make dev-install` runs `studioctl self install`, which stops every
   environment and app first.
@@ -46,12 +53,12 @@ Gotcha: `STUDIOCTL_HOME` must be short. studioctl-server listens on a Unix socke
 is too long, so point a short symlink (for example `/home/agent/<task>-home`) at `build/dev-home` and use that.
 
 Gotcha: only one runtime can own port 8000: the localtest runtime's container, or the localtest-v2 `localtest`
-container.
+container (unless localtest-v2 runs at another `--port`).
 
 ## The manifest
 
 [`src/cli/internal/localtestv2/manifest/manifest.json`](src/cli/internal/localtestv2/manifest/manifest.json) (format:
-its [README](src/cli/internal/localtestv2/manifest/README.md)) lists the containers (registry, tag, literal `envs`,
+its [README](src/cli/internal/localtestv2/manifest/README.md)) lists the public origin's defaults (`public`), the containers (registry, tag, `envs` with the origin's placeholders,
 `dependsOn`, named `volumes`, optional `port` and `health`) and the groups (root containers). Everything else is the
 loader's: network, container names, aliases, host mappings, the certificate mounts, the `services__<name>__http__0`
 variables, the one published port, health, dev builds. studioctl embeds the file. Its test validates it; the golden
@@ -69,18 +76,18 @@ Paths below are under `src/cli/`.
 
 | Where | What |
 | --- | --- |
-| `internal/localtestv2/manifest/` | The manifest (`manifest.json`, `README.md`) and its reader and validation (`manifest.go`): known keys, references, no cycles, every container reached by a group, values in range; the groups' transitive selection in start order |
-| `internal/cmd/env/localtestv2/` | The runtime. `containers.go`: one container per selected manifest entry, in dependency order, alias its name, the public hosts and `host.docker.internal` on the host gateway, the certificate at `/certs`, its `envs` then `services__*` for every running HTTP container, port 8000 published from `localtest` only (all interfaces, so the containers reach it through the gateway). `groups.go`: `--with`/`--without`/`everything`. `dev.go`: `--dev-<container>` paths. `health.go`: each container's health (HTTP path or TCP) checked from a short-lived probe container on the stack's network (the manifest's Postgres image, bash `/dev/tcp`), created through the container client and gating what depends on it; then the front door's `/health` through port 8000. `env.go`: up, down, reset (the manifest's volumes), logs, status. `certs.go`: the embedded test certificate |
+| `internal/localtestv2/manifest/` | The manifest (`manifest.json`, `README.md`) and its reader and validation (`manifest.go`): known keys, references, no cycles, every container reached by a group, values in range; the groups' transitive selection in start order. `origin.go`: the `public` section, the five placeholders (`{{origin}}`, `{{host}}`, `{{port}}`, `{{origin:<sub>}}`, `{{host:<sub>}}`), their validation and resolution for a host and port |
+| `internal/cmd/env/localtestv2/` | The runtime. `containers.go`: one container per selected manifest entry, in dependency order, alias its name, the public hosts and `host.docker.internal` on the host gateway, the certificate at `/certs`, its `envs` then `services__*` for every running HTTP container, the public port (8000, `--port`) published from `localtest` only (all interfaces, so the containers reach it through the gateway). `groups.go`: `--with`/`--without`/`everything`. `dev.go`: `--dev-<container>` paths. `health.go`: each container's health (HTTP path or TCP) checked from a short-lived probe container on the stack's network (the manifest's Postgres image, bash `/dev/tcp`), created through the container client and gating what depends on it; then the front door's `/health` through the public origin. `origin.go`: `--host`/`--port`, the origin a plain `env up` keeps, `--port 0`'s free port, a custom host's resolution check `env.go`: up, down, reset (the manifest's volumes), logs, status. `certs.go`: the embedded test certificate |
 | `../Runtime/devenv/pkg/resource` | `ContainerLifecycleOptions.ReadinessProbe`: a check the executor runs once a container is ready and before its dependents start |
 | `internal/cmd/env.go`, `internal/cmd/env/types.go` | The flags (`--with`, `--without`, `--latest`, `--dev-<container>[=<path>]` for every manifest container); `UpOptions.DevComponents` maps container to path; `env up` refuses the flags the chosen runtime does not have |
 | `internal/cmd/env/runtime.go`, `registry/` | `-r <runtime>` with one runtime at a time, defaulting to the last one started |
 | `internal/cmd/env/localtest/env.go`, `log_streamer.go` | The localtest runtime refuses to start while localtest-v2 holds the port; the log streamer shows a stopped container's log |
-| `internal/envtopology/` | The `arbeidsflate` host `af.local.altinn.cloud` (`env hosts add`, the containers' host mappings) |
-| `internal/localtestv2/state.go` | The state file (certificate directory, enabled groups, `--latest`) studioctl and studioctl-server read; `env up` on a running environment converges it when the groups or `--latest` differ |
+| `internal/envtopology/` | The `arbeidsflate` host `af.local.altinn.cloud` (`env hosts add`); `NewLocalAt`, the public URLs at another host |
+| `internal/localtestv2/state.go` | The state file (certificate directory, public host and port, enabled groups, `--latest`, `--minimal`) studioctl and studioctl-server read; `CurrentTopology` gives `run`, `app env` and the dev-server route the recorded origin; `env up` on a running environment converges it when the groups, the origin or `--latest` differ |
 | `internal/cmd/app/{env,config,run}.go` | The app environment (runner code, pinned by `testdata/app-environment.golden.json`; `studioctl app env` prints it) with the certificate variables and the Arbeidsflate links (`PlatformFrontendSettings__Arbeidsflate*Url`) while localtest-v2 is up; the app then listens on `0.0.0.0`, because the front door reaches it as `host.docker.internal:<port>`. `run --mode container` is refused while localtest-v2 is up (the app container would join the localtest runtime's network) |
 | `internal/localtestv2/frontdoor/` | The client of the front door's API: `GET localtest/api/apps`, waiting for an app's registration, `PUT`/`DELETE localtest/api/routes/frontend-dev-server` |
-| `internal/cmd/run_frontdoor.go`, `run.go` | `studioctl run` waits until the front door lists the app at `http://host.docker.internal:<port>` with a provisioning that succeeded since the run started (and says so when the front door does not answer); with `--dev-frontend` it routes `app-frontend.local.altinn.cloud` to `http://host.docker.internal:8080` for the run's length |
-| `internal/studioctlserver/client.go` | While localtest-v2 is up, studioctl-server runs with `Localtest__RegisterApps=true` and without the host bridge; `env up`/`down` restart it when that changes |
+| `internal/cmd/run_frontdoor.go`, `run.go` | `studioctl run` waits until the front door lists the app at `http://host.docker.internal:<port>` with a provisioning that succeeded since the run started (and says so when the front door does not answer); with `--dev-frontend` it routes `app-frontend.<public host>` to `http://host.docker.internal:8080` for the run's length |
+| `internal/studioctlserver/client.go` | While localtest-v2 is up, studioctl-server runs with `Localtest__RegisterApps=true`, the front door at the recorded port and without the host bridge; `env up`/`down` restart it when that changes |
 | `studioctl-server/Discovery/FrontDoorRegistration.cs`, `AppRegistry.cs`, `ServiceCollectionExtensions.cs`, `Studioctl/Endpoints.cs` | Discovery registers each app it finds (a `studioctl run`'s or one started from an IDE) with `PUT {Localtest:Url}localtest/api/apps/{org}/{app}` and the address `http://host.docker.internal:<port>`, logs the provisioning result, retries a failure on the next refresh, registers again an app that restarted (another process or container) or that the front door's `GET localtest/api/apps` no longer lists, and `DELETE`s an app it registered that is gone; the status endpoint reports `localtest.registerApps`. The front door, the 503 pages and the provisioning are the localtest image's (`../../localtest/README.md`) |
 | `studioctl-server-tests/`, `*_test.go` | Tests of the above |
 | `README.md`, `AGENTS.md`, `CHANGELOG.md`, the bundled skill | Docs |

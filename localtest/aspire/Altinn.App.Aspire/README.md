@@ -53,8 +53,8 @@ await builder.Build().RunAsync();
 ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost.cs   # or aspire run
 ```
 
-Stop `studioctl env down -r localtest-v2` first: both need port 8000, and the package refuses to start while it is
-taken, naming the holder. `local.altinn.cloud` must resolve to this machine (`studioctl env hosts add` writes the
+Stop `studioctl env down -r localtest-v2` first: both need port 8000 at the default origin, and the package refuses to
+start while it is taken, naming the holder (or give the AppHost another port, [The public origin](#the-public-origin)). `local.altinn.cloud` must resolve to this machine (`studioctl env hosts add` writes the
 entries), because the AppHost registers the app through the front door. Aspire's container tunnel does not build on
 Podman 5.7 (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`); the front door reaches the app through `host.docker.internal`
 either way. Where the ASP.NET Core development certificate is not trusted (Linux), the dashboard needs
@@ -78,12 +78,44 @@ workflow run's artifact into a local folder source.
 | `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` (world-readable, as studioctl writes it), the apps' secrets in `apps/<org>/<app>/secrets`. The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
 | `AltinnLocaltestOptions.PostgresHostPort` | Publishes Postgres on this loopback port, for `psql`; default none, as studioctl |
+| `AltinnLocaltestOptions.PublicHost`, `.PublicPort` | The public origin's host and port ([The public origin](#the-public-origin)); null is the manifest's (`local.altinn.cloud`, 8000), `PublicPort = 0` a port Aspire allocates |
 | `AddAltinnApp<TProject>(localtest, name = "app", configure = null)` | Adds an app project (`Projects.App` for `#:project ../App/App.csproj`): [The app](#the-app) |
 | `AddAltinnApp(localtest, projectPath, name = "app", configure = null)` | The same by the `.csproj`'s path, for an AppHost without the generated `Projects.*` |
 | `AltinnAppOptions.OpenTelemetry` | Default `true`: `AppSettings__UseOpenTelemetry=true`, so the app's telemetry reaches the dashboard |
 | `AltinnAppOptions.ProvisionWhenReady` | Default `true`: register the app when it is healthy; `false` leaves it to the `provision` command |
 | `AddAltinnLocaltestMinimal(name = "altinn-localtest-minimal", configure = null)` | [Minimal mode](#minimal-mode): four containers, the rest emulated, nothing persisted. Its builder takes `AddAltinnApp` and `WithFrontendDevServer`, no group method |
-| `AltinnLocaltestMinimalOptions.Tag`, `.PostgresHostPort` | As in `AltinnLocaltestOptions` |
+| `AltinnLocaltestMinimalOptions.Tag`, `.PostgresHostPort`, `.PublicHost`, `.PublicPort` | As in `AltinnLocaltestOptions` |
+
+## The public origin
+
+`PublicHost` and `PublicPort` on either option class move the front door off `http://local.altinn.cloud:8000`, as
+studioctl's `env up --host --port` does; the defaults are the manifest's `public` section:
+
+```csharp
+var localtest = builder.AddAltinnLocaltestMinimal(configure: o => o.PublicPort = 0);   // a free port, per run
+var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.test"; o.PublicPort = 18000; });
+```
+
+- Every value derived from the origin follows: the manifest's `{{origin}}`-style values in each container, the front
+  door's `Localtest__PlatformEndpoint` and `Localtest__PublicSubdomains`, the `--add-host` names (the host and its
+  `pdf.`, `workflow-engine.`, `app-frontend.`, `af.` subdomains), the app's environment, its dashboard link and its
+  registration, the dev-server route, `PlatformUri`.
+- `PublicPort = 0`: the front door's `http` endpoint is declared unproxied without a port
+  (`WithHttpEndpoint(port: null, targetPort: 8080, isProxied: false)`), and Aspire 13 allocates a free host port for it
+  while it prepares the run (a persistent front door keeps it in the AppHost's user secrets when they are enabled).
+  Every value with the port is a `ReferenceExpression` over that endpoint's port in the localhost network context
+  (`GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork).Property(EndpointProperty.Port)`), which Aspire
+  resolves after the allocation and before any container or app starts. `PlatformUri` is known from then on; before,
+  it throws. The port guard is skipped (the port is free by construction).
+- **The hosts file**: the browser and the AppHost (it registers the apps through the front door) need the names to
+  resolve to this machine. `studioctl env hosts add` writes the default names only; for a custom host add
+  `127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test` to
+  `/etc/hosts` yourself. The package does not check it.
+- A host that is not a lower-case name (a port, an IP address) or a port outside 0 to 65535 throws when the stack is
+  added.
+- The component images derive Arbeidsflate's origin from their platform endpoint since task 39; until the manifest's
+  pin includes that build, the inbox's sign-in (Authentication's seeded client) and Dialogporten's CORS still name
+  `af.local.altinn.cloud:8000` at a custom origin.
 
 ## How the manifest becomes resources
 

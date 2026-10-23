@@ -152,6 +152,10 @@ Altinn Studio platform components.
   container, which emulates the other services in memory and permits every request (no 403s, no role checks; every
   PDF is one static page). Nothing persists between starts. Use it for quick work and an app's own tests, not to test
   authorization; it takes no `--with`.
+- `studioctl env up -r localtest-v2 --host <name> --port <n>` runs the stack on `http://<name>:<n>` instead of
+  `http://local.altinn.cloud:8000` (`--port 0` picks a free port); `env status` prints the `Origin:`, and `run`,
+  `app env` and the other `env` commands use it. The name and its `pdf.`, `workflow-engine.`, `app-frontend.` and
+  `af.` subdomains must be in `/etc/hosts` (127.0.0.1); `env up` prints the line to add when they are not.
 
 ## Stop
 

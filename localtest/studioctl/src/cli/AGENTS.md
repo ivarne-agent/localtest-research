@@ -72,7 +72,8 @@ Invariants:
 - The localtest-v2 stack is described by one embedded manifest
   (`internal/localtestv2/manifest/manifest.json`, with its README): groups of root containers, and per container its
   image (registry and tag; the research images share one `sha-<commit>` pin, moved only by
-  `localtest/tools/bump-tag.sh`), literal environment, `dependsOn`, volumes, port and health. `env up --latest` follows
+  `localtest/tools/bump-tag.sh`), environment (literal but for the public origin's placeholders, `{{origin}}` and
+  kin, from the `public` section; `manifest/origin.go`), `dependsOn`, volumes, port and health. `env up --latest` follows
   main. Change the manifest, not Go code, to change a container; the golden file in
   `internal/cmd/env/localtestv2/testdata/` shows the effect. The runtime lives in `internal/cmd/env/localtestv2/`
   (network, containers, `services__*` variables, probe-container health, `--dev-<container>` builds). The front door

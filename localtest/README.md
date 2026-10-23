@@ -165,6 +165,18 @@ tests, not for authorization or platform bugs ([`CONVENTIONS.md`](CONVENTIONS.md
 [`localtest/Emulation/README.md`](localtest/Emulation/README.md)). Under Aspire: `builder.AddAltinnLocaltestMinimal()`,
 session containers on tmpfs ([package README](aspire/Altinn.App.Aspire/README.md#minimal-mode)).
 
+**Another origin.** `--host <name>` and `--port <n>` move the public origin off `http://local.altinn.cloud:8000`:
+`studioctl env up -r localtest-v2 --host altinn.test --port 18000` serves the platform on `http://altinn.test:18000` and
+the dedicated hosts on `pdf.altinn.test`, `workflow-engine.altinn.test`, `app-frontend.altinn.test` and `af.altinn.test`
+(the manifest's `public` section lists them). `--port 0` picks a free port. The state file records the origin, so
+`env status` (its `Origin:` line), `env down`, `studioctl run`, `app env` and the dev-server route use it until the next
+`env up` with other values, which stops the environment and starts it at the new origin; a plain `env up` keeps it.
+`env hosts add` writes the default names only: for a custom host add the line to `/etc/hosts` yourself
+(`127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test`); `env up`
+refuses with that line while a name does not resolve to loopback. Under Aspire: `PublicHost` and `PublicPort` (0 for a
+port Aspire allocates) on both option classes ([package README](aspire/Altinn.App.Aspire/README.md#the-public-origin)).
+The rule and what follows the origin: [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
+
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
 tagged `sha-<commit>` and `latest`; the manifest pins one build, moved only by `tools/bump-tag.sh`
@@ -203,6 +215,10 @@ renders empty and every spec fails. Set `MONOREPO=/path/to/altinn-studio` for `r
 `run-platform-regression.sh`) when running from a worktree.
 
 ## Tests
+
+Every suite runs against `http://local.altinn.cloud:8000`, or the origin in `LOCALTEST_ORIGIN`
+(`LOCALTEST_ORIGIN=http://altinn.test:18000 ./smoke-test.sh`), which also sets the `af.`, `pdf.` and `app-frontend.`
+hosts the suites derive from it; a suite's own `BASE` argument still wins.
 
 | Command | What it checks |
 | --- | --- |

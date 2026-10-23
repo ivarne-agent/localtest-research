@@ -14,7 +14,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 
 | Feature | Folder | API |
 | --- | --- | --- |
-| Proxy: one origin, `local.altinn.cloud:8000`, split by host name and path prefix onto the platform services by name and onto the registered apps; the 503s; the app registration with provisioning; the frontend dev server's route | `Proxy/`, `Provisioning/` | `localtest/api/apps/`, `localtest/api/routes/` |
+| Proxy: one origin, `local.altinn.cloud:8000` by default (`Localtest:PlatformEndpoint`), split by host name and path prefix onto the platform services by name and onto the registered apps; the 503s; the app registration with provisioning; the frontend dev server's route | `Proxy/`, `Provisioning/` | `localtest/api/apps/`, `localtest/api/routes/` |
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
@@ -24,7 +24,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | File | What |
 | --- | --- |
 | `Program.cs` | Composition: service discovery (core and configuration provider), dedicated hosts first, then the app-frontend files, routing, the features' endpoints, the catch-all forwarder |
-| `LocaltestSettings.cs` | Settings the features share: the public `Localtest:PlatformEndpoint` and the shared test certificate's path |
+| `LocaltestSettings.cs` | Settings the features share: the public `Localtest:PlatformEndpoint` (the public host and port are its own), the dedicated subdomains `Localtest:PublicSubdomains`, and the shared test certificate's path |
 | `Tokens/` | `SigningKey.cs`: RS256 keys (generated, or the shared certificate's), JWKS and a hand-written JWT writer, used by the identity features; `TokenErrorResponse.cs`, the token endpoint error both fakes answer |
 | `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `AuthorizationCodes.cs`, `TestUsers.cs` (the register's test users, also used by Home), `AuthLevels.cs` |
 | `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, token endpoint, minting) |
@@ -64,10 +64,14 @@ in.
 
 In order:
 
-1. **Dedicated hosts** own every path, the localtest app's own endpoints included: `pdf.local.altinn.cloud` → `pdf3`,
-   `workflow-engine.local.altinn.cloud` → `workflow-engine`, `af.local.altinn.cloud` → `arbeidsflate`, and
-   `app-frontend.local.altinn.cloud` → the frontend dev server while one is registered (below; without one that host
-   is served like the main host).
+1. **Dedicated hosts** own every path, the localtest app's own endpoints included. They are subdomains of the public
+   host, the host of `Localtest:PlatformEndpoint` (default `local.altinn.cloud`): `pdf.<host>` → `pdf3`,
+   `workflow-engine.<host>` → `workflow-engine`, `af.<host>` → `arbeidsflate`, and `app-frontend.<host>` → the frontend
+   dev server while one is registered (below; without one that host is served like the main host). The runner lists
+   the subdomains that are on in `Localtest:PublicSubdomains` (comma-separated, from the manifest's `public` section;
+   unset is all four): one the app does not know stops its start, a known one left out is served like the main host.
+   The issuers, redirect URIs and links below follow the same origin, including the seeded `arbeidsflate-localtest`
+   client's `http://af.<host>:<port>/api/cb`.
 2. **`/app-frontend/`**: the built app-frontend (`FRONTEND_DIST`, mounted at `/frontend`) as static files, with
    `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. The apps' asset base.
 3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), and the start page and `/Home/…`
@@ -149,7 +153,8 @@ Nothing watches the files.
 ### Port
 
 The image listens on **8080** (`ASPNETCORE_HTTP_PORTS=8080`, `EXPOSE 8080`), the stack's conventional port, and answers
-`/health`. The public port 8000 is what a runtime publishes onto it (studioctl since task 27a, the Aspire package since task 27b).
+`/health`. The public port (8000 by default; studioctl's `--port`, Aspire's `PublicPort`) is what a runtime publishes
+onto it (studioctl since task 27a, the Aspire package since task 27b), and the port of `Localtest:PlatformEndpoint`.
 
 ## ID-porten
 

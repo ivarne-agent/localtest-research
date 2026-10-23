@@ -2,18 +2,19 @@
 
 The rules every part of the stack follows: the manifest, the runtimes (studioctl's `localtest-v2` and the Aspire
 package), the localtest app as the front door and the component images. Each section states the rule, the reason and
-where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28, 31 and phase 1 of 35
+where the code is. Other documents link here instead of restating them. State as of 2026-10-23 (after tasks 25 to 28, 31, phase 1 of 35 and phase 1 of 39
 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
 
 **Rule.** One file,
 [`studioctl/src/cli/internal/localtestv2/manifest/manifest.json`](studioctl/src/cli/internal/localtestv2/manifest/manifest.json),
-lists the stack in two sections:
+lists the stack in three sections:
 
 ```json
 {
   "groups": [{ "name": "default", "containers": ["postgres", "register", "…"] }, …],
+  "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
   "containers": {
     "<name>": { "registry", "tag", "envs", "dependsOn", "volumes", "port"?, "health"? }
   }
@@ -26,8 +27,11 @@ lists the stack in two sections:
   and Redis because Correspondence depends on them, but not the Dialogporten Service, GraphQL host or adapter.
   `everything` is not in the file; it is a constant of each runner meaning every optional group. A container no group
   reaches is an error.
+- `public` is the public origin's default host and port and the dedicated subdomains of the host
+  ([The public origin and host names](#the-public-origin-and-host-names)); they live there and nowhere else.
 - `containers` holds real services only: no app, no routes, no host ports, no build information, no descriptions.
-  `envs` are literal strings (no placeholders, no substitution); `port` defaults to 8080 and `health` to `/health`
+  `envs` are literal strings but for the public origin's five placeholders (`{{origin}}`, `{{host}}`, `{{port}}`,
+  `{{origin:<sub>}}`, `{{host:<sub>}}`); nothing else is substituted, and `services__*` are never in it. `port` defaults to 8080 and `health` to `/health`
   (`"tcp"` for Postgres and Redis). `volumes` maps a volume id (`postgres-data`), not a runtime's volume name, to the
   path in the container ([Volumes](#volumes)). An unknown key is an error.
 - There is no JSON Schema: the Go reader's test validates the file and `Parse` refuses an invalid one; the Aspire
@@ -66,11 +70,13 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Volumes | `localtest-v2-<id>` for each manifest volume id | `altinn-localtest-<id>`: its own, not studioctl's |
 | Certificate | the certificate mounts below | the same |
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
-| Published ports | only `localtest`'s 8080, as 8000 on every interface | the same; Postgres on a loopback port only with `PostgresHostPort` |
+| Published ports | only `localtest`'s 8080, as the public port (8000, `--port`) on every interface | the same (`PublicPort`, 0 allocated by Aspire); Postgres on a loopback port only with `PostgresHostPort` |
+| Public origin | `--host`, `--port` (0 picks a free port), recorded in the state file | `PublicHost`, `PublicPort` on both option classes |
 | A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
 | Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | `AddAltinnLocaltestMinimal()`, its own resource type |
 
-Run one at a time: both need port 8000.
+Run one at a time at the default origin: both need port 8000. At different ports (`--port`, `PublicPort`) neither
+holds the other's port; running both side by side is untested.
 
 **Why.** Everything a runtime adds is the same for every container, so it lives in runner code, not in the manifest.
 
@@ -114,32 +120,60 @@ snapshot has a `minimal` case, which both runtimes' tests compare with.
 
 ## The public origin and host names
 
-**Rule.** Everything a browser, an app or a test reaches goes through one origin, `http://local.altinn.cloud:8000`,
-and four host names on the same port:
+**Rule.** Everything a browser, an app or a test reaches goes through one origin per environment, by default
+`http://local.altinn.cloud:8000`, and four host names on the same port, the dedicated subdomains of the public host:
 
 | Host | Goes to |
 | --- | --- |
-| `local.altinn.cloud` | the platform by path prefix, the apps at `/{org}/{app}/`, the localtest app's own pages and APIs |
-| `pdf.local.altinn.cloud` | pdf3 |
-| `workflow-engine.local.altinn.cloud` | the workflow engine |
-| `af.local.altinn.cloud` | Arbeidsflate (its SPA, which proxies `/api/` to the BFF) |
-| `app-frontend.local.altinn.cloud` | the frontend dev server while one is registered; otherwise served like the main host |
+| `<host>` (`local.altinn.cloud`) | the platform by path prefix, the apps at `/{org}/{app}/`, the localtest app's own pages and APIs |
+| `pdf.<host>` | pdf3 |
+| `workflow-engine.<host>` | the workflow engine |
+| `af.<host>` | Arbeidsflate (its SPA, which proxies `/api/` to the BFF) |
+| `app-frontend.<host>` | the frontend dev server while one is registered; otherwise served like the main host |
 
-The browser needs them in the hosts file (`studioctl env hosts add`). Inside the stack every container resolves these
-names and `host.docker.internal` to the container runtime's host gateway (`--add-host <host>:host-gateway`), so a
-container reaches the public origin the way a browser does.
+The scheme is `http` (HTTPS is tasks 23/24). The host, the port and the list of subdomains have their defaults in the
+manifest's `public` section and nowhere else. An environment may run at another host and port: studioctl
+`env up -r localtest-v2 --host <name> --port <n>` (`--port 0` picks a free port once and records it in the state file,
+so `env status`, `env down`, `studioctl run`, `app env`, studioctl-server's registration and the dev-server route use
+the same origin until the next `env up`; a plain `env up` keeps it, other values are down, then up), Aspire
+`PublicHost` and `PublicPort` (`0`: a port Aspire allocates when the AppHost runs). The runtimes read the subdomain
+list for the host-gateway mappings and for what must resolve; the front door gets the origin in
+`Localtest__PlatformEndpoint` and the list in `Localtest__PublicSubdomains`, maps each subdomain to its route in code,
+refuses to start on one it does not know, and leaves a route off whose subdomain is not listed.
+
+**The placeholders.** A manifest value names the origin only through `{{origin}}` (`http://<host>:<port>`), `{{host}}`,
+`{{port}}`, `{{origin:<sub>}}` (`http://<sub>.<host>:<port>`) and `{{host:<sub>}}` (`<sub>.<host>`) for a listed
+subdomain. Both readers refuse anything else in `{{…}}` (an unknown name, an unlisted subdomain, an unclosed `{{`) as
+a manifest error naming the container and the key, and substitute nothing else. studioctl resolves them into strings;
+the Aspire package into parts, so that with an allocated port each value with the port is a `ReferenceExpression` over
+the front door's endpoint (its port in the localhost network context), resolved by Aspire after it has allocated the
+port and before any container or app starts.
+
+**The hosts file.** The browser needs the names in the hosts file. `studioctl env hosts add` writes the default names
+only; for a custom host the user adds the line (`127.0.0.1 <host> pdf.<host> workflow-engine.<host> app-frontend.<host>
+af.<host>`), and `env up` refuses with exactly that line while a name does not resolve to a loopback address. Inside the
+stack every container resolves the configured names and `host.docker.internal` to the container runtime's host gateway
+(`--add-host <host>:host-gateway`), so a container reaches the public origin the way a browser does. The apps'
+registration address (`host.docker.internal:<app port>`) does not depend on the origin.
 
 **What stays on the public origin** even where a service name would work: token issuers, OIDC discovery documents and
 their `jwks_uri`, redirect URIs, links handed to a browser (self links, dialog links, receipt links), cookie domains.
-These are values a browser or a token sees, so they must be the address a browser can open.
+These are values a browser or a token sees, so they must be the address a browser can open. The component fakes derive
+theirs from their own platform-endpoint setting, which the manifest sets from `{{origin}}`: Authentication's seeded
+`arbeidsflate-localtest` client, Correspondence's Arbeidsflate origin and Dialogporten GraphQL's CORS origin put `af.`
+in front of that host; the Arbeidsflate SPA image takes its CSP origin from `DIALOGPORTEN_STREAM_URL` and its party
+cookies' domain from the page's `af.<host>`. These reach a stack only with a new pin or a `--dev-<container>` build.
 
-**Code.** Host routes: [`localtest/Proxy/PlatformRoutes.cs`](localtest/Proxy/PlatformRoutes.cs); extra hosts:
-`extraHosts` in `containers.go`.
+**Code.** The placeholders: `manifest/origin.go` (Go) and `Manifest/PublicOrigin.cs` (Aspire); host routes:
+[`localtest/Proxy/PlatformRoutes.cs`](localtest/Proxy/PlatformRoutes.cs) with `LocaltestSettings`; extra hosts:
+`extraHosts` in `containers.go`; the flags, the state and the resolution check:
+`internal/cmd/env/localtestv2/origin.go`; the smoke suites take `LOCALTEST_ORIGIN`. The golden snapshot has a
+`customOrigin` case (`--host origin.test --port 18000`), which both runtimes' tests compare with.
 
 ## The front door
 
 **Rule.** The localtest container is the front door in both runtimes. It listens on 8080 in the container; the runtime
-publishes it as 8000.
+publishes it as the public port (8000 by default).
 
 - **Routes are code**: dedicated hosts first (above), then path prefixes on the main host (`/storage`, `/register`,
   `/profile`, `/authentication`, `/authorization`, `/accessmanagement`, `/events`, `/resourceregistry`,
@@ -272,7 +306,8 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
 `studioctl app env` prints it). Each value is a default the app's own environment overrides:
 
 - `ASPNETCORE_ENVIRONMENT=Development`, `STUDIOCTL_APP_RUN=1`, `Kestrel__EndPoints__Http__Url`;
-- every `PlatformSettings__Api*Endpoint` on the public origin (`http://local.altinn.cloud:8000/<prefix>/api/v1/`),
+- every `PlatformSettings__Api*Endpoint` on the public origin (at the default origin
+  `http://local.altinn.cloud:8000/<prefix>/api/v1/`; every URL below follows `--host`/`--port`, `PublicHost`/`PublicPort`),
   `ApiPdf2Endpoint` on `http://pdf.local.altinn.cloud:8000/pdf`, `ApiWorkflowEngineEndpoint` on
   `http://workflow-engine.local.altinn.cloud:8000/api/v1/`; `AppSettings__OpenIdWellKnownEndpoint`,
   `GeneralSettings__ExternalAppBaseUrl` and `GeneralSettings__HostName`; `OTEL_EXPORTER_OTLP_ENDPOINT` (Aspire sets its
