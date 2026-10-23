@@ -29,6 +29,8 @@ type State struct {
 	CertificateDir string `json:"certificateDir"`
 	// Groups are the optional component groups the environment was started with.
 	Groups []string `json:"groups,omitempty"`
+	// Dev are the containers built from source (env up --dev-<container>), sorted.
+	Dev []string `json:"dev,omitempty"`
 	// LatestImages is set when the environment runs the research images at latest (env up --latest).
 	LatestImages bool `json:"latestImages,omitempty"`
 }
@@ -65,7 +67,7 @@ func ReadState(cfg *config.Config) (State, bool, error) {
 }
 
 func noState() State {
-	return State{CertificateDir: "", Groups: nil, LatestImages: false}
+	return State{CertificateDir: "", Groups: nil, Dev: nil, LatestImages: false}
 }
 
 // WriteState records that the runtime is up.

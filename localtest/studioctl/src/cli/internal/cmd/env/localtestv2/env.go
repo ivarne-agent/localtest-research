@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -81,8 +82,9 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	return nil
 }
 
-// Changed reports whether `env up` asks for other optional groups or other images (--latest) than the running
-// environment was started with, in which case an environment that is already healthy still has to be converged.
+// Changed reports whether `env up` asks for other optional groups, other images (--latest) or other dev builds than
+// the running environment was started with, in which case an environment that is already healthy still has to be
+// converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage again.
 func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	want, err := ResolveGroups(opts.With, opts.Without)
 	if err != nil {
@@ -94,7 +96,9 @@ func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 	}
 	have := slices.Clone(state.Groups)
 	slices.Sort(have)
-	return !slices.Equal(want, have) || opts.LatestImages != state.LatestImages, nil
+	return !slices.Equal(want, have) ||
+		opts.LatestImages != state.LatestImages ||
+		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
 }
 
 // Up starts the environment: writes the certificate and the state file, restarts studioctl-server so that it
@@ -114,6 +118,7 @@ func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
 	if err := localtestv2.WriteState(e.cfg, localtestv2.State{
 		CertificateDir: opts.CertDir,
 		Groups:         opts.Groups,
+		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)

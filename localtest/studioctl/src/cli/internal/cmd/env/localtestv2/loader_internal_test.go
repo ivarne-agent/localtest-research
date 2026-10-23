@@ -373,6 +373,11 @@ func TestAnUpWithOtherGroupsOrImagesChangesTheRunningEnvironment(t *testing.T) {
 		{name: "another group", opts: envtypes.UpOptions{With: []string{"receipt", "dialogporten"}}, want: true},
 		{name: "no group", opts: envtypes.UpOptions{}, want: true},
 		{name: "latest", opts: envtypes.UpOptions{With: []string{"receipt"}, LatestImages: true}, want: true},
+		{
+			name: "a dev build",
+			opts: envtypes.UpOptions{With: []string{"receipt"}, DevComponents: map[string]string{"storage": ""}},
+			want: true,
+		},
 	} {
 		got, err := env.Changed(tc.opts)
 		if err != nil || got != tc.want {
