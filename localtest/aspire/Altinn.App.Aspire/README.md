@@ -12,9 +12,10 @@ gives an app and registers it with the front door, which routes it and provision
 ports and health, the certificate, the volumes, the app environment) are in
 [`localtest/CONVENTIONS.md`](../../CONVENTIONS.md); this README describes how the package implements them.
 
-Status (2026-10-22): task 27b done in code and tests (70) and **run under Podman** with the sample (`WithDialogporten()`,
+Status (2026-10-23): task 27b done in code and tests (75) and **run under Podman** with the sample (`WithDialogporten()`,
 the pin `sha-6d928ad`): only the localtest container publishes a port (8000), the app is registered and provisioned
-through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman).
+through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman). Task
+30: two apps in one AppHost work, see [Several apps](#several-apps).
 The documentation stays in this repository until the package is adopted.
 
 | Path | What |
@@ -22,7 +23,7 @@ The documentation stays in this repository until the package is adopted.
 | `src/` | The package (`Altinn.App.Aspire`, net10.0, one dependency: `Aspire.Hosting`) |
 | `src/Manifest/` | The manifest reader and its validation, the run specification of each container (`StackSpec`), the app environment (`AppEnvironment`, a port of studioctl's `internal/cmd/app/env.go`) |
 | `tests/` | xunit v3: the reader, the golden comparisons with studioctl's snapshots, the application model, the registration against a fake front door |
-| [`../samples/app/`](../samples/app) | The sample: `App/`, the `ttd/testapp` fixture completed into an app on app-lib 8.12.15, and `AppHost/apphost.cs`, a single-file AppHost that adds the default stack, the `dialogporten` group and the app |
+| [`../samples/app/`](../samples/app) | The sample: `App/`, the `ttd/testapp` fixture completed into an app on app-lib 8.12.15; `App2/`, a copy of it as `ttd/testapp2` that exists only to show two apps in one AppHost; and `AppHost/apphost.cs`, a single-file AppHost that adds the default stack, the `dialogporten` group and both apps |
 
 The build is standalone (its own `Directory.Build.props`, `.editorconfig`, csharpier configuration and `global.json`,
 SDK 10.0.401): `dotnet build src`, `dotnet test tests`, `dotnet csharpier check .`. The sample builds with
@@ -156,6 +157,44 @@ cookies, as under studioctl, so app-lib's `keepAlive` cookie works over http.
 | the app | `deprovision` | After a confirmation, `DELETE localtest/api/apps/{org}/{app}`: the test users leave the Register, the route the front door |
 | `altinn-localtest` | `reset` | After a confirmation, `rm --force` of the containers by ID and `volume rm --force` of the manifest's volumes that exist, through the runtime's CLI; then restart the AppHost. The volumes are studioctl's too, so this resets a studioctl stack's data as well |
 
+## Several apps
+
+One AppHost runs several apps against one platform: one `AddAltinnApp` per app, each with its own resource name, as the
+sample does (`AddAltinnApp<Projects.App>(localtest)` and `AddAltinnApp<Projects.App2>(localtest, "app2")`). A second
+app under a name already taken is refused by Aspire (`DistributedApplicationException`), and a second resource of an
+app id already added by the package (`InvalidOperationException`), since the two would share the route and the secrets
+directory.
+
+| Per app | Shared |
+| --- | --- |
+| The project resource and its rebuilder, the `http` endpoint on its own Aspire-assigned port, the Kestrel URL, the `<name>_provisioning` health check, the registration `PUT localtest/api/apps/{org}/{app}` with its own `host.docker.internal:<port>`, the `provision` and `deprovision` commands (they call only that app's path), the secrets directory `<data>/apps/<org>/<app>/secrets` (keyed on the app id, not the resource name) | The platform and its containers, the front door on 8000, the test certificate `<data>/certs`, the environment otherwise (the same platform endpoints), the Register's store |
+
+**The Register.** Each provisioning posts that app's `testData.json` to `PUT register/api/localtest/apps/{org}/{app}`,
+and the Register rebuilds its store from the seed and every registered app's file
+([`components/register/README.md`](../../components/register/README.md#app-test-data)): a second app adds to the first
+app's users and does not replace them. When every registered app posted test data, the seed is left out (`"source":
+"apps"`), with one app as with two. Identical entries in two apps' files are fine; an id reused with a different
+definition is skipped (first wins) and listed under `conflicts`. `deprovision` of one app removes only its file, so
+users that another registered app also lists stay.
+
+Run (task 30, 2026-10-23, Podman 5.7, arm64, the sample with both apps and `WithDialogporten()`, 18 containers):
+
+- Both apps provisioned 35 s after `dotnet run` (images present, containers created): `GET localtest/api/apps` listed
+  `ttd/testapp` on `host.docker.internal:21833` and `ttd/testapp2` on `:21834`, both `succeeded` (1 text, policy, test
+  data, Dialogporten `Synced`); through 8000 `/ttd/testapp/api/v1/applicationmetadata` and
+  `/ttd/testapp2/api/v1/applicationmetadata` answered 200 with their own ids.
+- The Register after both provisionings: both apps with `TestData` (2 persons, 1 organisation each), no conflicts,
+  2 users and 3 parties (the two files are identical, so the merged store is one file's users).
+- The dashboard's `deprovision` on `app2` (its confirmation names `ttd/testapp2`): `DELETE .../ttd/testapp2` answered
+  204; `ttd/testapp` stayed registered and answering 200, `/ttd/testapp2/...` answered 404 ("No app is registered for
+  this path"), the Register kept `ttd/testapp` and its 2 users. `provision` on `app2` brought it back (200 through 8000,
+  both in the Register again).
+- SIGINT to the process group: DCP, the dashboard and both apps gone within 8 s, none to kill; the containers kept
+  running, and the front door kept both routes (`/ttd/testapp/...` answered 503 while the apps were down). The restart
+  reused the 18 containers (same creation times) and registered both apps again on new ports in 12 s.
+- Memory with both apps up: 3.7 GB used of 7.9 GB, 4.3 GB available; the containers about 1.6 GB by `podman stats`, each
+  app about 155 MB resident.
+
 ## Publishing
 
 `.github/workflows/aspire-package.yml` runs on a push to `main` that changes `localtest/aspire/**`, the manifest, the
@@ -166,7 +205,7 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (70 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (75 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
@@ -244,6 +283,6 @@ own proxy; the findings that still apply:
 
 ## Not verified
 
-- `WithFrontendDevServer` against a running Vite server; the `provision` and `deprovision` commands from the dashboard
-  with this version (the `PUT` on the ready event and the `DELETE` by hand were run).
+- `WithFrontendDevServer` against a running Vite server. (The `provision` and `deprovision` commands were run from the
+  dashboard in task 30, on the second app; see [Several apps](#several-apps).)
 - An SELinux host (bind mounts without relabelling), rootless Podman, Docker.

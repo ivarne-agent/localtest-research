@@ -243,4 +243,7 @@ Then the runner registers the app with the front door (`PUT localtest/api/apps/{
 `http://host.docker.internal:<port>`): studioctl-server's discovery does it for every app it finds, a `studioctl run`
 and an app started from an IDE alike, and `studioctl run` waits until `GET localtest/api/apps` lists the app as
 provisioned; `AddAltinnApp` does it on the app's ready event. The provisioning steps are in
-[`README.md`](README.md#what-the-app-runner-pushes).
+[`README.md`](README.md#what-the-app-runner-pushes). Per app are the port, the registration (route and test users), the
+secrets directory `apps/<org>/<app>/secrets` and the `provision`/`deprovision` commands; the rest of the environment is
+the same for every app, and several apps run against one stack ([Several
+apps](aspire/Altinn.App.Aspire/README.md#several-apps)).
