@@ -45,16 +45,19 @@ public static class LocaltestEventsExtensions
             : DefaultPlatformEndpoint).TrimEnd('/') + "/";
 
         // Localtest defaults: override the vendored appsettings.json (localhost ports, apps.altinn.no), but sit just
-        // below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win.
+        // below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win. Calls to another
+        // service use its name (http://<service>/<prefix>/…, from services__<service>__http__0, fakes/ServiceDiscovery);
+        // what a browser, a subscriber or a token sees (the next links, the CloudEvent source, the apps' host, the
+        // JwtCookie metadata fetched outside the factory) stays on the public origin.
         var defaults = new Dictionary<string, string?>
         {
             ["Localtest:Events:PlatformEndpoint"] = platform,
             ["GeneralSettings:BaseUri"] = platform.TrimEnd('/'),
             ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
-            ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
-            ["PlatformSettings:RegisterApiBaseAddress"] = platform + "register/api/",
+            ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
+            ["PlatformSettings:RegisterApiBaseAddress"] = "http://register/register/api/",
             ["PlatformSettings:ApiEventsEndpoint"] = platform + "events/api/v1/",
-            ["PlatformSettings:ApiProfileEndpoint"] = platform + "profile/api/v1/",
+            ["PlatformSettings:ApiProfileEndpoint"] = "http://profile/profile/api/v1/",
             // App events have sources under the apps' own origin; this makes them app events, and cuts
             // http://local.altinn.cloud:8000/ttd/app/instances/… to …/ttd/app, as for ttd.apps.altinn.no.
             ["PlatformSettings:AppsDomain"] = new Uri(platform).Host,
