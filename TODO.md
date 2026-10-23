@@ -71,6 +71,7 @@ A path matching no route still falls through to the localtest app.
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
+| 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **running** (dispatched 2026-10-23, Opus, measurement only) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1194,3 +1195,16 @@ normally since the two networks keep the aliases apart. Control: the full sample
 anonymous one (goes with `--volumes`). Cleanup: persistent containers removed by name, the `altinn-localtest-*` volumes
 removed (created by this run), `podman ps -a` empty, 6.9 GB free. `.scripts/aspire-sample-run.py` takes the AppHost
 file name. Coordinator re-ran the package tests (92) and built the minimal sample.
+
+## 38. Memory statistics of the stack
+
+**Goal (2026-10-23, owner's question).** The reported `free -m` numbers (minimal with two apps 3.1 GB used, full
+Aspire stack 4.3 GB) looked low for 18 .NET containers. Measure per container (cgroup `memory.current`, anon, file,
+shmem, main-process RSS), per host process (PSS), and the host totals for the studioctl default stack with and without
+an app, `--with everything`, minimal, and both Aspire samples; reconcile `free`'s "used" with the sums; explain the
+result (GC settings in the images, AOT, shared layers, page cache counted as available). Deliverable: a reusable
+`localtest/tools/memory-stats.sh` and `localtest/reviews/2026-10-23-memory.md` with raw snapshots.
+
+**Open (owner 2026-10-23): the public origin `http://local.altinn.cloud:8000` must be configurable, with a random port
+possible.** Coordinator's outline given; the scope question (collision avoidance only, or several stacks side by side)
+is with the owner before a brief.
