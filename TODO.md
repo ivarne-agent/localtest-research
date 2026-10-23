@@ -70,7 +70,7 @@ A path matching no route still falls through to the localtest app.
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
 | 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **done, merged** 2026-10-23 (ff to 6d0adddc): minimal mode proven on the stack, default stack unchanged; follow-ups: remember the mode after `env down`, Aspire `WithMinimal` (spec phase 2), pin bump | large | yes (phase 2) |
 | 36 | [Anonymous volumes removed with their containers](#36-anonymous-volumes-removed-with-their-containers) | approved (owner 2026-10-23: "dispatch this task"); brief `/home/agent/code/.briefs/task36-anonymous-volumes.md`; **done, merged** 2026-10-23 (ff to 48648ecc); the Storage and localtest images carry the Dockerfile change at the next pin bump | small | yes (phase 2) |
-| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **phase 1 verified, phase 2 running** (2026-10-23, on the new pin sha-48648ec) | medium | yes (phase 2) |
+| 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1178,3 +1178,19 @@ volumes are the four `localtest-v2-*`. Observation: our Redis image inherits `VO
 anonymous volume exists while the dialogporten group runs and goes with the container (conventions sentence corrected).
 Old pin images removed to make room (3.6 GB); logs in `/home/agent/code/.scripts/pin-48648ec/`. Note to self: a
 `find -name bin` cleanup under `src/cli` deletes `build/dev-home/bin`; exclude `build/`.
+
+**Phase 2 (pushed 2976956a, verified by the coordinator and merged ff 2026-10-23).** No code fix needed. Minimal
+sample (`apphost-minimal.cs`, both apps) under Podman on the pin: four containers healthy 8 s after `dotnet run`, both
+apps provisioned at 15 s; no named and no anonymous volume before, during or after; `GET localtest/api/apps` lists
+both, both answer through 8000, nine services `emulated` in the routes listing, the Home banner shown; root 23/23 with
+the 3 named skips (the suite's PDP refresh gets a 501 in the mode); SIGINT removed the containers in 2 s and DCP and the
+apps exited on their own; after the restart 0 instances and both apps registered again at 15 s. `free -m`: 3080 MB
+used with both apps. The three unverified points: DCP passes `Proxy__AppRoutesFile=` (routes in memory, `/data` empty);
+tmpfs mounts as intended (`mode=1777`, blobs `size=1g,mode=1777`), session containers `<name>-<random>` on a session
+network, found by the smoke helper; beside the full stack's persistent containers: running → the port guard refuses
+(general message: a different AppHost file has a different hash; README notes it), stopped → the minimal sample starts
+normally since the two networks keep the aliases apart. Control: the full sample (with Dialogporten) 18 containers at
+34 s, apps at 45 s, root 26/26, 4254 MB used; it creates the four `altinn-localtest-*` volumes plus Redis's inherited
+anonymous one (goes with `--volumes`). Cleanup: persistent containers removed by name, the `altinn-localtest-*` volumes
+removed (created by this run), `podman ps -a` empty, 6.9 GB free. `.scripts/aspire-sample-run.py` takes the AppHost
+file name. Coordinator re-ran the package tests (92) and built the minimal sample.
