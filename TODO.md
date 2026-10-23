@@ -79,6 +79,7 @@ A path matching no route still falls through to the localtest app.
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 verified** 2026-10-23 (ec2a31b2; phase 2 observes on the stack after task 40's proof) | medium | yes (phase 2) |
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
+| 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1474,3 +1475,14 @@ for undeclared names), host-wide observation only for process apps. The stack's 
 updated (sections 1b, 3a–3c, phases 3b and 3c).
 Addendum (owner 2026-10-23): Events is different, its webhook deliveries are data-driven egress; the `events`
 container stays open and observed, not blocked (the workflow engine's webhook command likewise).
+
+## 46. Egress inventory (egress control phase 1)
+
+**Brief drafted 2026-10-23** from `planned-components/egress-control/README.md`. A forward proxy in the localtest
+container (`localtest/localtest/Egress/`, CONNECT tunnelling and plain proxied requests, its own port published by
+both runtimes and recorded), attribution by the user info of the runner-set proxy URL (fallback: a port per app if
+.NET does not send `Proxy-Authorization` from the environment), a per-app in-memory inventory (host, port, scheme,
+counts, first/last seen, classification platform/implied/declared/undeclared), `GET/DELETE
+localtest/api/apps/{org}/{app}/egress`, a Home section with the `externalHosts` line to add, `studioctl app egress`,
+the Aspire surface; nothing refused. Proof: the app-lib 8 sample with a scratch call to the CDN and example.com, the
+monorepo app with a browser instantiate, task 44's capture as the cross-check, the custom origin once.
