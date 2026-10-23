@@ -75,6 +75,7 @@ A path matching no route still falls through to the localtest app.
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
+| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | drafted (owner 2026-10-23: "draft the frontend follow-up for the local host rule"); hand-over `/home/agent/code/pr-app-frontend-host-rule.md`; awaiting the owner's choice (same PR branch or follow-up PR; the v4 upstream fix) | medium | yes (proof) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1318,3 +1319,13 @@ deletes the state file and returns the original error (the task-39 port message 
 containers and the state for inspection and says so (`env logs`, `env down`); cleanup failures are joined. Tests with
 an in-memory runtime on the mock client for the three cases. Known: a container that exits at once counts as a start
 error and is removed with its logs (devenv's error type is private). Coordinator re-ran go build/test/lint.
+
+## 42. App frontend: platform links from the settings alone
+
+**Draft (2026-10-23, owner's question "does the frontend really need to know if it is local?").** No: with
+`PlatformFrontendSettings` the backend gives the frontend every platform URL, so the host checks in the monorepo
+frontend (`isLocalEnvironment`, `isRecognizedAltinnHost`, `platformUrlForHost`, the cookie `Secure` rule) are guards
+from before the settings and can go: a link exists when its URL is configured, the cookie's `Secure` follows the page's
+scheme, and the runners set the Arbeidsflate URLs to the front door's Home when the group is off. The released v4
+frontend has no settings; its `getHostname()` must stop throwing for an unrecognised host and treat it as the
+platform's own origin (upstream PR to app-frontend-react). Details and the proof plan in the hand-over file.
