@@ -117,7 +117,7 @@ func TestParseRefusesAnInvalidManifest(t *testing.T) {
 		},
 		"relative volume target": {
 			func(m map[string]any) {
-				containerNamed(m, "storage")["volumes"] = map[string]any{"localtest-v2-storage-blobs": "data"}
+				containerNamed(m, "storage")["volumes"] = map[string]any{"storage-blobs": "data"}
 			},
 			errValue,
 		},
@@ -133,6 +133,47 @@ func TestParseRefusesAnInvalidManifest(t *testing.T) {
 				t.Fatalf("%v does not wrap %v", err, errInvalid)
 			}
 		})
+	}
+}
+
+func TestTheVolumeIDsCarryNoRuntimePrefixAndAreSharedByID(t *testing.T) {
+	t.Parallel()
+	m := MustDefault()
+	want := []string{"correspondence-blobs", "localtest-data", "policy-store", "postgres-data", "storage-blobs"}
+	if got := m.VolumeIDs(); !slices.Equal(got, want) {
+		t.Fatalf("volume ids %v, want %v", got, want)
+	}
+	// One id is one volume: the PDP, Access Management and the Resource Registry share the policy store.
+	for _, name := range []string{"authorization", "access-management", "resource-registry"} {
+		if target, ok := m.Containers[name].Volumes["policy-store"]; !ok || target != "/policy-store" {
+			t.Errorf("%s: policy-store at %q", name, target)
+		}
+	}
+}
+
+func TestParseRefusesAnInvalidVolumeID(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{
+		"", "Storage-blobs", "storage_blobs", "storage blobs", "-storage", "storage-", "storage--blobs", "data/blobs",
+		"storage.blobs",
+	} {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+			err := mutated(t, func(m map[string]any) {
+				containerNamed(m, "storage")["volumes"] = map[string]any{id: "/data/blobs"}
+			})
+			if !errors.Is(err, errValue) || !errors.Is(err, errInvalid) {
+				t.Fatalf("volume id %q: got %v, want %v", id, err, errValue)
+			}
+		})
+	}
+	for _, id := range []string{"blobs", "storage-blobs", "storage2-blobs-v2", "0"} {
+		err := mutated(t, func(m map[string]any) {
+			containerNamed(m, "storage")["volumes"] = map[string]any{id: "/data/blobs"}
+		})
+		if err != nil {
+			t.Fatalf("volume id %q: %v", id, err)
+		}
 	}
 }
 

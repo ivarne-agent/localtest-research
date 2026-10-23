@@ -18,7 +18,7 @@
         "TZ": "UTC"
       },
       "volumes": {
-        "localtest-v2-postgres-data": "/var/lib/postgresql"
+        "postgres-data": "/var/lib/postgresql"
       }
     },
     "register": {
@@ -63,7 +63,7 @@
       },
       "dependsOn": ["register", "profile"],
       "volumes": {
-        "localtest-v2-policy-store": "/policy-store"
+        "policy-store": "/policy-store"
       }
     },
     "storage": {
@@ -78,7 +78,7 @@
       },
       "dependsOn": ["postgres"],
       "volumes": {
-        "localtest-v2-storage-blobs": "/data/blobs"
+        "storage-blobs": "/data/blobs"
       }
     },
     "access-management": {
@@ -91,7 +91,7 @@
       },
       "dependsOn": ["postgres", "register", "resource-registry", "profile"],
       "volumes": {
-        "localtest-v2-policy-store": "/policy-store"
+        "policy-store": "/policy-store"
       }
     },
     "events": {
@@ -118,7 +118,7 @@
       },
       "dependsOn": ["postgres", "storage"],
       "volumes": {
-        "localtest-v2-policy-store": "/policy-store"
+        "policy-store": "/policy-store"
       }
     },
     "notifications": {
@@ -141,7 +141,7 @@
         "Localtest__PlatformEndpoint": "http://local.altinn.cloud:8000/"
       },
       "volumes": {
-        "localtest-v2-localtest-data": "/data"
+        "localtest-data": "/data"
       }
     },
     "pdf3": {
@@ -238,7 +238,7 @@
       },
       "dependsOn": ["postgres", "register", "profile", "authorization", "resource-registry", "notifications", "events", "redis", "dialogporten-webapi"],
       "volumes": {
-        "localtest-v2-correspondence-blobs": "/mnt/storage"
+        "correspondence-blobs": "/mnt/storage"
       }
     },
     "arbeidsflate-bff": {

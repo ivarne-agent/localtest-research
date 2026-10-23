@@ -167,7 +167,7 @@ func (e *Env) Down(ctx context.Context) error {
 	return nil
 }
 
-// Reset stops the environment if needed and deletes its volumes.
+// Reset stops the environment if needed and deletes its volumes: the manifest's, with this runtime's prefix only.
 func (e *Env) Reset(ctx context.Context) error {
 	hasResources, err := e.hasManagedResources(ctx)
 	if err != nil {
@@ -182,7 +182,7 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	e.out.Println("Deleting persisted localtest-v2 data...")
-	for _, volume := range stack().VolumeNames() {
+	for _, volume := range volumeNames() {
 		if err := e.client.VolumeRemove(
 			ctx,
 			volume,

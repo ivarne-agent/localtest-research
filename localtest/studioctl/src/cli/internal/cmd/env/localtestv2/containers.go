@@ -20,6 +20,9 @@ import (
 const (
 	containerPrefix = "localtest-v2-"
 	networkName     = "localtest-v2_network"
+	// volumePrefix names this runtime's volumes: localtest-v2-<id> for the manifest's volume id. The Aspire package
+	// has its own prefix, so a reset in one runtime leaves the other's data alone.
+	volumePrefix = "localtest-v2-"
 
 	// frontDoor is the container whose port the runtime publishes on the host, as the public origin's port (8000): the
 	// localtest app, which routes by host and path prefix to the other containers by their services__ variables.
@@ -244,6 +247,21 @@ func containerEnv(c manifest.Container, services map[string]string) []string {
 	return env
 }
 
+// volumeName is the runtime's name of the manifest's volume id.
+func volumeName(id string) string {
+	return volumePrefix + id
+}
+
+// volumeNames are the runtime's names of every volume in the manifest, sorted.
+func volumeNames() []string {
+	ids := stack().VolumeIDs()
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		names = append(names, volumeName(id))
+	}
+	return names
+}
+
 // containerVolumes are the shared certificate, read-only, and the container's named volumes.
 func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 	relabel := types.SELinuxRelabelNone
@@ -267,10 +285,10 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 			ReadOnly:       true,
 		},
 	)
-	for _, volume := range slices.Sorted(maps.Keys(c.Volumes)) {
+	for _, id := range slices.Sorted(maps.Keys(c.Volumes)) {
 		volumes = append(volumes, types.VolumeMount{
-			HostPath:       volume,
-			ContainerPath:  c.Volumes[volume],
+			HostPath:       volumeName(id),
+			ContainerPath:  c.Volumes[id],
 			Type:           types.VolumeMountTypeVolume,
 			SELinuxRelabel: types.SELinuxRelabelNone,
 			ReadOnly:       false,

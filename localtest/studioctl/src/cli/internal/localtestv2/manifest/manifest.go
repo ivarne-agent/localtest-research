@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -31,6 +32,10 @@ const (
 
 //go:embed manifest.json
 var manifestJSON []byte
+
+// volumeID is a volume id: lower-case letters and digits in hyphen-separated words (postgres-data). Each runtime
+// names the volume by its own prefix and the id, so the two runtimes' data never mixes.
+var volumeID = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 var (
 	errInvalid    = errors.New("invalid localtest-v2 manifest")
@@ -68,7 +73,8 @@ type Group struct {
 type Container struct {
 	// Envs are the container's environment variables, literal strings.
 	Envs map[string]string `json:"envs"`
-	// Volumes maps a named volume to where it is mounted in the container.
+	// Volumes maps a volume id to where the volume is mounted in the container. The id names one volume for the whole
+	// manifest (containers naming the same id share it); the runtime prefixes it with its own prefix.
 	Volumes map[string]string `json:"volumes"`
 	// Registry is the image repository, with the registry host.
 	Registry string `json:"registry"`
@@ -190,12 +196,12 @@ func (m *Manifest) Group(name string) (Group, bool) {
 	return Group{Name: "", Containers: nil}, false
 }
 
-// VolumeNames lists every named volume, sorted.
-func (m *Manifest) VolumeNames() []string {
+// VolumeIDs lists every volume id, sorted; an id several containers name is listed once.
+func (m *Manifest) VolumeIDs() []string {
 	set := map[string]bool{}
 	for _, c := range m.Containers {
-		for name := range c.Volumes {
-			set[name] = true
+		for id := range c.Volumes {
+			set[id] = true
 		}
 	}
 	return slices.Sorted(maps.Keys(set))
@@ -392,9 +398,9 @@ func checkEnvsAndVolumes(c Container) error {
 			return fmt.Errorf("%w: envs key %q", errValue, key)
 		}
 	}
-	for volume, target := range c.Volumes {
-		if volume == "" || !strings.HasPrefix(target, "/") {
-			return fmt.Errorf("%w: volume %q at %q", errValue, volume, target)
+	for id, target := range c.Volumes {
+		if !volumeID.MatchString(id) || !strings.HasPrefix(target, "/") {
+			return fmt.Errorf("%w: volume %q at %q", errValue, id, target)
 		}
 	}
 	return nil

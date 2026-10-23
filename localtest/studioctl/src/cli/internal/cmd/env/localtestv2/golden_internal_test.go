@@ -28,7 +28,10 @@ type goldenEnvironment struct {
 	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
 	// a runtime with SELinux relabelling.
 	Everything goldenOptions `json:"everything"`
-	Volumes    []string      `json:"volumes"`
+	// VolumePrefix is this runtime's volume prefix; a mount's HostPath and each of Volumes is it plus a volume id.
+	VolumePrefix string `json:"volumePrefix"`
+	// Volumes are the volumes env reset removes.
+	Volumes []string `json:"volumes"`
 }
 
 type goldenOptions struct {
@@ -55,10 +58,11 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 	}
 
 	got := goldenEnvironment{
-		Groups:     map[string][]string{},
-		Volumes:    stack().VolumeNames(),
-		Default:    goldenOf(t, defaultOptions("/home/dev/.altinn-studio/certs")),
-		Everything: goldenOf(t, everything),
+		Groups:       map[string][]string{},
+		Volumes:      volumeNames(),
+		VolumePrefix: volumePrefix,
+		Default:      goldenOf(t, defaultOptions("/home/dev/.altinn-studio/certs")),
+		Everything:   goldenOf(t, everything),
 	}
 	for _, name := range stack().GroupNames() {
 		got.Groups[name] = stack().Select([]string{manifest.DefaultGroup, name})

@@ -2612,6 +2612,7 @@
       "arbeidsflate http://arbeidsflate:80/"
     ]
   },
+  "volumePrefix": "localtest-v2-",
   "volumes": [
     "localtest-v2-correspondence-blobs",
     "localtest-v2-localtest-data",
