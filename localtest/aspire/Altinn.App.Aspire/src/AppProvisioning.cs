@@ -31,7 +31,8 @@ internal sealed class AppProvisioning
 
     public AppId AppId { get; }
 
-    public Uri PlatformUri { get; }
+    /// <summary>The front door; the tests point it at a fake.</summary>
+    public Uri PlatformUri { get; set; }
 
     /// <summary>The last outcome; <see cref="ProvisioningState.NotRun" /> until the first call.</summary>
     public ProvisioningStatus Status { get; private set; } = ProvisioningStatus.NotRun;

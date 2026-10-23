@@ -40,11 +40,15 @@
     />
   </ItemGroup>
 
-  <!-- The sample app's project file, which the sample model adds as the sample AppHost does. -->
+  <!-- The sample apps' project files, which the sample model adds as the sample AppHost does. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>SampleAppProject</_Parameter1>
       <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../samples/app/App/App.csproj'))</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SampleApp2Project</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../samples/app/App2/App2.csproj'))</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 </Project>

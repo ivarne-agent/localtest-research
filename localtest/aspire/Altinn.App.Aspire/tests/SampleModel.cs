@@ -125,9 +125,21 @@ internal sealed class SampleModel
 /// <summary>The sample app's project, as the AppHost SDK generates <c>Projects.App</c> for it.</summary>
 internal sealed class SampleAppProject : IProjectMetadata
 {
-    public string ProjectPath =>
-        typeof(SampleAppProject)
+    public string ProjectPath => SampleProjects.Path("SampleAppProject");
+}
+
+/// <summary>The sample's second app (<c>ttd/testapp2</c>), as the AppHost SDK generates <c>Projects.App2</c> for it.</summary>
+internal sealed class SampleApp2Project : IProjectMetadata
+{
+    public string ProjectPath => SampleProjects.Path("SampleApp2Project");
+}
+
+internal static class SampleProjects
+{
+    /// <summary>A sample project's path, from the test project's assembly metadata.</summary>
+    public static string Path(string key) =>
+        typeof(SampleProjects)
             .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(a => a.Key == "SampleAppProject")
+            .Single(a => a.Key == key)
             .Value!;
 }
