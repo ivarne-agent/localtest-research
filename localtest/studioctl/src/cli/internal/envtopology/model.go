@@ -21,7 +21,6 @@ type componentsDefinition struct {
 	PgAdmin           componentDefinition `yaml:"pgadmin"`
 	WorkflowEngine    componentDefinition `yaml:"workflowEngine"`
 	FrontendDevServer componentDefinition `yaml:"frontendDevServer"`
-	Arbeidsflate      componentDefinition `yaml:"arbeidsflate"`
 }
 
 type componentDefinition struct {

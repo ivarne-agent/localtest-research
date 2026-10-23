@@ -76,8 +76,7 @@ func registryContainer(image *resource.PulledImage) *resource.Container {
 		},
 		HealthCheck: registryHealthCheck(),
 		Lifecycle: resource.ContainerLifecycleOptions{
-			WaitForReady:   true,
-			ReadinessProbe: nil,
+			WaitForReady: true,
 		},
 	}
 }
@@ -121,8 +120,7 @@ func proxyRegistryContainer(
 		},
 		HealthCheck: registryHealthCheck(),
 		Lifecycle: resource.ContainerLifecycleOptions{
-			WaitForReady:   true,
-			ReadinessProbe: nil,
+			WaitForReady: true,
 		},
 	}
 }

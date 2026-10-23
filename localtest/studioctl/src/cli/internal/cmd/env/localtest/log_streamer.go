@@ -18,8 +18,7 @@ const (
 	logScannerMaxBufSize = 1024 * 1024
 )
 
-// LogStreamer streams container logs with a per-container prefix.
-type LogStreamer struct {
+type logStreamer struct {
 	client     container.ContainerClient
 	out        *ui.Output
 	containers []string
@@ -46,17 +45,15 @@ func (l logLine) Print(out *ui.Output) error {
 	return nil
 }
 
-// NewLogStreamer returns a streamer over the named containers.
-func NewLogStreamer(client container.ContainerClient, out *ui.Output, containers []string) *LogStreamer {
-	return &LogStreamer{
+func newLogStreamer(client container.ContainerClient, out *ui.Output, containers []string) *logStreamer {
+	return &logStreamer{
 		client:     client,
 		out:        out,
 		containers: containers,
 	}
 }
 
-// Stream writes the logs of one container, or of all of them, prefixed by container name.
-func (s *LogStreamer) Stream(ctx context.Context, component string, follow, jsonOutput bool) error {
+func (s *logStreamer) Stream(ctx context.Context, component string, follow, jsonOutput bool) error {
 	var containers []string
 	if component != "" {
 		for _, name := range s.containers {
@@ -77,15 +74,13 @@ func (s *LogStreamer) Stream(ctx context.Context, component string, follow, json
 		containers = s.containers
 	}
 
-	// Without a component, the running containers. A named component's container is streamed whenever it exists,
-	// running or not: the log of one that exited is what explains why it stopped answering.
 	var runningContainers []string
 	for _, name := range containers {
 		state, err := s.client.ContainerState(ctx, name)
 		if err != nil {
 			continue // container doesn't exist
 		}
-		if state.Running || component != "" {
+		if state.Running {
 			runningContainers = append(runningContainers, name)
 		}
 	}
@@ -112,7 +107,7 @@ func (s *LogStreamer) Stream(ctx context.Context, component string, follow, json
 	return nil
 }
 
-func (s *LogStreamer) streamContainerLogs(
+func (s *logStreamer) streamContainerLogs(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logs io.ReadCloser,

@@ -183,6 +183,7 @@ func (c *RunCommand) RunWithCommandPath(ctx context.Context, args []string, comm
 	if err := c.printResolvedRunTarget(target); err != nil {
 		return err
 	}
+	c.deleteExpiredAppLogs()
 
 	runErr := c.runTarget(ctx, target, dotnetArgs, flags)
 	if errors.Is(runErr, errAppRunStopped) {
@@ -410,11 +411,6 @@ func (c *RunCommand) runDotnet(
 	if err != nil {
 		return err
 	}
-	removeDevFrontend, err := c.registerDevFrontend(ctx, topology, flags)
-	if err != nil {
-		stopDotnetProcess(cmd.Process, waitErr)
-		return err
-	}
 	if flags.detach {
 		return runDetachedOutput{
 			AppID:       target.AppID,
@@ -429,7 +425,6 @@ func (c *RunCommand) runDotnet(
 		}.Print(c.out)
 	}
 	defer c.unregisterAppBestEffort(ctx, target.AppID)
-	defer removeDevFrontend()
 
 	select {
 	case err := <-waitErr:
@@ -668,26 +663,48 @@ func (c *RunCommand) openAppLog(appID string) (*os.File, string, error) {
 		return nil, "", errStudioctlConfigRequired
 	}
 	logDir := c.cfg.AppLogDir(appsupport.SanitizeAppID(appID))
-	if err := os.MkdirAll(logDir, osutil.DirPermOwnerOnly); err != nil {
-		return nil, "", fmt.Errorf("create app log directory: %w", err)
-	}
+	lastErr := errAppLogCreateCollision
 	for range maxAppLogCreateAttempts {
+		// Create the directory on each attempt: another run's log retention removes empty app log directories.
+		if err := os.MkdirAll(logDir, osutil.DirPermOwnerOnly); err != nil {
+			return nil, "", fmt.Errorf("create app log directory: %w", err)
+		}
 		logPath, err := appsupport.NextLogPath(logDir, time.Now().UTC())
 		if err != nil {
-			return nil, "", fmt.Errorf("resolve app log path: %w", err)
+			lastErr = fmt.Errorf("resolve app log path: %w", err)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, "", lastErr
 		}
 		//nolint:gosec // G304: log path stays under the configured studioctl log directory; app ID is path-sanitized.
 		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, osutil.FilePermOwnerOnly)
-		if errors.Is(err, os.ErrExist) {
+		switch {
+		case errors.Is(err, os.ErrExist):
+			lastErr = errAppLogCreateCollision
 			continue
-		}
-		if err != nil {
-			return nil, "", fmt.Errorf("open app log: %w", err)
+		case err != nil:
+			lastErr = fmt.Errorf("open app log: %w", err)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, "", lastErr
 		}
 		return logFile, logPath, nil
 	}
 
-	return nil, "", fmt.Errorf("create app log: %w", errAppLogCreateCollision)
+	return nil, "", fmt.Errorf("create app log: %w", lastErr)
+}
+
+// deleteExpiredAppLogs deletes old app run logs before this run creates its own,
+// so a run never deletes the log it writes to. Failure does not stop the run.
+func (c *RunCommand) deleteExpiredAppLogs() {
+	if c.cfg == nil {
+		return
+	}
+	if err := appsupport.DeleteExpiredLogs(c.cfg.AppLogsDir(), time.Now()); err != nil {
+		c.out.Verbosef("failed to delete expired app logs: %v", err)
+	}
 }
 
 func closeAppLog(out *ui.Output, logFile *os.File) {
@@ -801,16 +818,9 @@ func (c *RunCommand) registerPortAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, port, runInfo, monitor, startupTimeout)
 	if err != nil {
-		return "", err
-	}
-
-	if err := waitForFrontDoorRegistration(
-		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -875,16 +885,9 @@ func (c *RunCommand) registerContainerAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, hostPort, runInfo, monitor, startupTimeout)
 	if err != nil {
-		return "", err
-	}
-
-	if err := waitForFrontDoorRegistration(
-		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -911,7 +914,6 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerProcessAppWithStartupMonitor(
 		ctx,
@@ -923,12 +925,6 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		startupTimeout,
 	)
 	if err != nil {
-		return "", err
-	}
-
-	if err := waitForFrontDoorRegistration(
-		ctx, c.cfg, topology, appID, baseURL, since, startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -1212,8 +1208,7 @@ func containerRunProgressResources(spec appsvc.DockerRunSpec, flags runFlags) []
 				HandleDestroyError: nil,
 				RetainOnDestroy:    false,
 			},
-			WaitForReady:   false,
-			ReadinessProbe: nil,
+			WaitForReady: false,
 		},
 		Name:           spec.Config.Name,
 		RestartPolicy:  "",
@@ -1411,7 +1406,7 @@ func (c *RunCommand) runDocker(
 		c.printAppReady(target.AppID, displayURL, containerRunDetails(info.Name)...)
 	}
 
-	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, topology, flags)
+	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, flags)
 }
 
 func (c *RunCommand) runStartedContainerApp(
@@ -1422,13 +1417,8 @@ func (c *RunCommand) runStartedContainerApp(
 	info containerruntime.ContainerInfo,
 	baseURL string,
 	displayURL string,
-	topology envtopology.Local,
 	flags runFlags,
 ) error {
-	removeDevFrontend, err := c.registerDevFrontend(ctx, topology, flags)
-	if err != nil {
-		return c.withAppContainerCleanup(ctx, client, containerID, err)
-	}
 	if flags.detach {
 		return c.detachedDockerOutput(
 			target.AppID,
@@ -1439,7 +1429,6 @@ func (c *RunCommand) runStartedContainerApp(
 		).Print(c.out)
 	}
 	defer c.unregisterAppBestEffort(ctx, target.AppID)
-	defer removeDevFrontend()
 
 	runErr := c.followContainer(ctx, client, containerID)
 	removeErr := c.removeForegroundContainer(ctx, client, containerID)
