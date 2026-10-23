@@ -25,8 +25,9 @@ internal static class LocaltestReset
     public static IReadOnlyList<string> ListVolumes { get; } = ["volume", "ls", "--quiet"];
 
     /// <summary>
-    /// The runtime commands the reset runs, in order: remove the containers (a volume in use by one cannot go), then
-    /// those of the package's volumes that exist (Podman refuses to remove one that does not).
+    /// The runtime commands the reset runs, in order: remove the containers with their anonymous volumes (a volume in
+    /// use by one cannot go; <c>--volumes</c>, in Podman and Docker alike, leaves named volumes alone), then those of
+    /// the package's volumes that exist (Podman refuses to remove one that does not).
     /// </summary>
     /// <param name="containerIds">The running stack's container ids.</param>
     /// <param name="volumeIds">The manifest's volume ids.</param>
@@ -40,7 +41,7 @@ internal static class LocaltestReset
         var commands = new List<IReadOnlyList<string>>();
         if (containerIds.Count > 0)
         {
-            commands.Add(["rm", "--force", .. containerIds]);
+            commands.Add(["rm", "--force", "--volumes", .. containerIds]);
         }
         var volumes = volumeIds.Select(StackSpec.VolumeName).Where(existingVolumes.Contains).ToList();
         if (volumes.Count > 0)

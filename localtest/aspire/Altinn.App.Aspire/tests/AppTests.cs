@@ -247,7 +247,7 @@ public sealed class AppTests
 
         Assert.Equal(
             [
-                ["rm", "--force", "c1", "c2"],
+                ["rm", "--force", "--volumes", "c1", "c2"],
                 ["volume", "rm", "--force", "altinn-localtest-policy-store", "altinn-localtest-postgres-data"],
             ],
             commands
