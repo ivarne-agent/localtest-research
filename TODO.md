@@ -48,7 +48,7 @@ A path matching no route still falls through to the localtest app.
 | 12 | [Review leftovers](#12-review-leftovers) | done for the audit findings (2026-10-21, commits 6ba99ee..90c6bc4: Postgres in UTC, two Events directive sites for Dialogporten sources, authorization and root smoke tests fixed, Storage standalone test removed, `reviews/test-apps.md`; still open: HEAD on the localtest app, a WebSocket test, the Events reset not draining queues, Slack deliveries without their event, the Altinn 2 roles stub; pin sha-3143730, proven 2026-10-21 on plain images) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
-| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | unapproved | small | no |
+| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | approved (owner 2026-10-23: \"dispatch agents on the maskinporten package\"); brief `/home/agent/code/.briefs/task15-maskinporten-package.md`; **running** (dispatched 2026-10-23, Opus; upstream branch in the reference clone, no fork exists) | small | no |
 | 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin sha-902ddfc, proven 2026-10-21) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
@@ -76,6 +76,7 @@ A path matching no route still falls through to the localtest app.
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | drafted (owner 2026-10-23: "draft the frontend follow-up for the local host rule"); hand-over `/home/agent/code/pr-app-frontend-host-rule.md`; awaiting the owner's choice (same PR branch or follow-up PR; the v4 upstream fix) | medium | yes (proof) |
+| 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **running** (dispatched 2026-10-23, Opus, analysis and stack proof) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1329,3 +1330,11 @@ from before the settings and can go: a link exists when its URL is configured, t
 scheme, and the runners set the Arbeidsflate URLs to the front door's Home when the group is off. The released v4
 frontend has no settings; its `getHostname()` must stop throwing for an unrecognised host and treat it as the
 platform's own origin (upstream PR to app-frontend-react). Details and the proof plan in the hand-over file.
+
+## 43. The apps' Maskinporten clients on localtest-v2
+
+**Goal (2026-10-23, owner's question).** Whether the monorepo backend's and app-lib 8's `MaskinportenClient` and
+`AuthenticationTokenResolver` (the `/Home/GetTestOrgToken` short-cut on localtest) need adaptation for localtest-v2,
+including a custom origin; both token kinds; proof on the stack with both sample apps and a custom origin; a document
+with the decision tables and the recommendation. The apps do not use `Altinn.ApiClients.Maskinporten` (task 15), to be
+confirmed.
