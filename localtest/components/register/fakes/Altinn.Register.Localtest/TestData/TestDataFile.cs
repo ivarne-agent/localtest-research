@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Altinn.Register.Localtest.TestData;
 
@@ -9,15 +10,14 @@ namespace Altinn.Register.Localtest.TestData;
 /// (<c>accessPackages</c> and profile preferences on persons) and the v3 fields (<c>reserved</c> on persons,
 /// <c>notificationAddresses</c> on organisations), all optional. Unknown properties are ignored.
 /// </summary>
+/// <remarks>
+/// Serialised through the source-generated <see cref="TestDataJsonContext"/> only (no reflection), so the file also
+/// compiles into the Native AOT localtest app, which keeps a byte-identical copy of this file and of
+/// <c>TestDataMerger.cs</c> for its minimal mode (<c>localtest/localtest/Emulation/TestData/</c>; a test there fails when
+/// the copies differ from these).
+/// </remarks>
 public sealed class TestDataFile
 {
-    internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     public static TestDataFile Empty => new();
 
     private List<TestPerson> _persons = [];
@@ -68,18 +68,33 @@ public sealed class TestDataFile
     public static TestDataFile Load(string path)
     {
         using var stream = File.OpenRead(path);
-        return JsonSerializer.Deserialize<TestDataFile>(stream, JsonOptions)
+        return JsonSerializer.Deserialize(stream, TestDataJsonContext.Default.TestDataFile)
             ?? throw new InvalidOperationException($"'{path}' did not contain test data.");
     }
 
     public static TestDataFile Parse(string json, string source)
-        => JsonSerializer.Deserialize<TestDataFile>(json, JsonOptions)
+        => JsonSerializer.Deserialize(json, TestDataJsonContext.Default.TestDataFile)
             ?? throw new InvalidOperationException($"'{source}' did not contain test data.");
 
     /// <summary>Canonical JSON of one entry, used to tell identical duplicates from conflicting ones.</summary>
     internal static string Canonical<T>(T value)
-        => JsonSerializer.Serialize(value, JsonOptions);
+        => JsonSerializer.Serialize(value, (JsonTypeInfo<T>)TestDataJsonContext.Default.GetTypeInfo(typeof(T))!);
 }
+
+/// <summary>
+/// The file's JSON: web defaults (camelCase, case-insensitive names, numbers from strings), comments and trailing commas
+/// allowed, nulls left out when writing.
+/// </summary>
+[JsonSourceGenerationOptions(
+    JsonSerializerDefaults.Web,
+    ReadCommentHandling = JsonCommentHandling.Skip,
+    AllowTrailingCommas = true,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(TestDataFile))]
+[JsonSerializable(typeof(TestPerson))]
+[JsonSerializable(typeof(TestOrg))]
+[JsonSerializable(typeof(TestSystem))]
+internal sealed partial class TestDataJsonContext : JsonSerializerContext;
 
 public sealed class TestPerson
 {
