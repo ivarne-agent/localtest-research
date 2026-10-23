@@ -71,7 +71,7 @@ These are the owner's added question: the real services must find everything the
 | W1 | Workflow engine `AppCommand` ([`AppCommand.cs:153-159, 237-257`](../../localtest/components/workflow-engine/vendor/src/Runtime/workflow-engine-app/src/WorkflowEngine.App/Commands/AppCommand/AppCommand.cs)) | `POST {AppCommandSettings__CommandEndpoint}{commandKey}`, the app's `workflow-engine-callbacks` through the front door | The app | Each workflow step | Not emulated: an app route |
 | W2 | Workflow engine `WebhookCommand` | Any absolute URI a workflow names | Whatever it names | Webhook steps only | Not emulated |
 
-Storage makes no call to Events, the Resource Registry, Profile or Access Management. The workflow engine makes no
+Storage's `RegisterService.GetParty` (`parties/{id}`) has no caller. Storage makes no call to Events, the Resource Registry, Profile or Access Management. The workflow engine makes no
 platform call at all: it validates no token and calls only the app (its `Program.cs` is 35 lines: Postgres and the
 callbacks). So the emulation must serve **four** things for the real services: the OIDC discovery and JWKS, the PDP's
 `decision` (with echoed categories), `parties/lookup`, and a 503 on the adapter's path.
@@ -114,7 +114,7 @@ to the in-process stores directly (section 3.3), not back over HTTP.
 
 ## 2. Inventory: what an app calls, and the minimal answer
 
-App-lib 8 is `app-lib-dotnet:src/Altinn.App.Core` (clients under `Infrastructure/Clients/`, `CL` below); the monorepo
+App-lib 8 is `app-lib-dotnet:src/Altinn.App.Core` (`CORE` below; its clients under `Infrastructure/Clients/`, `CL`); the monorepo
 backend is `altinn-studio:src/App/backend/src/Altinn.App.Core` (`M`). The monorepo emulation is
 `altinn-studio:src/Runtime/localtest/src` (`OLD`). **F** marks a call the frontend makes directly. Storage and
 workflow-engine rows are in the table to show the flow; they are served by the real images.
