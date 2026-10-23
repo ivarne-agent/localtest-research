@@ -81,7 +81,7 @@ public sealed class LocaltestRefreshService(
             await resourceSync.SyncResources(lease!, cancellationToken);
         }
 
-        var url = options.Value.PlatformEndpoint.TrimEnd('/') + "/register/api/localtest/test-users";
+        var url = options.Value.RegisterEndpoint.TrimEnd('/') + "/localtest/test-users";
         var users = await httpClientFactory.CreateClient().GetFromJsonAsync<List<TestUser>>(url, cancellationToken) ?? [];
 
         var audit = new AuditValues(SystemEntityConstants.RegisterImportSystem);

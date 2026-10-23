@@ -4,8 +4,14 @@ namespace Altinn.AccessManagement.Localtest;
 /// <summary>Settings for the localtest composition, bound from <c>Localtest:AccessManagement</c>.</summary>
 public sealed class LocaltestAccessManagementOptions
 {
-    /// <summary>Base URL every platform service is reached on, the ingress. Default <c>http://local.altinn.cloud:8000/</c>.</summary>
+    /// <summary>
+    /// The public origin (default <c>http://local.altinn.cloud:8000/</c>): the issuer, the OpenID metadata and the host of
+    /// the browser links. The services are called by name.
+    /// </summary>
     public string PlatformEndpoint { get; set; } = "http://local.altinn.cloud:8000/";
+
+    /// <summary>The Register's API by service name, with a trailing slash; the refresh reads <c>localtest/test-users</c> under it.</summary>
+    public string RegisterEndpoint { get; set; } = "http://register/register/api/";
 
     /// <summary>Root folder of the file-backed policy store (delegation, resource and app policies with versions).</summary>
     public string PolicyStorePath { get; set; } = "/policy-store";

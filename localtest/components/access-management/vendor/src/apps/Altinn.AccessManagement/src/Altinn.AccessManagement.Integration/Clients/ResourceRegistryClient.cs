@@ -22,7 +22,12 @@ namespace Altinn.AccessManagement.Integration.Clients
     [ExcludeFromCodeCoverage]
     public class ResourceRegistryClient : IResourceRegistryClient
     {
+#if !LOCALTEST
         private readonly HttpClient _httpClient = new();
+#else
+        // localtest: a factory client (set in the constructor), so the Resource Registry resolves by service name.
+        private readonly HttpClient _httpClient;
+#endif
         private readonly ILogger<IResourceRegistryClient> _logger;
         private readonly JsonSerializerOptions options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         private readonly JsonSerializerOptions _serializerOptions = new JsonSerializerOptions() { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -34,8 +39,16 @@ namespace Altinn.AccessManagement.Integration.Clients
         /// <param name="settings">The resource registry config settings</param>
         /// <param name="logger">Logger instance for this ResourceRegistryClient</param>
         /// <param name="memoryCache">Memory cache instance for caching purposes</param>
+#if !LOCALTEST
         public ResourceRegistryClient(IOptions<PlatformSettings> settings, ILogger<IResourceRegistryClient> logger, IMemoryCache memoryCache)
         {
+#else
+        public ResourceRegistryClient(IOptions<PlatformSettings> settings, ILogger<IResourceRegistryClient> logger, IMemoryCache memoryCache, IHttpClientFactory httpClientFactory)
+        {
+            // localtest: through IHttpClientFactory, whose defaults carry the service-discovery handler; created once, as
+            // the production field is (the registration is a singleton).
+            _httpClient = httpClientFactory.CreateClient(nameof(ResourceRegistryClient));
+#endif
             PlatformSettings platformSettings = settings.Value;
             _httpClient.BaseAddress = new Uri(platformSettings.ApiResourceRegistryEndpoint);
             _httpClient.Timeout = new TimeSpan(0, 0, 30);

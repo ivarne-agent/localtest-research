@@ -56,23 +56,26 @@ public static class LocaltestAccessManagementExtensions
                 ["PostgreSQLSettings:AuthorizationDbAdminPwd"] = options.DatabasePassword,
                 ["PostgreSQLSettings:AuthorizationDbPwd"] = options.DatabasePassword,
 
-                // Other platform services, all behind the ingress.
-                ["PlatformSettings:ApiAuthenticationEndpoint"] = platform + "authentication/api/v1/",
-                ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
-                ["PlatformSettings:ApiProfileEndpoint"] = platform + "profile/api/v1/",
-                ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-                ["PlatformSettings:ApiResourceRegistryEndpoint"] = platform + "resourceregistry/api/",
+                // Other platform services by service name (http://<service>/<prefix>/…, resolved from
+                // services__<service>__http__0; fakes/ServiceDiscovery). The issuer, the OpenID metadata (fetched outside the
+                // factory, naming a public jwks_uri) and the host of the browser links stay on the public origin.
+                ["PlatformSettings:ApiAuthenticationEndpoint"] = "http://authentication/authentication/api/v1/",
+                ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
+                ["PlatformSettings:ApiProfileEndpoint"] = "http://profile/profile/api/v1/",
+                ["PlatformSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
+                ["PlatformSettings:ApiResourceRegistryEndpoint"] = "http://resource-registry/resourceregistry/api/",
                 ["PlatformSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["OidcProviders:altinn:Issuer"] = platform + "authentication/api/v1/openid/",
                 ["OidcProviders:altinn:WellKnownConfigEndpoint"] = platform + "authentication/api/v1/openid/.well-known/openid-configuration",
                 ["GeneralSettings:Hostname"] = new Uri(platform).Host,
                 ["SblBridgeSettings:BaseApiUrl"] = platform + "sblbridge/",
-                // libs Integration.Platform clients append the full service path (/register/api/v2/...), so the base is the ingress.
-                ["Platform:Register:Endpoint"] = platform,
-                ["Platform:ResourceRegistry:Endpoint"] = platform,
+                // libs Integration.Platform clients append the full service path (/register/api/v2/...), so the base is the
+                // service itself. The SBL bridge does not exist locally (never called).
+                ["Platform:Register:Endpoint"] = "http://register/",
+                ["Platform:ResourceRegistry:Endpoint"] = "http://resource-registry/",
                 ["Platform:SblBridge:Endpoint"] = platform,
-                ["Platform:Notifications:Endpoint"] = platform,
-                // Validated eagerly by Integration.Platform although the generator is replaced below.
+                ["Platform:Notifications:Endpoint"] = "http://notifications/",
+                // Validated eagerly by Integration.Platform although the generator is replaced below (never called).
                 ["Platform:Token:TestTool:Endpoint"] = platform,
                 ["Platform:Token:TestTool:Username"] = "localtest",
                 ["Platform:Token:TestTool:Password"] = "localtest",
@@ -110,6 +113,11 @@ public static class LocaltestAccessManagementExtensions
         var config = builder.Configuration;
         var services = builder.Services;
         services.AddOptions<LocaltestAccessManagementOptions>().BindConfiguration(Section);
+
+        // Service discovery: AddAltinnServiceDefaults registered AddServiceDiscovery() (with the pass-through provider)
+        // and the factory clients' handler; this drops the pass-through, so a service name without an entry fails at
+        // once, and keeps real hosts as they are.
+        global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
 
         // Platform access tokens: production generator and handler with the shared test certificate standing in for
         // Key Vault on both sides (AccessTokenSettings:AccessTokenSigningCertificateFullPath). Production hands the

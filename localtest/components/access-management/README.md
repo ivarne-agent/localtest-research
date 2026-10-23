@@ -15,7 +15,12 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 
 Service discovery (task 25) needs no site: `AltinnHost.CreateWebApplicationBuilder` already registers
 `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(... AddServiceDiscovery())` through `AddAltinnServiceDefaults`
-([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)). Since task 40
+`AddLocaltestAccessManagement` removes its pass-through provider (`LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders`,
+`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`; ServiceDefaults has no setting for it): a service name without
+an entry fails at once, a real host is used as it is. Authentication, the PDP, Profile, the Register, the Resource
+Registry and Notifications are called by service name; the issuer, the OpenID metadata and `GeneralSettings:Hostname`
+stay on the public origin (`Localtest__AccessManagement__PlatformEndpoint`).
 
 Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers checked 2026-10-21: `Program.cs:19-35`,
 `AccessManagementHost.cs:70-73` and `:168-170`).
@@ -30,6 +35,10 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
    the OIDC provider and the platform endpoints are read eagerly further down, so the defaults must exist first).
 3. Same file, right before `builder.Build()`:
    `#if LOCALTEST LocaltestAccessManagementExtensions.AddLocaltestAccessManagement(builder) #endif`.
+4. `src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` (task 40): the field `_httpClient = new()`
+   and the constructor are each `#if !LOCALTEST` / `#else`; the localtest constructor takes `IHttpClientFactory` and
+   creates the client from it, so its calls (`v1/resource/…`, `search`, `resourcelist`, `bysubjects`) go through the
+   service-discovery handler to `http://resource-registry/`. Production's `new HttpClient()` never sees the resolver.
 
 ## What the fakes replace
 
@@ -42,14 +51,14 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
 | Lease on Azure Blob | config: no blob endpoint, so the production `NoopLeaseService` |
 
 Configuration defaults live in `LocaltestAccessManagementExtensions` (section `Localtest:AccessManagement`): every
-platform endpoint behind the proxy, the production connection strings pointed at the shared Postgres, dummy
+platform endpoint by service name, the production connection strings pointed at the shared Postgres, dummy
 test-tool token settings to satisfy eager validation, and the periodic Register and Resource Registry syncs and the
 outbox hosted services switched off (the init-time Register import stays on; the refresh runs the resource sync).
 
 The Resource Registry is the real component (`../resource-registry/`), reached through the production clients: the
 delegation services' `ResourceRegistryClient` at `PlatformSettings:ApiResourceRegistryEndpoint`
-(`{platform}resourceregistry/api/`, the client appends `v1/resource/...`) and the integration library's
-`AltinnResourceRegistryClient` at `Platform:ResourceRegistry:Endpoint` (`{platform}`, the client appends
+(`http://resource-registry/resourceregistry/api/`, the client appends `v1/resource/...`) and the integration library's
+`AltinnResourceRegistryClient` at `Platform:ResourceRegistry:Endpoint` (`http://resource-registry/`, the client appends
 `resourceregistry/api/v1/...`). The periodic `ResourceRegistrySync` hosted service stays off; the refresh runs the
 production `ResourceSyncService` instead (`SyncResourceOwners`, then `SyncResources`). `SyncResources` reads the
 `resource/updated` feed from the `since` in its lease. The localtest lease is the production `NoopLease`, which hands
