@@ -1,0 +1,99 @@
+# memory-stats: C-smoke: C right after localtest/smoke-test.sh
+time: 2026-10-23T14:49:16+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        3014          82         863        5866        4935
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree             82
+  MemAvailable      4931
+  Buffers            404
+  Cached            4975
+  Shmem              864
+  Active(file)      3239
+  Inactive(file)    1275
+  Active(anon)       210
+  Inactive(anon)    2464
+  AnonPages         1810
+  Mapped            2145
+  SReclaimable       489
+  SUnreclaim          91
+  KernelStack         12
+  PageTables          38
+  Percpu               2
+  VmallocUsed         13
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 2975 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 2009 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 143
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 3142 anon 1252 file 1775 shmem 730 kernel 116 file_mapped 1539 inactive_file 88 active_file 958
+
+## Per container
+
+$ podman stats --no-stream
+localtest-v2-access-management 195.9MB / 8.335GB 2.35%
+localtest-v2-arbeidsflate 5.923MB / 8.335GB 0.07%
+localtest-v2-arbeidsflate-bff 404.3MB / 8.335GB 4.85%
+localtest-v2-authentication 75.95MB / 8.335GB 0.91%
+localtest-v2-authorization 61.42MB / 8.335GB 0.74%
+localtest-v2-correspondence 127.5MB / 8.335GB 1.53%
+localtest-v2-dialogporten-adapter 50.63MB / 8.335GB 0.61%
+localtest-v2-dialogporten-graphql 131.2MB / 8.335GB 1.57%
+localtest-v2-dialogporten-service 129.1MB / 8.335GB 1.55%
+localtest-v2-dialogporten-webapi 166.5MB / 8.335GB 2.00%
+localtest-v2-events 59.06MB / 8.335GB 0.71%
+localtest-v2-localtest 17.97MB / 8.335GB 0.22%
+localtest-v2-notifications 56.92MB / 8.335GB 0.68%
+localtest-v2-pdf3 39.25MB / 8.335GB 0.47%
+localtest-v2-postgres 213.8MB / 8.335GB 2.56%
+localtest-v2-profile 103.5MB / 8.335GB 1.24%
+localtest-v2-receipt 64.68MB / 8.335GB 0.78%
+localtest-v2-redis 4.915MB / 8.335GB 0.06%
+localtest-v2-register 67.8MB / 8.335GB 0.81%
+localtest-v2-resource-registry 68.67MB / 8.335GB 0.82%
+localtest-v2-storage 182.2MB / 8.335GB 2.19%
+localtest-v2-workflow-engine 103.9MB / 8.335GB 1.25%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+localtest-v2-access-management          187    104     80     79      3   809954      0      288      104      104       79
+localtest-v2-arbeidsflate                12      3      7      0      1   811585      0        6        1        5        0
+localtest-v2-arbeidsflate-bff           395    318     62      0     15   811425      0      112       65       47        0
+localtest-v2-authentication              73     35     36     34      2   809907      0      161       35       93       34
+localtest-v2-authorization               60     27     27     26      6   809858      0      138       27       84       26
+localtest-v2-correspondence             123     70     50     48      3   810923      0      224       70      106       48
+localtest-v2-dialogporten-adapter        52     18     32     22      2   811006      0      134       18       94       22
+localtest-v2-dialogporten-graphql       125     63     59     57      3   810962      0      219       63       98       57
+localtest-v2-dialogporten-service       124     61     60     55      3   810891      0      209       61       92       56
+localtest-v2-dialogporten-webapi        160     83     74     67      3   810557      0      256       83      105       67
+localtest-v2-events                      56     21     29     29      6   810202      0      139       21       89       29
+localtest-v2-localtest                   17     15      2      0      1   808827      0       35       15       20        0
+localtest-v2-notifications               54     22     26     26      6   810250      0      132       22       84       26
+localtest-v2-pdf3                        38     33      1      0      4   809247      0       14        2       12        0
+localtest-v2-postgres                   216    122     79     62     15   808979      0       36        2       15       19
+localtest-v2-profile                     99     39     54     54      6   809549      0      182       39       89       54
+localtest-v2-receipt                    108     17     85     16      5   810116      0      108       17       75       16
+localtest-v2-redis                        6      3      3      0      0   808919      0        8        3        5        0
+localtest-v2-register                    65     27     35     35      2   808859      0      146       27       84       35
+localtest-v2-resource-registry           66     28     35     35      2   809728      0      152       28       89       35
+localtest-v2-storage                    281    210     64     58      8   809228      0      405      210      137       59
+localtest-v2-workflow-engine             99     52     45     43      2   809420      0      179       52       84       43
+SUM (22 containers)                    2417   1372    946    746     98        -      -     3281
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               603     602      518       84         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+263      other:systemd-journal      173     100        2       98         0  /usr/lib/systemd/systemd-journald 
+808733   studioctl-server            98      89       21       54        14  /home/agent/sh/bin/studioctl-server/studioctl-server 
+812594   podman                      53      51       19       31         0  /usr/bin/podman --log-level=info system service 
+808813   podman                       4       2        1        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  podman                 60
+  studioctl-server       89
+PSS sums (MiB): stack host processes (the categories above except podman and build-server) 89; all host processes 884; all container processes (incl. conmon) 3418; unreadable processes 0
