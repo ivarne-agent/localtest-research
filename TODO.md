@@ -73,6 +73,8 @@ A path matching no route still falls through to the localtest app.
 | 37 | [Aspire minimal mode](#37-aspire-minimal-mode) | approved (owner 2026-10-23: "dispatch the Aspire minimal mode task"); brief `/home/agent/code/.briefs/task37-aspire-minimal.md`; API decision: `builder.AddAltinnLocaltestMinimal()` with no extension that enables another service; **done, merged** 2026-10-23 (ff to 2976956a): `AddAltinnLocaltestMinimal()` proven under Podman on sha-48648ec | medium | yes (phase 2) |
 | 38 | [Memory statistics of the stack](#38-memory-statistics-of-the-stack) | approved (owner 2026-10-23: "dispatch an agent to grab some stats"); brief `/home/agent/code/.briefs/task38-memory-stats.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-memory.md`, `localtest/tools/memory-stats.sh`) | small | yes |
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
+| 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
+| 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **running** (dispatched 2026-10-23, Opus, code-only) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1288,3 +1290,24 @@ dialogporten 60/60, front door 80/81 (known); the routes listing shows the dedic
 `--port 0` (35863) up in 6.7 s, four containers, no volume added, root 23/23 through `LOCALTEST_ORIGIN` with 3 named
 skips; after both downs only the four `localtest-v2-*` volumes. Old pin images removed (3.6 GB); logs in
 `/home/agent/code/.scripts/pin-6fd85ef/`.
+
+## 40. Service names for the components' URLs, pass-through off
+
+**Goal (2026-10-23, owner's decision).** Every component's call to another platform service uses `http://<name>`
+resolved by `Microsoft.Extensions.ServiceDiscovery` with the configuration provider only (pass-through off, as the
+localtest app does), from the manifest's `envs` or the fakes' settings; what stays on `{{origin}}` is rule 4 of the
+conventions (issuers, discovery and `jwks_uri`, redirect URIs, browser links, cookie domains), decided per key in a
+table; non-factory and non-.NET clients fixed as task 25's plan flagged; Storage's calls then reach the emulation in
+minimal mode (`Host: <service name>` routed like the main host, with a test). Proof with dev builds of every changed
+component on `--with everything`, every verified suite, a browser instantiate with a Dialogporten sync, and minimal
+mode with `--dev-localtest` and `--dev-storage`.
+
+## 41. `env up` tears down after a failed start
+
+**Goal (2026-10-23, owner: "not very worried, but if it has a simple fix it would be nice").** After a failed
+`env up -r localtest-v2` (create or start error, port in use), the containers it created are removed the way `env
+down` does, the state file is not left behind, and the original error is returned; a health timeout's behaviour is
+decided by the agent and named in the error.
+
+**Owner 2026-10-23 on container-mode apps (task 34):** keep the option of running apps in containers locally; the
+host-gateway versus stack-network trade-off is with the owner (coordinator's description given in chat).
