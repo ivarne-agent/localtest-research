@@ -84,7 +84,7 @@ A map from the container's name to:
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `registry`  | The image repository, with the registry host                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tag`       | The image tag (a digest may follow: `7.2-alpine@sha256:…`). The research images all carry one `sha-<commit>` pin                                                                                                                                                                                                                                                                                                                                |
-| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), the certificate as `/certs/localtest-accesstoken.pfx`                                                                                                                                                                              |
+| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), another service by its name (`http://authorization/authorization/api/v1/`, see [Service names](#service-names)), the certificate as `/certs/localtest-accesstoken.pfx`                                                                  |
 | `dependsOn` | Containers that start, and are healthy, before this one                                                                                                                                                                                                                                                                                                                                                                                         |
 | `volumes`   | Volume id to path in the container. An id is lower-case letters and digits in hyphen-separated words (`storage-blobs`) and names one volume for the whole manifest: containers naming the same id share it (`policy-store`: the PDP, Access Management, the Resource Registry). Each runtime names the volume by its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>`; each runtime's reset deletes its own |
 | `port`      | The container's HTTP (or TCP) port; default 8080                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -99,6 +99,17 @@ name their `port`; the default 8080 applies to the localtest app and Dialogporte
 changes of task 25 move them to 8080 and drop the key. Redis runs this repository's image (`localtest/redis/`) at the
 same pin since `sha-6d928ad`. The conventions behind these rules (and the table of today's ports):
 [`localtest/CONVENTIONS.md`](../../../../../../CONVENTIONS.md).
+
+## Service names
+
+A call from one component to another names the service, not the public origin (task 40, [`localtest/CONVENTIONS.md`,
+"Service discovery"](../../../../../../CONVENTIONS.md#service-discovery)). Most images bake theirs into their fakes'
+defaults (`http://register/register/api/v1/`), so the manifest only sets them where the image reads them from the
+environment: the Register's PDP endpoint and Receipt's Storage, Register and Profile endpoints, as `http://<service>/<prefix>/`
+without a port (service discovery takes it from `services__<service>__http__0`). The Arbeidsflate BFF is Node, without
+a resolver: it reaches the platform through the front door by name and port, `http://localtest:8080` (one base for six
+services, routed by path prefix). What a browser or a token sees stays `{{origin}}`: issuers, OpenID metadata, redirect
+URIs, links, cookie domains, and each .NET component's `…PlatformEndpoint` from which its fakes derive those.
 
 ## What the runner adds
 
