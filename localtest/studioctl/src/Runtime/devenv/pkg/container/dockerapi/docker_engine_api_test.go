@@ -746,3 +746,20 @@ func (c fakeVersionClient) ClientVersion() string {
 func (c fakeVersionClient) ServerVersion(context.Context) (dockertypes.Version, error) {
 	return c.serverVersion, c.err
 }
+
+func TestRemoveOptions_RemovesAnonymousVolumes(t *testing.T) {
+	t.Parallel()
+
+	for _, force := range []bool{true, false} {
+		opts := removeOptions(force)
+		if !opts.RemoveVolumes {
+			t.Fatalf("removeOptions(%v).RemoveVolumes = false, want true", force)
+		}
+		if opts.Force != force {
+			t.Fatalf("removeOptions(%v).Force = %v", force, opts.Force)
+		}
+		if opts.RemoveLinks {
+			t.Fatalf("removeOptions(%v).RemoveLinks = true, want false", force)
+		}
+	}
+}

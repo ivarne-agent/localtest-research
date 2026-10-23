@@ -286,3 +286,24 @@ func TestIsVolumeNotFoundOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildRemoveArgs_RemovesAnonymousVolumes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		want  []string
+		force bool
+	}{
+		{name: "force", force: true, want: []string{"rm", "--volumes", "-f", "probe"}},
+		{name: "no force", force: false, want: []string{"rm", "--volumes", "probe"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := buildRemoveArgs("probe", tt.force); !slices.Equal(got, tt.want) {
+				t.Fatalf("buildRemoveArgs() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

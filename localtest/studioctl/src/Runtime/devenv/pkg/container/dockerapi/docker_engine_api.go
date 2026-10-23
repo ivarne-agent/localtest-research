@@ -868,17 +868,22 @@ func (c *Client) ContainerStop(ctx context.Context, nameOrID string, timeout *in
 	return nil
 }
 
-// ContainerRemove removes a container.
+// ContainerRemove removes a container and its anonymous volumes.
 // Returns ErrContainerNotFound if the container does not exist.
 func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, force bool) error {
-	opts := dockercontainer.RemoveOptions{Force: force}
-	if err := c.cli.ContainerRemove(ctx, nameOrID, opts); err != nil {
+	if err := c.cli.ContainerRemove(ctx, nameOrID, removeOptions(force)); err != nil {
 		if cerrdefs.IsNotFound(err) {
 			return types.ErrContainerNotFound
 		}
 		return fmt.Errorf("failed to remove container: %w", err)
 	}
 	return nil
+}
+
+// removeOptions removes the container's anonymous volumes with it: they are unreachable once the
+// container is gone. RemoveVolumes leaves named volumes and bind mounts alone.
+func removeOptions(force bool) dockercontainer.RemoveOptions {
+	return dockercontainer.RemoveOptions{Force: force, RemoveVolumes: true}
 }
 
 // NetworkCreate creates a new network.
@@ -1129,7 +1134,7 @@ func copyToConnBestEffort(dst io.Writer, src io.Reader) {
 
 //nolint:errcheck,gosec // Container cleanup is best-effort after a failed create/start path.
 func removeContainerBestEffort(ctx context.Context, cli *client.Client, containerID string) {
-	cli.ContainerRemove(ctx, containerID, dockercontainer.RemoveOptions{Force: true})
+	cli.ContainerRemove(ctx, containerID, removeOptions(true))
 }
 
 func reportProgress(onProgress types.ProgressHandler, progress types.ProgressUpdate) {
