@@ -215,6 +215,14 @@ renders empty and every spec fails. Set `MONOREPO=/path/to/altinn-studio` for `r
 | `./run-cypress.sh --spec <specs>` | The app-frontend Cypress specs; start every app those specs use first (`studioctl run --dev-frontend` under studioctl, see "Run it") |
 | `./run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform (sign-in, Storage paging, self-identified users, party selection, signing delegations, Events for the workflow engine); starts and stops their apps with `run-app.sh`, or with `--no-apps` uses apps already started with `studioctl run --dev-frontend` (see "Run it": the monorepo's built frontend served with `Access-Control-Allow-Origin`). 44 tests, about six minutes; all pass on 2026-10-20 and again on 2026-10-21 (task 16, default stack; task 18, schema v3 seed; task 14, production Profile). The full suite is mostly about the frontend |
 
+Under studioctl, stop a `studioctl run` of `ttd/testapp` (`studioctl stop`) before the suites, as under Aspire it is
+deprovisioned first: studioctl-server registers a running app again as soon as the front door no longer lists it, so a
+`DELETE` by hand does not stick while the app runs. Run on 2026-10-23 (task 32 phase B), pins `sha-6d928ad`,
+`--with dialogporten`, after `studioctl stop` and the PDP refresh: root 26 of 26, `components/authentication` 34 of 34,
+`components/authorization` 31 of 31, `components/dialogporten` 60 of 60, `localtest/smoke-test.sh` 80 of 81 (the
+`/app-frontend/` bundle); root 26 of 26 again with `--dev-storage=localtest/components/storage`, and after
+`env reset --yes` and `env up` on empty volumes.
+
 Run on 2026-10-22 (task 27a phase 2) under studioctl with manifest v2 and the localtest container as the front door,
 pinned images `sha-f76b62b`, `--with dialogporten`: root 26 of 26, `components/authentication` 34 of 34,
 `components/authorization` 31 of 31, `components/dialogporten` 60 of 60, `components/dialogporten-adapter` 39 of 39,
