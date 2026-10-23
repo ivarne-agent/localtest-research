@@ -1365,3 +1365,6 @@ frontend only (the agent was told). Task 43: the apps' localtest short-cut is fi
 becomes the default, apps should use the proper fakes (the real client path against the Maskinporten fake and the
 Authentication exchange); the document states what that switch needs and the proof shows the real path works today if
 it is cheap (the agent was told).
+Task 44 addendum (owner 2026-10-23): the monorepo frontend's domains stay in the inventory, framed for a
+Content-Security-Policy (directive per domain, fixed in the bundle, in the settings or in app data; what a CSP for an
+app page would look like; whether the index page sets one today); phase 2 captures the browser's requests too.
