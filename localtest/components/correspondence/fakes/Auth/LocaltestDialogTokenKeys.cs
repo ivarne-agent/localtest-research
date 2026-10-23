@@ -61,10 +61,11 @@ public sealed class LocaltestDialogTokenKeys(
         {
             using var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(5);
-            using var response = client.Send(new HttpRequestMessage(HttpMethod.Get, JwksUrl));
+            // SendAsync, not Send: the service-discovery handler resolves the name in SendAsync only (a synchronous Send
+            // passes it by and goes to dialogporten-webapi:80). The key resolver is synchronous, hence the wait.
+            using var response = client.GetAsync(JwksUrl).GetAwaiter().GetResult();
             response.EnsureSuccessStatusCode();
-            using var reader = new StreamReader(response.Content.ReadAsStream());
-            var jwks = new JsonWebKeySet(reader.ReadToEnd());
+            var jwks = new JsonWebKeySet(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
             var keys = new List<SecurityKey>();
             foreach (var jwk in jwks.Keys)
             {
