@@ -1,0 +1,115 @@
+# memory-stats: F-smoke: F right after localtest/smoke-test.sh (both apps deprovisioned with DELETE and the PDP refreshed first; the processes kept running)
+time: 2026-10-23T14:57:40+0200  kernel: 6.12.109  user: root
+
+## Host totals
+
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:            7949        3865          52        1221        5342        4084
+Swap:              0           0           0
+
+/proc/meminfo (MiB):
+  MemTotal          7949
+  MemFree             51
+  MemAvailable      4083
+  Buffers            375
+  Cached            4539
+  Shmem             1222
+  Active(file)      3071
+  Inactive(file)     621
+  Active(anon)       288
+  Inactive(anon)    3304
+  AnonPages         2370
+  Mapped            2696
+  SReclaimable       430
+  SUnreclaim          92
+  KernelStack         14
+  PageTables          45
+  Percpu               2
+  VmallocUsed         16
+  SwapTotal            0
+  SwapFree             0
+derived (MiB): MemTotal - MemAvailable = 3901 (free's "used" since procps-ng 4.0.1); MemTotal - MemFree - Buffers - Cached - SReclaimable = 2561 (the older "used", Shmem excluded); kernel non-reclaimable = SUnreclaim + KernelStack + PageTables + Percpu = 153
+
+Podman cgroup root /sys/fs/cgroup/libpod_parent (MiB): memory.current 2897 anon 993 file 1795 shmem 749 kernel 109 file_mapped 1406 inactive_file 128 active_file 917
+
+## Per container
+
+$ podman stats --no-stream
+access-management-fb0a7819 291.6MB / 8.335GB 3.50%
+authentication-fb0a7819 86.66MB / 8.335GB 1.04%
+authorization-fb0a7819 73.75MB / 8.335GB 0.88%
+dialogporten-adapter-fb0a7819 50.69MB / 8.335GB 0.61%
+dialogporten-graphql-fb0a7819 136.1MB / 8.335GB 1.63%
+dialogporten-service-fb0a7819 138.7MB / 8.335GB 1.66%
+dialogporten-webapi-fb0a7819 259MB / 8.335GB 3.11%
+events-fb0a7819 59.29MB / 8.335GB 0.71%
+localtest-fb0a7819 21.95MB / 8.335GB 0.26%
+notifications-fb0a7819 72.49MB / 8.335GB 0.87%
+pdf3-fb0a7819 42.55MB / 8.335GB 0.51%
+postgres-fb0a7819 275.4MB / 8.335GB 3.30%
+profile-fb0a7819 128.3MB / 8.335GB 1.54%
+redis-fb0a7819 6.64MB / 8.335GB 0.08%
+register-fb0a7819 80.67MB / 8.335GB 0.97%
+resource-registry-fb0a7819 95.45MB / 8.335GB 1.15%
+storage-fb0a7819 120.1MB / 8.335GB 1.44%
+workflow-engine-fb0a7819 121.9MB / 8.335GB 1.46%
+
+container                           current   anon   file  shmem kernel      pid restart    VmRSS  RssAnon  RssFile RssShmem
+access-management-fb0a7819              281    170    108     99      3   840825      0      370      170      101       99
+authentication-fb0a7819                  84     35     47     35      2   840679      0      158       35       89       35
+authorization-fb0a7819                   73     28     39     27      6   840739      0      135       28       81       27
+dialogporten-adapter-fb0a7819            49     18     28     22      2   842048      0      127       18       87       22
+dialogporten-graphql-fb0a7819           131     62     66     58      3   842090      0      213       62       93       58
+dialogporten-service-fb0a7819           134     63     68     55      3   842000      0      199       63       81       55
+dialogporten-webapi-fb0a7819            249    145    101     89      4   841714      0      339      145      105       89
+events-fb0a7819                          56     20     32     29      5   841159      0      126       20       78       29
+localtest-fb0a7819                       21     18      2      0      1   839191      0       38       18       20        0
+notifications-fb0a7819                   70     31     34     27      5   841117      0      131       31       72       27
+pdf3-fb0a7819                            41     34      4      0      4   839995      0       15        2       12        0
+postgres-fb0a7819                       335    136    170     83     29   839135      0       35        2       14       19
+profile-fb0a7819                        123     48     69     58      5   839821      0      192       48       86       58
+redis-fb0a7819                            7      3      3      0      0   839088      0        5        3        2        0
+register-fb0a7819                        78     30     46     38      2   839524      0      148       30       80       38
+resource-registry-fb0a7819               88     37     48     41      2   840383      0      161       37       83       41
+storage-fb0a7819                        280    196     77     50      7   839732      0      376      196      130       51
+workflow-engine-fb0a7819                117     58     57     46      2   840173      0      177       58       73       46
+SUM (18 containers)                    2217   1131   1000    757     87        -      -     2944
+
+## Per host process
+
+pid      name                       RSS     PSS Pss_Anon Pss_File Pss_Shmem  command
+1899     other:claude               589     587      516       71         0  claude --dangerously-skip-permissions --settings /home/agent/.claude/agent-settings.json --model fable --resum
+838518   build-server               436     392      206       39       148  /usr/local/share/dotnet/sdk/10.0.401/Roslyn/bincore/VBCSCompiler -pipename:OpQ1QbatgX+EWvSTgjqFOIfoeqxUtPM_U20
+838487   aspire-apphost             235     167       80       44        43  dotnet run apphost.cs 
+838763   aspire-dashboard           152     140       77       63         0  /home/agent/.nuget/packages/aspire.dashboard.sdk.linux-arm64/13.6.2/tools/Aspire.Dashboard 
+838621   aspire-apphost             180     127       46       38        43  /home/agent/.local/share/dotnet/runfile/apphost-fdedb0f8f81f0331e290437183622f0cbc00dea5eda5c87d672f35f4cc755f
+842436   app2                       165     118       43       38        37  /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App2/bin/Debug/net8.0/Altinn.Applicatio
+263      other:systemd-journal      216     117        2      115         0  /usr/lib/systemd/systemd-journald 
+842441   app                        163     115       41       38        36  /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/bin/Debug/net8.0/Altinn.Application
+838477   podman                     147      98       28       70         0  /usr/bin/podman --log-level=info system service 
+827257   studioctl-server           119      97       27       51        20  /home/agent/sh/bin/studioctl-server/studioctl-server 
+842387   app-launcher               127      69       40       15        13  dotnet run --project /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App2/App2.csproj -
+842386   app-launcher               126      68       40       15        13  dotnet run --project /home/agent/code/.worktrees/task38-memory/localtest/aspire/samples/app/App/App.csproj --n
+838699   dcp                        103      60       49       11         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp start-apiserver --monito
+838711   dcp                         99      56       42       14         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp run-controllers --kubeco
+838764   dcp                         67      26       19        7         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+842389   dcp                         66      26       19        7         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+838867   dcp                         66      25       19        6         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+838984   dcp                         66      25       19        7         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+842388   dcp                         66      25       19        7         0  /home/agent/.nuget/packages/aspire.hosting.orchestration.linux-arm64/13.6.2/tools/dcp monitor-process --child 
+838866   podman                      36      17        8        9         0  /usr/bin/podman events --since 1.036103166s --filter type=network --format json 
+838982   podman                      37      17        8        9         0  /usr/bin/podman events --filter type=container --format json 
+839064   podman                       4       2        1        2         0  /usr/lib/podman/aardvark-dns --config /run/containers/networks/aardvark-dns -p 53 run 
+
+PSS by category (MiB):
+  app                   115
+  app-launcher          137
+  app2                  118
+  aspire-apphost        294
+  aspire-dashboard      140
+  build-server          392
+  dcp                   243
+  podman                145
+  studioctl-server       97
+PSS sums (MiB): stack host processes (the categories above except podman and build-server) 1145; all host processes 2417; all container processes (incl. conmon) 2805; unreadable processes 0
