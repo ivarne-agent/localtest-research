@@ -82,7 +82,7 @@ internal sealed record HealthTarget(string Name, int Port, string? Path)
 
 /// <summary>A bind mount (host path) or a named volume.</summary>
 /// <param name="IsVolume">True for a named volume, false for a bind mount.</param>
-/// <param name="Source">The volume's name or the host path.</param>
+/// <param name="Source">The volume's name (<see cref="StackSpec.VolumeName" />) or the host path.</param>
 /// <param name="Target">The path in the container.</param>
 /// <param name="ReadOnly">Whether it is read-only.</param>
 internal sealed record MountSpec(bool IsVolume, string Source, string Target, bool ReadOnly);
@@ -91,7 +91,7 @@ internal sealed record MountSpec(bool IsVolume, string Source, string Target, bo
 /// <param name="Name">The manifest name: the resource name and the network alias.</param>
 /// <param name="Image">The image.</param>
 /// <param name="Environment">The manifest's <c>envs</c> and the <c>services__</c> variables, sorted by name.</param>
-/// <param name="Mounts">The certificate (directory and legacy file), then the named volumes sorted by name.</param>
+/// <param name="Mounts">The certificate (directory and legacy file), then the named volumes sorted by id.</param>
 /// <param name="Port">The container's port.</param>
 /// <param name="Health">The health check.</param>
 /// <param name="DependsOn">The containers that must be healthy first.</param>
@@ -114,6 +114,16 @@ internal static class StackSpec
 {
     /// <summary>The tag prefix of the research images' pins, which <c>Tag</c> replaces.</summary>
     public const string PinnedTagPrefix = "sha-";
+
+    /// <summary>
+    /// The prefix of the package's volumes, <c>altinn-localtest-&lt;id&gt;</c> for the manifest's volume id: the
+    /// default parent resource's name and a hyphen, whatever the parent is called. studioctl has its own prefix, so a
+    /// reset in one runtime leaves the other's data alone.
+    /// </summary>
+    public const string VolumePrefix = AltinnLocaltestExtensions.DefaultName + "-";
+
+    /// <summary>The package's name of the manifest's volume <paramref name="id" />.</summary>
+    public static string VolumeName(string id) => VolumePrefix + id;
 
     /// <summary>
     /// The containers of the default group and the named optional groups, in start order: the manifest's
@@ -168,7 +178,7 @@ internal static class StackSpec
             ),
             .. c
                 .Volumes.OrderBy(v => v.Key, StringComparer.Ordinal)
-                .Select(v => new MountSpec(true, v.Key, v.Value, false)),
+                .Select(v => new MountSpec(true, VolumeName(v.Key), v.Value, false)),
         ];
         return new ContainerSpec(
             name,

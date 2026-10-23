@@ -50,7 +50,7 @@ public sealed class ManifestTests
         Assert.Equal((8080, "/health"), (manifest.Containers["web"].HttpPort, manifest.Containers["web"].HealthCheck));
         Assert.Equal(["db", "web"], manifest.Select(["default"]));
         Assert.Equal(["db", "web", "worker"], manifest.Select(["default", "extra", "unknown"]));
-        Assert.Equal(["db-data"], manifest.VolumeNames);
+        Assert.Equal(["db-data"], manifest.VolumeIds);
     }
 
     public static TheoryData<string, string, string> Faults =>
@@ -76,6 +76,8 @@ public sealed class ManifestTests
             { "no default group", "\"name\": \"default\"", "\"name\": \"base\"" },
             { "envs key", "\"envs\": { \"A\": \"b\" }", "\"envs\": { \"A=\": \"b\" }" },
             { "volume", "\"/data\"", "\"data\"" },
+            { "volume \"Db_data\"", "\"db-data\":", "\"Db_data\":" },
+            { "volume \"db--data\"", "\"db-data\":", "\"db--data\":" },
             { "duplicate group extra", "\"name\": \"default\"", "\"name\": \"extra\"" },
         };
 

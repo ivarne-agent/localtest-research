@@ -12,15 +12,18 @@ namespace Altinn.App.Aspire.Tests;
 /// (the app's environment). Per container, every field both runners have is compared byte for byte with the
 /// application model the package builds: the selection and its start order, the image reference (the default stack;
 /// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>
-/// variables, the mounts, the published port, the extra hosts, the network alias, the dependencies and the health
-/// target. Not compared, being one runner's own: the network, the container names, pull policies, SELinux
-/// relabelling, dev builds.
+/// variables, the mounts (a named volume by its manifest id: each runner prefixes the id with its own prefix), the
+/// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
+/// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds.
 /// </summary>
 public sealed class GoldenComparisonTests
 {
     private const string DataDirectory = "/home/dev/.altinn-studio";
 
     private static readonly JsonElement _golden = Load("environment.golden.json");
+
+    /// <summary>studioctl's volume prefix, as the snapshot states it.</summary>
+    private static readonly string _studioctlVolumePrefix = _golden.GetProperty("volumePrefix").GetString()!;
 
     public static TheoryData<string> Selections => new() { "default", "everything" };
 
@@ -45,6 +48,13 @@ public sealed class GoldenComparisonTests
                 .Where(r => r.GetProperty("id").GetString()!.StartsWith("container:", StringComparison.Ordinal))
                 .Select(r => (r.GetProperty("id").GetString()!["container:localtest-v2-".Length..], r)),
         ];
+
+    /// <summary>The volume id of a runner's volume name, which must carry the runner's prefix.</summary>
+    private static string VolumeId(string name, string prefix)
+    {
+        Assert.StartsWith(prefix, name, StringComparison.Ordinal);
+        return name[prefix.Length..];
+    }
 
     private static List<string> Strings(JsonElement resource, string property) =>
         resource.TryGetProperty(property, out var value) ? [.. value.EnumerateArray().Select(v => v.GetString()!)] : [];
@@ -88,17 +98,22 @@ public sealed class GoldenComparisonTests
                     .GetProperty("volumes")
                     .EnumerateArray()
                     .Select(v =>
-                        (
-                            v.GetProperty("Type").GetString()!,
-                            v.GetProperty("HostPath").GetString(),
+                    {
+                        var type = v.GetProperty("Type").GetString()!;
+                        var source = v.GetProperty("HostPath").GetString()!;
+                        return (
+                            type,
+                            type == "volume" ? VolumeId(source, _studioctlVolumePrefix) : source,
                             v.GetProperty("ContainerPath").GetString()!,
                             v.GetProperty("ReadOnly").GetBoolean()
-                        )
-                    ),
+                        );
+                    }),
                 container
                     .Annotations.OfType<ContainerMountAnnotation>()
                     .Select(m =>
-                        (m.Type == ContainerMountType.Volume ? "volume" : "bind", m.Source, m.Target, m.IsReadOnly)
+                        m.Type == ContainerMountType.Volume
+                            ? ("volume", VolumeId(m.Source!, StackSpec.VolumePrefix), m.Target, m.IsReadOnly)
+                            : ("bind", m.Source!, m.Target, m.IsReadOnly)
                     )
             );
             Assert.Equal(
@@ -165,7 +180,29 @@ public sealed class GoldenComparisonTests
                 manifest.Select([LocaltestManifest.DefaultGroup, group.Name])
             );
         }
-        Assert.Equal(Strings(_golden, "volumes"), manifest.VolumeNames);
+        Assert.Equal(
+            Strings(_golden, "volumes").Select(name => VolumeId(name, _studioctlVolumePrefix)),
+            manifest.VolumeIds
+        );
+    }
+
+    /// <summary>
+    /// The package's volumes are its own: <c>altinn-localtest-&lt;id&gt;</c>, never studioctl's names, so a reset in
+    /// one runtime leaves the other's data alone.
+    /// </summary>
+    [Fact]
+    public void ThePackageNamesItsVolumesByItsOwnPrefix()
+    {
+        Assert.Equal("altinn-localtest-", StackSpec.VolumePrefix);
+        Assert.Equal(AltinnLocaltestExtensions.DefaultName + "-", StackSpec.VolumePrefix);
+        Assert.NotEqual(StackSpec.VolumePrefix, _studioctlVolumePrefix);
+        var volumes = Model("everything")
+            .Containers.SelectMany(c => c.Annotations.OfType<ContainerMountAnnotation>())
+            .Where(m => m.Type == ContainerMountType.Volume)
+            .Select(m => m.Source!)
+            .Distinct()
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(LocaltestManifest.Default.VolumeIds.Select(id => "altinn-localtest-" + id), volumes);
     }
 
     public static TheoryData<string> AppCases =>

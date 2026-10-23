@@ -16,8 +16,9 @@ public static class AltinnLocaltestExtensions
 
     /// <summary>
     /// Adds the localtest platform: the containers of the localtest-v2 manifest's <c>default</c> group as persistent
-    /// containers (the images, environment, volumes and certificate studioctl runs), the localtest container's port
-    /// 8080 published as <c>http://local.altinn.cloud:8000</c>, the front door. Optional groups come from
+    /// containers (the images, environment, mounts and certificate studioctl runs, with the package's own volumes,
+    /// <c>altinn-localtest-&lt;id&gt;</c>), the localtest container's port 8080 published as
+    /// <c>http://local.altinn.cloud:8000</c>, the front door. Optional groups come from
     /// <see cref="AltinnLocaltestOptions.Groups" />, <see cref="WithGroup" /> or a typed alias such as
     /// <see cref="WithDialogporten" />.
     /// </summary>
@@ -70,7 +71,7 @@ public static class AltinnLocaltestExtensions
             new CommandOptions
             {
                 Description =
-                    "Remove the localtest containers and the named volumes (studioctl env reset), then restart the AppHost",
+                    "Remove the localtest containers and their volumes (as studioctl env reset), then restart the AppHost",
                 ConfirmationMessage = LocaltestReset.Confirmation,
                 IconName = "ArrowReset",
             }

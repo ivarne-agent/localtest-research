@@ -214,7 +214,7 @@ public sealed class ModelTests
                     "/accesstoken/accesstokencredentials.pfx",
                     true
                 ),
-                (ContainerMountType.Volume, "localtest-v2-storage-blobs", "/data/blobs", false),
+                (ContainerMountType.Volume, "altinn-localtest-storage-blobs", "/data/blobs", false),
             ],
             _model
                 .Container("storage")

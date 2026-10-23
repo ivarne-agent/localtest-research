@@ -228,24 +228,31 @@ public sealed class AppTests
     }
 
     [Fact]
-    public void TheResetRemovesTheContainersThenTheVolumesThatExist()
+    public void TheResetRemovesTheContainersThenThePackagesVolumesThatExist()
     {
-        var volumes = LocaltestManifest.Default.VolumeNames;
+        var ids = LocaltestManifest.Default.VolumeIds;
 
+        // studioctl's volumes of the same ids are not the package's: the reset leaves them alone.
         var commands = LocaltestReset.Commands(
             ["c1", "c2"],
-            volumes,
-            new HashSet<string>(["localtest-v2-postgres-data", "localtest-v2-policy-store", "unrelated"])
+            ids,
+            new HashSet<string>([
+                "altinn-localtest-postgres-data",
+                "altinn-localtest-policy-store",
+                "localtest-v2-postgres-data",
+                "localtest-v2-storage-blobs",
+                "unrelated",
+            ])
         );
 
         Assert.Equal(
             [
                 ["rm", "--force", "c1", "c2"],
-                ["volume", "rm", "--force", "localtest-v2-policy-store", "localtest-v2-postgres-data"],
+                ["volume", "rm", "--force", "altinn-localtest-policy-store", "altinn-localtest-postgres-data"],
             ],
             commands
         );
-        Assert.Equal(5, volumes.Count);
-        Assert.Empty(LocaltestReset.Commands([], volumes, new HashSet<string>()));
+        Assert.Equal(5, ids.Count);
+        Assert.Empty(LocaltestReset.Commands([], ids, new HashSet<string>()));
     }
 }

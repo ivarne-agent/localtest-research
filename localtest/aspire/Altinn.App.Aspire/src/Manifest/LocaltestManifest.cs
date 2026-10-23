@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Altinn.App.Aspire.Manifest;
 
@@ -9,7 +10,7 @@ namespace Altinn.App.Aspire.Manifest;
 /// (<c>manifest.go</c>) does: known keys only, every reference resolves, no dependency cycle, every container reached
 /// by a group, the values in range.
 /// </summary>
-internal sealed class LocaltestManifest
+internal sealed partial class LocaltestManifest
 {
     /// <summary>The group that is always on.</summary>
     public const string DefaultGroup = "default";
@@ -27,6 +28,13 @@ internal sealed class LocaltestManifest
     public const string Resource = "Altinn.App.Aspire.manifest.json";
 
     private const int MaxPort = 65535;
+
+    /// <summary>
+    /// A volume id: lower-case letters and digits in hyphen-separated words (<c>postgres-data</c>). Each runtime names
+    /// the volume by its own prefix and the id (<see cref="StackSpec.VolumePrefix" />).
+    /// </summary>
+    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    private static partial Regex VolumeId();
 
     private static readonly Lazy<LocaltestManifest> _default = new(() =>
     {
@@ -67,8 +75,8 @@ internal sealed class LocaltestManifest
     /// <summary>The group names in file order.</summary>
     public IReadOnlyList<string> GroupNames => [.. Groups.Select(g => g.Name)];
 
-    /// <summary>Every named volume, sorted.</summary>
-    public IReadOnlyList<string> VolumeNames =>
+    /// <summary>Every volume id, sorted; an id several containers name is listed once.</summary>
+    public IReadOnlyList<string> VolumeIds =>
         [.. _containers.Values.SelectMany(c => c.Volumes.Keys).Distinct().Order(StringComparer.Ordinal)];
 
     /// <summary>
@@ -221,11 +229,11 @@ internal sealed class LocaltestManifest
         {
             throw Invalid(Fault($"envs key \"{key}\""));
         }
-        foreach (var (volume, target) in c.Volumes)
+        foreach (var (id, target) in c.Volumes)
         {
-            if (volume.Length == 0 || !target.StartsWith('/'))
+            if (!VolumeId().IsMatch(id) || !target.StartsWith('/'))
             {
-                throw Invalid(Fault($"volume \"{volume}\" at \"{target}\""));
+                throw Invalid(Fault($"volume \"{id}\" at \"{target}\""));
             }
         }
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -324,7 +332,10 @@ internal sealed record ManifestContainer
     /// <summary>The containers that start, and are healthy, before this one.</summary>
     public IReadOnlyList<string> DependsOn { get; set; } = [];
 
-    /// <summary>Named volume to the path it is mounted at.</summary>
+    /// <summary>
+    /// Volume id to the path the volume is mounted at. The id names one volume for the whole manifest (containers
+    /// naming the same id share it); the runtime prefixes it (<see cref="StackSpec.VolumeName" />).
+    /// </summary>
     public IReadOnlyDictionary<string, string> Volumes { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The container's port; zero is <see cref="LocaltestManifest.DefaultPort" />.</summary>
