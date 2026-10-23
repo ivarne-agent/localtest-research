@@ -1,31 +1,27 @@
 # localtest MVP
 
-Local platform for Altinn apps, run by studioctl's `localtest-v2` runtime ("Run it" below), built from vendored
-production services and small fakes. Each
-component runs the production source at a pinned upstream commit; local behaviour comes from `#if !LOCALTEST`
-switches and an adjacent `fakes/` folder, never from edits to the vendored code.
-Design: [`../planned-components/mvp-vendoring-model.md`](../planned-components/mvp-vendoring-model.md).
+Local platform for Altinn apps, built from vendored production services and small fakes. Each component runs the
+production source at a pinned upstream commit; local behaviour comes from `#if !LOCALTEST` switches and an adjacent
+`fakes/` folder, never from edits to the vendored code. Design:
+[`../planned-components/mvp-vendoring-model.md`](../planned-components/mvp-vendoring-model.md). The rules every part
+follows (the manifest, the front door, service discovery, ports and health, the certificate, the volumes, what the app
+runner sets) are in [`CONVENTIONS.md`](CONVENTIONS.md).
 
-**Two runtimes.** The stack runs under studioctl (`studioctl env up -r localtest-v2`, "Run it" below) or as container
-resources of a .NET Aspire AppHost through the hosting package
+**Two runtimes, one manifest.** The stack runs under studioctl (`studioctl env up -r localtest-v2`, [Run it](#run-it))
+or as container resources of a .NET Aspire AppHost through the hosting package
 [`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md) (`AddAltinnLocaltest()`, `AddAltinnApp<T>()`). Both
-read the [manifest v2](studioctl/src/cli/internal/localtestv2/manifest/README.md) (tasks 27a and 27b): the same
-containers with the same environment and `services__` variables, the localtest container as the front door and the only
-published port (8000 onto its 8080), so the routes, the `503` for a group that is off and the `Secure` stripping on app
-routes are the same under both; an app is registered with the front door by one `PUT localtest/api/apps/{org}/{app}`
-(studioctl-server's discovery, `AddAltinnApp` on the app's ready event). [`.github/workflows/manifest-parity.yml`](../.github/workflows/manifest-parity.yml)
-runs both sides' tests against studioctl's golden files (the containers, the app environment). What differs:
-`--dev-<container>` builds (studioctl only: under Aspire set `AltinnLocaltestOptions.Tag` or run a locally built image
-by hand); reset (`env reset`, or the platform resource's `reset` command and an AppHost restart; the volumes are shared,
-so either resets both); the health checks (studioctl's probe containers, the package's `exec` into Postgres, both on
-the network); the container names (`localtest-v2-<name>`, or Aspire's `<name>-<suffix>`, see [Tests](#tests)); and the
-dashboard, which is Aspire's own. Run one at a time: both need port
-8000.
+are thin loaders of the [manifest](studioctl/src/cli/internal/localtestv2/manifest/README.md): the same containers,
+environment, `services__*` variables, volumes and certificate, and the localtest container as the front door, the only
+published port (8000 onto its 8080). Routes, the `503` pages and the app registration therefore behave the same under
+both, and [`manifest-parity.yml`](../.github/workflows/manifest-parity.yml) holds both to studioctl's golden files. What
+differs: `--dev-<container>` builds (studioctl only), the health mechanism (probe containers, or `exec` into Postgres),
+the container names (`localtest-v2-<name>`, or Aspire's `<name>-<hash>`) and the dashboard. Run one at a time: both need
+port 8000.
 
 | Folder | What |
 | --- | --- |
 | `components/register/` | Production Register on an in-memory store: a built-in seed plus the `testData.json` each app runner posts (see its README), and the KRR stand-in |
-| `components/profile/` | Production Profile on the shared Postgres (port 8036, `/profile`): user profiles for apps, Authentication, the PDP and Access Management, the contact point lookups of Notifications and Correspondence, Arbeidsflate's favourites, settings, address verification, professional notification settings and organisation addresses. Test users' contact details, settings and organisations' official addresses come from the Register's test data through stand-ins for KRR and brreg and Profile's own sync jobs (every minute; settings and organisation addresses seeded once, user changes win); `profile/api/localtest/` shows the rows and runs the sync |
+| `components/profile/` | Production Profile on the shared Postgres (`/profile`): user profiles for apps, Authentication, the PDP and Access Management, the contact point lookups of Notifications and Correspondence, Arbeidsflate's favourites, settings, address verification, professional notification settings and organisation addresses. Test users' contact details, settings and organisations' official addresses come from the Register's test data through stand-ins for KRR and brreg and Profile's own sync jobs (every minute; settings and organisation addresses seeded once, user changes win); `profile/api/localtest/` shows the rows and runs the sync |
 | `components/authentication/` | Production Authentication on memory instead of Postgres; it signs in against the localtest app's fake ID-porten and trusts its fake Maskinporten, so its own OIDC client, token validation, Profile client and exchanges run. It is also the OpenID Connect provider for registered clients (authorization code with PKCE, refresh, logout), with `localtest-smoke` and `arbeidsflate-localtest` seeded; those tokens carry `pid` |
 | `components/authorization/` | Production PDP with app policies in the policy store shared with Access Management; roles, access packages, delegations and authorized parties from Access Management, resources and resource policies from the Resource Registry |
 | `components/access-management/` | Production Access Management on Postgres: imports parties and roles from the Register, takes instance delegations from apps, syncs resources from the Resource Registry, serves the PDP's PIP and authorized parties |
@@ -36,58 +32,48 @@ dashboard, which is Aspire's own. Run one at a time: both need port
 | `components/dialogporten/` | **Optional group** (`env up --with dialogporten`): production Dialogporten WebApi, GraphQL and Service hosts on a `dialogporten` database in the shared Postgres, with a Redis; service-owner API with org tokens, resource checks against the Resource Registry, events to the Events component, GraphQL under `/dialogporten/graphql` (CORS for Arbeidsflate's origin). The provisioner's `sync` makes a pushed app known at once; `dialogporten/api/v1/localtest/` clears the caches, lists and deletes dialogs. Dialogs persist until `env reset` or that delete |
 | `components/dialogporten-adapter/` | **Optional group** (`dialogporten`, with Dialogporten): the production Dialogporten adapter. Storage's outbox (always on) hands every instance change to its anonymous `storage/dialogporten/api/localtest/enqueue`, and the production sync turns the instance into a dialog (attachments, activities, transmissions with the adapter's own receipt, delete with the dialog token) and writes `dialog.id` back. Without the group Storage logs one line per change and drops it |
 | `components/receipt/` | **Optional group** (`env up --with receipt`): production Altinn Receipt, the platform receipt for archived instances at `/receipt/{partyId}/{instanceGuid}` (the target of Dialogporten's go-to action for archived instances), reading Storage, Register and Profile with the user's cookie and a platform access token signed with the shared certificate; one fake rewrites Storage's attachment links to the public origin. Stateless, nothing provisioned. Open it on `local.altinn.cloud`, not `localhost` |
-| `components/correspondence/` | **Optional group** (`env up --with correspondence`, which also starts `dialogporten`): production Altinn Correspondence (the API host, Hangfire inside it) on a `correspondence` database in the shared Postgres, sharing Dialogporten's Redis (database 1), attachments in a file store on a volume, about 120 MB. A service owner's correspondence runs end to end on production code: the Resource Registry seed's correspondence resources, KRR (with the test data's reservations) and production Profile's lookups, a dialog in Dialogporten, the e-mail in the Notifications capture; `correspondence/api/localtest/` shows correspondences, their Hangfire jobs and the migration count. Apps' sends (app-lib's credential, the signing flow), the recipient's dialog-token calls and, with the `arbeidsflate` group, an attachment clicked in the inbox (Correspondence's own OIDC client in Authentication, no picker with a session) run on production code (see its README) |
-| `components/arbeidsflate/` | **Optional group** (`env up --with arbeidsflate`, which also starts `dialogporten`): production Arbeidsflate, the Altinn inbox, on its own host `http://af.local.altinn.cloud:8000` (a hosts entry for the browser, `studioctl env hosts add`): the SPA behind nginx, which proxies `/api/` to the BFF; the BFF signs users in through production Authentication's OIDC provider (the seeded client `arbeidsflate-localtest`), keeps sessions in Redis (database 2) and its own rows in an `arbeidsflate` database, proxies GraphQL to Dialogporten with the user's token and serves the profile page from production Profile. Upstream's tree unmodified plus three `localtest:` patches applied at image build (discovery over http, the party cookies' domain, the BFF's cookies `Secure` only over https). With the `correspondence` group a correspondence's attachment downloads from the inbox (11b in its README) |
+| `components/correspondence/` | **Optional group** (`env up --with correspondence`, which also starts the Dialogporten WebApi and Redis it depends on, not the rest of the `dialogporten` group): production Altinn Correspondence (the API host, Hangfire inside it) on a `correspondence` database in the shared Postgres, sharing Dialogporten's Redis (database 1), attachments in a file store on a volume, about 120 MB. A service owner's correspondence runs end to end on production code: the Resource Registry seed's correspondence resources, KRR (with the test data's reservations) and production Profile's lookups, a dialog in Dialogporten, the e-mail in the Notifications capture; `correspondence/api/localtest/` shows correspondences, their Hangfire jobs and the migration count. Apps' sends (app-lib's credential, the signing flow), the recipient's dialog-token calls and, with the `arbeidsflate` group, an attachment clicked in the inbox (Correspondence's own OIDC client in Authentication, no picker with a session) run on production code (see its README) |
+| `components/arbeidsflate/` | **Optional group** (`env up --with arbeidsflate`, which also starts the BFF and the Dialogporten GraphQL host, WebApi and Redis it depends on, not the Dialogporten Service or adapter): production Arbeidsflate, the Altinn inbox, on its own host `http://af.local.altinn.cloud:8000` (a hosts entry for the browser, `studioctl env hosts add`): the SPA behind nginx, which proxies `/api/` to the BFF; the BFF signs users in through production Authentication's OIDC provider (the seeded client `arbeidsflate-localtest`), keeps sessions in Redis (database 2) and its own rows in an `arbeidsflate` database, proxies GraphQL to Dialogporten with the user's token and serves the profile page from production Profile. Upstream's tree unmodified plus three `localtest:` patches applied at image build (discovery over http, the party cookies' domain, the BFF's cookies `Secure` only over https). With the `correspondence` group a correspondence's attachment downloads from the inbox (11b in its README) |
 | `components/workflow-engine/` | The workflow engine from the altinn-studio monorepo, unmodified; studioctl runs the monorepo's published image, not a build from here |
 | `components/shared/` | Source for fakes more than one component copies (the `IMaskinportenService` fake), with its own smoke test; not an image |
-| `localtest/` | The localtest app (C#, Native AOT), the home of localtest features that are not a platform component, and the stack's front door under studioctl (task 27a): a proxy by host and path prefix to the platform services by service name (`services__<name>__http__0`, no pass-through), `503` problem details for a service that is not running or not answering, one registration call per app that routes it and provisions it from the running app (`PUT localtest/api/apps/{org}/{app}`), the frontend dev server's pushed route, the app-frontend files and `Secure` removed from an app's cookies; it listens on 8080, published as 8000. The same under the Aspire package (task 27b). It also hosts the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) that returns production Authentication's OIDC tokens, with `pid`, for a seeded client |
+| `localtest/` | The localtest app (C#, Native AOT): the front door in both runtimes (routes by host and path prefix to the services by name, the `503` pages, the app registration that routes and provisions an app, the frontend dev server's route, `Secure` removed from an app's cookies; [`CONVENTIONS.md`](CONVENTIONS.md#the-front-door)), the fake ID-porten (test-user picker, end-session endpoint) and Maskinporten that production Authentication trusts, the old localtest's start page and `/Home` test helpers, and a headless code-flow helper (`localtest/api/authentication/token`) for production Authentication's OIDC tokens with `pid` |
 | `testdata/` | The `testData.json` format the stack reads (the Register's seed and every app's file): field reference, consumers, merge rules and the JSON Schema `test-users.schema.v3.json` |
 | `certs/` | The shared test certificate apps and components sign platform access tokens with; the components validate them with the production token handlers |
-| `aspire/Altinn.App.Aspire/` | The Aspire hosting package (task 21): `AddAltinnLocaltest().WithGroup(...)` adds the containers of studioctl's manifest v2 as persistent containers of an Aspire AppHost, the localtest container's port published as `local.altinn.cloud:8000`, and `AddAltinnApp<Projects.App>(localtest)` adds an app project with `studioctl run`'s environment and registers it with the front door (task 27b); published to GitHub Packages by `.github/workflows/aspire-package.yml` (see its [README](aspire/Altinn.App.Aspire/README.md)) |
-| `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHost that runs it against the platform (`AppHost/apphost.cs`) |
+| `aspire/Altinn.App.Aspire/` | The Aspire hosting package: the manifest's containers as persistent containers of an AppHost, `AddAltinnApp<Projects.App>(localtest)` with `studioctl run`'s environment and the front-door registration; published to GitHub Packages by `.github/workflows/aspire-package.yml` |
+| `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHost that runs it (`AppHost/apphost.cs`) |
 | `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
+| `tools/bump-tag.sh` | Moves every research image's `sha-<commit>` pin in the manifest to one build ([`CONVENTIONS.md`](CONVENTIONS.md#tags)) |
 | `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
-| `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings |
+| `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings (dated records) |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
-| `smoke/lib/containers.sh` | The smoke tests' container names under studioctl and under the Aspire package ("Tests" below) |
-| `postgres/` | The shared Postgres image: Postgres 18 with every component's database init script baked in |
-| `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, then one `PUT localtest/api/apps/{org}/{app}`, which routes and provisions it) and stop all of them (`DELETE`); they need the localtest app as the front door, which it is under studioctl since task 27a (where `studioctl run` does the same) |
+| `smoke/lib/containers.sh` | The smoke tests' container names under either runtime, and requests from inside the stack's network ([Tests](#tests)) |
+| `postgres/`, `postgres-init/` | The shared Postgres image: Postgres 18 with every component's database init script baked in |
+| `redis/` | The Redis image Dialogporten, Correspondence and Arbeidsflate share |
+| `run-app.sh`, `stop-apps.sh` | Start an app from a source checkout against the stack (build, run, then one `PUT localtest/api/apps/{org}/{app}`) and stop all of them (`DELETE`); `studioctl run` does the same |
 | `run-cypress.sh` | Run the app-frontend Cypress suite from the monorepo against the stack |
-| `run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform ("Tests" below) |
-| `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`); the stack runs studioctl's `runtime-pdf3-worker` image unless `STUDIOCTL_IMAGE_PDF3` names another |
+| `run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform ([Tests](#tests)) |
+| `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`) for the old `localtest` runtime (`STUDIOCTL_IMAGE_PDF3`); under localtest-v2 run a pdf3 build with `--dev-pdf3=<path>` instead |
 | `smoke-test.sh` | End-to-end check of the running stack through the front door |
 
-**The manifest** lists the stack's containers and groups:
-[`studioctl/src/cli/internal/localtestv2/manifest/manifest.json`](studioctl/src/cli/internal/localtestv2/manifest/manifest.json)
-(format in its [README](studioctl/src/cli/internal/localtestv2/manifest/README.md)): per container its image, literal
-environment, `dependsOn`, volumes, port and health; per group its root containers. studioctl embeds it and builds the
-`localtest-v2` runtime from it. The routes are the localtest app's (`localtest/README.md`, "Routes").
-
-No component publishes a host port any more: only the localtest container's 8080 is published, as 8000. Everything is
-reached through `http://local.altinn.cloud:8000`; inside the stack the containers reach each other by name
-(`http://storage:5010`, `Host=postgres;Port=5432`) and find each other through the `services__<name>__http__0`
-variables the runtime sets.
-
-Fakes are written fresh for this layout and reach the vendored services the way their production counterparts do: the
-picker resolves users through the Register API, and `testData.json` is Register seed data, not a file other
-components read. Today's localtest in `altinn-studio/src/Runtime/localtest` is not a basis for anything here, only a
-reference for which behaviours the fakes must provide.
+No component publishes a host port: everything is reached through `http://local.altinn.cloud:8000` and its host names,
+and inside the stack the containers reach each other by name ([`CONVENTIONS.md`](CONVENTIONS.md#service-discovery)).
+Fakes reach the vendored services the way their production counterparts do: the picker resolves users through the
+Register API, and `testData.json` is Register seed data, not a file other components read. Today's localtest in
+`altinn-studio/src/Runtime/localtest` is not a basis for anything here, only a reference for which behaviours the fakes
+must provide.
 
 ## What the app runner pushes
 
 In production Altinn Studio pushes an app's artefacts to the platform at deploy time; locally the front door does it
-when an app is registered with it. Since task 26 the localtest app carries the steps
-([`localtest/README.md`](localtest/README.md#registering-an-app-localtestapiapps-anonymous)): one
-`PUT localtest/api/apps/{org}/{app}` with the running app's URL routes the app and runs them, calling the platform by
-service name; `DELETE` removes the app's test users and the route. Under studioctl (task 27a) studioctl-server's
-discovery makes that call for every app it finds, started by `studioctl run` or from an IDE, with the address
-`http://host.docker.internal:<port>`, and again when the app comes back on another port; it deregisters an app that is
-gone (`studioctl-server/Discovery/FrontDoorRegistration.cs`). `studioctl run` waits until `GET localtest/api/apps` lists
-the app with a provisioning that succeeded. `run-app.sh` makes the same call by hand. The Aspire package makes it when the app resource is healthy
-([`aspire/Altinn.App.Aspire/`](aspire/Altinn.App.Aspire/README.md#registration)); the dashboard's `provision` command
-makes it again and `deprovision` makes the `DELETE`. Both runners start the app with the same environment
-(`internal/cmd/app/env.go` in studioctl, held to `internal/cmd/app/testdata/app-environment.golden.json`, which the
-Aspire package compares with). No component watches another. For one app the runner calls, in order:
+when an app is registered with it. The runners start the app with the environment in
+[`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes) and make one call,
+`PUT localtest/api/apps/{org}/{app}` with the app's address (`http://host.docker.internal:<port>`): studioctl-server's
+discovery for every app it finds (a `studioctl run` and an app started from an IDE alike; again when the app comes back
+on another port; `DELETE` when it is gone), the Aspire package on the app's ready event (and the dashboard's
+`provision` / `deprovision` commands), `run-app.sh` by hand. `studioctl run` waits until `GET localtest/api/apps` lists
+the app as provisioned. The localtest app routes `/{org}/{app}/` to the app, reads its artefacts from the app's own API
+and runs, calling the platform by service name
+([`localtest/README.md`](localtest/README.md#registering-an-app-localtestapiapps-anonymous)):
 
 | Step | Endpoint | What it does |
 | --- | --- | --- |
@@ -98,30 +84,20 @@ Aspire package compares with). No component watches another. For one app the run
 | 4 | `POST accessmanagement/api/localtest/refresh` | Access Management re-imports parties and external roles from the Register's streams (production code, full re-poll), runs the production resource sync against the Resource Registry component (service owners, `app_{org}_{app}` resources and their policy subjects from its `updated` feed, read from the epoch each time), then applies the seed's own roles, Altinn 2 role codes and access packages and prunes what the seed no longer grants |
 | 5 (optional) | `POST dialogporten/api/v1/localtest/sync`, only when the `dialogporten` group is up (when `dialogporten-adapter` has a `services__` address; skipped otherwise) | Dialogporten runs the Janitor's two production syncs (subject-resource pairs from the registry's `updated` feed, resource policy information) and clears its named caches, so the app's resource and subjects are known to Dialogporten at once instead of after its 20-minute resource cache. A failure is logged and retried on the next refresh, and does not fail the provisioning; when the group comes up after the apps, one sync runs for all of them. See `components/dialogporten/README.md` |
 
-No component fetches from the running app any more. The Register's store is rebuilt only by these calls, not on a timer,
-so an edited `testData.json` becomes visible after the next registration or refresh. Profile is not called: its KRR sync,
-organisation address sync and settings seed read the Register's test data every minute (task 14), so an app user's e-mail,
-phone number and settings reach Profile up to a minute after step 1, or at once with `POST profile/api/localtest/sync`;
-names and ids are live. An app path the runner has not
-registered is the localtest app's 404.
+No component fetches from the running app or watches another. The Register's store is rebuilt only by these calls, so
+an edited `testData.json` becomes visible after the next registration. Profile is not called: its KRR sync,
+organisation address sync and settings seed read the Register's test data every minute (task 14), or at once with
+`POST profile/api/localtest/sync`. An app path no runner has registered is the localtest app's 404.
 
-Besides the platform endpoints, the app's environment sets the links the app frontend sends a browser to (task 28).
-Against localtest-v2 both runners (and `run-app.sh`) default `PlatformFrontendSettings__ArbeidsflateInboxUrl` to
-`http://af.local.altinn.cloud:8000/`, `…ArbeidsflateDialogUrl` to `…/inbox/{dialogId}`, `…ArbeidsflateProfileUrl` to
-`…/profile` and `…ArbeidsflatePartiesUrl` to `…/profile/parties` (host and port from the topology, so another ingress
-port follows). app-lib sends them to the frontend in the bootstrap response, and on a local host the frontend uses a
-configured link and the start page otherwise, so "back to inbox" and the receipt's inbox link open the local
-Arbeidsflate instead of the start page. Only the monorepo backend (`src/App/backend`) has `PlatformFrontendSettings`,
-and only the monorepo frontend with the local-host change reads them (the released v4 bundle from the CDN still links
-the start page); `AccessManagementChangeAndRedirectUrl` stays unset because the stack's Access Management does not
-serve `reportee/changeandredirect` (the inbox opens on the user's default party), and the login, logout, all-forms,
-access-management and help links keep the start page. The app's own configuration wins, as for every default: an
-empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=` in the environment brings the start page back. Verified in a browser on
-2026-10-23 (task 28, screenshots in [`reviews/task28-back-to-inbox/`](reviews/task28-back-to-inbox/)). Two points about
-using it. The receipt's deep link needs the instance's dialog, which only the Dialogporten adapter creates, so use
-`--with arbeidsflate --with dialogporten` (the `arbeidsflate` group alone does not start the adapter, and without it
-the link falls back to the inbox). Arbeidsflate asks for level 3 (`idporten-loa-substantial`), so a user who signed in
-to the app at level 2 sees the test-user picker again; sign in at level 3 to land in the inbox already signed in.
+**The inbox links** (task 28). Against localtest-v2 both runners default the app frontend's Arbeidsflate links
+(`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url`) to `http://af.local.altinn.cloud:8000`, so
+"back to inbox" and the receipt's inbox link open the local Arbeidsflate instead of the start page; only the monorepo
+backend and frontend read them, the released v4 bundle still links the start page
+([`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes)). An empty `PlatformFrontendSettings__ArbeidsflateInboxUrl=`
+in the app's environment brings the start page back. The receipt's deep link needs the instance's dialog, which only
+the Dialogporten adapter creates, so use `--with arbeidsflate --with dialogporten`; Arbeidsflate asks for level 3, so
+sign in to the app at level 3 to land in the inbox signed in. Verified in a browser on 2026-10-23 (screenshots in
+[`reviews/task28-back-to-inbox/`](reviews/task28-back-to-inbox/)).
 
 ## Where localtest is faster than production
 
@@ -155,65 +131,65 @@ the stack is faster than production, with both values. A new component adds its 
 ## Run it
 
 The stack runs through studioctl's `localtest-v2` runtime, built from [`studioctl/src/cli`](studioctl/src/cli) in this
-repository (`make dev-install`, see [`studioctl/README.md`](studioctl/README.md)) until it is upstreamed to
-altinn-studio. It starts the containers of the manifest from the images this repository publishes, publishes the
-localtest container's front door as `http://local.altinn.cloud:8000`, waits until every container is healthy (each
-checked from a short-lived probe container on the stack's network before what depends on it starts) and the front door
-answers, and studioctl-server registers each app it discovers with the front door:
+repository (`make dev-install`, see [`studioctl/README.md`](studioctl/README.md)) until it is upstreamed. It starts
+the manifest's containers in dependency order, each checked healthy before what depends on it starts, publishes the
+front door on `http://local.altinn.cloud:8000`, and has studioctl-server register every app it discovers:
 
 ```sh
-studioctl env up -r localtest-v2            # pinned images from ghcr; --latest follows main
-studioctl env up -r localtest-v2 --with dialogporten   # also Dialogporten (three hosts and Redis, about 0.5 GB) and its adapter (about 0.26 GB)
-studioctl env up -r localtest-v2 --with receipt        # also the platform receipt for archived instances
-studioctl env up -r localtest-v2 --with correspondence # also Correspondence (about 120 MB) and the Dialogporten services it depends on
-studioctl env up -r localtest-v2 --with arbeidsflate   # also the inbox on http://af.local.altinn.cloud:8000 and the Dialogporten services it depends on
-                                            # (once: sudo studioctl env hosts add -r localtest-v2, for the browser)
-studioctl env up -r localtest-v2 --with everything     # every optional group
-studioctl run                               # in an app checkout
+studioctl env up -r localtest-v2                         # the default group, pinned images; --latest runs :latest
+studioctl env up -r localtest-v2 --with dialogporten     # also Dialogporten's three hosts, Redis and the adapter
+studioctl env up -r localtest-v2 --with receipt          # also the platform receipt
+studioctl env up -r localtest-v2 --with correspondence   # also Correspondence, Dialogporten's WebApi and Redis
+studioctl env up -r localtest-v2 --with arbeidsflate     # also the inbox on http://af.local.altinn.cloud:8000, its BFF,
+                                                         # Dialogporten's GraphQL host, WebApi and Redis
+studioctl env up -r localtest-v2 --with everything       # every optional group
+sudo studioctl env hosts add -r localtest-v2             # once: the host names for the browser
+studioctl run                                            # in an app checkout
 ```
 
-The optional groups are off by default: `dialogporten` (see [`components/dialogporten/`](components/dialogporten/README.md) and
-[`components/dialogporten-adapter/`](components/dialogporten-adapter/README.md)),
-`receipt` (see [`components/receipt/`](components/receipt/README.md)), `correspondence` (see [`components/correspondence/`](components/correspondence/README.md)), `arbeidsflate` (see [`components/arbeidsflate/`](components/arbeidsflate/README.md); the browser needs `af.local.altinn.cloud` in the hosts file, which `studioctl env hosts add` writes with the stack's other names) and `everything` (every group). `--with <group>` starts
-a group's root containers and what they depend on (so `correspondence` brings Dialogporten's WebApi and Redis, `arbeidsflate` also its GraphQL host; the adapter and the Service host come with `dialogporten`), and `--without <group>` leaves out that group's roots
-(see [`studioctl/README.md`](studioctl/README.md)). Without a group none of its containers exist and none has a `services__` address,
-so its routes answer `503` problem details ("Component not running", with `component`, `group` and the `--with`
-command; a browser gets the same as an HTML page). A component that is on but does not answer gets `503` "Component
-not answering" with the `env logs` and `env status` commands. A path that matches no route still reaches the localtest
-app's 404. A later `env up` with or without the flags
-converges the environment to that choice.
+`--with <group>` starts the group's root containers and what they depend on; `--without <group>` leaves out that
+group's own roots (a container another enabled group depends on still starts); a later `env up` converges to the new
+choice ([`CONVENTIONS.md`](CONVENTIONS.md#the-manifest)). A group that is off has no containers and no `services__`
+address, so its routes answer `503` "Component not running" with the `--with` command; a container that is on but does
+not answer gets `503` "Component not answering". `env down`, `env status`, `env logs [<container>]` and
+`env reset --yes` (deletes the volumes) take `-r localtest-v2` too.
 
-Images: [`.github/workflows/images.yml`](../.github/workflows/images.yml) builds `ghcr.io/ivarne-agent/localtest-research/localtest-<name>`
-for every component, the localtest app and [`postgres/`](postgres/) (Postgres 18 with the components' init scripts baked
-in), tagged `sha-<commit>` and `latest`. studioctl runs the build pinned in
-the manifest (one `sha-<commit>` tag on every research image), which only
-[`tools/bump-tag.sh`](tools/bump-tag.sh)` sha-<commit>` moves, after a run against that build; the images workflow
-never writes the manifest. To run a container from this checkout instead, `studioctl env up -r localtest-v2
---dev-<container>[=<path>]` builds it from the Dockerfile at the path or in the directory, by default the current one
-(`cd components/storage && studioctl env up -r localtest-v2 --dev-storage`; `--dev-dialogporten-webapi=Dockerfile.webapi`
-from `components/dialogporten`; `--dev-postgres=postgres/Dockerfile` from this folder, whose Dockerfile builds from here)
-and runs it as `localtest-v2-dev-<container>`. An existing Postgres volume predates a component's init script, which Postgres
-only runs on an empty volume: run the script by hand (see the component's README) or `studioctl env reset -r localtest-v2 --yes`.
+**Images.** [`images.yml`](../.github/workflows/images.yml) builds
+`ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
+tagged `sha-<commit>` and `latest`; the manifest pins one build, moved only by `tools/bump-tag.sh`
+([`CONVENTIONS.md`](CONVENTIONS.md#tags)).
 
-There is no compose file any more; `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` register apps with the
-localtest app's own API by hand, which works under studioctl too since task 27a.
-`run-platform-regression.sh --no-apps` runs the six platform specs against apps started with `studioctl run`
-(frontend-test, signering-brukerstyrt, process-transition-test). The specs test the monorepo's frontend, so start those
-apps with `studioctl run --dev-frontend` and serve the built `src/App/frontend/dist` (the frontend dev server, or any
-static server on the port `--dev-frontend` expects that sends `Access-Control-Allow-Origin`, since the bundle loads as a cross-origin module script); with the released CDN bundle the page renders empty and every spec
-fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` (and so for `run-platform-regression.sh`, which runs
-the specs through it) when running from a worktree; the regression script's checkout argument only locates the apps.
+**`--dev`.** `studioctl env up -r localtest-v2 --dev-<container>[=<path>]` (or `--dev <container>[=<path>]`) builds
+that container from a Dockerfile, or a directory holding one, by default the current directory, and runs it as
+`localtest-v2-dev-<container>` instead of the pinned image. A file inside the current directory builds with the
+current directory as context:
 
-`studioctl run --dev-frontend` points the app's assets at `http://app-frontend.local.altinn.cloud:8000`. Under
-localtest-v2 the run routes that host through the front door to the dev server on the host's port 8080 once the app is
-registered (`PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:8080`) and removes the route
-when it stops (`DELETE`; a `--detach` run leaves it in place). Serve the frontend there: `yarn docker` in
-`src/App/frontend` builds a development bundle and serves `dist` on 8080 with CORS, and `yarn start --port 8080` runs
-Vite there. Without a route that host is served like the main host. To set or clear the route by hand (an app started
-from an IDE, or a stale route after a detached run):
+```sh
+cd components/storage && studioctl env up -r localtest-v2 --dev-storage
+cd components/dialogporten && studioctl env up -r localtest-v2 --with dialogporten --dev-dialogporten-webapi=Dockerfile.webapi
+cd localtest && studioctl env up -r localtest-v2 --dev-postgres=postgres/Dockerfile
+```
+
+Postgres runs its init scripts only on an empty volume: after a component adds one, run it by hand (see the component's
+README) or `studioctl env reset -r localtest-v2 --yes`.
+
+**The frontend dev server.** `studioctl run --dev-frontend` points the app's assets at
+`http://app-frontend.local.altinn.cloud:8000` and, under localtest-v2, routes that host to the dev server on the host's
+port 8080 (`PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:8080`), removing the route
+when the run stops (a `--detach` run leaves it). Serve the frontend there: `yarn docker` in `src/App/frontend` builds a
+development bundle and serves `dist` on 8080 with CORS, `yarn start --port 8080` runs Vite. Without a route that host is
+served like the main host. To set or clear the route by hand (an app started from an IDE, a stale route):
 `curl -X PUT http://local.altinn.cloud:8000/localtest/api/routes/frontend-dev-server -H 'Content-Type: application/json' -d '{"url":"http://host.docker.internal:8080"}'`
 and `curl -X DELETE http://local.altinn.cloud:8000/localtest/api/routes/frontend-dev-server`
 ([`localtest/README.md`](localtest/README.md#the-frontend-dev-server-localtestapiroutes-anonymous)).
+
+**Cypress.** `run-app.sh`, `stop-apps.sh` and `run-platform-regression.sh` register apps with the front door by hand.
+`run-platform-regression.sh --no-apps` runs the six platform specs against apps started with `studioctl run`
+(frontend-test, signering-brukerstyrt, process-transition-test). The specs test the monorepo's frontend, so start those
+apps with `studioctl run --dev-frontend` and serve the built `src/App/frontend/dist` with
+`Access-Control-Allow-Origin` (the bundle loads as a cross-origin module script); with the released CDN bundle the page
+renders empty and every spec fails. Set `MONOREPO=/path/to/altinn-studio` for `run-cypress.sh` (and so for
+`run-platform-regression.sh`) when running from a worktree.
 
 ## Tests
 
@@ -222,7 +198,7 @@ and `curl -X DELETE http://local.altinn.cloud:8000/localtest/api/routes/frontend
 | `./smoke-test.sh` | Through the front door: picker sign-in, production cookies without the Secure flag, `refresh`, an org token through the Maskinporten exchange, the Studio token, metadata/texts/policy pushes, PDP decisions, and a full Storage instance lifecycle (create, process start by the app, upload authorized by the PDP, read-back, scan result, denial for a user without the role, process end, service-owner listing), texts read back, the org's application list, no errors in Storage's log (skipped without podman). 26 checks, all pass on 2026-10-21 (task 12) |
 | `components/authentication/smoke-test.sh` | Against the stack: the browser sign-in, both discovery documents' `end_session_endpoint`, Authentication as an OIDC provider for the seeded clients (Arbeidsflate's `authorize` through the picker and the token exchange, the code-flow helper's tokens with `pid`, `invalid_client` and `invalid_grant`, refresh rotation and reuse detection, logout through the fake ID-porten's `endsession`), and with `--with dialogporten` Dialogporten's end-user dialog list with the code-flow token (the cookie JWT refused). 30 checks, 32 with the `dialogporten` group |
 | `components/authorization/smoke-test.sh` | Against the stack: decisions for the seeded roles through Access Management, re-pushed policies, authorized parties, no errors in the PDP's log beyond the three the run provokes (skipped without podman). 31 checks, all pass on 2026-10-21 (task 12) |
-| `localtest/smoke-test.sh` | The localtest app: the front door (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the 503 for a service that is off, the registration API and the dev-server route), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers). 81 checks with the localtest app as the front door (14 of them registration checks, task 26: through the container's own port on today's stack 52 of 81, every routing, 503 and registration check among them; the rest are identity flows that need the container to be the public origin, see [its README](localtest/README.md)). The localtest container is the front door under studioctl (task 27a) and the Aspire package (task 27b), so it runs with every check under both (deprovision a registered app first, as below). Earlier, with studioctl-server as the front door, 64 of 66 passed on 2026-10-20 |
+| `localtest/smoke-test.sh` | The localtest app: the front door (routes by host and path, trailing-slash redirects, cookies without `Secure`, streaming, the app-frontend files, the 503 for a service that is off, the registration API and the dev-server route), the fake ID-porten and Maskinporten, and the `/Home` login contract (every level, party cookies, token helpers). 81 checks; 80 of 81 under both runtimes on 2026-10-22 (`/app-frontend/` needs `FRONTEND_DIST`, which neither runtime mounts). Run it with no app registered under Aspire (below) |
 | `components/resource-registry/smoke-test.sh` | Against the stack: the fixture app pushed as the runner does, app and seeded resources, policies byte-equal, the `updated` feed paged and soft-deleting, orgs, subject lookup, platform access tokens. 43 checks (2026-10-21) |
 | `components/dialogporten/smoke-test.sh` | Needs `--with dialogporten`: readiness of the three hosts, the JWKS and issuer, the fixture app pushed and synced, a dialog created, read, searched and deleted with an org token, wrong scope, foreign resource and missing token refused, a late-pushed app known after `sync` and after `caches/clear`, the dialog's event in the Events component, GraphQL with the org token through the rewrite, CORS for Arbeidsflate, the localtest list and delete of dialogs (deletes every dialog in the stack). 60 checks |
 | `components/dialogporten-adapter/smoke-test.sh` | Needs `--with dialogporten`: an instance followed from Storage's outbox to a dialog (created within 10 s with resource, party and go-to link, `dialog.id` written back; attachment after an upload; status and a transmission after the submission), the adapter's receipt and delete with the end user's dialog token from Dialogporten, idempotent `syncDialog/simple`, the refusals. 39 checks. `--off` checks the default stack: an instance gets no dialog and Storage logs one line (7 checks). Run it before the Dialogporten smoke test, or a few seconds after it: that test's last step deletes every dialog and clears the caches, and straight after it this test's first service-owner read of the dialog answered 404 once |
@@ -259,7 +235,7 @@ work) names one by hand. Without podman or docker, or with no such container or 
 reason.
 
 **Against an Aspire-hosted stack** (the sample AppHost, [`aspire/samples/app/`](aspire/samples/app), see the
-package's [README](aspire/Altinn.App.Aspire/README.md#run-the-app-under-podman)), with no studioctl stack running:
+package's [README](aspire/Altinn.App.Aspire/README.md#run-under-podman)), with no studioctl stack running:
 
 1. Deprovision the app first: its `deprovision` command in the dashboard, or by hand
    `curl -X DELETE http://local.altinn.cloud:8000/localtest/api/apps/ttd/testapp`. A provisioned app's
@@ -277,15 +253,9 @@ root 26 of 26, `components/authentication` 34 of 34, `components/dialogporten` 6
 31 of 31 and `localtest/smoke-test.sh` with every check 80 of 81 (`/app-frontend/` needs `FRONTEND_DIST`, as under
 studioctl).
 
-Run on 2026-10-22 (task 21f, before task 27b, with the package's YARP front door) against the sample AppHost with `dialogporten`, after the deprovision and the PDP refresh,
-every container found by the helper (`storage-c6c99550`, `authorization-c6c99550`, ...): root 26 of 26 (the Storage
-log check included), `components/authentication` 34 of 34, `components/dialogporten` 60 of 60,
-`components/authorization` 31 of 31 (the policy store listing and the PDP log check included) and
-`localtest/smoke-test.sh` with `PROXY_CHECKS=0` 64 of 66. Its two failures are the ones it has under studioctl: a
-prefix without its slash (`/storage`) is not redirected to `/storage/` (404), and `/app-frontend/` needs
-`FRONTEND_DIST` (404), as under studioctl (`../TODO.md` task 13). `PROXY_CHECKS=0`
-leaves out its 9 app-route checks, which need the localtest app as the front door. The `provision` command put the
-sample back (the Register lists `ttd/testapp` with its two persons and one organisation).
+Earlier runs, with the Aspire package's own front door (task 21f, now removed) and with studioctl-server as the front
+door (2026-10-20), are recorded in the package's [History](aspire/Altinn.App.Aspire/README.md#history) and the localtest
+app's [Verified](localtest/README.md#verified-2026-10-20-identity-features-and-home) sections.
 
 ## Status
 
@@ -316,5 +286,5 @@ With task 11b (2026-10-21, `--with arbeidsflate --with correspondence --dev corr
 
 Not yet: the inspection GUI over the components' `api/localtest/` endpoints (deferred); a
 CI check that every `vendor/` is upstream plus `LOCALTEST` blocks (`tools/repin-vendor.py` re-pins, nothing checks);
-a smoke run in CI against the stack; and the rest of the studioctl integration (upstreaming, the front-door gaps for a
-prefix without its trailing slash and for `/app-frontend/`). All of it, with status, is in [`../TODO.md`](../TODO.md).
+a smoke run in CI against the stack; and the rest of the studioctl integration (upstreaming; `/app-frontend/` needs the
+built frontend mounted, `FRONTEND_DIST`, which neither runtime does). All of it, with status, is in [`../TODO.md`](../TODO.md).
