@@ -17,7 +17,7 @@ the pin `sha-6d928ad`): only the localtest container publishes a port (8000), th
 through it, the smoke suites pass, and restarts reuse the containers; see [Run under Podman](#run-under-podman). Task
 30: two apps in one AppHost work, see [Several apps](#several-apps). Task 31: the package's volumes are its own (`altinn-localtest-<id>`), no
 longer shared with studioctl's (`localtest-v2-<id>`). Task 37: [minimal mode](#minimal-mode),
-`AddAltinnLocaltestMinimal()`, in code, tests and the parity golden; its run under Podman is pending.
+`AddAltinnLocaltestMinimal()`, in code, tests and the parity golden, and run under Podman on the pin `sha-48648ec`.
 The documentation stays in this repository until the package is adopted.
 
 | Path | What |
@@ -186,10 +186,41 @@ reflection that these are the only public methods that take the minimal builder.
 **The port guard** runs as in the full stack and refuses a held port 8000, naming the holder. The full stack accepts
 this AppHost's own persistent `localtest-<hash>`, which it reuses; minimal mode's front door is a session container, so
 the same persistent container left running by a full-stack run is refused by name, with the command that removes it.
+The name is this AppHost's: the hash is of the AppHost's path, so another AppHost file's full stack (the sample's
+`apphost.cs` beside `apphost-minimal.cs`) holding the port gets the general refusal.
 
 **Under Podman**, the same flags as the full stack ([Use](#use)):
 `ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost-minimal.cs`, and the
 dashboard's variables where the development certificate is not trusted.
+
+**Run under Podman** (task 37 phase 2, 2026-10-23, Podman 5.7 rootful, arm64, the pin `sha-48648ec`, images present,
+`apphost-minimal.cs` with both apps, launched as in [Run under Podman](#run-under-podman)):
+
+- **Start**: the four containers healthy 8 s after `dotnet run` (localtest 3 to 4 s, Postgres 4, Storage 6 to 7, the
+  workflow engine 8), both apps provisioned (`"state":"succeeded"`) at 15 s, in each of three starts; against 34 s
+  and 45 s for the full sample (18 containers, existing images, empty volumes).
+- **Containers**: session containers `<name>-<random>` (`postgres-jqzyxwwu`) on a session network
+  (`aspire-session-network-<random>-apphost-minimal`); `localtest/smoke/lib/containers.sh` finds each. The front door's
+  environment holds `Proxy__AppRoutesFile=` (DCP passes the empty value) and `services__register__http__0=http://localtest:8080`;
+  its `/data` stays empty, the routes being in memory.
+- **tmpfs**: `podman inspect` shows `HostConfig.Tmpfs` `/var/lib/postgresql: mode=1777`, `/data/blobs:
+  size=1g,mode=1777`, `/data: mode=1777` and no volume mount; `podman volume ls` was the same before, during and after:
+  no named and no anonymous volume.
+- **The mode**: `GET localtest/api/routes` lists the nine services as `emulated`; the Home page shows the banner;
+  `GET localtest/api/apps` lists `ttd/testapp` and `ttd/testapp2`, both answering 200 through 8000.
+- **Root suite** (both apps deprovisioned first): 23 ok and the 3 named skips of minimal mode. The PDP refresh it
+  advises answers 501 here (not emulated; the emulated PDP has no cache).
+- **Clean slate**: after the suite Storage held 1 instance; SIGINT removed the four containers in 2 to 4 s and DCP and
+  the apps by themselves within 14 s; the next start had 0 instances and both apps registered again.
+- **Memory** with both apps up: 3.1 GB used of 7.9 GB, 4.9 GB available (`free -m`); the containers 650 MB by `podman
+  stats` (Postgres 229 MB with its tmpfs, Storage 299, the workflow engine 104, localtest 18), each app about 158 MB.
+- **Beside the full stack**: with the full sample's 18 persistent containers running, the minimal sample refused to
+  start (the port guard's general message, the holder not named, since `apphost.cs` has another hash). With them
+  stopped (`podman stop`), it started and provisioned in 15 s: the persistent containers are on
+  `aspire-persistent-network-<hash>-apphost`, the session ones on their own network, so the aliases do not meet, and the
+  smoke helper lists running containers only.
+- The full sample afterwards: 26 of 26 in the root suite. It created the four `altinn-localtest-*` volumes and an
+  anonymous volume for Redis, whose image declares `VOLUME /data` (not minimal mode's concern).
 
 ## The app
 
@@ -372,8 +403,6 @@ own proxy; the findings that still apply:
 
 ## Not verified
 
-- Minimal mode under Podman (task 37 phase 2): the tmpfs mounts, the session lifetime, the clean slate on a restart,
-  the smoke suites.
 - `WithFrontendDevServer` against a running Vite server. (The `provision` and `deprovision` commands were run from the
   dashboard in task 30, on the second app; see [Several apps](#several-apps).)
 - An SELinux host (bind mounts without relabelling), rootless Podman, Docker.
