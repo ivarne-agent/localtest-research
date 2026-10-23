@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Altinn.Studio.StudioctlServer.Platform;
@@ -32,7 +33,8 @@ internal sealed class FrontDoorRegistration
     /// <summary>How the front door, in a container, reaches the host: the runtime's host gateway.</summary>
     public const string HostGatewayName = "host.docker.internal";
 
-    private const string AppsPath = "localtest/api/apps/";
+    private const string AppsPath = "localtest/api/apps";
+    private const string AppPathPrefix = "localtest/api/apps/";
     private const int MaxLoggedBody = 2000;
 
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
@@ -40,7 +42,9 @@ internal sealed class FrontDoorRegistration
     private readonly FrontDoorRegistrationOptions _options;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<FrontDoorRegistration> _logger;
-    private readonly Dictionary<string, Uri> _registered = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The apps this server registered, by app id: the address and the app instance it registered.</summary>
+    private readonly Dictionary<string, Registered> _registered = new(StringComparer.OrdinalIgnoreCase);
 
     public FrontDoorRegistration(
         FrontDoorRegistrationOptions options,
@@ -60,31 +64,83 @@ internal sealed class FrontDoorRegistration
         new UriBuilder(Uri.UriSchemeHttp, HostGatewayName, app.BaseUri.Value.Port).Uri;
 
     /// <summary>
-    /// Brings the front door in line with the discovered apps: a new app, or one that came back on another port, is
-    /// registered (a failed registration is retried on the next refresh); an app that is gone is deregistered.
+    /// Brings the front door in line with the discovered apps. An app is registered when it is new, came back on
+    /// another port or as another process or container (it may have changed, and the registration provisions it from
+    /// its API again), or when the front door no longer lists it, as after the localtest container lost its data; a
+    /// failed registration is retried on the next refresh. An app that is gone is deregistered. Only apps this server
+    /// registered are deregistered, so a registration left from an earlier session is not deprovisioned.
     /// </summary>
     public async Task Reconcile(IReadOnlyList<DiscoveredApp> apps, CancellationToken cancellationToken)
     {
         if (_options is not { Enabled: true, PlatformUri: { } platform })
             return;
 
-        var current = new Dictionary<string, Uri>(StringComparer.OrdinalIgnoreCase);
+        var current = new Dictionary<string, Registered>(StringComparer.OrdinalIgnoreCase);
         foreach (var app in apps)
-            current.TryAdd(app.AppId, FrontDoorUrl(app));
+            current.TryAdd(app.AppId, new Registered(FrontDoorUrl(app), InstanceOf(app)));
 
         using var client = _httpClientFactory.CreateClient(HttpClientName);
-        foreach (var (appId, url) in current)
+        var listed = current.Any(app => _registered.GetValueOrDefault(app.Key) == app.Value)
+            ? await Listed(client, platform, cancellationToken)
+            : null;
+        foreach (var (appId, wanted) in current)
         {
-            if (_registered.TryGetValue(appId, out var known) && known == url)
-                continue;
-            if (await Register(client, platform, appId, url, cancellationToken))
-                _registered[appId] = url;
+            if (_registered.GetValueOrDefault(appId) == wanted)
+            {
+                if (listed is null || listed.Contains(Key(appId, wanted.Url)))
+                    continue;
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation(
+                        "The localtest-v2 front door no longer lists {AppId} at {Url}; registering it again",
+                        appId,
+                        wanted.Url
+                    );
+            }
+            if (await Register(client, platform, appId, wanted.Url, cancellationToken))
+                _registered[appId] = wanted;
         }
 
         foreach (var appId in _registered.Keys.Where(appId => !current.ContainsKey(appId)).ToArray())
         {
             await Deregister(client, platform, appId, cancellationToken);
             _registered.Remove(appId);
+        }
+    }
+
+    /// <summary>The app instance: its process or container, so that a restarted app is registered again.</summary>
+    private static string InstanceOf(DiscoveredApp app) =>
+        app.ContainerId ?? app.ProcessId?.ToString(CultureInfo.InvariantCulture) ?? "";
+
+    private static string Key(string appId, Uri url) => appId + " " + url.GetLeftPart(UriPartial.Authority);
+
+    /// <summary>
+    /// The registrations the front door lists (<c>GET localtest/api/apps</c>), as app id and address; null when it
+    /// cannot say, in which case the apps this server registered count as registered.
+    /// </summary>
+    private async Task<HashSet<string>?> Listed(HttpClient client, Uri platform, CancellationToken cancellationToken)
+    {
+        var endpoint = new Uri(platform, AppsPath);
+        try
+        {
+            var listed = await client.GetFromJsonAsync<ListedApp[]>(endpoint, _jsonOptions, cancellationToken);
+            return listed is null
+                ? null
+                : new HashSet<string>(
+                    listed
+                        .Where(app => Uri.TryCreate(app.Url, UriKind.Absolute, out _))
+                        .Select(app => Key(app.Org + "/" + app.App, new Uri(app.Url))),
+                    StringComparer.OrdinalIgnoreCase
+                );
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug(ex, "Listing the localtest-v2 front door's apps at {Endpoint} failed", endpoint);
+            return null;
         }
     }
 
@@ -96,7 +152,7 @@ internal sealed class FrontDoorRegistration
         CancellationToken cancellationToken
     )
     {
-        var endpoint = new Uri(platform, AppsPath + appId);
+        var endpoint = new Uri(platform, AppPathPrefix + appId);
         try
         {
             using var response = await client.PutAsJsonAsync(
@@ -144,7 +200,7 @@ internal sealed class FrontDoorRegistration
 
     private async Task Deregister(HttpClient client, Uri platform, string appId, CancellationToken cancellationToken)
     {
-        var endpoint = new Uri(platform, AppsPath + appId);
+        var endpoint = new Uri(platform, AppPathPrefix + appId);
         try
         {
             using var response = await client.DeleteAsync(endpoint, cancellationToken);
@@ -180,4 +236,8 @@ internal sealed class FrontDoorRegistration
     }
 
     private sealed record RegistrationRequest(string Url);
+
+    private sealed record Registered(Uri Url, string Instance);
+
+    private sealed record ListedApp(string Org, string App, string Url);
 }
