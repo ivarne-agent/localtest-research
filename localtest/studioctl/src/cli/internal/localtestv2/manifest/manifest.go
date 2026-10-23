@@ -48,11 +48,6 @@ var (
 	errUnknownKey = errors.New("unknown key")
 )
 
-// JSON returns the embedded manifest as written.
-func JSON() []byte {
-	return bytes.Clone(manifestJSON)
-}
-
 // Manifest is the parsed manifest.
 type Manifest struct {
 	// Containers are the containers by name.

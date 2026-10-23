@@ -121,7 +121,6 @@ func (l Local) LocaltestIngressHosts() []string {
 		l.MustComponent(ComponentWorkflowEngine).Host(),
 		l.MustComponent(ComponentPgAdmin).Host(),
 		l.MustComponent(ComponentFrontendDevServer).Host(),
-		l.MustComponent(ComponentArbeidsflate).Host(),
 	})
 }
 

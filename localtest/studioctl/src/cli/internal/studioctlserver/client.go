@@ -339,12 +339,19 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 			Enabled   bool   `json:"enabled"`
 			Connected bool   `json:"connected"`
 		} `json:"hostBridge"`
-		Apps      []statusApp `json:"apps"`
-		ProcessID int         `json:"processId"`
-		Localtest struct {
-			RegisterApps bool `json:"registerApps"`
-		} `json:"localtest"`
-		InternalDev bool `json:"internalDev"`
+		Apps []struct {
+			ProcessID   *int   `json:"processId"`
+			HostPort    *int   `json:"hostPort"`
+			AppID       string `json:"appId"`
+			BaseURL     string `json:"baseUrl"`
+			Source      string `json:"source"`
+			Description string `json:"description"`
+			Name        string `json:"name"`
+			ContainerID string `json:"containerId"`
+		} `json:"apps"`
+		ProcessID   int             `json:"processId"`
+		Localtest   LocaltestStatus `json:"localtest"`
+		InternalDev bool            `json:"internalDev"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
 		return nil, fmt.Errorf("decode status response: %w", err)
@@ -364,32 +371,23 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 			Connected: status.HostBridge.Connected,
 			URL:       status.HostBridge.URL,
 		},
-		Localtest: LocaltestStatus{
-			RegisterApps: status.Localtest.RegisterApps,
-		},
-		Apps: make([]DiscoveredApp, 0, len(status.Apps)),
+		Localtest: status.Localtest,
+		Apps:      make([]DiscoveredApp, 0, len(status.Apps)),
 	}
 	for _, app := range status.Apps {
-		result.Apps = append(result.Apps, discoveredApp(app))
+		result.Apps = append(result.Apps, DiscoveredApp{
+			AppID:       app.AppID,
+			BaseURL:     app.BaseURL,
+			Source:      app.Source,
+			ProcessID:   app.ProcessID,
+			HostPort:    app.HostPort,
+			Description: app.Description,
+			Name:        app.Name,
+			ContainerID: app.ContainerID,
+		})
 	}
 
 	return result, nil
-}
-
-func discoveredApp(app statusApp) DiscoveredApp {
-	return DiscoveredApp(app)
-}
-
-// statusApp is one app as the status endpoint reports it.
-type statusApp struct {
-	ProcessID   *int   `json:"processId"`
-	HostPort    *int   `json:"hostPort"`
-	AppID       string `json:"appId"`
-	BaseURL     string `json:"baseUrl"`
-	Source      string `json:"source"`
-	Description string `json:"description"`
-	Name        string `json:"name"`
-	ContainerID string `json:"containerId"`
 }
 
 // RegisterApp registers an app endpoint with studioctl-server and returns the resolved base URL.

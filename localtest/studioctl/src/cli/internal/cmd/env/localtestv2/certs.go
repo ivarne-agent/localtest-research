@@ -18,8 +18,8 @@ import (
 //go:embed assets/localtest-accesstoken.pfx
 var accessTokenCertificate []byte
 
-// ensureCertificate writes the shared test certificate where the containers and the apps read it, and
-// returns its directory.
+// ensureCertificate writes the shared test certificate into dir, where the containers and the apps read it, unless
+// it is there already.
 func ensureCertificate(dir string) error {
 	if err := os.MkdirAll(dir, osutil.DirPermDefault); err != nil {
 		return fmt.Errorf("create certificate directory: %w", err)
