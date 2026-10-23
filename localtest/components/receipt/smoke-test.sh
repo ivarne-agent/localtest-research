@@ -24,7 +24,7 @@ check() { # name python-expression-on-d (stdin is JSON)
 }
 code() { curl -s -o /dev/null -m 20 -w '%{http_code}' "$@"; }
 # health: the receipt's own /health, at RECEIPT_HEALTH when set (its host port under the Aspire package,
-# http://127.0.0.1:8034/health), else from inside the stack's network.
+# a host port you publish yourself), else from inside the stack's network.
 health() { if [[ -n "$HEALTH" ]]; then curl -s -m 10 "$HEALTH"; else localtest_stack_body http://receipt:5060/health; fi; }
 location() { curl -s -o /dev/null -m 20 -w '%{redirect_url}' "$@"; }
 token() { curl -s "$BASE/Home/GetTestUserToken?userId=$1" | tr -d '"'; }

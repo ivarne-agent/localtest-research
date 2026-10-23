@@ -5,7 +5,7 @@
 # the localtest app's headless code-flow helper (localtest/api/authentication/). The last two checks, Dialogporten's
 # end-user API with the cookie JWT (refused) and with the code-flow access token, run only when the dialogporten group is
 # up (`--with dialogporten`): 34 checks with the group, 32 without. The cookie checks (task 21b) also call
-# Authentication directly: at AUTHENTICATION_URL when set (its host port, http://127.0.0.1:8021 under the Aspire package),
+# Authentication directly: at AUTHENTICATION_URL when set (a host port you publish yourself; neither runtime publishes one, see localtest/CONVENTIONS.mdge),
 # else by name from inside the stack's network (../../smoke/lib/containers.sh).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 set -u

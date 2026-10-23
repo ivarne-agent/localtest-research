@@ -14,8 +14,8 @@
 # The end-user API is not covered here: with the code-flow token (which carries `pid`) it is the last check of
 # ../authentication/smoke-test.sh.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# DIALOGPORTEN_GRAPHQL_URL and DIALOGPORTEN_SERVICE_URL name the hosts on host ports instead (http://127.0.0.1:8031 and
-# :8032 under the Aspire package); by default they are read by name from inside the stack's network.
+# DIALOGPORTEN_GRAPHQL_URL and DIALOGPORTEN_SERVICE_URL name the hosts on host ports you publish yourself instead (http://127.0.0.1:<port> and
+# :<port>); by default they are read by name from inside the stack's network.
 set -uo pipefail
 shopt -s lastpipe # run `... | check` in this shell, so its ok and FAIL count
 HERE=$(cd "$(dirname "$0")" && pwd)

@@ -23,7 +23,7 @@
 # Profile's correspondence lookups are the Register component's fakes.
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
 # CORRESPONDENCE_URL names the component's own URL for /health and the cookie check (its host port under the Aspire package,
-# http://127.0.0.1:8033); by default they are read from inside the stack's network. The database and
+# a host port you publish yourself); by default they are read from inside the stack's network. The database and
 # restart checks use the container runtime (CTR, default podman, else docker) and the Postgres and Correspondence containers
 # (studioctl's localtest-v2-<name> or the Aspire package's <name>-<suffix>, see ../../smoke/lib/containers.sh; override with
 # LOCALTEST_CONTAINER_POSTGRES and LOCALTEST_CONTAINER_CORRESPONDENCE); without them those checks are skipped.

@@ -19,7 +19,7 @@
 # Instances are left in Storage (soft-deleted in the first mode); dialogs persist like instances (env reset removes both).
 #
 # PARTY_ID overrides the instance owner; DIALOGPORTEN_ADAPTER_URL the adapter's URL for /health (by default it is read from
-# inside the stack's network; http://127.0.0.1:8035 under the Aspire package);
+# inside the stack's network; neither runtime publishes it);
 # STORAGE_CONTAINER (or LOCALTEST_CONTAINER_STORAGE) the Storage container for the log check (default: studioctl's
 # localtest-v2-storage or the Aspire package's storage-<suffix>, see ../../smoke/lib/containers.sh).
 set -uo pipefail

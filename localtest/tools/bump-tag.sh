@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Moves every research image of the localtest-v2 manifest to one build: rewrites each "tag": "sha-..." in
 # studioctl/src/cli/internal/localtestv2/manifest/manifest.json to the given tag. Images on other tags (the PDF generator
-# and the workflow engine at tt02, Redis by digest until its own image is pinned) are left alone. The images workflow
+# and the workflow engine at tt02, Redis is a research image and bumps with the rest) are left alone. The images workflow
 # never writes the manifest: run this once a build is proven, then regenerate the golden snapshot it prints.
 #
 #   localtest/tools/bump-tag.sh sha-1a2b3c4

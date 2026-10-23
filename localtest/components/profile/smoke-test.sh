@@ -13,7 +13,7 @@
 # 1001); after `studioctl env down` and `env up`, `PERSIST=check ./smoke-test.sh` runs only the checks that they survived
 # and removes them.
 # The health endpoint is not under the proxy prefix, so it is read from inside the stack's network
-# (../../smoke/lib/containers.sh), or at HEALTH when set (the host port under the Aspire package: http://127.0.0.1:8036/health).
+# (../../smoke/lib/containers.sh), or at HEALTH when set (a host port you publish yourself: http://127.0.0.1:<port>/health).
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 BASE=${1:-http://local.altinn.cloud:8000}
