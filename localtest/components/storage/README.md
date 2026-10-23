@@ -28,9 +28,16 @@ Three in `src/Storage/Program.cs`, one in `src/Storage/Controllers/InstancesCont
    party has more than one page of instances, and there is no `platform.*` host locally. The `selfLinks.platform`
    values still say `https://platform.local.altinn.cloud/...`: that prefix is hard-coded in the
    `Altinn.Platform.Storage.Interface` package and nothing follows those links.
-4. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
-   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
-   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+4. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` calls
+   `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
+   factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
+   name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+**Service names (task 40):** the PDP, the Register and the Dialogporten adapter are called as
+`http://authorization/authorization/api/v1/`, `http://register/register/api/v1/` and
+`http://dialogporten-adapter/storage/dialogporten/` (fakes' defaults); `GeneralSettings__PlatformEndpoint` stays the
+public origin (the self links' host, the JwtCookie metadata). In minimal mode the first two resolve to the front door's
+emulation (`http://localtest:8080`), and the adapter has no address, which the outbox client treats as "not running".
 
 Nothing else in the host is hard-wired to Azure: Postgres and Yuniql run as in production, Wolverine uses local
 queues in `Development`, Application Insights is only wired when Key Vault yields a connection string.

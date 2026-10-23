@@ -10,7 +10,8 @@ public sealed class LocaltestStorageOptions
 
     /// <summary>
     /// The Dialogporten adapter's base URL, under which its localtest enqueue endpoint is <c>api/localtest/enqueue</c>.
-    /// Defaults to <c>{GeneralSettings:PlatformEndpoint}storage/dialogporten/</c>, the adapter's public prefix.
+    /// Defaults to <c>http://dialogporten-adapter/storage/dialogporten/</c>: the adapter by its service name, under its
+    /// prefix.
     /// </summary>
     public string DialogportenAdapterEndpoint { get; set; } = string.Empty;
 }

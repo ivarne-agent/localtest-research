@@ -76,6 +76,28 @@ public static class LocaltestServiceDiscovery
             || IPAddress.TryParse(host.Trim('[', ']'), out _)
             || string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Whether a call failed because the name has no address (no <c>services__{name}__http__0</c>: its group is off).
+    /// The resolver's own exception, also when wrapped; a call to an address that does not answer is an
+    /// <see cref="System.Net.Http.HttpRequestException"/> instead.
+    /// </summary>
+    public static bool NoAddress(Exception? exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is InvalidOperationException { Message: var message }
+                && (message == NoEndpointsMessage || message.StartsWith("Unable to resolve endpoint", StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Microsoft.Extensions.ServiceDiscovery's message for a name it found no endpoint for (9.5.2 and 10.8.0).
+    private const string NoEndpointsMessage = "The endpoint collection contains no endpoints";
+
     /// <summary>Resolves a real host (<see cref="IsRealHost"/>) to itself; declines a service name.</summary>
     public sealed class RealHostEndpointProviderFactory : IServiceEndpointProviderFactory
     {

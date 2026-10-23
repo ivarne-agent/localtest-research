@@ -37,7 +37,10 @@ public static class LocaltestStorageExtensions
             : DefaultPlatformEndpoint).TrimEnd('/') + "/";
 
         // Localtest defaults: override the vendored appsettings.json (which points at localhost ports and at22), but sit
-        // just below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win.
+        // just below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win. Calls to another
+        // service use its name (http://<service>/<prefix>/…, resolved from services__<service>__http__0, fakes/ServiceDiscovery);
+        // what a browser or a token sees (the host of the self links, the OpenID metadata the JwtCookie handler fetches
+        // outside the factory) stays on the public origin.
         var defaults = new MemoryConfigurationSource
         {
             InitialData = new Dictionary<string, string?>
@@ -45,14 +48,14 @@ public static class LocaltestStorageExtensions
                 ["GeneralSettings:PlatformEndpoint"] = platform,
                 ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
                 ["GeneralSettings:Hostname"] = new Uri(platform).Host,
-                ["GeneralSettings:OndemandEndpoint"] = platform + "storage/api/v1/",
+                ["GeneralSettings:OndemandEndpoint"] = "http://storage/storage/api/v1/",
                 ["GeneralSettings:PdfGeneratorEndpoint"] = platform + "pdf/",
                 ["GeneralSettings:AppMetadataCacheLifeTimeInSeconds"] = "30",
                 ["GeneralSettings:TextResourceCacheLifeTimeInSeconds"] = "30",
                 ["GeneralSettings:AppTitleCacheLifeTimeInSeconds"] = "30",
-                ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
+                ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
                 ["PlatformSettings:SubscriptionKey"] = "localtest",
-                ["RegisterServiceSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
+                ["RegisterServiceSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
 
                 // The outbox to the Dialogporten adapter is always on; the handler drops a command with one log line
                 // when the adapter is not running. Delays: production batches low-priority events (saves, process steps)
@@ -62,7 +65,7 @@ public static class LocaltestStorageExtensions
                 ["WolverineSettings:LowPriorityDelaySecs"] = "2",
                 ["WolverineSettings:HighPriorityDelaySecs"] = "0",
                 ["WolverineSettings:EnableA2Migration"] = "false",
-                ["Localtest:Storage:DialogportenAdapterEndpoint"] = platform + "storage/dialogporten/",
+                ["Localtest:Storage:DialogportenAdapterEndpoint"] = "http://dialogporten-adapter/storage/dialogporten/",
                 ["Logging:LogLevel:Altinn.Platform.Storage.Localtest.Dialogporten"] = "Information",
             },
         };

@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Messages;
+using Localtest.Shared.ServiceDiscovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -15,9 +16,9 @@ namespace Altinn.Platform.Storage.Localtest.Dialogporten;
 /// Posts an outbox command to the Dialogporten adapter's anonymous <c>api/localtest/enqueue</c> endpoint, which puts it
 /// on the adapter's own queue (the adapter's handler and retry policies run there, as for a Service Bus message).
 /// <para>
-/// Storage sends whether or not the adapter runs. When it does not (the optional <c>dialogporten</c> group is off), the
-/// front door answers its disabled route with 503 problem details; a refused connection, 502, 504, or a 404 (no route
-/// claims the path, so it reaches Storage itself under the longest matching prefix <c>/storage</c>) count the same:
+/// Storage sends whether or not the adapter runs, to the adapter's service name. When it does not (the optional
+/// <c>dialogporten</c> group is off), the name has no address and the resolver fails before any connection
+/// (<see cref="LocaltestServiceDiscovery.NoAddress"/>); a refused connection, 502, 503, 504 or 404 count the same:
 /// that is "not enabled", logged once per command and dropped. Nothing is retried: the outbox row is gone once the
 /// command is on the local queue, and a later change of the instance sends a new one. Any other answer is a warning,
 /// also dropped. The handler never throws, so Wolverine never retries it.
@@ -53,7 +54,7 @@ public sealed partial class LocaltestDialogportenAdapterClient(
             using var httpClient = httpClientFactory.CreateClient(HttpClientName);
             response = await httpClient.PostAsJsonAsync(url, body, cancellationToken);
         }
-        catch (HttpRequestException e)
+        catch (Exception e) when (e is HttpRequestException || LocaltestServiceDiscovery.NoAddress(e))
         {
             LogNotRunning(logger, command.PartyId, command.InstanceId, e.Message);
             return;
