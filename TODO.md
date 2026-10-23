@@ -68,6 +68,7 @@ A path matching no route still falls through to the localtest app.
 | 32 | [studioctl PR refresh with review](#32-studioctl-pr-refresh-with-review) | approved (owner 2026-10-23: "plan and execute a refresh of the studioctl PR; don't blindly copy, fix errors and simplify"); brief `/home/agent/code/.briefs/task32-studioctl-pr-refresh.md`; **done** 2026-10-23: A+B merged (2ccabb35), C pushed to the fork (`feat/studioctl-localtest-v2-stack` at dfc5fdd348, six commits on altinn-studio main f240887cfa); owner pastes the description from `/home/agent/code/pr-studioctl-localtest-v2-stack.md` and the comment file | large | yes |
 | 33 | [minimal in-memory emulation in the localtest image](#33-minimal-in-memory-emulation-in-the-localtest-image) | research, approved (owner 2026-10-23: "dispatch some research on how to add some truly minimal emulation of the services into the localtest image"); brief `/home/agent/code/.briefs/task33-minimal-emulation.md`; **done, merged** 2026-10-23 (`planned-components/minimal-emulation/README.md`); owner to decide whether to build phase 1 | medium | no |
 | 34 | [`studioctl run --mode container` against localtest-v2](#34-studioctl-run---mode-container-against-localtest-v2) | to discuss (owner 2026-10-23: "make a task to make studioctl run --container work"); task 32 refuses the mode up front today | medium | yes |
+| 35 | [minimal mode phase 1](#35-minimal-mode-phase-1) | approved (owner 2026-10-23: "draft the brief for phase 1 of the minimal mode and send it to an agent for implementation; the minimal implementations stay isolated in a separate folder"); brief `/home/agent/code/.briefs/task35-minimal-mode-phase1.md`; **phase 1 running** (dispatched 2026-10-23, Opus, code-only) | large | yes (phase 2) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1038,3 +1039,20 @@ server tests 1010, Prettier and actionlint clean. The token was refused for `gh 
 (description, 110 lines, "Since the last draft", "Not mergeable yet") and `...-comment.md` (9 lines) on
 [altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394). Worktree `task32-studioctl` and branch
 removed; `.worktrees/studioctl-pr` kept as the PR checkout.
+
+## 35. Minimal mode phase 1
+
+**Goal (2026-10-23, owner's request).** Build phase 1 of `planned-components/minimal-emulation/README.md`: the
+emulation of Register, Profile, Authentication, permit-all Authorization, Access Management, Events, Notifications,
+the Resource Registry (501) and the PDF stub in the localtest image, **isolated under `localtest/localtest/Emulation/`**
+with only small seams outside it (one Add/Map pair in `Program.cs`, target interfaces in `Provisioning/`, a test-user
+and token interface for Home, the routes listing's `emulated` address, the header and banner), so the default stack's
+behaviour is unchanged; `studioctl env up -r localtest-v2 --minimal` with the manifest's one new group `minimal`, the
+derived emulated set injected as `services__<name>__http__0=http://localtest:8080`, tmpfs mounts (new devenv mount
+type) and no volumes, `--with` refused in the mode, `env status`/`env reset` aware of it; smoke gates adapted (named
+skips for the PDP NotApplicable and 403 checks only); docs. Coordinator's decisions beyond the spec: the Register
+test-data parser files and the seed are copied into the folder with a test that fails when they drift (the image's
+build context is `localtest/localtest/` only); blob tmpfs capped at 1 GB; header `X-Localtest-Emulated` and the Home
+banner; Aspire's `WithMinimal` is phase 2 (the package only has to keep passing). Phase 2 of the task is the proof:
+the mode built with `--dev-localtest`, the sample app through instantiate, submit, receipt and PDF in a browser, clean
+slate after `env down`/`env up`, and the default stack unchanged with the same image.
