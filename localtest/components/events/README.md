@@ -35,7 +35,10 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
 `http://register/register/api/`, `http://profile/profile/api/v1/` (fakes' defaults); `Localtest__Events__PlatformEndpoint`
 stays the public origin (the next links, the CloudEvent `source`, `AppsDomain`, the JwtCookie metadata). Webhooks go
 through the same resolver: a subscriber on a real host (a dot, an IP, `localhost`) is sent as it is, one on a service
-name to its address, and one on a single-label host that is no running service fails at once (recorded as the error).
+name to its address, and one on a single-label host that is no running service fails at once: the resolver sits in front of the capture
+handler, so Events logs "Send to webhook … failed with error message The endpoint collection contains no endpoints" and
+`localtest/deliveries` has no row for it (checked 2026-10-23); a delivery to a service name is recorded with the
+resolved address (`http://register:5020/…`).
 
 **Report for sites 4 and 5 (2026-10-21, written before the change).** Production tells an app's source from any other by
 its host alone: `GetSourceFilter` cuts a source whose host contains `PlatformSettings:AppsDomain` (`apps.altinn.no`) to
