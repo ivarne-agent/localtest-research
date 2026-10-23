@@ -28,9 +28,16 @@ All three in `components/api/src/Altinn.Notifications/Program.cs`:
 2. In `ConfigureServices`, where `services.AddWolverineServices(...)` is: `#if !LOCALTEST` the production call `#else`
    `AddLocaltestMessaging(services, config)` `#endif`. `AddWolverineServices` throws without a Service Bus connection
    string and starts hosted services that connect, so it cannot be neutralised by configuration or a later `Replace`.
-3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` registers
-   `AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http => http.AddServiceDiscovery())`, so factory clients can
-   resolve `http://<service>/` from `services__<service>__http__0` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+3. Service discovery (task 25): a pure `#if LOCALTEST` addition right after `WebApplication.CreateBuilder` calls
+   `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
+   factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
+   name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+**Service names (task 40):** Profile, the Register and the PDP are called as `http://profile/profile/api/v1/`,
+`http://register/register/api/v1/`, `http://authorization/authorization/api/v1/`, the Maskinporten fake's token and
+exchange as `http://localtest/…` and `http://authentication/…` (the fake's defaults); `Localtest__Notifications__PlatformEndpoint`
+stays the public origin (response links, JwtCookie metadata). The condition checks call the apps' stored URLs on their
+real host, and the SMS and e-mail instant clients `localhost:5090`, both untouched by the resolver.
 
 ## What is replaced
 
@@ -96,7 +103,7 @@ Bound from `Localtest:Notifications` (environment `Localtest__Notifications__…
 
 | Setting | Default | |
 | --- | --- | --- |
-| `PlatformEndpoint` | `http://local.altinn.cloud:8000/` | The platform origin; Profile, Register, PDP and OpenID endpoints and `GeneralSettings:BaseUri` (response links) derive from it |
+| `PlatformEndpoint` | `http://local.altinn.cloud:8000/` | The platform origin; the OpenID endpoint and `GeneralSettings:BaseUri` (response links) derive from it (the services are called by name since task 40) |
 | `ResetOnStart` | `false` | Empty the notificationsdb data tables and the capture at start (`fakes/Startup/reset-on-start.sql`). Off by default: orders, notifications and inboxes persist across restarts like Storage's data; `studioctl env reset` removes everything |
 | `ResultDelayMs`, `DeliveryReportDelayMs`, `ClaimCommitTimeoutSeconds` | 100, 500, 30 | The responder, above |
 

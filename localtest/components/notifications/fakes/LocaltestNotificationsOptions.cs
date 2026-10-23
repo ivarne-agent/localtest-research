@@ -5,7 +5,7 @@ namespace Altinn.Notifications.Localtest;
 /// <summary>Settings for the localtest Notifications fakes, bound from <c>Localtest:Notifications</c>.</summary>
 public sealed class LocaltestNotificationsOptions
 {
-    /// <summary>The platform origin; every platform service and the host's own links are derived from it.</summary>
+    /// <summary>The platform origin; the host's own links and the OpenID metadata are derived from it (the services are called by name).</summary>
     public string PlatformEndpoint { get; set; } = "http://local.altinn.cloud:8000/";
 
     /// <summary>

@@ -23,8 +23,7 @@ All three are in `components/api/src/Altinn.Notifications/Program.cs` (line numb
    `AddWolverineServices` throws without a Service Bus connection string and registers hosted services that connect at
    start, so it cannot be neutralised by configuration or a later `Replace`.
 3. Lines 40-45, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
-   service-discovery registration (`AddServiceDiscovery()` and `ConfigureHttpClientDefaults(http =>
-   http.AddServiceDiscovery())`, task 25, `planned-components/service-discovery.md`).
+   service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
 
 ## Syncing to a newer upstream commit
 

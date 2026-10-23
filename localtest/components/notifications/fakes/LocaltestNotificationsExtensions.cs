@@ -42,16 +42,18 @@ public static class LocaltestNotificationsExtensions
             : DefaultPlatformEndpoint).TrimEnd('/') + "/";
 
         // Localtest defaults: override the vendored appsettings.json (localhost ports, platform.at23.altinn.cloud), but sit
-        // just below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win.
+        // just below the environment variables, so GeneralSettings__…, PlatformSettings__… etc. still win. Calls to another
+        // service use its name (http://<service>/<prefix>/…, from services__<service>__http__0, fakes/ServiceDiscovery); the
+        // response links and the JwtCookie metadata (fetched outside the factory) stay on the public origin.
         var defaults = new Dictionary<string, string?>
         {
             ["Localtest:Notifications:PlatformEndpoint"] = platform,
             // Response links (links.self, shipment and order locations) are built from this, without a trailing slash.
             ["GeneralSettings:BaseUri"] = platform.TrimEnd('/'),
             ["GeneralSettings:OpenIdWellKnownEndpoint"] = platform + "authentication/api/v1/openid/",
-            ["PlatformSettings:ApiProfileEndpoint"] = platform + "profile/api/v1/",
-            ["PlatformSettings:ApiRegisterEndpoint"] = platform + "register/api/v1/",
-            ["PlatformSettings:ApiAuthorizationEndpoint"] = platform + "authorization/api/v1/",
+            ["PlatformSettings:ApiProfileEndpoint"] = "http://profile/profile/api/v1/",
+            ["PlatformSettings:ApiRegisterEndpoint"] = "http://register/register/api/v1/",
+            ["PlatformSettings:ApiAuthorizationEndpoint"] = "http://authorization/authorization/api/v1/",
             // The Email and SMS hosts' instant endpoints are served by this host (LocaltestInstantController).
             ["PlatformSettings:ApiShortMessageServiceEndpoint"] = "http://localhost:5090/notifications/sms/api/v1/",
             ["PlatformSettings:ApiInstantEmailServiceEndpoint"] = "http://localhost:5090/notifications/email/api/v1/",
@@ -64,8 +66,7 @@ public static class LocaltestNotificationsExtensions
             ["SendConditionClient:MaskinportenSettings:Environment"] = "test",
             ["SendConditionClient:MaskinportenSettings:ClientId"] = "localtest-notifications",
             ["SendConditionClient:MaskinportenSettings:EncodedJwk"] = "e30=",
-            ["Localtest:Maskinporten:Issuer"] = platform + "localtest/api/maskinporten/",
-            ["Localtest:Maskinporten:ExchangeEndpoint"] = platform + "authentication/api/v1/exchange/maskinporten",
+            // Localtest:Maskinporten:TokenEndpoint and ExchangeEndpoint: the fake's defaults, by service name.
         };
         foreach (var loop in ProcessLoops)
         {
