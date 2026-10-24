@@ -53,7 +53,7 @@ func hostAppURL(baseURL string) (string, error) {
 }
 
 // waitForFrontDoorRegistration waits, while the localtest-v2 runtime is up, until the front door lists the app at want
-// (hostAppURL for an app on the host, the alias on the apps network for an app container) with a provisioning that
+// (hostAppURL for an app on the host, the alias on the localtest-v2 network for an app container) with a provisioning that
 // succeeded at or after since.
 func waitForFrontDoorRegistration(
 	ctx context.Context,

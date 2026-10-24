@@ -146,8 +146,8 @@ Altinn Studio platform components.
   entry: `studioctl env hosts add`). A path whose group is off answers `503` naming the `--with` that starts it.
   Only one runtime runs at a time, and the other `env` commands follow the one last started. `--latest` runs the
   newest images, and `--dev-<container>[=<path>]` builds one from a Dockerfile or its directory (default:
-  the current directory). `studioctl run --mode container` puts the app container on the stack's apps network,
-  where the localtest container reaches it; it calls the platform on `http://local.altinn.cloud:8000` like a process
+  the current directory). `studioctl run --mode container` (the app needs its `Dockerfile`) puts the app container
+  on the stack's network, where the localtest container reaches it; it calls the platform on `http://local.altinn.cloud:8000` like a process
   and `env down` removes it. `studioctl run --dev-frontend` expects the frontend dev server on the host's port 8080 in
   either mode.
 - `studioctl env up -r localtest-v2 --minimal` starts only Postgres, Storage, the workflow engine and the localtest

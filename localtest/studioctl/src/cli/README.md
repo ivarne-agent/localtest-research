@@ -121,14 +121,26 @@ up, apps listen on every interface, because the front door reaches them from its
 and `studioctl run --dev-frontend` also routes `http://app-frontend.local.altinn.cloud:8000` to a
 frontend dev server on the host's port 8080 for as long as the run lasts.
 
-`studioctl run --mode container` runs the app as a container on a network of its own,
-`localtest-v2_apps`, which `env up` creates and `env down` removes, together with any app container
-still on it. The localtest container is on both networks and reaches the app as
-`http://<org>-<app>:5005`; the app reaches the platform through `http://local.altinn.cloud:8000`,
+`studioctl run --mode container` builds the app's image from its `Dockerfile`, as for the localtest
+runtime, and runs it on the stack's network, `localtest-v2_network`, where the localtest container
+reaches it as `http://<org>-<app>:5005`; `env down` removes an app container still running. The app
+reaches the platform through `http://local.altinn.cloud:8000`,
 like a process, because the public host names are mapped to the host inside the container. It gets
 the same settings as a process run, with the access-token certificate mounted at `/certs`. Container
 mode works at the default origin only: with `env up --host` or `--port`, `run --mode container` is
 refused; run the app as a process there.
+
+**Why not a separate apps network.** A network of the apps' own, apart from the components, was
+tried (task 34) and does not work today, under Podman 5.7 with netavark at least. With the localtest
+container on both networks, netavark forwards the published port 8000 to the container's address on
+one network only (the first rule wins), and it isolates the bridges from each other, so callers on
+the other network time out: either the components or the app lose `local.altinn.cloud:8000`. With
+the localtest container on the stack's network only, the app and the localtest container cannot
+reach each other through the host gateway either, for the same isolation; the Docker API, which
+studioctl uses, cannot create a network without it (Podman answers `"isolate: false" is not a
+recognized option`). A separate network would need the app to reach the localtest container
+directly on it: a per-network alias for the public host names and the localtest container listening
+on the public port.
 
 Optional component groups are off by default: `--with dialogporten` adds Dialogporten and its adapter,
 which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;

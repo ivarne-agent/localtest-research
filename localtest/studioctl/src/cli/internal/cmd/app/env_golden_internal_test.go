@@ -70,7 +70,7 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		KeysFolder: "/../../.altinn-studio/localtest-v2/certs/",
 		FileName:   "localtest-accesstoken.pfx",
 	}
-	// An app container on the localtest-v2 apps network (onAppsNetwork) finds the certificate where the components do.
+	// An app container on the localtest-v2 network (onStackNetwork) finds the certificate where the components do.
 	container := goldenSigning{
 		FullPath:   containerCertificateDir + "/localtest-accesstoken.pfx",
 		KeysFolder: containerCertificateDir + "/",

@@ -68,7 +68,7 @@ In production Altinn Studio pushes an app's artefacts to the platform at deploy 
 when an app is registered with it. The runners start the app with the environment in
 [`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes) and make one call,
 `PUT localtest/api/apps/{org}/{app}` with the app's address (`http://host.docker.internal:<port>`, or
-`http://<org>-<app>:5005` for a `studioctl run --mode container` app on the apps network): studioctl-server's
+`http://<org>-<app>:5005` for a `studioctl run --mode container` app on the stack's network): studioctl-server's
 discovery for every app it finds (a `studioctl run` and an app started from an IDE alike; again when the app comes back
 on another port; `DELETE` when it is gone), the Aspire package on the app's ready event (and the dashboard's
 `provision` / `deprovision` commands), `run-app.sh` by hand. `studioctl run` waits until `GET localtest/api/apps` lists
@@ -190,11 +190,11 @@ browser, screenshot [`localtest/docs/origin/`](localtest/docs/origin/app-after-s
 `--minimal --port 0` (root 23 + 3 skipped). The rule and what follows the origin:
 [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
 
-**Container mode.** `studioctl run --mode container` builds the app's image and runs it as a container on its own
-network, `localtest-v2_apps`, which `env up` creates beside the stack's network and `env down` removes (with any app
-container still on it). The front door is attached to both networks and reaches the app at its alias,
-`http://<org>-<app>:5005`, which studioctl-server registers; the app sees no component and calls the platform through
-the public origin, its host names mapped to the host gateway (`--add-host local.altinn.cloud:host-gateway` and the four
+**Container mode.** `studioctl run --mode container` builds the app's image from the app's own `Dockerfile` (as for the
+localtest runtime; an app without one cannot run in this mode) and runs it as a container on the stack's network,
+`localtest-v2_network`, under the alias `<org>-<app>`; every teardown (`env down` and the others) removes an app
+container still on it. The front door reaches the app at `http://<org>-<app>:5005`, which studioctl-server registers;
+the app calls the platform through the public origin, not the components' names, its host names mapped to the host gateway (`--add-host local.altinn.cloud:host-gateway` and the four
 subdomains), as the components do. It gets the environment of a process run (the certificate mounted at `/certs`, the
 Arbeidsflate and logout links, Kestrel on `0.0.0.0:5005`) with its secrets at `/mnt/app-secrets` and its keys at
 `/mnt/keys`, keeps a loopback port for studioctl-server's discovery, and `--dev-frontend` works as for a process. Limits:

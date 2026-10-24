@@ -84,10 +84,10 @@ app's resolver can be ours, the lookup is both the inventory and the block:
 - **Container-mode app (task 34):** the container's DNS is the front door's resolver (`--dns` on the container, or the
   stack network's own resolver pointed at it). The front door answers platform and stack names itself, forwards declared
   hosts upstream, records every query per app (the source address is the app), and answers **NXDOMAIN** for an
-    undeclared name when the declaration is present. An IP literal bypasses DNS, so the proxy and the firewall stay; but
-  NXDOMAIN closes the AMQP, SMTP and driver cases the proxy cannot see. The network exists since task 34: container-mode
-  apps run on `localtest-v2_apps`, apart from the stack's network, with the front door attached to both
-  ([`CONVENTIONS.md`](../../localtest/CONVENTIONS.md#the-runtimes)).
+  undeclared name when the declaration is present. An IP literal bypasses DNS, so the proxy and the firewall stay; but
+  NXDOMAIN closes the AMQP, SMTP and driver cases the proxy cannot see. Since task 34 a container-mode app shares the
+  stack's network (a separate one does not work today: studioctl README, "Why not a separate apps network"), so the DNS
+  and firewall control for a container app has to key on the container, not the network.
 - **Process app on the host:** the app uses the host's resolver; there is no per-process hook without root (a network
   namespace per app, or `LD_PRELOAD`, both out of scope). Observation only, host-wide: a packet capture on port 53
   attributes by time, not by process. So for process mode the proxy is the control point and DNS is a cross-check.

@@ -34,7 +34,7 @@ public sealed class FrontDoorRegistrationTests
     }
 
     [Fact]
-    public async Task RegistersAContainerOnTheAppsNetworkAtItsAlias()
+    public async Task RegistersAContainerOnTheLocaltestV2NetworkAtItsAlias()
     {
         var frontDoor = new FakeFrontDoor();
         var registration = Registration(frontDoor, enabled: true);

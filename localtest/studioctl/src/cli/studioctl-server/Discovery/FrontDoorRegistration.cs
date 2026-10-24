@@ -63,7 +63,7 @@ internal sealed class FrontDoorRegistration
     public bool Enabled => _options.Enabled;
 
     /// <summary>
-    /// The app's address as the front door reaches it: the one discovery found for it (a container on the apps network,
+    /// The app's address as the front door reaches it: the one discovery found for it (a container on the localtest-v2 network,
     /// at its alias), else its port on the host, through the host gateway.
     /// </summary>
     public static Uri FrontDoorUrl(DiscoveredApp app) =>

@@ -5,11 +5,11 @@ namespace Studioctl.Tests.Discovery;
 public sealed class ContainerDiscoveryTests
 {
     /// <summary>
-    /// A container on the localtest-v2 apps network carries the front door's address of it; discovery still probes it on
+    /// A container on the localtest-v2 network carries the front door's address of it; discovery still probes it on
     /// its loopback port.
     /// </summary>
     [Fact]
-    public void ACandidateCarriesTheFrontDoorsAddressOfAContainerOnTheAppsNetwork()
+    public void ACandidateCarriesTheFrontDoorsAddressOfAContainerOnTheLocaltestV2Network()
     {
         var candidates = ContainerDiscovery.ToDiscoveryCandidates(
             ContainerDiscovery.Parse(

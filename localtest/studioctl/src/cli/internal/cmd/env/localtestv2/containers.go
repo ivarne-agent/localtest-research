@@ -19,7 +19,7 @@ import (
 // of its own; everything below is what every container gets alike, which is this runtime's to decide.
 const (
 	containerPrefix = "localtest-v2-"
-	networkName     = "localtest-v2_network"
+	networkName     = localtestv2.Network
 	// volumePrefix names this runtime's volumes: localtest-v2-<id> for the manifest's volume id. The Aspire package
 	// has its own prefix, so a reset in one runtime leaves the other's data alone.
 	volumePrefix = "localtest-v2-"
@@ -128,17 +128,23 @@ func containerNames(opts *Options) []string {
 // readinessProbes returns the readiness check of a container, run before what depends on it starts; nil runs none.
 type readinessProbes func(target healthTarget) func(ctx context.Context) error
 
-// resources turns the selected containers into the devenv resource graph: the stack's network and the apps network,
-// then per container its image (pulled, or built for --dev) and the container.
+// resources turns the selected containers into the devenv resource graph: the network, then per container its image
+// (pulled, or built for --dev) and the container.
 func resources(opts *Options, probes readinessProbes) []resource.Resource {
-	network := bridgeNetwork(networkName, nil)
-	// Container-mode apps (studioctl run --mode container) join this one, and the front door joins it beside the
-	// stack's: it reaches an app by its alias there, and the app sees no component.
-	apps := bridgeNetwork(localtestv2.AppsNetwork, map[string]string{localtestv2.Label: localtestv2.LabelAppsNetwork})
+	network := &resource.Network{
+		Enabled: nil,
+		Name:    networkName,
+		Driver:  "bridge",
+		Labels:  nil,
+		Lifecycle: resource.LifecycleOptions{
+			HandleDestroyError: nil,
+			RetainOnDestroy:    false,
+		},
+	}
 	names := selected(opts)
 	services := serviceVariables(names, emulated(opts))
-	out := make([]resource.Resource, 0, 2+2*len(names))
-	out = append(out, network, apps)
+	out := make([]resource.Resource, 0, 1+2*len(names))
+	out = append(out, network)
 	images := map[resource.ResourceID]bool{}
 	for _, name := range names {
 		image := containerImage(opts, name)
@@ -150,26 +156,9 @@ func resources(opts *Options, probes readinessProbes) []resource.Resource {
 		if probes != nil {
 			probe = probes(healthTargetOf(name))
 		}
-		networks := []resource.ResourceRef{resource.Ref(network)}
-		if name == frontDoor {
-			networks = append(networks, resource.Ref(apps))
-		}
-		out = append(out, containerResource(opts, name, services, image, networks, probe))
+		out = append(out, containerResource(opts, name, services, image, resource.Ref(network), probe))
 	}
 	return out
-}
-
-func bridgeNetwork(name string, labels map[string]string) *resource.Network {
-	return &resource.Network{
-		Enabled: nil,
-		Name:    name,
-		Driver:  "bridge",
-		Labels:  labels,
-		Lifecycle: resource.LifecycleOptions{
-			HandleDestroyError: nil,
-			RetainOnDestroy:    false,
-		},
-	}
 }
 
 // serviceVariables announce every running HTTP container to every container, the way Aspire's service discovery
@@ -221,7 +210,7 @@ func containerResource(
 	name string,
 	services map[string]string,
 	image resource.ImageResource,
-	networks []resource.ResourceRef,
+	network resource.ResourceRef,
 	probe func(ctx context.Context) error,
 ) *resource.Container {
 	c := stack().Containers[name]
@@ -244,7 +233,7 @@ func containerResource(
 		Name:        containerOf(name),
 		Image:       resource.Ref(image),
 		Enabled:     nil,
-		Networks:    networks,
+		Networks:    []resource.ResourceRef{network},
 		DependsOn:   deps,
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),

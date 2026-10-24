@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +27,6 @@ import (
 	"altinn.studio/studioctl/internal/config"
 	repocontext "altinn.studio/studioctl/internal/context"
 	"altinn.studio/studioctl/internal/envtopology"
-	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/frontdoor"
 	"altinn.studio/studioctl/internal/osutil"
 	"altinn.studio/studioctl/internal/studioctlserver"
@@ -55,7 +53,6 @@ var (
 	errAppLogCreateCollision           = errors.New("too many app log files created concurrently")
 	errAppRunStopped                   = errors.New("app run stopped")
 	errAppStartupTimedOut              = errors.New("app did not become reachable through localtest")
-	errNoAppsNetwork                   = errors.New("the localtest-v2 environment has no apps network")
 	errDotnetTargetPathEmpty           = errors.New("dotnet TargetPath is empty")
 	errStudioctlConfigRequired         = errors.New("studioctl config is required")
 )
@@ -1396,8 +1393,8 @@ func (c *RunCommand) runDocker(
 			c.out.Verbosef("failed to close container client: %v", cerr)
 		}
 	}()
-	if prepareErr := c.prepareDockerRun(ctx, client, &spec); prepareErr != nil {
-		return prepareErr
+	if prepareErr := c.service.PrepareDockerRun(&spec, client.Toolchain()); prepareErr != nil {
+		return fmt.Errorf("prepare app container: %w", prepareErr)
 	}
 
 	progress := c.startContainerRunProgress(spec, flags)
@@ -1447,39 +1444,6 @@ func (c *RunCommand) runDocker(
 	}
 
 	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, topology, flags)
-}
-
-// prepareDockerRun readies the spec for the runtime and checks that the network it joins exists.
-func (c *RunCommand) prepareDockerRun(
-	ctx context.Context,
-	client containerruntime.ContainerClient,
-	spec *appsvc.DockerRunSpec,
-) error {
-	if err := c.service.PrepareDockerRun(spec, client.Toolchain()); err != nil {
-		return fmt.Errorf("prepare app container: %w", err)
-	}
-	return checkAppsNetwork(ctx, client, *spec)
-}
-
-// checkAppsNetwork refuses, before the image is built, a container run on the localtest-v2 apps network while that
-// network does not exist: an environment started by an earlier studioctl, which a plain env up leaves as it is.
-func checkAppsNetwork(ctx context.Context, client containerruntime.ContainerClient, spec appsvc.DockerRunSpec) error {
-	if !slices.Contains(spec.Config.Networks, localtestv2.AppsNetwork) {
-		return nil
-	}
-	_, err := client.NetworkInspect(ctx, localtestv2.AppsNetwork)
-	switch {
-	case err == nil:
-		return nil
-	case errors.Is(err, containerruntime.ErrNetworkNotFound):
-		return fmt.Errorf(
-			"%w %s; restart it with '%s env down -r %s' and '%s env up -r %s'",
-			errNoAppsNetwork, localtestv2.AppsNetwork,
-			osutil.CurrentBin(), runtimeLocaltestV2, osutil.CurrentBin(), runtimeLocaltestV2,
-		)
-	default:
-		return fmt.Errorf("inspect network %s: %w", localtestv2.AppsNetwork, err)
-	}
 }
 
 func (c *RunCommand) runStartedContainerApp(
@@ -1587,7 +1551,7 @@ func (c *RunCommand) waitForDockerAppReady(
 		return "", errAppContainerEndpointUnavailable
 	}
 
-	// The front door reaches a container on the localtest-v2 apps network at its alias, any other through its port.
+	// The front door reaches a container on the localtest-v2 network at its alias, any other through its port.
 	frontDoorURL := candidate.FrontDoorURL
 	if frontDoorURL == "" {
 		frontDoorURL = frontdoor.AppURL(candidate.HostPort)

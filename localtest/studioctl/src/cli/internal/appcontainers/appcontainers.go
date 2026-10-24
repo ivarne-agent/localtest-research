@@ -14,7 +14,7 @@ const (
 	labelKeyManaged   = "altinn.studio/cli"
 	labelValueManaged = "app"
 	labelKeyAppPath   = "altinn.studio/app-path"
-	// LabelFrontDoorURL is the address the localtest-v2 front door reaches a container-mode app at, on the apps network
+	// LabelFrontDoorURL is the address the localtest-v2 front door reaches a container-mode app at, on its network
 	// (http://<alias>:<port>); studioctl run sets it, and studioctl-server registers the app with it.
 	LabelFrontDoorURL = "altinn.studio/front-door-url"
 
@@ -29,7 +29,7 @@ type Candidate struct {
 	Description string `json:"description"`
 	Source      string `json:"source"`
 	// FrontDoorURL is the container's LabelFrontDoorURL: where the localtest-v2 front door reaches it; empty for a
-	// container that is not on the apps network, which the front door reaches through its published port.
+	// container that is not on the localtest-v2 network, which the front door reaches through its published port.
 	FrontDoorURL string `json:"frontDoorUrl,omitempty"`
 	HostPort     int    `json:"hostPort"`
 }

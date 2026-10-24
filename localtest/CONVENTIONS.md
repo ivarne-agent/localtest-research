@@ -64,7 +64,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | | studioctl `env up -r localtest-v2` | Aspire `AddAltinnLocaltest()` |
 | --- | --- | --- |
 | Containers | `localtest-v2-<name>` on the network `localtest-v2_network` | resources named as the manifest, children of `altinn-localtest`, persistent containers `<name>-<hash>` |
-| Apps network | `localtest-v2_apps` (label `altinn.studio/localtest-v2=apps-network`), for `studioctl run --mode container`; the front door is on both networks | none: an AppHost runs apps as projects |
+| App containers | `studioctl run --mode container`: on `localtest-v2_network`, alias `<org>-<app>`, label `altinn.studio/localtest-v2=app` | none: an AppHost runs apps as projects |
 | Network alias | the manifest name | the manifest name |
 | Environment | `envs`, plus the `services__*` variables below | the same |
 | Volumes | `localtest-v2-<id>` for each manifest volume id | `altinn-localtest-<id>`: its own, not studioctl's |
@@ -75,15 +75,15 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
 | Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | `AddAltinnLocaltestMinimal()`, its own resource type |
 
-**The apps network.** A container-mode app (`studioctl run --mode container`) joins `localtest-v2_apps`, never the
-stack's network: the front door, attached to both (Podman: a `--network` per network at create, which also gives it its
-alias on both; Docker: the first network at create, `NetworkConnect` for the second), reaches the app at its alias
-`<org>-<app>`, and the app reaches no component directly: it calls the platform through the public origin, exactly as
-a process app does, its host names mapped to the host gateway. `env up` creates the network and `env down` removes it,
-after removing the app containers labelled `altinn.studio/localtest-v2=app` (running or not, with their anonymous
-volumes); a mode or origin switch and a failed start do the same. The network is where an app's DNS and egress can be
-controlled later ([egress control](../planned-components/egress-control/README.md), section 3b). Container mode
-supports the default origin only.
+**App containers.** A container-mode app (`studioctl run --mode container`) joins the stack's network,
+`localtest-v2_network`, under the alias `<org>-<app>`, where the front door reaches it. It calls the platform through
+the public origin, exactly as a process app and the components do, its host names mapped to the host gateway; it is
+given no `services__*` variable. Every teardown (`env down`, `env reset`, a mode or origin switch, a failed start)
+first removes the app containers labelled `altinn.studio/localtest-v2=app` (running or not, with their anonymous
+volumes), which the network's removal would otherwise fail on. Container mode supports the default origin only. A
+separate network for the apps was tried and does not work today (task 34, phase 2): see the studioctl README, "Why not
+a separate apps network". The app's DNS and egress control therefore key on the container, not on a network of its
+own ([egress control](../planned-components/egress-control/README.md), section 3b).
 
 Run one at a time at the default origin: both need port 8000. At different ports (`--port`, `PublicPort`) neither
 holds the other's port; running both side by side is untested.
@@ -92,7 +92,7 @@ holds the other's port; running both side by side is untested.
 
 **Code.** studioctl: [`internal/cmd/env/localtestv2/`](studioctl/src/cli/internal/cmd/env/localtestv2/) (`containers.go`,
 `health.go`, `dev.go`, `apps.go` for the app containers' teardown; the app container itself: `internal/cmd/app/run.go`
-`onAppsNetwork`); Aspire: [`src/Manifest/StackSpec.cs`](aspire/Altinn.App.Aspire/src/Manifest/StackSpec.cs),
+`onStackNetwork`); Aspire: [`src/Manifest/StackSpec.cs`](aspire/Altinn.App.Aspire/src/Manifest/StackSpec.cs),
 `LocaltestStack.cs`, `InNetworkHealthCheck.cs`. Parity: both compare with
 `internal/cmd/env/localtestv2/testdata/environment.golden.json`
 ([`manifest-parity.yml`](../.github/workflows/manifest-parity.yml)).
@@ -164,8 +164,7 @@ port and before any container or app starts.
 only; for a custom host the user adds the line (`127.0.0.1 <host> pdf.<host> workflow-engine.<host> app-frontend.<host>
 af.<host>`), and `env up` refuses with exactly that line while a name does not resolve to a loopback address. Inside the
 stack every container resolves the configured names and `host.docker.internal` to the container runtime's host gateway
-(`--add-host <host>:host-gateway`), so a container reaches the public origin the way a browser does. The apps' registration address (`host.docker.internal:<app port>`, or `<org>-<app>:5005` for a container-mode app on
-the apps network) does not depend on the origin.
+(`--add-host <host>:host-gateway`), so a container reaches the public origin the way a browser does. The apps' registration address (`host.docker.internal:<app port>`, or `<org>-<app>:5005` for a container-mode app on the stack's network) does not depend on the origin.
 
 **The released app frontend** derives the platform's host from the page's (`getHostname` in app-frontend): it accepts
 a host whose first label is `local` (or `altinn3local`), or one of four or five labels as in the deployed environments,
@@ -204,7 +203,7 @@ publishes it as the public port (8000 by default).
   `--with` / `.With…()` that starts it; one with an address that does not answer gets `503` "Component not answering"
   with the error. Both are RFC 9457 problem details, or an HTML page for a browser.
 - **Apps**: `PUT localtest/api/apps/{org}/{app}` with `{"url": "http://host.docker.internal:<port>"}` (a
-  container-mode app: `http://<org>-<app>:5005` on the apps network) routes
+  container-mode app: `http://<org>-<app>:5005` on the stack's network) routes
   `/{org}/{app}/` to the app and provisions it from the app's own API (see [What the app runner
   pushes](README.md#what-the-app-runner-pushes)); `DELETE` deprovisions it and removes the route; both idempotent.
 - **The frontend dev server**: `PUT`/`DELETE localtest/api/routes/frontend-dev-server` routes
@@ -361,7 +360,7 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
   `AccessTokenSettings__*` below pointing there, and the same URLs on the public origin, which resolves inside the
   container because the public host and its four subdomains are mapped to the host gateway (`--add-host
   <host>:host-gateway`, where the front door publishes the public port, as for the components). The container is on
-  the apps network ([The runtimes](#the-runtimes)) under the alias `<org>-<app>` and keeps its port on loopback for
+  the stack's network ([The runtimes](#the-runtimes)) under the alias `<org>-<app>` and keeps its port on loopback for
   studioctl-server's discovery; its label `altinn.studio/front-door-url` is the address it is registered at;
 - `AppSettings__AppFrontendAssetBaseUrl` with `--dev-frontend` / `WithFrontendDevServer`;
 - against localtest-v2 only: the certificate (`AccessTokenSettings__AccessTokenSigningCertificateFullPath`,

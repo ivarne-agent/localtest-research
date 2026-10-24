@@ -264,7 +264,7 @@ func validAppID(appID string) bool {
 }
 
 // BuildDockerRunSpec builds image/container configuration for an app container: on the localtest runtime's network,
-// or, while localtest-v2 is up, on its apps network (appsNetworkSpec).
+// or, while localtest-v2 is up, on its network (onStackNetwork).
 func (s *Service) BuildDockerRunSpec(
 	result repocontext.Detection,
 	args []string,
@@ -315,7 +315,7 @@ func (s *Service) BuildDockerRunSpec(
 		if idErr != nil {
 			return DockerRunSpec{}, fmt.Errorf("read app id: %w", idErr)
 		}
-		signing = onAppsNetwork(&spec.Config, state, appID)
+		signing = onStackNetwork(&spec.Config, state, appID)
 		kestrelURL = "http://" + allInterfacesHost + ":" + appcontainers.DefaultContainerPort
 	}
 	// The container is named the mount point its secrets directory is mounted at, and is told where its keys go,
@@ -384,15 +384,16 @@ func checkContainerOrigin(state localtestv2.State) error {
 	)
 }
 
-// onAppsNetwork puts an app container on the localtest-v2 apps network, and returns the certificate it signs its
-// platform access tokens with. The front door, attached to that network too, reaches the app at its alias,
-// <org>-<app>, which the container carries in a label for studioctl-server's registration; the app sees no component
-// and calls the platform through the public origin, whose host names resolve to the host gateway, where the front door
-// publishes the public port, exactly as in the components. The certificate directory is mounted read-only where the
-// components have it, and the label lets env down remove a container left running when the environment stops.
-func onAppsNetwork(cfg *types.ContainerConfig, state localtestv2.State, appID string) *accessTokenSigning {
+// onStackNetwork puts an app container on the localtest-v2 stack's network, and returns the certificate it signs its
+// platform access tokens with. The front door reaches the app at its alias, <org>-<app>, which the container carries in
+// a label for studioctl-server's registration; the app calls the platform through the public origin, whose host names
+// resolve to the host gateway, where the front door publishes the public port, exactly as the components do. The
+// certificate directory is mounted read-only where the components have it, and the localtest-v2 label lets every
+// teardown remove a container left running when the environment stops. A network of the apps' own does not work
+// today (studioctl README, "Why not a separate apps network").
+func onStackNetwork(cfg *types.ContainerConfig, state localtestv2.State, appID string) *accessTokenSigning {
 	alias := strings.ReplaceAll(appID, "/", "-")
-	cfg.Networks = []string{localtestv2.AppsNetwork}
+	cfg.Networks = []string{localtestv2.Network}
 	cfg.NetworkAliases = []string{alias}
 	cfg.Labels[appcontainers.LabelFrontDoorURL] = "http://" + alias + ":" + appcontainers.DefaultContainerPort
 	cfg.Labels[localtestv2.Label] = localtestv2.LabelAppContainer

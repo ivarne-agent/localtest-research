@@ -132,12 +132,12 @@ internal sealed class ContainerDiscovery : IAppDiscovery
         );
     }
 
-    /// <summary>The container's address on the localtest-v2 apps network, when it has a valid one.</summary>
+    /// <summary>The container's address on the localtest-v2 network, when it has a valid one.</summary>
     private static Uri? FrontDoorUri(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttp ? uri : null;
 
     /// <param name="FrontDoorUrl">
-    /// Where the localtest-v2 front door reaches the container (<c>http://&lt;alias&gt;:&lt;port&gt;</c> on the apps
+    /// Where the localtest-v2 front door reaches the container (<c>http://&lt;alias&gt;:&lt;port&gt;</c> on the localtest-v2
     /// network), from its <c>altinn.studio/front-door-url</c> label; absent for a container that is not on that network.
     /// </param>
     internal sealed record ContainerCandidate(

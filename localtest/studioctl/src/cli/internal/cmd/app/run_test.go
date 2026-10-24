@@ -800,10 +800,10 @@ func localtestV2Service(t *testing.T, state localtestv2.State) (*appsvc.Service,
 	return appsvc.NewService(cfg), appPath, state.CertificateDir
 }
 
-// Under localtest-v2 the app container joins the apps network under its alias, which the front door reaches it at, with
+// Under localtest-v2 the app container joins the stack's network under its alias, which the front door reaches it at, with
 // the public host names on the host gateway, the certificate at /certs and the app listening on every interface; it
 // keeps its loopback port for studioctl-server's discovery.
-func TestBuildDockerRunSpec_JoinsTheLocaltestV2AppsNetwork(t *testing.T) {
+func TestBuildDockerRunSpec_JoinsTheLocaltestV2Network(t *testing.T) {
 	t.Parallel()
 
 	service, appPath, certDir := localtestV2Service(t, localtestv2.State{Groups: []string{"arbeidsflate"}})
@@ -815,7 +815,7 @@ func TestBuildDockerRunSpec_JoinsTheLocaltestV2AppsNetwork(t *testing.T) {
 		t.Fatalf("BuildDockerRunSpec() error = %v", err)
 	}
 	cfg := spec.Config
-	assertEqualStrings(t, "Networks", cfg.Networks, []string{localtestv2.AppsNetwork})
+	assertEqualStrings(t, "Networks", cfg.Networks, []string{localtestv2.Network})
 	assertEqualStrings(t, "NetworkAliases", cfg.NetworkAliases, []string{"ttd-test-app"})
 	assertEqualStrings(t, "ExtraHosts", cfg.ExtraHosts, []string{
 		"local.altinn.cloud:host-gateway",
