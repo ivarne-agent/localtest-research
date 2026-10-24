@@ -81,7 +81,7 @@ A path matching no route still falls through to the localtest app.
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
 | 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
 | 47 | [Compare altinn-apiclient-maskinporten#92 with our change](#47-compare-altinn-apiclient-maskinporten92-with-our-change) | research, approved (owner 2026-10-24: "#92 is not my PR; dispatch an agent to look at the differences"); brief `/home/agent/code/.briefs/task47-compare-pr92.md`; **done, merged** 2026-10-24 (`localtest/reviews/2026-10-24-maskinporten-pr92.md`): support #92, withdraw ours | small | no |
-| 48 | [Text parameters as React elements (explore)](#48-text-parameters-as-react-elements-explore) | approved (owner 2026-10-24: "explore, give up if hard, a PR for making text parameters react elements"); brief `/home/agent/code/.briefs/task48-text-params-elements.md`; **running** (dispatched 2026-10-24, Opus, monorepo, code-only, time-boxed) | small | no |
+| 48 | [Text parameters as React elements (explore)](#48-text-parameters-as-react-elements-explore) | approved (owner 2026-10-24: "explore, give up if hard, a PR for making text parameters react elements"); brief `/home/agent/code/.briefs/task48-text-params-elements.md`; **done, no PR** (2026-10-24: feasible but not an improvement; notes `/home/agent/code/notes-text-params-elements.md`) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1623,3 +1623,13 @@ on it as shipped. Worktree and branch removed; dev studioctl rebuilt from main.
 inside built-in texts (missing roles, no valid parties) can take a `PlatformLink` element instead of #21481's string
 marker and parser rule. Time-boxed: a small PR on the fork if the substitution has a type-safe answer that survives
 `langAsString` and improves on the marker; otherwise a notes file and no push.
+
+**Outcome (2026-10-24, no PR).** Feasible: an opt-in element parameter becomes a placeholder span before parsing and
+a parser callback renders the element in place (prototype passed marked and DOMPurify); `ValidLangParam` already
+accepts `ReactNode`, `langAsString` flattens an element to its text. Costs: a second uncached parse path, the link
+classes and `target`/`rel` lost for that link, and the texts themselves must change (three keys in nb, nn, en, the
+link text moved into new keys, including `party_selection.seeing_this_preference` where the link sits mid-sentence).
+Blast radius: 44 `params=` sites, 9 already pass elements that are flattened today, 16 `langAsString` calls; app text
+overrides ignore `params` entirely, so they never received the URL. Verdict: about 30 `PlatformLink`-specific lines
+removed against a new parameter kind in the shared language code; the marker is the smaller change for #21481; revisit
+only if more in-text component links appear.
