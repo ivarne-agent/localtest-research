@@ -70,6 +70,12 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 		KeysFolder: "/../../.altinn-studio/localtest-v2/certs/",
 		FileName:   "localtest-accesstoken.pfx",
 	}
+	// An app container on the localtest-v2 apps network (onAppsNetwork) finds the certificate where the components do.
+	container := goldenSigning{
+		FullPath:   containerCertificateDir + "/localtest-accesstoken.pfx",
+		KeysFolder: containerCertificateDir + "/",
+		FileName:   "localtest-accesstoken.pfx",
+	}
 	inherited := []string{
 		"PATH=/usr/bin",
 		"ASPNETCORE_ENVIRONMENT=Staging",
@@ -118,7 +124,15 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 			Arbeidsflate: true,
 		},
 		{
-			Name: "container", KestrelURL: "http://*:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
+			Name: "container", KestrelURL: "http://0.0.0.0:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
+			KeysDir: ContainerKeysDir, Signing: container,
+		},
+		{
+			Name: "container-arbeidsflate", KestrelURL: "http://0.0.0.0:5005", IngressPort: "8000",
+			SecretsDir: "/mnt/app-secrets", KeysDir: ContainerKeysDir, Signing: container, Arbeidsflate: true,
+		},
+		{
+			Name: "container-localtest", KestrelURL: "http://*:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
 			KeysDir: ContainerKeysDir,
 		},
 		{
