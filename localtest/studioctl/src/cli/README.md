@@ -128,7 +128,11 @@ reaches the platform through `http://local.altinn.cloud:8000`,
 like a process, because the public host names are mapped to the host inside the container. It gets
 the same settings as a process run, with the access-token certificate mounted at `/certs`. Container
 mode works at the default origin only: with `env up --host` or `--port`, `run --mode container` is
-refused; run the app as a process there.
+refused; run the app as a process there. A monorepo test app that references projects under
+`src/App` (such as `src/test/apps/expression-validation-test`) does not build in container mode:
+the Dockerfile studioctl generates for it does not copy `src/App/PackageVersioning.props`, which
+the referenced projects' `Directory.Build.props` imports (the same in upstream studioctl, and under
+the localtest runtime); run it as a process.
 
 **Why not a separate apps network.** A network of the apps' own, apart from the components, was
 tried (task 34) and does not work today, under Podman 5.7 with netavark at least. With the localtest
