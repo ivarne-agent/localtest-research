@@ -75,7 +75,7 @@ A path matching no route still falls through to the localtest app.
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **done, merged** 2026-10-23 (ff to e2a9b82c); the images carry it at the next pin bump | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
-| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **phase 1 done** (2026-10-23: fork branch `feat/app-frontend-settings-only` at 53a2d94090 = the frontend commit plus the monorepo studioctl setting the inbox and logout defaults to the localtest start page; hand-over `/home/agent/code/pr-app-frontend-settings-only.md`); phase 2 proof after task 43 frees the stack; the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
+| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **done** 2026-10-24: fork branch `feat/app-frontend-settings-only` at cb1b94ee4b (three commits), hand-over `/home/agent/code/pr-app-frontend-settings-only.md` ready to open; the research runner branch merged (ff to 9d0d8f5d); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 verified** 2026-10-23 (ec2a31b2; phase 2 observes on the stack after task 40's proof) | medium | yes (phase 2) |
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
@@ -1486,3 +1486,23 @@ counts, first/last seen, classification platform/implied/declared/undeclared), `
 localtest/api/apps/{org}/{app}/egress`, a Home section with the `externalHosts` line to add, `studioctl app egress`,
 the Aspire surface; nothing refused. Proof: the app-lib 8 sample with a scratch call to the CDN and example.com, the
 monorepo app with a browser instantiate, task 44's capture as the cross-check, the custom origin once.
+
+**Task 42 phase 2 and close (2026-10-24).** Proof on the stack with the monorepo app and the frontend from the branch
+through `--dev-frontend`: with the Arbeidsflate group every link follows the configured URLs and "back to inbox" opens
+the dialog in Arbeidsflate; without it every inbox link lands on Home; screenshots on the fork's
+`evidence/app-frontend-settings-only` branch, linked from the PR body; at the custom origins the monorepo app refused
+to start for task 43's Maskinporten reason (known), the runner's environment there is correct. Coordinator's decisions,
+implemented: the research runners set `PlatformFrontendSettings__LogoutUrl=<origin>/authentication/api/v1/logout` on
+every localtest-v2 run (also minimal mode); the party selection's inbox and profile links and the logout menu are
+hidden without a URL (third commit on the fork branch, unit tests for both states). Runner branch
+`feat/arbeidsflate-links-fallback` (inbox link to Home without the group, the four links with it, the logout URL;
+goldens with two arbeidsflate cases; Aspire 125) verified by the coordinator and merged. Open: the v4
+app-frontend-react host rule (separate upstream PR, not tasked).
+
+**Pin bump 2026-10-24 (coordinator): `sha-6fd85ef` → `sha-e2a9b82`** (task 40's service names in the images).
+`--with everything` up in 50 s with pulls; root 26, authentication 34, authorization 31, dialogporten 60,
+correspondence 78, notifications 64, register 14 (at the origin; a first run against the suite's old default address
+was the coordinator's mistake), events 27 (two timing checks failed once under load, passed on the rerun), front door
+79/81 (known); minimal 23+3. Also fixed on main (af28e1d8): the front-door wait no longer overwrites its remembered
+state with its own cancellation, which made `TestWaitForAppSaysWhatTheFrontDoorLastHad` fail about one run in three
+under load and would have hidden the provisioning error from a timed-out `studioctl run`.
