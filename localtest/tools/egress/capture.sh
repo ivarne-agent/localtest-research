@@ -7,8 +7,8 @@
 #   localtest/tools/egress/summarize.sh DIR [OUT]
 #
 # What runs between start and stop:
-#   bridge.pcap  tcpdump on the stack's Podman bridge (read from /etc/containers/networks/$NETWORK.json, so the network
-#                must exist: start after `env up`): every DNS query to Aardvark, and the first packets (SYN, TLS
+#   bridge.pcap  tcpdump on the stack's Podman bridge (read from /etc/containers/networks/$NETWORK.json; started as soon
+#                as the network exists, so a capture started before `env up` sees the containers' start-up): every DNS query to Aardvark, and the first packets (SYN, TLS
 #                handshake, a plain-HTTP request) of every connection that leaves the bridge's subnet. Traffic between
 #                containers and to the front door through the gateway stays inside the subnet and is not recorded.
 #   uplink.pcap  tcpdump on the interface of the default route: DNS to the host's resolver (the host's own queries
@@ -42,39 +42,57 @@ TLS_HANDSHAKE='(tcp[((tcp[12:1] & 0xf0) >> 2):1] = 0x16)'
 HTTP_REQUEST='(tcp dst port 80 and (tcp[tcpflags] & tcp-push != 0))'
 STARTS="($SYN or $TLS_HANDSHAKE or $HTTP_REQUEST or (udp and not port 53) or ip6)"
 
+# Starts tcpdump on the stack's bridge once the network exists, so a capture started before `env up` sees the
+# containers' start-up too.
+start_bridge() {
+  local dir=$1 netfile=/etc/containers/networks/$NETWORK.json bridge subnet i
+  for ((i = 0; i < 1200; i++)); do
+    [[ -r $netfile || -e $STATE_DIR/stop ]] && break
+    sleep 0.5
+  done
+  [[ -r $netfile ]] || return 0
+  bridge=$(jq -r .network_interface "$netfile")
+  subnet=$(jq -r '.subnets[0].subnet' "$netfile")
+  for ((i = 0; i < 120; i++)); do
+    ip link show "$bridge" >/dev/null 2>&1 && break
+    sleep 0.25
+  done
+  printf 'bridge\t%s\nsubnet\t%s\nbridge-started\t%s\n' "$bridge" "$subnet" "$(date '+%Y-%m-%dT%H:%M:%S%z')" >>"$dir/capture.info"
+  # DNS on the bridge is always kept (Aardvark answers at the gateway, inside the subnet); everything else only when
+  # it leaves the subnet.
+  tcpdump -i "$bridge" -s 512 -U -Z root -w "$dir/bridge.pcap" \
+    "port 53 or (not (src net $subnet and dst net $subnet) and $STARTS)" 2>"$dir/tcpdump-bridge.log" &
+  echo $! >"$STATE_DIR/tcpdump-bridge.pid"
+  wait
+}
+
 start() {
   local dir=${1:-/var/tmp/egress/$(date +%Y%m%dT%H%M%S)}
   [[ ! -e $STATE_DIR/dir ]] || die "a capture is running into $(cat "$STATE_DIR/dir"); stop it first"
-  local netfile=/etc/containers/networks/$NETWORK.json
-  [[ -r $netfile ]] || die "no $netfile: is the stack up (env up -r localtest-v2)?"
-  local bridge subnet uplink
-  bridge=$(jq -r .network_interface "$netfile")
-  subnet=$(jq -r '.subnets[0].subnet' "$netfile")
+  local uplink
   uplink=$(ip -o route get 1.1.1.1 | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") print $(i + 1) }')
-  [[ -n $bridge && -n $subnet && -n $uplink ]] || die "could not read the bridge, its subnet or the uplink"
+  [[ -n $uplink ]] || die "could not read the uplink"
 
   mkdir -p "$dir" "$STATE_DIR"
   rm -f "$STATE_DIR/stop"
   {
     echo "started	$(date '+%Y-%m-%dT%H:%M:%S%z')"
     echo "network	$NETWORK"
-    echo "bridge	$bridge"
-    echo "subnet	$subnet"
     echo "uplink	$uplink"
     echo "resolvers	$(awk '$1 == "nameserver" { printf "%s ", $2 }' /etc/resolv.conf)"
   } >"$dir/capture.info"
   cp /etc/hosts "$dir/etc-hosts.txt"
 
-  # DNS on the bridge is always kept (Aardvark answers at the gateway, inside the subnet); everything else only when
-  # it leaves the subnet.
-  tcpdump -i "$bridge" -s 512 -U -Z root -w "$dir/bridge.pcap" \
-    "port 53 or (not (src net $subnet and dst net $subnet) and $STARTS)" 2>"$dir/tcpdump-bridge.log" &
-  echo $! >"$STATE_DIR/tcpdump-bridge.pid"
+  start_bridge "$dir" &
+  echo $! >"$STATE_DIR/bridge-waiter.pid"
   tcpdump -i "$uplink" -s 512 -U -Z root -w "$dir/uplink.pcap" "port 53 or $STARTS" 2>"$dir/tcpdump-uplink.log" &
   echo $! >"$STATE_DIR/tcpdump-uplink.pid"
 
   # (process, peer) pairs; loopback is the front door, the OTLP collector and the apps themselves.
+  # The pollers run without errexit: one failed ss or podman call (a probe container gone between ps and inspect)
+  # must not end the loop.
   (
+    set +e +o pipefail
     printf 'first\tlast\tproto\tpeer\tprocess\n' >"$dir/ss.tsv.header"
     while [[ ! -e $STATE_DIR/stop ]]; do
       ss -Htunp 2>/dev/null | sed "s/^/$(date +%s.%N) /"
@@ -106,6 +124,7 @@ start() {
   echo $! >"$STATE_DIR/ss.pid"
 
   (
+    set +e +o pipefail
     while [[ ! -e $STATE_DIR/stop ]]; do
       "$CTR" ps --format '{{.Names}}' 2>/dev/null | while read -r name; do
         "$CTR" inspect --format "{{range .NetworkSettings.Networks}}{{.IPAddress}}	$name{{\"\\n\"}}{{end}}" "$name" 2>/dev/null
@@ -116,7 +135,7 @@ start() {
   echo $! >"$STATE_DIR/containers.pid"
 
   echo "$dir" >"$STATE_DIR/dir"
-  echo "Capturing into $dir (bridge $bridge $subnet, uplink $uplink). Stop with: sudo $0 stop"
+  echo "Capturing into $dir (uplink $uplink; the bridge of $NETWORK as soon as it exists). Stop with: sudo $0 stop"
 }
 
 # Stops tcpdump by its pid; it flushes the file on TERM.
@@ -147,8 +166,13 @@ stop() {
   touch "$STATE_DIR/stop"
   wait_poller ss
   wait_poller containers
+  # A last snapshot of the addresses, in case a poll was missed.
+  "$CTR" ps --format '{{.Names}}' 2>/dev/null | while read -r name; do
+    "$CTR" inspect --format "{{range .NetworkSettings.Networks}}{{.IPAddress}}	$name{{\"\\n\"}}{{end}}" "$name" 2>/dev/null || true
+  done | awk 'NF == 2' >>"$dir/containers.tsv" || true
   stop_tcpdump tcpdump-bridge
   stop_tcpdump tcpdump-uplink
+  wait_poller bridge-waiter
   rm -f "$STATE_DIR/stop"
   sleep 1
   if [[ -f $dir/ss.tsv.header ]]; then

@@ -1,0 +1,20 @@
+== root start 04:15:48
+== root end 04:15:50 exit=0 ok=26 fail=0
+== authentication start 04:15:50
+== authentication end 04:15:53 exit=0 ok=34 fail=0
+== authorization start 04:15:53
+== authorization end 04:15:55 exit=0 ok=31 fail=0
+== dialogporten start 04:15:55
+== dialogporten end 04:31:21 exit=0 ok=60 fail=0
+== correspondence start 04:31:21
+== correspondence end 04:31:59 exit=0 ok=78 fail=0
+== events start 04:31:59
+== events end 05:19:52 exit=1 ok=24 fail=6
+== notifications start 05:19:52
+== notifications end 05:45:41 exit=1 ok=61 fail=3
+== register start 05:45:41
+== register end 05:45:41 exit=0 ok=11 fail=3
+== localtest start 05:45:41
+== localtest end 05:45:45 exit=1 ok=65 fail=2
+idle start 19:33:38
+idle end 19:38:36

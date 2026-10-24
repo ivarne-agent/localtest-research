@@ -1,0 +1,10 @@
+localtest-v2-arbeidsflate-bff	150.171.109.201	443/tcp	altinncdn.no	1
+localtest-v2-authentication	150.171.109.201	443/tcp	altinncdn.no	8
+localtest-v2-dialogporten-adapter	150.171.109.201	443/tcp	altinncdn.no	4
+localtest-v2-dialogporten-graphql	150.171.109.201	443/tcp	altinncdn.no	1
+localtest-v2-dialogporten-graphql	48.214.152.142	443/tcp	usage-tracking.masstransit.io	1
+localtest-v2-dialogporten-service	48.214.152.142	443/tcp	usage-tracking.masstransit.io	1
+localtest-v2-dialogporten-webapi	48.214.152.142	443/tcp	usage-tracking.masstransit.io	1
+localtest-v2-pdf3	150.171.109.201	443/tcp	altinncdn.no,altinncdn.no,altinncdn.no,altinncdn.no,altinncdn.no,altinncdn.no	9
+localtest-v2-resource-registry	150.171.109.193	443/tcp	altinncdn.no	1
+localtest-v2-resource-registry	150.171.109.201	443/tcp	altinncdn.no	3
