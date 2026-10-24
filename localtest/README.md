@@ -67,7 +67,8 @@ must provide.
 In production Altinn Studio pushes an app's artefacts to the platform at deploy time; locally the front door does it
 when an app is registered with it. The runners start the app with the environment in
 [`CONVENTIONS.md`](CONVENTIONS.md#what-the-app-runner-pushes) and make one call,
-`PUT localtest/api/apps/{org}/{app}` with the app's address (`http://host.docker.internal:<port>`): studioctl-server's
+`PUT localtest/api/apps/{org}/{app}` with the app's address (`http://host.docker.internal:<port>`, or
+`http://<org>-<app>:5005` for a `studioctl run --mode container` app on the apps network): studioctl-server's
 discovery for every app it finds (a `studioctl run` and an app started from an IDE alike; again when the app comes back
 on another port; `DELETE` when it is gone), the Aspire package on the app's ready event (and the dashboard's
 `provision` / `deprovision` commands), `run-app.sh` by hand. `studioctl run` waits until `GET localtest/api/apps` lists
@@ -188,6 +189,17 @@ three-label host. The monorepo app frontend takes its platform links from the se
 browser, screenshot [`localtest/docs/origin/`](localtest/docs/origin/app-after-sign-in-altinn-test-18000.png)) and with
 `--minimal --port 0` (root 23 + 3 skipped). The rule and what follows the origin:
 [`CONVENTIONS.md`](CONVENTIONS.md#the-public-origin-and-host-names).
+
+**Container mode.** `studioctl run --mode container` builds the app's image and runs it as a container on its own
+network, `localtest-v2_apps`, which `env up` creates beside the stack's network and `env down` removes (with any app
+container still on it). The front door is attached to both networks and reaches the app at its alias,
+`http://<org>-<app>:5005`, which studioctl-server registers; the app sees no component and calls the platform through
+the public origin, its host names mapped to the host gateway (`--add-host local.altinn.cloud:host-gateway` and the four
+subdomains), as the components do. It gets the environment of a process run (the certificate mounted at `/certs`, the
+Arbeidsflate and logout links, Kestrel on `0.0.0.0:5005`) with its secrets at `/mnt/app-secrets` and its keys at
+`/mnt/keys`, keeps a loopback port for studioctl-server's discovery, and `--dev-frontend` works as for a process. Limits:
+the default origin only (`run --mode container` is refused at another `--host` or `--port`), studioctl only (an Aspire
+AppHost runs apps as projects). The rule: [`CONVENTIONS.md`](CONVENTIONS.md#the-runtimes).
 
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
