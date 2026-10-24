@@ -81,6 +81,7 @@ A path matching no route still falls through to the localtest app.
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
 | 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
 | 47 | [Compare altinn-apiclient-maskinporten#92 with our change](#47-compare-altinn-apiclient-maskinporten92-with-our-change) | research, approved (owner 2026-10-24: "#92 is not my PR; dispatch an agent to look at the differences"); brief `/home/agent/code/.briefs/task47-compare-pr92.md`; **done, merged** 2026-10-24 (`localtest/reviews/2026-10-24-maskinporten-pr92.md`): support #92, withdraw ours | small | no |
+| 48 | [Text parameters as React elements (explore)](#48-text-parameters-as-react-elements-explore) | approved (owner 2026-10-24: "explore, give up if hard, a PR for making text parameters react elements"); brief `/home/agent/code/.briefs/task48-text-params-elements.md`; **running** (dispatched 2026-10-24, Opus, monorepo, code-only, time-boxed) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1615,3 +1616,10 @@ upstream: an existing bug, documented in the README), so the v9 certificate path
 file resolves). Checks: go clean, server tests 1012, Aspire 127 (coordinator re-ran). Follow-ups: the studioctl
 Dockerfile bug for monorepo test apps (upstream); a Dockerfile for the app-lib 8 sample if container mode should work
 on it as shipped. Worktree and branch removed; dev studioctl rebuilt from main.
+
+## 48. Text parameters as React elements (explore)
+
+**Goal (2026-10-24).** Whether the app frontend's text parameters can be React elements, so the two platform links
+inside built-in texts (missing roles, no valid parties) can take a `PlatformLink` element instead of #21481's string
+marker and parser rule. Time-boxed: a small PR on the fork if the substitution has a type-safe answer that survives
+`langAsString` and improves on the marker; otherwise a notes file and no push.
