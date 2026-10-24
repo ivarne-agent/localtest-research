@@ -77,7 +77,7 @@ A path matching no route still falls through to the localtest app.
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
 | 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **done** 2026-10-24: fork branch `feat/app-frontend-settings-only` at cb1b94ee4b (three commits), hand-over `/home/agent/code/pr-app-frontend-settings-only.md` ready to open; the research runner branch merged (ff to 9d0d8f5d); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
-| 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **phase 1 verified** 2026-10-23 (ec2a31b2; phase 2 observes on the stack after task 40's proof) | medium | yes (phase 2) |
+| 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **done, merged** 2026-10-24 (ff to 13326070): static inventory plus the observed run; three domains not predicted | medium | yes (phase 2) |
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
 | 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
 
@@ -1506,3 +1506,24 @@ was the coordinator's mistake), events 27 (two timing checks failed once under l
 79/81 (known); minimal 23+3. Also fixed on main (af28e1d8): the front-door wait no longer overwrites its remembered
 state with its own cancellation, which made `TestWaitForAppSaysWhatTheFrontDoorLastHad` fail about one run in three
 under load and would have hidden the provisioning error from a timed-out `studioctl run`.
+
+**Phase 2 (pushed 13326070, verified by the coordinator and merged ff 2026-10-24).** Capture (DNS plus SNI on the
+bridge and the uplink, attributed per container and process) and the OTLP collector from before `env up` with
+`--with everything` on `sha-e2a9b82`, through the suites (root 26, authentication 34, authorization 31, dialogporten
+60, correspondence 78; Events 24/30, Notifications 61/64 and Register 11/14 failed on expired tokens and the
+registered app during long VM suspensions, unrelated to egress), the monorepo app under `studioctl run` with
+`AppSettings__UseOpenTelemetry=true` (the project-reference build ships no bundle, so the browser flow used main's
+built `dist` through `--dev-frontend`), a Playwright-traced flow through upload, submit, receipt, PDF, the Receipt page,
+the Arbeidsflate inbox and the dialog, and five idle minutes. Observed per process: the app → the public origin, the
+pdf and workflow-engine subdomains, `altinncdn.no`, **`data.ssb.no`** (from `Altinn.Codelists`, which also defaults to
+`ws.geonorge.no` and `www.bring.no`: an app using it needs them on its production list); the browser on the app page →
+the app origin and `altinncdn.no`; on Receipt and Arbeidsflate → `altinncdn.no`, `use.fontawesome.com`,
+`use.fortawesome.com`, `fonts.googleapis.com`, **`fonts.gstatic.com`**; pdf3 → `altinncdn.no`; Authentication, the
+Resource Registry, the adapter, GraphQL and the BFF → `altinncdn.no`; the three Dialogporten hosts →
+**`usage-tracking.masstransit.io`** at start-up (MassTransit's telemetry, nothing switches it off); the workflow engine
+and every other component → nothing outside the stack. No unnamed connections, no IPv6, no QUIC. The two at22 paths
+were deliberately not exercised (they would reach a shared test environment and create a user there). Capture script
+fixes (pollers survive a failed call, final snapshot on stop, the bridge capture waits for the network). Capture files
+in `localtest/reviews/egress/` (52 KB). Follow-ups for the plan (task 45): MassTransit telemetry off in the
+Dialogporten fakes; the at22 paths removed; the firewall's allow-list is `altinncdn.no` only (the Receipt page's font
+hosts are the browser's, not the stack's).
