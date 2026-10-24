@@ -34,11 +34,13 @@ func TestTheRunWaitsForTheRegistrationAtTheAddressItWasGiven(t *testing.T) {
 	since := time.Now()
 	frontDoor := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintf(w,
+		if _, err := fmt.Fprintf(w,
 			`[{"org":"ttd","app":"test-app","url":"http://ttd-test-app:5005",`+
 				`"provisioning":{"state":"succeeded","at":%q}}]`,
 			since.Add(time.Second).UTC().Format(time.RFC3339Nano),
-		)
+		); err != nil {
+			t.Error(err)
+		}
 	}))
 	t.Cleanup(frontDoor.Close)
 	host, port, err := net.SplitHostPort(frontDoor.Listener.Addr().String())

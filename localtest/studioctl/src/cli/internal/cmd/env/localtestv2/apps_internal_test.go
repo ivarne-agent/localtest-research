@@ -19,7 +19,11 @@ func TestTheFrontDoorJoinsTheAppsNetwork(t *testing.T) {
 	f, client := newFakeRuntime()
 	cfg := testConfig(t)
 	env := NewEnv(cfg, ui.NewOutput(io.Discard, io.Discard, false), client)
-	if err := env.applyResources(t.Context(), resources(defaultOptions(localtestv2.CertificateDir(cfg)), nil), false); err != nil {
+	if err := env.applyResources(
+		t.Context(),
+		resources(defaultOptions(localtestv2.CertificateDir(cfg)), nil),
+		false,
+	); err != nil {
 		t.Fatal(err)
 	}
 	apps, ok := f.networks[localtestv2.AppsNetwork]
@@ -46,7 +50,11 @@ func TestDownRemovesTheAppContainersAndTheAppsNetwork(t *testing.T) {
 	writeTestState(t, cfg, false)
 	var out bytes.Buffer
 	env := NewEnv(cfg, ui.NewOutput(&out, io.Discard, false), client)
-	if err := env.applyResources(t.Context(), resources(defaultOptions(localtestv2.CertificateDir(cfg)), nil), false); err != nil {
+	if err := env.applyResources(
+		t.Context(),
+		resources(defaultOptions(localtestv2.CertificateDir(cfg)), nil),
+		false,
+	); err != nil {
 		t.Fatal(err)
 	}
 	const app = "localtest-app-test-app"

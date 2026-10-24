@@ -132,8 +132,11 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 			SecretsDir: "/mnt/app-secrets", KeysDir: ContainerKeysDir, Signing: container, Arbeidsflate: true,
 		},
 		{
-			Name: "container-localtest", KestrelURL: "http://*:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
-			KeysDir: ContainerKeysDir,
+			Name:        "container-localtest",
+			KestrelURL:  "http://*:5005",
+			IngressPort: "8000",
+			SecretsDir:  "/mnt/app-secrets",
+			KeysDir:     ContainerKeysDir,
 		},
 		{
 			Name: "container-frontend-option", KestrelURL: "http://*:5005", IngressPort: "8000",

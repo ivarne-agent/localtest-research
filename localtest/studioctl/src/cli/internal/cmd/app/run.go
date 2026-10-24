@@ -276,12 +276,11 @@ func (s *Service) BuildDockerRunSpec(
 		return DockerRunSpec{}, fmt.Errorf("read localtest-v2 state: %w", err)
 	}
 	if v2 {
-		if err := checkContainerOrigin(state); err != nil {
-			return DockerRunSpec{}, err
+		if originErr := checkContainerOrigin(state); originErr != nil {
+			return DockerRunSpec{}, originErr
 		}
 	}
 	appPath := result.AppRoot
-	appName := appnaming.AppNameFromPath(appPath)
 	hostPort := appcontainers.DefaultContainerPort
 	if opts.RandomHostPort {
 		hostPort = ""
@@ -307,37 +306,7 @@ func (s *Service) BuildDockerRunSpec(
 	spec := DockerRunSpec{
 		SecretsDir: secretsDir,
 		KeysDir:    keysDir,
-		Config: types.ContainerConfig{
-			Labels:      appcontainers.Labels(appPath),
-			HealthCheck: nil,
-			Name:        localtestAppContainerNamePrefix + appName,
-			Image:       imageTag,
-			// User, UsernsMode and the mounts' SELinux labels depend on the runtime and are set by
-			// PrepareDockerRun once it is known.
-			User:           "",
-			UsernsMode:     "",
-			RestartPolicy:  "",
-			ExtraHosts:     nil,
-			NetworkAliases: nil,
-			Volumes:        appMounts(secretsDir, keysDir),
-			Networks: []string{
-				components.NetworkName,
-			},
-			// On loopback, for studioctl itself: studioctl-server discovers the app on this port and reads its
-			// metadata there. Under localtest-v2 the front door reaches the app by its alias instead.
-			Ports: []types.PortMapping{
-				{
-					HostIP:        localtestLoopbackHost,
-					HostPort:      hostPort,
-					ContainerPort: appcontainers.DefaultContainerPort,
-					Protocol:      "tcp",
-				},
-			},
-			Env:     nil,
-			Command: args,
-			CapAdd:  nil,
-			Detach:  true,
-		},
+		Config:     appContainerConfig(appPath, imageTag, hostPort, secretsDir, keysDir, args),
 	}
 	kestrelURL := "http://*:" + appcontainers.DefaultContainerPort
 	var signing *accessTokenSigning
@@ -361,6 +330,41 @@ func (s *Service) BuildDockerRunSpec(
 		signing,
 	)
 	return spec, nil
+}
+
+// appContainerConfig is an app container on the localtest runtime's network, without its environment.
+func appContainerConfig(appPath, imageTag, hostPort, secretsDir, keysDir string, args []string) types.ContainerConfig {
+	return types.ContainerConfig{
+		Labels:      appcontainers.Labels(appPath),
+		HealthCheck: nil,
+		Name:        localtestAppContainerNamePrefix + appnaming.AppNameFromPath(appPath),
+		Image:       imageTag,
+		// User, UsernsMode and the mounts' SELinux labels depend on the runtime and are set by
+		// PrepareDockerRun once it is known.
+		User:           "",
+		UsernsMode:     "",
+		RestartPolicy:  "",
+		ExtraHosts:     nil,
+		NetworkAliases: nil,
+		Volumes:        appMounts(secretsDir, keysDir),
+		Networks: []string{
+			components.NetworkName,
+		},
+		// On loopback, for studioctl itself: studioctl-server discovers the app on this port and reads its
+		// metadata there. Under localtest-v2 the front door reaches the app by its alias instead.
+		Ports: []types.PortMapping{
+			{
+				HostIP:        localtestLoopbackHost,
+				HostPort:      hostPort,
+				ContainerPort: appcontainers.DefaultContainerPort,
+				Protocol:      "tcp",
+			},
+		},
+		Env:     nil,
+		Command: args,
+		CapAdd:  nil,
+		Detach:  true,
+	}
 }
 
 // containerCertificateDir is where an app container finds the localtest-v2 certificate, as the components do.

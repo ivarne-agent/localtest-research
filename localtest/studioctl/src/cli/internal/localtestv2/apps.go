@@ -9,7 +9,9 @@ const (
 
 	// Label marks what belongs to the runtime beside its resource graph: the apps network (LabelAppsNetwork) and the
 	// app containers on it (LabelAppContainer), which env down removes before the network.
-	Label             = "altinn.studio/localtest-v2"
-	LabelAppsNetwork  = "apps-network"
+	Label = "altinn.studio/localtest-v2"
+	// LabelAppsNetwork is Label's value on the apps network.
+	LabelAppsNetwork = "apps-network"
+	// LabelAppContainer is Label's value on an app container on the apps network.
 	LabelAppContainer = "app"
 )
