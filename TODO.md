@@ -80,6 +80,7 @@ A path matching no route still falls through to the localtest app.
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **done, merged** 2026-10-24 (ff to 13326070): static inventory plus the observed run; three domains not predicted | medium | yes (phase 2) |
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
 | 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
+| 47 | [Compare altinn-apiclient-maskinporten#92 with our change](#47-compare-altinn-apiclient-maskinporten92-with-our-change) | research, approved (owner 2026-10-24: "#92 is not my PR; dispatch an agent to look at the differences"); brief `/home/agent/code/.briefs/task47-compare-pr92.md`; **running** (dispatched 2026-10-24, Opus) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1552,3 +1553,12 @@ front door attached to both, the app by alias `<org>-<app>` without a published 
 the public host names, the certificate and secrets mounts, the registration URL from discovery (`http://<alias>:<port>`),
 the wait and `--dev-frontend` in the container path, cleanup with `stop` and `env down`; proof with the app-lib 8
 sample and the monorepo app, a Dialogporten sync, minimal mode once.
+
+## 47. Compare altinn-apiclient-maskinporten#92 with our change
+
+**Goal (2026-10-24).** Another contributor opened [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)
+(draft, 2026-10-23) for the same purpose as task 15's branch. Side-by-side comparison (settings, resolution,
+audience, test org, interface, tests, README, versioning), whether #92 serves localtest-v2's consumers as it is,
+the differences that matter, and a recommendation (support #92 with a review comment, keep ours, or merge the two)
+with a draft comment the owner may post. Document `localtest/reviews/2026-10-24-maskinporten-pr92.md`. Task 15's own
+PR is not opened yet.
