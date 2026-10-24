@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"altinn.studio/devenv/pkg/container/mock"
+	"altinn.studio/devenv/pkg/container/types"
+	appsvc "altinn.studio/studioctl/internal/cmd/app"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
@@ -58,5 +63,29 @@ func TestTheRunWaitsForTheRegistrationAtTheAddressItWasGiven(t *testing.T) {
 		t.Context(), cfg, topology, "ttd/test-app", "http://host.docker.internal:5005", since, time.Second,
 	); err == nil {
 		t.Fatal("a registration at the alias counted for the host's port")
+	}
+}
+
+// A container run on the apps network is refused, before any build, when the environment has none (started by an
+// earlier studioctl); a run on the localtest runtime's network is not checked.
+func TestAContainerRunNeedsTheAppsNetwork(t *testing.T) {
+	t.Parallel()
+	client := mock.New()
+	client.NetworkInspectFunc = func(context.Context, string) (types.NetworkInfo, error) {
+		return types.NetworkInfo{}, types.ErrNetworkNotFound
+	}
+	onApps := appsvc.DockerRunSpec{}
+	onApps.Config.Networks = []string{localtestv2.AppsNetwork}
+	if err := checkAppsNetwork(t.Context(), client, onApps); !errors.Is(err, errNoAppsNetwork) {
+		t.Fatalf("checkAppsNetwork = %v, want errNoAppsNetwork", err)
+	}
+	if err := checkAppsNetwork(t.Context(), client, appsvc.DockerRunSpec{}); err != nil {
+		t.Fatalf("checkAppsNetwork off the apps network = %v", err)
+	}
+	client.NetworkInspectFunc = func(context.Context, string) (types.NetworkInfo, error) {
+		return types.NetworkInfo{Name: localtestv2.AppsNetwork}, nil
+	}
+	if err := checkAppsNetwork(t.Context(), client, onApps); err != nil {
+		t.Fatalf("checkAppsNetwork with the network = %v", err)
 	}
 }
