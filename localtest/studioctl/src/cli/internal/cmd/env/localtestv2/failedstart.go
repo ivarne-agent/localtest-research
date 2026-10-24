@@ -63,7 +63,7 @@ func (e *Env) removeFailedStart(ctx context.Context) error {
 	defer cancel()
 	created, err := e.managedResources(ctx)
 	if err == nil && len(created) > 0 {
-		err = e.destroyResources(ctx, resources(e.teardownOptions(), nil), "Removing what the failed start created...")
+		err = e.teardown(ctx, "Removing what the failed start created...")
 	}
 	probes, probeErr := e.removeProbes(ctx)
 	removed := slices.Concat(created, probes)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"slices"
@@ -18,7 +19,8 @@ import (
 )
 
 var (
-	errCreate = errors.New("create failed")
+	errCreate       = errors.New("create failed")
+	errNetworkInUse = errors.New("network in use")
 	// errPortInUse is Podman's message when the front door's port is taken.
 	errPortInUse = errors.New("rootlessport listen tcp 0.0.0.0:8000: bind: address already in use")
 )
@@ -196,6 +198,11 @@ func (f *fakeRuntime) removeNetwork(_ context.Context, name string) error {
 	defer f.mu.Unlock()
 	if _, ok := f.networks[name]; !ok {
 		return types.ErrNetworkNotFound
+	}
+	for container, cfg := range f.containers {
+		if slices.Contains(cfg.Networks, name) {
+			return fmt.Errorf("%w: %s has active endpoints (%s)", errNetworkInUse, name, container)
+		}
 	}
 	delete(f.networks, name)
 	return nil

@@ -178,7 +178,7 @@ func (e *Env) Down(ctx context.Context) error {
 	if !hasResources {
 		return e.forgetState(ctx, envtypes.ErrAlreadyStopped)
 	}
-	if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
+	if err := e.teardown(ctx, stoppingMessage); err != nil {
 		return fmt.Errorf("stop environment: %w", err)
 	}
 	if err := e.forgetState(ctx, nil); err != nil {
@@ -201,7 +201,7 @@ func (e *Env) Reset(ctx context.Context) error {
 		return err
 	}
 	if hasResources {
-		if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
+		if err := e.teardown(ctx, stoppingMessage); err != nil {
 			return fmt.Errorf("stop environment: %w", err)
 		}
 	}
@@ -427,7 +427,7 @@ func (e *Env) runForeground(ctx context.Context, localtestURL string, opts *Opti
 	teardownCtx, cancel := context.WithTimeout(context.Background(), teardownTimeout)
 	defer cancel()
 	//nolint:contextcheck // intentionally using new context for cleanup after cancellation
-	if err := e.destroyResources(teardownCtx, resources(e.teardownOptions(), nil), ""); err != nil {
+	if err := e.teardown(teardownCtx, ""); err != nil {
 		e.out.Warningf("Failed to stop environment cleanly: %v", err)
 		return err
 	}

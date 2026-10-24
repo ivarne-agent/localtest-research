@@ -148,7 +148,7 @@ func (e *Env) stopOnSwitch(ctx context.Context, opts *Options) error {
 	if err != nil || !hasResources {
 		return err
 	}
-	if err := e.destroyResources(ctx, resources(e.teardownOptions(), nil), stoppingMessage); err != nil {
+	if err := e.teardown(ctx, stoppingMessage); err != nil {
 		return fmt.Errorf("stop the environment running in the other mode or at the other origin: %w", err)
 	}
 	return nil

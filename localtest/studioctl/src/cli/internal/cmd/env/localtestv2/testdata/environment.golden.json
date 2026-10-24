@@ -104,6 +104,13 @@
         "driver": "bridge"
       },
       {
+        "labels": {
+          "altinn.studio/localtest-v2": "apps-network"
+        },
+        "id": "network:localtest-v2_apps",
+        "driver": "bridge"
+      },
+      {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-e2a9b82",
         "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-e2a9b82",
         "pullPolicy": "ifNotPresent"
@@ -696,7 +703,8 @@
         "id": "container:localtest-v2-localtest",
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-e2a9b82",
         "networks": [
-          "network:localtest-v2_network"
+          "network:localtest-v2_network",
+          "network:localtest-v2_apps"
         ],
         "ports": [
           {
@@ -974,6 +982,13 @@
     "resources": [
       {
         "id": "network:localtest-v2_network",
+        "driver": "bridge"
+      },
+      {
+        "labels": {
+          "altinn.studio/localtest-v2": "apps-network"
+        },
+        "id": "network:localtest-v2_apps",
         "driver": "bridge"
       },
       {
@@ -1646,7 +1661,8 @@
         "id": "container:localtest-v2-localtest",
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:latest",
         "networks": [
-          "network:localtest-v2_network"
+          "network:localtest-v2_network",
+          "network:localtest-v2_apps"
         ],
         "ports": [
           {
@@ -2628,6 +2644,13 @@
         "driver": "bridge"
       },
       {
+        "labels": {
+          "altinn.studio/localtest-v2": "apps-network"
+        },
+        "id": "network:localtest-v2_apps",
+        "driver": "bridge"
+      },
+      {
         "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-e2a9b82",
         "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres:sha-e2a9b82",
         "pullPolicy": "ifNotPresent"
@@ -2772,7 +2795,8 @@
         "id": "container:localtest-v2-localtest",
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-e2a9b82",
         "networks": [
-          "network:localtest-v2_network"
+          "network:localtest-v2_network",
+          "network:localtest-v2_apps"
         ],
         "ports": [
           {
@@ -2914,6 +2938,13 @@
     "resources": [
       {
         "id": "network:localtest-v2_network",
+        "driver": "bridge"
+      },
+      {
+        "labels": {
+          "altinn.studio/localtest-v2": "apps-network"
+        },
+        "id": "network:localtest-v2_apps",
         "driver": "bridge"
       },
       {
@@ -3509,7 +3540,8 @@
         "id": "container:localtest-v2-localtest",
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:sha-e2a9b82",
         "networks": [
-          "network:localtest-v2_network"
+          "network:localtest-v2_network",
+          "network:localtest-v2_apps"
         ],
         "ports": [
           {

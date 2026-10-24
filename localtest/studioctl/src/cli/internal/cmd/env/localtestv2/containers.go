@@ -128,23 +128,17 @@ func containerNames(opts *Options) []string {
 // readinessProbes returns the readiness check of a container, run before what depends on it starts; nil runs none.
 type readinessProbes func(target healthTarget) func(ctx context.Context) error
 
-// resources turns the selected containers into the devenv resource graph: the network, then per container its image
-// (pulled, or built for --dev) and the container.
+// resources turns the selected containers into the devenv resource graph: the stack's network and the apps network,
+// then per container its image (pulled, or built for --dev) and the container.
 func resources(opts *Options, probes readinessProbes) []resource.Resource {
-	network := &resource.Network{
-		Enabled: nil,
-		Name:    networkName,
-		Driver:  "bridge",
-		Labels:  nil,
-		Lifecycle: resource.LifecycleOptions{
-			HandleDestroyError: nil,
-			RetainOnDestroy:    false,
-		},
-	}
+	network := bridgeNetwork(networkName, nil)
+	// Container-mode apps (studioctl run --mode container) join this one, and the front door joins it beside the
+	// stack's: it reaches an app by its alias there, and the app sees no component.
+	apps := bridgeNetwork(localtestv2.AppsNetwork, map[string]string{localtestv2.Label: localtestv2.LabelAppsNetwork})
 	names := selected(opts)
 	services := serviceVariables(names, emulated(opts))
-	out := make([]resource.Resource, 0, 1+2*len(names))
-	out = append(out, network)
+	out := make([]resource.Resource, 0, 2+2*len(names))
+	out = append(out, network, apps)
 	images := map[resource.ResourceID]bool{}
 	for _, name := range names {
 		image := containerImage(opts, name)
@@ -156,9 +150,26 @@ func resources(opts *Options, probes readinessProbes) []resource.Resource {
 		if probes != nil {
 			probe = probes(healthTargetOf(name))
 		}
-		out = append(out, containerResource(opts, name, services, image, resource.Ref(network), probe))
+		networks := []resource.ResourceRef{resource.Ref(network)}
+		if name == frontDoor {
+			networks = append(networks, resource.Ref(apps))
+		}
+		out = append(out, containerResource(opts, name, services, image, networks, probe))
 	}
 	return out
+}
+
+func bridgeNetwork(name string, labels map[string]string) *resource.Network {
+	return &resource.Network{
+		Enabled: nil,
+		Name:    name,
+		Driver:  "bridge",
+		Labels:  labels,
+		Lifecycle: resource.LifecycleOptions{
+			HandleDestroyError: nil,
+			RetainOnDestroy:    false,
+		},
+	}
 }
 
 // serviceVariables announce every running HTTP container to every container, the way Aspire's service discovery
@@ -210,7 +221,7 @@ func containerResource(
 	name string,
 	services map[string]string,
 	image resource.ImageResource,
-	network resource.ResourceRef,
+	networks []resource.ResourceRef,
 	probe func(ctx context.Context) error,
 ) *resource.Container {
 	c := stack().Containers[name]
@@ -233,7 +244,7 @@ func containerResource(
 		Name:        containerOf(name),
 		Image:       resource.Ref(image),
 		Enabled:     nil,
-		Networks:    []resource.ResourceRef{network},
+		Networks:    networks,
 		DependsOn:   deps,
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
