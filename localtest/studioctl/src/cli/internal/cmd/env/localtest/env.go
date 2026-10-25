@@ -52,23 +52,21 @@ type Env struct {
 	flags  UpOptions
 }
 
-// NewEnv creates a new localtest environment manager.
+// NewEnv creates a new localtest environment manager, with the default env up options.
 func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient) *Env {
-	env := &Env{
+	return newEnv(cfg, out, client, defaultUpOptions())
+}
+
+// newEnv creates a localtest environment manager that starts with flags.
+func newEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient, flags UpOptions) *Env {
+	return &Env{
 		cfg:    cfg,
 		out:    out,
 		client: client,
 		stack:  stack.New(client, out, graphID, cfg.Verbose),
-		flags: UpOptions{
-			Detach:            false,
-			DevWorkflowEngine: false,
-			Monitoring:        false,
-			OpenBrowser:       false,
-			PgAdmin:           false,
-		},
-		paths: components.NewPaths(cfg.DataDir),
+		flags:  flags,
+		paths:  components.NewPaths(cfg.DataDir),
 	}
-	return env
 }
 
 // Active reports whether any localtest container is running.
@@ -400,9 +398,6 @@ func localtestStatus(
 	requireDesired bool,
 ) *envtypes.Status {
 	status := envtypes.Status{
-		Origin:     "",
-		Mode:       "",
-		Emulated:   nil,
 		Containers: []envtypes.ContainerStatus{},
 		Running:    false,
 		AnyRunning: false,
@@ -541,7 +536,6 @@ func (e *Env) cleanupWorkflowEngineDbData(ctx context.Context, targetAbs string)
 			ContainerPath:  "/cleanup",
 			Type:           containertypes.VolumeMountTypeBind,
 			SELinuxRelabel: relabel,
-			Options:        "",
 			ReadOnly:       false,
 		}},
 		Networks: nil,

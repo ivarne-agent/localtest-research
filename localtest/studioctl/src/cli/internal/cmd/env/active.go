@@ -11,6 +11,9 @@ import (
 // public origin's port and host names, so only one runs at a time.
 var ErrOtherRuntimeActive = errors.New("another environment runtime is running")
 
+// ErrRuntimesActive is returned when no runtime is named and more than one runs, so there is no one runtime to act on.
+var ErrRuntimesActive = errors.New("more than one environment runtime is running")
+
 // ActiveRuntimes returns the runtimes of envs that have a running container. It is the one answer to which runtime is
 // up; callers do not keep their own record of it.
 func ActiveRuntimes(ctx context.Context, envs []Env) ([]Env, error) {
@@ -29,15 +32,19 @@ func ActiveRuntimes(ctx context.Context, envs []Env) ([]Env, error) {
 
 // EnsureNoOtherActive refuses to start the runtime called name while another runtime of envs is running.
 func EnsureNoOtherActive(ctx context.Context, name string, envs []Env) error {
-	active, err := ActiveRuntimes(ctx, envs)
+	otherEnvs := make([]Env, 0, len(envs))
+	for _, env := range envs {
+		if env.Name() != name {
+			otherEnvs = append(otherEnvs, env)
+		}
+	}
+	active, err := ActiveRuntimes(ctx, otherEnvs)
 	if err != nil {
 		return err
 	}
-	var others []string
+	others := make([]string, 0, len(active))
 	for _, env := range active {
-		if env.Name() != name {
-			others = append(others, env.Name())
-		}
+		others = append(others, env.Name())
 	}
 	if len(others) == 0 {
 		return nil
@@ -46,18 +53,23 @@ func EnsureNoOtherActive(ctx context.Context, name string, envs []Env) error {
 		ErrOtherRuntimeActive, strings.Join(others, ", "), others[0])
 }
 
-// ResolveRuntime names the runtime a command acts on: the requested one, else the one runtime that is running, else
-// fallback.
-func ResolveRuntime(ctx context.Context, requested, fallback string, envs []Env) (string, error) {
-	if requested != "" {
-		return requested, nil
-	}
+// ResolveRuntime names the runtime a command acts on when none is named: the one runtime that is running, else
+// fallback. It refuses to pick one when more than one runs.
+func ResolveRuntime(ctx context.Context, fallback string, envs []Env) (string, error) {
 	active, err := ActiveRuntimes(ctx, envs)
 	if err != nil {
 		return "", err
 	}
-	if len(active) == 1 {
+	switch len(active) {
+	case 0:
+		return fallback, nil
+	case 1:
 		return active[0].Name(), nil
+	default:
+		names := make([]string, 0, len(active))
+		for _, env := range active {
+			names = append(names, env.Name())
+		}
+		return "", fmt.Errorf("%w: %s; pick one with -r", ErrRuntimesActive, strings.Join(names, ", "))
 	}
-	return fallback, nil
 }
