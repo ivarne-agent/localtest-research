@@ -1,31 +1,34 @@
 # Vendored copy of studioctl from Altinn/altinn-studio
 
 - Repository: https://github.com/Altinn/altinn-studio
-- Commit: [`e45c348eac7574dc86bdf551e68cb1dec3d56965`](https://github.com/ivarne-agent/altinn-studio/tree/e45c348eac7574dc86bdf551e68cb1dec3d56965)
-  (2026-10-25): `main` at `819ad7362e` plus the env-runtime refactor of
-  [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (branch
-  `refactor/studioctl-env-shared-runtime` on `ivarne-agent/altinn-studio`), vendored as if it were merged. When #21483
-  merges, sync to the `main` commit that contains it; the vendored tree does not change for the refactor itself.
+- Commit: [`480110f40e`](https://github.com/ivarne-agent/altinn-studio/tree/refactor/studioctl-env-runtime-interface)
+  (2026-10-25): `main` at `819ad7362e` plus two preparation PRs, vendored as if they were merged:
+  [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env stack, `e45c348eac`) and the
+  Runtime/Env interface stacked on it (branch `refactor/studioctl-env-runtime-interface`, `480110f40e`). When they
+  merge, sync to the `main` commit that contains them; the vendored tree does not change for them.
 - Copied paths, monorepo layout preserved under `src/` so relative references resolve as upstream:
   - `src/cli`: studioctl (Go CLI), `studioctl-server` (C#), `studioctl-server-tests` and `common/dotnet`.
   - `src/Runtime/devenv`: Go module `altinn.studio/devenv`; `src/cli/go.mod` replaces it with `../Runtime/devenv`.
   - `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common`: `studioctl-server.csproj` compiles its `HostBridge/**`
     and `EnvTopology/**` sources by relative path.
   - `src/Runtime/localtest/infra`: staged into the install by `src/cli/cmd/dev/main.go` during `make dev-install`.
-- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `58c58a6b`
-  ("baseline, unmodified"). It is never amended. Earlier baselines: `24562cba` (altinn-studio `b908931519`,
+- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `9a6609eb`
+  ("baseline, unmodified"). It is never amended. Earlier baselines: `58c58a6b` (altinn-studio `e45c348eac`,
+  2026-10-25; the interface itself was developed on it in `9d4f10b7` with both runtimes, then upstreamed without
+  localtest-v2), `24562cba` (altinn-studio `b908931519`,
   2026-10-23; the change on it is `git log 24562cba..e56ab475 -- localtest/studioctl/src`) and `3ecc3fb` (altinn-studio
   `89b1d7bc70`, 2026-10-20; `git log 3ecc3fb..a1a5df42 -- localtest/studioctl/src`).
 - Everything after the baseline is our change to upstream: the localtest-v2 runtime. There is no `#if LOCALTEST`
   here: this code is meant to be upstreamed as-is, so changes are ordinary commits. The first commit after the
-  baseline (`d4672274`) re-applies the whole change as it stood on the previous baseline; the next (`1fb0fb41`) moves
-  localtest-v2 onto the shared `internal/cmd/env/stack` and decides the running runtime from its containers
-  (`git log --oneline 58c58a6b..HEAD -- localtest/studioctl/src`). [`README.md`](README.md) "What the
+  baseline (`e0e26724`) re-applies the whole change as it stood on the previous baseline (`git log --oneline
+  9a6609eb..HEAD -- localtest/studioctl/src`). localtest-v2 implements the interface in
+  `internal/cmd/env/localtestv2/runtime.go`. [`README.md`](README.md) "What the
   localtest-v2 change adds" describes the result file by file.
 - Upstream, the change is a stack of branches on `ivarne-agent/altinn-studio`, each re-authored from this tree as a few
   logical commits:
   1. `refactor/studioctl-env-shared-runtime` ([altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483)):
      the env-runtime refactor, which the pin above includes.
+  1b. `refactor/studioctl-env-runtime-interface`: the Runtime/Env interface, stacked on 1, which the pin includes too.
   2. `feat/studioctl-localtest-v2-stack` ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)):
      the localtest-v2 change on the refactor: the runtime as first reviewed (six commits), then what this repository
      added after that (four commits). At its head, `diff -r` of `src/cli` and `src/Runtime/devenv` against
@@ -40,7 +43,7 @@ root (`src/...`); `--binary` is needed for the `.pfx` asset:
 
 ```sh
 git diff --binary --relative=localtest/studioctl 24562cba HEAD -- localtest/studioctl/src > studioctl.patch
-git -C <monorepo> checkout -b <branch> e45c348eac7574dc86bdf551e68cb1dec3d56965
+git -C <monorepo> checkout -b <branch> 480110f40e
 git -C <monorepo> apply --index < studioctl.patch
 ```
 
