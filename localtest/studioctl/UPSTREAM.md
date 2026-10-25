@@ -1,11 +1,12 @@
 # Vendored copy of studioctl from Altinn/altinn-studio
 
 - Repository: https://github.com/Altinn/altinn-studio
-- Commit: [`480110f40e`](https://github.com/ivarne-agent/altinn-studio/tree/refactor/studioctl-env-runtime-interface)
-  (2026-10-25): `main` at `819ad7362e` plus two preparation PRs, vendored as if they were merged:
-  [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env stack, `e45c348eac`) and the
-  Runtime/Env interface stacked on it (branch `refactor/studioctl-env-runtime-interface`, `480110f40e`). When they
-  merge, sync to the `main` commit that contains them; the vendored tree does not change for them.
+- Commit: [`fd53bd173b`](https://github.com/ivarne-agent/altinn-studio/tree/fd53bd173bcb0c88ba68eb1465374d30d2a941c2)
+  (2026-10-25): `main` at `819ad7362e` plus
+  [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env stack and the Runtime/Env
+  interface, branch `refactor/studioctl-env-shared-runtime`), vendored as if it were merged. The baseline below was cut
+  from `480110f40e`, the interface branch before it was squashed into #21483; its tree is identical to `fd53bd173b`.
+  When #21483 merges, sync to the `main` commit that contains it.
 - Copied paths, monorepo layout preserved under `src/` so relative references resolve as upstream:
   - `src/cli`: studioctl (Go CLI), `studioctl-server` (C#), `studioctl-server-tests` and `common/dotnet`.
   - `src/Runtime/devenv`: Go module `altinn.studio/devenv`; `src/cli/go.mod` replaces it with `../Runtime/devenv`.
@@ -27,8 +28,7 @@
 - Upstream, the change is a stack of branches on `ivarne-agent/altinn-studio`, each re-authored from this tree as a few
   logical commits:
   1. `refactor/studioctl-env-shared-runtime` ([altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483)):
-     the env-runtime refactor, which the pin above includes.
-  1b. `refactor/studioctl-env-runtime-interface`: the Runtime/Env interface, stacked on 1, which the pin includes too.
+     the env-runtime refactor and the Runtime/Env interface, which the pin above includes.
   2. `feat/studioctl-localtest-v2-stack` ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)):
      the localtest-v2 change on the refactor: the runtime as first reviewed (six commits), then what this repository
      added after that (four commits). At its head, `diff -r` of `src/cli` and `src/Runtime/devenv` against
@@ -43,7 +43,7 @@ root (`src/...`); `--binary` is needed for the `.pfx` asset:
 
 ```sh
 git diff --binary --relative=localtest/studioctl 24562cba HEAD -- localtest/studioctl/src > studioctl.patch
-git -C <monorepo> checkout -b <branch> 480110f40e
+git -C <monorepo> checkout -b <branch> fd53bd173b
 git -C <monorepo> apply --index < studioctl.patch
 ```
 
