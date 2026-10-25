@@ -85,7 +85,7 @@ A path matching no route still falls through to the localtest app.
 | 49 | [localtest-v2 "up" from the containers, not the state file](#49-localtest-v2-up-from-the-containers-not-the-state-file) | done (2026-10-25; commits aae4355b, 70e5e5c4, 3b263f5b, ec0c4ebc: `localtestv2.Current` (state file plus devenv `GraphRunning`) for every reader outside the runtime, a stale file is no localtest-v2, `run` stops at once only when the containers run and the front door does not answer (the agent's stop on a stale file was changed by the coordinator: it refused runs against `-r localtest`); proven on the stack: after `docker rm -f` of the 13 containers `app env` on loopback without the certificate, `run` in 2.5 s, the server with the host bridge, `env up -r localtest` and a run against it, `env down -r localtest-v2` removed the file; with the front door paused `run` stopped after 5 s; ported to altinn-studio#21394 as 7b4c81fc13; brief `/home/agent/code/.briefs/task49-state-file.md`) | medium | yes |
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
-| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; open: a `monitoring` group in the shared manifest that Aspire skips, or the studioctl runtime adding the containers itself) | medium | yes |
+| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; open: the manifest format, the images and the OTLP route) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1784,6 +1784,7 @@ studioctl only.
 
 - **Where the containers are declared (the user's question, 2026-10-25: can telemetry be a group that Aspire knows to
   ignore?).** Yes, if two conditions are met.
+  The group approach is chosen.
   - **Condition 1: the manifest can describe the containers.** Today it cannot. Both loaders reject unknown fields
     (`DisallowUnknownFields` in `manifest.go`, `JsonUnmappedMemberHandling.Disallow` in
     `ManifestJsonContext.cs`). A container has only `registry`, `tag`, `port`, `health`, `envs`, `volumes` and
@@ -1803,12 +1804,16 @@ studioctl only.
       extra hostname setup.
     - The service names in the `infra/` files (`localtest-victoria-*`) become the manifest's container names, so the
       image's copy of the files differs from the old runtime's copy only in those names.
-  - **Condition 2: a group can be marked as one Aspire skips.** Today Aspire's `OptionalGroups` is "every group except
-    `default` and `minimal`". `everything` enables all of them, and `GroupMethodsTests` requires a typed `With<Group>`
-    method for each one. Add a group field, for example `"runtimes": ["studioctl"]` (omitted means every runtime),
-    read by both loaders. Aspire leaves a marked group out of `OptionalGroups`, `everything` and the method test.
-    studioctl's `everything` should leave out `monitoring` as well, because it adds five containers of memory. It is
-    then `--with monitoring`, or `--monitoring` as an alias, if the shared env flag is wanted.
+  - **Condition 2: Aspire ignores the group explicitly (decided 2026-10-25).** The group is an ordinary manifest
+    group with no marker. studioctl's `everything` includes it. The Aspire host names it in its own code as a group
+    it ignores, because Aspire's dashboard does the same job. For example, `LocaltestManifest.MonitoringGroup` sits
+    beside `DefaultGroup` and `MinimalGroup` and is excluded the same way. Today Aspire's `OptionalGroups` is "every
+    group except `default` and `minimal`". `everything` enables all of them, and `GroupMethodsTests` requires a typed
+    `With<Group>` method for each one. The ignored group therefore comes out of `OptionalGroups`, out of Aspire's
+    `everything` and out of the method test, and `WithGroup("monitoring")` fails with a message pointing at the
+    Aspire dashboard. A new group that Aspire does not know still fails the method test, so ignoring a group is
+    always a deliberate decision. In studioctl, the group is turned on by `--with monitoring` or `--with everything`;
+    `--monitoring` can be an alias, if the shared env flag is wanted.
   - **The components' own telemetry switches** are runtime-specific. Aspire sends component containers' OTLP to its own
     dashboard, and studioctl sends it to the collector only when the group is on. A container's `envs` therefore cannot
     simply hard-code `EngineSettings__EnableTelemetry=true`. The proposal: a placeholder such as `{{otlp}}` (an empty
@@ -1852,7 +1857,9 @@ studioctl only.
 - Unit tests:
   - the resource graph with and without monitoring;
   - both manifest loaders accept the new group field;
-  - Aspire's `OptionalGroups`, `everything` and the method test leave the group out;
+  - Aspire's `OptionalGroups`, `everything` and the method test leave the group out, and `WithGroup("monitoring")` fails
+    with a clear message;
+  - studioctl's `everything` includes `monitoring`;
   - the `app env` golden file gets a `native-localtest-v2-monitoring` case;
   - a front-door route test for `/grafana` that answers 503 when Grafana is not running.
 - On the stack:
