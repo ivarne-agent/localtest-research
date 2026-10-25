@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -131,21 +130,19 @@ func localtestV2At(t *testing.T, address string, running bool) *RunCommand {
 	return cmd
 }
 
-// A state file whose containers are gone (a reboot, a docker rm) stops the run at once, with the commands that start
-// or forget the environment.
-func TestARunStopsAtOnceWhenTheRecordedEnvironmentHasNoContainers(t *testing.T) {
+// A state file whose containers are gone (a reboot, a docker rm) is no localtest-v2: the run goes on at the default
+// origin without asking the front door.
+func TestARunWhenTheRecordedEnvironmentHasNoContainersIsWithoutLocaltestV2(t *testing.T) {
 	t.Parallel()
 	server, requests := frontDoorServer(t)
 	cmd := localtestV2At(t, server.Listener.Addr().String(), false)
 
-	_, err := cmd.runTopology(t.Context())
-	if !errors.Is(err, errLocaltestV2Stopped) {
-		t.Fatalf("runTopology() error = %v, want errLocaltestV2Stopped", err)
+	topology, err := cmd.runTopology(t.Context())
+	if err != nil {
+		t.Fatalf("runTopology() error = %v", err)
 	}
-	for _, want := range []string{"env up -r localtest-v2", "env down -r localtest-v2"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not name %q", err, want)
-		}
+	if want := envtopology.NewLocal(envtopology.DefaultIngressPortString()); topology != want {
+		t.Errorf("runTopology() = %+v, want the default %+v", topology, want)
 	}
 	if requests.Load() != 0 {
 		t.Errorf("the front door got %d requests, want none", requests.Load())

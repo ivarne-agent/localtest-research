@@ -121,8 +121,9 @@ up, apps listen on every interface, because the front door reaches them from its
 and `studioctl run --dev-frontend` also routes `http://app-frontend.local.altinn.cloud:8000` to a
 frontend dev server on the host's port 8080 for as long as the run lasts. Whether localtest-v2 is up
 comes from its containers: when they are gone without `env down` (after a restart of the machine),
-studioctl treats it as down, and `studioctl run` stops at once with the command that starts it
-again, `env up -r localtest-v2`, or the one that forgets it, `env down -r localtest-v2`.
+studioctl treats it as down. When its containers run but the front door does not answer,
+`studioctl run` stops at once with `env up -r localtest-v2` to start it again, or `env down -r
+localtest-v2` to stop it.
 
 `studioctl run --mode container` builds the app's image from its `Dockerfile`, as for the localtest
 runtime, and runs it on the stack's network, `localtest-v2_network`, where the localtest container

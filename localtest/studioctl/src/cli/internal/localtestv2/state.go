@@ -82,12 +82,6 @@ type Environment struct {
 	Running bool
 }
 
-// Stale reports a state file without a running container: the environment stopped without env down (a reboot, a
-// docker rm), so nothing answers at its origin.
-func (e Environment) Stale() bool {
-	return e.Recorded && !e.Running
-}
-
 // Topology is the public URLs of the running environment, at the origin it was started with; the default topology
 // when it does not run. Everything that reaches the front door (a run's registration wait, the app's environment, the
 // frontend dev server's route) takes its URLs from here.

@@ -27,7 +27,6 @@ const frontendDevServerPort = 8080
 
 var (
 	errFrontDoorRegistration = errors.New("the localtest-v2 front door has not registered the app")
-	errLocaltestV2Stopped    = errors.New("localtest-v2 is not running")
 	errFrontDoorUnreachable  = errors.New("the localtest-v2 front door does not answer")
 )
 
@@ -50,25 +49,20 @@ func findLocaltestV2(
 }
 
 // runTopology is the public URLs an app run uses: the running localtest-v2 environment's origin (env up --host,
-// --port), else the default. A run against a localtest-v2 environment that is recorded but does not run, or whose
-// front door does not answer, stops here, before the app is built, rather than when the registration wait times out.
+// --port), else the default. A recorded environment whose containers are gone (a reboot, a docker rm) is down, so the
+// run goes on without it. A running one whose front door does not answer stops the run here, before the app is built,
+// rather than when the registration wait times out.
 func (c *RunCommand) runTopology(ctx context.Context) (envtopology.Local, error) {
 	v2, err := findLocaltestV2(ctx, c.cfg, c.containers)
 	if err != nil {
 		return v2.Topology(), err
-	}
-	bin := osutil.CurrentBin()
-	if v2.Stale() {
-		return v2.Topology(), fmt.Errorf(
-			"%w: its containers are gone; start it with '%s env up -r %s', or forget it with '%s env down -r %s'",
-			errLocaltestV2Stopped, bin, envlocaltestv2.Name, bin, envlocaltestv2.Name,
-		)
 	}
 	topology := v2.Topology()
 	if !v2.Running {
 		return topology, nil
 	}
 	if _, err := frontdoor.NewClient(topology.LocaltestURL()).Apps(ctx); errors.Is(err, frontdoor.ErrUnreachable) {
+		bin := osutil.CurrentBin()
 		return topology, fmt.Errorf(
 			"%w at %s; start it with '%s env up -r %s', or stop localtest-v2 with '%s env down -r %s'",
 			errFrontDoorUnreachable, topology.LocaltestURL(), bin, envlocaltestv2.Name, bin, envlocaltestv2.Name,

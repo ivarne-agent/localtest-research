@@ -134,7 +134,7 @@ func TestAStateFileWithoutContainersIsNotRunning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v2.Running || !v2.Recorded || !v2.Stale() {
+	if v2.Running || !v2.Recorded {
 		t.Fatalf("got %+v, want a recorded environment that does not run", v2)
 	}
 	if v2.State.PublicPort != 18000 {
@@ -153,7 +153,7 @@ func TestWithoutAStateFileTheContainerRuntimeIsNotAsked(t *testing.T) {
 		t.Error(errNotAsked)
 		return nil, errNotAsked
 	})
-	if err != nil || v2.Recorded || v2.Running || v2.Stale() {
+	if err != nil || v2.Recorded || v2.Running {
 		t.Fatalf("got %+v, %v, want nothing recorded", v2, err)
 	}
 }
