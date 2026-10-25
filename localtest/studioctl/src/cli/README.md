@@ -163,8 +163,8 @@ everything. It takes no `--with` or `--without`, and `--dev-<container>` only fo
 it starts. `env status` says when the stack runs in minimal mode, and `env up` with or without
 `--minimal` stops a stack running in the other mode first.
 
-Only one runtime runs at a time. `env up` records which one it started, and `env down`, `env status`,
-`env logs` and `env reset` act on that one unless `-r` says otherwise.
+Only one runtime runs at a time: `env up` refuses to start one while the other runs, and `env down`,
+`env status`, `env logs` and `env reset` act on the running one unless `-r` says otherwise.
 
 The localtest-v2 images are pinned to one build in the embedded manifest; `--latest` follows every
 build on the research repository's main branch. To run a container from source, pass the Dockerfile or
