@@ -45,7 +45,8 @@ On macOS, `make dev-run` from a deeply nested checkout (an agent worktree) fails
   the container user, the legacy-localtest check) lives in `internal/cmd/env/stack`, and the shared contracts and
   status payload in `internal/cmd/env`; a runtime does not import another runtime's package. Which runtime is up is
   answered by `Env.Active` from the running containers (`envtypes.ResolveRuntime`, `EnsureNoOtherActive`), not by a
-  state file studioctl writes
+  state file studioctl writes. Outside the env commands, whether localtest-v2 runs is `localtestv2.Current`, the same
+  container check plus the configuration its state file records; a state file alone never means a runtime is up
 - Output states facts in a line: what is configured or wrong, and the command that changes it.
   No advice prose, and no paths to files studioctl manages
 
@@ -90,7 +91,9 @@ Invariants:
   is the localtest app's container, the only published port; studioctl-server's discovery registers apps with it
   (`Discovery/FrontDoorRegistration.cs`), `studioctl run` waits for that registration and with `--dev-frontend`
   registers the frontend dev server's route (`run_frontdoor.go`, through the client in
-  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file both sides read. studioctl carries
+  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file (the configuration the stack was started with) and `Current`, which
+  studioctl-server's start config, the app environment, container mode and `run` use to find out whether the stack
+  runs. studioctl carries
   no proxy, route table or provisioning for localtest-v2: those are the localtest image's. Conventions:
   `localtest/CONVENTIONS.md` in the research repository.
 
