@@ -139,7 +139,7 @@ the referenced projects' `Directory.Build.props` imports (the same in upstream s
 the localtest runtime); run it as a process.
 
 **Why not a separate apps network.** A network of the apps' own, apart from the components, was
-tried (task 34) and does not work today, under Podman 5.7 with netavark at least. With the localtest
+tried and does not work today, under Podman 5.7 with netavark at least. With the localtest
 container on both networks, netavark forwards the published port 8000 to the container's address on
 one network only (the first rule wins), and it isolates the bridges from each other, so callers on
 the other network time out: either the components or the app lose `local.altinn.cloud:8000`. With
@@ -171,16 +171,17 @@ Only one runtime runs at a time: `env up` refuses to start one while the other r
 `env status`, `env logs` and `env reset` act on the running one unless `-r` says otherwise.
 
 The localtest-v2 images are pinned to one build in the embedded manifest; `--latest` follows every
-build on the research repository's main branch. To run a container from source, pass the Dockerfile or
+build on the [research repository's](https://github.com/ivarne-agent/localtest-research) main branch. To run a container from source, pass the Dockerfile or
 the directory holding it (default: the current directory); studioctl builds it and runs it instead:
 
 ```sh
-cd ~/code/localtest-research/localtest/components/storage
+cd localtest-research/localtest/components/storage   # a checkout of the research repository
 studioctl env up -r localtest-v2 --dev-storage                  # or --dev-storage=<path>
 ```
 
-The conventions the runtime follows (the manifest, the front door, service discovery, ports, the
-certificate, the volumes) are in the research repository's `localtest/CONVENTIONS.md`.
+The conventions the runtime follows (the manifest, tags, service names, ports and health, the
+certificate, the volumes) are in the
+[manifest README](internal/localtestv2/manifest/README.md).
 
 Not in localtest-v2 yet: the monitoring stack and pgAdmin (`env up` refuses `--monitoring` and
 `--pgadmin` there), container-mode apps at another origin than `http://local.altinn.cloud:8000`, and

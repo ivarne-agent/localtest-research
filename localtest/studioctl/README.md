@@ -70,6 +70,25 @@ To add a container: add it to `manifest.json` and to a group's roots or another 
 `.github/workflows/images.yml`, its database init script to `localtest/postgres/Dockerfile`; then run `go test ./...`
 under `src/cli` and regenerate the snapshot. No Go change is needed.
 
+## Not mergeable yet
+
+The code under `src/` is written for the monorepo: no task numbers and no relative links out of `src/`. What still
+names this repository, each by absolute URL or image reference, and must change before
+[altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394) can merge:
+
+| Where (under `src/cli/`) | What | Before merging |
+| --- | --- | --- |
+| `internal/localtestv2/manifest/manifest.json`, its README's example, `internal/cmd/env/localtestv2/testdata/environment.golden.json` | The research images, `ghcr.io/ivarne-agent/localtest-research/localtest-*` | Images built and published from the monorepo |
+| `internal/localtestv2/manifest/manifest_internal_test.go` (`redisImage`, `TestTheResearchImagesShareOnePin`), `internal/cmd/env/localtestv2/loader_internal_test.go` (`--latest`) | The same registry prefix in test code | Follows the images |
+| `internal/localtestv2/manifest/README.md` ("Tags", "The certificate", "Changing it", the Postgres and Redis images), `AGENTS.md` | Links to `bump-tag.sh`, the certificate's README, the Postgres and Redis Dockerfiles, the Aspire package and `manifest-parity.yml` | Follows the images' sources and tooling |
+| `internal/cmd/env/localtestv2/doc.go`, `certs.go` | Where the components are built; the test key pair's origin | Follows the images' sources |
+| `internal/appsecrets/appcodes_golden_test.go`, `internal/cmd/app/env_golden_internal_test.go` | The Aspire package that compares against these goldens | The Aspire package's home |
+| `README.md` ("localtest-v2") | The research repository as the components' source, `--latest`, a `--dev-<container>` example | Follows the images' sources |
+
+The conventions the code depends on (manifest, tags, service names, port and health, the certificate, volumes) are
+stated in `src/cli/internal/localtestv2/manifest/README.md`; [`../CONVENTIONS.md`](../CONVENTIONS.md) points there for
+those.
+
 ## What the localtest-v2 change adds
 
 Paths below are under `src/cli/`.

@@ -2,9 +2,14 @@
 
 The rules every part of the stack follows: the manifest, the runtimes (studioctl's `localtest-v2` and the Aspire
 package), the localtest app as the front door and the component images. Each section states the rule, the reason and
-where the code is. Other documents link here instead of restating them. State as of 2026-10-24 (after tasks 25 to 28, 31, and phase 1 of 34, 35 and 39 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
+where the code is. Other documents link here instead of restating them. The rules the studioctl code depends on are
+stated with that code, in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md), which travels with it into the monorepo; the sections
+below name the matching section there and add what only this repository needs (the Aspire package, the images'
+sources, the history). Where the two disagree, the manifest README is right. State as of 2026-10-24 (after tasks 25 to 28, 31, and phase 1 of 34, 35 and 39 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
+
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#the-localtest-v2-manifest-v2).
 
 **Rule.** One file,
 [`studioctl/src/cli/internal/localtestv2/manifest/manifest.json`](studioctl/src/cli/internal/localtestv2/manifest/manifest.json),
@@ -46,6 +51,8 @@ runner and held to one golden snapshot, rather than a vocabulary in a file that 
 ([`aspire/Altinn.App.Aspire/src/AltinnLocaltestExtensions.cs`](aspire/Altinn.App.Aspire/src/AltinnLocaltestExtensions.cs)).
 
 ## Tags
+
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#tags).
 
 **Rule.** Every research image carries the same `sha-<commit>` pin (today `sha-6d928ad`); pdf3 and the workflow engine
 run the monorepo's `tt02` tag, re-pulled on every start. A pin moves only by
@@ -220,6 +227,8 @@ studioctl-server and the Aspire package carry no proxy of their own.
 
 ## Service discovery
 
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#service-names).
+
 **Rule.**
 
 1. **Every container's name is its network alias** in both runtimes (`storage`, `postgres`, `dialogporten-webapi`).
@@ -269,6 +278,8 @@ variables as a container; a configuration-only resolver also makes "not running"
 
 ## Port and health
 
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#port-and-health).
+
 **Rule (target).** An image built here listens on 8080 and answers `GET /health` with 200; the manifest then names
 neither. Health is either an HTTP path or `tcp`. Aspire ignores an image's `HEALTHCHECK` for `WaitFor` and Podman's
 OCI images drop it, so the runtimes do the check themselves (see [The runtimes](#the-runtimes)).
@@ -292,6 +303,8 @@ image). pdf3 and the workflow engine are not built here and keep their values.
 
 ## The certificate
 
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#the-certificate).
+
 **Rule.** One test certificate signs and validates every platform access token:
 [`certs/localtest-accesstoken.pfx`](certs/README.md). studioctl embeds a byte-identical copy, writes it under its data
 directory (`~/.altinn-studio/localtest-v2/certs/`; Aspire: `<DataDirectory>/certs`, default `~/.altinn-app-aspire`)
@@ -307,6 +320,8 @@ the path to `/certs`. The app runners point the app at the host copy.
 **Code.** `certs.go` and `containerVolumes` in `containers.go`; Aspire's `LocaltestCertificate.cs`.
 
 ## Volumes
+
+Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#containers).
 
 **Rule.** Data lives in five named volumes. The manifest names each by an **id**; each runtime names the volume by
 its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>` (the default parent

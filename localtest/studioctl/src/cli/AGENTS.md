@@ -82,20 +82,21 @@ Invariants:
   its manifest's images). It replaced a home-directory override file, which an update deletes.
 - The localtest-v2 stack is described by one embedded manifest
   (`internal/localtestv2/manifest/manifest.json`, with its README): groups of root containers, and per container its
-  image (registry and tag; the research images share one `sha-<commit>` pin, moved only by
-  `localtest/tools/bump-tag.sh`), environment (literal but for the public origin's placeholders, `{{origin}}` and
-  kin, from the `public` section; `manifest/origin.go`), `dependsOn`, volumes, port and health. `env up --latest` follows
+  image (registry and tag; the research images share one `sha-<commit>` pin, moved only by the research repository's
+  [`bump-tag.sh`](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/tools/bump-tag.sh)),
+  environment (literal but for the public origin's placeholders, `{{origin}}` and kin, from the `public` section;
+  `manifest/origin.go`), `dependsOn`, volumes, port and health. `env up --latest` follows
   main. Change the manifest, not Go code, to change a container; the golden file in
   `internal/cmd/env/localtestv2/testdata/` shows the effect. The runtime lives in `internal/cmd/env/localtestv2/`
   (network, containers, `services__*` variables, probe-container health, `--dev-<container>` builds). The front door
   is the localtest app's container, the only published port; studioctl-server's discovery registers apps with it
   (`Discovery/FrontDoorRegistration.cs`), `studioctl run` waits for that registration and with `--dev-frontend`
   registers the frontend dev server's route (`run_frontdoor.go`, through the client in
-  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file (the configuration the stack was started with) and `Current`, which
-  studioctl-server's start config, the app environment, container mode and `run` use to find out whether the stack
-  runs. studioctl carries
-  no proxy, route table or provisioning for localtest-v2: those are the localtest image's. Conventions:
-  `localtest/CONVENTIONS.md` in the research repository.
+  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file (the configuration the stack was
+  started with) and `Current`, which studioctl-server's start config, the app environment, container mode and `run`
+  use to find out whether the stack runs. studioctl carries no proxy, route table or provisioning for localtest-v2:
+  those are the localtest image's. The conventions the runtime and the images share (tags, ports and health, the
+  certificate, volumes, service names) are in the manifest README.
 
 ### Releases
 
