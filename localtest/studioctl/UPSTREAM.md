@@ -27,11 +27,11 @@
   1. `refactor/studioctl-env-shared-runtime` ([altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483)):
      the env-runtime refactor, which the pin above includes.
   2. `feat/studioctl-localtest-v2-stack` ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)):
-     the localtest-v2 runtime at the feature set it was first reviewed with, on the refactor.
-  3. `feat/studioctl-localtest-v2-research-sync`: the rest of this tree. At its head, `diff -r` of `src/cli` and
-     `src/Runtime/devenv` against `localtest/studioctl/src` is empty.
+     the localtest-v2 change on the refactor: the runtime as first reviewed (six commits), then what this repository
+     added after that (four commits). At its head, `diff -r` of `src/cli` and `src/Runtime/devenv` against
+     `localtest/studioctl/src` is empty.
 
-  Later studioctl commits here go on top of branch 3, or on a new branch stacked on it.
+  Later studioctl commits here go on top of branch 2.
 
 ## Regenerating the upstream patch
 
