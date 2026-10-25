@@ -33,8 +33,15 @@ type Resetter interface {
 
 // UpOptions configures environment startup.
 type UpOptions struct {
+	DevComponents     map[string]string
+	PublicPort        *int
+	PublicHost        string
+	With              []string
+	Without           []string
 	Detach            bool
 	DevWorkflowEngine bool
+	LatestImages      bool
+	Minimal           bool
 	Monitoring        bool
 	OpenBrowser       bool
 	PgAdmin           bool
