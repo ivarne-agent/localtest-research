@@ -16,24 +16,9 @@ type appEnv struct {
 	values map[string]string
 }
 
-// accessTokenSigning is the certificate an app signs its platform access tokens with. The localtest
-// runtime never checked those tokens, so a run against it has none (nil); the localtest-v2 components
-// validate them, so a run against that runtime gets the shared test certificate.
-//
-// Two generations of Altinn.Common.AccessTokenClient read the settings differently: 3.x (app-lib v8)
-// opens FullPath, and 1.x (the v9 backend) concatenates the parent of the working directory, KeysFolder
-// and FileName without separators, so KeysFolder is a path that resolves from there.
-type accessTokenSigning struct {
-	FullPath   string
-	KeysFolder string
-	FileName   string
-	// arbeidsflate is set while localtest-v2 runs the arbeidsflate group, the local Arbeidsflate the inbox links go to.
-	arbeidsflate bool
-}
-
 // newAppRunEnv builds the environment an app is started with. secretsDir is required - every run is given a
 // secrets directory, and the caller has created it by now; keysDir is set only where studioctl decides where
-// the data-protection keys go; signing is set only while localtest-v2 is up.
+// the data-protection keys go.
 func newAppRunEnv(
 	current []string,
 	kestrelURL string,
@@ -41,10 +26,9 @@ func newAppRunEnv(
 	appFrontendAssetBaseUrl string,
 	secretsDir string,
 	keysDir string,
-	signing *accessTokenSigning,
 ) []string {
 	env := newAppEnv(current)
-	env.addRunDefaults(kestrelURL, topology, appFrontendAssetBaseUrl, secretsDir, keysDir, signing)
+	env.addRunDefaults(kestrelURL, topology, appFrontendAssetBaseUrl, secretsDir, keysDir)
 	return env.entries()
 }
 
@@ -68,7 +52,6 @@ func (e appEnv) addRunDefaults(
 	appFrontendAssetBaseUrl string,
 	secretsDir string,
 	keysDir string,
-	signing *accessTokenSigning,
 ) {
 	endpoints := newAppEndpointConfig(topology)
 
@@ -111,38 +94,6 @@ func (e appEnv) addRunDefaults(
 	e.setDefault("PlatformSettings__ApiCorrespondenceEndpoint", endpoints.platform+"/correspondence/api/v1/")
 	e.setDefault("PlatformSettings__ApiAccessManagementEndpoint", endpoints.platform+"/accessmanagement/api/v1/")
 	e.setDefault("PlatformSettings__ApiWorkflowEngineEndpoint", endpoints.workflowEngine)
-	if signing != nil {
-		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFullPath", signing.FullPath)
-		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
-		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
-		e.addArbeidsflateLinks(topology, signing.arbeidsflate)
-		// The app frontend's "Logg ut", which it shows only when configured: the platform's own logout, which signs the
-		// user out and lands on the front door's Home (production Authentication, or minimal mode's emulation of it).
-		e.setDefault("PlatformFrontendSettings__LogoutUrl", endpoints.platform+"/authentication/api/v1/logout")
-	}
-}
-
-// addArbeidsflateLinks sets the app frontend's Arbeidsflate links, which it reads from app-lib's
-// PlatformFrontendSettings in the bootstrap response and shows only when one is configured: it no longer derives a link
-// from the page's host. With the arbeidsflate group up the inbox, dialog, profile and parties links go into the local
-// Arbeidsflate. Without it (minimal mode included) only the inbox link is set, to the front door's Home, so "back to
-// inbox" keeps a target; the dialog link falls back to the inbox link in the frontend, and the profile and parties
-// links stay hidden. AccessManagementChangeAndRedirectUrl stays unset: the stack's Access Management does not serve
-// reportee/changeandredirect (it is the UI backend's), so the links go to the inbox without a party switch. The other
-// members (login, all forms, access management, help) stay unset; the logout link is set beside this.
-func (e appEnv) addArbeidsflateLinks(topology envtopology.Local, arbeidsflateUp bool) {
-	if !arbeidsflateUp {
-		e.setDefault(
-			"PlatformFrontendSettings__ArbeidsflateInboxUrl",
-			topology.PublicBaseURL(envtopology.ComponentPlatform)+"/",
-		)
-		return
-	}
-	arbeidsflate := topology.PublicBaseURL(envtopology.ComponentArbeidsflate)
-	e.setDefault("PlatformFrontendSettings__ArbeidsflateInboxUrl", arbeidsflate+"/")
-	e.setDefault("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate+"/inbox/{dialogId}")
-	e.setDefault("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate+"/profile")
-	e.setDefault("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate+"/profile/parties")
 }
 
 func (e appEnv) setDefault(key, value string) {

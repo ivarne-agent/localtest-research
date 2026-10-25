@@ -7,6 +7,5 @@ internal sealed record AppDiscoveryCandidate(
     string Description,
     string? ContainerId = null,
     string? Name = null,
-    int? HostPort = null,
-    Uri? FrontDoorUri = null
+    int? HostPort = null
 );
