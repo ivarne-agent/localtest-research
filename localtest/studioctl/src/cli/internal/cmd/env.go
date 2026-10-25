@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -14,8 +15,8 @@ import (
 	"altinn.studio/devenv/pkg/container"
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	envlocaltest "altinn.studio/studioctl/internal/cmd/env/localtest"
-	envregistry "altinn.studio/studioctl/internal/cmd/env/registry"
 	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
+	envregistry "altinn.studio/studioctl/internal/cmd/env/registry"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/osutil"
@@ -215,7 +216,7 @@ func (c *EnvCommand) Usage() string {
 		"  logs     Stream environment logs",
 		"",
 		"Common options:",
-		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one last started)",
+		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one running, else localtest)",
 		"",
 		"Options for 'env up':",
 		"  -d, --detach     Run in background (default: true)",
@@ -261,35 +262,55 @@ func (c *EnvCommand) Run(ctx context.Context, args []string) error {
 	}
 }
 
-// resolveRuntime fills an omitted -r: only one runtime runs at a time, so the commands act on the one the
-// last `env up` started, and on localtest before any has been.
-func (c *EnvCommand) resolveRuntime(requested string) (string, error) {
+// resolveRuntime fills an omitted -r: only one runtime runs at a time, so the commands act on the one that is running,
+// and on localtest when none is (or when there is no container runtime to ask).
+func (c *EnvCommand) resolveRuntime(ctx context.Context, requested string) (string, error) {
 	if requested != "" || c.cfg == nil {
-		return requested, nil
+		return cmp.Or(requested, runtimeLocaltest), nil
 	}
-	current, err := envtypes.CurrentRuntime(c.cfg)
+	client, err := container.Detect(ctx)
+	if err != nil {
+		c.out.Verbosef("resolve runtime: %v", err)
+		return runtimeLocaltest, nil
+	}
+	defer func() {
+		if cerr := client.Close(); cerr != nil {
+			c.out.Verbosef("failed to close container client: %v", cerr)
+		}
+	}()
+	envs, err := c.envs(client)
+	if err != nil {
+		return "", err
+	}
+	runtime, err := envtypes.ResolveRuntime(ctx, "", runtimeLocaltest, envs)
 	if err != nil {
 		return "", fmt.Errorf("resolve runtime: %w", err)
 	}
-	if current == "" {
-		return runtimeLocaltest, nil
-	}
-	return current, nil
+	return runtime, nil
 }
 
 // resolvedHostsFlags parses hosts flags and fills an omitted runtime, which only names the output: both
 // runtimes share the hostnames.
-func (c *EnvCommand) resolvedHostsFlags(name string, args []string) (envHostsFlags, bool, error) {
+func (c *EnvCommand) resolvedHostsFlags(ctx context.Context, name string, args []string) (envHostsFlags, bool, error) {
 	flags, helpShown, err := parseEnvHostsFlags(name, args)
 	if err != nil || helpShown {
 		return flags, helpShown, err
 	}
-	flags.runtime, err = c.resolveRuntime(flags.runtime)
-	if flags.runtime == "" {
-		// No configuration to read the last runtime from.
-		flags.runtime = runtimeLocaltest
-	}
+	flags.runtime, err = c.resolveRuntime(ctx, flags.runtime)
 	return flags, false, err
+}
+
+// envs are every runtime, for the questions asked across them: which one is running.
+func (c *EnvCommand) envs(client container.ContainerClient) ([]envtypes.Env, error) {
+	envs, err := envregistry.Envs(
+		envregistry.WithConfig(c.cfg),
+		envregistry.WithOutput(c.out),
+		envregistry.WithContainerClient(client),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("build environment registry: %w", err)
+	}
+	return envs, nil
 }
 
 // getEnv returns the environment implementation for the given runtime.
@@ -367,7 +388,7 @@ func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
 			"Start the localtest environment.",
 			"",
 			"Options:",
-			"  -r, --runtime    Runtime to start: localtest or localtest-v2 (default: the one last started, else localtest)",
+			"  -r, --runtime    Runtime to start: localtest or localtest-v2 (default: the one running, else localtest)",
 			"  -d, --detach     Run in background (default: true)",
 			"  --monitoring     Start monitoring stack (localtest)",
 			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
@@ -446,7 +467,7 @@ func (c *EnvCommand) runUp(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(flags.runtime); err != nil {
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
 	if flags.jsonOutput && !flags.detach {
@@ -477,13 +498,9 @@ func (c *EnvCommand) ensureNoOtherRuntimeActive(
 	client container.ContainerClient,
 	runtime string,
 ) error {
-	envs, err := envregistry.Envs(
-		envregistry.WithConfig(c.cfg),
-		envregistry.WithOutput(c.out),
-		envregistry.WithContainerClient(client),
-	)
+	envs, err := c.envs(client)
 	if err != nil {
-		return fmt.Errorf("build environment registry: %w", err)
+		return err
 	}
 	if err := envtypes.EnsureNoOtherActive(ctx, runtime, envs); err != nil {
 		return fmt.Errorf("preflight check: %w", err)
@@ -565,9 +582,6 @@ func (c *EnvCommand) runLocaltestV2Up(
 	if err := env.Preflight(ctx, upOpts); err != nil {
 		return fmt.Errorf("preflight check: %w", err)
 	}
-	if err := envtypes.RecordCurrentRuntime(c.cfg, runtimeLocaltestV2); err != nil {
-		return fmt.Errorf("record runtime: %w", err)
-	}
 	status, err := env.Status(ctx)
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)
@@ -622,9 +636,6 @@ func (c *EnvCommand) runLocaltestUp(
 	preflightErr := env.Preflight(ctx, upOpts)
 	if preflightErr != nil {
 		return fmt.Errorf("preflight check: %w", preflightErr)
-	}
-	if err := envtypes.RecordCurrentRuntime(c.cfg, runtimeLocaltest); err != nil {
-		return fmt.Errorf("record runtime: %w", err)
 	}
 
 	status, err := env.StatusForUp(ctx, upOpts)
@@ -684,7 +695,7 @@ func (c *EnvCommand) runDown(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(flags.runtime); err != nil {
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
 
@@ -747,7 +758,7 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(flags.runtime); err != nil {
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
 	if err := validateResetRuntime(flags.runtime); err != nil {
@@ -860,7 +871,7 @@ func (c *EnvCommand) runStatus(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(flags.runtime); err != nil {
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
 
@@ -941,7 +952,7 @@ func (c *EnvCommand) hostsUsage() string {
 		"  remove    Remove studioctl-managed localtest hosts entries",
 		"",
 		"Options:",
-		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one last started)",
+		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one running, else localtest)",
 		"  --json           Output as JSON",
 		"",
 		fmt.Sprintf("Run '%s env hosts <subcommand> --help' for more information.", osutil.CurrentBin()),
@@ -988,8 +999,8 @@ func (c *EnvCommand) runHosts(ctx context.Context, args []string) error {
 	}
 }
 
-func (c *EnvCommand) runHostsAdd(_ context.Context, args []string) error {
-	flags, helpShown, err := c.resolvedHostsFlags("env hosts add", args)
+func (c *EnvCommand) runHostsAdd(ctx context.Context, args []string) error {
+	flags, helpShown, err := c.resolvedHostsFlags(ctx, "env hosts add", args)
 	if err != nil {
 		return err
 	}
@@ -1055,8 +1066,8 @@ func (c *EnvCommand) runHostsAdd(_ context.Context, args []string) error {
 	return nil
 }
 
-func (c *EnvCommand) runHostsStatus(_ context.Context, args []string) error {
-	flags, helpShown, err := c.resolvedHostsFlags("env hosts status", args)
+func (c *EnvCommand) runHostsStatus(ctx context.Context, args []string) error {
+	flags, helpShown, err := c.resolvedHostsFlags(ctx, "env hosts status", args)
 	if err != nil {
 		return err
 	}
@@ -1098,8 +1109,8 @@ func (c *EnvCommand) runHostsStatus(_ context.Context, args []string) error {
 	return nil
 }
 
-func (c *EnvCommand) runHostsRemove(_ context.Context, args []string) error {
-	flags, helpShown, err := c.resolvedHostsFlags("env hosts remove", args)
+func (c *EnvCommand) runHostsRemove(ctx context.Context, args []string) error {
+	flags, helpShown, err := c.resolvedHostsFlags(ctx, "env hosts remove", args)
 	if err != nil {
 		return err
 	}
@@ -1378,7 +1389,7 @@ func (c *EnvCommand) runLogs(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(flags.runtime); err != nil {
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
 

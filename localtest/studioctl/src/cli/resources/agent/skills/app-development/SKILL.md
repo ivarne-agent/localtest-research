@@ -144,7 +144,7 @@ Altinn Studio platform components.
   works the same against it. `--with dialogporten|receipt|correspondence|arbeidsflate|everything` adds optional services
   with what they depend on (`arbeidsflate` is the inbox on `http://af.local.altinn.cloud:8000`, which needs a hosts
   entry: `studioctl env hosts add`). A path whose group is off answers `503` naming the `--with` that starts it.
-  Only one runtime runs at a time, and the other `env` commands follow the one last started. `--latest` runs the
+  Only one runtime runs at a time, and the other `env` commands act on the one that is running. `--latest` runs the
   newest images, and `--dev-<container>[=<path>]` builds one from a Dockerfile or its directory (default:
   the current directory). `studioctl run --mode container` (the app needs its `Dockerfile`) puts the app container
   on the stack's network, where the localtest container reaches it; it calls the platform on `http://local.altinn.cloud:8000` like a process

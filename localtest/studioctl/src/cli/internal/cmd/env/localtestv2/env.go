@@ -16,17 +16,14 @@ import (
 	containertypes "altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
 	"altinn.studio/devenv/pkg/resource/executor"
-	containerbackend "altinn.studio/devenv/pkg/resource/executor/container"
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	envstack "altinn.studio/studioctl/internal/cmd/env/stack"
-	v1components "altinn.studio/studioctl/internal/cmd/env/localtest/components"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/osutil"
 	"altinn.studio/studioctl/internal/studioctlserver"
 	"altinn.studio/studioctl/internal/ui"
-	"altinn.studio/studioctl/internal/ui/resourcegraph"
 )
 
 const (
@@ -38,11 +35,6 @@ const (
 
 	teardownTimeout = 30 * time.Second
 	stoppingMessage = "Stopping localtest-v2 environment..."
-)
-
-var (
-	// ErrLocaltestRunning is returned when the localtest runtime holds the public origin's port.
-	ErrLocaltestRunning = errors.New("the localtest runtime is running; stop it first with 'env down'")
 )
 
 // Env implements envtypes.Env for the localtest-v2 runtime.
@@ -79,19 +71,12 @@ func (e *Env) Name() string {
 	return Name
 }
 
-// Preflight validates prerequisites before startup: the localtest runtime must not hold the public origin's port, the
-// groups must be known, a dev build must name a container and a Dockerfile, and a custom public host must resolve to
-// this machine.
+// Preflight validates prerequisites before startup: no localtest started outside studioctl may hold the public origin,
+// the groups must be known, a dev build must name a container and a Dockerfile, and a custom public host must resolve to
+// this machine. Another runtime that is running is refused by env up (envtypes.EnsureNoOtherActive).
 func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 	if err := envstack.CheckForLegacyLocaltest(ctx, e.client); err != nil {
 		return fmt.Errorf("check for legacy localtest: %w", err)
-	}
-	info, err := e.client.ContainerInspect(ctx, v1components.ContainerLocaltest)
-	if err == nil && info.State.Running {
-		return ErrLocaltestRunning
-	}
-	if err != nil && !errors.Is(err, container.ErrContainerNotFound) {
-		return fmt.Errorf("inspect container %s: %w", v1components.ContainerLocaltest, err)
 	}
 	if err := checkMinimal(opts); err != nil {
 		return err
@@ -266,18 +251,11 @@ func (e *Env) Status(ctx context.Context) (*envtypes.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	graph, err := buildResourceGraph(resources(current, nil))
+	graph, snapshot, err := e.stack.Observe(ctx, resources(current, nil))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("observe localtest-v2: %w", err)
 	}
-	exec, err := newResourceExecutor(e.client)
-	if err != nil {
-		return nil, err
-	}
-	snapshot, err := exec.Status(ctx, graph, executor.SkipResource(isImageResource))
-	if err != nil {
-		return nil, fmt.Errorf("get resource status: %w", err)
-	}
+	images := e.stack.ContainerImages(ctx, graph.All(), snapshot, pulledRef)
 
 	status := envtypes.Status{
 		Origin:     current.Origin.URL(),
@@ -296,12 +274,12 @@ func (e *Env) Status(ctx context.Context) (*envtypes.Status, error) {
 		if !ok {
 			continue
 		}
-		resourceStatus, imageID := observedContainer(snapshot, ctr)
+		resourceStatus := envstack.ManagedStatus(snapshot, ctr.ID())
 		status.Containers = append(status.Containers, envtypes.ContainerStatus{
 			Name:    ctr.Name,
-			Image:   e.imageRef(ctx, ctr, imageID),
-			ImageID: imageID,
-			Status:  statusString(resourceStatus),
+			Image:   images[ctr.Name].Ref,
+			ImageID: images[ctr.Name].ImageID,
+			Status:  envstack.StatusString(resourceStatus),
 		})
 		if resourceStatus.IsHealthy() {
 			ready++
@@ -314,38 +292,13 @@ func (e *Env) Status(ctx context.Context) (*envtypes.Status, error) {
 	return &status, nil
 }
 
-// observedContainer reads a container's status and image from the snapshot; a container studioctl does
-// not own counts as absent.
-func observedContainer(snapshot executor.Snapshot, ctr *resource.Container) (executor.Status, string) {
-	observed, present := snapshot.Resources[ctr.ID()]
-	if !present || !observed.Managed {
-		return executor.StatusDestroyed, ""
-	}
-	return observed.Status, observed.ImageID
-}
-
-// imageRef names the reference a container was pulled from, when that reference still resolves to the
-// build the container runs; a dev build or a moved tag has none.
-func (e *Env) imageRef(ctx context.Context, ctr *resource.Container, imageID string) string {
-	pulled, isPulled := ctr.Image.Resource().(*resource.PulledImage)
-	if !isPulled || imageID == "" {
-		return ""
-	}
-	info, err := e.client.ImageInspect(ctx, pulled.Ref)
-	if err != nil || info.ID != imageID {
+// pulledRef names the reference a container's image is pulled from; a dev build has none.
+func pulledRef(ctr *resource.Container) string {
+	pulled, ok := ctr.Image.Resource().(*resource.PulledImage)
+	if !ok {
 		return ""
 	}
 	return pulled.Ref
-}
-
-func statusString(status executor.Status) string {
-	if status == executor.StatusDestroyed {
-		return "not found"
-	}
-	if status == executor.StatusReady {
-		return "running"
-	}
-	return status.String()
 }
 
 // forgetState removes the runtime's state and, when studioctl-server runs, restarts it without the front-door
@@ -462,17 +415,9 @@ func (e *Env) hasManagedResources(ctx context.Context) (bool, error) {
 
 // managedResources lists the resources of this runtime that exist, sorted: its containers and its network.
 func (e *Env) managedResources(ctx context.Context) ([]string, error) {
-	graph, err := buildResourceGraph(resources(e.teardownOptions(), nil))
+	_, snapshot, err := e.stack.Observe(ctx, resources(e.teardownOptions(), nil))
 	if err != nil {
-		return nil, err
-	}
-	exec, err := newResourceExecutor(e.client)
-	if err != nil {
-		return nil, err
-	}
-	snapshot, err := exec.Status(ctx, graph, executor.SkipResource(isImageResource))
-	if err != nil {
-		return nil, fmt.Errorf("get resource status: %w", err)
+		return nil, fmt.Errorf("observe localtest-v2: %w", err)
 	}
 	var managed []string
 	for id, observed := range snapshot.Resources {
@@ -486,127 +431,20 @@ func (e *Env) managedResources(ctx context.Context) ([]string, error) {
 }
 
 func (e *Env) applyResources(ctx context.Context, resources []resource.Resource, building bool) error {
-	graph, err := buildResourceGraph(resources)
-	if err != nil {
-		return err
-	}
-	exec, err := newResourceExecutor(e.client)
-	if err != nil {
-		return err
-	}
 	spinnerMsg := "Starting localtest-v2 environment..."
 	if building {
 		spinnerMsg = "Building and starting localtest-v2 environment..."
 	}
-
-	var renderer resourcegraph.Renderer
-	outputs, err := exec.Apply(ctx, graph, executor.WithApplyPlan(func(plan executor.ApplyPlan) error {
-		planned := make([]executor.PlannedResource, 0, len(plan.Destroy)+len(plan.Reconcile))
-		planned = append(planned, plan.Destroy...)
-		planned = append(planned, plan.Reconcile...)
-		e.startRenderer(exec, &renderer, planned, resourcegraph.OperationApply, plan.Snapshot.Statuses(), spinnerMsg)
-		return nil
-	}))
-	if err != nil {
-		if renderer != nil {
-			renderer.FailAll(err.Error())
-			renderer.Stop()
-		}
-		return fmt.Errorf("start environment: %w", err)
-	}
-	if renderer != nil {
-		renderer.Stop()
-	}
-	for _, res := range resources {
-		image, ok := res.(*resource.PulledImage)
-		if !ok {
-			continue
-		}
-		if output, found := outputs.Image(image.ID()); found && output.Stale {
-			e.out.Warningf("Could not reach the registry for %s; using the copy already on this machine.", image.Ref)
-		}
+	if err := e.stack.Apply(ctx, resources, spinnerMsg); err != nil {
+		return fmt.Errorf("apply localtest-v2: %w", err)
 	}
 	e.out.Success("Containers started")
 	return nil
 }
 
 func (e *Env) destroyResources(ctx context.Context, resources []resource.Resource, logStartMessage string) error {
-	graph, err := buildResourceGraph(resources)
-	if err != nil {
-		return err
-	}
-	exec, err := newResourceExecutor(e.client)
-	if err != nil {
-		return err
-	}
-	var renderer resourcegraph.Renderer
-	if err := exec.Destroy(ctx, graph, executor.WithDestroyPlan(func(plan executor.DestroyPlan) error {
-		e.startRenderer(
-			exec,
-			&renderer,
-			plan.Destroy,
-			resourcegraph.OperationDestroy,
-			plan.Snapshot.Statuses(),
-			logStartMessage,
-		)
-		return nil
-	})); err != nil {
-		if renderer != nil {
-			renderer.FailAll(err.Error())
-			renderer.Stop()
-		}
-		return fmt.Errorf("destroy resources: %w", err)
-	}
-	if renderer != nil {
-		renderer.Stop()
+	if err := e.stack.Destroy(ctx, resources, logStartMessage); err != nil {
+		return fmt.Errorf("destroy localtest-v2: %w", err)
 	}
 	return nil
-}
-
-func (e *Env) startRenderer(
-	exec *executor.Executor,
-	renderer *resourcegraph.Renderer,
-	resources []executor.PlannedResource,
-	operation resourcegraph.Operation,
-	statuses map[resource.ResourceID]executor.Status,
-	logStartMessage string,
-) {
-	switch resourcegraph.DetectMode(e.out, e.cfg.Verbose) {
-	case resourcegraph.ModeTable:
-		*renderer = resourcegraph.NewTableWithPlan(e.out, resources, operation, statuses)
-	case resourcegraph.ModeCompact:
-		*renderer = resourcegraph.NewCompactWithPlan(e.out, resources, operation, statuses)
-	case resourcegraph.ModeLog:
-		*renderer = resourcegraph.NewLogWithPlan(e.out, resources, operation, statuses, logStartMessage)
-	default:
-		*renderer = resourcegraph.NewLogWithPlan(e.out, resources, operation, statuses, logStartMessage)
-	}
-	(*renderer).Start()
-	exec.SetObserver(*renderer)
-}
-
-func newResourceExecutor(client container.ContainerClient) (*executor.Executor, error) {
-	exec := executor.New()
-	if err := exec.RegisterBackend(containerbackend.New(client)); err != nil {
-		return nil, fmt.Errorf("register container backend: %w", err)
-	}
-	return exec, nil
-}
-
-func buildResourceGraph(resources []resource.Resource) (*resource.Graph, error) {
-	graph := resource.NewGraph(resource.GraphID(graphID))
-	for _, res := range resources {
-		if err := graph.Add(res); err != nil {
-			return nil, fmt.Errorf("add resource %q to graph: %w", res.ID(), err)
-		}
-	}
-	if err := graph.Validate(); err != nil {
-		return nil, fmt.Errorf("validate resource graph: %w", err)
-	}
-	return graph, nil
-}
-
-func isImageResource(res resource.Resource) bool {
-	_, ok := res.(resource.ImageResource)
-	return ok
 }
