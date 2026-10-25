@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,11 +10,13 @@ import (
 	"testing"
 
 	"altinn.studio/devenv/pkg/container/types"
+	"altinn.studio/studioctl/internal/appcontainers"
 	"altinn.studio/studioctl/internal/appsecrets"
 	appsvc "altinn.studio/studioctl/internal/cmd/app"
 	"altinn.studio/studioctl/internal/config"
 	repocontext "altinn.studio/studioctl/internal/context"
 	"altinn.studio/studioctl/internal/envtopology"
+	"altinn.studio/studioctl/internal/localtestv2"
 )
 
 func defaultTopology() envtopology.Local {
@@ -753,5 +756,118 @@ func assertAppCodesProvisioned(t *testing.T, secretsDir string) {
 	}
 	if !strings.Contains(string(data), `"WorkflowEngineCallback"`) {
 		t.Fatalf("app codes = %s, want a WorkflowEngineCallback code", data)
+	}
+}
+
+// With localtest-v2 up, the app listens on every interface, since the front door in the localtest container reaches it
+// through the runtime's host gateway; studioctl still reaches it on loopback.
+func TestBuildDotnetRunSpec_ListensOnEveryInterfaceForTheLocaltestV2FrontDoor(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir(), Version: config.NewVersion("test-version")}
+	if err := localtestv2.WriteState(
+		cfg,
+		localtestv2.State{CertificateDir: localtestv2.CertificateDir(cfg)},
+	); err != nil {
+		t.Fatal(err)
+	}
+	appPath := t.TempDir()
+	writeAppMetadata(t, appPath, `{"id":"ttd/test-app"}`)
+	writeAppProject(t, appPath)
+	spec, err := appsvc.NewService(cfg).BuildDotnetRunSpec(
+		t.Context(), appPath, nil, nil, defaultTopology(), appsvc.DotnetRunOptions{},
+	)
+	if err != nil {
+		t.Fatalf("BuildDotnetRunSpec() error = %v", err)
+	}
+	assertEnvContainsAll(t, spec.Env, []string{"Kestrel__EndPoints__Http__Url=http://0.0.0.0:5005"})
+	if spec.BaseURL != "http://127.0.0.1:5005" {
+		t.Fatalf("BaseURL = %q, want the loopback URL", spec.BaseURL)
+	}
+}
+
+// localtestV2Service is a service whose localtest-v2 environment is up with state, for an app ttd/test-app; it returns
+// the app's path and the certificate directory.
+func localtestV2Service(t *testing.T, state localtestv2.State) (*appsvc.Service, string, string) {
+	t.Helper()
+	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir(), Version: config.NewVersion("test-version")}
+	state.CertificateDir = localtestv2.CertificateDir(cfg)
+	if err := localtestv2.WriteState(cfg, state); err != nil {
+		t.Fatal(err)
+	}
+	appPath := t.TempDir()
+	writeAppMetadata(t, appPath, `{"id":"ttd/test-app"}`)
+	return appsvc.NewService(cfg), appPath, state.CertificateDir
+}
+
+// Under localtest-v2 the app container joins the stack's network under its alias, which the front door reaches it at, with
+// the public host names on the host gateway, the certificate at /certs and the app listening on every interface; it
+// keeps its loopback port for studioctl-server's discovery.
+func TestBuildDockerRunSpec_JoinsTheLocaltestV2Network(t *testing.T) {
+	t.Parallel()
+
+	service, appPath, certDir := localtestV2Service(t, localtestv2.State{Groups: []string{"arbeidsflate"}})
+	spec, err := service.BuildDockerRunSpec(repocontext.Detection{
+		AppRoot:   appPath,
+		InAppRepo: true,
+	}, nil, defaultTopology(), appsvc.DockerRunOptions{})
+	if err != nil {
+		t.Fatalf("BuildDockerRunSpec() error = %v", err)
+	}
+	cfg := spec.Config
+	assertEqualStrings(t, "Networks", cfg.Networks, []string{localtestv2.Network})
+	assertEqualStrings(t, "NetworkAliases", cfg.NetworkAliases, []string{"ttd-test-app"})
+	assertEqualStrings(t, "ExtraHosts", cfg.ExtraHosts, []string{
+		"local.altinn.cloud:host-gateway",
+		"pdf.local.altinn.cloud:host-gateway",
+		"workflow-engine.local.altinn.cloud:host-gateway",
+		"app-frontend.local.altinn.cloud:host-gateway",
+		"af.local.altinn.cloud:host-gateway",
+	})
+	if got := cfg.Labels[appcontainers.LabelFrontDoorURL]; got != "http://ttd-test-app:5005" {
+		t.Fatalf("front door label = %q, want http://ttd-test-app:5005", got)
+	}
+	if got := cfg.Labels[localtestv2.Label]; got != localtestv2.LabelAppContainer {
+		t.Fatalf("localtest-v2 label = %q, want %q", got, localtestv2.LabelAppContainer)
+	}
+	if len(cfg.Ports) != 1 || cfg.Ports[0].HostIP != "127.0.0.1" || cfg.Ports[0].ContainerPort != "5005" {
+		t.Fatalf("Ports = %+v, want the app's port on loopback", cfg.Ports)
+	}
+	var certs *types.VolumeMount
+	for i := range cfg.Volumes {
+		if cfg.Volumes[i].ContainerPath == "/certs" {
+			certs = &cfg.Volumes[i]
+		}
+	}
+	if certs == nil || !certs.ReadOnly || certs.HostPath != certDir {
+		t.Fatalf("Volumes = %+v, want the certificate directory read-only at /certs", cfg.Volumes)
+	}
+	assertEnvContainsAll(t, cfg.Env, []string{
+		"Kestrel__EndPoints__Http__Url=http://0.0.0.0:5005",
+		"AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+		"AccessTokenSettings__AccessTokenSigningKeysFolder=/certs/",
+		"AccessTokenSettings__AccessTokenSigningCertificateFileName=localtest-accesstoken.pfx",
+		"PlatformFrontendSettings__ArbeidsflateInboxUrl=http://af.local.altinn.cloud:8000/",
+		"PlatformFrontendSettings__LogoutUrl=http://local.altinn.cloud:8000/authentication/api/v1/logout",
+		"PlatformSettings__ApiStorageEndpoint=http://local.altinn.cloud:8000/storage/api/v1/",
+	})
+}
+
+// Container mode supports the standard domains only: an environment at another host or port is refused up front.
+func TestBuildDockerRunSpec_RefusesALocaltestV2CustomOrigin(t *testing.T) {
+	t.Parallel()
+
+	for name, state := range map[string]localtestv2.State{
+		"host": {PublicHost: "origin.test"},
+		"port": {PublicPort: 18000},
+	} {
+		service, appPath, _ := localtestV2Service(t, state)
+		_, err := service.BuildDockerRunSpec(repocontext.Detection{
+			AppRoot:   appPath,
+			InAppRepo: true,
+		}, nil, defaultTopology(), appsvc.DockerRunOptions{})
+		if !errors.Is(err, appsvc.ErrContainerModeCustomOrigin) {
+			t.Fatalf("%s: BuildDockerRunSpec() error = %v, want ErrContainerModeCustomOrigin", name, err)
+		}
 	}
 }
