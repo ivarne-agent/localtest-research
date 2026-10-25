@@ -40,10 +40,11 @@ On macOS, `make dev-run` from a deeply nested checkout (an agent worktree) fails
   own `env up` flags and their help) and `envtypes.Env` (active, up, down, status, logs; reset and install hooks
   optional), is listed in `internal/cmd/env/registry`, and describes its environment as devenv resources under its own
   graph ID. `internal/cmd/env.go` knows no runtime by name: it parses `-r`, binds the chosen runtime's flags next to
-  the shared ones, and calls the interface. What runtimes do alike (apply, destroy, status snapshot, log streaming, the container user,
-  the legacy-localtest check) lives in `internal/cmd/env/stack`, and the shared contracts and status payload in
-  `internal/cmd/env`; a runtime does not import another runtime's package. Which runtime is up is answered by
-  `Env.Active` from the running containers (`envtypes.ActiveRuntimes`), not by a state file studioctl writes
+  the shared ones, and calls the interface. What runtimes do alike (apply, destroy, status snapshot, log streaming,
+  the container user, the legacy-localtest check) lives in `internal/cmd/env/stack`, and the shared contracts and
+  status payload in `internal/cmd/env`; a runtime does not import another runtime's package. Which runtime is up is
+  answered by `Env.Active` from the running containers (`envtypes.ResolveRuntime`, `EnsureNoOtherActive`), not by a
+  state file studioctl writes
 - Output states facts in a line: what is configured or wrong, and the command that changes it.
   No advice prose, and no paths to files studioctl manages
 
