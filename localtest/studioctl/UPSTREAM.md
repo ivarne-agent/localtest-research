@@ -1,28 +1,28 @@
 # Vendored copy of studioctl from Altinn/altinn-studio
 
 - Repository: https://github.com/Altinn/altinn-studio
-- Commit: [`fd53bd173b`](https://github.com/ivarne-agent/altinn-studio/tree/fd53bd173bcb0c88ba68eb1465374d30d2a941c2)
-  (2026-10-25): `main` at `819ad7362e` plus
-  [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env stack and the Runtime/Env
-  interface, branch `refactor/studioctl-env-shared-runtime`), vendored as if it were merged. The baseline below was cut
-  from `480110f40e`, the interface branch before it was squashed into #21483; its tree is identical to `fd53bd173b`.
-  When #21483 merges, sync to the `main` commit that contains it.
+- Commit: [`eae0a7ea65`](https://github.com/Altinn/altinn-studio/commit/eae0a7ea65f15932f8296c8f7b38330492eb540c)
+  (2026-10-25): the head of [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env
+  stack and the Runtime/Env interface, branch `refactor/studioctl-env-shared-runtime`, on `main` at `819ad7362e`),
+  vendored as if it were merged. When #21483 merges, sync to the `main` commit that contains it.
 - Copied paths, monorepo layout preserved under `src/` so relative references resolve as upstream:
   - `src/cli`: studioctl (Go CLI), `studioctl-server` (C#), `studioctl-server-tests` and `common/dotnet`.
   - `src/Runtime/devenv`: Go module `altinn.studio/devenv`; `src/cli/go.mod` replaces it with `../Runtime/devenv`.
   - `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common`: `studioctl-server.csproj` compiles its `HostBridge/**`
     and `EnvTopology/**` sources by relative path.
   - `src/Runtime/localtest/infra`: staged into the install by `src/cli/cmd/dev/main.go` during `make dev-install`.
-- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `9a6609eb`
-  ("baseline, unmodified"). It is never amended. Earlier baselines: `58c58a6b` (altinn-studio `e45c348eac`,
+- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `890a0366`
+  ("baseline, unmodified"). It is never amended. Earlier baselines: `9a6609eb` (altinn-studio `fd53bd173b`, #21483
+  before its review fixes; the change on it is `git log 9a6609eb..b9e79879 -- localtest/studioctl/src`), `58c58a6b` (altinn-studio `e45c348eac`,
   2026-10-25; the interface itself was developed on it in `9d4f10b7` with both runtimes, then upstreamed without
   localtest-v2), `24562cba` (altinn-studio `b908931519`,
   2026-10-23; the change on it is `git log 24562cba..e56ab475 -- localtest/studioctl/src`) and `3ecc3fb` (altinn-studio
   `89b1d7bc70`, 2026-10-20; `git log 3ecc3fb..a1a5df42 -- localtest/studioctl/src`).
 - Everything after the baseline is our change to upstream: the localtest-v2 runtime. There is no `#if LOCALTEST`
   here: this code is meant to be upstreamed as-is, so changes are ordinary commits. The first commit after the
-  baseline (`e0e26724`) re-applies the whole change as it stood on the previous baseline (`git log --oneline
-  9a6609eb..HEAD -- localtest/studioctl/src`). localtest-v2 implements the interface in
+  baseline (`9d9b2f1b`) re-applies the whole change as it stood on the previous baseline, taken from #21394's head
+  `e90d8677b3`, where the restack had already adapted the env tests to `parseUpFlags` taking the container client
+  (`git log --oneline 890a0366..HEAD -- localtest/studioctl/src`). localtest-v2 implements the interface in
   `internal/cmd/env/localtestv2/runtime.go`. [`README.md`](README.md) "What the
   localtest-v2 change adds" describes the result file by file.
 - Upstream, the change is a stack of branches on `ivarne-agent/altinn-studio`, each re-authored from this tree as a few
@@ -42,8 +42,8 @@ From the root of this repository, the whole change since the baseline, with path
 root (`src/...`); `--binary` is needed for the `.pfx` asset:
 
 ```sh
-git diff --binary --relative=localtest/studioctl 24562cba HEAD -- localtest/studioctl/src > studioctl.patch
-git -C <monorepo> checkout -b <branch> fd53bd173b
+git diff --binary --relative=localtest/studioctl 890a0366 HEAD -- localtest/studioctl/src > studioctl.patch
+git -C <monorepo> checkout -b <branch> eae0a7ea65
 git -C <monorepo> apply --index < studioctl.patch
 ```
 
