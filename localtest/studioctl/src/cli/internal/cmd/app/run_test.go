@@ -912,7 +912,7 @@ func TestBuildDockerRunSpec_IgnoresAStateFileWithoutContainers(t *testing.T) {
 	if slices.Contains(spec.Config.Networks, localtestv2.Network) {
 		t.Fatalf("Networks = %v, want not the localtest-v2 network", spec.Config.Networks)
 	}
-	if _, labelled := spec.Config.Labels[localtestv2.Label]; labelled {
+	if _, labeled := spec.Config.Labels[localtestv2.Label]; labeled {
 		t.Fatalf("Labels = %v, want no localtest-v2 label", spec.Config.Labels)
 	}
 	assertEnvContainsAll(t, spec.Config.Env, []string{"Kestrel__EndPoints__Http__Url=http://*:5005"})
