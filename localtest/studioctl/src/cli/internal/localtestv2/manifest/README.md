@@ -13,7 +13,11 @@ package's test (`manifest_internal_test.go`) validates the file, and `Parse` ref
             "containers": ["dialogporten-graphql", "dialogporten-service", "dialogporten-adapter"]
         }
     ],
-    "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
+    "public": {
+        "host": "local.altinn.cloud",
+        "port": 8000,
+        "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"]
+    },
     "containers": {
         "storage": {
             "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-storage",
@@ -62,13 +66,13 @@ knows, refusing to start on one it does not. A known subdomain left out of the l
 
 `envs` values name the public origin only through these, resolved for the environment's host and port:
 
-| Placeholder       | Value                       |
-| ----------------- | --------------------------- |
-| `{{origin}}`      | `http://<host>:<port>`      |
-| `{{host}}`        | `<host>`                    |
-| `{{port}}`        | `<port>`                    |
+| Placeholder        | Value                        |
+| ------------------ | ---------------------------- |
+| `{{origin}}`       | `http://<host>:<port>`       |
+| `{{host}}`         | `<host>`                     |
+| `{{port}}`         | `<port>`                     |
 | `{{origin:<sub>}}` | `http://<sub>.<host>:<port>` |
-| `{{host:<sub>}}`  | `<sub>.<host>`              |
+| `{{host:<sub>}}`   | `<sub>.<host>`               |
 
 `<sub>` must be in `public.subdomains`. Any other `{{…}}` (an unknown name, an unlisted subdomain, `{{port:<sub>}}`, an
 unclosed `{{`) is a manifest error naming the container and the key. Nothing else is substituted: single braces
@@ -84,7 +88,7 @@ A map from the container's name to:
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `registry`  | The image repository, with the registry host                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tag`       | The image tag (a digest may follow: `7.2-alpine@sha256:…`). The research images all carry one `sha-<commit>` pin                                                                                                                                                                                                                                                                                                                                |
-| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), another service by its name (`http://authorization/authorization/api/v1/`, see [Service names](#service-names)), the certificate as `/certs/localtest-accesstoken.pfx`                                                                  |
+| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), another service by its name (`http://authorization/authorization/api/v1/`, see [Service names](#service-names)), the certificate as `/certs/localtest-accesstoken.pfx`                                                              |
 | `dependsOn` | Containers that start, and are healthy, before this one                                                                                                                                                                                                                                                                                                                                                                                         |
 | `volumes`   | Volume id to path in the container. An id is lower-case letters and digits in hyphen-separated words (`storage-blobs`) and names one volume for the whole manifest: containers naming the same id share it (`policy-store`: the PDP, Access Management, the Resource Registry). Each runtime names the volume by its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>`; each runtime's reset deletes its own |
 | `port`      | The container's HTTP (or TCP) port; default 8080                                                                                                                                                                                                                                                                                                                                                                                                |
