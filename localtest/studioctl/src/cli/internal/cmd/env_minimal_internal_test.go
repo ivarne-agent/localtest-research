@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
+	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	"altinn.studio/studioctl/internal/ui"
 )
 
 func TestParseUpFlagsMinimal(t *testing.T) {
 	t.Parallel()
 	command := &EnvCommand{cfg: nil, out: nil}
-	flags, _, err := command.parseUpFlags([]string{"-r", runtimeLocaltestV2, "--minimal"})
-	if err != nil || !flags.minimal {
-		t.Fatalf("parseUpFlags() = %+v, %v", flags, err)
+	if _, _, err := command.parseUpFlags(t.Context(), []string{"-r", envlocaltestv2.Name, "--minimal"}); err != nil {
+		t.Fatalf("parseUpFlags() = %v", err)
 	}
 }
 
@@ -23,7 +23,7 @@ func TestTheUsageNamesMinimal(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
 	command := &EnvCommand{cfg: nil, out: ui.NewOutput(&out, io.Discard, false)}
-	if _, shown, err := command.parseUpFlags([]string{"--help"}); err != nil || !shown {
+	if _, shown, err := command.parseUpFlags(t.Context(), []string{"--help"}); err != nil || !shown {
 		t.Fatalf("parseUpFlags(--help) = %v, %v", shown, err)
 	}
 	if !strings.Contains(out.String(), "--minimal") {
@@ -46,7 +46,7 @@ func TestTheStatusOfMinimalModeNamesTheModeAndTheEmulatedServices(t *testing.T) 
 		AnyRunning: true,
 	}
 	var out bytes.Buffer
-	if err := (envStatusOutput{Status: status, Runtime: runtimeLocaltestV2, JSONOutput: false}).Print(
+	if err := (envStatusOutput{Status: status, Runtime: envlocaltestv2.Name, JSONOutput: false}).Print(
 		ui.NewOutput(&out, io.Discard, false),
 	); err != nil {
 		t.Fatal(err)
@@ -63,7 +63,7 @@ func TestTheStatusOfMinimalModeNamesTheModeAndTheEmulatedServices(t *testing.T) 
 
 	status.Mode, status.Emulated = "", nil
 	out.Reset()
-	if err := (envStatusOutput{Status: status, Runtime: runtimeLocaltestV2, JSONOutput: false}).Print(
+	if err := (envStatusOutput{Status: status, Runtime: envlocaltestv2.Name, JSONOutput: false}).Print(
 		ui.NewOutput(&out, io.Discard, false),
 	); err != nil {
 		t.Fatal(err)

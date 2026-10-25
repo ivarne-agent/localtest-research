@@ -8,33 +8,31 @@ import (
 	"testing"
 
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
+	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	"altinn.studio/studioctl/internal/ui"
 )
 
 func TestParseUpFlagsHostAndPort(t *testing.T) {
 	t.Parallel()
 	command := &EnvCommand{cfg: nil, out: nil}
-	flags, _, err := command.parseUpFlags([]string{"-r", runtimeLocaltestV2, "--host", "origin.test", "--port", "0"})
-	if err != nil || flags.publicHost != "origin.test" || flags.publicPort == nil || *flags.publicPort != 0 {
-		t.Fatalf("parseUpFlags() = %+v, %v", flags, err)
+	args := []string{"-r", envlocaltestv2.Name, "--host", "origin.test", "--port", "0"}
+	if _, _, err := command.parseUpFlags(t.Context(), args); err != nil {
+		t.Fatalf("parseUpFlags() = %v", err)
 	}
-	flags, _, err = command.parseUpFlags([]string{"-r", runtimeLocaltestV2})
-	if err != nil || flags.publicHost != "" || flags.publicPort != nil {
-		t.Fatalf("no origin flags: %+v, %v", flags, err)
-	}
-	if _, _, err := command.parseUpFlags([]string{"--port", "eighty"}); err == nil {
+	if _, _, err := command.parseUpFlags(
+		t.Context(),
+		[]string{"-r", envlocaltestv2.Name, "--port", "eighty"},
+	); err == nil {
 		t.Fatal("--port eighty parsed")
 	}
 }
 
 func TestTheLocaltestRuntimeRefusesTheOriginFlags(t *testing.T) {
 	t.Parallel()
-	port := 18000
-	err := validateUpFlagsForRuntime(envUpFlags{
-		runtime: runtimeLocaltest, publicHost: "origin.test", publicPort: &port,
-	})
-	if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), "--host, --port") {
-		t.Fatalf("validateUpFlagsForRuntime() = %v", err)
+	command := &EnvCommand{cfg: nil, out: nil}
+	_, _, err := command.parseUpFlags(t.Context(), []string{"-r", "localtest", "--host", "origin.test"})
+	if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), "--host is not supported") {
+		t.Fatalf("parseUpFlags() = %v", err)
 	}
 }
 
@@ -49,7 +47,7 @@ func TestTheStatusNamesTheOrigin(t *testing.T) {
 		AnyRunning: true,
 	}
 	var out bytes.Buffer
-	if err := (envStatusOutput{Status: status, Runtime: runtimeLocaltestV2, JSONOutput: false}).Print(
+	if err := (envStatusOutput{Status: status, Runtime: envlocaltestv2.Name, JSONOutput: false}).Print(
 		ui.NewOutput(&out, io.Discard, false),
 	); err != nil {
 		t.Fatal(err)

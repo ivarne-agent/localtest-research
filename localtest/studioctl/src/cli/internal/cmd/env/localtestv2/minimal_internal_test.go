@@ -11,7 +11,6 @@ import (
 
 	"altinn.studio/devenv/pkg/container/mock"
 	"altinn.studio/devenv/pkg/container/types"
-	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
@@ -126,25 +125,25 @@ func TestPreflightRefusesWhatMinimalModeCannotRun(t *testing.T) {
 	cases := map[string]struct {
 		err  error
 		text string
-		opts envtypes.UpOptions
+		opts UpOptions
 	}{
 		"with": {
-			opts: envtypes.UpOptions{Minimal: true, With: []string{"receipt"}},
+			opts: UpOptions{Minimal: true, With: []string{"receipt"}},
 			err:  errMinimalWithGroups,
 			text: "drop --minimal",
 		},
 		"without": {
-			opts: envtypes.UpOptions{Minimal: true, Without: []string{"receipt"}},
+			opts: UpOptions{Minimal: true, Without: []string{"receipt"}},
 			err:  errMinimalWithGroups,
 			text: "optional groups of the default stack",
 		},
 		"an emulated dev build": {
-			opts: envtypes.UpOptions{Minimal: true, DevComponents: map[string]string{"register": ""}},
+			opts: UpOptions{Minimal: true, DevComponents: map[string]string{"register": ""}},
 			err:  errMinimalDev,
 			text: "--dev-register: register is emulated in the localtest container in minimal mode",
 		},
 		"an optional group's dev build": {
-			opts: envtypes.UpOptions{Minimal: true, DevComponents: map[string]string{"redis": ""}},
+			opts: UpOptions{Minimal: true, DevComponents: map[string]string{"redis": ""}},
 			err:  errMinimalDev,
 			text: "minimal mode starts only postgres, storage, localtest, workflow-engine",
 		},
@@ -160,12 +159,12 @@ func TestPreflightRefusesWhatMinimalModeCannotRun(t *testing.T) {
 func TestMinimalModeBuildsItsOwnContainersFromSource(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"postgres", "storage", "workflow-engine", "localtest"} {
-		opts := envtypes.UpOptions{Minimal: true, DevComponents: map[string]string{name: ""}}
+		opts := UpOptions{Minimal: true, DevComponents: map[string]string{name: ""}}
 		if err := checkMinimal(opts); err != nil {
 			t.Errorf("--dev-%s: %v", name, err)
 		}
 	}
-	if err := checkMinimal(envtypes.UpOptions{With: []string{"receipt"}}); err != nil {
+	if err := checkMinimal(UpOptions{With: []string{"receipt"}}); err != nil {
 		t.Errorf("--with without --minimal: %v", err)
 	}
 }
@@ -194,14 +193,14 @@ func TestAModeSwitchChangesTheRunningEnvironment(t *testing.T) {
 	cfg := testConfig(t)
 	writeTestState(t, cfg, false)
 	env := NewEnv(cfg, nil, nil)
-	if changed, err := env.Changed(envtypes.UpOptions{Minimal: true}); err != nil || !changed {
+	if changed, err := env.Changed(UpOptions{Minimal: true}); err != nil || !changed {
 		t.Errorf("default to minimal: %v, %v", changed, err)
 	}
 	writeTestState(t, cfg, true)
-	if changed, err := env.Changed(envtypes.UpOptions{Minimal: true}); err != nil || changed {
+	if changed, err := env.Changed(UpOptions{Minimal: true}); err != nil || changed {
 		t.Errorf("minimal to minimal: %v, %v", changed, err)
 	}
-	if changed, err := env.Changed(envtypes.UpOptions{}); err != nil || !changed {
+	if changed, err := env.Changed(UpOptions{}); err != nil || !changed {
 		t.Errorf("minimal to default: %v, %v", changed, err)
 	}
 }

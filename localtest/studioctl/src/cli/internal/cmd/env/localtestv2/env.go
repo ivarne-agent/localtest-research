@@ -39,11 +39,12 @@ const (
 
 // Env implements envtypes.Env for the localtest-v2 runtime.
 type Env struct {
+	client     container.ContainerClient
 	cfg        *config.Config
 	out        *ui.Output
-	client     container.ContainerClient
 	stack      *envstack.Stack
 	lookupHost lookupHostFunc
+	flags      UpOptions
 }
 
 // NewEnv creates the localtest-v2 environment manager.
@@ -53,6 +54,7 @@ func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient
 		out:        out,
 		client:     client,
 		stack:      envstack.New(client, out, graphID, cfg.Verbose),
+		flags:      noUpOptions(),
 		lookupHost: net.DefaultResolver.LookupHost,
 	}
 }
@@ -71,10 +73,36 @@ func (e *Env) Name() string {
 	return Name
 }
 
+// Up checks the prerequisites and starts the environment with the bound flags, unless it already runs healthy with
+// what they ask for. A dev build is always rebuilt.
+func (e *Env) Up(ctx context.Context, common envtypes.UpOptions) (envtypes.UpResult, error) {
+	opts := e.flags
+	opts.Detach = common.Detach
+	opts.OpenBrowser = common.OpenBrowser
+	if err := e.Preflight(ctx, opts); err != nil {
+		return envtypes.UpResult{AlreadyRunning: false}, fmt.Errorf("preflight check: %w", err)
+	}
+	status, err := e.Status(ctx)
+	if err != nil {
+		return envtypes.UpResult{AlreadyRunning: false}, fmt.Errorf("get status: %w", err)
+	}
+	changed, err := e.Changed(opts)
+	if err != nil {
+		return envtypes.UpResult{AlreadyRunning: false}, fmt.Errorf("compare with the running environment: %w", err)
+	}
+	if status.Running && len(opts.DevComponents) == 0 && !changed {
+		return envtypes.UpResult{AlreadyRunning: true}, nil
+	}
+	if err := e.Start(ctx, opts); err != nil {
+		return envtypes.UpResult{AlreadyRunning: false}, err
+	}
+	return envtypes.UpResult{AlreadyRunning: false}, nil
+}
+
 // Preflight validates prerequisites before startup: no localtest started outside studioctl may hold the public origin,
 // the groups must be known, a dev build must name a container and a Dockerfile, and a custom public host must resolve to
 // this machine. Another runtime that is running is refused by env up (envtypes.EnsureNoOtherActive).
-func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
+func (e *Env) Preflight(ctx context.Context, opts UpOptions) error {
 	if err := envstack.CheckForLegacyLocaltest(ctx, e.client); err != nil {
 		return fmt.Errorf("check for legacy localtest: %w", err)
 	}
@@ -94,7 +122,7 @@ func (e *Env) Preflight(ctx context.Context, opts envtypes.UpOptions) error {
 // (--latest) or other dev builds than the running environment was started with, in which case an environment that is
 // already healthy still has to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage
 // again.
-func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
+func (e *Env) Changed(opts UpOptions) (bool, error) {
 	want, err := ResolveGroups(opts.With, opts.Without)
 	if err != nil {
 		return false, err
@@ -112,10 +140,10 @@ func (e *Env) Changed(opts envtypes.UpOptions) (bool, error) {
 		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
 }
 
-// Up starts the environment: writes the certificate and the state file, restarts studioctl-server so that it
+// Start starts the environment: writes the certificate and the state file, restarts studioctl-server so that it
 // registers the apps it discovers with the front door, applies the containers (each one's health checked before what
 // depends on it starts), and waits until the front door answers on the public origin.
-func (e *Env) Up(ctx context.Context, upOpts envtypes.UpOptions) error {
+func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 	toolchain := e.client.Toolchain()
 	e.out.Verbosef("Using container toolchain: %s via %s", toolchain.Platform, toolchain.AccessMode)
 
@@ -342,7 +370,7 @@ func (e *Env) teardownOptions() *Options {
 	return opts
 }
 
-func (e *Env) options(ctx context.Context, upOpts envtypes.UpOptions) (*Options, error) {
+func (e *Env) options(ctx context.Context, upOpts UpOptions) (*Options, error) {
 	opts := e.defaultOptions()
 	_, _, opts.RelabelBinds = envstack.RuntimeUser(e.client.Toolchain())
 	opts.LatestImages = upOpts.LatestImages

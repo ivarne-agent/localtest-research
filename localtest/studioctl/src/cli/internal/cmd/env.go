@@ -7,15 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"maps"
-	"slices"
-	"strconv"
 	"strings"
 
 	"altinn.studio/devenv/pkg/container"
 	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	envlocaltest "altinn.studio/studioctl/internal/cmd/env/localtest"
-	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	envregistry "altinn.studio/studioctl/internal/cmd/env/registry"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
@@ -23,11 +19,7 @@ import (
 	"altinn.studio/studioctl/internal/ui"
 )
 
-const (
-	runtimeLocaltest    = "localtest"
-	runtimeLocaltestV2  = envlocaltestv2.Name
-	envStatusSubcommand = authStatusSubcommand
-)
+const envStatusSubcommand = authStatusSubcommand
 
 var (
 	errNoHostsFileTarget = errors.New("no hosts file target available")
@@ -37,8 +29,10 @@ var (
 // EnvCommand implements the 'env' subcommand.
 type EnvCommand struct {
 	hostsFileTargets func() ([]osutil.HostsTarget, error)
-	cfg              *config.Config
-	out              *ui.Output
+	// newRuntimes lists the runtimes for one command, the default first; nil is the registry's.
+	newRuntimes func(cfg *config.Config) []envtypes.Runtime
+	cfg         *config.Config
+	out         *ui.Output
 }
 
 type envUpOutput struct {
@@ -189,6 +183,7 @@ func (o envResetOutput) Print(out *ui.Output) error {
 func NewEnvCommand(cfg *config.Config, out *ui.Output) *EnvCommand {
 	return &EnvCommand{
 		hostsFileTargets: osutil.LocalHostsFileTargets,
+		newRuntimes:      envregistry.Runtimes,
 		cfg:              cfg,
 		out:              out,
 	}
@@ -216,13 +211,12 @@ func (c *EnvCommand) Usage() string {
 		"  logs     Stream environment logs",
 		"",
 		"Common options:",
-		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one running, else localtest)",
+		c.runtimeUsage(),
 		"",
 		"Options for 'env up':",
 		"  -d, --detach     Run in background (default: true)",
-		"  --monitoring     Start monitoring stack",
-		"  --pgadmin        Start pgAdmin for the workflow-engine database",
 		"  --open           Open localtest in browser after starting",
+		c.runtimeUpUsage(),
 		"",
 		"Options for 'env reset':",
 		"  -y, --yes        Skip confirmation prompt",
@@ -262,81 +256,118 @@ func (c *EnvCommand) Run(ctx context.Context, args []string) error {
 	}
 }
 
+// runtimeUsage is the -r help line, naming every runtime.
+func (c *EnvCommand) runtimeUsage() string {
+	return fmt.Sprintf(
+		"  -r, --runtime    Runtime: %s (default: the one running, else %s)",
+		strings.Join(c.runtimeNames(), " or "), c.defaultRuntime(),
+	)
+}
+
+// runtimeUpUsage is the help of every runtime's own env up flags, a section each.
+func (c *EnvCommand) runtimeUpUsage() string {
+	var lines []string
+	for _, runtime := range c.runtimes() {
+		lines = append(lines, "", fmt.Sprintf("Options for 'env up -r %s':", runtime.Name()))
+		lines = append(lines, runtime.UpUsage()...)
+	}
+	return strings.Join(lines, osutil.LineBreak)
+}
+
+// runtimes are the runtimes for one command, the default first.
+func (c *EnvCommand) runtimes() []envtypes.Runtime {
+	if c.newRuntimes != nil {
+		return c.newRuntimes(c.cfg)
+	}
+	return envregistry.Runtimes(c.cfg)
+}
+
+func (c *EnvCommand) runtimeNames() []string {
+	runtimes := c.runtimes()
+	names := make([]string, 0, len(runtimes))
+	for _, runtime := range runtimes {
+		names = append(names, runtime.Name())
+	}
+	return names
+}
+
+// defaultRuntime is the runtime an env command acts on when none is named and none is running.
+func (c *EnvCommand) defaultRuntime() string {
+	return c.runtimes()[0].Name()
+}
+
+// runtime looks a runtime up by name.
+//
+//nolint:ireturn // runtimes are handed out by interface
+func (c *EnvCommand) runtime(name string) (envtypes.Runtime, error) {
+	for _, runtime := range c.runtimes() {
+		if runtime.Name() == name {
+			return runtime, nil
+		}
+	}
+	return nil, fmt.Errorf(
+		"%w: %s (one of %s)", ErrUnsupportedRuntime, name, strings.Join(c.runtimeNames(), ", "),
+	)
+}
+
 // resolveRuntime fills an omitted -r: only one runtime runs at a time, so the commands act on the one that is running,
-// and on localtest when none is (or when there is no container runtime to ask).
+// and on the default runtime when none is (or when there is no container runtime to ask).
 func (c *EnvCommand) resolveRuntime(ctx context.Context, requested string) (string, error) {
 	if requested != "" || c.cfg == nil {
-		return cmp.Or(requested, runtimeLocaltest), nil
+		return cmp.Or(requested, c.defaultRuntime()), nil
 	}
 	client, err := container.Detect(ctx)
 	if err != nil {
 		c.out.Verbosef("resolve runtime: %v", err)
-		return runtimeLocaltest, nil
+		return c.defaultRuntime(), nil
 	}
 	defer func() {
 		if cerr := client.Close(); cerr != nil {
 			c.out.Verbosef("failed to close container client: %v", cerr)
 		}
 	}()
-	envs, err := c.envs(client)
-	if err != nil {
-		return "", err
-	}
-	runtime, err := envtypes.ResolveRuntime(ctx, "", runtimeLocaltest, envs)
+	runtime, err := envtypes.ResolveRuntime(ctx, "", c.defaultRuntime(), c.envs(client))
 	if err != nil {
 		return "", fmt.Errorf("resolve runtime: %w", err)
 	}
 	return runtime, nil
 }
 
-// resolvedHostsFlags parses hosts flags and fills an omitted runtime, which only names the output: both
-// runtimes share the hostnames.
+// resolvedHostsFlags parses hosts flags and fills an omitted runtime, which only names the output: every runtime
+// shares the hostnames.
 func (c *EnvCommand) resolvedHostsFlags(ctx context.Context, name string, args []string) (envHostsFlags, bool, error) {
 	flags, helpShown, err := parseEnvHostsFlags(name, args)
 	if err != nil || helpShown {
 		return flags, helpShown, err
 	}
-	flags.runtime, err = c.resolveRuntime(ctx, flags.runtime)
-	return flags, false, err
-}
-
-// envs are every runtime, for the questions asked across them: which one is running.
-func (c *EnvCommand) envs(client container.ContainerClient) ([]envtypes.Env, error) {
-	envs, err := envregistry.Envs(
-		envregistry.WithConfig(c.cfg),
-		envregistry.WithOutput(c.out),
-		envregistry.WithContainerClient(client),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("build environment registry: %w", err)
+	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
+		return flags, false, err
 	}
-	return envs, nil
+	if _, err := c.runtime(flags.runtime); err != nil {
+		return flags, false, err
+	}
+	return flags, false, nil
 }
 
-// getEnv returns the environment implementation for the given runtime.
+// envs are every runtime's environment, for the questions asked across them: which one is running.
+func (c *EnvCommand) envs(client container.ContainerClient) []envtypes.Env {
+	runtimes := c.runtimes()
+	envs := make([]envtypes.Env, 0, len(runtimes))
+	for _, runtime := range runtimes {
+		envs = append(envs, runtime.Env(client, c.out))
+	}
+	return envs
+}
+
+// env returns the named runtime's environment, with the runtime's default flags.
 //
-//nolint:ireturn // factory function returns interface by design
-func (c *EnvCommand) getEnv(
-	runtime string,
-	client container.ContainerClient,
-) (envtypes.Env, error) {
-	return c.getEnvWithOutput(runtime, client, c.out)
-}
-
-//nolint:ireturn // factory helper returns interface by design
-func (c *EnvCommand) getEnvWithOutput(
-	runtime string,
-	client container.ContainerClient,
-	out *ui.Output,
-) (envtypes.Env, error) {
-	switch runtime {
-	case runtimeLocaltest:
-		return envlocaltest.NewEnv(c.cfg, out, client), nil
-	case runtimeLocaltestV2:
-		return envlocaltestv2.NewEnv(c.cfg, out, client), nil
-	default:
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedRuntime, runtime)
+//nolint:ireturn // environments are handed out by interface
+func (c *EnvCommand) env(name string, client container.ContainerClient, out *ui.Output) (envtypes.Env, error) {
+	runtime, err := c.runtime(name)
+	if err != nil {
+		return nil, err
 	}
+	return runtime.Env(client, out), nil
 }
 
 func (c *EnvCommand) withContainerClient(
@@ -356,140 +387,164 @@ func (c *EnvCommand) withContainerClient(
 	return run(client)
 }
 
-// envUpFlags holds parsed flags for the env up command.
+// envUpFlags holds parsed flags for the env up command: the shared ones, and the runtime whose own flags were bound.
 type envUpFlags struct {
-	devComponents     map[string]string
-	publicPort        *int
-	runtime           string
-	publicHost        string
-	with              []string
-	without           []string
-	detach            bool
-	devWorkflowEngine bool
-	latestImages      bool
-	minimal           bool
-	monitoring        bool
-	pgAdmin           bool
-	openBrowser       bool
-	jsonOutput        bool
+	runtime     envtypes.Runtime
+	detach      bool
+	openBrowser bool
+	jsonOutput  bool
 }
 
-func (c *EnvCommand) parseUpFlags(args []string) (envUpFlags, bool, error) {
-	groupNames := strings.Join(envlocaltestv2.GroupNames(), ", ")
+func (c *EnvCommand) upUsage() string {
+	return joinLines(
+		fmt.Sprintf("Usage: %s env up [options]", osutil.CurrentBin()),
+		"",
+		"Start a local environment.",
+		"",
+		"Options:",
+		c.runtimeUsage(),
+		"  -d, --detach     Run in background (default: true)",
+		"  --open           Open localtest in browser after starting",
+		"  --json           Output as JSON",
+		c.runtimeUpUsage(),
+	)
+}
+
+// sharedUpFlags is the env up flag set with the flags every runtime takes.
+func sharedUpFlags(f *envUpFlags) *flag.FlagSet {
 	fs := flag.NewFlagSet("env up", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.Usage = func() {
-		if c.out == nil {
-			return
-		}
-		c.out.Print(joinLines(
-			fmt.Sprintf("Usage: %s env up [options]", osutil.CurrentBin()),
-			"",
-			"Start the localtest environment.",
-			"",
-			"Options:",
-			"  -r, --runtime    Runtime to start: localtest or localtest-v2 (default: the one running, else localtest)",
-			"  -d, --detach     Run in background (default: true)",
-			"  --monitoring     Start monitoring stack (localtest)",
-			"  --pgadmin        Start pgAdmin for the workflow-engine database (localtest)",
-			"  --open           Open localtest in browser after starting",
-			"  --latest         Run the localtest-v2 research images at :latest instead of the pinned build",
-			"  --minimal        Run localtest-v2 in minimal mode: Postgres, Storage, the workflow engine and the localtest",
-			"                   container, which emulates the other services; nothing is kept between starts",
-			"  --host HOST      The localtest-v2 public host (default local.altinn.cloud); HOST and its subdomains pdf.,",
-			"                   workflow-engine., app-frontend. and af. must resolve to 127.0.0.1 (the hosts file)",
-			"  --port PORT      The localtest-v2 public port (default 8000); 0 picks a free port",
-			"                   A running environment keeps its host and port; other values restart it",
-			"  --dev-NAME[=PATH]",
-			"                   Build the localtest-v2 container NAME from PATH, a Dockerfile or a directory holding one",
-			"                   (default: the current directory), and run it instead of the pinned image; NAME is one of",
-			"                   "+strings.Join(envlocaltestv2.DevContainers(), ", "),
-			"  --with GROUP     Start an optional localtest-v2 group: its containers and what they depend on ("+groupNames+"; repeatable)",
-			"  --without GROUP  Leave out an optional localtest-v2 group's own containers (repeatable)",
-			"  --json           Output as JSON",
-		))
-	}
-	var f envUpFlags
-	f.devComponents = map[string]string{}
-	fs.StringVar(&f.runtime, "r", "", "Runtime to use")
-	fs.StringVar(&f.runtime, "runtime", "", "Runtime to use")
+	var runtime string // read before parsing (runtimeArg); defined here so that it parses
+	fs.StringVar(&runtime, "r", "", "Runtime to use")
+	fs.StringVar(&runtime, "runtime", "", "Runtime to use")
 	fs.BoolVar(&f.detach, "d", true, "Run in background")
 	fs.BoolVar(&f.detach, "detach", true, "Run in background")
-	fs.BoolVar(&f.monitoring, "monitoring", false, "Start monitoring stack")
-	fs.BoolVar(&f.pgAdmin, "pgadmin", false, "Start pgAdmin for the workflow-engine database")
 	fs.BoolVar(&f.openBrowser, "open", false, "Open localtest in browser after starting")
 	fs.BoolVar(&f.jsonOutput, "json", false, "Output as JSON")
-	fs.BoolVar(&f.latestImages, "latest", false, "Run the localtest-v2 research images at :latest")
-	fs.BoolVar(&f.minimal, "minimal", false, "Run localtest-v2 in minimal mode")
-	fs.StringVar(&f.publicHost, "host", "", "The localtest-v2 public host")
-	fs.Func("port", "The localtest-v2 public port; 0 picks a free port", func(value string) error {
-		port, err := strconv.Atoi(strings.TrimSpace(value))
-		if err != nil {
-			return fmt.Errorf("%w: --port %q is not a number", ErrInvalidFlagValue, value)
-		}
-		f.publicPort = &port
-		return nil
-	})
-	// --dev-<container>[=<path>] for every localtest-v2 container. --dev-workflow-engine is one flag with two meanings,
-	// one per runtime, which never meet since env up refuses the other runtime's flags: under localtest it routes the
-	// workflow engine to a host process (upstream's hidden flag), under localtest-v2 it builds the container.
-	for _, name := range envlocaltestv2.DevContainers() {
-		value := &devFlag{name: name, dev: f.devComponents, set: nil}
-		if name == devWorkflowEngineContainer {
-			value.set = func() { f.devWorkflowEngine = true }
-		}
-		fs.Var(value, "dev-"+name, "Build the localtest-v2 container "+name+" from a Dockerfile")
-	}
-	fs.Func("with", "Start an optional localtest-v2 component group (repeatable)", func(value string) error {
-		f.with = append(f.with, strings.TrimSpace(value))
-		return nil
-	})
-	fs.Func("without", "Leave out an optional localtest-v2 component group (repeatable)", func(value string) error {
-		f.without = append(f.without, strings.TrimSpace(value))
-		return nil
-	})
+	return fs
+}
 
+// parseUpFlags parses env up's arguments in two steps: -r names the runtime, which then adds its own flags to the
+// shared ones. Two runtimes may therefore have a flag of the same name, each with its own meaning.
+func (c *EnvCommand) parseUpFlags(ctx context.Context, args []string) (envUpFlags, bool, error) {
+	var f envUpFlags
+	if helpRequested(args) {
+		if c.out != nil {
+			c.out.Print(c.upUsage())
+		}
+		return f, true, nil
+	}
+	name, err := c.resolveRuntime(ctx, runtimeArg(args))
+	if err != nil {
+		return f, false, err
+	}
+	if f.runtime, err = c.runtime(name); err != nil {
+		return f, false, err
+	}
+	fs := sharedUpFlags(&f)
+	f.runtime.BindUpFlags(fs)
 	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return f, true, nil // help was shown
-		}
-		return f, false, fmt.Errorf("parsing flags: %w", err)
+		return f, false, c.upFlagError(f.runtime, err)
 	}
-
 	return f, false, nil
 }
 
+// upFlagError names the runtime a flag belongs to when the chosen runtime does not have it, rather than only saying
+// that the flag is not defined: `env up --with dialogporten` while localtest is the runtime in use, say.
+func (c *EnvCommand) upFlagError(chosen envtypes.Runtime, err error) error {
+	name, undefined := strings.CutPrefix(err.Error(), "flag provided but not defined: -")
+	if !undefined {
+		return fmt.Errorf("parsing flags: %w", err)
+	}
+	var owners []string
+	for _, runtime := range c.runtimes() {
+		if runtime.Name() == chosen.Name() {
+			continue
+		}
+		fs := flag.NewFlagSet(runtime.Name(), flag.ContinueOnError)
+		runtime.BindUpFlags(fs)
+		if fs.Lookup(name) != nil {
+			owners = append(owners, runtime.Name())
+		}
+	}
+	if len(owners) == 0 {
+		return fmt.Errorf("parsing flags: %w", err)
+	}
+	return fmt.Errorf(
+		"%w: --%s is not supported by the %s runtime (it is %s's); pick the runtime with -r",
+		ErrInvalidFlagValue, name, chosen.Name(), strings.Join(owners, " and "),
+	)
+}
+
+// helpRequested reports whether args ask for help.
+func helpRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
+		switch arg {
+		case "-h", "--h", "-help", flagHelp:
+			return true
+		}
+	}
+	return false
+}
+
+// runtimeArg is the value of -r or --runtime in args, empty when there is none.
+func runtimeArg(args []string) string {
+	for i, arg := range args {
+		if arg == "--" {
+			break
+		}
+		name, value, hasValue := strings.Cut(strings.TrimLeft(arg, "-"), "=")
+		if !strings.HasPrefix(arg, "-") || (name != "r" && name != "runtime") {
+			continue
+		}
+		if hasValue {
+			return value
+		}
+		if i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
 func (c *EnvCommand) runUp(ctx context.Context, args []string) error {
-	flags, helpShown, err := c.parseUpFlags(args)
+	flags, helpShown, err := c.parseUpFlags(ctx, args)
 	if err != nil {
 		return err
 	}
 	if helpShown {
 		return nil
 	}
-	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
-		return err
-	}
 	if flags.jsonOutput && !flags.detach {
 		return fmt.Errorf("%w: --json requires --detach=true", ErrInvalidFlagValue)
 	}
-	if err := validateUpFlagsForRuntime(flags); err != nil {
-		return err
-	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
-		if err := c.ensureNoOtherRuntimeActive(ctx, client, flags.runtime); err != nil {
-			return err
-		}
-		switch flags.runtime {
-		case runtimeLocaltest:
-			return c.runLocaltestUp(ctx, client, flags)
-		case runtimeLocaltestV2:
-			return c.runLocaltestV2Up(ctx, client, flags)
-		default:
-			return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
-		}
+		return c.up(ctx, client, flags)
 	})
+}
+
+// up starts the parsed runtime's environment on client, unless another runtime runs.
+func (c *EnvCommand) up(ctx context.Context, client container.ContainerClient, flags envUpFlags) error {
+	name := flags.runtime.Name()
+	if err := c.ensureNoOtherRuntimeActive(ctx, client, name); err != nil {
+		return err
+	}
+	env := flags.runtime.Env(client, commandOutput(c.out, flags.jsonOutput))
+	result, err := env.Up(ctx, envtypes.UpOptions{Detach: flags.detach, OpenBrowser: flags.openBrowser})
+	if err != nil {
+		return fmt.Errorf("env up: %w", err)
+	}
+	return envUpOutput{
+		Runtime:        name,
+		Running:        true,
+		Started:        !result.AlreadyRunning,
+		AlreadyRunning: result.AlreadyRunning,
+		JSONOutput:     flags.jsonOutput,
+	}.Print(c.out)
 }
 
 // ensureNoOtherRuntimeActive refuses `env up` while another runtime runs.
@@ -498,170 +553,10 @@ func (c *EnvCommand) ensureNoOtherRuntimeActive(
 	client container.ContainerClient,
 	runtime string,
 ) error {
-	envs, err := c.envs(client)
-	if err != nil {
-		return err
-	}
-	if err := envtypes.EnsureNoOtherActive(ctx, runtime, envs); err != nil {
+	if err := envtypes.EnsureNoOtherActive(ctx, runtime, c.envs(client)); err != nil {
 		return fmt.Errorf("preflight check: %w", err)
 	}
 	return nil
-}
-
-// validateUpFlagsForRuntime refuses the flags the chosen runtime does not have, rather than ignoring them: a bare
-// `env up --with dialogporten` after a localtest run would otherwise start localtest without the group.
-func validateUpFlagsForRuntime(flags envUpFlags) error {
-	var foreign []string
-	switch flags.runtime {
-	case runtimeLocaltest:
-		foreign = localtestV2OnlyFlags(flags)
-	case runtimeLocaltestV2:
-		if flags.monitoring {
-			foreign = append(foreign, "--monitoring")
-		}
-		if flags.pgAdmin {
-			foreign = append(foreign, "--pgadmin")
-		}
-	}
-	if len(foreign) == 0 {
-		return nil
-	}
-	return fmt.Errorf(
-		"%w: %s not supported by the %s runtime; pick the runtime with -r",
-		ErrInvalidFlagValue, strings.Join(foreign, ", "), flags.runtime,
-	)
-}
-
-// localtestV2OnlyFlags are the given flags only the localtest-v2 runtime has.
-func localtestV2OnlyFlags(flags envUpFlags) []string {
-	var foreign []string
-	for _, name := range slices.Sorted(maps.Keys(flags.devComponents)) {
-		// --dev-workflow-engine without a path is the localtest runtime's own flag.
-		if name != devWorkflowEngineContainer || flags.devComponents[name] != "" {
-			foreign = append(foreign, "--dev-"+name)
-		}
-	}
-	for _, option := range []struct {
-		name  string
-		given bool
-	}{
-		{"--with", len(flags.with) > 0},
-		{"--without", len(flags.without) > 0},
-		{"--latest", flags.latestImages},
-		{"--minimal", flags.minimal},
-		{"--host", flags.publicHost != ""},
-		{"--port", flags.publicPort != nil},
-	} {
-		if option.given {
-			foreign = append(foreign, option.name)
-		}
-	}
-	return foreign
-}
-
-func (c *EnvCommand) runLocaltestV2Up(
-	ctx context.Context,
-	client container.ContainerClient,
-	flags envUpFlags,
-) error {
-	env := envlocaltestv2.NewEnv(c.cfg, commandOutput(c.out, flags.jsonOutput), client)
-	upOpts := envtypes.UpOptions{
-		DevComponents:     flags.devComponents,
-		With:              flags.with,
-		Without:           flags.without,
-		Detach:            flags.detach,
-		DevWorkflowEngine: false,
-		PublicPort:        flags.publicPort,
-		PublicHost:        flags.publicHost,
-		LatestImages:      flags.latestImages,
-		Minimal:           flags.minimal,
-		Monitoring:        false,
-		OpenBrowser:       flags.openBrowser,
-		PgAdmin:           false,
-	}
-	if err := env.Preflight(ctx, upOpts); err != nil {
-		return fmt.Errorf("preflight check: %w", err)
-	}
-	status, err := env.Status(ctx)
-	if err != nil {
-		return fmt.Errorf("get status: %w", err)
-	}
-	changed, err := env.Changed(upOpts)
-	if err != nil {
-		return fmt.Errorf("compare with the running environment: %w", err)
-	}
-	if status.Running && len(flags.devComponents) == 0 && !changed {
-		return envUpOutput{
-			Runtime:        runtimeLocaltestV2,
-			Running:        true,
-			Started:        false,
-			AlreadyRunning: true,
-			JSONOutput:     flags.jsonOutput,
-		}.Print(c.out)
-	}
-	if err := env.Up(ctx, upOpts); err != nil {
-		return fmt.Errorf("env up: %w", err)
-	}
-	return envUpOutput{
-		Runtime:        runtimeLocaltestV2,
-		Running:        true,
-		Started:        true,
-		AlreadyRunning: false,
-		JSONOutput:     flags.jsonOutput,
-	}.Print(c.out)
-}
-
-func (c *EnvCommand) runLocaltestUp(
-	ctx context.Context,
-	client container.ContainerClient,
-	flags envUpFlags,
-) error {
-	env := envlocaltest.NewEnv(c.cfg, commandOutput(c.out, flags.jsonOutput), client)
-
-	upOpts := envtypes.UpOptions{
-		DevComponents:     nil,
-		With:              nil,
-		Without:           nil,
-		Detach:            flags.detach,
-		DevWorkflowEngine: flags.devWorkflowEngine,
-		PublicPort:        nil,
-		PublicHost:        "",
-		LatestImages:      false,
-		Minimal:           false,
-		Monitoring:        flags.monitoring,
-		OpenBrowser:       flags.openBrowser,
-		PgAdmin:           flags.pgAdmin,
-	}
-
-	preflightErr := env.Preflight(ctx, upOpts)
-	if preflightErr != nil {
-		return fmt.Errorf("preflight check: %w", preflightErr)
-	}
-
-	status, err := env.StatusForUp(ctx, upOpts)
-	if err != nil {
-		return fmt.Errorf("get status: %w", err)
-	}
-	if status.Running && !flags.devWorkflowEngine {
-		return envUpOutput{
-			Runtime:        runtimeLocaltest,
-			Running:        true,
-			Started:        false,
-			AlreadyRunning: true,
-			JSONOutput:     flags.jsonOutput,
-		}.Print(c.out)
-	}
-
-	if err := env.Up(ctx, upOpts); err != nil {
-		return fmt.Errorf("env up: %w", err)
-	}
-	return envUpOutput{
-		Runtime:        runtimeLocaltest,
-		Running:        true,
-		Started:        true,
-		AlreadyRunning: false,
-		JSONOutput:     flags.jsonOutput,
-	}.Print(c.out)
 }
 
 // envDownFlags holds parsed flags for the env down command.
@@ -700,7 +595,7 @@ func (c *EnvCommand) runDown(ctx context.Context, args []string) error {
 	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
-		env, err := c.getEnvWithOutput(flags.runtime, client, commandOutput(c.out, flags.jsonOutput))
+		env, err := c.env(flags.runtime, client, commandOutput(c.out, flags.jsonOutput))
 		if err != nil {
 			return err
 		}
@@ -761,7 +656,7 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 	if flags.runtime, err = c.resolveRuntime(ctx, flags.runtime); err != nil {
 		return err
 	}
-	if err := validateResetRuntime(flags.runtime); err != nil {
+	if _, err := c.runtime(flags.runtime); err != nil {
 		return err
 	}
 	if proceed, err := c.confirmResetIfNeeded(ctx, flags); err != nil {
@@ -771,7 +666,7 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
-		env, err := c.getEnvWithOutput(flags.runtime, client, commandOutput(c.out, flags.jsonOutput))
+		env, err := c.env(flags.runtime, client, commandOutput(c.out, flags.jsonOutput))
 		if err != nil {
 			return err
 		}
@@ -791,15 +686,6 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 			JSONOutput: flags.jsonOutput,
 		}.Print(c.out)
 	})
-}
-
-func validateResetRuntime(runtime string) error {
-	switch runtime {
-	case runtimeLocaltest, runtimeLocaltestV2:
-		return nil
-	default:
-		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, runtime)
-	}
 }
 
 func (c *EnvCommand) confirmResetIfNeeded(ctx context.Context, flags envResetFlags) (bool, error) {
@@ -876,43 +762,20 @@ func (c *EnvCommand) runStatus(ctx context.Context, args []string) error {
 	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
-		switch flags.runtime {
-		case runtimeLocaltest:
-			return c.runLocaltestStatus(ctx, client, flags.jsonOutput)
-		case runtimeLocaltestV2:
-			status, err := envlocaltestv2.NewEnv(c.cfg, c.out, client).Status(ctx)
-			if err != nil {
-				return fmt.Errorf("get status: %w", err)
-			}
-			return envStatusOutput{
-				Runtime:    runtimeLocaltestV2,
-				Status:     status,
-				JSONOutput: flags.jsonOutput,
-			}.Print(
-				c.out,
-			)
-		default:
-			return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
+		env, err := c.env(flags.runtime, client, c.out)
+		if err != nil {
+			return err
 		}
+		status, err := env.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("get status: %w", err)
+		}
+		return envStatusOutput{
+			Runtime:    flags.runtime,
+			Status:     status,
+			JSONOutput: flags.jsonOutput,
+		}.Print(c.out)
 	})
-}
-
-func (c *EnvCommand) runLocaltestStatus(
-	ctx context.Context,
-	client container.ContainerClient,
-	jsonOutput bool,
-) error {
-	env := envlocaltest.NewEnv(c.cfg, c.out, client)
-	status, err := env.Status(ctx)
-	if err != nil {
-		return fmt.Errorf("get status: %w", err)
-	}
-
-	return envStatusOutput{
-		Runtime:    runtimeLocaltest,
-		Status:     status,
-		JSONOutput: jsonOutput,
-	}.Print(c.out)
 }
 
 func renderLocaltestStatus(out *ui.Output, status *envtypes.Status) {
@@ -952,7 +815,7 @@ func (c *EnvCommand) hostsUsage() string {
 		"  remove    Remove studioctl-managed localtest hosts entries",
 		"",
 		"Options:",
-		"  -r, --runtime    Runtime: localtest or localtest-v2 (default: the one running, else localtest)",
+		c.runtimeUsage(),
 		"  --json           Output as JSON",
 		"",
 		fmt.Sprintf("Run '%s env hosts <subcommand> --help' for more information.", osutil.CurrentBin()),
@@ -1007,10 +870,6 @@ func (c *EnvCommand) runHostsAdd(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
-		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
-	}
-
 	targets, spec, err := c.localtestHostsSpec()
 	if err != nil {
 		return err
@@ -1074,10 +933,6 @@ func (c *EnvCommand) runHostsStatus(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
-		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
-	}
-
 	targets, spec, err := c.localtestHostsSpec()
 	if err != nil {
 		return err
@@ -1117,10 +972,6 @@ func (c *EnvCommand) runHostsRemove(ctx context.Context, args []string) error {
 	if helpShown {
 		return nil
 	}
-	if flags.runtime != runtimeLocaltest && flags.runtime != runtimeLocaltestV2 {
-		return fmt.Errorf("%w: %s", ErrUnsupportedRuntime, flags.runtime)
-	}
-
 	targets, spec, err := c.localtestHostsSpec()
 	if err != nil {
 		return err
@@ -1394,7 +1245,7 @@ func (c *EnvCommand) runLogs(ctx context.Context, args []string) error {
 	}
 
 	return c.withContainerClient(ctx, func(client container.ContainerClient) error {
-		env, err := c.getEnv(flags.runtime, client)
+		env, err := c.env(flags.runtime, client, c.out)
 		if err != nil {
 			return err
 		}
@@ -1419,36 +1270,4 @@ func commandOutput(out *ui.Output, jsonOutput bool) *ui.Output {
 		return silentOutput()
 	}
 	return out
-}
-
-// devWorkflowEngineContainer is the localtest-v2 container whose --dev- flag is also the localtest runtime's
-// --dev-workflow-engine.
-const devWorkflowEngineContainer = "workflow-engine"
-
-// devFlag is --dev-<container>[=<path>]: a bare flag builds from the current directory (an empty path).
-type devFlag struct {
-	dev  map[string]string
-	set  func()
-	name string
-}
-
-func (d *devFlag) String() string {
-	return ""
-}
-
-func (d *devFlag) Set(value string) error {
-	value = strings.TrimSpace(value)
-	if value == "true" {
-		value = ""
-	}
-	d.dev[d.name] = value
-	if d.set != nil {
-		d.set()
-	}
-	return nil
-}
-
-// IsBoolFlag lets the flag stand without a value.
-func (d *devFlag) IsBoolFlag() bool {
-	return true
 }

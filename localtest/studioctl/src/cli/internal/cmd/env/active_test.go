@@ -17,12 +17,14 @@ type fakeEnv struct {
 	active bool
 }
 
-func (f fakeEnv) Active(context.Context) (bool, error)                { return f.active, f.err }
-func (f fakeEnv) Preflight(context.Context, envtypes.UpOptions) error { return nil }
-func (f fakeEnv) Up(context.Context, envtypes.UpOptions) error        { return nil }
-func (f fakeEnv) Down(context.Context) error                          { return nil }
-func (f fakeEnv) Logs(context.Context, envtypes.LogsOptions) error    { return nil }
-func (f fakeEnv) Name() string                                        { return f.name }
+func (f fakeEnv) Active(context.Context) (bool, error) { return f.active, f.err }
+func (f fakeEnv) Up(context.Context, envtypes.UpOptions) (envtypes.UpResult, error) {
+	return envtypes.UpResult{}, nil
+}
+func (f fakeEnv) Status(context.Context) (*envtypes.Status, error) { return &envtypes.Status{}, nil }
+func (f fakeEnv) Down(context.Context) error                       { return nil }
+func (f fakeEnv) Logs(context.Context, envtypes.LogsOptions) error { return nil }
+func (f fakeEnv) Name() string                                     { return f.name }
 
 func TestEnsureNoOtherActive(t *testing.T) {
 	t.Parallel()

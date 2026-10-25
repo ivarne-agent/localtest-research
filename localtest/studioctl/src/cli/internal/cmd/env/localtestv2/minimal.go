@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"altinn.studio/devenv/pkg/container/types"
-	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
@@ -102,7 +101,7 @@ func manifestVolume(opts *Options, id, path string) types.VolumeMount {
 
 // checkMinimal refuses what minimal mode cannot run: the optional groups, and a dev build of a container it does
 // not start.
-func checkMinimal(opts envtypes.UpOptions) error {
+func checkMinimal(opts UpOptions) error {
 	if !opts.Minimal {
 		return nil
 	}

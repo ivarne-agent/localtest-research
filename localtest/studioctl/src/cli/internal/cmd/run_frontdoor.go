@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
@@ -80,7 +81,7 @@ func waitForFrontDoorRegistration(
 	case errors.Is(err, frontdoor.ErrUnreachable):
 		return fmt.Errorf(
 			"%w %s within %s: the front door at %s does not answer; check '%s env status -r %s'",
-			errFrontDoorRegistration, appID, timeout, topology.LocaltestURL(), osutil.CurrentBin(), runtimeLocaltestV2,
+			errFrontDoorRegistration, appID, timeout, topology.LocaltestURL(), osutil.CurrentBin(), envlocaltestv2.Name,
 		)
 	default:
 		return fmt.Errorf("%w %s at %s within %s: %w", errFrontDoorRegistration, appID, want, timeout, err)

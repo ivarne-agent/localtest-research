@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
@@ -33,7 +32,7 @@ var (
 
 // checkOrigin refuses a --host or --port that cannot be the public origin's, and a custom host that does not resolve
 // to this machine.
-func (e *Env) checkOrigin(ctx context.Context, opts envtypes.UpOptions) error {
+func (e *Env) checkOrigin(ctx context.Context, opts UpOptions) error {
 	if err := checkOriginFlags(opts); err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (e *Env) checkOrigin(ctx context.Context, opts envtypes.UpOptions) error {
 type lookupHostFunc func(ctx context.Context, host string) ([]string, error)
 
 // checkOriginFlags refuses a --host or --port that cannot be the public origin's.
-func checkOriginFlags(opts envtypes.UpOptions) error {
+func checkOriginFlags(opts UpOptions) error {
 	if opts.PublicHost != "" {
 		if err := manifest.CheckHost(opts.PublicHost); err != nil {
 			return fmt.Errorf("%w: --host: %w", errOriginFlag, err)
@@ -67,7 +66,7 @@ func checkOriginFlags(opts envtypes.UpOptions) error {
 // the manifest's default. A --port 0 keeps the recorded port only while the front door runs on it (running); otherwise,
 // as after a start whose port was taken, it is zero: pick a free one.
 func requestedOrigin(
-	opts envtypes.UpOptions,
+	opts UpOptions,
 	state localtestv2.State,
 	up bool,
 	running bool,
@@ -90,7 +89,7 @@ func requestedOrigin(
 }
 
 // originChanged reports whether env up asks for another origin than the running environment's.
-func originChanged(opts envtypes.UpOptions, state localtestv2.State, up bool) bool {
+func originChanged(opts UpOptions, state localtestv2.State, up bool) bool {
 	if !up {
 		return false
 	}

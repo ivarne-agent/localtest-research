@@ -11,7 +11,6 @@ import (
 
 	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
-	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/localtestv2"
 )
@@ -411,16 +410,16 @@ func TestAnUpWithOtherGroupsOrImagesChangesTheRunningEnvironment(t *testing.T) {
 	env := NewEnv(cfg, nil, nil)
 	for _, tc := range []struct {
 		name string
-		opts envtypes.UpOptions
+		opts UpOptions
 		want bool
 	}{
-		{name: "the same", opts: envtypes.UpOptions{With: []string{"receipt"}}, want: false},
-		{name: "another group", opts: envtypes.UpOptions{With: []string{"receipt", "dialogporten"}}, want: true},
-		{name: "no group", opts: envtypes.UpOptions{}, want: true},
-		{name: "latest", opts: envtypes.UpOptions{With: []string{"receipt"}, LatestImages: true}, want: true},
+		{name: "the same", opts: UpOptions{With: []string{"receipt"}}, want: false},
+		{name: "another group", opts: UpOptions{With: []string{"receipt", "dialogporten"}}, want: true},
+		{name: "no group", opts: UpOptions{}, want: true},
+		{name: "latest", opts: UpOptions{With: []string{"receipt"}, LatestImages: true}, want: true},
 		{
 			name: "a dev build",
-			opts: envtypes.UpOptions{With: []string{"receipt"}, DevComponents: map[string]string{"storage": ""}},
+			opts: UpOptions{With: []string{"receipt"}, DevComponents: map[string]string{"storage": ""}},
 			want: true,
 		},
 	} {

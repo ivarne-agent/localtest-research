@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	containerbackend "altinn.studio/devenv/pkg/resource/executor/container"
 	envlocaltest "altinn.studio/studioctl/internal/cmd/env/localtest"
 	"altinn.studio/studioctl/internal/cmd/env/localtest/components"
+	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/osutil"
@@ -47,20 +47,21 @@ func TestEnvUpJSON_AlreadyRunning(t *testing.T) {
 		cfg: testEnvCommandConfig(t),
 		out: ui.NewOutput(&out, io.Discard, false),
 	}
-	err := command.runLocaltestUp(context.Background(), client, envUpFlags{
-		runtime:    runtimeLocaltest,
-		detach:     true,
-		jsonOutput: true,
+	err := command.up(context.Background(), client, envUpFlags{
+		runtime:     envlocaltest.NewRuntime(command.cfg),
+		detach:      true,
+		openBrowser: false,
+		jsonOutput:  true,
 	})
 	if err != nil {
-		t.Fatalf("runLocaltestUp() error = %v", err)
+		t.Fatalf("up() error = %v", err)
 	}
 
 	var got envUpOutput
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out.String())), &got); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if got.Runtime != runtimeLocaltest || !got.Running || got.Started || !got.AlreadyRunning {
+	if got.Runtime != envlocaltest.Name || !got.Running || got.Started || !got.AlreadyRunning {
 		t.Fatalf("output = %+v, want already running result", got)
 	}
 }
@@ -104,96 +105,79 @@ func TestEnvUpJSONRejectsForeground(t *testing.T) {
 	}
 }
 
-func TestParseUpFlagsDevWorkflowEngine(t *testing.T) {
+func TestParseUpFlagsBindsTheChosenRuntimesOwnFlags(t *testing.T) {
 	t.Parallel()
 
 	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
-	got, helpShown, err := command.parseUpFlags([]string{"--dev-workflow-engine"})
-	if err != nil {
-		t.Fatalf("parseUpFlags() error = %v", err)
+	for _, tc := range []struct {
+		runtime string
+		args    []string
+	}{
+		{runtime: envlocaltest.Name, args: []string{"--dev-workflow-engine", "--pgadmin"}},
+		{runtime: envlocaltest.Name, args: []string{"-r", "localtest", "--monitoring"}},
+		// --dev-workflow-engine is each runtime's own flag, with its own meaning.
+		{runtime: envlocaltestv2.Name, args: []string{"-r", "localtest-v2", "--dev-workflow-engine", "--with", "receipt"}},
+		{runtime: envlocaltestv2.Name, args: []string{"--runtime=localtest-v2", "--dev-postgres=postgres/Dockerfile"}},
+	} {
+		got, helpShown, err := command.parseUpFlags(t.Context(), tc.args)
+		if err != nil || helpShown {
+			t.Fatalf("parseUpFlags(%v) = %v, %v", tc.args, helpShown, err)
+		}
+		if got.runtime.Name() != tc.runtime {
+			t.Errorf("parseUpFlags(%v) runtime = %s, want %s", tc.args, got.runtime.Name(), tc.runtime)
+		}
 	}
-	if helpShown {
-		t.Fatal("parseUpFlags() helpShown = true, want false")
+	if _, _, err := command.parseUpFlags(t.Context(), []string{"-r", "localtest-v2", "--dev-nosuch"}); err == nil ||
+		errors.Is(err, ErrInvalidFlagValue) {
+		t.Fatalf("parseUpFlags(--dev-nosuch) = %v, want an undefined flag", err)
 	}
-	if !got.devWorkflowEngine {
-		t.Fatal("devWorkflowEngine = false, want true")
-	}
-}
-
-func TestParseUpFlagsDevPerContainerWithAnOptionalPath(t *testing.T) {
-	t.Parallel()
-
-	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
-	got, _, err := command.parseUpFlags([]string{"--dev-storage", "--dev-postgres=postgres/Dockerfile"})
-	if err != nil {
-		t.Fatalf("parseUpFlags() error = %v", err)
-	}
-	want := map[string]string{"storage": "", "postgres": "postgres/Dockerfile"}
-	if !maps.Equal(got.devComponents, want) {
-		t.Fatalf("devComponents = %v, want %v", got.devComponents, want)
-	}
-	if got.devWorkflowEngine {
-		t.Fatal("devWorkflowEngine = true, want false")
-	}
-	if _, _, err := command.parseUpFlags([]string{"--dev-nosuch"}); err == nil {
-		t.Fatal("parseUpFlags(--dev-nosuch) error = nil, want an undefined flag")
+	if _, _, err := command.parseUpFlags(
+		t.Context(),
+		[]string{"-r", "nosuch"},
+	); !errors.Is(
+		err,
+		ErrUnsupportedRuntime,
+	) {
+		t.Fatalf("parseUpFlags(-r nosuch) = %v, want ErrUnsupportedRuntime", err)
 	}
 }
 
 func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
 	t.Parallel()
 
+	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
 	for _, tc := range []struct {
-		name  string
-		want  string
-		flags envUpFlags
+		want string
+		args []string
 	}{
-		{
-			name:  "localtest",
-			flags: envUpFlags{runtime: runtimeLocaltest, with: []string{"dialogporten"}, latestImages: true},
-			want:  "--with, --latest",
-		},
-		{
-			name:  "localtest minimal",
-			flags: envUpFlags{runtime: runtimeLocaltest, minimal: true},
-			want:  "--minimal",
-		},
-		{
-			name: "localtest dev",
-			flags: envUpFlags{
-				runtime:       runtimeLocaltest,
-				devComponents: map[string]string{"storage": "", "workflow-engine": "Dockerfile"},
-			},
-			want: "--dev-storage, --dev-workflow-engine",
-		},
-		{
-			name:  "localtest-v2",
-			flags: envUpFlags{runtime: runtimeLocaltestV2, monitoring: true, pgAdmin: true},
-			want:  "--monitoring, --pgadmin",
-		},
+		{args: []string{"--with", "dialogporten"}, want: "--with is not supported by the localtest runtime (it is localtest-v2's)"},
+		{args: []string{"-r", "localtest", "--minimal"}, want: "--minimal is not supported by the localtest runtime"},
+		{args: []string{"--dev-storage"}, want: "--dev-storage is not supported by the localtest runtime"},
+		{args: []string{"-r", "localtest-v2", "--monitoring"}, want: "--monitoring is not supported by the localtest-v2 runtime (it is localtest's)"},
 	} {
-		err := validateUpFlagsForRuntime(tc.flags)
-		if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), tc.want+" not supported") {
-			t.Errorf("%s: validateUpFlagsForRuntime() = %v, want %q refused", tc.name, err, tc.want)
+		_, _, err := command.parseUpFlags(t.Context(), tc.args)
+		if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("parseUpFlags(%v) = %v, want %q", tc.args, err, tc.want)
 		}
 	}
-	for _, flags := range []envUpFlags{
-		{runtime: runtimeLocaltestV2, with: []string{"receipt"}},
-		{runtime: runtimeLocaltestV2, minimal: true},
-		// --dev-workflow-engine is each runtime's own flag.
-		{
-			runtime:           runtimeLocaltestV2,
-			devComponents:     map[string]string{"workflow-engine": ""},
-			devWorkflowEngine: true,
-		},
-		{
-			runtime:           runtimeLocaltest,
-			devComponents:     map[string]string{"workflow-engine": ""},
-			devWorkflowEngine: true,
-		},
+}
+
+func TestRuntimeArg(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		want string
+		args []string
+	}{
+		{want: "", args: []string{"--monitoring"}},
+		{want: "a", args: []string{"-r", "a"}},
+		{want: "a", args: []string{"--runtime", "a", "--json"}},
+		{want: "a", args: []string{"--json", "-runtime=a"}},
+		{want: "", args: []string{"--", "-r", "a"}},
+		{want: "", args: []string{"-r"}},
 	} {
-		if err := validateUpFlagsForRuntime(flags); err != nil {
-			t.Errorf("validateUpFlagsForRuntime(%+v) = %v, want nil", flags, err)
+		if got := runtimeArg(tc.args); got != tc.want {
+			t.Errorf("runtimeArg(%v) = %q, want %q", tc.args, got, tc.want)
 		}
 	}
 }
@@ -212,7 +196,7 @@ func TestParseUpFlagsHelpHidesDevWorkflowEngine(t *testing.T) {
 
 	var out bytes.Buffer
 	command := &EnvCommand{out: ui.NewOutput(&out, io.Discard, false)}
-	_, helpShown, err := command.parseUpFlags([]string{"--help"})
+	_, helpShown, err := command.parseUpFlags(t.Context(), []string{"--help"})
 	if err != nil {
 		t.Fatalf("parseUpFlags() error = %v", err)
 	}
@@ -248,8 +232,8 @@ func TestEnvHostsStatusJSON(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &got); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if got.Runtime != runtimeLocaltest {
-		t.Fatalf("Runtime = %q, want %q", got.Runtime, runtimeLocaltest)
+	if got.Runtime != envlocaltest.Name {
+		t.Fatalf("Runtime = %q, want %q", got.Runtime, envlocaltest.Name)
 	}
 	if got.Path != hostsPath {
 		t.Fatalf("Path = %q, want %q", got.Path, hostsPath)
@@ -295,8 +279,8 @@ func TestEnvHostsAddJSON(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &got); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if got.Runtime != runtimeLocaltest {
-		t.Fatalf("Runtime = %q, want %q", got.Runtime, runtimeLocaltest)
+	if got.Runtime != envlocaltest.Name {
+		t.Fatalf("Runtime = %q, want %q", got.Runtime, envlocaltest.Name)
 	}
 	if len(got.Targets) != 1 {
 		t.Fatalf("len(Targets) = %d, want 1", len(got.Targets))

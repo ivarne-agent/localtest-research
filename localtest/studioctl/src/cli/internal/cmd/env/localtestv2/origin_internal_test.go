@@ -10,7 +10,6 @@ import (
 
 	"altinn.studio/devenv/pkg/container/mock"
 	"altinn.studio/devenv/pkg/container/types"
-	envtypes "altinn.studio/studioctl/internal/cmd/env"
 	"altinn.studio/studioctl/internal/localtestv2"
 )
 
@@ -25,42 +24,42 @@ func TestTheRequestedOriginKeepsTheRunningOneUnlessTheFlagsSayOtherwise(t *testi
 	type testCase struct {
 		name     string
 		wantHost string
-		opts     envtypes.UpOptions
+		opts     UpOptions
 		state    localtestv2.State
 		wantPort int
 		up       bool
 		changed  bool
 	}
 	tc := func(
-		name string, opts envtypes.UpOptions, state localtestv2.State, up bool, host string, port int, changed bool,
+		name string, opts UpOptions, state localtestv2.State, up bool, host string, port int, changed bool,
 	) testCase {
 		return testCase{
 			name: name, opts: opts, state: state, up: up, wantHost: host, wantPort: port, changed: changed,
 		}
 	}
 	cases := []testCase{
-		tc("no state, no flags", envtypes.UpOptions{}, localtestv2.State{}, false, "local.altinn.cloud", 8000, false),
-		tc("no state, --port 0 picks", envtypes.UpOptions{PublicPort: new(0)}, localtestv2.State{}, false,
+		tc("no state, no flags", UpOptions{}, localtestv2.State{}, false, "local.altinn.cloud", 8000, false),
+		tc("no state, --port 0 picks", UpOptions{PublicPort: new(0)}, localtestv2.State{}, false,
 			"local.altinn.cloud", 0, false),
-		tc("no state, both flags", envtypes.UpOptions{PublicHost: "altinn.test", PublicPort: new(18001)},
+		tc("no state, both flags", UpOptions{PublicHost: "altinn.test", PublicPort: new(18001)},
 			localtestv2.State{}, false, "altinn.test", 18001, false),
-		tc("running, no flags keeps it", envtypes.UpOptions{}, running, true, "origin.test", 18000, false),
-		tc("running, --port 0 keeps its port", envtypes.UpOptions{PublicPort: new(0)}, running, true,
+		tc("running, no flags keeps it", UpOptions{}, running, true, "origin.test", 18000, false),
+		tc("running, --port 0 keeps its port", UpOptions{PublicPort: new(0)}, running, true,
 			"origin.test", 18000, false),
-		tc("running, the same values", envtypes.UpOptions{PublicHost: "origin.test", PublicPort: new(18000)}, running,
+		tc("running, the same values", UpOptions{PublicHost: "origin.test", PublicPort: new(18000)}, running,
 			true, "origin.test", 18000, false),
 		tc(
 			"running, another port",
-			envtypes.UpOptions{PublicPort: new(8000)},
+			UpOptions{PublicPort: new(8000)},
 			running,
 			true,
 			"origin.test",
 			8000,
 			true,
 		),
-		tc("running, another host", envtypes.UpOptions{PublicHost: "local.altinn.cloud"}, running, true,
+		tc("running, another host", UpOptions{PublicHost: "local.altinn.cloud"}, running, true,
 			"local.altinn.cloud", 18000, true),
-		tc("running at the default, a host", envtypes.UpOptions{PublicHost: "origin.test"},
+		tc("running at the default, a host", UpOptions{PublicHost: "origin.test"},
 			localtestv2.State{CertificateDir: "/c"}, true, "origin.test", 8000, true),
 	}
 	for _, c := range cases {
@@ -79,13 +78,13 @@ func TestAnUpAtAnotherOriginChangesTheRunningEnvironment(t *testing.T) {
 	cfg := testConfig(t)
 	writeTestState(t, cfg, false)
 	env := NewEnv(cfg, nil, nil)
-	if changed, err := env.Changed(envtypes.UpOptions{}); err != nil || changed {
+	if changed, err := env.Changed(UpOptions{}); err != nil || changed {
 		t.Errorf("the same origin: %v, %v", changed, err)
 	}
-	if changed, err := env.Changed(envtypes.UpOptions{PublicPort: new(18000)}); err != nil || !changed {
+	if changed, err := env.Changed(UpOptions{PublicPort: new(18000)}); err != nil || !changed {
 		t.Errorf("another port: %v, %v", changed, err)
 	}
-	if changed, err := env.Changed(envtypes.UpOptions{PublicPort: new(0)}); err != nil || changed {
+	if changed, err := env.Changed(UpOptions{PublicPort: new(0)}); err != nil || changed {
 		t.Errorf("--port 0 on a running environment: %v, %v", changed, err)
 	}
 }
@@ -113,7 +112,7 @@ func TestAnOriginSwitchStopsTheRunningEnvironment(t *testing.T) {
 
 func TestTheOriginFlagsAreChecked(t *testing.T) {
 	t.Parallel()
-	for _, opts := range []envtypes.UpOptions{
+	for _, opts := range []UpOptions{
 		{PublicHost: "Origin.Test"},
 		{PublicHost: "origin.test:18000"},
 		{PublicHost: "127.0.0.1"},
@@ -124,7 +123,7 @@ func TestTheOriginFlagsAreChecked(t *testing.T) {
 			t.Errorf("%+v: %v", opts, err)
 		}
 	}
-	for _, opts := range []envtypes.UpOptions{{}, {PublicHost: "origin.test", PublicPort: new(0)}, {PublicPort: new(1)}} {
+	for _, opts := range []UpOptions{{}, {PublicHost: "origin.test", PublicPort: new(0)}, {PublicPort: new(1)}} {
 		if err := checkOriginFlags(opts); err != nil {
 			t.Errorf("%+v: %v", opts, err)
 		}
@@ -167,7 +166,7 @@ func TestPortZeroPicksAFreePortAndTheStateRecordsIt(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
 	env := NewEnv(cfg, nil, mock.New())
-	opts, err := env.options(t.Context(), envtypes.UpOptions{PublicHost: "origin.test", PublicPort: new(0)})
+	opts, err := env.options(t.Context(), UpOptions{PublicHost: "origin.test", PublicPort: new(0)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,16 +194,16 @@ func TestPortZeroKeepsTheRecordedPortOnlyWhileTheFrontDoorRuns(t *testing.T) {
 	recorded := localtestv2.State{CertificateDir: "/c", PublicHost: "origin.test", PublicPort: 18000}
 	cases := []struct {
 		name     string
-		opts     envtypes.UpOptions
+		opts     UpOptions
 		wantPort int
 		up       bool
 		running  bool
 	}{
-		{"recorded and running: keep", envtypes.UpOptions{PublicPort: new(0)}, 18000, true, true},
-		{"recorded, front door not running: pick", envtypes.UpOptions{PublicPort: new(0)}, 0, true, false},
-		{"nothing recorded: pick", envtypes.UpOptions{PublicPort: new(0)}, 0, false, false},
-		{"recorded, not running, no --port: the recorded port", envtypes.UpOptions{}, 18000, true, false},
-		{"an explicit port is taken as given", envtypes.UpOptions{PublicPort: new(18001)}, 18001, true, false},
+		{"recorded and running: keep", UpOptions{PublicPort: new(0)}, 18000, true, true},
+		{"recorded, front door not running: pick", UpOptions{PublicPort: new(0)}, 0, true, false},
+		{"nothing recorded: pick", UpOptions{PublicPort: new(0)}, 0, false, false},
+		{"recorded, not running, no --port: the recorded port", UpOptions{}, 18000, true, false},
+		{"an explicit port is taken as given", UpOptions{PublicPort: new(18001)}, 18001, true, false},
 	}
 	for _, c := range cases {
 		host, p := requestedOrigin(c.opts, recorded, c.up, c.running)
@@ -240,7 +239,7 @@ func TestASecondPortZeroPicksAgainUnlessTheFrontDoorRuns(t *testing.T) {
 	}
 
 	gone := NewEnv(cfg, nil, mock.New())
-	picked, err := gone.options(t.Context(), envtypes.UpOptions{PublicPort: new(0)})
+	picked, err := gone.options(t.Context(), UpOptions{PublicPort: new(0)})
 	if err != nil || picked.Origin.Port == recordedPort || picked.Origin.Port <= 0 {
 		t.Errorf("front door not running: port %d (%v), want a new one, not %d", picked.Origin.Port, err, recordedPort)
 	}
@@ -254,7 +253,7 @@ func TestASecondPortZeroPicksAgainUnlessTheFrontDoorRuns(t *testing.T) {
 		info.State.Running = true
 		return info, nil
 	}
-	kept, err := NewEnv(cfg, nil, client).options(t.Context(), envtypes.UpOptions{PublicPort: new(0)})
+	kept, err := NewEnv(cfg, nil, client).options(t.Context(), UpOptions{PublicPort: new(0)})
 	if err != nil || kept.Origin.Port != recordedPort {
 		t.Errorf("front door running: port %d (%v), want the recorded %d", kept.Origin.Port, err, recordedPort)
 	}
