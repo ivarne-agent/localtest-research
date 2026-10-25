@@ -1797,11 +1797,12 @@ studioctl only.
     - *Arguments:* the collector image's `CMD` names its configuration. The Victoria containers keep their default data
       path and get a manifest volume there. Retention goes through an environment variable if the images read one,
       otherwise into the default.
-    - *Host ports:* none. Native apps send OTLP over HTTP through the front door, on a subdomain `otel.<host>:<port>`
-      in `public.subdomains` routed to `otel-collector:4318`. `app env` then sets
-      `OTEL_EXPORTER_OTLP_ENDPOINT={{origin of otel}}` and `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. gRPC through
-      the front door would need h2c on port 8000, so it is not used. As a result, `--host` and `--port` work with no
-      extra hostname setup.
+    - *Host ports:* none. Native apps send OTLP over HTTP through the front door, on the path prefix `/otlp` of the
+      main host, which is routed to `otel-collector:4318` with the prefix removed. There is no subdomain (decided
+      2026-10-25). `app env` then sets `OTEL_EXPORTER_OTLP_ENDPOINT={{origin}}/otlp` and
+      `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. app-lib's plain `AddOtlpExporter()` takes both from the
+      environment and adds `/v1/<signal>` to the path; verify that on the stack. gRPC through the front door would
+      need h2c on port 8000, so it is not used. As a result, `--host` and `--port` work with no extra hostname setup.
     - The service names in the `infra/` files (`localtest-victoria-*`) become the manifest's container names, so the
       image's copy of the files differs from the old runtime's copy only in those names.
   - **Condition 2: Aspire ignores the group explicitly (decided 2026-10-25).** The group is an ordinary manifest
@@ -1812,8 +1813,8 @@ studioctl only.
     `With<Group>` method for each one. The ignored group therefore comes out of `OptionalGroups`, out of Aspire's
     `everything` and out of the method test, and `WithGroup("monitoring")` fails with a message pointing at the
     Aspire dashboard. A new group that Aspire does not know still fails the method test, so ignoring a group is
-    always a deliberate decision. In studioctl, the group is turned on by `--with monitoring` or `--with everything`;
-    `--monitoring` can be an alias, if the shared env flag is wanted.
+    always a deliberate decision. In studioctl, the group is turned on by `--with monitoring` or `--with everything`.
+    There is no `--monitoring` flag: localtest-v2 turns every group on the same way (decided 2026-10-25).
   - **The components' own telemetry switches** are runtime-specific. Aspire sends component containers' OTLP to its own
     dashboard, and studioctl sends it to the collector only when the group is on. A container's `envs` therefore cannot
     simply hard-code `EngineSettings__EnableTelemetry=true`. The proposal: a placeholder such as `{{otlp}}` (an empty
@@ -1826,8 +1827,8 @@ studioctl only.
   - **Not chosen:** `grafana/otel-lgtm`, a single container with a collector, Prometheus, Tempo, Loki and Grafana. It
     is simpler, but it does not match the Victoria stack Altinn runs or the shared Grafana's datasource UIDs, so the
     dashboards would not carry over.
-- **Where Grafana is reached.** The default proposal is a front-door prefix `/grafana` on the main host, as the old
-  localtest does. A `grafana.<host>` subdomain would also work.
+- **Where Grafana is reached (decided 2026-10-25): under the sub-path `/grafana/` on the main host,** as the old
+  localtest does. It gets no subdomain.
   - The prefix needs `new("/grafana", "grafana")` in `localtest/localtest/Proxy/PlatformRoutes.cs`. When the group is
     off, the existing 503 for a component that is not running names the group.
   - Grafana's `GF_SERVER_ROOT_URL` is `{{origin}}/grafana/`, so `--host` and `--port` (task 39) work.
@@ -1872,5 +1873,4 @@ studioctl only.
   - then `env up` without the flag, and diff `docker ps` and `app env` against an earlier run.
 - Memory: the five containers' resident memory, measured with `docker stats` and added to task 38's numbers, since
   this machine has 7.8 GB.
-- Sync into altinn-studio#21394 afterwards, or into a follow-up PR on top of it if #21394 should not grow. Decide this
-  at approval.
+- Do not port to altinn-studio#21394 or any other PR until the user says so (decided 2026-10-25).
