@@ -82,6 +82,9 @@ A path matching no route still falls through to the localtest app.
 | 46 | [Egress inventory (egress control phase 1)](#46-egress-inventory-egress-control-phase-1) | brief drafted (owner 2026-10-23: "draft the brief for phase 1 of egress control"): `/home/agent/code/.briefs/task46-egress-inventory.md`, awaiting dispatch | large | yes (phase B) |
 | 47 | [Compare altinn-apiclient-maskinporten#92 with our change](#47-compare-altinn-apiclient-maskinporten92-with-our-change) | research, approved (owner 2026-10-24: "#92 is not my PR; dispatch an agent to look at the differences"); brief `/home/agent/code/.briefs/task47-compare-pr92.md`; **done, merged** 2026-10-24 (`localtest/reviews/2026-10-24-maskinporten-pr92.md`): support #92, withdraw ours | small | no |
 | 48 | [Text parameters as React elements (explore)](#48-text-parameters-as-react-elements-explore) | approved (owner 2026-10-24: "explore, give up if hard, a PR for making text parameters react elements"); brief `/home/agent/code/.briefs/task48-text-params-elements.md`; **done, no PR** (2026-10-24: feasible but not an improvement; notes `/home/agent/code/notes-text-params-elements.md`) | small | no |
+| 49 | [localtest-v2 "up" from the containers, not the state file](#49-localtest-v2-up-from-the-containers-not-the-state-file) | unapproved (from the 2026-10-25 re-review of altinn-studio#21394, point A) | medium | yes |
+| 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | unapproved (from the 2026-10-25 re-review of altinn-studio#21394, point C) | small | yes |
+| 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | unapproved (from the 2026-10-25 re-review of altinn-studio#21394, point D) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1643,3 +1646,93 @@ Done 2026-10-25 (head b0e5555fc5, verified by the coordinator: focused Vitest 10
 `PlatformLink` is a discriminated union, the inbox setting takes optional `partyId` and `dialogId` (dialog template,
 party switch through the access-management redirect, or both), every other setting refuses them at compile time;
 no caller computes a URL; `platformLinkHref(setting)` for the non-inbox text links.
+
+## 49. localtest-v2 "up" from the containers, not the state file
+
+**Origin (2026-10-25).** Re-review of [altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)
+after the env-runtime refactor ([altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483)). `env up`'s
+conflict check and the default `-r` already come from the running containers (`Env.Active`, `envtypes.ResolveRuntime`),
+and a failed start removes the state file (task 41). Elsewhere, the existence of
+`generated/localtest-v2/state.json` still means "localtest-v2 is up", so after a reboot or a `docker rm` a stale file
+changes what other commands do.
+
+**The readers, under `localtest/studioctl/src/cli/` (non-test):**
+
+- `internal/studioctlserver/client.go:1004` (`buildStartConfig`): turns on `Localtest__RegisterApps` and turns off the
+  host bridge.
+- `internal/cmd/app/run.go:172` (`nativeAccessTokenSigning`): gives the app the test certificate and binds it to
+  `0.0.0.0`.
+- `internal/cmd/app/run.go:275` (container mode): puts the app on the stack's network.
+- `internal/cmd/run_frontdoor.go:67`, `:101`: the registration wait and the `--dev-frontend` route.
+  `internal/localtestv2/state.go:69` (`CurrentTopology`) is the origin they use.
+- Inside the runtime (`env.go`, `minimal.go`, `origin.go`), the file is read as the started configuration (groups,
+  origin, mode). That use is correct and stays.
+
+**Goal.** The state file is the record of the configuration the stack was started with, never the evidence that it
+is running.
+
+- **studioctl-server's start config:** decided from whether localtest-v2's containers run. `env up` and `env down`
+  already restart or reconcile the server, so the decision is only made at those points and at a plain server start.
+  The agent picks between a container check there (it needs a container client) and keeping the file but removing it
+  wherever the runtime finds no containers. Name the trade-off in the outcome.
+- **`studioctl run`:** with a state file but no answer from the front door, stop at once with a one-line fact and the
+  command that fixes it (`env up -r localtest-v2`, or `env down -r localtest-v2` to forget the stack). Today it waits
+  for the whole startup timeout.
+- **Container mode and the app environment:** the same check, so a stale file neither binds the app to `0.0.0.0` nor
+  puts it on a network that does not exist.
+
+**Proof.** Unit tests with a stale file and no containers for each reader. On the stack: `env up -r localtest-v2`,
+remove its containers with `docker rm -f` (leaving the file), then `studioctl run` and `studioctl env up -r localtest`
+both behave as if localtest-v2 were down. Update `localtest/studioctl/README.md` ("What the localtest-v2 change adds")
+and studioctl's `AGENTS.md`.
+
+## 50. Front-door registration off the discovery loop
+
+**Origin (2026-10-25).** Re-review of altinn-studio#21394, point C (the same finding as point 7 of the first review).
+
+**Problem.**
+- `studioctl-server/Discovery/AppRegistry.cs:214` awaits `FrontDoorRegistration.Reconcile` inside the registry's
+  refresh, one app at a time, through the `front-door-registration` HTTP client with a 2-minute timeout
+  (`ServiceCollectionExtensions.cs:36`).
+- A slow or hanging front door therefore stalls discovery, the status endpoint's view of the apps and the
+  `CompleteReadyStarts` notices for every app, including apps that have nothing to do with localtest-v2.
+
+**Goal.**
+- Registration runs beside discovery: a background worker fed by the registry's changes, one registration in flight per
+  app.
+- A slow front door delays only that app's registration.
+- The ordering the comment at line 213 protects is kept: on localtest-v2, an app's start is complete only once the
+  front door has provisioned it, because Storage knows the app only after that. So the start waiter for an app waits for
+  that app's registration outcome, not for the whole refresh. With registration off (`Localtest:RegisterApps` false),
+  nothing changes.
+- The retry and re-registration rules stay as they are: a failed registration, a Dialogporten sync that failed, an app
+  that restarted, an app the front door no longer lists, and a `DELETE` for an app that went away.
+
+**Proof.**
+- `FrontDoorRegistrationTests`, extended:
+  - a hanging front door does not delay discovery of a second app or the status endpoint
+  - a start completes after its registration succeeds
+- On the stack: `studioctl run` with two apps while the front door is paused (`docker pause`), then unpaused.
+
+## 51. Monorepo-ready references in the studioctl change
+
+**Origin (2026-10-25).** Re-review of altinn-studio#21394, point D: about 170 added lines in the PR mention this
+repository or `ivarne-agent`, five comments cite this repository's task numbers (21e, 25, 27a, 34, 40), and
+`internal/localtestv2/manifest/README.md` links to `../../../../../../CONVENTIONS.md`, which does not exist in the
+monorepo.
+
+**Goal.** The vendored studioctl source under `localtest/studioctl/src/` reads correctly in the monorepo.
+
+- No task numbers in code comments or docs.
+- No relative links that leave `src/`.
+- The conventions the code depends on (manifest rules, ports, service discovery, certificate, volumes) are stated in
+  the manifest README or in studioctl's README, and `localtest/CONVENTIONS.md` here points to them instead of the
+  other way round.
+- What must still name this repository (the image registry in `manifest.json`, the test key pair's origin in
+  `certs.go`, the Aspire package in the golden tests) uses absolute GitHub URLs, and each is listed in one "Not
+  mergeable yet" note in `localtest/studioctl/README.md`, so the monorepo PR can track them.
+- No behaviour change. The golden files only change if a comment inside them changes.
+
+**Proof.** A grep of `localtest/studioctl/src` for task numbers and relative links leaving `src/` finds none, and every
+remaining mention of this repository is on the list. `go test ./...`, `make lint` and Prettier pass. Sync into
+altinn-studio#21394 afterwards, as in `localtest/studioctl/UPSTREAM.md`.
