@@ -1633,3 +1633,6 @@ Blast radius: 44 `params=` sites, 9 already pass elements that are flattened tod
 overrides ignore `params` entirely, so they never received the URL. Verdict: about 30 `PlatformLink`-specific lines
 removed against a new parameter kind in the shared language code; the marker is the smaller change for #21481; revisit
 only if more in-text component links appear.
+Addendum (owner 2026-10-25): `PlatformLink` should not need both the setting and the URL; `href` becomes optional
+and is derived from the setting (the helpers keep the templating and the access-management redirect), kept only as
+an override for the computed receipt and header links; `platformLinkHref` likewise. Agent resumed, same PR.
