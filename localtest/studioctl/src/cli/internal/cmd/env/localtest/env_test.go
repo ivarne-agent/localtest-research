@@ -26,6 +26,9 @@ var errStateUnavailable = errors.New("state unavailable")
 // testLocaltestImageRef is the localtest reference in testImages.
 const testLocaltestImageRef = "ghcr.io/altinn/test-localtest:latest"
 
+// testGraphID is the localtest runtime's devenv graph ID.
+const testGraphID = "studioctl-localtest"
+
 func TestStatus_RunningRequiresAllCoreContainers(t *testing.T) {
 	t.Parallel()
 
@@ -422,7 +425,7 @@ func managedContainerInfo(state types.ContainerState) types.ContainerInfo {
 	}
 }
 
-func assertContainerStatus(t *testing.T, status *localtest.Status, name string, want string) {
+func assertContainerStatus(t *testing.T, status *envtypes.Status, name string, want string) {
 	t.Helper()
 	for _, entry := range status.Containers {
 		if entry.Name == name {
@@ -435,7 +438,7 @@ func assertContainerStatus(t *testing.T, status *localtest.Status, name string, 
 	t.Fatalf("container %q missing from status", name)
 }
 
-func assertContainerStatusAbsent(t *testing.T, status *localtest.Status, name string) {
+func assertContainerStatusAbsent(t *testing.T, status *envtypes.Status, name string) {
 	t.Helper()
 	for _, entry := range status.Containers {
 		if entry.Name == name {
@@ -581,11 +584,11 @@ func TestStatus_ReportsTheBuildEachContainerRuns(t *testing.T) {
 	}
 }
 
-func containerStatus(status *localtest.Status, name string) (localtest.ContainerStatus, bool) {
+func containerStatus(status *envtypes.Status, name string) (envtypes.ContainerStatus, bool) {
 	for _, ctr := range status.Containers {
 		if ctr.Name == name {
 			return ctr, true
 		}
 	}
-	return localtest.ContainerStatus{}, false
+	return envtypes.ContainerStatus{}, false
 }

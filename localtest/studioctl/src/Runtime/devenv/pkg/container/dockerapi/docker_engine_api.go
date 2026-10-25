@@ -344,7 +344,6 @@ func buildDockerConfigs(
 		PortBindings:  portBindings,
 		Binds:         buildVolumeBinds(cfg.Volumes),
 		Mounts:        buildMounts(cfg.Volumes),
-		Tmpfs:         buildTmpfs(cfg.Volumes),
 		ExtraHosts:    cfg.ExtraHosts,
 		RestartPolicy: buildRestartPolicy(cfg.RestartPolicy),
 		NetworkMode:   dockercontainer.NetworkMode(primaryNetwork),
@@ -404,8 +403,7 @@ func buildRestartPolicy(policy string) dockercontainer.RestartPolicy {
 func buildMounts(volumes []types.VolumeMount) []dockermount.Mount {
 	mounts := make([]dockermount.Mount, 0, len(volumes))
 	for _, v := range volumes {
-		if v.Type == types.VolumeMountTypeTmpfs ||
-			v.Type == types.VolumeMountTypeBind && v.SELinuxRelabel != types.SELinuxRelabelNone {
+		if v.Type == types.VolumeMountTypeBind && v.SELinuxRelabel != types.SELinuxRelabelNone {
 			continue
 		}
 		mounts = append(mounts, dockermount.Mount{
@@ -416,21 +414,6 @@ func buildMounts(volumes []types.VolumeMount) []dockermount.Mount {
 		})
 	}
 	return mounts
-}
-
-// buildTmpfs maps each tmpfs mount's path to its options; nil when there is none.
-func buildTmpfs(volumes []types.VolumeMount) map[string]string {
-	var tmpfs map[string]string
-	for _, v := range volumes {
-		if v.Type != types.VolumeMountTypeTmpfs {
-			continue
-		}
-		if tmpfs == nil {
-			tmpfs = map[string]string{}
-		}
-		tmpfs[v.ContainerPath] = v.Options
-	}
-	return tmpfs
 }
 
 func buildVolumeBinds(volumes []types.VolumeMount) []string {
@@ -868,22 +851,17 @@ func (c *Client) ContainerStop(ctx context.Context, nameOrID string, timeout *in
 	return nil
 }
 
-// ContainerRemove removes a container and its anonymous volumes.
+// ContainerRemove removes a container.
 // Returns ErrContainerNotFound if the container does not exist.
 func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, force bool) error {
-	if err := c.cli.ContainerRemove(ctx, nameOrID, removeOptions(force)); err != nil {
+	opts := dockercontainer.RemoveOptions{Force: force}
+	if err := c.cli.ContainerRemove(ctx, nameOrID, opts); err != nil {
 		if cerrdefs.IsNotFound(err) {
 			return types.ErrContainerNotFound
 		}
 		return fmt.Errorf("failed to remove container: %w", err)
 	}
 	return nil
-}
-
-// removeOptions removes the container's anonymous volumes with it: they are unreachable once the
-// container is gone. RemoveVolumes leaves named volumes and bind mounts alone.
-func removeOptions(force bool) dockercontainer.RemoveOptions {
-	return dockercontainer.RemoveOptions{Force: force, RemoveVolumes: true}
 }
 
 // NetworkCreate creates a new network.
@@ -1134,7 +1112,7 @@ func copyToConnBestEffort(dst io.Writer, src io.Reader) {
 
 //nolint:errcheck,gosec // Container cleanup is best-effort after a failed create/start path.
 func removeContainerBestEffort(ctx context.Context, cli *client.Client, containerID string) {
-	cli.ContainerRemove(ctx, containerID, removeOptions(true))
+	cli.ContainerRemove(ctx, containerID, dockercontainer.RemoveOptions{Force: true})
 }
 
 func reportProgress(onProgress types.ProgressHandler, progress types.ProgressUpdate) {

@@ -14,9 +14,6 @@ const (
 	labelKeyManaged   = "altinn.studio/cli"
 	labelValueManaged = "app"
 	labelKeyAppPath   = "altinn.studio/app-path"
-	// LabelFrontDoorURL is the address the localtest-v2 front door reaches a container-mode app at, on its network
-	// (http://<alias>:<port>); studioctl run sets it, and studioctl-server registers the app with it.
-	LabelFrontDoorURL = "altinn.studio/front-door-url"
 
 	// DefaultContainerPort is the port app containers listen on.
 	DefaultContainerPort = "5005"
@@ -28,10 +25,7 @@ type Candidate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Source      string `json:"source"`
-	// FrontDoorURL is the container's LabelFrontDoorURL: where the localtest-v2 front door reaches it; empty for a
-	// container that is not on the localtest-v2 network, which the front door reaches through its published port.
-	FrontDoorURL string `json:"frontDoorUrl,omitempty"`
-	HostPort     int    `json:"hostPort"`
+	HostPort    int    `json:"hostPort"`
 }
 
 // Labels returns labels for a studioctl-managed app container.
@@ -89,23 +83,21 @@ func CandidateFromContainer(ctr types.ContainerInfo) (Candidate, bool) {
 		name = ctr.ID
 	}
 	return Candidate{
-		ContainerID:  ctr.ID,
-		Name:         name,
-		HostPort:     hostPortNumber,
-		Source:       "container",
-		Description:  "container " + name,
-		FrontDoorURL: ctr.Labels[LabelFrontDoorURL],
+		ContainerID: ctr.ID,
+		Name:        name,
+		HostPort:    hostPortNumber,
+		Source:      "container",
+		Description: "container " + name,
 	}, true
 }
 
 func zeroCandidate() Candidate {
 	return Candidate{
-		ContainerID:  "",
-		Name:         "",
-		HostPort:     0,
-		Description:  "",
-		Source:       "",
-		FrontDoorURL: "",
+		ContainerID: "",
+		Name:        "",
+		HostPort:    0,
+		Description: "",
+		Source:      "",
 	}
 }
 

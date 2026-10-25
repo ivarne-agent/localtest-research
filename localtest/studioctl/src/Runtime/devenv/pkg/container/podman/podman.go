@@ -235,7 +235,14 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 		args = append(args, "-p", portArg)
 	}
 
-	args = appendVolumeArgs(args, cfg.Volumes)
+	for _, v := range cfg.Volumes {
+		volArg := fmt.Sprintf("%s:%s", v.HostPath, v.ContainerPath)
+		options := volumeOptions(v)
+		if len(options) > 0 {
+			volArg += ":" + strings.Join(options, ",")
+		}
+		args = append(args, "-v", volArg)
+	}
 
 	for _, e := range cfg.Env {
 		args = append(args, "-e", e)
@@ -257,8 +264,8 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 	}
 
 	caps := types.MergeCapabilities(types.DefaultPodmanCapabilities(), cfg.CapAdd)
-	for _, cap := range caps {
-		args = append(args, "--cap-add", cap)
+	for _, capability := range caps {
+		args = append(args, "--cap-add", capability)
 	}
 
 	args = appendHealthCheckArgs(args, cfg.HealthCheck)
@@ -267,31 +274,6 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 	args = append(args, cfg.Command...)
 
 	return args
-}
-
-// appendVolumeArgs appends a -v per bind or named volume mount and a --tmpfs per tmpfs mount.
-func appendVolumeArgs(args []string, volumes []types.VolumeMount) []string {
-	for _, v := range volumes {
-		if v.Type == types.VolumeMountTypeTmpfs {
-			args = append(args, "--tmpfs", tmpfsArg(v))
-			continue
-		}
-		volArg := fmt.Sprintf("%s:%s", v.HostPath, v.ContainerPath)
-		options := volumeOptions(v)
-		if len(options) > 0 {
-			volArg += ":" + strings.Join(options, ",")
-		}
-		args = append(args, "-v", volArg)
-	}
-	return args
-}
-
-// tmpfsArg is the --tmpfs value of a tmpfs mount: the path, and the options after a colon when there are any.
-func tmpfsArg(v types.VolumeMount) string {
-	if v.Options == "" {
-		return v.ContainerPath
-	}
-	return v.ContainerPath + ":" + v.Options
 }
 
 func volumeOptions(v types.VolumeMount) []string {
@@ -781,9 +763,15 @@ func (c *Client) ContainerStop(ctx context.Context, nameOrID string, timeout *in
 	return nil
 }
 
-// ContainerRemove removes a container and its anonymous volumes.
+// ContainerRemove removes a container.
 func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, force bool) error {
-	cmd := processutil.CommandContext(ctx, "podman", buildRemoveArgs(nameOrID, force)...)
+	args := []string{"rm"}
+	if force {
+		args = append(args, "-f")
+	}
+	args = append(args, nameOrID)
+
+	cmd := processutil.CommandContext(ctx, "podman", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if isContainerNotFoundOutput(output) {
@@ -792,16 +780,6 @@ func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, force boo
 		return fmt.Errorf("podman rm failed: %w\nOutput: %s", err, string(output))
 	}
 	return nil
-}
-
-// buildRemoveArgs removes the container's anonymous volumes with it: they are unreachable once the
-// container is gone. --volumes leaves named volumes and --volume mounts alone.
-func buildRemoveArgs(nameOrID string, force bool) []string {
-	args := []string{"rm", "--volumes"}
-	if force {
-		args = append(args, "-f")
-	}
-	return append(args, nameOrID)
 }
 
 func isContainerNotFoundOutput(output []byte) bool {

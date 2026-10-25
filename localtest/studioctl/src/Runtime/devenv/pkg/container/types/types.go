@@ -46,16 +46,16 @@ func MergeCapabilities(defaults, explicit []string) []string {
 	seen := make(map[string]bool)
 	var result []string
 
-	for _, cap := range defaults {
-		if !seen[cap] {
-			seen[cap] = true
-			result = append(result, cap)
+	for _, capability := range defaults {
+		if !seen[capability] {
+			seen[capability] = true
+			result = append(result, capability)
 		}
 	}
-	for _, cap := range explicit {
-		if !seen[cap] {
-			seen[cap] = true
-			result = append(result, cap)
+	for _, capability := range explicit {
+		if !seen[capability] {
+			seen[capability] = true
+			result = append(result, capability)
 		}
 	}
 	return result
@@ -227,9 +227,6 @@ type VolumeMountType string
 const (
 	VolumeMountTypeBind   VolumeMountType = "bind"
 	VolumeMountTypeVolume VolumeMountType = "volume"
-	// VolumeMountTypeTmpfs mounts a memory-backed file system at ContainerPath, gone with the container. HostPath is
-	// unused; Options holds the tmpfs options (size=1g).
-	VolumeMountTypeTmpfs VolumeMountType = "tmpfs"
 )
 
 // SELinuxRelabel controls SELinux relabeling for bind mounts on runtimes that support it.
@@ -242,15 +239,13 @@ const (
 	SELinuxRelabelPrivate SELinuxRelabel = "Z"
 )
 
-// VolumeMount defines a bind mount, a named volume mount or a tmpfs mount.
+// VolumeMount defines a bind mount or named volume mount.
 type VolumeMount struct {
 	HostPath       string
 	ContainerPath  string
 	Type           VolumeMountType
 	SELinuxRelabel SELinuxRelabel
-	// Options are a tmpfs mount's options, comma-separated (size=1g); empty for the runtime's defaults.
-	Options  string `json:",omitempty"`
-	ReadOnly bool
+	ReadOnly       bool
 }
 
 // HealthCheck defines a container health check configuration.

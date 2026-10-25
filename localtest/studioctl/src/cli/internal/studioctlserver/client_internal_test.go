@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"altinn.studio/studioctl/internal/localtestv2"
-
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/osutil"
 )
@@ -298,8 +296,7 @@ func TestStudioctlServerCommand_OpensStandardStreams(t *testing.T) {
 	cmd.Args = []string{"/bin/sh", "-c", `for fd in 0 1 2; do [ -e /dev/fd/$fd ] || exit $((10 + fd)); done`}
 
 	err := cmd.Run()
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		t.Fatalf("studioctl-server starts with fd %d closed", exitErr.ExitCode()-10)
 	}
 	if err != nil {
@@ -335,24 +332,6 @@ func TestBuildStartConfig_IncludesBoundTopologyConfigPathsWhenPresent(t *testing
 			got.BoundTopologyConfigPath,
 			cfg.BoundTopologyConfigPath(),
 		)
-	}
-}
-
-func TestBuildStartConfig_RegistersWithTheFrontDoorAtTheRecordedPort(t *testing.T) {
-	t.Parallel()
-
-	cfg := testConfig(t)
-	if err := localtestv2.WriteState(cfg, localtestv2.State{
-		CertificateDir: "/certs", PublicHost: "origin.test", PublicPort: 18000,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	got, err := buildStartConfig(cfg, "8000", "/path/to/studioctl")
-	if err != nil {
-		t.Fatalf("buildStartConfig() error = %v", err)
-	}
-	if got.LocaltestURL != "http://127.0.0.1:18000" || !got.RegisterApps || got.HostBridgeURL != "" {
-		t.Fatalf("start config %+v", got)
 	}
 }
 

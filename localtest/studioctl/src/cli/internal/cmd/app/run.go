@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -17,10 +16,9 @@ import (
 	"altinn.studio/studioctl/internal/appnaming"
 	"altinn.studio/studioctl/internal/appsecrets"
 	"altinn.studio/studioctl/internal/cmd/env/localtest/components"
+	"altinn.studio/studioctl/internal/cmd/env/stack"
 	repocontext "altinn.studio/studioctl/internal/context"
 	"altinn.studio/studioctl/internal/envtopology"
-	"altinn.studio/studioctl/internal/localtestv2"
-	"altinn.studio/studioctl/internal/localtestv2/manifest"
 	"altinn.studio/studioctl/internal/osutil"
 )
 
@@ -29,22 +27,14 @@ import (
 const ContainerKeysDir = "/mnt/keys"
 
 var (
-	// ErrContainerModeCustomOrigin is returned for a container run while localtest-v2 runs at another origin than the
-	// default one (env up --host, --port): container mode supports the standard domains only.
-	ErrContainerModeCustomOrigin = errors.New("run --mode container supports the default origin only")
-	errAppProjectNotFound        = errors.New("app project not found")
-	errInvalidAppMetadataID      = errors.New("application metadata id must be on the form org/app")
-	errMultipleAppProjects       = errors.New("multiple app projects found")
+	errAppProjectNotFound   = errors.New("app project not found")
+	errInvalidAppMetadataID = errors.New("application metadata id must be on the form org/app")
+	errMultipleAppProjects  = errors.New("multiple app projects found")
 )
 
 // TODO: this should come from the "current env".
 const (
-	localtestLoopbackHost = "127.0.0.1"
-	// allInterfacesHost is where an app listens while the localtest-v2 runtime is up: its front door, in a container,
-	// reaches the app through the runtime's host gateway (host.docker.internal), which loopback does not answer.
-	allInterfacesHost = "0.0.0.0"
-	// hostGateway is the container runtime's name for the host in --add-host, where the public port is published.
-	hostGateway                     = "host-gateway"
+	localtestLoopbackHost           = "127.0.0.1"
 	localtestAppContainerNamePrefix = "localtest-app-"
 	appMetadataFile                 = "App/config/applicationmetadata.json"
 )
@@ -141,15 +131,6 @@ func (s *Service) BuildDotnetRunSpec(
 	if err := s.provisionAppSecrets(secretsDir); err != nil {
 		return DotnetRunSpec{}, err
 	}
-	signing, signingErr := s.nativeAccessTokenSigning(appPath)
-	if signingErr != nil {
-		return DotnetRunSpec{}, signingErr
-	}
-	kestrelURL := baseURL
-	if signing != nil {
-		// localtest-v2 is up: its front door needs the app on every interface.
-		kestrelURL = "http://" + allInterfacesHost + ":" + port
-	}
 
 	return DotnetRunSpec{
 		Dir:            filepath.Dir(projectPath),
@@ -160,41 +141,8 @@ func (s *Service) BuildDotnetRunSpec(
 		AppArgs:        args,
 		BuildArgs:      []string{"build", projectPath},
 		TargetPathArgs: []string{"msbuild", projectPath, "-getProperty:TargetPath"},
-		Env:            newAppRunEnv(env, kestrelURL, topology, opts.AppFrontendAssetBaseUrl, secretsDir, "", signing),
+		Env:            newAppRunEnv(env, baseURL, topology, opts.AppFrontendAssetBaseUrl, secretsDir, ""),
 	}, nil
-}
-
-// nativeAccessTokenSigning points a process run at the localtest-v2 certificate, or returns nil when that
-// runtime is not up. KeysFolder is a traversal from the app root (the parent of the App/ working
-// directory) to the certificate directory, which is what the 1.x client resolves.
-func (s *Service) nativeAccessTokenSigning(appPath string) (*accessTokenSigning, error) {
-	state, up, err := localtestv2.ReadState(s.cfg)
-	if err != nil {
-		return nil, fmt.Errorf("read localtest-v2 state: %w", err)
-	}
-	if !up {
-		return nil, nil //nolint:nilnil // nil is "no localtest-v2", not a failure.
-	}
-	appRoot, err := filepath.Abs(appPath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve app path: %w", err)
-	}
-	rel, err := filepath.Rel(appRoot, state.CertificateDir)
-	if err != nil {
-		return nil, fmt.Errorf("relate certificate directory to app: %w", err)
-	}
-	return &accessTokenSigning{
-		FullPath:     state.CertificatePath(),
-		KeysFolder:   "/" + filepath.ToSlash(rel) + "/",
-		FileName:     localtestv2.CertificateFileName,
-		arbeidsflate: arbeidsflateUp(state),
-	}, nil
-}
-
-// arbeidsflateUp reports whether the environment runs the arbeidsflate group. The group's name is the component's: the
-// manifest's arbeidsflate group runs the arbeidsflate container.
-func arbeidsflateUp(state localtestv2.State) bool {
-	return slices.Contains(state.Groups, string(envtopology.ComponentArbeidsflate))
 }
 
 // ReadAppID returns the app id declared in an app directory's application metadata. Exported because
@@ -263,24 +211,15 @@ func validAppID(appID string) bool {
 	return ok && org != "" && app != "" && !strings.Contains(app, "/")
 }
 
-// BuildDockerRunSpec builds image/container configuration for an app container: on the localtest runtime's network,
-// or, while localtest-v2 is up, on its network (onStackNetwork).
+// BuildDockerRunSpec builds image/container configuration for an app container.
 func (s *Service) BuildDockerRunSpec(
 	result repocontext.Detection,
 	args []string,
 	topology envtopology.Local,
 	opts DockerRunOptions,
 ) (DockerRunSpec, error) {
-	state, v2, err := localtestv2.ReadState(s.cfg)
-	if err != nil {
-		return DockerRunSpec{}, fmt.Errorf("read localtest-v2 state: %w", err)
-	}
-	if v2 {
-		if originErr := checkContainerOrigin(state); originErr != nil {
-			return DockerRunSpec{}, originErr
-		}
-	}
 	appPath := result.AppRoot
+	appName := appnaming.AppNameFromPath(appPath)
 	hostPort := appcontainers.DefaultContainerPort
 	if opts.RandomHostPort {
 		hostPort = ""
@@ -303,119 +242,48 @@ func (s *Service) BuildDockerRunSpec(
 		keysDirEnv = ContainerKeysDir
 	}
 
-	spec := DockerRunSpec{
+	return DockerRunSpec{
 		SecretsDir: secretsDir,
 		KeysDir:    keysDir,
-		Config:     appContainerConfig(appPath, imageTag, hostPort, secretsDir, keysDir, args),
-	}
-	kestrelURL := "http://*:" + appcontainers.DefaultContainerPort
-	var signing *accessTokenSigning
-	if v2 {
-		appID, idErr := ReadAppID(appPath)
-		if idErr != nil {
-			return DockerRunSpec{}, fmt.Errorf("read app id: %w", idErr)
-		}
-		signing = onStackNetwork(&spec.Config, state, appID)
-		kestrelURL = "http://" + allInterfacesHost + ":" + appcontainers.DefaultContainerPort
-	}
-	// The container is named the mount point its secrets directory is mounted at, and is told where its keys go,
-	// exactly as a deployed app is told both.
-	spec.Config.Env = newAppRunEnv(
-		nil,
-		kestrelURL,
-		topology,
-		opts.AppFrontendAssetBaseUrl,
-		appsecrets.ContainerDir,
-		keysDirEnv,
-		signing,
-	)
-	return spec, nil
-}
-
-// appContainerConfig is an app container on the localtest runtime's network, without its environment.
-func appContainerConfig(appPath, imageTag, hostPort, secretsDir, keysDir string, args []string) types.ContainerConfig {
-	return types.ContainerConfig{
-		Labels:      appcontainers.Labels(appPath),
-		HealthCheck: nil,
-		Name:        localtestAppContainerNamePrefix + appnaming.AppNameFromPath(appPath),
-		Image:       imageTag,
-		// User, UsernsMode and the mounts' SELinux labels depend on the runtime and are set by
-		// PrepareDockerRun once it is known.
-		User:           "",
-		UsernsMode:     "",
-		RestartPolicy:  "",
-		ExtraHosts:     nil,
-		NetworkAliases: nil,
-		Volumes:        appMounts(secretsDir, keysDir),
-		Networks: []string{
-			components.NetworkName,
-		},
-		// On loopback, for studioctl itself: studioctl-server discovers the app on this port and reads its
-		// metadata there. Under localtest-v2 the front door reaches the app by its alias instead.
-		Ports: []types.PortMapping{
-			{
-				HostIP:        localtestLoopbackHost,
-				HostPort:      hostPort,
-				ContainerPort: appcontainers.DefaultContainerPort,
-				Protocol:      "tcp",
+		Config: types.ContainerConfig{
+			Labels:      appcontainers.Labels(appPath),
+			HealthCheck: nil,
+			Name:        localtestAppContainerNamePrefix + appName,
+			Image:       imageTag,
+			// User, UsernsMode and the mounts' SELinux labels depend on the runtime and are set by
+			// PrepareDockerRun once it is known.
+			User:           "",
+			UsernsMode:     "",
+			RestartPolicy:  "",
+			ExtraHosts:     nil,
+			NetworkAliases: nil,
+			Volumes:        appMounts(secretsDir, keysDir),
+			Networks: []string{
+				components.NetworkName,
 			},
+			Ports: []types.PortMapping{
+				{
+					HostIP:        localtestLoopbackHost,
+					HostPort:      hostPort,
+					ContainerPort: appcontainers.DefaultContainerPort,
+					Protocol:      "tcp",
+				},
+			},
+			// The container is named the mount point its secrets directory is mounted at, and is told where
+			// its keys go, exactly as a deployed app is told both.
+			Env: newAppRunEnv(
+				nil,
+				"http://*:"+appcontainers.DefaultContainerPort,
+				topology,
+				opts.AppFrontendAssetBaseUrl,
+				appsecrets.ContainerDir,
+				keysDirEnv,
+			),
+			Command: args,
+			CapAdd:  nil,
+			Detach:  true,
 		},
-		Env:     nil,
-		Command: args,
-		CapAdd:  nil,
-		Detach:  true,
-	}
-}
-
-// containerCertificateDir is where an app container finds the localtest-v2 certificate, as the components do.
-const containerCertificateDir = "/certs"
-
-// checkContainerOrigin refuses a container run while localtest-v2 runs at another origin than the default one: container
-// mode supports the standard domains only (local.altinn.cloud and its subdomains on port 8000).
-func checkContainerOrigin(state localtestv2.State) error {
-	origin, standard := state.Origin(), manifest.MustDefault().DefaultOrigin()
-	if origin.Host == standard.Host && origin.Port == standard.Port {
-		return nil
-	}
-	return fmt.Errorf(
-		"%w (%s), and localtest-v2 runs at %s; run the app as a process (the default), or move the environment with "+
-			"'%s env up -r localtest-v2 --host %s --port %d'",
-		ErrContainerModeCustomOrigin, standard.URL(), origin.URL(), osutil.CurrentBin(), standard.Host, standard.Port,
-	)
-}
-
-// onStackNetwork puts an app container on the localtest-v2 stack's network, and returns the certificate it signs its
-// platform access tokens with. The front door reaches the app at its alias, <org>-<app>, which the container carries in
-// a label for studioctl-server's registration; the app calls the platform through the public origin, whose host names
-// resolve to the host gateway, where the front door publishes the public port, exactly as the components do. The
-// certificate directory is mounted read-only where the components have it, and the localtest-v2 label lets every
-// teardown remove a container left running when the environment stops. A network of the apps' own does not work
-// today (studioctl README, "Why not a separate apps network").
-func onStackNetwork(cfg *types.ContainerConfig, state localtestv2.State, appID string) *accessTokenSigning {
-	alias := strings.ReplaceAll(appID, "/", "-")
-	cfg.Networks = []string{localtestv2.Network}
-	cfg.NetworkAliases = []string{alias}
-	cfg.Labels[appcontainers.LabelFrontDoorURL] = "http://" + alias + ":" + appcontainers.DefaultContainerPort
-	cfg.Labels[localtestv2.Label] = localtestv2.LabelAppContainer
-	hosts := state.Origin().Hosts()
-	cfg.ExtraHosts = make([]string, 0, len(hosts))
-	for _, host := range hosts {
-		cfg.ExtraHosts = append(cfg.ExtraHosts, host+":"+hostGateway)
-	}
-	cfg.Volumes = append(cfg.Volumes, types.VolumeMount{
-		HostPath:       state.CertificateDir,
-		ContainerPath:  containerCertificateDir,
-		Type:           types.VolumeMountTypeBind,
-		SELinuxRelabel: types.SELinuxRelabelNone,
-		Options:        "",
-		ReadOnly:       true,
-	})
-	return &accessTokenSigning{
-		FullPath:     containerCertificateDir + "/" + localtestv2.CertificateFileName,
-		KeysFolder:   containerCertificateDir + "/",
-		FileName:     localtestv2.CertificateFileName,
-		arbeidsflate: arbeidsflateUp(state),
-	}
+	}, nil
 }
 
 // PrepareDockerRun readies a spec for the runtime it is about to run on. The keys directory it mounts is
@@ -431,7 +299,7 @@ func (s *Service) PrepareDockerRun(spec *DockerRunSpec, toolchain types.Containe
 			return fmt.Errorf("create app directory %s: %w", filepath.Base(spec.KeysDir), err)
 		}
 	}
-	user, usernsMode, relabel := components.RuntimeUser(toolchain)
+	user, usernsMode, relabel := stack.RuntimeUser(toolchain)
 	spec.Config.User = user
 	spec.Config.UsernsMode = usernsMode
 	spec.Config.Volumes = components.RelabelBindMounts(spec.Config.Volumes, relabel)
@@ -450,7 +318,6 @@ func appMounts(secretsDir, keysDir string) []types.VolumeMount {
 			ContainerPath:  appsecrets.ContainerDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: types.SELinuxRelabelNone,
-			Options:        "",
 			ReadOnly:       true,
 		},
 	}
@@ -460,7 +327,6 @@ func appMounts(secretsDir, keysDir string) []types.VolumeMount {
 			ContainerPath:  ContainerKeysDir,
 			Type:           types.VolumeMountTypeBind,
 			SELinuxRelabel: types.SELinuxRelabelNone,
-			Options:        "",
 			ReadOnly:       false,
 		})
 	}
