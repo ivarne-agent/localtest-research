@@ -16,6 +16,7 @@ import (
 	containerbackend "altinn.studio/devenv/pkg/resource/executor/container"
 	envlocaltest "altinn.studio/studioctl/internal/cmd/env/localtest"
 	"altinn.studio/studioctl/internal/cmd/env/localtest/components"
+	envlocaltestv2 "altinn.studio/studioctl/internal/cmd/env/localtestv2"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/osutil"
@@ -108,22 +109,27 @@ func TestParseUpFlagsBindsTheChosenRuntimesOwnFlags(t *testing.T) {
 	t.Parallel()
 
 	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
-	for _, args := range [][]string{
-		{"--dev-workflow-engine", "--pgadmin"},
-		{"-r", "localtest", "--monitoring"},
-		{"--runtime=localtest", "--json"},
+	for _, tc := range []struct {
+		runtime string
+		args    []string
+	}{
+		{runtime: envlocaltest.Name, args: []string{"--dev-workflow-engine", "--pgadmin"}},
+		{runtime: envlocaltest.Name, args: []string{"-r", "localtest", "--monitoring"}},
+		// --dev-workflow-engine is each runtime's own flag, with its own meaning.
+		{runtime: envlocaltestv2.Name, args: []string{"-r", "localtest-v2", "--dev-workflow-engine", "--with", "receipt"}},
+		{runtime: envlocaltestv2.Name, args: []string{"--runtime=localtest-v2", "--dev-postgres=postgres/Dockerfile"}},
 	} {
-		got, helpShown, err := command.parseUpFlags(t.Context(), args)
+		got, helpShown, err := command.parseUpFlags(t.Context(), tc.args)
 		if err != nil || helpShown {
-			t.Fatalf("parseUpFlags(%v) = %v, %v", args, helpShown, err)
+			t.Fatalf("parseUpFlags(%v) = %v, %v", tc.args, helpShown, err)
 		}
-		if got.runtime.Name() != envlocaltest.Name {
-			t.Errorf("parseUpFlags(%v) runtime = %s, want %s", args, got.runtime.Name(), envlocaltest.Name)
+		if got.runtime.Name() != tc.runtime {
+			t.Errorf("parseUpFlags(%v) runtime = %s, want %s", tc.args, got.runtime.Name(), tc.runtime)
 		}
 	}
-	if _, _, err := command.parseUpFlags(t.Context(), []string{"--nosuch"}); err == nil ||
+	if _, _, err := command.parseUpFlags(t.Context(), []string{"-r", "localtest-v2", "--dev-nosuch"}); err == nil ||
 		errors.Is(err, ErrInvalidFlagValue) {
-		t.Fatalf("parseUpFlags(--nosuch) = %v, want an undefined flag", err)
+		t.Fatalf("parseUpFlags(--dev-nosuch) = %v, want an undefined flag", err)
 	}
 	if _, _, err := command.parseUpFlags(
 		t.Context(),
@@ -133,6 +139,26 @@ func TestParseUpFlagsBindsTheChosenRuntimesOwnFlags(t *testing.T) {
 		ErrUnsupportedRuntime,
 	) {
 		t.Fatalf("parseUpFlags(-r nosuch) = %v, want ErrUnsupportedRuntime", err)
+	}
+}
+
+func TestEnvUpRefusesTheOtherRuntimesFlags(t *testing.T) {
+	t.Parallel()
+
+	command := &EnvCommand{out: ui.NewOutput(io.Discard, io.Discard, false)}
+	for _, tc := range []struct {
+		want string
+		args []string
+	}{
+		{args: []string{"--with", "dialogporten"}, want: "--with is not supported by the localtest runtime (it is localtest-v2's)"},
+		{args: []string{"-r", "localtest", "--minimal"}, want: "--minimal is not supported by the localtest runtime"},
+		{args: []string{"--dev-storage"}, want: "--dev-storage is not supported by the localtest runtime"},
+		{args: []string{"-r", "localtest-v2", "--monitoring"}, want: "--monitoring is not supported by the localtest-v2 runtime (it is localtest's)"},
+	} {
+		_, _, err := command.parseUpFlags(t.Context(), tc.args)
+		if !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("parseUpFlags(%v) = %v, want %q", tc.args, err, tc.want)
+		}
 	}
 }
 
