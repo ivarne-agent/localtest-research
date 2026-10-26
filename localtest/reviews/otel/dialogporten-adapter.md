@@ -41,4 +41,4 @@ The forced `ApplicationInsights:Enabled=false` in the fakes is gone. Build: 0 er
 
 Run without Docker against a fake OTLP/HTTP collector: with the variable, `/v1/traces` (`GET /health`), `/v1/metrics`
 and `/v1/logs` arrived as `platform-dialogporten-adapter`; without it nothing arrived and nothing was logged about
-exporting. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).
+exporting. Proven on the stack (2026-10-26, images `sha-609c646`, `--with everything`): the smoke test passed with its OTLP span check.

@@ -26,4 +26,4 @@ csproj.
 Directive site 4, `src/Altinn.Profile/Program.cs:152-158`: `#if !LOCALTEST` production's call, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`); OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` silenced.
 The fakes no longer force `ApplicationInsights:ConnectionString` empty. Build: 0 errors, 0 warnings. Not run: Postgres
-needed. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).
+needed. Proven on the stack (2026-10-26, images `sha-609c646`, `--with everything`): the smoke test passed with its OTLP span check.

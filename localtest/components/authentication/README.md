@@ -202,8 +202,7 @@ difference shows only with another `OTEL_SERVICE_NAME`.
 Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development`, a fake OTLP/HTTP collector on a loopback
 port, `http/protobuf`): with the variable and `OTEL_SERVICE_NAME=from-env`, `/v1/traces`, `/v1/metrics` and `/v1/logs`
 arrive with `service.name` `from-env`; with the variable alone, `authentication`; without it nothing reaches the collector or the
-SDK defaults (4317, 4318). Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up (`--with monitoring`) and looks the
-request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
+SDK defaults (4317, 4318). Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 566 spans, 724 metric series and 128 log records under `service.name` `authentication`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line. A 150 s capture of SYNs and UDP in its network namespace during the smoke tests showed no lookup of `otel-collector` and nothing to 4317 or 4318.
 
 ## Verified
 

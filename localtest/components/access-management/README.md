@@ -94,7 +94,7 @@ difference shows only with another `OTEL_SERVICE_NAME`.
 
 Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
 tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
-stack; the same call was run in Authentication and Register. Not yet verified: the image build and a span check on the stack (this component has no `smoke-test.sh`).
+stack; the same call was run in Authentication and Register. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): a request with a `traceparent` (`GET accessmanagement/api/v1/authorizedparties`) showed up as its server span with five Npgsql client spans, and the stack's run left 1384 spans, 622 metric series and 3318 log records under `service.name` `access-management` (it has no `smoke-test.sh`). Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 Production's own `UseAzureMonitor` block (`AccessManagementHost.cs:88-108`) runs only outside Development with
 `ApplicationInsights:InstrumentationKey`, so never here.
 

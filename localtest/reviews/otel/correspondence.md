@@ -32,4 +32,4 @@ The fakes compile into the API project only, so the site is in `src/Altinn.Corre
 (`fakes/Otlp/`) on the same providers. Production's call stays and adds no Azure Monitor exporter (the fakes force the
 connection string empty). The OTLP package at the host's 1.18.0 in `localtest.build.targets` (restored: every
 OpenTelemetry package at 1.18.0). Build: 0 errors, the same 24 upstream warnings. Not run: Postgres and Redis needed.
-Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).
+Proven on the stack (2026-10-26, images `sha-609c646`, `--with everything`): the smoke test passed with its OTLP span check.

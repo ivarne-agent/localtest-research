@@ -32,5 +32,6 @@ Upstream: [Altinn/dialogporten](https://github.com/Altinn/dialogporten), vendore
 `/v1/traces` and `/v1/metrics`. The throw on an unset protocol stays (the runners set the variable). Build of
 `Digdir.Library.Utils.AspNet` with the overrides: 0 errors, no new warnings. A scratch host on OpenTelemetry 1.17.0 with
 `AddOtlpExporter(o => { })` posted to `/v1/traces` and `/v1/metrics` of a fake collector over `http/protobuf`. Not run:
-the hosts need Postgres and Redis. Owed: the three image builds (`Dockerfile.webapi`, `.graphql`, `.service`, one at a
-time), `bump-tag.sh` and a smoke-test run with `--with monitoring` (OTLP span check added for `dialogporten-webapi`, not run; studioctl sends `grpc`).
+the hosts need Postgres and Redis. Proven on the stack (2026-10-26, images `sha-609c646`, `--with everything`): the smoke test passed with its OTLP span check
+for `dialogporten-webapi`, and the GraphQL and Service hosts sent traces, metrics and logs under their manifest names
+(studioctl sends `grpc`).

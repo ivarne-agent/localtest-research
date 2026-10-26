@@ -78,8 +78,7 @@ Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCOR
 OTLP/HTTP collector on a loopback port): with the variable and `http/protobuf`, `/v1/traces` (the API request, no
 `/health` span), `/v1/metrics` and `/v1/logs` arrive with `service.name` `platform-authorization`, or `authorization`
 with `OTEL_SERVICE_NAME=authorization`; without the variable nothing reaches the collector or the SDK defaults
-(4317, 4318) and the log has no export errors. Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up
-(`--with monitoring`) and looks the request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
+(4317, 4318) and the log has no export errors. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 267 spans, 868 metric series and 84 log records under `service.name` `authorization`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 
 ## Fakes
 

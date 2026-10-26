@@ -127,8 +127,7 @@ difference shows only with another `OTEL_SERVICE_NAME`.
 
 Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
 tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
-stack; the same call was run in Authentication and Register. Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up (`--with monitoring`) and looks the
-request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
+stack; the same call was run in Authentication and Register. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 660 spans, 680 metric series and 1026 log records under `service.name` `resource-registry`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 
 ## Verified
 
