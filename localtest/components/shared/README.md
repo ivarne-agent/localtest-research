@@ -33,14 +33,19 @@ Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task
 
 The localtest app's tests compile both files (`localtest/localtest/tests/ComponentServiceDiscoveryTests.cs`).
 
+Consumers of the OTLP helper (`fakes/Otlp/`, TODO.md task 53): none yet. The audit in task 53 lists, per component, where
+the call goes and in which batch.
+
 | Path | What |
 | --- | --- |
 | `fakes/Maskinporten/` | `LocaltestMaskinportenService` (an `IMaskinportenService` for `Altinn.ApiClients.Maskinporten` 10.1.0), its options (`Localtest:Maskinporten`: `TokenEndpoint`, `ExchangeEndpoint`, by service name since task 40) and `AddLocaltestMaskinporten` |
 | `Maskinporten.Smoke/` | A net10.0 console host that compiles those three files against the package and asks the fake for a token |
 | `fakes/Cookies/` | `LocaltestCookiePolicy`: `AddLocaltestCookiePolicy()` registers an `IStartupFilter` that puts ASP.NET Core's cookie policy middleware in front of the host's pipeline; on plain http it removes `Secure` and turns `SameSite=None` into `Lax` |
 | `fakes/ServiceDiscovery/` | `LocaltestServiceDiscovery`: core, the configuration provider and a provider for real hosts (a dot, an IP, `localhost`; the configuration provider alone refuses any host it has no entry for), no pass-through, so a service name without `services__<name>__http__0` fails at once; `NoAddress` recognises that failure. `LocaltestPrefixRouting`: a handler that moves a request on the public origin to the service owning its path prefix, by the front door's table |
+| `fakes/Otlp/` | `LocaltestOtlp`: `AddLocaltestOtlp(configuration)` on a component's `IOpenTelemetryBuilder` turns on OTLP for traces, metrics and logs (`UseOtlpExporter()`) exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and lets `OTEL_SERVICE_NAME` win over a hard-coded `service.name`; `AddLocaltestOtlpResource(configuration)` is only the naming half, for a host that exports by itself |
+| `Otlp.Tests/` | xunit tests of that file against a fake collector on a loopback port (http/protobuf and grpc, with and without the variable); the OpenTelemetry version is a property (`-p:OtelVersion=1.15.3`) |
 | `Cookies.Smoke/` | A net10.0 host on ASP.NET Core's in-memory `TestServer` that compiles that file and checks the cookies it writes over http and https |
-| `smoke-test.sh` | Runs `Cookies.Smoke` (no stack needed), then the Maskinporten host twice against the running stack |
+| `smoke-test.sh` | Runs `Cookies.Smoke` and `Otlp.Tests` (no stack needed), then the Maskinporten host twice against the running stack |
 
 ## The rule
 
@@ -82,14 +87,52 @@ the consumer's additive hook; no vendored file changes.
 - The options go to `UseCookiePolicy` directly; a host's own `CookiePolicyOptions` (and its own `UseCookiePolicy`, if any) are
   untouched.
 
+## OTLP helper (`fakes/Otlp/`)
+
+The stack's rule (TODO.md task 53): a component sends traces, metrics and logs over OTLP exactly when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`, and sends nothing
+otherwise. Copy `fakes/Otlp/LocaltestOtlp.cs` into the consumer's `fakes/`, add `OpenTelemetry.Exporter.OpenTelemetryProtocol`
+in its `localtest.build.targets` where the host does not have it yet (at the host's OpenTelemetry version; with central
+package management the version goes in `VersionOverride`), and call it from the `#else` branch where production adds Azure
+Monitor or Application Insights:
+
+```csharp
+#if !LOCALTEST
+    AddAzureMonitorTelemetryExporters(services, config);
+#else
+    // localtest: OTLP from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set, nothing otherwise.
+    services.AddOpenTelemetry().AddLocaltestOtlp(config);
+#endif
+```
+
+- `services.AddOpenTelemetry()` may be called again: it returns a builder on the same providers, so the call adds to the
+  component's own instrumentation, sources, meters and processors.
+- The variable is read from the host's `IConfiguration` (the environment in every component); an empty or blank value counts
+  as unset. Without it the call registers nothing.
+- With it, `UseOtlpExporter()` turns on all three signals (it adds the OpenTelemetry logger provider too), reads endpoint,
+  protocol and headers from the standard variables and appends `/v1/traces`, `/v1/metrics` and `/v1/logs` for
+  `http/protobuf`. Without `OTEL_EXPORTER_OTLP_PROTOCOL` the .NET SDK uses `grpc`.
+- `UseOtlpExporter()` can be called once per service collection and never next to a signal-specific `AddOtlpExporter`
+  (`NotSupportedException` when the providers are built). So the helper is not for a host that already exports OTLP:
+  the `Altinn.Authorization.ServiceDefaults` hosts take `AddLocaltestOtlpResource` only, and Dialogporten and the workflow
+  engine neither.
+- Nearly every component hard-codes `service.name` (`AddService` or `AddAttributes`), and a later resource wins over the
+  SDK's environment detector, so `OTEL_SERVICE_NAME` alone is ignored (a test without the detector fails). The helper adds
+  the environment detector after the component's resource, so call it after the component's `ConfigureResource`.
+- The tests flush the providers before stopping the host: when the host is only disposed, the exporter's `HttpClient` can be
+  disposed before the log provider's last batch (an `ObjectDisposedException` in the exporter's event source, the batch lost).
+
 ## Smoke test
 
 ```
 ./smoke-test.sh [BASE]        # default http://local.altinn.cloud:8000
 ```
 
-`Cookies.Smoke` runs first and needs no stack (it restores `Microsoft.AspNetCore.TestHost` 10.0.8): over http `Secure` is
-gone from an appended and a deleted cookie and `SameSite=None` is `Lax`; over https all three are unchanged. Then the
+`Cookies.Smoke` and `Otlp.Tests` run first and need no stack. `Cookies.Smoke` (it restores `Microsoft.AspNetCore.TestHost`
+10.0.8): over http `Secure` is gone from an appended and a deleted cookie and `SameSite=None` is `Lax`; over https all
+three are unchanged. `Otlp.Tests` (OpenTelemetry 1.19.1 by default): with the variable all three signals reach a fake
+collector over `http/protobuf` and traces over `grpc`, named by `OTEL_SERVICE_NAME` over a hard-coded name; without it
+(unset, empty, blank) nothing is registered. Then the
 Maskinporten host; it needs the stack running and restores `Altinn.ApiClients.Maskinporten` 10.1.0 from the NuGet cache or nuget.org. The host
 registers a `SettingsJwkClientDefinition` (client id 991825827, scope `altinn:serviceowner/instances.read`,
 `ExhangeToAltinnToken`), prints the claims of the Maskinporten and the exchanged Altinn token, and exits non-zero unless the
