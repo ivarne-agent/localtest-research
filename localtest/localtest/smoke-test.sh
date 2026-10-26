@@ -85,6 +85,16 @@ else
   expect "the group is off: Grafana's route is 503 naming the group" "503 monitoring" \
     "$(curl -s -m 10 -w ' %{http_code}' "$BASE/grafana/" | python3 -c "import sys; body, status = sys.stdin.read().rsplit(' ', 1); import json; print(status, json.loads(body)['group'])")"
   expect "the group is off: no Grafana link on the Home page" 0 "$(curl -s -m 10 "$BASE/" | grep -c 'href="/grafana/"')"
+  # /otlp goes to the role otlp, whichever OTLP receiver the runner announces: in minimal mode its otel-files, which
+  # always runs; on the default stack without the group none, and the 503 names the group.
+  OTLP_ADDRESS=$(curl -s -m 10 "$ROUTES" | python3 -c "import sys,json; print(next((r.get('address') or '' for r in json.load(sys.stdin)['platform'] if r['service']=='otlp'), ''))" 2>/dev/null)
+  if [[ -n "$OTLP_ADDRESS" ]]; then
+    expect "OTLP/HTTP under /otlp reaches the running receiver ($OTLP_ADDRESS)" 200 \
+      "$(code -X POST -H 'Content-Type: application/json' -d '{"resourceSpans":[]}' "$BASE/otlp/v1/traces")"
+  else
+    expect "no receiver: /otlp is 503 naming the group" "503 monitoring" \
+      "$(curl -s -m 10 -w ' %{http_code}' "$BASE/otlp/v1/traces" | python3 -c "import sys; body, status = sys.stdin.read().rsplit(' ', 1); import json; print(status, json.loads(body)['group'])")"
+  fi
 fi
 
 if [[ "${PROXY_CHECKS:-1}" != 0 ]]; then

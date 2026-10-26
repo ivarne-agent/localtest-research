@@ -8,7 +8,8 @@ namespace Localtest.Tests;
 
 /// <summary>
 /// The monitoring group's routes: Grafana under <c>/grafana</c> (served from its sub-path, so the path is kept) and
-/// OTLP over HTTP under <c>/otlp</c> to the collector's receiver at its root; the 503 when the group is off, which no
+/// OTLP over HTTP under <c>/otlp</c> to the running OTLP receiver (the role <c>otlp</c>, whichever receiver the runner
+/// announces) at its root; the 503 when the group is off, which no
 /// Aspire hint names; and the Home page's Grafana link while the route is live.
 /// </summary>
 public sealed class MonitoringRoutesTests
@@ -33,8 +34,8 @@ public sealed class MonitoringRoutesTests
     [Theory]
     [InlineData("/grafana/", "grafana", null)]
     [InlineData("/grafana/api/health", "grafana", null)]
-    [InlineData("/otlp/v1/traces", "otel-collector", "/v1/traces")]
-    [InlineData("/otlp/v1/logs", "otel-collector", "/v1/logs")]
+    [InlineData("/otlp/v1/traces", "otlp", "/v1/traces")]
+    [InlineData("/otlp/v1/logs", "otlp", "/v1/logs")]
     public void ThePrefixesResolveToTheMonitoringServices(string path, string service, string? rewritten)
     {
         var route = PlatformRoutes.Resolve(path);
@@ -48,11 +49,12 @@ public sealed class MonitoringRoutesTests
     public async Task GrafanaKeepsItsPathAndOtlpLosesThePrefix()
     {
         await using var grafana = await Echo("grafana");
-        await using var collector = await Echo("otel-collector");
+        await using var collector = await Echo("otel-files");
         await using var frontDoor = new FrontDoor(new Dictionary<string, string?>
         {
             ["grafana"] = grafana.Origin,
-            ["otel-collector"] = collector.Origin,
+            // The runner's announcement of the running receiver, here minimal mode's.
+            ["otlp"] = collector.Origin,
         });
         using var client = frontDoor.Client();
 
@@ -64,7 +66,7 @@ public sealed class MonitoringRoutesTests
         using var bare = await client.SendAsync(Request(HttpMethod.Get, "/grafana"), Ct);
 
         Assert.Equal("grafana GET /grafana/api/search?query=app", await dashboards.Content.ReadAsStringAsync(Ct));
-        Assert.Equal("otel-collector POST /v1/traces", await traces.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("otel-files POST /v1/traces", await traces.Content.ReadAsStringAsync(Ct));
         Assert.Equal("{}", Assert.Single(collector.Requests).Body);
         Assert.Equal(HttpStatusCode.MovedPermanently, bare.StatusCode);
         Assert.Equal("/grafana/", bare.Headers.Location?.OriginalString);
@@ -72,7 +74,7 @@ public sealed class MonitoringRoutesTests
 
     [Theory]
     [InlineData("/grafana/", "grafana")]
-    [InlineData("/otlp/v1/traces", "otel-collector")]
+    [InlineData("/otlp/v1/traces", "otlp")]
     public async Task WithTheGroupOffTheRouteIsNotRunningAndNamesOnlyStudioctl(string path, string service)
     {
         await using var frontDoor = new FrontDoor();

@@ -96,7 +96,7 @@ public sealed class TelemetryTests
         await using var storage = await FakeServer.Start(_ => Task.CompletedTask);
         await using var frontDoor = new FrontDoor(new Dictionary<string, string?>
         {
-            ["otel-collector"] = otelCollector.Origin,
+            ["otlp"] = otelCollector.Origin,
             ["grafana"] = grafana.Origin,
             ["storage"] = storage.Origin,
         });

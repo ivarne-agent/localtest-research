@@ -17,6 +17,12 @@ public static class PlatformRoutes
     public const string MonitoringGroup = "monitoring";
 
     /// <summary>
+    /// The service the <c>/otlp</c> route forwards to: the stack's OTLP receiver, whichever runs (the runner announces it
+    /// as <c>services__otlp__http__0</c>), not a container of its own.
+    /// </summary>
+    public const string OtlpService = "otlp";
+
+    /// <summary>
     /// Subdomain of the public host → the service that owns every path on it, the localtest app's own included. The host
     /// is <c>{subdomain}.{public host}</c> (<see cref="LocaltestSettings.HostOf"/>); a subdomain the runner does not list
     /// is off, and its host is served like the main host.
@@ -56,9 +62,11 @@ public static class PlatformRoutes
         new("/correspondence", "correspondence"),
         // Grafana serves from its sub-path (GF_SERVER_SERVE_FROM_SUB_PATH), so the path is passed on unchanged.
         new("/grafana", "grafana"),
-        // OTLP over HTTP for the apps on the host, to the collector's HTTP receiver at its root: /otlp/v1/traces
-        // reaches it as /v1/traces. The containers send over gRPC to the collector directly.
-        new("/otlp", "otel-collector", Rewrite: ""),
+        // OTLP over HTTP for the apps on the host, to the stack's OTLP receiver at its root: /otlp/v1/traces reaches it
+        // as /v1/traces. otlp is a role, not a container: the runner announces whichever receiver runs (the monitoring
+        // group's otel-collector, minimal mode's otel-files) as services__otlp__http__0. The containers send over gRPC
+        // to the receiver directly.
+        new("/otlp", OtlpService, Rewrite: ""),
     ];
 
     /// <summary>
@@ -78,6 +86,9 @@ public static class PlatformRoutes
         ["arbeidsflate-bff"] = "arbeidsflate",
         ["grafana"] = MonitoringGroup,
         ["otel-collector"] = MonitoringGroup,
+        // Minimal mode always runs its receiver (otel-files), so the only stack without one is the default stack
+        // without the monitoring group: the "not running" answer for /otlp names that group.
+        [OtlpService] = MonitoringGroup,
         ["victoria-metrics"] = MonitoringGroup,
         ["victoria-traces"] = MonitoringGroup,
         ["victoria-logs"] = MonitoringGroup,
