@@ -64,6 +64,23 @@ if [[ -n "$GRAFANA_ADDRESS" ]]; then
   expect "OTLP/HTTP under /otlp reaches the collector (an empty trace export)" 200 \
     "$(code -X POST -H 'Content-Type: application/json' -d '{"resourceSpans":[]}' "$BASE/otlp/v1/traces")"
   expect "the Home page links to Grafana" 1 "$(curl -s -m 10 "$BASE/" | grep -c 'href="/grafana/"')"
+  # The front door's own telemetry (OTEL_EXPORTER_OTLP_ENDPOINT from the runner): a forwarded request with our
+  # traceparent shows up as a localtest server span and its client span; an OTLP export through /otlp gets no span.
+  # Read back from VictoriaTraces through Grafana's datasource proxy (LogsQL), polled: the exporter batches every 5 s
+  # and VictoriaTraces makes spans searchable about 30 s later. The /otlp export goes first, so once the traced
+  # request's spans are searchable, its would be too.
+  hex() { python3 -c "import secrets; print(secrets.token_hex($1))"; }
+  TRACED=$(hex 16) UNTRACED=$(hex 16)
+  curl -s -m 10 -o /dev/null -X POST -H 'Content-Type: application/json' -H "traceparent: 00-$UNTRACED-$(hex 8)-01" \
+    -d '{"resourceSpans":[]}' "$BASE/otlp/v1/traces"
+  curl -s -m 10 -o /dev/null -H "traceparent: 00-$TRACED-$(hex 8)-01" "$BASE/register/api/localtest/test-users"
+  spans() { curl -s -m 10 "$BASE/grafana/api/datasources/proxy/uid/altinn-studio-traces-logsql/select/logsql/query" \
+    --data-urlencode "query=_time:10m trace_id:=\"$1\" \"resource_attr:service.name\":=\"localtest\" | fields name, kind | sort by (kind)" \
+    | python3 -c "import sys,json; print(' '.join(json.loads(l)['kind'] + ':' + json.loads(l)['name'] for l in sys.stdin if l.strip()))"; }
+  FOUND=""
+  for _ in $(seq 1 90); do FOUND=$(spans "$TRACED"); [[ "$FOUND" == *"3:"* ]] && break; sleep 1; done
+  expect "the front door's spans: server (named after the route) and forwarding client" "2:GET register 3:GET" "$FOUND"
+  expect "no front-door span for a request through /otlp" "" "$(spans "$UNTRACED")"
 else
   expect "the group is off: Grafana's route is 503 naming the group" "503 monitoring" \
     "$(curl -s -m 10 -w ' %{http_code}' "$BASE/grafana/" | python3 -c "import sys; body, status = sys.stdin.read().rsplit(' ', 1); import json; print(status, json.loads(body)['group'])")"

@@ -40,7 +40,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Telemetry/` | `FrontDoorTelemetry.cs`: OpenTelemetry (ASP.NET Core and HttpClient instrumentation, the emulated services' spans) only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; `LocaltestOtlp.cs`, a copy of the shared OTLP helper ([Telemetry](#telemetry)) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
 | `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link; off: the `503` naming the group and no link). 83 or 84 checks, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link). 83 checks, 86 with the monitoring group, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -301,7 +301,8 @@ default `localhost:4317`. studioctl sets the variables on every container while 
 - **Metrics:** ASP.NET Core (hosting, Kestrel) and HttpClient meters. **Logs:** the existing log lines (warnings and
   the start-up lines), also over OTLP.
 - **AOT:** OpenTelemetry 1.19.1 (`Extensions.Hosting`, `Exporter.OpenTelemetryProtocol`) and the instrumentation
-  packages 1.19.0.
+  packages 1.19.0 publish for `linux-musl-arm64` without AOT or trim warnings (`podman build`, 2026-10-26); the image
+  grew from 38.5 MB to 41.4 MB.
 
 ## Build notes
 
@@ -328,6 +329,19 @@ default `localhost:4317`. studioctl sets the variables on every container while 
   settings with `UseSetting`, which the builder sees ([Emulation/README.md](Emulation/README.md#how-the-mode-switches-on)).
 - `tests/` sits inside the project folder: `Localtest.csproj` excludes it (`DefaultItemExcludes`) and so does
   `.dockerignore`.
+
+## Verified (2026-10-26): telemetry on the stack
+
+The image built from this folder (`--dev-localtest`), `env up -r localtest-v2 --with monitoring`, and `ttd/testapp` run
+with `studioctl run` and `OTEL_EXPORTER_OTLP_ENDPOINT=http://local.altinn.cloud:8000/otlp`,
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `AppSettings__UseOpenTelemetry=true`. Creating an instance gave one trace
+in Grafana with the app's client span as the parent of the front door's server span (`POST register`), which is the
+parent of its forwarding client span (`peer.service` `register`), which is the parent of Register's server span; the
+same for Authentication. Storage, Profile and Authorization appear as the front door's spans only (they do not export
+yet, TODO.md task 53). Metrics (`http.server.request.duration` with `service.name` `localtest`) and the front door's
+log lines arrived too. No span for `/otlp` or `/grafana` reached the collector while the app exported through `/otlp`
+and Grafana was in use. Without the group the container has no `OTEL_*` variable and logs nothing new. The smoke
+test: 85 of 86 with the group, 82 of 83 without (the `FRONTEND_DIST` check).
 
 ## Verified (2026-10-22): task 26 on today's stack
 
