@@ -2050,9 +2050,20 @@ brief `/home/agent/code/.briefs/task52-aspire-otlp.md`; the user's decision of 2
   same port in Development. The user's hypotheses 1 to 3 do not hold.
 - Change: `apphost.run.json` and `apphost-minimal.run.json` beside the samples (Development), the README's [Use] tells
   package users to do the same; `KeepOtlpApiKey`, its call and its two tests removed.
-- Not verified: the full sample stack restarted with the change (all 18 containers reused, healthy in 3 to 4 s,
-  telemetry arriving); a machine that ran the workaround has a stale `~/.altinn-app-aspire/otlp-api-key` (harmless,
-  unused) and its containers are recreated once, on the first run with the user-secrets key.
+- Proof on the full sample (2026-10-26, Podman 5.7, pins `sha-609c646`, `~/.altinn-app-aspire/otlp-api-key` deleted
+  first, the worktree's AppHost with no user secrets yet), evidence in `/home/agent/code/.handover/task52-aspire-otlp-key/`:
+  - Run 1 (`dotnet run apphost.cs`, Development from `apphost.run.json`: the containers carry Aspire's
+    Development-only `OTEL_BSP_SCHEDULE_DELAY=1000`): 18 containers created, healthy after 25 s, both apps provisioned
+    34 s after `dotnet run`; one key in all 18 (`full-run1-otlp-headers.txt`, SHA-256 prefixes), the same as
+    `AppHost:OtlpApiKey` in the AppHost's user secrets (`full-user-secrets.txt`); no `otlp-api-key` file written.
+  - Run 2: all 18 containers reused (IDs and created times identical, `full-run*-containers.txt`), healthy after 3 s,
+    both apps provisioned 10 s after `dotnet run`, the same key. Telemetry reaches the new dashboard from the reused
+    containers: an app request (201) and the Telemetry API's resources list every platform service and both apps with
+    traces, logs or metrics as before (`full-run*-telemetry-resources.txt`).
+  - Minimal sample once: four containers healthy after 10 s, both apps provisioned 15 s after `dotnet run`, one key in
+    all four, the front door, Storage, the engine and both apps with all three signals.
+- Not verified: a machine that ran the workaround has a stale `~/.altinn-app-aspire/otlp-api-key` (harmless, unused)
+  and its containers are recreated once, on the first run with the user-secrets key; `aspire run` (CLI not installed).
 
 ## 53. The standard OTLP variables in every component
 
