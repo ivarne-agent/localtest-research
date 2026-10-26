@@ -1,7 +1,8 @@
 # The processors of both collectors, the monitoring group's (otel-collector.yaml) and minimal mode's
-# (otel-files.yaml), which read this file with ${file:/etc/otelcol-contrib/processors.yaml}, so telemetry has the
-# same attributes in both. They follow the router in Altinn's environments (infra/observability/base/router.yaml) and
-# keep its names and order; see otel-collector.yaml for what is left out.
+# (otel-files.yaml), which read this file through the collector's file provider, so telemetry has the same
+# attributes in both. The provider expands this file's text, comments included, so no dollar-brace here. They
+# follow the router in Altinn's environments (infra/observability/base/router.yaml) and keep its names and order;
+# see otel-collector.yaml for what is left out.
 resource/environment:
   attributes:
     - key: deployment.environment.name
