@@ -69,7 +69,14 @@ public sealed class ManifestFilesTests
         );
         Assert.Equal("receivers: {}\n", Encoding.UTF8.GetString(manifest.Files.Read("monitoring/collector.yaml")));
         Assert.Throws<FileNotFoundException>(() => manifest.Files.Read("manifest.json"));
-        Assert.Empty(LocaltestManifest.Default.Containers.Values.SelectMany(c => c.Files));
+        // In the embedded manifest only the monitoring group's containers, which the package ignores, mount files.
+        Assert.Equal(
+            ["grafana", "otel-collector"],
+            LocaltestManifest
+                .Default.Containers.Where(c => c.Value.Files.Count > 0)
+                .Select(c => c.Key)
+                .Order(StringComparer.Ordinal)
+        );
     }
 
     public static TheoryData<string, string, string> Faults =>

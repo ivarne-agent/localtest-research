@@ -5,7 +5,8 @@
     { "name": "dialogporten", "containers": ["dialogporten-graphql", "dialogporten-service", "dialogporten-adapter"] },
     { "name": "receipt", "containers": ["receipt"] },
     { "name": "correspondence", "containers": ["correspondence"] },
-    { "name": "arbeidsflate", "containers": ["arbeidsflate"] }
+    { "name": "arbeidsflate", "containers": ["arbeidsflate"] },
+    { "name": "monitoring", "containers": ["grafana", "otel-collector"] }
   ],
   "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
   "containers": {
@@ -277,6 +278,53 @@
         "DIALOGPORTEN_STREAM_URL": "{{origin}}/dialogporten/graphql/stream"
       },
       "dependsOn": ["arbeidsflate-bff"]
+    },
+    "victoria-metrics": {
+      "registry": "docker.io/victoriametrics/victoria-metrics",
+      "tag": "v1.153.0@sha256:5eff7af5341e401471002f58d106d399e614a62f3d240f2dbc21901e49eed5dd",
+      "port": 8428
+    },
+    "victoria-traces": {
+      "registry": "docker.io/victoriametrics/victoria-traces",
+      "tag": "v0.12.0@sha256:80919fcc85cc6dd87f598d20ccf42d0ab1120de8f25d4dcf08c5ea2515a496ba",
+      "port": 10428
+    },
+    "victoria-logs": {
+      "registry": "docker.io/victoriametrics/victoria-logs",
+      "tag": "v1.52.0@sha256:47b820890d64c4575a2a0a46415dcd8a4fd59a0f1fcd6a377693d7aea639442e",
+      "port": 9428
+    },
+    "otel-collector": {
+      "registry": "docker.io/otel/opentelemetry-collector-contrib",
+      "tag": "0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1",
+      "port": 4318,
+      "health": "tcp",
+      "files": {
+        "/etc/otelcol-contrib/config.yaml": "monitoring/otel-collector.yaml"
+      },
+      "dependsOn": ["victoria-metrics", "victoria-traces", "victoria-logs"]
+    },
+    "grafana": {
+      "registry": "docker.io/grafana/grafana",
+      "tag": "12.4.8@sha256:7753ad493720e33560077e8bc5e05fbce4ade777f1387b19ab5050b6777111dd",
+      "port": 3000,
+      "health": "/api/health",
+      "envs": {
+        "GF_AUTH_ANONYMOUS_ENABLED": "true",
+        "GF_AUTH_ANONYMOUS_ORG_ROLE": "Admin",
+        "GF_AUTH_DISABLE_LOGIN_FORM": "true",
+        "GF_LOG_LEVEL": "error",
+        "GF_PLUGINS_PREINSTALL_AUTO_UPDATE": "false",
+        "GF_PLUGINS_PREINSTALL_SYNC": "victoriametrics-logs-datasource@0.32.0",
+        "GF_SERVER_ROOT_URL": "{{origin}}/grafana/",
+        "GF_SERVER_SERVE_FROM_SUB_PATH": "true"
+      },
+      "files": {
+        "/etc/grafana/provisioning/dashboards/dashboards.yaml": "monitoring/grafana-dashboards.yaml",
+        "/etc/grafana/provisioning/datasources/datasources.yaml": "monitoring/grafana-datasources.yaml",
+        "/var/lib/grafana/dashboards": "monitoring/grafana-dashboards"
+      },
+      "dependsOn": ["victoria-metrics", "victoria-traces", "victoria-logs"]
     }
   }
 }

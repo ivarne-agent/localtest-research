@@ -28,6 +28,14 @@ func withFiles(t *testing.T, files map[string]any) (*Manifest, error) {
 	if err := json.Unmarshal(manifestJSON, &m); err != nil {
 		t.Fatal(err)
 	}
+	// Only storage mounts files, from testFiles.
+	containers, ok := m["containers"].(map[string]any)
+	if !ok {
+		t.Fatal("no containers")
+	}
+	for name := range containers {
+		delete(containerNamed(m, name), "files")
+	}
 	containerNamed(m, "storage")["files"] = files
 	data, err := json.Marshal(m)
 	if err != nil {

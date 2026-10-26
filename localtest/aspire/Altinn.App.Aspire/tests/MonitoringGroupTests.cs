@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json.Nodes;
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
@@ -7,40 +5,22 @@ using Aspire.Hosting.ApplicationModel;
 namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
-/// The package ignores the manifest's <c>monitoring</c> group (studioctl's OpenTelemetry collector and Grafana), since
-/// Aspire's dashboard does that job: it is not an optional group, <c>everything</c> leaves it out, no typed method is
-/// required for it, and <c>WithGroup("monitoring")</c> refuses it. The embedded manifest has no such group yet, so the
-/// tests run on a copy of it with one.
+/// The package ignores the manifest's <c>monitoring</c> group (studioctl's OpenTelemetry collector, its Victoria stores
+/// and Grafana), since Aspire's dashboard does that job: it is not an optional group, <c>everything</c> leaves it out,
+/// no typed method is required for it, and <c>WithGroup("monitoring")</c> refuses it.
 /// </summary>
 public sealed class MonitoringGroupTests
 {
     private const string Collector = "otel-collector";
 
-    /// <summary>The embedded manifest with a <c>monitoring</c> group of one container that mounts a file.</summary>
-    private static LocaltestManifest WithMonitoring()
-    {
-        using var stream = typeof(LocaltestManifest).Assembly.GetManifestResourceStream(LocaltestManifest.Resource)!;
-        var manifest = JsonNode.Parse(stream)!;
-        manifest["groups"]!
-            .AsArray()
-            .Add(new JsonObject { ["name"] = "monitoring", ["containers"] = new JsonArray(Collector) });
-        manifest["containers"]![Collector] = new JsonObject
-        {
-            ["registry"] = "docker.io/otel/opentelemetry-collector-contrib",
-            ["tag"] = "0.161.0",
-            ["port"] = 13133,
-            ["files"] = new JsonObject { ["/etc/otelcol-contrib/config.yaml"] = "monitoring/otel-collector.yaml" },
-        };
-        return LocaltestManifest.Parse(
-            Encoding.UTF8.GetBytes(manifest.ToJsonString()),
-            ManifestFiles.From(
-                new Dictionary<string, byte[]>(StringComparer.Ordinal)
-                {
-                    ["monitoring/otel-collector.yaml"] = Encoding.UTF8.GetBytes("receivers: {}\n"),
-                }
-            )
-        );
-    }
+    private static readonly string[] _containers =
+    [
+        "victoria-metrics",
+        "victoria-traces",
+        "victoria-logs",
+        Collector,
+        "grafana",
+    ];
 
     private static (IDistributedApplicationBuilder Builder, IResourceBuilder<AltinnLocaltestResource> Localtest) Build(
         IReadOnlyList<string>? groups = null
@@ -54,7 +34,7 @@ public sealed class MonitoringGroupTests
         {
             options.Groups.Add(group);
         }
-        var stack = new LocaltestStack(builder, WithMonitoring(), options);
+        var stack = new LocaltestStack(builder, LocaltestManifest.Default, options);
         var localtest = LocaltestPlatform.Add(
             builder,
             new AltinnLocaltestResource(AltinnLocaltestExtensions.DefaultName, stack),
@@ -79,7 +59,8 @@ public sealed class MonitoringGroupTests
         localtest.WithEverything();
 
         Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], localtest.Resource.Groups);
-        Assert.DoesNotContain(Collector, builder.Resources.Select(r => r.Name));
+        Assert.Empty(builder.Resources.Select(r => r.Name).Intersect(_containers));
+        Assert.Equal(_containers, LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]));
     }
 
     [Fact]
@@ -102,10 +83,10 @@ public sealed class MonitoringGroupTests
     [Fact]
     public void TheMethodTestRequiresNoMethodForIt()
     {
-        var required = GroupMethodsTests.RequiredGroups(WithMonitoring());
+        var required = GroupMethodsTests.RequiredGroups(LocaltestManifest.Default);
 
         Assert.DoesNotContain(LocaltestManifest.MonitoringGroup, required);
-        Assert.Equal(GroupMethodsTests.RequiredGroups(LocaltestManifest.Default), required);
+        Assert.Equal(["dialogporten", "receipt", "correspondence", "arbeidsflate"], required);
     }
 
     [Fact]
@@ -113,7 +94,7 @@ public sealed class MonitoringGroupTests
     {
         // The package never starts it, but the files mount as for any container.
         var spec = StackSpec
-            .Resolve(WithMonitoring(), [LocaltestManifest.MonitoringGroup], "/certs-dir", "/files-dir")
+            .Resolve(LocaltestManifest.Default, [LocaltestManifest.MonitoringGroup], "/certs-dir", "/files-dir")
             .Single(s => s.Name == Collector);
 
         Assert.Contains(

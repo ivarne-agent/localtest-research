@@ -159,19 +159,20 @@ func resources(opts *Options, probes readinessProbes) []resource.Resource {
 		if probes != nil {
 			probe = probes(healthTargetOf(name))
 		}
-		out = append(out, containerResource(opts, name, services, image, resource.Ref(network), probe))
+		out = append(out, containerResource(opts, name, names, services, image, resource.Ref(network), probe))
 	}
 	return out
 }
 
-// serviceVariables announce every running HTTP container to every container, the way Aspire's service discovery
-// does: services__<name>__http__0=http://<name>:<port>, the container's name being its network alias. An emulated
+// serviceVariables announce every running HTTP container (and the OpenTelemetry collector's HTTP receiver, see
+// announced) to every container, the way Aspire's service discovery does: services__<name>__http__0=
+// http://<name>:<port>, the container's name being its network alias. An emulated
 // container (minimal mode) is announced at the front door, which answers for it.
 func serviceVariables(running, emulated []string) map[string]string {
 	vars := map[string]string{}
 	for _, name := range running {
 		c := stack().Containers[name]
-		if c.IsHTTP() {
+		if announced(name) {
 			vars["services__"+name+"__http__0"] = "http://" + name + ":" + strconv.Itoa(c.HTTPPort())
 		}
 	}
@@ -211,6 +212,7 @@ func pullPolicy(tag string) resource.PullPolicy {
 func containerResource(
 	opts *Options,
 	name string,
+	running []string,
 	services map[string]string,
 	image resource.ImageResource,
 	network resource.ResourceRef,
@@ -240,10 +242,12 @@ func containerResource(
 		DependsOn:   deps,
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
-		Env:         containerEnv(stack().Envs(name, opts.Origin), runnerEnv(opts, name), services),
-		Labels:      nil,
-		Command:     nil,
-		ExtraHosts:  extraHosts(opts),
+		Env: containerEnv(
+			telemetryEnv(running, name), stack().Envs(name, opts.Origin), runnerEnv(opts, name), services,
+		),
+		Labels:     nil,
+		Command:    nil,
+		ExtraHosts: extraHosts(opts),
 		Lifecycle: resource.ContainerLifecycleOptions{
 			LifecycleOptions: resource.LifecycleOptions{
 				HandleDestroyError: nil,
@@ -270,13 +274,15 @@ func runnerEnv(opts *Options, name string) map[string]string {
 	return env
 }
 
-// containerEnv is the container's own environment from the manifest, resolved for the origin, with what the runner
-// adds (frontDoorEnv, minimal mode), then the services__ variables.
-func containerEnv(envs, added, services map[string]string) []string {
-	own := maps.Clone(envs)
+// containerEnv is the runner's defaults (telemetryEnv) overridden by the container's own environment from the manifest,
+// resolved for the origin, with what the runner adds (the front door's subdomains, minimal mode), then the services__
+// variables.
+func containerEnv(defaults, envs, added, services map[string]string) []string {
+	own := maps.Clone(defaults)
 	if own == nil {
 		own = map[string]string{}
 	}
+	maps.Copy(own, envs)
 	maps.Copy(own, added)
 	env := make([]string, 0, len(own)+len(services))
 	for _, key := range slices.Sorted(maps.Keys(own)) {

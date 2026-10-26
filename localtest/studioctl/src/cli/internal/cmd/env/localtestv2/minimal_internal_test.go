@@ -132,6 +132,11 @@ func TestPreflightRefusesWhatMinimalModeCannotRun(t *testing.T) {
 			err:  errMinimalWithGroups,
 			text: "drop --minimal",
 		},
+		"monitoring": {
+			opts: UpOptions{Minimal: true, With: []string{"monitoring"}},
+			err:  errMinimalWithGroups,
+			text: "drop --minimal",
+		},
 		"without": {
 			opts: UpOptions{Minimal: true, Without: []string{"receipt"}},
 			err:  errMinimalWithGroups,

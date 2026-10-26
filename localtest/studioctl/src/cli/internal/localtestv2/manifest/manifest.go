@@ -40,7 +40,7 @@ var manifestJSON []byte
 // bundle is what ships with the manifest: the folders beside manifest.json that hold the files its containers mount
 // (files.go). Every such folder is named here; the package's tests fail on a folder beside the manifest that is not.
 //
-//go:embed manifest.json
+//go:embed manifest.json monitoring
 var bundle embed.FS
 
 // volumeID is a volume id: lower-case letters and digits in hyphen-separated words (postgres-data). Each runtime

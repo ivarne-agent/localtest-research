@@ -220,13 +220,13 @@ func TestResolveGroups(t *testing.T) {
 		"everything": gc(
 			[]string{"everything"},
 			nil,
-			[]string{"arbeidsflate", "correspondence", "dialogporten", "receipt"},
+			[]string{"arbeidsflate", "correspondence", "dialogporten", "monitoring", "receipt"},
 			nil,
 		),
 		"everything but one": gc(
 			[]string{"everything"},
 			[]string{"dialogporten"},
-			[]string{"arbeidsflate", "correspondence", "receipt"},
+			[]string{"arbeidsflate", "correspondence", "monitoring", "receipt"},
 			nil,
 		),
 		"without what is off": gc(nil, []string{"receipt"}, nil, nil),
@@ -244,7 +244,7 @@ func TestResolveGroups(t *testing.T) {
 // The --with values are what the Aspire package's typed methods name too.
 func TestTheGroupNames(t *testing.T) {
 	t.Parallel()
-	want := []string{"dialogporten", "receipt", "correspondence", "arbeidsflate", GroupEverything}
+	want := []string{"dialogporten", "receipt", "correspondence", "arbeidsflate", "monitoring", GroupEverything}
 	if got := GroupNames(); !slices.Equal(got, want) {
 		t.Fatalf("GroupNames() = %v, want %v", got, want)
 	}

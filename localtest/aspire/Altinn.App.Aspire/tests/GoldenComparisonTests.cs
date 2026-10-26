@@ -16,7 +16,8 @@ namespace Altinn.App.Aspire.Tests;
 /// variables, the mounts (a named volume by its manifest id: each runner prefixes the id with its own prefix; a tmpfs
 /// of minimal mode by its path and options, which the package passes as <c>--tmpfs path:options</c>), the
 /// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
-/// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds.
+/// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds,
+/// and studioctl's monitoring group, which the package ignores (<see cref="IsMonitoring" />).
 /// </summary>
 public sealed class GoldenComparisonTests
 {
@@ -28,6 +29,34 @@ public sealed class GoldenComparisonTests
     private static readonly string _studioctlVolumePrefix = _golden.GetProperty("volumePrefix").GetString()!;
 
     public static TheoryData<string> Selections => new() { "default", "everything", "minimal", "customOrigin" };
+
+    /// <summary>The containers of the monitoring group, which studioctl's <c>everything</c> starts and the package ignores.</summary>
+    private static readonly HashSet<string> _monitoring =
+    [
+        .. LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]),
+    ];
+
+    /// <summary>The standard OpenTelemetry variables studioctl gives every other container while its collector runs.</summary>
+    private static readonly string[] _otlpVariables =
+    [
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "OTEL_SERVICE_NAME",
+    ];
+
+    /// <summary>
+    /// Whether an entry of a container's environment in the snapshot is studioctl's monitoring: a monitoring
+    /// container's <c>services__</c> variable, or an OpenTelemetry variable the container's own envs do not set.
+    /// </summary>
+    private static bool IsMonitoring(string container, string entry)
+    {
+        var key = entry[..entry.IndexOf('=', StringComparison.Ordinal)];
+        return _monitoring.Any(m => key == $"services__{m}__http__0")
+            || (
+                _otlpVariables.Contains(key, StringComparer.Ordinal)
+                && !LocaltestManifest.Default.Containers[container].Envs.ContainsKey(key)
+            );
+    }
 
     private static JsonElement Load(string file)
     {
@@ -63,7 +92,8 @@ public sealed class GoldenComparisonTests
                 .GetProperty("resources")
                 .EnumerateArray()
                 .Where(r => r.GetProperty("id").GetString()!.StartsWith("container:", StringComparison.Ordinal))
-                .Select(r => (r.GetProperty("id").GetString()!["container:localtest-v2-".Length..], r)),
+                .Select(r => (Name: r.GetProperty("id").GetString()!["container:localtest-v2-".Length..], Resource: r))
+                .Where(c => !_monitoring.Contains(c.Name)),
         ];
 
     /// <summary>The volume id of a runner's volume name, which must carry the runner's prefix.</summary>
@@ -121,7 +151,7 @@ public sealed class GoldenComparisonTests
             }
             var environment = await model.Environment(container);
             Assert.Equal(
-                Strings(golden, "env").Order(StringComparer.Ordinal),
+                Strings(golden, "env").Where(e => !IsMonitoring(name, e)).Order(StringComparer.Ordinal),
                 environment.Select(kv => kv.Key + "=" + kv.Value).Order(StringComparer.Ordinal)
             );
             Assert.Equal(
@@ -197,7 +227,8 @@ public sealed class GoldenComparisonTests
         var specs = model.Platform.Resource.Stack.Specs();
 
         Assert.Equal(
-            Strings(_golden.GetProperty(selection), "healthTargets"),
+            Strings(_golden.GetProperty(selection), "healthTargets")
+                .Where(t => !_monitoring.Contains(t[..t.IndexOf(' ', StringComparison.Ordinal)])),
             specs.Select(s => $"{s.Name} {s.Health}")
         );
         Assert.Equal(

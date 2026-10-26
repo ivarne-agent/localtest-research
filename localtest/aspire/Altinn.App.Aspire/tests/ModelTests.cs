@@ -60,8 +60,10 @@ public sealed class ModelTests
     {
         var model = SampleModel.Build(["everything"]);
 
+        // Every container but the monitoring group's, which the package ignores.
+        var monitoring = LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]);
         Assert.Equal(
-            LocaltestManifest.Default.Names.Order(StringComparer.Ordinal),
+            LocaltestManifest.Default.Names.Except(monitoring).Order(StringComparer.Ordinal),
             model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)
         );
         Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], model.Localtest.Resource.Groups);

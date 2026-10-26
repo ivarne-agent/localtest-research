@@ -145,13 +145,42 @@ func TestEnsureFilesWritesTheShippedFilesReadableByEveryone(t *testing.T) {
 
 func TestEnsureFilesWithNothingShippedLeavesAnEmptyDirectory(t *testing.T) {
 	t.Parallel()
+	m, err := manifest.Parse([]byte(`{"groups": [{"name": "default", "containers": ["a"]}], `+
+		`"public": {"host": "local.altinn.cloud", "port": 8000}, "containers": {"a": {"registry": "r", "tag": "t"}}}`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := t.TempDir()
-	if err := ensureFiles(dir, manifest.MustDefault()); err != nil {
+	if err = ensureFiles(dir, m); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("entries %v, %v", entries, err)
+	}
+}
+
+func TestEnsureFilesWritesTheEmbeddedManifestsFiles(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	m := manifest.MustDefault()
+	if err := ensureFiles(dir, m); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"monitoring/otel-collector.yaml",
+		"monitoring/grafana-datasources.yaml",
+		"monitoring/grafana-dashboards.yaml",
+		"monitoring/grafana-dashboards/app.json",
+	} {
+		want, err := m.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
+		if err != nil || !slices.Equal(got, want) {
+			t.Errorf("%s: %d bytes, %v; want the shipped %d bytes", name, len(got), err, len(want))
+		}
 	}
 }
 

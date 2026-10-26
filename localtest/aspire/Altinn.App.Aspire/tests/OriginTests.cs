@@ -73,7 +73,9 @@ public sealed class OriginTests
             );
         Assert.Contains(value, json, StringComparison.Ordinal);
 
-        var error = Assert.Throws<InvalidDataException>(() => LocaltestManifest.Parse(Encoding.UTF8.GetBytes(json)));
+        var error = Assert.Throws<InvalidDataException>(() =>
+            LocaltestManifest.Parse(Encoding.UTF8.GetBytes(json), ManifestFiles.Embedded)
+        );
 
         Assert.Contains(
             "container storage: envs GeneralSettings__PlatformEndpoint: bad placeholder",
@@ -100,7 +102,10 @@ public sealed class OriginTests
         Assert.Contains(find, json, StringComparison.Ordinal);
 
         var error = Assert.Throws<InvalidDataException>(() =>
-            LocaltestManifest.Parse(Encoding.UTF8.GetBytes(json.Replace(find, replace, StringComparison.Ordinal)))
+            LocaltestManifest.Parse(
+                Encoding.UTF8.GetBytes(json.Replace(find, replace, StringComparison.Ordinal)),
+                ManifestFiles.Embedded
+            )
         );
 
         Assert.Contains(fault, error.Message, StringComparison.Ordinal);
