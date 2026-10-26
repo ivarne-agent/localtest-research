@@ -81,6 +81,26 @@ public sealed class LocaltestOtlpTests
         Assert.Contains("named-by-the-runner", received["/opentelemetry.proto.collector.trace.v1.TraceService/Export"]);
     }
 
+    [Fact]
+    public async Task APerSignalEndpointOverridesTheGeneralOne()
+    {
+        await using var collector = await FakeCollector.Start(HttpProtocols.Http1);
+
+        // The per-signal endpoint is used as it is (no /v1/traces appended), as the specification says; the other signals
+        // keep the general endpoint, so nothing goes to the SDK's default localhost:4317.
+        await RunComponent(new()
+        {
+            ["OTEL_EXPORTER_OTLP_ENDPOINT"] = collector.Endpoint,
+            ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf",
+            ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = collector.Endpoint + "/custom/traces",
+            ["OTEL_SERVICE_NAME"] = "named-by-the-runner",
+        });
+
+        var received = await collector.WaitFor("/custom/traces", "/v1/metrics", "/v1/logs");
+        Assert.Contains("named-by-the-runner", received["/custom/traces"]);
+        Assert.DoesNotContain("/v1/traces", received.Keys);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -91,6 +111,10 @@ public sealed class LocaltestOtlpTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["OTEL_EXPORTER_OTLP_ENDPOINT"] = endpoint,
+                // A per-signal endpoint alone does not turn the helper on: UseOtlpExporter() turns on all three signals,
+                // and the ones without an endpoint would go to the SDK's default, localhost:4317. Port 9 (discard) on
+                // loopback, in case it ever did.
+                ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://127.0.0.1:9/traces",
                 ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf",
                 ["OTEL_SERVICE_NAME"] = "named-by-the-runner",
             })

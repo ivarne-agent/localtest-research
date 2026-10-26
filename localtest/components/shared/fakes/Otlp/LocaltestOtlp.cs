@@ -59,6 +59,12 @@ public static class LocaltestOtlp
         return builder;
     }
 
+    /// <summary>
+    /// Whether <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set (not blank). A per-signal endpoint
+    /// (<c>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</c> and the others) alone does not count: <c>UseOtlpExporter()</c> always
+    /// turns on all three signals, and a signal without an endpoint would go to the SDK's default, <c>localhost:4317</c>.
+    /// With the general endpoint set, a per-signal one still overrides it for its signal.
+    /// </summary>
     public static bool IsEnabled(IConfiguration configuration) =>
         !string.IsNullOrWhiteSpace(configuration[EndpointVariable]);
 }

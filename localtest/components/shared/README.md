@@ -33,8 +33,9 @@ Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task
 
 The localtest app's tests compile both files (`localtest/localtest/tests/ComponentServiceDiscoveryTests.cs`).
 
-Consumers of the OTLP helper (`fakes/Otlp/`, TODO.md task 53): none yet. The audit in task 53 lists, per component, where
-the call goes and in which batch.
+Consumers of the OTLP helper (`fakes/Otlp/`, TODO.md task 53): the front door, `localtest/localtest/Telemetry/LocaltestOtlp.cs`
+(a copy, since its Docker build context is its own folder; called from `FrontDoorTelemetry.Add`). The audit in task 53
+lists, per component, where the call goes and in which batch.
 
 | Path | What |
 | --- | --- |
@@ -108,7 +109,10 @@ Monitor or Application Insights:
 - `services.AddOpenTelemetry()` may be called again: it returns a builder on the same providers, so the call adds to the
   component's own instrumentation, sources, meters and processors.
 - The variable is read from the host's `IConfiguration` (the environment in every component); an empty or blank value counts
-  as unset. Without it the call registers nothing.
+  as unset. Without it the call registers nothing. A per-signal endpoint (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and the
+  others) alone does not count: `UseOtlpExporter()` always turns on all three signals, and a signal without an endpoint
+  goes to the SDK's default `localhost:4317`. With the general endpoint set, a per-signal one overrides it for its signal
+  (used as it is, no `/v1/<signal>` appended).
 - With it, `UseOtlpExporter()` turns on all three signals (it adds the OpenTelemetry logger provider too), reads endpoint,
   protocol and headers from the standard variables and appends `/v1/traces`, `/v1/metrics` and `/v1/logs` for
   `http/protobuf`. Without `OTEL_EXPORTER_OTLP_PROTOCOL` the .NET SDK uses `grpc`.
@@ -131,8 +135,10 @@ Monitor or Application Insights:
 `Cookies.Smoke` and `Otlp.Tests` run first and need no stack. `Cookies.Smoke` (it restores `Microsoft.AspNetCore.TestHost`
 10.0.8): over http `Secure` is gone from an appended and a deleted cookie and `SameSite=None` is `Lax`; over https all
 three are unchanged. `Otlp.Tests` (OpenTelemetry 1.19.1 by default): with the variable all three signals reach a fake
-collector over `http/protobuf` and traces over `grpc`, named by `OTEL_SERVICE_NAME` over a hard-coded name; without it
-(unset, empty, blank) nothing is registered. Then the
+collector over `http/protobuf` and traces over `grpc`, named by `OTEL_SERVICE_NAME` over a hard-coded name, and a
+per-signal endpoint overrides the general one; without it (unset, empty, blank, or only a per-signal endpoint) nothing is
+registered. The tests clear inherited `OTEL_*` variables first and only talk to the fake collector on an ephemeral
+loopback port. Then the
 Maskinporten host; it needs the stack running and restores `Altinn.ApiClients.Maskinporten` 10.1.0 from the NuGet cache or nuget.org. The host
 registers a `SettingsJwkClientDefinition` (client id 991825827, scope `altinn:serviceowner/instances.read`,
 `ExhangeToAltinnToken`), prints the claims of the Maskinporten and the exchanged Altinn token, and exits non-zero unless the
