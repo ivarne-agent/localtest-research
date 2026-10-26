@@ -16,6 +16,9 @@
     <Content Remove="Emulation/**" />
     <EmbeddedResource Include="Emulation/TestData/testData.json" LogicalName="Localtest.Emulation.testData.json" />
     <EmbeddedResource Include="Emulation/Pdf/minimal.pdf" LogicalName="Localtest.Emulation.minimal.pdf" />
+    <!-- The instances page's form (Home/Instances/), served from the binary. -->
+    <Content Remove="Home/Instances/instances.html" />
+    <EmbeddedResource Include="Home/Instances/instances.html" LogicalName="Localtest.Home.Instances.instances.html" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />

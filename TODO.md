@@ -89,6 +89,7 @@ A path matching no route still falls through to the localtest app.
 | 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`; the workflow engine is done: altinn-studio#21515 merged (884b8ed755), in `tt02`, and the manifest's switch removed (commit f8f4148f, task 52's engine follow-up); it was PR altinn-studio#21515 from `ivarne-agent:feat/workflow-engine-otlp-env` (522ff4cc87, cf006182fd and 834dab1db9; exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, per-signal variables do not turn it on, `EngineSettings.EnableTelemetry` removed, so the manifest's `EnableTelemetry=false` is ignored once the image has it; the old `localtest` runtime checked with a branch image: no attempts to localhost:4317 without monitoring, identical series, traces and logs with it; verified on Podman 2026-10-26 against collector 0.161.0: no variable, no export and no connection attempts; variable, all three signals with `OTEL_SERVICE_NAME`; `EnableTelemetry=true` alone, localhost:4317; both, the variable wins. Export errors go to the SDK's self-diagnostics, not the engine log), PR handover in `/home/agent/code/.handover/wfe-otlp-pr.md`; batches 1-3 done in the localtest builds (the Authorization family `7c1e0dd4`; the platform components and Dialogporten `e64a2a3e`, `3973509e`), stack proof done (2026-10-26, branch `task53-stack-proof`: images `sha-609c646` (ef213725), every changed component's smoke test green with its OTLP span check on `--with everything`, every component of the table reports traces, metrics and logs under its manifest name, one `ttd/testapp` submission as one trace through the front door, Storage, the PDP and Access Management, nothing without the group; the helper filters the exporters' own HTTP logs (ea60bbf9, in the next images); open: pdf3); per-service upstream reviews in `localtest/reviews/otel/`) approved: every component, eventually all of them | medium | yes |
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
+| 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | in progress (2026-10-26, branch `storage-instances-page`; brief `/home/agent/code/.briefs/storage-instances-query-page.md`) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2493,3 +2494,24 @@ alone makes the files the developer's; the `keep-id` path for rootless Podman is
 old runtime and container-mode apps use it, but not tried here); macOS and Windows paths of the guide; a session
 of hours (the rates are from minutes, and the front door's metric series grow with the routes it serves); the
 pinned front door image with the `otlp` route (built locally with `--dev-localtest` only).
+
+## 56. A query page for Storage's instances
+
+**Origin (the user, 2026-10-26).** A page in the front door for looking at Storage's instances: a static HTML form in
+plain JavaScript beside the Home pages and a proxy endpoint behind it that renders HTML, with links into the inbox, the
+dialog, the app or the receipt while they run. Brief `/home/agent/code/.briefs/storage-instances-query-page.md`.
+
+**Design.**
+- `/Home/Instances`: every parameter of Storage's `GET storage/api/v1/instances` by Storage's own name
+  (`InstanceQueryParameters`), the repeatable date filters with their operator prefix, and the token (a test user, a
+  service owner, a pasted token, or none). The form's state is the address.
+- The proxy (`/Home/Instances/Results`, `/Home/Instances/{partyId}/{instanceGuid}`, `…/data/{dataGuid}`) gets the token
+  the way `/Home/GetTest…Token` does (shared code, `Home/TestTokens.cs`), calls Storage by service name, and renders the
+  list, the instance page and the downloads with the same token.
+- Links only while they work: the inbox with the owner's party URN (Register) and the dialog (Arbeidsflate, and the
+  adapter for the dialog), the app (registered with the front door) or the receipt (the `receipt` group).
+- "Similar instances": same owner, app, owner and app, org, process step, archived and deleted status; no "same
+  reference" link.
+
+Details in [`localtest/localtest/README.md`](localtest/localtest/README.md#storage-instances).
+

@@ -1,6 +1,7 @@
 using Localtest;
 using Localtest.Authentication;
 using Localtest.Home;
+using Localtest.Home.Instances;
 using Localtest.IdPorten;
 using Localtest.Maskinporten;
 using Localtest.Provisioning;
@@ -65,6 +66,11 @@ builder.Services.AddSingleton(sp => MaskinportenSettings.FromConfiguration(sp.Ge
 builder.Services.AddKeyedSingleton<SigningKey>(MaskinportenApi.KeyName);
 builder.Services.AddSingleton<AuthenticationClient>();
 builder.Services.AddSingleton<StudioToken>();
+builder.Services.AddSingleton<TestTokens>();
+// The instances page (Home/Instances/): Storage's instance query with a test token, rendered as HTML.
+builder.Services.AddSingleton<StorageClient>();
+builder.Services.AddSingleton<InstanceLinks>();
+builder.Services.AddSingleton<PartyUrns>();
 builder.Services.AddSingleton<CodeFlow>();
 builder.Services.AddHttpClient(AppProvisioning.PlatformClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<AppProvisioning>();
@@ -120,6 +126,7 @@ RoutesApi.Map(app);
 IdPortenApi.Map(app);
 MaskinportenApi.Map(app);
 HomeApi.Map(app);
+InstancesApi.Map(app);
 AuthenticationApi.Map(app);
 // Any other localtest/api/… path is the localtest app's own and unknown: its own 404, not the app-runner hint below.
 // (The specific feature routes win by route precedence; a plain RequestDelegate, as for the fallback.)

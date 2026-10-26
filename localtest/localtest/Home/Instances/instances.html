@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Storage instances</title>
+<!-- The form of /Home/Instances: plain HTML and JavaScript, no build step. Its state is the URL's query string, which
+     /Home/Instances/Results reads with the same names (Storage's own, and the token's). Served by Home/Instances/. -->
+<style>
+body{font-family:system-ui,sans-serif;max-width:960px;margin:24px auto;padding:0 16px;color:#1a1a1a;background:#fff}
+h1{margin-bottom:4px}fieldset{border:1px solid #ccc;border-radius:6px;margin:16px 0;padding:8px 14px 14px}
+legend{font-weight:600;padding:0 6px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px 16px}
+label{display:block;font-size:.9em;margin-bottom:3px}label code{font-size:.95em}
+input[type=text],input[type=number],select,textarea{width:100%;padding:5px;box-sizing:border-box;font:inherit}
+textarea{font-family:ui-monospace,monospace;font-size:.85em}.kinds label{display:inline-block;margin-right:18px;font-size:1em}
+.hint{color:#555;font-size:.85em;margin:4px 0 0}.date-row{display:grid;grid-template-columns:2fr 1fr 3fr auto;gap:8px;margin-bottom:6px}
+button{padding:6px 14px;font:inherit}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+a{color:#0b5cad}
+</style>
+</head>
+<body>
+<p><a href="/">Altinn localtest</a> &rsaquo; Storage instances</p>
+<h1>Storage instances</h1>
+<p>Query <code>GET /storage/api/v1/instances</code> with a test user's or a service owner's token. Every field is
+Storage's own parameter; empty fields are left out. The page's address keeps the search, so it can be bookmarked or
+shared.</p>
+
+<form id="query" action="/Home/Instances/Results" method="get">
+<fieldset>
+<legend>Token</legend>
+<div class="kinds">
+<label><input type="radio" name="auth" value="user"> Test user</label>
+<label><input type="radio" name="auth" value="org"> Service owner</label>
+<label><input type="radio" name="auth" value="token"> Pasted token</label>
+<label><input type="radio" name="auth" value="none" checked> None</label>
+</div>
+<div class="grid" data-auth="user">
+<div><label for="testUser">Pick a test user</label><select id="testUser"><option value="">(reading the test users…)</option></select></div>
+<div><label for="userId"><code>userId</code></label><input type="number" id="userId" name="userId"></div>
+<div><label for="partyId"><code>partyId</code> (the party the user acts for)</label><input type="number" id="partyId" name="partyId"></div>
+<div><label for="authenticationLevel"><code>authenticationLevel</code></label><select id="authenticationLevel" name="authenticationLevel">
+<option value="">2 (default)</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+</div>
+<p class="hint" data-auth="user">Through <code>/Home/GetTestUserToken</code>: production Authentication signs the user in. A user's query must name the instance owner (<code>instanceOwner.partyId</code> or <code>instanceOwner.identifier</code>).</p>
+<div class="grid" data-auth="org">
+<div><label for="orgNumber"><code>orgNumber</code></label><input type="text" id="orgNumber" name="orgNumber" placeholder="991825827 (Digdir, becomes ttd)"></div>
+<div><label for="scopes"><code>scopes</code></label><input type="text" id="scopes" name="scopes" placeholder="altinn:serviceowner/instances.read altinn:serviceowner/instances.write"></div>
+</div>
+<p class="hint" data-auth="org">Through <code>/Home/GetTestOrgToken</code>: production <code>exchange/maskinporten?test=true</code> derives the org from the organisation number. A service owner's query must name <code>org</code> or <code>appId</code>.</p>
+<div data-auth="token"><label for="token">Token (a JWT, with or without <code>Bearer</code>; it stays in the address)</label><textarea id="token" name="token" rows="3"></textarea></div>
+</fieldset>
+
+<fieldset>
+<legend>Filters</legend>
+<div class="grid">
+<div><label for="org"><code>org</code></label><input type="text" id="org" name="org" placeholder="ttd"></div>
+<div><label for="appId"><code>appId</code></label><input type="text" id="appId" name="appId" placeholder="ttd/my-app"></div>
+<div><label for="instanceOwner.partyId"><code>instanceOwner.partyId</code></label><input type="number" id="instanceOwner.partyId" name="instanceOwner.partyId"></div>
+<div><label for="instanceOwner.identifier"><code>instanceOwner.identifier</code> (sent as the header <code>X-Ai-InstanceOwnerIdentifier</code>)</label><input type="text" id="instanceOwner.identifier" name="instanceOwner.identifier" placeholder="person:01017512345 or organisation:910123456"></div>
+<div><label for="process.currentTask"><code>process.currentTask</code></label><input type="text" id="process.currentTask" name="process.currentTask" placeholder="Task_1"></div>
+<div><label for="process.isComplete"><code>process.isComplete</code></label><select id="process.isComplete" name="process.isComplete" data-bool></select></div>
+<div><label for="process.endEvent"><code>process.endEvent</code></label><input type="text" id="process.endEvent" name="process.endEvent" placeholder="EndEvent_1"></div>
+<div><label for="confirmed"><code>confirmed</code></label><select id="confirmed" name="confirmed" data-bool></select></div>
+<div><label for="excludeConfirmedBy"><code>excludeConfirmedBy</code></label><input type="text" id="excludeConfirmedBy" name="excludeConfirmedBy" placeholder="ttd"></div>
+<div><label for="status.isSoftDeleted"><code>status.isSoftDeleted</code></label><select id="status.isSoftDeleted" name="status.isSoftDeleted" data-bool></select></div>
+<div><label for="status.isHardDeleted"><code>status.isHardDeleted</code></label><select id="status.isHardDeleted" name="status.isHardDeleted" data-bool></select></div>
+<div><label for="status.isArchived"><code>status.isArchived</code></label><select id="status.isArchived" name="status.isArchived" data-bool></select></div>
+<div><label for="searchString"><code>searchString</code></label><input type="text" id="searchString" name="searchString"></div>
+<div><label for="mainVersionInclude"><code>mainVersionInclude</code></label><input type="number" id="mainVersionInclude" name="mainVersionInclude" placeholder="3 (Storage's default)"></div>
+<div><label for="mainVersionExclude"><code>mainVersionExclude</code></label><input type="number" id="mainVersionExclude" name="mainVersionExclude"></div>
+<div><label for="A3Ref"><code>A3Ref</code> (12 characters)</label><input type="text" id="A3Ref" name="A3Ref"></div>
+<div><label for="dataValues.A2ArchRef"><code>dataValues.A2ArchRef</code> (A2 archive reference)</label><input type="text" id="dataValues.A2ArchRef" name="dataValues.A2ArchRef"></div>
+</div>
+</fieldset>
+
+<fieldset>
+<legend>Dates</legend>
+<div id="dates"></div>
+<button type="button" id="addDate">Add a date filter</button>
+<p class="hint">Each filter repeats: <code>created=gte:2026-10-01</code> and <code>created=lt:2026-11-01</code> give a range. Operators are Storage's: <code>gt</code>, <code>gte</code>, <code>lt</code>, <code>lte</code>, <code>eq</code>.</p>
+</fieldset>
+
+<fieldset>
+<legend>Paging and sorting</legend>
+<div class="grid">
+<div><label for="order"><code>order</code> (Storage's <code>SortBy</code>)</label><select id="order" name="order">
+<option value="">desc:lastChanged (default)</option><option value="desc:lastChanged">desc:lastChanged</option><option value="asc:lastChanged">asc:lastChanged</option></select></div>
+<div><label for="size"><code>size</code></label><input type="number" id="size" name="size" placeholder="100 (Storage's default)"></div>
+<div><label for="continuationToken"><code>continuationToken</code></label><input type="text" id="continuationToken" name="continuationToken"></div>
+<div><label for="includeDataElements"><code>includeDataElements</code></label><select id="includeDataElements" name="includeDataElements" data-bool></select></div>
+</div>
+</fieldset>
+
+<div class="actions"><button type="submit">Search</button><a id="permalink" href="/Home/Instances">Link to this form</a></div>
+</form>
+
+<script>
+(() => {
+  const form = document.getElementById('query');
+  const dates = document.getElementById('dates');
+  const DATE_KEYS = ['lastChanged', 'created', 'visibleAfter', 'dueBefore', 'process.ended'];
+  const OPERATORS = ['gt', 'gte', 'lt', 'lte', 'eq'];
+  const TOKEN_FIELDS = { user: ['userId', 'partyId', 'authenticationLevel'], org: ['orgNumber', 'scopes'], token: ['token'], none: [] };
+  const params = new URLSearchParams(location.search);
+
+  for (const select of form.querySelectorAll('select[data-bool]')) {
+    for (const [value, text] of [['', '(any)'], ['true', 'true'], ['false', 'false']]) {
+      select.add(new Option(text, value));
+    }
+  }
+
+  const option = (value, text, selected) => { const o = new Option(text, value); o.selected = selected; return o; };
+  function addDate(key = 'created', operator = 'gte', value = '') {
+    const row = document.createElement('div');
+    row.className = 'date-row';
+    const keySelect = document.createElement('select');
+    keySelect.setAttribute('aria-label', 'Date parameter');
+    DATE_KEYS.forEach(k => keySelect.add(option(k, k, k === key)));
+    const operatorSelect = document.createElement('select');
+    operatorSelect.setAttribute('aria-label', 'Operator');
+    OPERATORS.forEach(o => operatorSelect.add(option(o, o, o === operator)));
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.placeholder = '2026-10-26 or 2026-10-26T12:00:00Z';
+    input.setAttribute('aria-label', 'Date');
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => { row.remove(); sync(); });
+    row.append(keySelect, operatorSelect, input, remove);
+    row.addEventListener('input', sync);
+    row.addEventListener('change', sync);
+    dates.append(row);
+  }
+
+  function kind() { return form.querySelector('input[name=auth]:checked').value; }
+
+  function showKind() {
+    for (const el of form.querySelectorAll('[data-auth]')) {
+      el.hidden = el.dataset.auth !== kind();
+    }
+  }
+
+  // The query string: the chosen token's fields, every non-empty Storage field, the date rows as key=operator:value.
+  function build() {
+    const out = new URLSearchParams();
+    out.set('auth', kind());
+    const tokenFields = Object.values(TOKEN_FIELDS).flat();
+    for (const el of form.elements) {
+      if (!el.name || el.name === 'auth' || el.value.trim() === '') continue;
+      if (tokenFields.includes(el.name) && !TOKEN_FIELDS[kind()].includes(el.name)) continue;
+      out.append(el.name, el.value.trim());
+    }
+    for (const row of dates.children) {
+      const [key, operator, input] = row.querySelectorAll('select, input');
+      if (input.value.trim() !== '') out.append(key.value, operator.value + ':' + input.value.trim());
+    }
+    return out.toString();
+  }
+
+  function sync() {
+    const query = build();
+    history.replaceState(null, '', '?' + query);
+    document.getElementById('permalink').href = '/Home/Instances?' + query;
+  }
+
+  // Fill the form from the address.
+  const auth = params.get('auth') || 'none';
+  const radio = form.querySelector(`input[name=auth][value="${CSS.escape(auth)}"]`);
+  if (radio) radio.checked = true;
+  for (const el of form.elements) {
+    if (el.name && el.name !== 'auth' && params.has(el.name)) el.value = params.get(el.name);
+  }
+  for (const key of DATE_KEYS) {
+    for (const value of params.getAll(key)) {
+      const at = value.indexOf(':');
+      const operator = value.slice(0, at);
+      addDate(key, OPERATORS.includes(operator) ? operator : 'eq', OPERATORS.includes(operator) ? value.slice(at + 1) : value);
+    }
+  }
+
+  showKind();
+  form.addEventListener('change', e => { if (e.target.name === 'auth') showKind(); sync(); });
+  form.addEventListener('input', sync);
+  document.getElementById('addDate').addEventListener('click', () => { addDate(); sync(); });
+  form.addEventListener('submit', e => { e.preventDefault(); location.href = form.action + '?' + build(); });
+  sync();
+
+  // The test users, from the Register's localtest API through the front door: picking one fills userId and partyId.
+  const picker = document.getElementById('testUser');
+  fetch('/register/api/localtest/test-users').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(users => {
+    picker.options[0].text = '(choose)';
+    for (const user of users) {
+      for (const party of user.parties || [{ partyId: user.partyId, displayName: user.displayName }]) {
+        const text = party.partyId === user.partyId ? `${user.displayName} (${user.userId})` : `${user.displayName} (${user.userId}) for ${party.displayName}`;
+        picker.add(new Option(text + ` – party ${party.partyId}`, `${user.userId}.${party.partyId}`));
+      }
+    }
+    picker.value = `${form.elements.userId.value}.${form.elements.partyId.value}`;
+  }).catch(() => { picker.options[0].text = '(the Register did not answer)'; });
+  picker.addEventListener('change', () => {
+    if (!picker.value) return;
+    const [userId, partyId] = picker.value.split('.');
+    form.elements.userId.value = userId;
+    form.elements.partyId.value = partyId;
+    sync();
+  });
+})();
+</script>
+</body>
+</html>

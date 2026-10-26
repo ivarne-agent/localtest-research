@@ -3,9 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Localtest.IdPorten;
-using Localtest.Maskinporten;
 using Localtest.Proxy;
-using Localtest.Tokens;
 
 namespace Localtest.Home;
 
@@ -22,8 +20,6 @@ public static class HomeApi
     /// <summary>The localtest API version apps check through <c>LocaltestValidation</c> (they require 6 or later).</summary>
     public const int LocaltestApiVersion = 8;
 
-    private const string DefaultServiceOwnerScopes = "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
-
     public static void Map(WebApplication app)
     {
         RequestDelegate startPage = StartPage;
@@ -36,17 +32,17 @@ public static class HomeApi
 
         app.MapPost("/Home/LogInTestUser", LogInTestUser);
 
-        app.MapGet("/Home/GetTestUserToken", (HttpContext context, int? userId, int? partyId, int? authenticationLevel, TestUsers testUsers, AuthenticationClient authentication, CancellationToken cancellationToken)
-            => GetTestUserToken(context, userId, partyId, authenticationLevel, testUsers, authentication, cancellationToken));
-        app.MapGet("/Home/GetTestUserToken/{userId:int}", (HttpContext context, int userId, int? partyId, int? authenticationLevel, TestUsers testUsers, AuthenticationClient authentication, CancellationToken cancellationToken)
-            => GetTestUserToken(context, userId, partyId, authenticationLevel, testUsers, authentication, cancellationToken));
+        app.MapGet("/Home/GetTestUserToken", (HttpContext context, int? userId, int? partyId, int? authenticationLevel, TestTokens tokens, CancellationToken cancellationToken)
+            => GetTestUserToken(context, userId, partyId, authenticationLevel, tokens, cancellationToken));
+        app.MapGet("/Home/GetTestUserToken/{userId:int}", (HttpContext context, int userId, int? partyId, int? authenticationLevel, TestTokens tokens, CancellationToken cancellationToken)
+            => GetTestUserToken(context, userId, partyId, authenticationLevel, tokens, cancellationToken));
 
         // The org code (query or path) and the level are accepted for compatibility with the old localtest; the exchange
         // derives the org from the organisation number and always answers level 3.
-        app.MapGet("/Home/GetTestOrgToken", (string? orgNumber, string? scopes, [FromKeyedServices(MaskinportenApi.KeyName)] SigningKey key, MaskinportenSettings settings, AuthenticationClient authentication, CancellationToken cancellationToken)
-            => GetTestOrgToken(orgNumber, scopes, key, settings, authentication, cancellationToken));
-        app.MapGet("/Home/GetTestOrgToken/{org}", (string org, string? orgNumber, string? scopes, [FromKeyedServices(MaskinportenApi.KeyName)] SigningKey key, MaskinportenSettings settings, AuthenticationClient authentication, CancellationToken cancellationToken)
-            => GetTestOrgToken(orgNumber, scopes, key, settings, authentication, cancellationToken));
+        app.MapGet("/Home/GetTestOrgToken", (string? orgNumber, string? scopes, TestTokens tokens, CancellationToken cancellationToken)
+            => GetTestOrgToken(orgNumber, scopes, tokens, cancellationToken));
+        app.MapGet("/Home/GetTestOrgToken/{org}", (string org, string? orgNumber, string? scopes, TestTokens tokens, CancellationToken cancellationToken)
+            => GetTestOrgToken(orgNumber, scopes, tokens, cancellationToken));
 
         app.MapGet("/Home/GetTestStudioToken", GetTestStudioToken);
     }
@@ -124,6 +120,7 @@ public static class HomeApi
         html.Append("</select><label for=\"AppPathSelection\">App (org/app, optional)</label>")
             .Append("<input type=\"text\" id=\"AppPathSelection\" name=\"AppPathSelection\" placeholder=\"ttd/my-app\" value=\"").Append(Encode(query["app"].ToString())).Append("\">")
             .Append("<button type=\"submit\">Log in</button></form>");
+        html.Append("<p id=\"instances\">Query Storage's instances as a test user or a service owner: <a href=\"/Home/Instances\">Storage instances</a>.</p>");
         // Grafana's route is live only while the monitoring group runs (its services__ entry is set).
         if (!string.IsNullOrEmpty(context.RequestServices.GetRequiredService<IConfiguration>()["services:grafana:http:0"]))
         {
@@ -140,7 +137,7 @@ public static class HomeApi
     /// <c>action</c> (<c>reauthenticate</c> answers 204 with the cookies; anything else redirects), <c>RedirectUrl</c>
     /// (same origin only), <c>AppPathSelection</c> (<c>org/app</c>).
     /// </summary>
-    private static async Task<IResult> LogInTestUser(HttpContext context, TestUsers testUsers, AuthenticationClient authentication, LocaltestSettings localtest, CancellationToken cancellationToken)
+    private static async Task<IResult> LogInTestUser(HttpContext context, TestTokens tokens, LocaltestSettings localtest, CancellationToken cancellationToken)
     {
         var fields = await ReadFields(context.Request, cancellationToken);
         string? Field(string name) => fields.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
@@ -160,7 +157,7 @@ public static class HomeApi
                 return Results.BadRequest("AuthenticationLevel must be 0, 1, 2, 3 or 4.");
             }
 
-            if (await SignIn(context, userId, partyId, level, testUsers, authentication, cancellationToken) is { Error: { } error })
+            if (await SignIn(context, userId, partyId, level.Number, tokens, cancellationToken) is { Error: { } error })
             {
                 return error;
             }
@@ -183,28 +180,22 @@ public static class HomeApi
     /// A user token without a browser: the production sign-in for the user, whose JWT is returned (it carries the user's
     /// own party, as production's does); the cookies are set too, with the party cookies on <paramref name="partyId"/>.
     /// </summary>
-    private static async Task<IResult> GetTestUserToken(HttpContext context, int? userId, int? partyId, int? authenticationLevel, TestUsers testUsers, AuthenticationClient authentication, CancellationToken cancellationToken)
+    private static async Task<IResult> GetTestUserToken(HttpContext context, int? userId, int? partyId, int? authenticationLevel, TestTokens tokens, CancellationToken cancellationToken)
     {
         if (userId is not { } id)
         {
             return Results.BadRequest("userId is required.");
         }
 
-        if (AuthLevels.ForNumber(authenticationLevel ?? AuthLevels.Default) is not { } level)
-        {
-            return Results.BadRequest("authenticationLevel must be 0, 1, 2, 3 or 4.");
-        }
-
-        var (jwt, error) = await SignIn(context, id, partyId, level, testUsers, authentication, cancellationToken);
+        var (jwt, error) = await SignIn(context, id, partyId, authenticationLevel, tokens, cancellationToken);
         return error ?? Results.Text(jwt!);
     }
 
     /// <summary>An org token for an app running locally: a Maskinporten token for the organisation, through the production exchange.</summary>
-    private static async Task<IResult> GetTestOrgToken(string? orgNumber, string? scopes, SigningKey key, MaskinportenSettings settings, AuthenticationClient authentication, CancellationToken cancellationToken)
+    private static async Task<IResult> GetTestOrgToken(string? orgNumber, string? scopes, TestTokens tokens, CancellationToken cancellationToken)
     {
-        var token = MaskinportenApi.Mint(key, settings, string.IsNullOrWhiteSpace(orgNumber) ? "991825827" : orgNumber, string.IsNullOrWhiteSpace(scopes) ? DefaultServiceOwnerScopes : scopes, MaskinportenApi.LocaltestClientId);
-        var (exchanged, error) = await authentication.Exchange("maskinporten", token, cancellationToken);
-        return exchanged is null ? Results.Problem(error, statusCode: 502) : Results.Text(exchanged);
+        var (token, failure) = await tokens.ForOrg(orgNumber, scopes, cancellationToken);
+        return token is null ? Results.Problem(failure!.Message, statusCode: failure.Status) : Results.Text(token);
     }
 
     /// <summary>Designer's credential against the platform, see <see cref="StudioToken"/>.</summary>
@@ -215,51 +206,25 @@ public static class HomeApi
     }
 
     /// <summary>Signs the user in and appends the browser cookies; the JWT, or the error to answer.</summary>
-    private static async Task<(string? Jwt, IResult? Error)> SignIn(HttpContext context, int userId, int? partyId, AuthLevels.Level level, TestUsers testUsers, AuthenticationClient authentication, CancellationToken cancellationToken)
+    private static async Task<(string? Jwt, IResult? Error)> SignIn(HttpContext context, int userId, int? partyId, int? level, TestTokens tokens, CancellationToken cancellationToken)
     {
-        TestUser[] users;
-        try
+        var (token, failure) = await tokens.ForUser(userId, partyId, level, cancellationToken);
+        if (token is null)
         {
-            users = await testUsers.GetAll(cancellationToken);
-        }
-        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
-        {
-            return (null, Results.Problem($"Could not read the test users from {testUsers.Endpoint}: {ex.Message}. Is the register component running?", statusCode: 502));
-        }
-
-        var user = users.FirstOrDefault(u => u.UserId == userId);
-        if (user is null)
-        {
-            return (null, Results.NotFound($"No test user with userId {userId}."));
+            return (null, failure!.Status switch
+            {
+                StatusCodes.Status400BadRequest => Results.BadRequest(failure.Message),
+                StatusCodes.Status404NotFound => Results.NotFound(failure.Message),
+                _ => Results.Problem(failure.Message, statusCode: failure.Status),
+            });
         }
 
-        if (user.FindParty(partyId ?? user.PartyId) is not { } party)
-        {
-            return (null, Results.BadRequest($"Test user {userId} cannot act for party {partyId}."));
-        }
-
-        AuthenticationClient.SignInResult? result;
-        string? error;
-        try
-        {
-            (result, error) = await authentication.SignIn(user, level.Acr, cancellationToken);
-        }
-        catch (Exception ex) when (ServiceCalls.Unreachable(ex))
-        {
-            (result, error) = (null, $"Could not reach Authentication: {ex.Message}. Is the authentication component running?");
-        }
-
-        if (result is null)
-        {
-            return (null, Results.Problem(error, statusCode: 502));
-        }
-
-        foreach (var setCookie in AuthenticationClient.ForBrowser(result.SetCookies, party.PartyId, party.PartyUuid))
+        foreach (var setCookie in token.BrowserCookies)
         {
             context.Response.Headers.Append("Set-Cookie", setCookie);
         }
 
-        return (result.Jwt, null);
+        return (token.Jwt, null);
     }
 
     private static async Task<Dictionary<string, string?>> ReadFields(HttpRequest request, CancellationToken cancellationToken)

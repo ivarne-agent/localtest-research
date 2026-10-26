@@ -18,6 +18,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication; the start page links to Grafana while its route is live | `Home/` | `/`, `/Home/…` (the old contract) |
+| Storage instances: a query page for Storage's `GET storage/api/v1/instances` with a test user's or a service owner's token, the instance, its data elements, and links to the inbox, the dialog, the app or the receipt while they run | `Home/Instances/` | `/Home/Instances…` ([Storage instances](#storage-instances)) |
 | Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
 | Minimal mode: the platform services whose address is the front door's own, emulated in memory under their public prefixes (task 35); nothing of it is registered or mapped otherwise | `Emulation/` | the services' own paths ([Minimal mode](#minimal-mode)) |
 
@@ -29,6 +30,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `IdPorten/` | The fake ID-porten: `IdPortenApi.cs` (endpoints and picker), `AuthorizationCodes.cs`, `TestUsers.cs` (the register's test users, also used by Home), `AuthLevels.cs` |
 | `Maskinporten/` | The fake Maskinporten: `MaskinportenApi.cs` (metadata, JWKS, token endpoint, minting) |
 | `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`), `StudioToken.cs` (Designer's token, for `/Home/GetTestStudioToken` and the provisioning) |
+| `Home/Instances/` | The instances page: `instances.html` (the form, embedded in the binary), `InstancesApi.cs` (the endpoints and the token), `InstanceQuery.cs` (the URL state: Storage's parameters and the token's), `StorageClient.cs`, `InstancesPages.cs` (the HTML), `InstanceLinks.cs` (which links work, the dialog id, the parties' URNs); `Home/TestTokens.cs` holds the tokens `/Home/GetTest…Token` and the page share |
 | `Authentication/` | `AuthenticationApi.cs` (endpoints), `CodeFlow.cs` (the code flow over HTTP), `SeededClients.cs` (the seeded clients' ids, secrets and redirect URIs) |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts and path prefixes to service names, the rewrite, the optional groups for the hints, the public host names |
@@ -39,7 +41,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Emulation/` | The minimal mode: `Emulation.cs` (the two calls `Program.cs` makes), `EmulationMode.cs`, one folder per emulated service, the test-data store with its copies of the Register's format files and seed, the static PDF; [its README](Emulation/README.md) |
 | `Telemetry/` | `FrontDoorTelemetry.cs`: OpenTelemetry (ASP.NET Core and HttpClient instrumentation, the emulated services' spans) only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; `LocaltestOtlp.cs`, a copy of the shared OTLP helper ([Telemetry](#telemetry)) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
-| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
+| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); the instances page (`InstancesPageTests.cs`, against a fake Storage, Authentication and Register); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
 | `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link, and `/otlp`: an export reaching minimal mode's `otel-files`, or without a receiver the `503` naming the group). 84 checks, 86 with the monitoring group, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
@@ -228,6 +230,47 @@ its production exchanges. Calls to Authentication go by service name (`http://au
 
 Production `exchange/maskinporten` looks the organisation code up in `https://altinncdn.no/orgs/altinn-orgs.json`, so a
 service-owner org token needs internet access from the authentication container.
+
+## Storage instances
+
+A page for looking at what Storage holds, beside the Home pages: `GET /Home/Instances` is a static form (HTML and plain
+JavaScript in `Home/Instances/instances.html`, embedded in the binary; no framework, no build step) whose state is the
+page's address, and the proxy behind it gets the token, calls Storage by its service name and renders HTML. The start
+page links to it.
+
+| Endpoint | What |
+| --- | --- |
+| `GET /Home/Instances` | The form. Every field is a parameter of Storage's `GET storage/api/v1/instances` by Storage's own name (`InstanceQueryParameters`): `org`, `appId`, `process.currentTask`, `process.isComplete`, `process.endEvent`, `instanceOwner.partyId`, `instanceOwner.identifier` (Storage reads it from the header `X-Ai-InstanceOwnerIdentifier`, so the proxy sends it there), `confirmed`, `excludeConfirmedBy`, `status.isSoftDeleted`, `status.isHardDeleted`, `status.isArchived`, `searchString`, `mainVersionInclude`, `mainVersionExclude`, `A3Ref`, `dataValues.A2ArchRef`, `order` (Storage's name for `SortBy`: `desc:lastChanged`, `asc:lastChanged`), `size`, `continuationToken`, `includeDataElements`; the date filters `lastChanged`, `created`, `visibleAfter`, `dueBefore`, `process.ended` repeat, each `operator:date` (`gt`, `gte`, `lt`, `lte`, `eq`). The form fills itself from the address and keeps the address in step as it changes, so a search is a link |
+| `GET /Home/Instances/Results?…` | The list: Storage's answer as one row per instance (id, app, owner, process step, status, created, last changed, data element count, links), each linking to the instance page with the same token; "Next page" when Storage's answer has a `next` link (its `continuationToken` with the rest of the query); "Edit this search" back to the form. Storage's refusal is shown with its status and body, and the page answers with that status |
+| `GET /Home/Instances/{partyId}/{instanceGuid}?…` | One instance (Storage's `instances/{partyId}/{instanceGuid}`): every field by its path, the data elements, each downloadable through the proxy, the links below, "similar instances", and Storage's JSON |
+| `GET /Home/Instances/{partyId}/{instanceGuid}/data/{dataGuid}?…` | The data element from Storage with the same token, streamed with Storage's status, content type and disposition: a plain link to Storage would carry no service-owner token |
+
+**The token** is part of the address: `auth=user` with `userId`, `partyId` and `authenticationLevel` (as
+`/Home/GetTestUserToken`: production Authentication signs the user in; `partyId` must be a party the user can act for,
+and no cookie is set), `auth=org` with `orgNumber` and `scopes` (as `/Home/GetTestOrgToken`: a fake Maskinporten token
+exchanged through production `exchange/maskinporten?test=true`, which derives the org from the organisation number, so
+there is no `org` field for the token), `auth=token` with a pasted `token` (it stays in the address), or `auth=none`.
+The token is fetched on every page and download; nothing is cached. The form's test-user picker reads
+`/register/api/localtest/test-users` through the front door. Storage's own rules apply: a user's query must name the
+owner (`instanceOwner.partyId` or `instanceOwner.identifier`), a service owner's `org` or `appId`.
+
+**Links, shown only while they work.** The front door knows what runs from its `services__<name>__http__0` entries, as
+for its routes, and which apps are registered with it.
+
+| Link | Shown while | Target |
+| --- | --- | --- |
+| Inbox, for the instance owner | `arbeidsflate` runs and its subdomain is on | `http://af.<host>:<port>/?party=<urn>`: `urn:altinn:person:identifier-no:<ssn>` or `urn:altinn:organization:identifier-no:<orgNumber>`, looked up in the Register's `register/api/localtest/test-users` and `organizations` by service name; without one (a self-identified user) the inbox without `party` |
+| Dialog | the inbox and `dialogporten-adapter` run | `http://af.<host>:<port>/inbox/<dialogId>`: the instance's `dataValues["dialog.id"]` (the adapter records it, and an app may supply its own), else derived as the adapter does it, the instance GUID made a UUID v7 on the instance's `created` (a copy of the adapter's `GuidExtensions.ToVersion7`) |
+| Open in the app | the instance's process has not ended and the app is registered with the front door | `/{org}/{app}/#/instance/{partyId}/{instanceGuid}` |
+| Receipt | the process has ended and `receipt` runs | `/receipt/{partyId}/{instanceGuid}` |
+| Receipt in the app | the process has ended, `receipt` does not run, and the app is registered | the app's own address as above, where the app shows its receipt |
+
+**Similar instances** (the instance page) open the form filled in, with the same token: the same owner; the same app;
+the same owner and app; the same org; the same app at the same task (`process.currentTask`), or at the same end event
+(`process.endEvent`) once the process has ended; the same app with the same `status.isArchived`, `isSoftDeleted` and
+`isHardDeleted`. A test user's link always names the owner and a service owner's always names the org, since Storage
+refuses either query without them; links that come out the same are shown once (for a test user, "same app" is "same
+owner and app"). There is no "same reference" link: an A3 reference or an A2 archive reference belongs to one instance.
 
 ## Authentication
 
