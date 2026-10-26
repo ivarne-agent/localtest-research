@@ -1,7 +1,7 @@
 {
   "groups": [
     { "name": "default", "containers": ["postgres", "register", "profile", "authentication", "authorization", "storage", "access-management", "events", "resource-registry", "notifications", "localtest", "pdf3", "workflow-engine"] },
-    { "name": "minimal", "containers": ["localtest", "storage", "workflow-engine"] },
+    { "name": "minimal", "containers": ["localtest", "storage", "workflow-engine", "otel-files"] },
     { "name": "dialogporten", "containers": ["dialogporten-graphql", "dialogporten-service", "dialogporten-adapter"] },
     { "name": "receipt", "containers": ["receipt"] },
     { "name": "correspondence", "containers": ["correspondence"] },
@@ -293,13 +293,26 @@
       "tag": "v1.52.0@sha256:47b820890d64c4575a2a0a46415dcd8a4fd59a0f1fcd6a377693d7aea639442e",
       "port": 9428
     },
+    "otel-files": {
+      "registry": "docker.io/otel/opentelemetry-collector-contrib",
+      "tag": "0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1",
+      "port": 4318,
+      "health": "tcp",
+      "otlpReceiver": { "grpcPort": 4317, "output": "/telemetry" },
+      "files": {
+        "/etc/otelcol-contrib/config.yaml": "monitoring/otel-files.yaml",
+        "/etc/otelcol-contrib/processors.yaml": "monitoring/otel-processors.yaml"
+      }
+    },
     "otel-collector": {
       "registry": "docker.io/otel/opentelemetry-collector-contrib",
       "tag": "0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1",
       "port": 4318,
       "health": "tcp",
+      "otlpReceiver": { "grpcPort": 4317 },
       "files": {
-        "/etc/otelcol-contrib/config.yaml": "monitoring/otel-collector.yaml"
+        "/etc/otelcol-contrib/config.yaml": "monitoring/otel-collector.yaml",
+        "/etc/otelcol-contrib/processors.yaml": "monitoring/otel-processors.yaml"
       },
       "dependsOn": ["victoria-metrics", "victoria-traces", "victoria-logs"]
     },

@@ -90,21 +90,54 @@ public sealed class MonitoringGroupTests
     }
 
     [Fact]
-    public void ItsContainerWouldMountItsFilesReadOnly()
+    public void ItsContainersWouldMountTheirFilesReadOnly()
     {
-        // The package never starts it, but the files mount as for any container.
+        // The package never starts them, but the files mount as for any container.
         var spec = StackSpec
             .Resolve(LocaltestManifest.Default, [LocaltestManifest.MonitoringGroup], "/certs-dir", "/files-dir")
-            .Single(s => s.Name == Collector);
+            .Single(s => s.Name == "grafana");
 
         Assert.Contains(
             new MountSpec(
                 MountKind.Bind,
-                Path.Combine("/files-dir", "monitoring", "otel-collector.yaml"),
-                "/etc/otelcol-contrib/config.yaml",
+                Path.Combine("/files-dir", "monitoring", "grafana-datasources.yaml"),
+                "/etc/grafana/provisioning/datasources/datasources.yaml",
                 true
             ),
             spec.Mounts
+        );
+    }
+
+    /// <summary>
+    /// No OTLP receiver ever runs under Aspire: not the monitoring group's collector, and not minimal mode's
+    /// <c>otel-files</c>, although the minimal group names it; the containers send to the Aspire dashboard.
+    /// </summary>
+    [Fact]
+    public void NoOtlpReceiverRunsInEitherMode()
+    {
+        string[] receivers = [Collector, "otel-files"];
+        Assert.Equal(
+            receivers.Order(StringComparer.Ordinal),
+            LocaltestManifest
+                .Default.Containers.Where(c => c.Value.OtlpReceiver is not null)
+                .Select(c => c.Key)
+                .Order(StringComparer.Ordinal)
+        );
+        Assert.Contains("otel-files", LocaltestManifest.Default.Select([LocaltestManifest.MinimalGroup]));
+
+        var minimal = StackSpec.ResolveMinimal(LocaltestManifest.Default, "/certs-dir", "/files-dir");
+        var full = StackSpec.Resolve(
+            LocaltestManifest.Default,
+            [LocaltestManifest.MonitoringGroup],
+            "/certs-dir",
+            "/files-dir"
+        );
+
+        Assert.Equal(["postgres", "storage", "localtest", "workflow-engine"], minimal.Select(s => s.Name));
+        Assert.Empty(minimal.Concat(full).Select(s => s.Name).Intersect(receivers));
+        Assert.DoesNotContain(
+            minimal.Concat(full).SelectMany(s => s.Environment.Keys),
+            key => key is "services__otlp__http__0" or "services__otel-files__http__0"
         );
     }
 }

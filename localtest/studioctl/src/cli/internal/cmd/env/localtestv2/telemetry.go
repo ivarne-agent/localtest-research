@@ -1,26 +1,27 @@
 package localtestv2
 
 import (
+	"context"
+	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"strconv"
 
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
+	"altinn.studio/studioctl/internal/osutil"
 )
 
-// Monitoring (env up --with monitoring): the manifest's monitoring group starts the OpenTelemetry collector, the
-// Victoria stores behind it and Grafana. While the collector runs, every other container is told where to send its
-// telemetry through the standard OpenTelemetry variables; a component exports exactly when they are set.
+// Telemetry: the manifest marks the stack's OpenTelemetry receiver (otlpReceiver): the monitoring group's collector,
+// which exports to the Victoria stores Grafana reads, or minimal mode's otel-files, which writes JSON Lines files to a
+// folder on the host. The manifest's groups never run two at once. While one runs, every other container is told where
+// to send its telemetry through the standard OpenTelemetry variables; a component exports exactly when they are set.
 const (
 	// monitoringGroup is the manifest group of the collector, its stores and Grafana.
 	monitoringGroup = "monitoring"
-	// otelCollector is the collector's manifest name. Its manifest port is the OTLP/HTTP receiver (4318), which the
-	// front door's /otlp route reaches through its services__ variable; its health is a TCP connection, since the
-	// receiver answers no GET with 200.
-	otelCollector = "otel-collector"
-	// otelCollectorGRPCPort is the collector's OTLP/gRPC receiver, which the containers send to: inside the network
-	// gRPC needs no front door, and some components send over gRPC whatever the protocol variable says.
-	otelCollectorGRPCPort = 4317
+	// otlpService is the service name under which the running receiver's OTLP/HTTP port (its manifest port) is
+	// announced: the front door's /otlp route forwards to services__otlp__http__0, whichever receiver runs.
+	otlpService = "otlp"
 
 	otlpEndpointVariable    = "OTEL_EXPORTER_OTLP_ENDPOINT"
 	otlpProtocolVariable    = "OTEL_EXPORTER_OTLP_PROTOCOL"
@@ -42,22 +43,50 @@ const (
 	grafanaTracesDatasourceUID      = "altinn-studio-traces"
 )
 
-// sendsTelemetry reports whether a container is given the collector: while the collector runs, every container
-// outside the monitoring group (the collector, its stores and Grafana, with what they depend on).
-func sendsTelemetry(running []string, name string) bool {
-	return slices.Contains(running, otelCollector) && !slices.Contains(stack().Select([]string{monitoringGroup}), name)
+// receiver is the running OTLP receiver's manifest name, or "" when none runs.
+func receiver(running []string) string {
+	receivers := stack().Receivers(running)
+	if len(receivers) == 0 {
+		return ""
+	}
+	return receivers[0]
 }
 
-// telemetryEnv is what a container gets when the collector runs: the collector's gRPC address, the protocol, its own
-// name as the service name and the metric export interval, and for the workflow engine its dashboard's trace links
-// (engineTraceLinks). The monitoring containers get none, so the collector never exports to itself, and nothing is
-// added while the collector is not running. The container's own envs win (containerEnv).
+// sendsTelemetry reports whether a container is given the receiver: while a receiver runs, every container but the
+// receiver, what it depends on (the collector's stores) and the monitoring group (Grafana reads the stores).
+func sendsTelemetry(running []string, name string) bool {
+	r := receiver(running)
+	if r == "" {
+		return false
+	}
+	return !slices.Contains(dependencyClosure(r), name) &&
+		!slices.Contains(stack().Select([]string{monitoringGroup}), name)
+}
+
+// dependencyClosure is the container and everything it depends on, transitively.
+func dependencyClosure(name string) []string {
+	out := []string{name}
+	for i := 0; i < len(out); i++ {
+		for _, dep := range stack().Containers[out[i]].DependsOn {
+			if !slices.Contains(out, dep) {
+				out = append(out, dep)
+			}
+		}
+	}
+	return out
+}
+
+// telemetryEnv is what a container gets while a receiver runs: the receiver's gRPC address, the protocol, its own name
+// as the service name and the metric export interval, and for the workflow engine its dashboard's trace links
+// (engineTraceLinks). The receiver's side gets none, so the receiver never exports to itself, and nothing is added
+// while no receiver runs. The container's own envs win (containerEnv).
 func telemetryEnv(origin manifest.Origin, running []string, name string) map[string]string {
 	if !sendsTelemetry(running, name) {
 		return nil
 	}
+	r := receiver(running)
 	env := map[string]string{
-		otlpEndpointVariable:         "http://" + otelCollector + ":" + strconv.Itoa(otelCollectorGRPCPort),
+		otlpEndpointVariable:         "http://" + r + ":" + strconv.Itoa(stack().Containers[r].OTLPReceiver.GRPCPort),
 		otlpProtocolVariable:         "grpc",
 		otelServiceNameVariable:      name,
 		metricExportIntervalVariable: metricExportInterval,
@@ -67,8 +96,9 @@ func telemetryEnv(origin manifest.Origin, running []string, name string) map[str
 }
 
 // engineTraceLinks are the workflow engine's dashboard settings that link a workflow's trace to Grafana on the public
-// origin, while Grafana runs. They are runner data, not manifest envs: without the monitoring group the links would
-// lead to the front door's "not running" page, and the Aspire host, which ignores the group, links its own dashboard.
+// origin, while Grafana runs (the monitoring group, whose collector receives the engine's traces). They are runner
+// data, not manifest envs: without the group the links would lead to the front door's "not running" page, and the
+// Aspire host, which ignores the group, links its own dashboard. Minimal mode's receiver has no Grafana, so no links.
 func engineTraceLinks(origin manifest.Origin, running []string, name string) map[string]string {
 	if name != workflowEngine || !slices.Contains(running, grafana) {
 		return nil
@@ -79,21 +109,58 @@ func engineTraceLinks(origin manifest.Origin, running []string, name string) map
 	}
 }
 
-// telemetryDependsOn is the runner's dependency of a container that sends telemetry on the collector, besides its
-// manifest dependsOn: it starts once the collector is ready, so its first export finds the receiver, and stops before
-// the collector, so its last one does too. The collector depends only on the monitoring group's own containers, which
-// get no such dependency, so it cannot make a cycle. Its readiness, a TCP connection to the OTLP/HTTP receiver (4318),
-// also covers the gRPC receiver the containers use (4317): the collector starts its receivers after its exporters and
-// processors, and the OTLP receiver opens its gRPC listener before its HTTP one (otlpReceiver.Start).
+// telemetryDependsOn is the runner's dependency of a container that sends telemetry on the receiver, besides its
+// manifest dependsOn: it starts once the receiver is ready, so its first export finds it, and stops before the
+// receiver, so its last one does too. The receiver's side gets no such dependency, so it cannot make a cycle. The
+// receiver's readiness, a TCP connection to its OTLP/HTTP port (4318), also covers the gRPC port the containers use
+// (4317): the collector starts its receivers after its exporters and processors, and the OTLP receiver opens its gRPC
+// listener before its HTTP one (otlpReceiver.Start).
 func telemetryDependsOn(running []string, name string) []string {
 	if !sendsTelemetry(running, name) {
 		return nil
 	}
-	return []string{otelCollector}
+	return []string{receiver(running)}
 }
 
-// announced reports whether a running container gets a services__ variable: every HTTP container, and the collector,
-// whose HTTP receiver has no health path of its own.
-func announced(name string) bool {
-	return stack().Containers[name].IsHTTP() || name == otelCollector
+// otlpServiceVariable announces the running receiver's OTLP/HTTP port as the service otlp, for the front door's /otlp
+// route; nil while no receiver runs, so the route answers "not running".
+func otlpServiceVariable(running []string) map[string]string {
+	r := receiver(running)
+	if r == "" {
+		return nil
+	}
+	return map[string]string{
+		"services__" + otlpService + "__http__0": "http://" + r + ":" + strconv.Itoa(stack().Containers[r].HTTPPort()),
+	}
+}
+
+// writesTelemetryFiles reports whether the options start an OTLP receiver that writes to the telemetry folder on the
+// host (minimal mode's otel-files).
+func writesTelemetryFiles(opts *Options) bool {
+	for _, name := range selected(opts) {
+		if writesToHost(stack().Containers[name]) {
+			return true
+		}
+	}
+	return false
+}
+
+// emptyTelemetry starts a stack that writes telemetry files with an empty, existing telemetry folder, which also
+// clears what a stack that crashed without env down left. A running receiver keeps its folder: env up on a converged
+// minimal-mode stack (another dev build, say) leaves the receiver as it is, writing to open files.
+func (e *Env) emptyTelemetry(ctx context.Context, opts *Options) error {
+	if !writesTelemetryFiles(opts) {
+		return nil
+	}
+	r := receiver(selected(opts))
+	if info, err := e.client.ContainerInspect(ctx, containerOf(r)); err == nil && info.State.Running {
+		return nil
+	}
+	if err := os.RemoveAll(opts.TelemetryDir); err != nil {
+		return fmt.Errorf("empty the telemetry folder: %w", err)
+	}
+	if err := os.MkdirAll(opts.TelemetryDir, osutil.DirPermDefault); err != nil {
+		return fmt.Errorf("create the telemetry folder: %w", err)
+	}
+	return nil
 }

@@ -252,7 +252,8 @@ internal static class StackSpec
         bool minimal
     )
     {
-        var names = manifest.Select(groups);
+        // No OTLP receiver (minimal mode's otel-files): the Aspire dashboard receives the telemetry.
+        var names = manifest.Select(groups).Where(n => manifest.Containers[n].OtlpReceiver is null).ToList();
         var services = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var name in names.Where(n => manifest.Containers[n].IsHttp))
         {

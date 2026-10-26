@@ -60,8 +60,9 @@ public sealed class ModelTests
     {
         var model = SampleModel.Build(["everything"]);
 
-        // Every container but the monitoring group's, which the package ignores.
-        var monitoring = LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]);
+        // Every container but the monitoring group's, which the package ignores, and minimal mode's otel-files, an
+        // OTLP receiver, which it never runs.
+        var monitoring = LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]).Append("otel-files");
         Assert.Equal(
             LocaltestManifest.Default.Names.Except(monitoring).Order(StringComparer.Ordinal),
             model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)

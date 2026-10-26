@@ -469,6 +469,19 @@ internal sealed record ManifestGroup
     public IReadOnlyList<string> Containers { get; set; } = [];
 }
 
+/// <summary>
+/// An OTLP receiver's settings: its gRPC port (its manifest port is the HTTP one) and a path in the container where
+/// studioctl mounts a folder on the host for the files it writes, or empty.
+/// </summary>
+internal sealed record ManifestOtlpReceiver
+{
+    /// <summary>The OTLP/gRPC port.</summary>
+    public int GrpcPort { get; set; }
+
+    /// <summary>Where studioctl mounts the receiver's output folder; empty for none.</summary>
+    public string Output { get; set; } = "";
+}
+
 /// <summary>One container: its image, environment, start order, volumes, port and health.</summary>
 internal sealed record ManifestContainer
 {
@@ -495,6 +508,14 @@ internal sealed record ManifestContainer
     /// to the manifest's directory: mounted read-only.
     /// </summary>
     public IReadOnlyDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Marks the stack's OpenTelemetry receiver (studioctl's <c>otel-collector</c> of the monitoring group and
+    /// <c>otel-files</c> of minimal mode); null for every other container. The package starts no receiver: the Aspire
+    /// dashboard receives the containers' telemetry (<see cref="StackSpec" /> leaves them out). studioctl's loader checks
+    /// the values.
+    /// </summary>
+    public ManifestOtlpReceiver? OtlpReceiver { get; set; }
 
     /// <summary>The container's port; zero is <see cref="LocaltestManifest.DefaultPort" />.</summary>
     public int Port { get; set; }

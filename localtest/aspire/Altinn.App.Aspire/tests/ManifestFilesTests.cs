@@ -69,9 +69,10 @@ public sealed class ManifestFilesTests
         );
         Assert.Equal("receivers: {}\n", Encoding.UTF8.GetString(manifest.Files.Read("monitoring/collector.yaml")));
         Assert.Throws<FileNotFoundException>(() => manifest.Files.Read("manifest.json"));
-        // In the embedded manifest only the monitoring group's containers, which the package ignores, mount files.
+        // In the embedded manifest only the containers the package does not run mount files: the monitoring group's
+        // and minimal mode's otel-files (an OTLP receiver).
         Assert.Equal(
-            ["grafana", "otel-collector"],
+            ["grafana", "otel-collector", "otel-files"],
             LocaltestManifest
                 .Default.Containers.Where(c => c.Value.Files.Count > 0)
                 .Select(c => c.Key)

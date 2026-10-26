@@ -17,8 +17,9 @@ namespace Altinn.App.Aspire.Tests;
 /// of minimal mode by its path and options, which the package passes as <c>--tmpfs path:options</c>), the
 /// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
 /// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds,
-/// and studioctl's monitoring group, which the package ignores (<see cref="IsMonitoring" />), with the dependency
-/// on the collector studioctl gives every other container.
+/// and studioctl's telemetry containers, which the package does not run (<see cref="IsMonitoring" />): the monitoring
+/// group and every OTLP receiver (minimal mode's <c>otel-files</c> too), with the dependency on the receiver studioctl
+/// gives every other container and the receiver's announcement as the service <c>otlp</c>.
 /// </summary>
 public sealed class GoldenComparisonTests
 {
@@ -31,11 +32,19 @@ public sealed class GoldenComparisonTests
 
     public static TheoryData<string> Selections => new() { "default", "everything", "minimal", "customOrigin" };
 
-    /// <summary>The containers of the monitoring group, which studioctl's <c>everything</c> starts and the package ignores.</summary>
+    /// <summary>
+    /// studioctl's telemetry containers, which the package does not run: the monitoring group (which studioctl's
+    /// <c>everything</c> starts) and every OTLP receiver (minimal mode's <c>otel-files</c>); the Aspire dashboard
+    /// receives the telemetry instead.
+    /// </summary>
     private static readonly HashSet<string> _monitoring =
     [
         .. LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]),
+        .. LocaltestManifest.Default.Containers.Where(c => c.Value.OtlpReceiver is not null).Select(c => c.Key),
     ];
+
+    /// <summary>The service name under which studioctl announces the running OTLP receiver, for the front door's <c>/otlp</c>.</summary>
+    private const string OtlpService = "otlp";
 
     /// <summary>
     /// What a runner gives a container to send its telemetry, besides the container's own envs. studioctl's runner,
@@ -88,7 +97,8 @@ public sealed class GoldenComparisonTests
     private static bool IsMonitoring(string container, string entry)
     {
         var key = Key(entry);
-        return _monitoring.Any(m => key == $"services__{m}__http__0") || IsRunnerTelemetry(container, key);
+        return _monitoring.Append(OtlpService).Any(m => key == $"services__{m}__http__0")
+            || IsRunnerTelemetry(container, key);
     }
 
     private static string Key(string entry) => entry[..entry.IndexOf('=', StringComparison.Ordinal)];
@@ -260,16 +270,17 @@ public sealed class GoldenComparisonTests
     }
 
     /// <summary>
-    /// Every container sends its telemetry as it does under studioctl while the collector runs (the <c>everything</c>
-    /// snapshot): the package's containers get an OTLP endpoint (the dashboard's) in every selection, and the protocol,
-    /// the service name and the metric interval studioctl gives that container.
+    /// Every container sends its telemetry as it does under studioctl while a receiver runs: the package's containers get
+    /// an OTLP endpoint (the dashboard's) in every selection, and the protocol, the service name and the metric interval
+    /// studioctl gives that container in the same selection where a receiver runs there (minimal mode's otel-files),
+    /// else in the <c>everything</c> snapshot (the monitoring group's collector).
     /// </summary>
     [Theory]
     [MemberData(nameof(Selections))]
     public async Task EveryContainerSendsItsTelemetryAsStudioctlsCollectorGetsIt(string selection)
     {
         var model = Model(selection);
-        var withCollector = GoldenContainers("everything")
+        var withCollector = GoldenContainers(selection == "minimal" ? "minimal" : "everything")
             .ToDictionary(
                 c => c.Name,
                 c => Strings(c.Resource, "env").Where(e => _sharedTelemetryVariables.Contains(Key(e))).Order().ToList()
