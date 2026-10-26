@@ -277,11 +277,15 @@ internal sealed class LocaltestStack
         {
             container.WithImagePullPolicy(ImagePullPolicy.Always);
         }
+        // Its telemetry goes to the dashboard: Aspire's OTLP variables first, then the package's defaults over them
+        // (DashboardTelemetry), then the manifest's envs, which win over both.
+        container.WithOtlpExporter();
         // The services__ variables name every container running when the AppHost starts, so the environment is read
         // then: a group enabled after this container was added is in it.
         var name = spec.Name;
         container.WithEnvironment(context =>
         {
+            DashboardTelemetry.Apply(name, context.EnvironmentVariables);
             foreach (var (key, value) in Specs().Single(s => s.Name == name).Environment)
             {
                 context.EnvironmentVariables[key] = EnvironmentValue(value);

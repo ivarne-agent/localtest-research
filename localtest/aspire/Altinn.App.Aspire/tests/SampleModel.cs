@@ -132,7 +132,13 @@ internal sealed class SampleModel
         return [.. args.Select(a => a.ToString()!)];
     }
 
-    public async Task<IReadOnlyDictionary<string, string>> Environment(IResource resource)
+    public async Task<IReadOnlyDictionary<string, string>> Environment(IResource resource) =>
+        (await RawEnvironment(resource))
+            .Where(kv => kv.Value is string)
+            .ToDictionary(kv => kv.Key, kv => (string)kv.Value);
+
+    /// <summary>The environment as the callbacks set it: strings, expressions, endpoint references, host URLs.</summary>
+    public async Task<IReadOnlyDictionary<string, object>> RawEnvironment(IResource resource)
     {
         var values = new Dictionary<string, object>();
         var context = new EnvironmentCallbackContext(Builder.ExecutionContext, resource, values);
@@ -140,7 +146,7 @@ internal sealed class SampleModel
         {
             await annotation.Callback(context);
         }
-        return values.Where(kv => kv.Value is string).ToDictionary(kv => kv.Key, kv => (string)kv.Value);
+        return values;
     }
 
     /// <summary>An endpoint-valued environment variable's expression, or null for a string.</summary>

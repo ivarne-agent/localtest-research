@@ -38,9 +38,13 @@ public sealed class GoldenComparisonTests
     ];
 
     /// <summary>
-    /// What studioctl's runner gives the other containers while its collector runs: the standard OpenTelemetry
-    /// variables, and the workflow engine's links from its dashboard to Grafana (the package sets the engine's
-    /// <c>EngineSettings__Dashboard__TraceUrlTemplate</c> to its own dashboard instead, outside the snapshot).
+    /// What a runner gives a container to send its telemetry, besides the container's own envs. studioctl's runner,
+    /// while its collector runs: the standard OpenTelemetry variables pointing at the collector, and the workflow
+    /// engine's links from its dashboard to Grafana. The package, always: Aspire's <c>WithOtlpExporter()</c> variables
+    /// pointing at the Aspire dashboard (the same standard ones, the API key header, the instance id and, in
+    /// Development, short batch delays) with the package's service name and interval over them, and the engine's
+    /// <c>EngineSettings__Dashboard__TraceUrlTemplate</c> to its own dashboard. Left out of the comparison on both sides;
+    /// <see cref="EveryContainerSendsItsTelemetryAsStudioctlsCollectorGetsIt" /> compares what both set.
     /// </summary>
     private static readonly string[] _telemetryVariables =
     [
@@ -50,22 +54,44 @@ public sealed class GoldenComparisonTests
         "OTEL_METRIC_EXPORT_INTERVAL",
         "EngineSettings__Dashboard__GrafanaUrl",
         "EngineSettings__Dashboard__GrafanaTracesDatasourceUid",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        "OTEL_RESOURCE_ATTRIBUTES",
+        "OTEL_BLRP_SCHEDULE_DELAY",
+        "OTEL_BSP_SCHEDULE_DELAY",
+        "OTEL_TRACES_SAMPLER",
+        "OTEL_METRICS_EXEMPLAR_FILTER",
+        "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
+        "EngineSettings__Dashboard__TraceUrlTemplate",
     ];
 
     /// <summary>
+    /// The telemetry variables both runners choose alike: the protocol (<c>grpc</c>, which Dialogporten needs), the
+    /// service name (the manifest name) and the 5 s metric interval. The endpoint differs by design: studioctl's
+    /// collector, the Aspire dashboard.
+    /// </summary>
+    private static readonly string[] _sharedTelemetryVariables =
+    [
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "OTEL_SERVICE_NAME",
+        "OTEL_METRIC_EXPORT_INTERVAL",
+    ];
+
+    /// <summary>Whether a variable is a runner's telemetry the container's own envs do not set.</summary>
+    private static bool IsRunnerTelemetry(string container, string key) =>
+        _telemetryVariables.Contains(key, StringComparer.Ordinal)
+        && !LocaltestManifest.Default.Containers[container].Envs.ContainsKey(key);
+
+    /// <summary>
     /// Whether an entry of a container's environment in the snapshot is studioctl's monitoring: a monitoring
-    /// container's <c>services__</c> variable, or a variable of the runner's telemetry the container's own envs do not
-    /// set.
+    /// container's <c>services__</c> variable, or the runner's telemetry (<see cref="IsRunnerTelemetry" />).
     /// </summary>
     private static bool IsMonitoring(string container, string entry)
     {
-        var key = entry[..entry.IndexOf('=', StringComparison.Ordinal)];
-        return _monitoring.Any(m => key == $"services__{m}__http__0")
-            || (
-                _telemetryVariables.Contains(key, StringComparer.Ordinal)
-                && !LocaltestManifest.Default.Containers[container].Envs.ContainsKey(key)
-            );
+        var key = Key(entry);
+        return _monitoring.Any(m => key == $"services__{m}__http__0") || IsRunnerTelemetry(container, key);
     }
+
+    private static string Key(string entry) => entry[..entry.IndexOf('=', StringComparison.Ordinal)];
 
     private static JsonElement Load(string file)
     {
@@ -161,7 +187,10 @@ public sealed class GoldenComparisonTests
             var environment = await model.Environment(container);
             Assert.Equal(
                 Strings(golden, "env").Where(e => !IsMonitoring(name, e)).Order(StringComparer.Ordinal),
-                environment.Select(kv => kv.Key + "=" + kv.Value).Order(StringComparer.Ordinal)
+                environment
+                    .Where(kv => !IsRunnerTelemetry(name, kv.Key))
+                    .Select(kv => kv.Key + "=" + kv.Value)
+                    .Order(StringComparer.Ordinal)
             );
             Assert.Equal(
                 golden
@@ -227,6 +256,36 @@ public sealed class GoldenComparisonTests
             Assert.True(golden.GetProperty("waitForReady").GetBoolean());
             Assert.True(golden.GetProperty("readinessProbe").GetBoolean());
             Assert.Single(container.Annotations.OfType<HealthCheckAnnotation>());
+        }
+    }
+
+    /// <summary>
+    /// Every container sends its telemetry as it does under studioctl while the collector runs (the <c>everything</c>
+    /// snapshot): the package's containers get an OTLP endpoint (the dashboard's) in every selection, and the protocol,
+    /// the service name and the metric interval studioctl gives that container.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Selections))]
+    public async Task EveryContainerSendsItsTelemetryAsStudioctlsCollectorGetsIt(string selection)
+    {
+        var model = Model(selection);
+        var withCollector = GoldenContainers("everything")
+            .ToDictionary(
+                c => c.Name,
+                c => Strings(c.Resource, "env").Where(e => _sharedTelemetryVariables.Contains(Key(e))).Order().ToList()
+            );
+        foreach (var container in model.Containers)
+        {
+            var environment = await model.RawEnvironment(container);
+
+            Assert.Contains("OTEL_EXPORTER_OTLP_ENDPOINT", environment.Keys);
+            Assert.Equal(
+                withCollector[container.Name],
+                environment
+                    .Where(kv => _sharedTelemetryVariables.Contains(kv.Key))
+                    .Select(kv => kv.Key + "=" + kv.Value)
+                    .Order()
+            );
         }
     }
 

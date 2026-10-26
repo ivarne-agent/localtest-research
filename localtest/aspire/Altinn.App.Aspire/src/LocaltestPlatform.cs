@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Altinn.App.Aspire.Manifest;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -43,6 +44,8 @@ internal static class LocaltestPlatform
                 }
             );
         stack.Initialize(parent, groups);
+        // The containers send their telemetry to the dashboard (LocaltestStack), which they must reach.
+        builder.Services.TryAddEventingSubscriber<DashboardTelemetry.HostWideOtlp>();
 
         // The port check, the certificate and the manifest's files run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
@@ -59,6 +62,11 @@ internal static class LocaltestPlatform
                         own,
                         ContainerRuntime.Cli(builder.Configuration)
                     );
+                }
+                // Before Aspire's dashboard reads the key (its subscriber runs after this handler).
+                if (builder.ExecutionContext.IsRunMode && !stack.Minimal)
+                {
+                    DashboardTelemetry.KeepOtlpApiKey(builder.Configuration, stack.DataDirectory);
                 }
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
                 stack.Manifest.Files.Ensure(stack.FilesDirectory);
