@@ -10,9 +10,9 @@ using Microsoft.Extensions.Logging;
 namespace Localtest.Tests;
 
 /// <summary>
-/// A Kestrel server on a loopback port that records every request (<c>METHOD /path?query</c>, and the <c>Host</c> and
-/// <c>Authorization</c> it got) and answers with the handler: a fake app or a fake platform the localtest app calls
-/// through real sockets.
+/// A Kestrel server on a loopback port that records every request (<c>METHOD /path?query</c>, and the <c>Host</c>,
+/// <c>Authorization</c> and <c>traceparent</c> it got) and answers with the handler: a fake app or a fake platform the
+/// localtest app calls through real sockets.
 /// </summary>
 internal sealed class FakeServer : IAsyncDisposable
 {
@@ -47,7 +47,8 @@ internal sealed class FakeServer : IAsyncDisposable
                 $"{context.Request.Method} {context.Request.Path}{context.Request.QueryString}",
                 context.Request.Host.Value ?? string.Empty,
                 context.Request.Headers.Authorization.ToString(),
-                body));
+                body,
+                context.Request.Headers["traceparent"].ToString()));
             await handler(context);
         });
         await app.StartAsync();
@@ -68,5 +69,5 @@ internal sealed class FakeServer : IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
-    internal sealed record Recorded(string Call, string Host, string Authorization, string Body);
+    internal sealed record Recorded(string Call, string Host, string Authorization, string Body, string Traceparent);
 }

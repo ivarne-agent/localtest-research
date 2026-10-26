@@ -3,6 +3,7 @@ using Localtest.Home;
 using Localtest.IdPorten;
 using Localtest.Provisioning;
 using Localtest.Proxy;
+using Localtest.Telemetry;
 
 namespace Localtest;
 
@@ -91,7 +92,7 @@ public static class Emulation
                 if (mode.Emulates(PdfEmulation.Service))
                 {
                     context.Response.Headers[Header] = PdfEmulation.Service;
-                    await PdfEmulation.Handle(context);
+                    await Traced(context, PdfEmulation.Service, PdfEmulation.Handle);
                     return;
                 }
             }
@@ -101,6 +102,8 @@ public static class Emulation
                 && mode.Emulates(service))
             {
                 context.Response.Headers[Header] = service;
+                await Traced(context, service, next);
+                return;
             }
 
             await next(context);
@@ -147,21 +150,50 @@ public static class Emulation
         }
     }
 
+    /// <summary>The component's name as people know it: <c>register</c> is Register, <c>pdf3</c> is PDF.</summary>
+    public static string DisplayName(string service) => service switch
+    {
+        "register" => "Register",
+        "profile" => "Profile",
+        "authentication" => "Authentication",
+        "authorization" => "Authorization",
+        "access-management" => "Access Management",
+        "events" => "Events",
+        "notifications" => "Notifications",
+        "resource-registry" => "Resource Registry",
+        "pdf3" => "PDF",
+        _ => service,
+    };
+
+    /// <summary>
+    /// One emulated call as a span of its own, named after the component, so a minimal-mode trace still shows Register
+    /// and Authorization (<see cref="FrontDoorTelemetry"/>). With telemetry off there is no listener and no span.
+    /// </summary>
+    private static async Task Traced(HttpContext context, string service, RequestDelegate handle)
+    {
+        var name = DisplayName(service);
+        using var activity = FrontDoorTelemetry.Emulated.StartActivity(name);
+        activity?.SetTag(FrontDoorTelemetry.PeerServiceTag, service);
+        await handle(context);
+        if (activity is { IsAllDataRequested: true })
+        {
+            // The endpoint's pattern, known once routing ran (after this middleware): low cardinality, like http.route.
+            var route = (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText;
+            activity.DisplayName = route is null ? $"{name} {context.Request.Method}" : $"{name} {context.Request.Method} {route}";
+            activity.SetTag("http.response.status_code", context.Response.StatusCode);
+            if (context.Response.StatusCode >= 500)
+            {
+                activity.SetStatus(System.Diagnostics.ActivityStatusCode.Error);
+            }
+        }
+    }
+
     /// <summary>The start page's notice: the spec's banner text, listing the emulated services.</summary>
     private static string BannerText(EmulationMode mode)
     {
-        var names = mode.Services.Where(s => s != ResourceRegistryEmulation.Service).Select(s => s switch
-        {
-            "register" => "Register",
-            "profile" => "Profile",
-            "authentication" => "Authentication",
-            "authorization" => "Authorization (permits everything)",
-            "access-management" => "Access Management",
-            "events" => "Events",
-            "notifications" => "Notifications",
-            "pdf3" => "PDF",
-            _ => s,
-        }).ToList();
+        var names = mode.Services.Where(s => s != ResourceRegistryEmulation.Service)
+            .Select(s => s == AuthorizationEmulation.Service ? "Authorization (permits everything)" : DisplayName(s))
+            .ToList();
         var list = names.Count > 1 ? string.Join(", ", names[..^1]) + " and " + names[^1] : string.Concat(names);
         return $"Minimal mode: {list} {(names.Count == 1 ? "is" : "are")} emulated. Do not report platform bugs from this mode.";
     }

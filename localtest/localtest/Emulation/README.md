@@ -34,6 +34,10 @@ run unchanged).
 Authentication, Authorization (permits everything), Access Management, Events, Notifications and PDF are emulated. Do
 not report platform bugs from this mode", with a link here.
 
+With telemetry on (`OTEL_EXPORTER_OTLP_ENDPOINT` set), each emulated answer is also a span named after its component
+(`Register GET /register/api/v1/parties/{partyId:int}`, `peer.service` `register`), so a minimal-mode trace still shows
+Register and Authorization ([`../README.md`](../README.md#telemetry)).
+
 ## What is emulated
 
 Each service maps minimal APIs under its public prefix, ahead of the forwarder. Any other path under an emulated prefix

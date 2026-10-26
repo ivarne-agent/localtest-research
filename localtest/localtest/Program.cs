@@ -5,6 +5,7 @@ using Localtest.IdPorten;
 using Localtest.Maskinporten;
 using Localtest.Provisioning;
 using Localtest.Proxy;
+using Localtest.Telemetry;
 using Localtest.Tokens;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
@@ -31,6 +32,8 @@ builder.Configuration.Sources.Insert(0, new Microsoft.Extensions.Configuration.M
         ["Logging:LogLevel:Microsoft.Hosting.Lifetime"] = "Information",
     },
 });
+// Traces, metrics and logs over OTLP exactly when OTEL_EXPORTER_OTLP_ENDPOINT is set (Telemetry/); nothing otherwise.
+FrontDoorTelemetry.Add(builder);
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
     // Data element uploads; the nginx ingress allowed the same.

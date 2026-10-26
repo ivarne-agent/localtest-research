@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.RegularExpressions;
+using Localtest.Telemetry;
 using Microsoft.Extensions.ServiceDiscovery.Http;
 using Yarp.ReverseProxy.Forwarder;
 
@@ -86,6 +87,7 @@ public sealed partial class Forwarder
             _ => PlatformTransformer,
         };
         var invoker = route.Kind == RouteKind.Platform ? _resolving : _direct;
+        FrontDoorTelemetry.MarkRoute(route);
         var error = await _forwarder.SendAsync(context, route.Destination, invoker, RequestConfig, transformer);
         if (error == ForwarderError.None)
         {

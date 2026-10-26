@@ -37,8 +37,9 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Proxy/AppRoutes.cs`, `Proxy/DevServerRoute.cs`, `Proxy/RoutesApi.cs` | The registered apps (with their last provisioning) and the frontend dev server, saved on `/data`, and the API the runners use |
 | `Provisioning/` | The deploy steps, copied from studioctl's provisioning library (`AppId.cs` says what changed): `LocaltestProvisioner.cs`, `RunningAppSource.cs`, and `AppProvisioning.cs`, which runs them for a registration |
 | `Emulation/` | The minimal mode: `Emulation.cs` (the two calls `Program.cs` makes), `EmulationMode.cs`, one folder per emulated service, the test-data store with its copies of the Register's format files and seed, the static PDF; [its README](Emulation/README.md) |
+| `Telemetry/` | `FrontDoorTelemetry.cs`: OpenTelemetry (ASP.NET Core and HttpClient instrumentation, the emulated services' spans) only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; `LocaltestOtlp.cs`, a copy of the shared OTLP helper ([Telemetry](#telemetry)) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
-| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports; `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
+| `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
 | `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link; off: the `503` naming the group and no link). 83 or 84 checks, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
@@ -266,6 +267,41 @@ and the app routes are kept in memory (`Proxy__AppRoutesFile=`): every stop is a
 What it is for, what is lost (authorization rules, real Register data, PDF content, the optional groups) and why:
 [`planned-components/minimal-emulation/README.md`](../../planned-components/minimal-emulation/README.md). What is
 emulated, the token claim sets, the test-data copies and the seams it plugs into: [`Emulation/README.md`](Emulation/README.md).
+
+## Telemetry
+
+The stack's rule ([`../components/shared/README.md`](../components/shared/README.md#otlp-helper-fakesotlp)): traces,
+metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL`
+(`grpc` or `http/protobuf`) and `OTEL_SERVICE_NAME`; nothing otherwise. A per-signal endpoint
+(`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and the others) overrides the general one for its signal, but does not turn
+telemetry on by itself: the exporter always sends all three signals, and one without an endpoint would go to the SDK's
+default `localhost:4317`. studioctl sets the variables on every container while the monitoring group's collector runs
+(`http://otel-collector:4317`, `grpc`, `OTEL_SERVICE_NAME=localtest`).
+
+- **Without the variable** nothing is registered: no tracer, meter or logger provider, no activity listener, no
+  exporter, so no export errors and no extra log lines.
+- **Name:** `service.name` is `localtest` unless `OTEL_SERVICE_NAME` is set (the shared helper adds the environment
+  detector after the front door's own resource).
+- **Traces:** ASP.NET Core and HttpClient instrumentation. A forwarded request is a server span (named after the route:
+  `GET storage`, `GET ttd/app`, `GET frontend-dev-server`, with the route in `localtest.route`) and under it the
+  forwarder's client span (`peer.service` = the route), whose `traceparent` goes to the destination. An app that sends
+  its own `traceparent` is the parent of the server span, so app, front door and platform service are one trace.
+- **Not traced:** the monitoring group's routes. `/otlp`, because the span about forwarding an export would be exported
+  through the same route and telemetry would feed on itself; `/grafana`, because it is the observer: every dashboard
+  view would add a burst of front-door-only spans (Grafana exports none to join them) to the traces being looked at.
+  Also `/health` (the runners' probes) and `/app-frontend/` (dozens of static files per page). Their child spans go
+  with them: the sampler follows the parent. The metrics still count every request.
+- **Minimal mode:** each emulated call is a span of the source `Localtest.Emulation` under the request's server span,
+  named after the component and the endpoint's pattern (`Register GET /register/api/v1/parties/{partyId:int}`,
+  `Authorization POST /authorization/api/v1/decision`), with `peer.service` set to the service (`register`) and
+  `http.response.status_code`. One process has one resource, so these spans are `service.name` `localtest`; a span per
+  call with the component in its name and `peer.service` keeps the trace readable ("Register", "Authorization") without
+  a provider per component, which an `ActivitySource` per component would not have changed (the source is not the
+  service). In-process calls (the provisioning into the emulated services, Home's sign-in) are not HTTP and get no span.
+- **Metrics:** ASP.NET Core (hosting, Kestrel) and HttpClient meters. **Logs:** the existing log lines (warnings and
+  the start-up lines), also over OTLP.
+- **AOT:** OpenTelemetry 1.19.1 (`Extensions.Hosting`, `Exporter.OpenTelemetryProtocol`) and the instrumentation
+  packages 1.19.0.
 
 ## Build notes
 
