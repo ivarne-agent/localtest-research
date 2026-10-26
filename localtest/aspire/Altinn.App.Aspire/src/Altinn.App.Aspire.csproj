@@ -21,12 +21,25 @@
     <PackageReference Include="Aspire.Hosting" />
   </ItemGroup>
 
-  <!-- studioctl's manifest and the shared test certificate studioctl embeds too, by relative path: one copy of each. -->
+  <!--
+    studioctl's manifest, the files that ship with it (every file in the folders beside it; the top-level files are the
+    manifest, its README and studioctl's code) and the shared test certificate studioctl embeds too, by relative path:
+    one copy of each.
+  -->
+  <PropertyGroup>
+    <ManifestDirectory>../../../studioctl/src/cli/internal/localtestv2/manifest/</ManifestDirectory>
+  </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource
       Include="../../../studioctl/src/cli/internal/localtestv2/manifest/manifest.json"
       LogicalName="Altinn.App.Aspire.manifest.json"
       Link="Manifest/manifest.json"
+    />
+    <EmbeddedResource
+      Include="$(ManifestDirectory)**/*"
+      Exclude="$(ManifestDirectory)*"
+      LogicalName="Altinn.App.Aspire.manifest-files/%(RecursiveDir)%(Filename)%(Extension)"
+      Link="Manifest/files/%(RecursiveDir)%(Filename)%(Extension)"
     />
     <EmbeddedResource
       Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/assets/localtest-accesstoken.pfx"

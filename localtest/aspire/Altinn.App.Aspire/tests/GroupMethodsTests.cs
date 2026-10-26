@@ -7,7 +7,7 @@ namespace Altinn.App.Aspire.Tests;
 
 /// <summary>
 /// The typed group aliases (<c>WithDialogporten()</c>, ...) on <see cref="AltinnLocaltestExtensions" /> are exactly
-/// the manifest's optional groups and <c>everything</c>, so adding, renaming or removing a group in the manifest fails
+/// the manifest's optional groups (less the ignored <c>monitoring</c>) and <c>everything</c>, so adding, renaming or removing a group in the manifest fails
 /// here until the methods match. None of them, and no other method that enables a service, takes minimal mode's
 /// builder.
 /// </summary>
@@ -16,8 +16,7 @@ public sealed class GroupMethodsTests
     [Fact]
     public void EveryManifestGroupHasATypedMethodAndNoMethodLacksAGroup()
     {
-        var expected = LocaltestManifest
-            .Default.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup && g != LocaltestManifest.MinimalGroup)
+        var expected = RequiredGroups(LocaltestManifest.Default)
             .Append(LocaltestStack.Everything)
             .ToDictionary(MethodName, group => group, StringComparer.Ordinal);
         var actual = typeof(AltinnLocaltestExtensions)
@@ -130,6 +129,23 @@ public sealed class GroupMethodsTests
             ? argument.GetGenericParameterConstraints().All(c => c.IsAssignableFrom(minimal))
             : argument.IsAssignableFrom(minimal);
     }
+
+    /// <summary>
+    /// The groups that need a typed method: every group of the manifest but the default and the minimal one and the one
+    /// the package ignores (<see cref="LocaltestManifest.MonitoringGroup" />). A new group the package does not know
+    /// fails the test until it gets a method or is ignored on purpose.
+    /// </summary>
+    internal static IReadOnlyList<string> RequiredGroups(LocaltestManifest manifest) =>
+        [
+            .. manifest.GroupNames.Where(g =>
+                g
+                    is not (
+                        LocaltestManifest.DefaultGroup
+                        or LocaltestManifest.MinimalGroup
+                        or LocaltestManifest.MonitoringGroup
+                    )
+            ),
+        ];
 
     private static string MethodName(string group) =>
         "With"

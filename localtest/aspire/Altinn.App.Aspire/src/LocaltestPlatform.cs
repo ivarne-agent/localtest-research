@@ -10,7 +10,7 @@ namespace Altinn.App.Aspire;
 
 /// <summary>
 /// What <c>AddAltinnLocaltest</c> and <c>AddAltinnLocaltestMinimal</c> do alike: the parent resource, the containers,
-/// the port check and the certificate before the start, and the parent's state from its containers' health.
+/// the port check, the certificate and the manifest's files before the start, and the parent's state from its containers' health.
 /// </summary>
 internal static class LocaltestPlatform
 {
@@ -44,7 +44,7 @@ internal static class LocaltestPlatform
             );
         stack.Initialize(parent, groups);
 
-        // The port check and the certificate run when the AppHost starts, not when the model is built.
+        // The port check, the certificate and the manifest's files run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
             async (e, ct) =>
             {
@@ -61,6 +61,7 @@ internal static class LocaltestPlatform
                     );
                 }
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
+                stack.Manifest.Files.Ensure(stack.FilesDirectory);
             }
         );
         builder.Eventing.Subscribe<InitializeResourceEvent>(parent.Resource, ReportWhenHealthyAsync);

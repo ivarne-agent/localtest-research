@@ -80,6 +80,7 @@ internal sealed class LocaltestStack
         Minimal = minimal;
         DataDirectory = dataDirectory;
         CertificateDirectory = Path.Combine(dataDirectory, "certs");
+        FilesDirectory = Path.Combine(dataDirectory, "files");
     }
 
     public LocaltestManifest Manifest { get; }
@@ -124,6 +125,9 @@ internal sealed class LocaltestStack
     /// <summary>The host directory holding the shared test certificate.</summary>
     public string CertificateDirectory { get; }
 
+    /// <summary>The host directory holding the files that ship with the manifest, which containers mount read-only.</summary>
+    public string FilesDirectory { get; }
+
     /// <summary>The enabled optional groups, sorted.</summary>
     public IReadOnlyCollection<string> EnabledGroups => _groups;
 
@@ -137,16 +141,26 @@ internal sealed class LocaltestStack
     public int? FrontendDevServerPort { get; set; }
 
     /// <summary>
-    /// The optional groups <see cref="AddGroups" /> takes: the manifest's, less the default and the minimal one.
+    /// The optional groups <see cref="AddGroups" /> takes: the manifest's, less the default and the minimal one and the
+    /// one the package ignores (<see cref="LocaltestManifest.MonitoringGroup" />).
     /// </summary>
     public IReadOnlyList<string> OptionalGroups =>
-        [.. Manifest.GroupNames.Where(g => g != LocaltestManifest.DefaultGroup && g != LocaltestManifest.MinimalGroup)];
+        [
+            .. Manifest.GroupNames.Where(g =>
+                g
+                    is not (
+                        LocaltestManifest.DefaultGroup
+                        or LocaltestManifest.MinimalGroup
+                        or LocaltestManifest.MonitoringGroup
+                    )
+            ),
+        ];
 
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>
         Minimal
-            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, _tag, Origin)
-            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, _tag, Origin);
+            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, FilesDirectory, _tag, Origin)
+            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, FilesDirectory, _tag, Origin);
 
     /// <summary>Adds the default group's containers (the minimal group's in minimal mode), then the given groups.</summary>
     public void Initialize(IResourceBuilder<AltinnLocaltestResourceBase> parent, IEnumerable<string> groups)
@@ -159,7 +173,9 @@ internal sealed class LocaltestStack
     /// <summary>
     /// Enables groups (<c>everything</c> enables all) and adds the containers they start that are not added yet.
     /// </summary>
-    /// <exception cref="ArgumentException">An unknown group, or the default one, which is always on.</exception>
+    /// <exception cref="ArgumentException">
+    /// An unknown group, the default one, which is always on, or the monitoring one, which the package ignores.
+    /// </exception>
     /// <exception cref="InvalidOperationException">A group in minimal mode, which has none.</exception>
     public void AddGroups(IEnumerable<string> groups)
     {
@@ -180,6 +196,15 @@ internal sealed class LocaltestStack
             else if (OptionalGroups.Contains(group))
             {
                 _groups.Add(group);
+            }
+            else if (group == LocaltestManifest.MonitoringGroup)
+            {
+                throw new ArgumentException(
+                    $"The {LocaltestManifest.MonitoringGroup} group (studioctl's OpenTelemetry collector and Grafana) is "
+                        + "not run by Aspire: the Aspire dashboard shows the containers' and the apps' traces, metrics "
+                        + "and logs.",
+                    nameof(groups)
+                );
             }
             else
             {

@@ -71,11 +71,11 @@ workflow run's artifact into a local folder source.
 | API | What |
 | --- | --- |
 | `AddAltinnLocaltest(name = "altinn-localtest", configure = null)` | Adds the `default` group's containers and returns the parent resource, which is `Running` once every container is healthy, so an app can `WaitFor` it |
-| `.WithGroup(group)` | Adds a group's root containers and what they depend on; `everything` adds every group. An unknown group, or `default` (always on), throws |
-| `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups differ |
+| `.WithGroup(group)` | Adds a group's root containers and what they depend on; `everything` adds every group. An unknown group, `default` (always on) or `monitoring` ([ignored](#the-ignored-monitoring-group)) throws |
+| `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups (all but `default`, `minimal` and the ignored `monitoring`) differ |
 | `.WithFrontendDevServer(port = 8080)` | `studioctl run --dev-frontend`: once the front door is healthy, `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:<port>`, and every app loads app-frontend from `http://app-frontend.local.altinn.cloud:8000` |
 | `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`; pulled on every start). Default: the manifest's pins |
-| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` (world-readable, as studioctl writes it), the apps' secrets in `apps/<org>/<app>/secrets`. The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
+| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`. The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
 | `AltinnLocaltestOptions.PostgresHostPort` | Publishes Postgres on this loopback port, for `psql`; default none, as studioctl |
 | `AltinnLocaltestOptions.PublicHost`, `.PublicPort` | The public origin's host and port ([The public origin](#the-public-origin)); null is the manifest's (`local.altinn.cloud`, 8000), `PublicPort = 0` a port Aspire allocates |
@@ -136,6 +136,7 @@ studioctl's loader (`internal/cmd/env/localtestv2/containers.go`) builds it:
 | `envs` | `WithEnvironment`, literal | none |
 | the `services__<name>__http__0=http://<name>:<port>` of every selected HTTP container | the same, read when the AppHost starts, so a group added later is announced to every container | none |
 | the certificate | `<data>/certs` read-only at `/certs`, and its file at `/accesstoken/accesstokencredentials.pfx` | no SELinux relabel (not an Aspire option) |
+| `files` | `WithBindMount(<data>/files/<source>, path, isReadOnly: true)`, after the certificate, sorted by path; the package writes the shipped files there when the AppHost starts (`ManifestFiles.Ensure`, studioctl's `ensureFiles`) | no SELinux relabel |
 | `volumes` | `WithVolume("altinn-localtest-" + id, path)`: the prefix (`StackSpec.VolumePrefix`, the default parent resource's name and a hyphen, whatever the parent is called) and the manifest's volume id | the names: studioctl's are `localtest-v2-<id>`, so the two runtimes' data never mixes |
 | the public hosts and `host.docker.internal` | `--add-host <host>:host-gateway` | none |
 | `dependsOn` | `WaitFor` (healthy); every HTTP container also `WaitForStart(localtest)` | studioctl waits for its probe |
@@ -158,6 +159,17 @@ come from the resources' snapshots. Aspire ignores an image's `HEALTHCHECK` for 
 runs the check itself. Measured under Podman ([Run under Podman](#run-under-podman)): every container is
 healthy 1 to 6 s after what it waits for, the stack in 22 s on existing volumes and 32 s on empty ones, close to
 studioctl's 20 s and 21.6 s.
+
+## The ignored `monitoring` group
+
+The manifest's `monitoring` group is studioctl's OpenTelemetry collector and Grafana. The package ignores it by name
+(`LocaltestManifest.MonitoringGroup`, beside `DefaultGroup` and `MinimalGroup`), because the Aspire dashboard already
+receives the containers' and the apps' traces, metrics and logs: it is not in `OptionalGroups`, `everything` and
+`WithEverything()` leave it out, `GroupMethodsTests` requires no typed method for it, and `WithGroup("monitoring")` (or
+`Groups` naming it) throws an `ArgumentException` that points at the dashboard. Any other new group still fails
+`GroupMethodsTests` until it gets a method, so ignoring a group is always a decision in this package's code. studioctl
+runs the group with `env up --with monitoring` and includes it in `--with everything`, so once the manifest has it the
+two runtimes' `everything` differ by that group.
 
 ## Minimal mode
 
@@ -352,7 +364,7 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (92 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (151 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
@@ -362,7 +374,9 @@ manifest; the package's tests compare what it builds with studioctl's golden sna
 | `internal/cmd/app/testdata/app-environment.golden.json` | `GoldenComparisonTests`: every case (native, inherited variables, ingress port 80, container) from the same inputs |
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
 
-Besides: `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
+Besides: `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
+world-readable and in place), `MonitoringGroupTests` (on a copy of the manifest with a `monitoring` group: not optional,
+not in `everything`, no method required, `WithGroup` refuses it), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
 health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
 `correspondence` and `everything` selections, the `services__*` of every container and of a group added later, only

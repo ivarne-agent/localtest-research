@@ -8,8 +8,9 @@ namespace Altinn.App.Aspire.Manifest;
 /// The localtest-v2 manifest (<c>localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json</c>, its
 /// README beside it): the groups and the containers. Parsed and checked as studioctl's Go loader
 /// (<c>manifest.go</c>) does: known keys only, every reference resolves, no dependency cycle, every container reached
-/// by a group, the values in range, the public section valid and every placeholder in <c>envs</c> one of the public
-/// origin's (<see cref="PublicOrigin" />).
+/// by a group, the values in range, the public section valid, every placeholder in <c>envs</c> one of the public
+/// origin's (<see cref="PublicOrigin" />) and every source of <c>files</c> one that ships with the manifest
+/// (<see cref="ManifestFiles" />).
 /// </summary>
 internal sealed partial class LocaltestManifest
 {
@@ -21,6 +22,13 @@ internal sealed partial class LocaltestManifest
     /// group.
     /// </summary>
     public const string MinimalGroup = "minimal";
+
+    /// <summary>
+    /// The group the package ignores: the OpenTelemetry collector and Grafana that studioctl runs. Aspire's dashboard
+    /// receives the containers' and the apps' telemetry instead, so the group is not optional here, <c>everything</c>
+    /// leaves it out and <c>WithGroup</c> refuses it.
+    /// </summary>
+    public const string MonitoringGroup = "monitoring";
 
     /// <summary>A container's port when the manifest names none.</summary>
     public const int DefaultPort = 8080;
@@ -50,7 +58,7 @@ internal sealed partial class LocaltestManifest
             ?? throw new InvalidOperationException($"The package has no embedded resource {Resource}.");
         using var copy = new MemoryStream();
         stream.CopyTo(copy);
-        return Parse(copy.ToArray());
+        return Parse(copy.ToArray(), ManifestFiles.Embedded);
     });
 
     private readonly Dictionary<string, ManifestContainer> _containers;
@@ -60,9 +68,11 @@ internal sealed partial class LocaltestManifest
         IReadOnlyList<ManifestGroup> groups,
         ManifestPublic @public,
         Dictionary<string, ManifestContainer> containers,
-        List<string> names
+        List<string> names,
+        ManifestFiles files
     )
     {
+        Files = files;
         Groups = groups;
         Public = @public;
         _containers = containers;
@@ -74,6 +84,9 @@ internal sealed partial class LocaltestManifest
 
     /// <summary>The groups in file order.</summary>
     public IReadOnlyList<ManifestGroup> Groups { get; }
+
+    /// <summary>The files that ship with the manifest, which the containers' <c>files</c> name.</summary>
+    public ManifestFiles Files { get; }
 
     /// <summary>The public section: the origin's default host and port, and the dedicated subdomains.</summary>
     public ManifestPublic Public { get; }
@@ -139,7 +152,9 @@ internal sealed partial class LocaltestManifest
     }
 
     /// <summary>Parses a manifest and checks it; throws <see cref="InvalidDataException" /> naming the fault.</summary>
-    public static LocaltestManifest Parse(byte[] json)
+    /// <param name="json">The manifest.</param>
+    /// <param name="files">What ships with it; null ships nothing.</param>
+    public static LocaltestManifest Parse(byte[] json, ManifestFiles? files = null)
     {
         try
         {
@@ -178,7 +193,7 @@ internal sealed partial class LocaltestManifest
                 ? p.Deserialize(ManifestJsonContext.Default.ManifestPublic) ?? new ManifestPublic()
                 : new ManifestPublic();
             var (containers, names) = ReadContainers(containersElement);
-            var manifest = new LocaltestManifest(groups, @public, containers, names);
+            var manifest = new LocaltestManifest(groups, @public, containers, names, files ?? ManifestFiles.None);
             manifest.Check();
             return manifest;
         }
@@ -199,6 +214,7 @@ internal sealed partial class LocaltestManifest
         foreach (var property in containers.EnumerateObject())
         {
             ManifestContainer container;
+            CheckFileTargetsUnique(property);
             try
             {
                 container =
@@ -216,6 +232,29 @@ internal sealed partial class LocaltestManifest
             names.Add(property.Name);
         }
         return (map, names);
+    }
+
+    /// <summary>
+    /// Refuses a <c>files</c> object that names a container path twice, which the deserializer would resolve silently.
+    /// </summary>
+    private static void CheckFileTargetsUnique(JsonProperty container)
+    {
+        if (
+            container.Value.ValueKind != JsonValueKind.Object
+            || !container.Value.TryGetProperty("files", out var files)
+            || files.ValueKind != JsonValueKind.Object
+        )
+        {
+            return;
+        }
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files.EnumerateObject())
+        {
+            if (!seen.Add(file.Name))
+            {
+                throw Invalid($"container {container.Name}: duplicate files: container path \"{file.Name}\"");
+            }
+        }
     }
 
     private void Check()
@@ -276,6 +315,7 @@ internal sealed partial class LocaltestManifest
                 throw Invalid(Fault($"volume \"{id}\" at \"{target}\""));
             }
         }
+        CheckFiles(c, Fault);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var dependency in c.DependsOn)
         {
@@ -289,6 +329,43 @@ internal sealed partial class LocaltestManifest
             }
         }
     }
+
+    /// <summary>
+    /// A container's files: each container path absolute and clean, and not a volume's path too; each source a clean
+    /// relative path without <c>..</c>, and shipped with the manifest.
+    /// </summary>
+    private void CheckFiles(ManifestContainer c, Func<string, string> fault)
+    {
+        var volumeTargets = c.Volumes.Values.ToHashSet(StringComparer.Ordinal);
+        foreach (var (target, source) in c.Files.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (target == "/" || !target.StartsWith('/') || !IsClean(target[1..]))
+            {
+                throw Invalid(fault($"files: container path \"{target}\" is not an absolute, clean path"));
+            }
+            if (volumeTargets.Contains(target))
+            {
+                throw Invalid(fault($"duplicate files: container path \"{target}\" is a volume's too"));
+            }
+            if (
+                source.Length == 0
+                || source.StartsWith('/')
+                || source.Contains('\\', StringComparison.Ordinal)
+                || !IsClean(source)
+            )
+            {
+                throw Invalid(fault($"files: {target}: source \"{source}\" is not a clean relative path"));
+            }
+            if (!Files.Ships(source))
+            {
+                throw Invalid(fault($"files: {target}: no such file beside the manifest: \"{source}\""));
+            }
+        }
+    }
+
+    /// <summary>A relative path whose segments are neither empty nor <c>.</c> nor <c>..</c>.</summary>
+    private static bool IsClean(string relative) =>
+        relative.Split('/').All(segment => segment.Length > 0 && segment != "." && segment != "..");
 
     private void CheckPublic()
     {
@@ -412,6 +489,12 @@ internal sealed record ManifestContainer
     /// naming the same id share it); the runtime prefixes it (<see cref="StackSpec.VolumeName" />).
     /// </summary>
     public IReadOnlyDictionary<string, string> Volumes { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Path in the container to a file or folder that ships with the manifest (<see cref="ManifestFiles" />), relative
+    /// to the manifest's directory: mounted read-only.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The container's port; zero is <see cref="LocaltestManifest.DefaultPort" />.</summary>
     public int Port { get; set; }

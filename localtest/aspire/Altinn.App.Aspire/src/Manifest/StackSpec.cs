@@ -103,7 +103,8 @@ internal sealed record MountSpec(MountKind Kind, string Source, string Target, b
 /// sorted by name.
 /// </param>
 /// <param name="Mounts">
-/// The certificate (directory and legacy file), then the named volumes (tmpfs in minimal mode) sorted by id.
+/// The certificate (directory and legacy file), then the manifest's files sorted by their path in the container, then
+/// the named volumes (tmpfs in minimal mode) sorted by id.
 /// </param>
 /// <param name="Port">The container's port.</param>
 /// <param name="Health">The health check.</param>
@@ -180,18 +181,21 @@ internal static class StackSpec
     /// <summary>
     /// The containers of the default group and the named optional groups, in start order: the manifest's
     /// <c>envs</c> resolved for the public origin plus a <c>services__&lt;name&gt;__http__0</c> for every selected HTTP
-    /// container, the certificate read-only from <paramref name="certificateDirectory" />, the named volumes, the extra
-    /// hosts (the origin's host names), and the origin's port on the front door.
+    /// container, the certificate read-only from <paramref name="certificateDirectory" />, the manifest's files
+    /// read-only from <paramref name="filesDirectory" />, the named volumes, the extra hosts (the origin's host names),
+    /// and the origin's port on the front door.
     /// </summary>
     /// <param name="manifest">The manifest.</param>
     /// <param name="groups">The optional groups that are on.</param>
     /// <param name="certificateDirectory">The host directory holding the shared certificate.</param>
+    /// <param name="filesDirectory">The host directory holding the files that ship with the manifest.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set (<c>latest</c>, as studioctl's <c>--latest</c>).</param>
     /// <param name="origin">The public origin; null is the manifest's default.</param>
     public static IReadOnlyList<ContainerSpec> Resolve(
         LocaltestManifest manifest,
         IEnumerable<string> groups,
         string certificateDirectory,
+        string filesDirectory,
         string? tag = null,
         PublicOrigin? origin = null
     ) =>
@@ -200,6 +204,7 @@ internal static class StackSpec
             [LocaltestManifest.DefaultGroup, .. groups],
             [],
             certificateDirectory,
+            filesDirectory,
             tag,
             origin ?? manifest.Origin(),
             minimal: false
@@ -207,7 +212,7 @@ internal static class StackSpec
 
     /// <summary>
     /// Minimal mode, as studioctl's <c>env up --minimal</c>: the containers of the minimal group in place of the
-    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string?, PublicOrigin?)" />
+    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string, string?, PublicOrigin?)" />
     /// resolves them but for three things: every emulated container (<see cref="Emulated" />) is announced at the
     /// front door (<c>services__&lt;name&gt;__http__0=http://localtest:8080</c>), every manifest volume is a tmpfs
     /// (<see cref="TmpfsOptions" />), and the front door keeps its app routes in memory
@@ -215,11 +220,13 @@ internal static class StackSpec
     /// </summary>
     /// <param name="manifest">The manifest.</param>
     /// <param name="certificateDirectory">The host directory holding the shared certificate.</param>
+    /// <param name="filesDirectory">The host directory holding the files that ship with the manifest.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set.</param>
     /// <param name="origin">The public origin; null is the manifest's default.</param>
     public static IReadOnlyList<ContainerSpec> ResolveMinimal(
         LocaltestManifest manifest,
         string certificateDirectory,
+        string filesDirectory,
         string? tag = null,
         PublicOrigin? origin = null
     ) =>
@@ -228,6 +235,7 @@ internal static class StackSpec
             [LocaltestManifest.MinimalGroup],
             Emulated(manifest),
             certificateDirectory,
+            filesDirectory,
             tag,
             origin ?? manifest.Origin(),
             minimal: true
@@ -238,6 +246,7 @@ internal static class StackSpec
         IEnumerable<string> groups,
         IReadOnlyList<string> emulated,
         string certificateDirectory,
+        string filesDirectory,
         string? tag,
         PublicOrigin origin,
         bool minimal
@@ -261,7 +270,17 @@ internal static class StackSpec
         return
         [
             .. names.Select(name =>
-                Container(manifest, name, services, extraHosts, certificateDirectory, tag, origin, minimal)
+                Container(
+                    manifest,
+                    name,
+                    services,
+                    extraHosts,
+                    certificateDirectory,
+                    filesDirectory,
+                    tag,
+                    origin,
+                    minimal
+                )
             ),
         ];
     }
@@ -272,6 +291,7 @@ internal static class StackSpec
         IReadOnlyDictionary<string, string> services,
         IReadOnlyList<string> extraHosts,
         string certificateDirectory,
+        string filesDirectory,
         string? tag,
         PublicOrigin origin,
         bool minimal
@@ -304,6 +324,14 @@ internal static class StackSpec
                 Topology.LegacyCertificateFile,
                 true
             ),
+            .. c
+                .Files.OrderBy(f => f.Key, StringComparer.Ordinal)
+                .Select(f => new MountSpec(
+                    MountKind.Bind,
+                    Path.Combine(filesDirectory, f.Value.Replace('/', Path.DirectorySeparatorChar)),
+                    f.Key,
+                    true
+                )),
             .. c
                 .Volumes.OrderBy(v => v.Key, StringComparer.Ordinal)
                 .Select(v =>
