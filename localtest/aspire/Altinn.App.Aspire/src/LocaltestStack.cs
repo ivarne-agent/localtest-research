@@ -286,6 +286,15 @@ internal sealed class LocaltestStack
             {
                 context.EnvironmentVariables[key] = EnvironmentValue(value);
             }
+            // The dashboard is in the model by now (Aspire adds it before the start), so the engine links its traces
+            // there; its own envs win.
+            if (
+                name == DashboardTraceLinks.WorkflowEngine
+                && DashboardTraceLinks.TraceUrlTemplate(_builder.Resources) is { } template
+            )
+            {
+                context.EnvironmentVariables.TryAdd(DashboardTraceLinks.TraceUrlTemplateVariable, template);
+            }
         });
         foreach (var mount in spec.Mounts)
         {

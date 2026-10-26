@@ -171,7 +171,23 @@ receives the containers' and the apps' traces, metrics and logs: it is not in `O
 runs the group with `env up --with monitoring` and includes it in `--with everything`, so the two runtimes'
 `everything` differ by that group: `GoldenComparisonTests` leaves its containers out of studioctl's `everything`
 snapshot, and with them what studioctl's runner gives the others while its collector runs (the collector's and
-Grafana's `services__` variables and the `OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME` variables).
+Grafana's `services__` variables, the `OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME`/`OTEL_METRIC_EXPORT_INTERVAL`
+variables and the workflow engine's Grafana links, `EngineSettings__Dashboard__GrafanaUrl` and
+`...GrafanaTracesDatasourceUid`).
+
+**The workflow engine's trace links.** The engine's dashboard links a workflow's trace. studioctl points it at Grafana
+while the group runs; the package points it at the Aspire dashboard's trace page instead, with
+`EngineSettings__Dashboard__TraceUrlTemplate=<dashboard>/traces/detail/{traceId}` on the `workflow-engine` container
+(`DashboardTraceLinks`; the engine's own `envs` win). `<dashboard>` is the dashboard's browser address: the `https`
+endpoint (else `http`) of the `aspire-dashboard` resource, which Aspire adds to the model before the start from
+`ASPNETCORE_URLS` (the AppHost's launch profile) or with an allocated port, read on the localhost network, as Aspire's
+own dashboard link reads it; `/traces/detail/{traceId}` is the dashboard's trace page in Aspire 13.6. Without a
+dashboard (`DisableDashboard`) the variable is not set. Limits: the engine image in `tt02` does not know the setting yet
+(an upstream change adds it; the engine ignores an unknown setting, so its dashboard shows no trace link until then);
+the link opens the dashboard's login page first when the browser has no dashboard session yet (the token in the
+AppHost's console log logs it in); Codespaces' URL rewriting is not applied; and the containers have no OTLP exporter
+in the package (`WithOtlpExporter` is not called on them), so the engine's own spans do not reach the dashboard and
+the page finds only what an app sent under the same trace id.
 
 ## Minimal mode
 
@@ -366,7 +382,7 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (151 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (155 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
@@ -378,7 +394,7 @@ manifest; the package's tests compare what it builds with studioctl's golden sna
 
 Besides: `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
 world-readable and in place), `MonitoringGroupTests` (the manifest's `monitoring` group: not optional,
-not in `everything`, no method required, `WithGroup` refuses it), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
+not in `everything`, no method required, `WithGroup` refuses it), `DashboardTraceLinksTests` (the engine's trace URL template on the dashboard's `https` or `http` address, resolved for the engine's network as the host's address, and none without a dashboard), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
 health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
 `correspondence` and `everything` selections, the `services__*` of every container and of a group added later, only
