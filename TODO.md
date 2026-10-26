@@ -1824,11 +1824,16 @@ studioctl only.
     Aspire dashboard. A new group that Aspire does not know still fails the method test, so ignoring a group is
     always a deliberate decision. In studioctl, the group is turned on by `--with monitoring` or `--with everything`.
     There is no `--monitoring` flag: localtest-v2 turns every group on the same way (decided 2026-10-25).
-  - **The components' own telemetry switches** are runtime-specific. Aspire sends component containers' OTLP to its own
-    dashboard, and studioctl sends it to the collector only when the group is on. A container's `envs` therefore cannot
-    simply hard-code `EngineSettings__EnableTelemetry=true`. The proposal: a placeholder such as `{{otlp}}` (an empty
-    value when no collector runs). Aspire fills it with its dashboard endpoint, or leaves it empty. Each runtime then
-    decides by itself.
+  - **The components' own telemetry switches (open).** These depend on the runtime: Aspire collects component
+    telemetry in its own dashboard, and studioctl only when the group is on. So `envs` cannot hard-code
+    `EngineSettings__EnableTelemetry=true`. The proposal is a container field `telemetry`: extra env variables applied
+    on top of `envs` only when the runtime collects telemetry. Examples: the workflow engine's
+    `EngineSettings__EnableTelemetry=true` and `OTEL_SERVICE_NAME=workflow-engine-app`, and Notifications'
+    `OtelSettings__Endpoint={{otlp}}`, where `{{otlp}}` is valid only inside `telemetry`. When `otel-collector` runs,
+    studioctl's runner gives every container `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`
+    and a default `OTEL_SERVICE_NAME` (the container name), then applies `telemetry`. Aspire must accept the field;
+    filling it with its dashboard endpoint can come later. The alternative is a general `envsWith` map,
+    `{ "<container>": { … } }`, applied when the named container runs.
   - **Not chosen:** the studioctl runtime adding the five containers in Go, outside the manifest. That would mean a
     second place that declares containers, plus host ports 4317 and 4318 again.
   - **Not chosen:** research images with the config files built in (2026-10-26). Mounting files keeps the stock
