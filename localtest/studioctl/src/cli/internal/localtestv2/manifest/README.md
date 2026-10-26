@@ -2,7 +2,8 @@
 
 `manifest.json` lists the stack's containers, the groups that select them and the public origin's defaults. studioctl's `localtest-v2` runtime
 (`internal/cmd/env/localtestv2`) starts the stack from it; the file is embedded in the binary. There is no schema: the
-package's test (`manifest_internal_test.go`) validates the file, and `Parse` refuses an invalid one.
+package's test (`manifest_internal_test.go`) validates the file, and `Parse` refuses an invalid one. The folders beside
+it hold the files its containers mount ([Files](#files)), which ship with it.
 
 ```json
 {
@@ -84,19 +85,35 @@ Aspire allocates a value is a `ReferenceExpression` over the front door's endpoi
 
 A map from the container's name to:
 
-| Key         | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `registry`  | The image repository, with the registry host                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tag`       | The image tag (a digest may follow: `7.2-alpine@sha256:…`). The research images all carry one `sha-<commit>` pin                                                                                                                                                                                                                                                                                                                                |
-| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), another service by its name (`http://authorization/authorization/api/v1/`, see [Service names](#service-names)), the certificate as `/certs/localtest-accesstoken.pfx`                                                              |
-| `dependsOn` | Containers that start, and are healthy, before this one                                                                                                                                                                                                                                                                                                                                                                                         |
-| `volumes`   | Volume id to path in the container. An id is lower-case letters and digits in hyphen-separated words (`storage-blobs`) and names one volume for the whole manifest: containers naming the same id share it (`policy-store`: the PDP, Access Management, the Resource Registry). Each runtime names the volume by its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>`; each runtime's reset deletes its own |
-| `port`      | The container's HTTP (or TCP) port; default 8080                                                                                                                                                                                                                                                                                                                                                                                                |
-| `health`    | An HTTP path answering 200 when healthy (default `/health`), or `"tcp"` for a port that accepts connections (Postgres, Redis)                                                                                                                                                                                                                                                                                                                   |
+| Key         | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry`  | The image repository, with the registry host                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tag`       | The image tag (a digest may follow: `7.2-alpine@sha256:…`). The research images all carry one `sha-<commit>` pin                                                                                                                                                                                                                                                                                                                                               |
+| `envs`      | Environment variables, literal strings but for the public origin's [placeholders](#the-placeholders) (`{{origin}}/`); the data stores by name and port (`Host=postgres;Port=5432`, `redis://redis:6379/2`), another service by its name (`http://authorization/authorization/api/v1/`, see [Service names](#service-names)), the certificate as `/certs/localtest-accesstoken.pfx`                                                                             |
+| `dependsOn` | Containers that start, and are healthy, before this one                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `volumes`   | Volume id to path in the container. An id is lower-case letters and digits in hyphen-separated words (`storage-blobs`) and names one volume for the whole manifest: containers naming the same id share it (`policy-store`: the PDP, Access Management, the Resource Registry). Each runtime names the volume by its own prefix and the id: studioctl `localtest-v2-<id>`, Aspire `altinn-localtest-<id>`; each runtime's reset deletes its own                |
+| `files`     | Path in the container to a file or folder that ships with the manifest, relative to the manifest's directory and inside a folder beside it (`"/etc/otelcol-contrib/config.yaml": "monitoring/otel-collector.yaml"`); mounted read-only, see [Files](#files). The container path is absolute and clean, named once and not a volume's path too; the source is a clean relative path without `..` that ships with the manifest (a file, or a folder holding one) |
+| `port`      | The container's HTTP (or TCP) port; default 8080                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `health`    | An HTTP path answering 200 when healthy (default `/health`), or `"tcp"` for a port that accepts connections (Postgres, Redis)                                                                                                                                                                                                                                                                                                                                  |
 
 Nothing else is allowed (an unknown key is an error): no descriptions, routes, host ports, commands, health-check
 commands or build information. A container's notes belong in its component's README; a command belongs in its image
 (the [Postgres](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/postgres/Dockerfile) and [Redis](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/redis/Dockerfile) images); a dev build is `env up --dev-<container>=<path>`.
+
+## Files
+
+A container's `files` mount configuration that stock images read from a path, so they run as published, without a
+build of their own. The files live in folders beside `manifest.json` (`monitoring/otel-collector.yaml`), never at its
+top level, which holds the manifest, this README and the reader's code. Every file in those folders ships with the
+manifest: studioctl embeds each folder (the `go:embed` directive of `bundle` in `manifest.go` names it, and
+`TestEveryFolderBesideTheManifestShips` fails on a folder it does not name), and the Aspire package embeds every
+folder beside the manifest. A source names one file, or a folder for every file under it (a folder of dashboards).
+
+Before it starts the containers, each runtime writes every shipped file under its data directory at the same relative
+path (studioctl `<data>/infra/localtest-v2/files/`, beside the certificate; Aspire `<DataDirectory>/files/`),
+rewriting a changed file in place and removing what no longer ships, and bind-mounts each source from there read-only
+at its container path. The files and their folders are readable by everyone (0644 and 0755), since the images run as
+their own non-root users (the OpenTelemetry collector as UID 10001).
 
 ## Tags
 
@@ -146,6 +163,8 @@ Every container gets, besides its `envs`:
 - for the front door, `Localtest__PublicSubdomains`: the listed subdomains, comma-separated;
 - the shared certificate directory read-only at `/certs`, and (until the Events, Notifications and Receipt images link
   it) the certificate file at `/accesstoken/accesstokencredentials.pfx`.
+- each of its `files` read-only, from the runner's copy of the shipped files ([Files](#files)), after the certificate
+  and sorted by container path;
 - each of its `volumes` as the named volume `localtest-v2-<id>` (`volumePrefix` in `containers.go`); `env reset`
   deletes those and no other.
 - in minimal mode: `services__<name>__http__0=http://localtest:8080` for each emulated container, a tmpfs at the path of
@@ -156,6 +175,9 @@ Only the `localtest` container publishes a port: the public port (8000, or `--po
 in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `internal/cmd/app/testdata/app-environment.golden.json`.
 
 ## Changing it
+
+- A new folder of files beside the manifest goes into the `go:embed` directive of `bundle` in `manifest.go`; the Aspire
+  package picks it up by itself.
 
 - Regenerate the snapshot after any change and review the diff:
   `STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/env/localtestv2/` (under `src/cli`).

@@ -80,6 +80,8 @@ type Options struct {
 	// Groups are the optional groups that are on, sorted; the default group always is.
 	Groups  []string
 	CertDir string
+	// FilesDir holds the files that ship with the manifest, at their paths relative to its directory.
+	FilesDir string
 	// Origin is the public origin: its host and port, the front door's published port, and the subdomains.
 	Origin manifest.Origin
 	// LatestImages runs the research images at "latest" instead of their pinned sha- tag.
@@ -89,11 +91,12 @@ type Options struct {
 	Minimal bool
 }
 
-func defaultOptions(certDir string) *Options {
+func defaultOptions(certDir, filesDir string) *Options {
 	return &Options{
 		Dev:          nil,
 		Groups:       nil,
 		CertDir:      certDir,
+		FilesDir:     filesDir,
 		Origin:       stack().DefaultOrigin(),
 		LatestImages: false,
 		RelabelBinds: false,
@@ -300,13 +303,14 @@ func volumeNames() []string {
 	return names
 }
 
-// containerVolumes are the shared certificate, read-only, and the container's named volumes (tmpfs in minimal mode).
+// containerVolumes are the shared certificate, read-only, then the container's files, read-only and sorted by their path
+// in the container, then its named volumes (tmpfs in minimal mode).
 func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 	relabel := types.SELinuxRelabelNone
 	if opts.RelabelBinds {
 		relabel = types.SELinuxRelabelShared
 	}
-	volumes := make([]types.VolumeMount, 0, 2+len(c.Volumes))
+	volumes := make([]types.VolumeMount, 0, 2+len(c.Files)+len(c.Volumes))
 	volumes = append(volumes,
 		types.VolumeMount{
 			HostPath:       opts.CertDir,
@@ -325,6 +329,16 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 			ReadOnly:       true,
 		},
 	)
+	for _, target := range slices.Sorted(maps.Keys(c.Files)) {
+		volumes = append(volumes, types.VolumeMount{
+			HostPath:       filepath.Join(opts.FilesDir, filepath.FromSlash(c.Files[target])),
+			ContainerPath:  target,
+			Type:           types.VolumeMountTypeBind,
+			SELinuxRelabel: relabel,
+			Options:        "",
+			ReadOnly:       true,
+		})
+	}
 	for _, id := range slices.Sorted(maps.Keys(c.Volumes)) {
 		volumes = append(volumes, manifestVolume(opts, id, c.Volumes[id]))
 	}

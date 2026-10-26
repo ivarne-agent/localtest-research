@@ -35,7 +35,7 @@ func mutated(t *testing.T, mutate func(m map[string]any)) error {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = Parse(data)
+	_, err = Parse(data, nil)
 	return err
 }
 
@@ -181,11 +181,11 @@ func TestParseRefusesADuplicateContainerAndTrailingData(t *testing.T) {
 	t.Parallel()
 	dup := `{"groups":[{"name":"default","containers":["a"]}],"containers":{` +
 		`"a":{"registry":"r","tag":"t"},"a":{"registry":"r","tag":"t"}}}`
-	if _, err := Parse([]byte(dup)); !errors.Is(err, errDuplicate) {
+	if _, err := Parse([]byte(dup), nil); !errors.Is(err, errDuplicate) {
 		t.Fatalf("duplicate container: %v", err)
 	}
 	trailing := `{"groups":[{"name":"default","containers":["a"]}],"containers":{"a":{"registry":"r","tag":"t"}}} {}`
-	if _, err := Parse([]byte(trailing)); !errors.Is(err, errValue) {
+	if _, err := Parse([]byte(trailing), nil); !errors.Is(err, errValue) {
 		t.Fatalf("trailing data: %v", err)
 	}
 }

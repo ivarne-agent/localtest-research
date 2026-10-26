@@ -20,7 +20,7 @@ lists the stack in three sections:
   "groups": [{ "name": "default", "containers": ["postgres", "register", "…"] }, …],
   "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
   "containers": {
-    "<name>": { "registry", "tag", "envs", "dependsOn", "volumes", "port"?, "health"? }
+    "<name>": { "registry", "tag", "envs", "dependsOn", "volumes", "files"?, "port"?, "health"? }
   }
 }
 ```
@@ -37,7 +37,10 @@ lists the stack in three sections:
   `envs` are literal strings but for the public origin's five placeholders (`{{origin}}`, `{{host}}`, `{{port}}`,
   `{{origin:<sub>}}`, `{{host:<sub>}}`); nothing else is substituted, and `services__*` are never in it. `port` defaults to 8080 and `health` to `/health`
   (`"tcp"` for Postgres and Redis). `volumes` maps a volume id (`postgres-data`), not a runtime's volume name, to the
-  path in the container ([Volumes](#volumes)). An unknown key is an error.
+  path in the container ([Volumes](#volumes)). `files` maps a path in the container to a file or folder kept in a
+  folder beside the manifest, which ships with it and both runtimes mount read-only
+  ([manifest README, Files](studioctl/src/cli/internal/localtestv2/manifest/README.md#files)). An unknown key is an
+  error.
 - There is no JSON Schema: the Go reader's test validates the file and `Parse` refuses an invalid one; the Aspire
   package runs the same checks on the same file, which it embeds by relative path.
 
