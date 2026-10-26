@@ -2520,3 +2520,12 @@ Details in [`localtest/localtest/README.md`](localtest/localtest/README.md#stora
 README, "Verified (2026-10-26): the instances page on the stack". Open: the pinned image (the next images run on main,
 then `bump-tag.sh`).
 
+**Pinned check (2026-10-26, images `sha-ddef433` from main ddef4331, no `--dev-*`; studioctl from the pins worktree
+under a short `STUDIOCTL_HOME`; evidence `/home/agent/code/.handover/storage-instances-page/pinned/`).** With
+`--with dialogporten --with receipt --with arbeidsflate` the first `env up` came up healthy (the Arbeidsflate BFF
+readiness race seen with `--dev-localtest` did not recur). `ttd/testapp` and four new instances: `/Home/Instances` 200;
+the list as the service owner (19) and the test user (11); the instance pages link Inbox (person and organisation
+URNs), Dialog (three dialog ids, 200 from Dialogporten's end-user API), Open in the app and Receipt; the attachment
+through its link 200 with `hello.txt`, without a token 401. The default stack: only "Open in the app" and "Receipt in
+the app"; with the app stopped, none. The front door's `smoke-test.sh`: 83 of 84 (the known `FRONTEND_DIST` check).
+
