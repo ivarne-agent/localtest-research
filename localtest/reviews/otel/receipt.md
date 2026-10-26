@@ -36,4 +36,4 @@ Run without Docker against a fake OTLP/HTTP collector (a Python HTTP server; `ht
 Seen: with the variable, the exporter's own `HttpClient` logs every export at Information on the console
 (`System.Net.Http.HttpClient.OtlpMetricExporter.*`), because the host logs `System.Net.Http` at Information. None of those
 lines showed up in the exported logs (the SDK suppresses telemetry from its own export), so it is console noise only; a log filter for `System.Net.Http.HttpClient.Otlp` in the shared
-helper would remove it for every component. Owed: the image build, `bump-tag.sh`, the smoke check.
+helper would remove it for every component. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).

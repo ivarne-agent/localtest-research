@@ -2,7 +2,7 @@
 
 Upstream: [Altinn/altinn-studio](https://github.com/Altinn/altinn-studio) `src/Runtime/workflow-engine`, vendored at
 `447e53eb` (`../../components/workflow-engine/vendor/`). Reviewed 2026-10-26 (TODO.md task 53). **Classification:
-small, upstream; in review as [altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515).**
+small, upstream; done in [altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515) (merged).**
 
 ## Upstream today (the vendored pin)
 
@@ -14,8 +14,9 @@ small, upstream; in review as [altinn-studio#21515](https://github.com/Altinn/al
   `EngineSettings__EnableTelemetry=false`. `service.name` `WorkflowEngine` via `AddService`; `main` already lets
   `OTEL_SERVICE_NAME` win.
 
-## Upstream change
+## Upstream change (done)
 
-altinn-studio#21515 exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and removes `EnableTelemetry` (TODO.md,
-index row 53, has its verification). Nothing to change in localtest: no `#if LOCALTEST`. After it merges: re-vendor,
-rebuild the image, drop `EngineSettings__EnableTelemetry` from the manifest.
+altinn-studio#21515, merged as `884b8ed755`, exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and removes
+`EnableTelemetry`; the stack runs the `tt02` image that has it, and the manifest's `EngineSettings__EnableTelemetry` is
+gone (commit `f8f4148f`, TODO.md task 52). Nothing to change in localtest: no `#if LOCALTEST`. The vendored source above
+is older than the image and should be re-vendored at the next sync.

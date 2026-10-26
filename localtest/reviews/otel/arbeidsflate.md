@@ -2,7 +2,7 @@
 
 Upstream: [Altinn/dialogporten-frontend](https://github.com/Altinn/dialogporten-frontend), vendored at `bb74dff2`
 (`../../components/arbeidsflate/vendor/`, pristine; localtest changes are patches in `../../components/arbeidsflate/patches/`).
-Reviewed 2026-10-26 (TODO.md task 53). **Classification: small upstream; not done in localtest** (needs a decision).
+Reviewed 2026-10-26 (TODO.md task 53). **Classification: small upstream; nothing to do in localtest** (the stack sends it gRPC).
 
 ## Upstream today
 
@@ -26,12 +26,13 @@ Without `url`, the JS exporters read the endpoint from the environment and appen
 
 ## Localtest (not done)
 
-A localtest patch would add the proto exporters to `packages/bff/package.json`, which changes `pnpm-lock.yaml` (the
-image installs with `--frozen-lockfile`), so it is more than a directive-sized change. The alternative is to give the
-BFF `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and the collector's gRPC port, as TODO.md task 53 already notes for the stack.
-Decision needed (it also decides task 52's studioctl variables):
+Not needed on the stack as it is: studioctl (task 52, `studioctl/src/cli/internal/cmd/env/localtestv2/monitoring.go`)
+gives every container `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` and `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`
+while the monitoring group runs, so the BFF already follows the rule there. A localtest patch for `http/protobuf` would
+add the proto exporters to `packages/bff/package.json` and change `pnpm-lock.yaml` (the image installs with
+`--frozen-lockfile`), more than a directive-sized change, and only matters if a runner ever sends the BFF
+`http/protobuf` (Aspire, or the front door's `/otlp`). Left as the upstream proposal above.
 
-1. **gRPC for the BFF** (no change here; the runner sets the BFF's endpoint to the collector's 4317), or
-2. **a patch** `0004-bff-otlp-protocol.patch` choosing the exporter by protocol, with the lockfile change.
-
-Proof once decided: the BFF image build and a smoke check that a request creates a `bff` span.
+Not added: an OTLP span check in `../../components/arbeidsflate/smoke-test.sh` (the BFF is unchanged here); with the
+monitoring group up it should show a `bff` server span, or `arbeidsflate-bff` if `OTEL_SERVICE_NAME` wins (see "Not
+verified" above).

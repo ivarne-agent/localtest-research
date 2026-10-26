@@ -33,4 +33,4 @@ Upstream: [Altinn/dialogporten](https://github.com/Altinn/dialogporten), vendore
 `Digdir.Library.Utils.AspNet` with the overrides: 0 errors, no new warnings. A scratch host on OpenTelemetry 1.17.0 with
 `AddOtlpExporter(o => { })` posted to `/v1/traces` and `/v1/metrics` of a fake collector over `http/protobuf`. Not run:
 the hosts need Postgres and Redis. Owed: the three image builds (`Dockerfile.webapi`, `.graphql`, `.service`, one at a
-time), `bump-tag.sh`, a smoke check with `http/protobuf`.
+time), `bump-tag.sh` and a smoke-test run with `--with monitoring` (OTLP span check added for `dialogporten-webapi`, not run; studioctl sends `grpc`).

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check of the stack through the front door: sign-in, tokens, PDP decisions and a full instance lifecycle on
 # production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
-# 26 checks, the last one (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
+# 26 checks, 27 with the monitoring group up (Storage's server span in VictoriaTraces, task 53); check 26 (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
 # storage-<suffix> under the Aspire package, see smoke/lib/containers.sh) skipped without podman or docker or the
 # container. In minimal mode (studioctl env up --minimal: the front door emulates the platform and its PDP permits
 # everything; read from GET localtest/api/routes, or forced with LOCALTEST_MINIMAL=1, or off with LOCALTEST_MINIMAL=0)
@@ -80,6 +80,18 @@ if RT=$(localtest_runtime) && SC=$(localtest_container storage); then
   grep -iE '^(fail|crit):|unhandled exception' -A1 "$SL" | cut -c1-240 | head -8; rm -f "$SL"
 else
   echo "skip storage: no errors in its log (no container runtime or no Storage container)"
+fi
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named storage in VictoriaTraces (smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$BASE/storage/api/v1/applications/ttd"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" storage)
+  check "OTLP: a server span from service.name storage" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
 fi
 rm -f "$J" "$H"
 exit $FAIL

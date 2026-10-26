@@ -29,5 +29,4 @@ Reviewed 2026-10-26 (TODO.md task 53). **Classification: trivial.**
 `src/Events/Program.cs:170-176`: `AddAzureMonitorTelemetryExporters` under `#if !LOCALTEST`, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`); the OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` silenced
 in `localtest.build.props` (the unused local function). The fakes no longer force `ApplicationInsights:ConnectionString`
-empty (nothing reads it under `LOCALTEST`). Build: 0 errors, 0 warnings. Not run: the host needs Postgres. Owed: the image
-build, `bump-tag.sh`, the smoke check.
+empty (nothing reads it under `LOCALTEST`). Build: 0 errors, 0 warnings. Not run: the host needs Postgres. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).

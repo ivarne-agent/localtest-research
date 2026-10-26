@@ -125,4 +125,16 @@ expect "a .../dialogporten/api source filter is a generic subscription (400 'Res
   "$(curl -s -w ' %{http_code}' -X POST "$BASE/events/api/v1/subscriptions" -H "Authorization: Bearer $SUB" -H Content-Type:application/json -d "{\"endPoint\":\"$SINK\",\"sourceFilter\":\"$BASE/dialogporten/api\"}" | python3 -I -c 'import sys; b,c=sys.stdin.read().rsplit(" ",1); print(c, b.strip().strip(chr(34)))')"
 curl -s -o /dev/null -X DELETE "$BASE/events/api/localtest/events?subscriptions=true"
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named events in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$BASE/events/api/v1/subscriptions"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" events)
+  expect "OTLP: a server span from service.name events" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
 [[ $FAIL == 0 ]] && echo "all ok" || { echo "some checks failed"; exit 1; }

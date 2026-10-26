@@ -25,6 +25,7 @@ namespace Localtest.Shared.Otlp;
 /// </remarks>
 public static class LocaltestOtlp
 {
+    /// <summary>The standard variable whose presence turns exporting on.</summary>
     public const string EndpointVariable = "OTEL_EXPORTER_OTLP_ENDPOINT";
 
     /// <summary>

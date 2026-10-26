@@ -225,6 +225,18 @@ curl -s -H "Authorization: Bearer $ORG" "$SO/dialogs?party=$PARTY" | check "  ..
 expect "  ... the live dialog is gone (404)" 404 "$(code -H "Authorization: Bearer $ORG" "$SO/dialogs/$KEEP")"
 curl -s "$LT/dialogs" | check "  ... and GET localtest/dialogs is empty" 'd["items"] == [] and "next" not in d'
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named dialogporten-webapi in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$DP/api/v1/enduser/dialogs"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" dialogporten-webapi)
+  expect "OTLP: a server span from service.name dialogporten-webapi" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
 echo
 echo "$OK ok"
 exit $FAIL

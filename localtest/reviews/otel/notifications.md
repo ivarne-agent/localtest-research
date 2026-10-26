@@ -33,4 +33,4 @@ task 53). **Classification: small** (a setting of its own is replaced).
 Directive site 4, `Program.cs:192-199`: `AddAzureMonitorTelemetryExporters` under `#if !LOCALTEST`, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`). No package change. `CS8321` silenced in `localtest.build.props`. The
 fakes no longer force `OtelSettings:Endpoint` and `ApplicationInsights:ConnectionString` empty (nothing reads them under
-`LOCALTEST`). Build: 0 errors, 0 warnings. Not run: Postgres needed. Owed: the image build, `bump-tag.sh`, the smoke check.
+`LOCALTEST`). Build: 0 errors, 0 warnings. Not run: Postgres needed. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).

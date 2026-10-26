@@ -17,7 +17,22 @@ set" would take, classified trivial / small / large) and the **localtest change*
 | Access Management | [`access-management.md`](access-management.md) | trivial for the rule; small cleanup (dead classic-SDK classes, its own `UseAzureMonitor` block outside ServiceDefaults) | done: as Authentication |
 | Register | [`register.md`](register.md) | trivial: ServiceDefaults 5.5.0; drop an unused Application Insights reference | done: as Authentication (two package references in the fakes project) |
 | Resource Registry | [`resource-registry.md`](resource-registry.md) | trivial: ServiceDefaults 6.0.0; drop three unused Application Insights references | done: as Authentication |
+| Storage | [`storage.md`](storage.md) | trivial: OpenTelemetry pipeline already, Azure Monitor exporters only with the Key Vault connection string; add the OTLP package and `UseOtlpExporter()` when the variable is set | done: `#if !LOCALTEST`/`#else AddLocaltestOtlp` around the Azure Monitor block |
+| Events | [`events.md`](events.md) | trivial: as Storage | done: as Storage |
+| Profile | [`profile.md`](profile.md) | trivial: as Storage | done: as Storage |
+| Receipt | [`receipt.md`](receipt.md) | trivial: as Storage | done: as Storage; run as a process against a fake collector |
+| Correspondence | [`correspondence.md`](correspondence.md) | trivial: as Storage, in `Integrations/OpenTelemetry/DependencyInjection.cs`; drop two unused Application Insights packages | done: a pure `#if LOCALTEST` `AddLocaltestOtlp` after `ConfigureOpenTelemetry` (the fakes compile into the API project only) |
+| Notifications | [`notifications.md`](notifications.md) | small: replace its own traces-only `OtelSettings:Endpoint` with `UseOtlpExporter()` on the standard variable | done: `#if !LOCALTEST`/`#else AddLocaltestOtlp`; `OtelSettings` dropped from the fakes |
+| Dialogporten adapter | [`dialogporten-adapter.md`](dialogporten-adapter.md) | small: telemetry only through the `UseAzureMonitor` distro when Application Insights is enabled; build the pipeline always, Azure Monitor with the connection string, OTLP with the variable; its health filter does not drop spans | done: the `#else` builds the same pipeline (`fakes/LocaltestAdapterTelemetry.cs`) when the variable is set; run as a process |
+| Dialogporten (WebApi, GraphQL, Service) | [`dialogporten.md`](dialogporten.md) | trivial: OTLP from the variable already; traces and metrics set the endpoint in code, so `http/protobuf` misses `/v1/<signal>` | done: `#else` leaves endpoint and protocol to the SDK |
+| Arbeidsflate BFF | [`arbeidsflate.md`](arbeidsflate.md) | small: OTLP when the variable is set, but gRPC exporters whatever the protocol says | nothing needed: studioctl sends every container `grpc` to the collector's 4317 |
+| Workflow engine | [`workflow-engine.md`](workflow-engine.md) | small, upstream: done in altinn-studio#21515 (merged; exports exactly when the variable is set, `EnableTelemetry` removed) | nothing in localtest: the `tt02` image has it, the manifest switch is gone; re-vendor at the next sync |
 
 Across the four ServiceDefaults hosts, one small upstream change in `Altinn/altinn-authorization-utils` would help all of
 them: make the OTLP and Azure Monitor exporters independent (today OTLP turns Azure Monitor off) and let
 `OTEL_SERVICE_NAME` win over `AltinnServiceResourceDetector`.
+
+Across the Azure Monitor services (Storage, Events, Profile, Receipt, Correspondence, Notifications): they are OpenTelemetry
+first already, so the upstream change is one package and one `UseOtlpExporter()` call each. Two things to carry into those
+pull requests: `AddAzureMonitorTraceExporter` sets the provider's sampler, so OTLP sees Azure Monitor's sample when both
+are on; and a hard-coded `service.name` hides `OTEL_SERVICE_NAME` unless the environment detector is added after it.

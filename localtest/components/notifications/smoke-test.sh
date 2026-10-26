@@ -185,4 +185,16 @@ curl -s "$LOCAL/messages" | check "the capture is empty" 'd["items"] == []'
 curl -s "$LOCAL/inboxes" | check "the inboxes stay, empty" 'len(d["items"]) >= 5 and all(i["messageCount"] == 0 for i in d["items"])'
 expect "the production order is still readable" 200 "$(code "${platform[@]}" "$API/orders/$ORDER")"
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named notifications in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$API/orders"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" notifications)
+  expect "OTLP: a server span from service.name notifications" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
 exit $FAIL

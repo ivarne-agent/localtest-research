@@ -37,4 +37,4 @@ Upstream: [Altinn/altinn-storage](https://github.com/Altinn/altinn-storage), ven
 `LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config)` (`fakes/Otlp/`, a copy of
 `components/shared/fakes/Otlp/`); the OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` (the now unused local
 function) was already silenced in `localtest.build.props`. Build with the overrides: 0 errors, no new warnings. Not run:
-the host needs Postgres. Owed: the image build, `bump-tag.sh`, the smoke check.
+the host needs Postgres. Owed: the image build, `bump-tag.sh` and a smoke-test run with `--with monitoring` (its OTLP span check is added, not run).

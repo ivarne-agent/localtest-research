@@ -215,5 +215,17 @@ else
   fail "  ... the service owner sees the dialog deleted within 10 s"
 fi
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named dialogporten-adapter in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -X POST -H "traceparent: $TP" -H 'Content-Type: application/json' -d '{}' "$ADP/api/v1/syncDialog"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" dialogporten-adapter)
+  expect "OTLP: a server span from service.name dialogporten-adapter" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
 echo "$OK passed, $([[ $FAIL == 0 ]] && echo "no failures" || echo "FAILURES")"
 exit $FAIL

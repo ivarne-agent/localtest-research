@@ -185,4 +185,16 @@ if [[ "$PERSIST" == set ]]; then
   echo "left a favourite for 1337 and language en for 1001; restart the stack and run PERSIST=check $0"
 fi
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named profile in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$BASE/profile/api/v1/users/current"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" profile)
+  expect "OTLP: a server span from service.name profile" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
 exit $FAIL
