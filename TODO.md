@@ -85,10 +85,10 @@ A path matching no route still falls through to the localtest app.
 | 49 | [localtest-v2 "up" from the containers, not the state file](#49-localtest-v2-up-from-the-containers-not-the-state-file) | done (2026-10-25; commits aae4355b, 70e5e5c4, 3b263f5b, ec0c4ebc: `localtestv2.Current` (state file plus devenv `GraphRunning`) for every reader outside the runtime, a stale file is no localtest-v2, `run` stops at once only when the containers run and the front door does not answer (the agent's stop on a stale file was changed by the coordinator: it refused runs against `-r localtest`); proven on the stack: after `docker rm -f` of the 13 containers `app env` on loopback without the certificate, `run` in 2.5 s, the server with the host bridge, `env up -r localtest` and a run against it, `env down -r localtest-v2` removed the file; with the front door paused `run` stopped after 5 s; ported to altinn-studio#21394 as 7b4c81fc13; brief `/home/agent/code/.briefs/task49-state-file.md`) | medium | yes |
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
-| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
-| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | unapproved (2026-10-26) | medium | yes |
-| 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | unapproved (2026-10-26) | small | yes |
-| 55 | [A small OTLP viewer in minimal mode](#55-a-small-otlp-viewer-in-minimal-mode) | unapproved (2026-10-26; open: always on or opt-in, where the UI is reached) | small | yes |
+| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | approved (2026-10-26; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
+| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | approved (2026-10-26; every component, eventually all of them) | medium | yes |
+| 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | approved (2026-10-26) | small | yes |
+| 55 | [A small OTLP viewer in minimal mode](#55-a-small-otlp-viewer-in-minimal-mode) | unapproved (2026-10-26; for agents debugging failed tests, not for humans; not thought through yet) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1901,6 +1901,11 @@ environment variable that describes where to ship the OTEL".
   specification defines them.
 - Without the variable, a component sends nothing and logs no export errors.
 - No component-specific switch is needed: no `EngineSettings__EnableTelemetry` and no `OtelSettings__Endpoint`.
+- It covers every component, eventually all of them (decided 2026-10-26), including the ones that only send to
+  Application Insights today. A component this task cannot finish stays listed here as open work, not as an
+  exception.
+- It becomes a convention: the manifest README's conventions and `localtest/CONVENTIONS.md` state it, and a new
+  component follows it from the start.
 - Once this holds, the manifest needs no telemetry settings. studioctl (task 52) and Aspire only set the standard
   variables.
 
@@ -1967,13 +1972,18 @@ environment variable that describes where to ship the OTEL".
 ## 55. A small OTLP viewer in minimal mode
 
 **Origin (2026-10-26).** The user: Grafana and its stack should not be in minimal mode, but minimal mode should have
-some OTEL available.
+some OTEL available. The main purpose is to give agents something to debug failed tests with. Humans use the default
+mode with the full setup (task 52). The user has not thought this through yet, so the task stays unapproved until
+then.
 
 **Goal.**
 - `env up -r localtest-v2 --minimal` can show an app's traces, logs and metrics, with one light container and no
   storage.
 - Everything sends to it through the same standard variables (tasks 53 and 54). In minimal mode those are only the
   app, the front door and its emulations, Storage and the workflow engine.
+
+**What matters,** given the purpose: an agent can read the spans and logs of a failed test from the command line or
+over HTTP, filtered by trace ID or time. A UI is secondary.
 
 **Candidates** (the agent measures memory and start time; this machine has 7.8 GB):
 - **The standalone Aspire dashboard** (`mcr.microsoft.com/dotnet/aspire-dashboard`). It keeps traces, structured logs
