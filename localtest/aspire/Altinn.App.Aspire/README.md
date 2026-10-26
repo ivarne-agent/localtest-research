@@ -185,9 +185,73 @@ own dashboard link reads it; `/traces/detail/{traceId}` is the dashboard's trace
 dashboard (`DisableDashboard`) the variable is not set. Limits: the engine image in `tt02` does not know the setting yet
 (an upstream change adds it; the engine ignores an unknown setting, so its dashboard shows no trace link until then);
 the link opens the dashboard's login page first when the browser has no dashboard session yet (the token in the
-AppHost's console log logs it in); Codespaces' URL rewriting is not applied; and the containers have no OTLP exporter
-in the package (`WithOtlpExporter` is not called on them), so the engine's own spans do not reach the dashboard and
-the page finds only what an app sent under the same trace id.
+AppHost's console log logs it in); and Codespaces' URL rewriting is not applied. The engine's own spans reach the
+dashboard ([Telemetry in the dashboard](#telemetry-in-the-dashboard)), so the page opens the engine's trace.
+
+## Telemetry in the dashboard
+
+Every container sends its traces, structured logs and metrics to the Aspire dashboard, in the full stack and in
+minimal mode, as studioctl's runner points them at its collector while the monitoring group runs (task 52 of
+[`TODO.md`](../../../TODO.md)). A component exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (task 53), so the
+package only sets the standard variables:
+
+- **Aspire's `WithOtlpExporter()`** on each container (Aspire 13.6.2, `OtlpConfigurationExtensions`):
+  `OTEL_EXPORTER_OTLP_ENDPOINT`, the dashboard's OTLP/gRPC endpoint resolved for the container's network
+  (`http://host.containers.internal:18889` under Podman with the variables of [Use](#use)), `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`
+  (the protocol Dialogporten needs, as under studioctl), `OTEL_EXPORTER_OTLP_HEADERS=x-otlp-api-key=<the AppHost's OTLP
+  key>`, `OTEL_RESOURCE_ATTRIBUTES=service.instance.id=<the container's DCP name>` and, when the AppHost runs in
+  Development, 1 s batch delays, `always_on` sampling and exemplars.
+- **Over Aspire's values** (`DashboardTelemetry`): `OTEL_SERVICE_NAME=<manifest name>` and
+  `OTEL_METRIC_EXPORT_INTERVAL=5000`, studioctl's two. The container's own manifest `envs` win over both.
+- Postgres and Redis get the variables and ignore them. The apps export as before (`AddProject` already calls
+  `WithOtlpExporter`); app-lib names them `testapp` and `testapp2`.
+
+**Reaching the dashboard from a container.** Aspire's default route is its container tunnel; on Podman 5.7 its image
+does not build (`ASPIRE_ENABLE_CONTAINER_TUNNEL=false`, [Use](#use)). Without it a container reaches the host through
+its network's gateway (`host.containers.internal`, `10.89.0.1` on the session network), but DCP proxies the dashboard's
+endpoints on loopback only, and for a `0.0.0.0` endpoint it binds the interfaces that exist when it starts, which does
+not include the bridge it then creates for the containers. So with the tunnel off the package makes the dashboard's
+OTLP endpoints (`otlp-grpc`, `otlp-http`) unproxied on `0.0.0.0` before the start (`DashboardTelemetry.HostWideOtlp`,
+after Aspire's dashboard subscriber has set them): the dashboard's own Kestrel listens on the configured port on every
+interface. With the tunnel on, nothing is changed. Trade-off: the OTLP port is open on the machine's network, behind the
+dashboard's OTLP API key (anyone who can reach the port and has the key can send telemetry; with
+`ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` anyone at all).
+
+**TLS.** With the variables of [Use](#use) the OTLP endpoint is plain HTTP, so nothing needs a certificate. With a
+trusted development certificate the dashboard's OTLP endpoint is https; Aspire 13.6 then appends the development
+certificate to each container's OpenSSL trust (`SSL_CERT_DIR`, its default `Append` scope), which .NET and Go read and
+Node (the Arbeidsflate BFF) does not, and the certificate must name the host the container dials
+(`host.containers.internal`, `host.docker.internal`). Not tried here; the HTTP endpoint is the supported local setup.
+
+**The OTLP API key and the persistent containers.** The key is in every container's environment, so a new key recreates
+all persistent containers. Aspire generates one when none is configured and saves it in the AppHost's user secrets, but
+a file-based AppHost (`apphost.cs`) does not read them back in 13.6.2, so the key changed on every run and every
+restart recreated the 18 containers (22 to 27 s instead of 3 to 4 s). The full stack therefore keeps a key generated in
+memory in `<DataDirectory>/otlp-api-key` (owner-only) and gives that one to the dashboard and the containers
+(`DashboardTelemetry.KeepOtlpApiKey`); a key from any other source (environment, appsettings, user secrets read back)
+and an unsecured dashboard without a key are left alone. Minimal mode's containers live for the run and need nothing.
+A dashboard OTLP port Aspire allocates (no `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL`) also changes every run and recreates
+them; the variables of [Use](#use) fix it at 18889.
+
+**What the dashboard shows** (2026-10-26, Podman 5.7, the pins `sha-609c646`, both samples):
+
+- Full sample (18 containers, both apps), from the dashboard's Telemetry API (`/api/telemetry/resources`): traces,
+  logs and metrics from Access Management, Authentication, Authorization, the Dialogporten adapter, Events, the front
+  door (`localtest`), Notifications, Profile, the Register, the Resource Registry, Storage, the workflow engine and both
+  apps; Dialogporten's WebApi, GraphQL and Service send all three, but under two instances each (their traces and
+  metrics carry an instance id of their own, their Serilog logs Aspire's); pdf3 sends metrics and, at start, traces, no
+  logs (it logs to stdout, as under studioctl). Postgres and Redis send nothing.
+- One app request (`POST ttd/testapp/instances` as user 20001) is one trace of 161 spans in eight resources: the app,
+  the front door, Authentication, the Register, Authorization, Profile, Access Management and Storage. The front door's
+  span for the incoming request is in a trace of its own (app-lib starts a new trace, as under studioctl).
+- The workflow engine: an enqueue through the front door is one trace (the front door's `POST workflow-engine`, the
+  engine's `POST /api/v1/{namespace}/workflows/`, `Engine.EnqueueWorkflow`), and `/traces/detail/<that trace id>` opens
+  it; the workflow runs in a trace of its own (`WorkflowHandler.Handle`, 10 engine spans and the front door's span of the
+  webhook's call).
+- Minimal sample: the front door (with its emulated Register, Authorization, Profile and Authentication spans), Storage,
+  the workflow engine and both apps, all three signals; the app request's trace has 112 spans in three resources.
+- Restarts: the 18 persistent containers are reused (healthy in 3 s) once the key is kept.
+- Screenshots: `/home/agent/code/.handover/task52-aspire-otlp/`.
 
 ## Minimal mode
 
@@ -382,19 +446,19 @@ sample, `dotnet pack` as `0.1.0-alpha.<run number>`, the `.nupkg` as an artifact
 
 ## Tests and parity
 
-`dotnet test tests -c Release` (155 tests). Parity with studioctl means both runners build the same thing from the one
+`dotnet test tests -c Release` (171 tests). Parity with studioctl means both runners build the same thing from the one
 manifest; the package's tests compare what it builds with studioctl's golden snapshots (under
 `localtest/studioctl/src/cli/`), which studioctl's own tests hold its loaders to:
 
 | Golden file | This package's test |
 | --- | --- |
-| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, `--with everything` and `--minimal` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-`. In the `minimal` case a tmpfs compares by its path and options (`--tmpfs path:options` in the runtime arguments), and `MinimalModeEmulatesWhatStudioctlEmulatesAndMountsNoVolume` holds the emulated set to the snapshot's |
+| `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, `--with everything` and `--minimal` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-`. In the `minimal` case a tmpfs compares by its path and options (`--tmpfs path:options` in the runtime arguments), and `MinimalModeEmulatesWhatStudioctlEmulatesAndMountsNoVolume` holds the emulated set to the snapshot's. Each runner's telemetry variables (studioctl's while its collector runs, the package's always) are left out of the environment comparison on both sides unless the manifest sets them; `EveryContainerSendsItsTelemetryAsStudioctlsCollectorGetsIt` compares what both choose (protocol, service name, metric interval) with the `everything` snapshot, container by container, in every selection |
 | `internal/cmd/app/testdata/app-environment.golden.json` | `GoldenComparisonTests`: every case (native, inherited variables, ingress port 80, container) from the same inputs |
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
 
 Besides: `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
 world-readable and in place), `MonitoringGroupTests` (the manifest's `monitoring` group: not optional,
-not in `everything`, no method required, `WithGroup` refuses it), `DashboardTraceLinksTests` (the engine's trace URL template on the dashboard's `https` or `http` address, resolved for the engine's network as the host's address, and none without a dashboard), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
+not in `everything`, no method required, `WithGroup` refuses it), `DashboardTraceLinksTests` (the engine's trace URL template on the dashboard's `https` or `http` address, resolved for the engine's network as the host's address, and none without a dashboard), `DashboardTelemetryTests` (every container's OTLP variables in both modes, the dashboard's endpoint for the container's network, the manifest's own envs winning, the host-wide OTLP endpoints only without the tunnel, the kept OTLP key), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
 health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
 `correspondence` and `everything` selections, the `services__*` of every container and of a group added later, only
