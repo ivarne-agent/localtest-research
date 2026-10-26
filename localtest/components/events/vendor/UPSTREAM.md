@@ -9,8 +9,10 @@
   `Directory.Packages.props` or `global.json` upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition. The six sites (line numbers checked 2026-10-22): `src/Events/Program.cs:59-64`
-  (the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`)), `:69-71` and `:76-78` (pure additions), `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`) and
+  `#if LOCALTEST … #endif` addition. The seven sites (line numbers checked 2026-10-22; the seventh 2026-10-26): `src/Events/Program.cs:59-64`
+  (the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`)), `:69-71` and `:76-78` (pure additions), `:170-176`
+  (`AddAzureMonitorTelemetryExporters` in `ConfigureServices`: `#if !LOCALTEST` production's call `#else`
+  `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53)), `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`) and
   `:213-221` (`IsAppSubscription`), and `src/Events/Services/OutboundService.cs:429-435` (`GetSourceFilter`); the last
   two (task 12) call `fakes/Sources/LocaltestAppSources.cs`.
 

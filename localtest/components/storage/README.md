@@ -40,7 +40,7 @@ public origin (the self links' host, the JwtCookie metadata). In minimal mode th
 emulation (`http://localtest:8080`), and the adapter has no address, which the outbox client treats as "not running".
 
 Nothing else in the host is hard-wired to Azure: Postgres and Yuniql run as in production, Wolverine uses local
-queues in `Development`, Application Insights is only wired when Key Vault yields a connection string.
+queues in `Development`, Application Insights is never wired (it needs a connection string from Key Vault); OTLP replaces it, see "Telemetry (OTLP)".
 
 ## Fakes (`fakes/`, namespace `Altinn.Platform.Storage.Localtest`)
 
@@ -163,6 +163,12 @@ marked `localtest:`:
   studioctl's volume is `localtest-v2-storage-blobs`, created for the non-root image.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` at startup: the chiseled image has no Kerberos
   library, as in production, and nothing uses it.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `Program.cs:249-258`: production's Azure Monitor exporters under `#if !LOCALTEST`, `#else` `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`) on the host's own pipeline (ASP.NET Core, HttpClient, Npgsql, `RequestFilterProcessor`, its meters, the logs of `ConfigureApplicationLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-storage` unless `OTEL_SERVICE_NAME` is set.
+
+`dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The host needs Postgres to start, so it was not run. Not yet verified in the image: rebuild it (one image build at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check (with the variable pointing at a throwaway collector, a request creates a span with the right `service.name`; without it the container log shows no export errors).
 
 ## Verified
 

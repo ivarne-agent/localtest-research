@@ -92,7 +92,6 @@ public static class LocaltestEventsExtensions
         // skips Key Vault because nothing sets it locally.)
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ApplicationInsights:ConnectionString"] = string.Empty,
             // No Service Bus transport: Wolverine routes the commands to the API's own handlers on local queues.
             ["WolverineSettings:EnableRegistrationPublisher"] = "false",
             ["WolverineSettings:EnableValidationPublisher"] = "false",

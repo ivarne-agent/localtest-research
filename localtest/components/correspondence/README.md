@@ -241,7 +241,7 @@ volume and its `correspondence-blobs` volume (`localtest-v2-correspondence-blobs
   raw fake-Maskinporten token as an Altinn token: with `altinn:correspondence.write` it passes `Sender` without
   `altinn:serviceowner`, which production would demand. No consumer in the stack sends one; Notifications' condition check uses
   the Maskinporten scheme and its scope requirement, not those policies.
-- Azure Resource Manager, Key Vault (the JWK rotation is off by default), Slack, Application Insights and the Altinn 2 bridge are off.
+- Azure Resource Manager, Key Vault (the JWK rotation is off by default), Slack, Application Insights and the Altinn 2 bridge are off; OTLP replaces Application Insights, see "Telemetry (OTLP)".
 - The 10-minute Resource Registry cache and the 24-hour Register party cache are production's (HybridCache over Redis): a renamed
   party in `testData.json` is not seen for up to 24 hours unless Redis database 1 is flushed and the container restarted.
 
@@ -301,6 +301,12 @@ passed 64 of 64 on 2026-10-21 (task 12, after the authorization, events, Dialogp
 Two orderings matter and are production behaviour: `markasread` needs a `Fetched` status first (`details` or `content` set it)
 and answers 400 once the correspondence is `Read`; and a `confirm` sent while one of the opened or download-started activity
 jobs patches the same dialog gets Dialogporten's 409 (optimistic concurrency) and answers 500, so the test waits for those jobs.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `src/Altinn.Correspondence.API/Program.cs:66-71`, a pure addition right after production's `ConfigureOpenTelemetry(generalSettings)`: `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`) on the pipeline that call builds in the Integrations project (the Hangfire source, ASP.NET Core with its filter, HttpClient, the Npgsql meters, `RequestFilterProcessor`, `WithLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.18.0 (the host's version) in `localtest.build.targets`. The service name is `altinn-correspondence` unless `OTEL_SERVICE_NAME` is set. The Azure Monitor exporters stay off because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty.
+
+`dotnet build -c Release` of the API host with the overrides: 0 errors, the same 24 upstream warnings (2026-10-26). The host needs Postgres and Redis to start, so it was not run. Not yet verified in the image: rebuild it (one image build at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check (with the variable pointing at a throwaway collector, a request creates a span with the right `service.name`; without it the container log shows no export errors).
 
 ## Verified
 

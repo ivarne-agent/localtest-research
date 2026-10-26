@@ -63,6 +63,12 @@ static void BuildAndRun(string[] args)
         ?? throw new InvalidOperationException($"Missing {nameof(GeneralSettings)} configuration section");
     bootstrapLogger.LogInformation("Running in environment {Environment} with base url {BaseUrl}", builder.Environment.EnvironmentName, generalSettings.CorrespondenceBaseUrl);
     builder.Services.ConfigureOpenTelemetry(generalSettings);
+#if LOCALTEST
+    // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
+    // nothing otherwise (fakes/Otlp, TODO.md task 53). ConfigureOpenTelemetry adds no Azure Monitor exporter here: the
+    // fakes force GeneralSettings:ApplicationInsightsConnectionString empty.
+    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTelemetry(), builder.Configuration);
+#endif
 
     var app = builder.Build();
     bootstrapLogger.LogInformation("Application built");

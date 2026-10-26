@@ -14,16 +14,20 @@
 
 ## Directive sites
 
-All three are in `components/api/src/Altinn.Notifications/Program.cs` (line numbers checked 2026-10-22):
+All four are in `components/api/src/Altinn.Notifications/Program.cs` (line numbers checked 2026-10-26):
 
 1. Lines 51-53, after `SetConfigurationProviders(builder.Configuration);`, a pure addition:
    `#if LOCALTEST` … `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
-2. Lines 236-240, `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
+2. Lines 243-247, `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
    `#if !LOCALTEST` (the production call) `#else` `…LocaltestNotificationsExtensions.AddLocaltestMessaging(services, config);` `#endif`.
    `AddWolverineServices` throws without a Service Bus connection string and registers hosted services that connect at
    start, so it cannot be neutralised by configuration or a later `Replace`.
 3. Lines 40-45, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
    service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
+4. Lines 192-199, `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
+   production call (its own `OtelSettings:Endpoint` traces exporter and the Azure Monitor exporters) `#else`
+   `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). The skipped function holds the only signal-specific
+   `AddOtlpExporter`, so `UseOtlpExporter()` does not clash with it.
 
 ## Syncing to a newer upstream commit
 

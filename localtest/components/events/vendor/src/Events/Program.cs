@@ -167,7 +167,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             tracing.AddProcessor(new RequestFilterProcessor(new HttpContextAccessor()));
         });
 
+#if !LOCALTEST
     AddAzureMonitorTelemetryExporters(services, config);
+#else
+    // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
+    // nothing otherwise (fakes/Otlp, TODO.md task 53). There is no Application Insights connection string here.
+    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config);
+#endif
 
     services.AddSingleton<TelemetryClient>();
 

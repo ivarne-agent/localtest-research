@@ -15,18 +15,21 @@
 
 ## Directive sites
 
-Three, all in `src/Altinn.Profile/Program.cs`, all pure additions (no `#if !LOCALTEST`; line numbers checked 2026-10-22):
+Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if !LOCALTEST` / `#else` (line numbers checked
+2026-10-26):
 
 1. Lines 64-66, after `SetConfigurationProviders(builder.Configuration);`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
    It must come before `ConfigureServices`: `AddRegisterService` reads the connection string, `AddMaskinportenClient`
    binds its settings and `AddSyncJobs` reads `JobSettings` at registration time.
-2. Lines 230-232, after `services.AddSyncJobs(config);` in `ConfigureServices`:
+2. Lines 236-238, after `services.AddSyncJobs(config);` in `ConfigureServices`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);` … `#endif`.
    It must come after `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
 3. Lines 54-59, right after `var builder = WebApplication.CreateBuilder(args);`: the service-discovery registration
    (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25,
    `planned-components/service-discovery.md`).
+4. Lines 152-158, `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
+   production call `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
 
 ## Syncing to a newer upstream commit
 

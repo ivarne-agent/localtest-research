@@ -89,8 +89,6 @@ public static class LocaltestNotificationsExtensions
         // Settings that cannot be anything else without Azure: forced over appsettings and the environment.
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ApplicationInsights:ConnectionString"] = string.Empty,
-            ["OtelSettings:Endpoint"] = string.Empty,
             ["kvSetting:SecretUri"] = string.Empty,
         });
     }

@@ -13,16 +13,19 @@
 
 ## Directive sites
 
-All three in `src/backend/Altinn.Receipt/Program.cs` (line numbers checked 2026-10-22):
+All four in `src/backend/Altinn.Receipt/Program.cs` (line numbers checked 2026-10-26):
 
 1. Lines 52-54, after `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
    `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Configuration);` `#endif`
    (the hook into `../fakes/`).
-2. Lines 265-271, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
+2. Lines 271-277, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
    `https://platform.{GeneralSettings:Hostname}{path}{query}` `#else` the request's own scheme and host `#endif`. There
    is no `platform.` host and no TLS locally, and the proxy keeps the browser's `Host`.
 3. Lines 36-41, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
    service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
+4. Lines 190-199, the Azure Monitor exporters in `ConfigureServices`: `#if !LOCALTEST` production's `if` and call
+   `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). (The Key Vault read that would set the connection string,
+   `ConnectToKeyVaultAndSetApplicationInsights`, stays unguarded: it does nothing without `kvSetting:SecretUri`.)
 
 The frontend has no sites: it is built unchanged.
 

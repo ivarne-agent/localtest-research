@@ -25,8 +25,8 @@ for Register and Profile; the browser reads Storage's application metadata and t
 | Settings from the deployment (chart values) | Environment variables from the manifest: `GeneralSettings__OpenIdWellKnownEndpoint`, `GeneralSettings__Hostname` (`local.altinn.cloud`), `PlatformSettings__ApiAuthenticationEndpoint` on the public origin (the browser follows the sign-in redirect), the Storage, Register and Profile endpoints by service name (`http://storage/storage/api/v1/`, `http://register/register/api/v1/`, `http://profile/profile/api/v1/`, task 40), `Localtest__Receipt__PlatformEndpoint`; `ASPNETCORE_ENVIRONMENT=Development` (cookie metadata over http) and `ASPNETCORE_URLS=http://+:5060` in the image |
 | The platform access token's signing certificate (Key Vault in production, mount not public) | The shared test certificate bind-mounted read-only at `/accesstoken/accesstokencredentials.pfx`, the path the production `SigningCredentialsResolver` reads when `AccessTokenSettings` is not bound, as for Events and Notifications |
 
-Not faked and not a site: Key Vault (`kvSetting:SecretUri` is empty), Azure Monitor (only with a Key Vault connection
-string), graceful shutdown (skipped in Development), the subscription key header (sent, ignored by everything local).
+Not faked and not a site: Key Vault (`kvSetting:SecretUri` is empty), graceful shutdown (skipped in Development), the subscription key header (sent, ignored by everything local). Azure Monitor (only
+with a Key Vault connection string) is replaced by OTLP, see "Telemetry (OTLP)".
 
 ## Differences from production
 
@@ -51,6 +51,12 @@ production" in `../../README.md`.
 Open the receipt on `local.altinn.cloud`, never on `localhost:<port>` (the container publishes no host port anyway): upstream's frontend sends
 `localhost` to `platform.at22.altinn.cloud`. Signed out, it redirects to the sign-in picker and back. With the group
 off, `/receipt/...` answers `503` problem details naming the group and the `--with receipt` command.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site 4, `src/backend/Altinn.Receipt/Program.cs:190-199`: the Azure Monitor exporters under `#if !LOCALTEST`, `#else` `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`) on the host's own pipeline (ASP.NET Core, HttpClient, `RequestFilterProcessor`, the logs); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-receipt` unless `OTEL_SERVICE_NAME` is set.
+
+`dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The upstream tests (`vendor/test`, built with the overrides) pass, 19 of 19. The host was run without Docker against a fake OTLP/HTTP collector (2026-10-26): with the variable and `http/protobuf`, `/v1/traces` (the `GET receipt/api/v1/users/current` span), `/v1/metrics` and `/v1/logs` arrived named `platform-receipt`, or `OTEL_SERVICE_NAME` when set; without it, and with only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, nothing arrived and the log has no exporter line. With the variable the exporter's own `HttpClient` logs each export at Information on the console (`System.Net.Http.HttpClient.Otlp*Exporter`), as in every host that logs `System.Net.Http` at Information. Not yet verified in the image: rebuild it (one image build at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check (with the variable pointing at a throwaway collector, a request creates a span with the right `service.name`; without it the container log shows no export errors).
 
 ## Verified
 

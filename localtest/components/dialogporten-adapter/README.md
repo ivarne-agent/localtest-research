@@ -55,7 +55,7 @@ Nothing in the sync logic, the merger's content, the receipt or the delete flow 
 | `IMaskinportenService` against `maskinporten.no`, exchanged to an Altinn token | `fakes/Maskinporten/`, the shared fake: an unsigned assertion to the localtest app's Maskinporten token endpoint, then production Authentication's `exchange/maskinporten` | The package hard-codes the Maskinporten hosts. Same rule as Dialogporten (task 4): `?test=true` only when `UseAltinnTestOrg` is true, which it is not here, and the client id `localtest-dialogporten-adapter` is not an organisation number, so the token is issued for Digdir (991825827) and the exchanged token names **`digdir`**. The adapter acts as Digdir towards Storage (scope `altinn:storage/instances.syncadapter`), the Register (`altinn:register/partylookup.admin`) and Dialogporten (`digdir:dialogporten.serviceprovider[.admin|.legacyhtml]`), with production's full scope list |
 | `{org}.apps.{host}` and `platform.{host}` sub-domains | One origin (directive sites 3 and 4) | The stack serves everything on `local.altinn.cloud:8000` |
 | OpenID metadata over https | `RequireHttpsMetadata=false` on the JWT bearer (`Configure<JwtBearerOptions>`: the framework's own post-configure rejects an http address before a later `PostConfigure` runs) | The stack's Authentication is plain http |
-| Azure Monitor, Key Vault | `ApplicationInsights:Enabled=false` (forced; it throws without a connection string), no `kvSetting` (Key Vault is skipped) | Console logs only |
+| Azure Monitor, Key Vault | Azure Monitor under `#if !LOCALTEST`, OTLP in the `#else` (see "Telemetry (OTLP)"); no `kvSetting` (Key Vault is skipped) | Console logs; OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set |
 
 ### Configuration defaults
 
@@ -106,7 +106,7 @@ No localtest source mints dialog tokens: the smoke test reads one from Dialogpor
 | Links | `{org}.apps.{host}`, `platform.{host}` | The one origin (directive sites 3 and 4) |
 | Archived instances' go-to link | The platform receipt app at `/receipt/{partyId}/{guid}` | The same link, served by the optional `receipt` group (`--with receipt`, `../receipt/`). Without that group the front door answers `503` "Component not running" (problem details, or an HTML page for a browser) naming the group and the `--with receipt` command. The adapter's own transmission receipt works either way |
 | Organisation list | altinncdn.no | altinncdn.no too (internet access needed) |
-| Telemetry | Azure Monitor | Console only |
+| Telemetry | Azure Monitor, 5 % of traces | Console; all three signals over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, every trace |
 | Outbox delays | Storage batches low-priority events for 60 s, high-priority ones for 5 s | 2 s and 0 s (see below) |
 
 ### Known pain point: `ttd` and Digdir's organisation number
@@ -162,6 +162,12 @@ Without the group: no adapter container, the enqueue path a 503 from the front d
 
 `podman stats --no-stream` (2026-10-20, right after the smoke test): `dialogporten-adapter` 261 MB. With the three Dialogporten
 hosts and Redis (318, 148, 177 and 7 MB at the same moment) the group takes about 0.9 GB.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `Common/Extensions/ServiceCollectionExtensions.cs:56-65`: production's `ConfigureTelemetry` (`UseAzureMonitor`, which brings its own ASP.NET Core and HttpClient instrumentation and throws without a connection string) under `#if !LOCALTEST`, `#else` `fakes/LocaltestAdapterTelemetry.cs`: when the variable is set, the same pipeline without Azure Monitor (the `HealthCheckFilterProcessor`, `service.name` `platform-dialogporten-adapter`, ASP.NET Core and HttpClient traces and metrics) plus `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`, which adds the logs); nothing otherwise. `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.15.3, the OpenTelemetry version `Azure.Monitor.OpenTelemetry.AspNetCore` 1.6.0 resolves, in `localtest.build.targets`; `.editorconfig` silences CA1716 for the copy as for the other shared copies. Production samples 5 % of traces; here the SDK default (everything) applies. The fakes no longer force `ApplicationInsights:Enabled=false`.
+
+`dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The host was run without Docker against a fake OTLP/HTTP collector (2026-10-26): with the variable and `http/protobuf`, `/v1/traces`, `/v1/metrics` and `/v1/logs` arrived named `platform-dialogporten-adapter`; without it nothing arrived and the log has no exporter line. The `GET /health` span is exported although the health filter is meant to drop it: the filter sets `IsAllDataRequested = false` in `OnEnd`, which the OTLP exporter does not check (it exports what is `Recorded`); whether Azure Monitor drops it in production was not checked. Not yet verified in the image: rebuild it (one image build at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check (with the variable pointing at a throwaway collector, a request creates a span with the right `service.name`; without it the container log shows no export errors).
 
 ## Verified (2026-10-20, task 10)
 

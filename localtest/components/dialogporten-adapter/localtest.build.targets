@@ -13,6 +13,9 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.DialogportenAdapter.WebApi'">
     <!-- Service discovery by name for the #if LOCALTEST registration in Program.cs (planned-components/service-discovery.md). -->
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <!-- OTLP for the localtest telemetry pipeline (fakes/LocaltestAdapterTelemetry.cs, TODO.md task 53), at the OpenTelemetry
+         version Azure.Monitor.OpenTelemetry.AspNetCore 1.6.0 resolves. -->
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>
 </Project>

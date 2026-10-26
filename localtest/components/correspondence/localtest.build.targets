@@ -13,6 +13,8 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Correspondence.API'">
     <!-- Service discovery by name for the #if LOCALTEST registration in Program.cs (planned-components/service-discovery.md). -->
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <!-- OTLP for the #if LOCALTEST call after ConfigureOpenTelemetry in Program.cs (fakes/Otlp, TODO.md task 53), at the host's OpenTelemetry version. -->
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
     <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>
 </Project>

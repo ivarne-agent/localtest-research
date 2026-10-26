@@ -17,7 +17,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- The vendored root props pulls in CSharpier.MsBuild, which formats sources on build; vendored and fake files stay as committed. -->
     <CSharpier_Bypass>true</CSharpier_Bypass>
-    <!-- The localtest sources compiled into the host are not XML-documented; the Key Vault connect is unused under LOCALTEST. -->
+    <!-- The localtest sources compiled into the host are not XML-documented; the Key Vault connect and the Azure Monitor exporters are unused under LOCALTEST. -->
     <NoWarn>$(NoWarn);CS1591;CS8321</NoWarn>
   </PropertyGroup>
 </Project>

@@ -14,7 +14,8 @@
   <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
     <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <!-- The host generates XML documentation; the localtest sources compiled into it are not documented. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- The host generates XML documentation; the localtest sources compiled into it are not documented. The Azure Monitor
+         exporters' local function is unused under LOCALTEST (the #else adds OTLP instead). -->
+    <NoWarn>$(NoWarn);CS1591;CS8321</NoWarn>
   </PropertyGroup>
 </Project>

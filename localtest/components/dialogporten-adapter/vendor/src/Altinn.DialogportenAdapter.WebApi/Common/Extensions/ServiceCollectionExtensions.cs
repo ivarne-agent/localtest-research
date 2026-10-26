@@ -53,10 +53,16 @@ internal static class ServiceCollectionExtensions
             IClock clock)
         {
             var settings = configuration.Get<Settings>()!;
+#if !LOCALTEST
             if (settings.ApplicationInsights.Enabled)
             {
                 services.ConfigureTelemetry(settings);
             }
+#else
+            // localtest: the same pipeline over OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set, nothing otherwise
+            // (fakes/LocaltestAdapterTelemetry.cs, TODO.md task 53). There is no Application Insights locally.
+            Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterTelemetry.AddLocaltestAdapterTelemetry(services, configuration);
+#endif
 
             services.AddWolverine(opts =>
             {

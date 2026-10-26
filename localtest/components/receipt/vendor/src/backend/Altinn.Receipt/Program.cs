@@ -187,10 +187,16 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             tracing.AddProcessor(new RequestFilterProcessor(new HttpContextAccessor()));
         });
 
+#if !LOCALTEST
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
         AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString);
     }
+#else
+    // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
+    // nothing otherwise (fakes/Otlp, TODO.md task 53). Azure Monitor has no connection string here: no Key Vault.
+    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config);
+#endif
 
     services.AddControllersWithViews();
     services.AddHealthChecks().AddCheck<HealthCheck>("receipt_health_check");

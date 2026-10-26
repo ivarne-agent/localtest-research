@@ -189,7 +189,14 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             tracing.AddSource(BackgroundActivitySource.Name);
         });
 
+#if !LOCALTEST
     AddAzureMonitorTelemetryExporters(services, config);
+#else
+    // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
+    // nothing otherwise (fakes/Otlp, TODO.md task 53), in place of production's OtelSettings:Endpoint (traces only) and
+    // Azure Monitor exporters.
+    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config);
+#endif
 
     services.AddControllers().AddJsonOptions(options =>
     {

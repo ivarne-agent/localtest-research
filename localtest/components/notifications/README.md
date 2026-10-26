@@ -124,7 +124,7 @@ working directory, hence `PostgreSQLSettings__MigrationScriptPath=app/Migration`
   production (`Email_Failed_RecipientReserved`, see "Recipients and the seed").
 - Process loops run 1 task each with a 1 s idle delay, and SMS is sent at any hour.
 - Profile's contact points come from the test data through Profile's KRR and brreg stand-ins (below,
-  `../profile/README.md`), Dialogporten is off, Key Vault and Application Insights are off.
+  `../profile/README.md`), Dialogporten is off, Key Vault and Application Insights are off (OTLP instead, see "Telemetry (OTLP)").
 - The vendored `Yuniql` trace logs every migration statement at start (`ConsoleTraceService` is always in debug mode); the
   first start of a fresh volume prints thousands of lines.
 
@@ -195,6 +195,12 @@ Then run `bin/Release/net10.0/Altinn.Notifications.dll` with `ASPNETCORE_ENVIRON
 likewise `platform_notifications`), `PostgreSQLSettings__MigrationScriptPath` as an absolute path to
 `Altinn.Notifications.Persistence/Migration`, `Localtest__Notifications__PlatformEndpoint` and
 `AccessTokenSettings__AccessTokenSigningCertificateFullPath=…/certs/localtest-accesstoken.pfx`.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site 4, `components/api/src/Altinn.Notifications/Program.cs:192-199`: `AddAzureMonitorTelemetryExporters` (production's own `OtelSettings:Endpoint` traces exporter and the Azure Monitor exporters) under `#if !LOCALTEST`, `#else` `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`) on the host's own pipeline (ASP.NET Core, HttpClient, Npgsql, Wolverine, the background source, `RequestFilterProcessor`, `WolverineActivityNameProcessor`, its meter, the logs). The host already references `OpenTelemetry.Exporter.OpenTelemetryProtocol` (1.19.1, central package management). The service name is `platform-notifications` unless `OTEL_SERVICE_NAME` is set. `OtelSettings__Endpoint` no longer does anything, and the fakes no longer force it or `ApplicationInsights:ConnectionString` empty.
+
+`dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The host needs Postgres to start, so it was not run. Not yet verified in the image: rebuild it (one image build at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check (with the variable pointing at a throwaway collector, a request creates a span with the right `service.name`; without it the container log shows no export errors).
 
 ## Verified
 

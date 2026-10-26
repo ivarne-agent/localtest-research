@@ -38,20 +38,21 @@ before the first registration. The service replacements (the two `ITokenIssuerCa
 `AddSingleton`s, so the hook installs an `IServiceProviderFactory` (`fakes/Infrastructure/LocaltestOverrides.cs`) that applies them to the finished
 service collection: one site per host instead of two.
 
-One `#if !LOCALTEST` block, added with the Dialogporten adapter (task 10):
+Two `#if !LOCALTEST` blocks, the first added with the Dialogporten adapter (task 10), the second with task 53:
 
 | File | Site |
 | --- | --- |
+| `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs:106-112`, `:134-139` | The trace and metric `AddOtlpExporter` options of `AddDialogportenTelemetry`: `#if !LOCALTEST` upstream's `options.Endpoint = endpoint; options.Protocol = otlpProtocol;` `#else` nothing, so the exporter reads `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_PROTOCOL` itself. An endpoint set in code gets no signal path, so with `http/protobuf` upstream posts traces and metrics to the bare endpoint, where a collector answers 404; from the variable the SDK appends `/v1/traces` and `/v1/metrics`. `grpc` is unchanged. The Serilog log sinks and the "protocol must be set" checks are unchanged (TODO.md task 53) |
 | `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs:29-34`, `:39-44` | Both `IsValidHttpsUrl` overloads (string and `Uri`) require `https`; `#else` accepts `http` too. The stack is plain http on `http://local.altinn.cloud:8000`, so every link the adapter puts in a dialog (GUI actions, API action endpoints, attachment and transmission URLs) is http, and Dialogporten refused the dialog with 400 `'Url' is not a well-formatted HTTPS URL.` The rule is a validator inside the Application project's FluentValidation rules, not reachable through DI, hence a directive. The HTML content rule (`<a href>` must start with `https://`) is unchanged |
 
 ## Syncing to a newer upstream commit
 
 1. In a clone of `Altinn/dialogporten` with both commits, re-pin with the shared script, which takes upstream's new version of every file that is
-   unchanged locally, three-way merges the three Program.cs files and `FluentValidationStringExtensions.cs`, adds and deletes files, and reports conflicts:
+   unchanged locally, three-way merges the three Program.cs files, `FluentValidationStringExtensions.cs` and `OpenTelemetryExtensions.cs`, adds and deletes files, and reports conflicts:
    `../../tools/repin-vendor.py <clone> <pin> <new> vendor Directory.Build.props .editorconfig global.json src/Digdir.Domain.Dialogporten.WebApi ... `
    (every path of the list above).
 2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md`, the three
-   `Program.cs` files and `FluentValidationStringExtensions.cs` may differ.
+   `Program.cs` files, `FluentValidationStringExtensions.cs` and `OpenTelemetryExtensions.cs` may differ.
 3. **Keep `../Dockerfile.webapi`, `.graphql` and `.service` as equal to upstream's three per-host Dockerfiles as possible.** When
    `git diff <pin> <new> -- src/Digdir.Domain.Dialogporten.*/Dockerfile` shows a change (a base image digest, a step), make the same change in all three.
 4. Fix the fakes (`../fakes/`) for upstream's changes (a new `LocalDevelopment` flag goes into `LocaltestConfiguration`; the two

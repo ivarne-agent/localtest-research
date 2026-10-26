@@ -207,7 +207,7 @@ Correspondence (database 1) and the Arbeidsflate BFF (database 2) share it; clie
 
 ## Differences from production
 
-- The message bus is in-process (`UseInMemoryServiceBusTransport`); no Azure Service Bus, App Configuration, Key Vault, Application Insights or OTLP.
+- The message bus is in-process (`UseInMemoryServiceBusTransport`); no Azure Service Bus, App Configuration, Key Vault or Application Insights. OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, see "Telemetry (OTLP)".
 - Dialogporten acts as `digdir`: its Maskinporten token is the localtest app's fake, exchanged by production Authentication. `ttd` shares Digdir's
   organisation number in the Resource Registry, so a `ttd` app passes the owner check, but the caller's organisation short name is the first the
   registry lists for that number (`digdir`) while a dialog for a `ttd` app gets the org `ttd`: it is read by id but a service-owner search (which only returns
@@ -218,6 +218,12 @@ Correspondence (database 1) and the Arbeidsflate BFF (database 2) share it; clie
   production"). Production waits for them to expire.
 - ID-porten, Maskinporten and Authentication are the localtest stack's (http metadata); the Idporten scheme points at the fake ID-porten.
 - URLs in dialogs may be `http` as well as `https` (the one `#if !LOCALTEST` site above); production refuses `http`.
+
+## Telemetry (OTLP)
+
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Dialogporten exported over OTLP from these variables already (`AddDialogportenTelemetry` and the Serilog sinks in `Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`, name from `OTEL_SERVICE_NAME`, else the application name), but set the endpoint in code for traces and metrics, so with `http/protobuf` they went to the bare endpoint without `/v1/traces` and `/v1/metrics`. Directive site `OpenTelemetryExtensions.cs:106-112`, `:134-139`: upstream's `options.Endpoint` and `options.Protocol` under `#if !LOCALTEST`, nothing in the `#else`, so the exporter reads both variables itself and appends the signal path. Unchanged: `OTEL_EXPORTER_OTLP_PROTOCOL` must be `grpc` or `http/protobuf` when the endpoint is set (unset throws at start); the logs go to OTLP instead of the console when the endpoint is set; metrics go to Azure Monitor instead when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set (it is not).
+
+`dotnet build -c Release` of `Digdir.Library.Utils.AspNet` with the overrides: 0 errors, no new warnings (2026-10-26). A scratch host on the same exporter version (1.17.0) with `AddOtlpExporter` and nothing set in code posted to `/v1/traces` and `/v1/metrics` of a fake collector for `http/protobuf`. Not yet verified in the images: rebuild the three (one at a time), bump the tag with `../../tools/bump-tag.sh`, and add the smoke check with `http/protobuf` (a request creates a span with the host's name).
 
 ## Memory
 

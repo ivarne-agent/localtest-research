@@ -103,8 +103,13 @@ public static class OpenTelemetryExtensions
                     .AddNpgsql()
                     .AddOtlpExporter(options =>
                     {
+#if !LOCALTEST
                         options.Endpoint = endpoint;
                         options.Protocol = otlpProtocol;
+#else
+                        // localtest: endpoint and protocol from the standard variables (TODO.md task 53), so that
+                        // http/protobuf posts to <endpoint>/v1/traces; an endpoint set in code gets no signal path.
+#endif
                     });
 
                 additionalTracing?.Invoke(tracing);
@@ -126,8 +131,12 @@ public static class OpenTelemetryExtensions
                 {
                     metrics.AddOtlpExporter(options =>
                     {
+#if !LOCALTEST
                         options.Endpoint = endpoint;
                         options.Protocol = otlpProtocol;
+#else
+                        // localtest: from the standard variables, so that http/protobuf posts to <endpoint>/v1/metrics.
+#endif
                     });
                 }
 

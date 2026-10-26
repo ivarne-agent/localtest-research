@@ -81,7 +81,6 @@ public static class LocaltestProfileExtensions
         // Settings that cannot be anything else without Azure: forced over appsettings and the environment.
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ApplicationInsights:ConnectionString"] = string.Empty,
             ["kvSetting:SecretUri"] = string.Empty,
         });
     }

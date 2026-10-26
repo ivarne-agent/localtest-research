@@ -22,7 +22,7 @@ public static partial class LocaltestAdapterExtensions
     /// <summary>
     /// Inserts the localtest defaults just below the environment variables, so they override the vendored
     /// <c>appsettings*.json</c> (tt02 and "PopulateFromEnvironmentVariable" values) while <c>DialogportenAdapter__...</c>
-    /// variables still win; then forces what cannot be anything else without Azure.
+    /// variables still win.
     /// </summary>
     public static void AddLocaltestConfiguration(ConfigurationManager configuration)
     {
@@ -74,12 +74,6 @@ public static partial class LocaltestAdapterExtensions
         configuration.Sources.Insert(
             lastEnvironmentSource < 0 ? configuration.Sources.Count : lastEnvironmentSource,
             new MemoryConfigurationSource { InitialData = defaults });
-
-        // Forced: Azure Monitor throws without a connection string, and there is no Application Insights locally.
-        configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ApplicationInsights:Enabled"] = "false",
-        });
     }
 
     public static WebApplicationBuilder AddLocaltestAdapter(WebApplicationBuilder builder)
