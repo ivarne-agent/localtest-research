@@ -2007,9 +2007,9 @@ brief `/home/agent/code/.briefs/task52-aspire-otlp.md`; the user's decision of 2
   `0.0.0.0` (`HostWideOtlp`, a subscriber after Aspire's dashboard one); trade-off: the OTLP port is open on the
   machine's network, behind the API key. TLS: the README's HTTP OTLP endpoint needs no certificate; the https default
   relies on Aspire appending the dev certificate to `SSL_CERT_DIR` (not tried).
-- Found: the API key changed every run (a file-based AppHost does not read back the user secrets Aspire saves it to),
-  so every restart recreated all 18 persistent containers (25 s instead of 3 s). The full stack keeps a generated key in
-  `<DataDirectory>/otlp-api-key` (`KeepOtlpApiKey`); a configured key is left alone.
+- Found: the API key changed every run, so every restart recreated all 18 persistent containers (25 s instead of 3 s).
+  The workaround of commit 3a9c9b6d (`KeepOtlpApiKey`, a key in `<DataDirectory>/otlp-api-key`) was removed after the
+  cause was found (below).
 - Tests: `DashboardTelemetryTests` (9); `GoldenComparisonTests` leaves each runner's telemetry variables out on both
   sides and compares protocol, service name and interval with studioctl's `everything` (171 tests in all).
 - Proof under Podman (pins `sha-609c646`), screenshots and the Telemetry API's listings in
@@ -2030,6 +2030,29 @@ brief `/home/agent/code/.briefs/task52-aspire-otlp.md`; the user's decision of 2
     one; the dashboard process 325 MB with the full stack's telemetry.
 - Not verified: the https OTLP endpoint with a trusted dev certificate; Docker and Docker Desktop (the tunnel-on path
   is Aspire's own, unchanged); the engine image's own dashboard link (the `tt02` image ignores the template).
+
+**Done: the OTLP API key's real cause, and the workaround removed (2026-10-26, branch `task52-aspire-otlp-key`, brief
+`/home/agent/code/.briefs/task52-aspire-otlp-key.md`).**
+- Cause: not the file-based AppHost but its environment. `dotnet run apphost.cs` without a launch profile runs in
+  Production. Aspire 13.6.2 (`DistributedApplicationBuilder`, `UserSecretsManager.GetOrSetSecret`) generates
+  `AppHost:OtlpApiKey` when configuration has none and writes it to the AppHost's user secrets
+  (`apphost-<sha256 of the path>`, the .NET 10 SDK's implicit `UserSecretsId` for file-based apps) in any environment,
+  but `HostApplicationBuilder` adds user secrets to the configuration only in Development, so in Production each run
+  generates a new key and overwrites the saved one. The same holds for a persisted proxyless port
+  (`DcpExecutor`, `Resources:<resource>:<endpoint>:port`: saved, not read back), so `PublicPort = 0` changed every run too.
+  `aspire run` without a run.json defaults to Development (`ConfigureSingleFileRunEnvironment`); Aspire's single-file
+  template ships an `apphost.run.json` with `DOTNET_ENVIRONMENT=Development`.
+- Measured on a minimal file-based AppHost (one persistent busybox with `WithOtlpExporter()`, Podman): Production, as
+  is, with `#:property UserSecretsId=<guid>`, with `#:package Altinn.App.Aspire` from a local feed, with `#:project`, and
+  on Aspire 13.6.4: a new key and a new container every run. Development (environment variable or `apphost.run.json`):
+  the saved key read back, the container reused; the first Development run after Production recreates it once (Development
+  also adds Aspire's 1 s batch delays). An unproxied endpoint without a port: a new port every run in Production, the
+  same port in Development. The user's hypotheses 1 to 3 do not hold.
+- Change: `apphost.run.json` and `apphost-minimal.run.json` beside the samples (Development), the README's [Use] tells
+  package users to do the same; `KeepOtlpApiKey`, its call and its two tests removed.
+- Not verified: the full sample stack restarted with the change (all 18 containers reused, healthy in 3 to 4 s,
+  telemetry arriving); a machine that ran the workaround has a stale `~/.altinn-app-aspire/otlp-api-key` (harmless,
+  unused) and its containers are recreated once, on the first run with the user-secrets key.
 
 ## 53. The standard OTLP variables in every component
 

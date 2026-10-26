@@ -18,7 +18,9 @@
 // (the tunnel's image does not build on Podman 5.7, see the package README), with no studioctl stack and no other
 // AppHost running: the package refuses to start while port 8000 is taken by anything but its own front door.
 // local.altinn.cloud must resolve to this machine (studioctl env hosts add), since the AppHost registers the app
-// through the front door.
+// through the front door. apphost.run.json, which dotnet run reads, runs the AppHost in Development: only then does
+// Aspire read back the user secrets it keeps the dashboard's OTLP API key in (and an allocated front door port), so the
+// persistent containers, whose environment carries the key, are reused instead of recreated on every start.
 //
 // The dashboard reaches the AppHost over https with the ASP.NET Core development certificate; where it is not trusted
 // (Linux), trust it (dotnet dev-certs https --trust) or add ASPIRE_ALLOW_UNSECURED_TRANSPORT=true

@@ -14,6 +14,7 @@
 //
 // Run it as apphost.cs (the Podman flags and the dashboard's variables are there):
 // ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost-minimal.cs
+// (apphost-minimal.run.json runs it in Development, as apphost.run.json does the full stack).
 using Altinn.App.Aspire;
 
 var builder = DistributedApplication.CreateBuilder(args);

@@ -63,11 +63,6 @@ internal static class LocaltestPlatform
                         ContainerRuntime.Cli(builder.Configuration)
                     );
                 }
-                // Before Aspire's dashboard reads the key (its subscriber runs after this handler).
-                if (builder.ExecutionContext.IsRunMode && !stack.Minimal)
-                {
-                    DashboardTelemetry.KeepOtlpApiKey(builder.Configuration, stack.DataDirectory);
-                }
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
                 stack.Manifest.Files.Ensure(stack.FilesDirectory);
             }

@@ -1,10 +1,8 @@
-using System.Security.Cryptography;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Eventing;
 using Aspire.Hosting.Lifecycle;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Memory;
 
 namespace Altinn.App.Aspire;
 
@@ -70,53 +68,6 @@ internal static class DashboardTelemetry
     /// </summary>
     public static bool NeedsHostWideOtlp(IConfiguration configuration) =>
         !configuration.GetValue(ContainerTunnelSetting, defaultValue: true);
-
-    /// <summary>The AppHost's OTLP API key, which Aspire puts in every exporter's <c>OTEL_EXPORTER_OTLP_HEADERS</c>.</summary>
-    public const string OtlpApiKeySetting = "AppHost:OtlpApiKey";
-
-    /// <summary>The file in the package's data directory that keeps the key between runs.</summary>
-    public const string OtlpApiKeyFileName = "otlp-api-key";
-
-    /// <summary>
-    /// Keeps the OTLP API key the same from run to run, so the persistent containers, whose environment carries it, are
-    /// reused instead of recreated on every start. Aspire generates a key when none is configured and saves it in the
-    /// AppHost's user secrets for that reason, but a file-based AppHost (<c>apphost.cs</c>, Aspire 13.6.2) does not
-    /// read them back, so the key changes every run. A key only in memory is that generated one: it is replaced by the
-    /// one kept in <paramref name="dataDirectory" /> (written owner-only the first time). A key from any other source
-    /// (user secrets read back, the environment, appsettings) is the AppHost's own and is left alone, as is a
-    /// dashboard without a key (unsecured).
-    /// </summary>
-    /// <returns>Whether the kept key is now the AppHost's.</returns>
-    public static bool KeepOtlpApiKey(IConfigurationManager configuration, string dataDirectory)
-    {
-        if (configuration[OtlpApiKeySetting] is null)
-        {
-            return false;
-        }
-        var configured = ((IConfigurationRoot)configuration).Providers.Any(p =>
-            p is not MemoryConfigurationProvider && p.TryGet(OtlpApiKeySetting, out _)
-        );
-        if (configured)
-        {
-            return false;
-        }
-        var path = Path.Combine(dataDirectory, OtlpApiKeyFileName);
-        if (!File.Exists(path))
-        {
-            Directory.CreateDirectory(dataDirectory);
-            var create = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
-            if (!OperatingSystem.IsWindows())
-            {
-                create.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            }
-            using var writer = new StreamWriter(new FileStream(path, create));
-            writer.Write(Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)));
-        }
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?> { [OtlpApiKeySetting] = File.ReadAllText(path).Trim() }
-        );
-        return true;
-    }
 
     /// <summary>
     /// Makes the dashboard's OTLP endpoints reachable from the containers when the tunnel is off: unproxied, on

@@ -49,9 +49,22 @@ builder.AddAltinnApp<Projects.App>(localtest);
 await builder.Build().RunAsync();
 ```
 
+and an `apphost.run.json` beside it that runs the AppHost in Development (as Aspire's own single-file template does):
+
+```json
+{ "profiles": { "apphost": { "commandName": "Project", "environmentVariables": { "DOTNET_ENVIRONMENT": "Development" } } } }
+```
+
 ```sh
 ASPIRE_CONTAINER_RUNTIME=podman ASPIRE_ENABLE_CONTAINER_TUNNEL=false dotnet run apphost.cs   # or aspire run
 ```
+
+Development matters for the full stack's persistent containers: Aspire saves the values it generates for them (the
+dashboard's OTLP API key, which is in every container's environment, and a front door port it allocates) in the
+AppHost's user secrets, but .NET reads user secrets back only in Development. Without `apphost.run.json`,
+`dotnet run apphost.cs` runs in Production and every start recreates all containers
+([The OTLP API key](#telemetry-in-the-dashboard)); `aspire run` defaults to Development, and
+`DOTNET_ENVIRONMENT=Development` on the command line does the same.
 
 Stop `studioctl env down -r localtest-v2` first: both need port 8000 at the default origin, and the package refuses to
 start while it is taken, naming the holder (or give the AppHost another port, [The public origin](#the-public-origin)). `local.altinn.cloud` must resolve to this machine (`studioctl env hosts add` writes the
@@ -102,7 +115,8 @@ var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.
   registration, the dev-server route, `PlatformUri`.
 - `PublicPort = 0`: the front door's `http` endpoint is declared unproxied without a port
   (`WithHttpEndpoint(port: null, targetPort: 8080, isProxied: false)`), and Aspire 13 allocates a free host port for it
-  while it prepares the run (a persistent front door keeps it in the AppHost's user secrets when they are enabled).
+  while it prepares the run (a persistent front door keeps it in the AppHost's user secrets, which Aspire reads back
+  only when the AppHost runs in Development, [Use](#use); otherwise the port and the container change every run).
   Every value with the port is a `ReferenceExpression` over that endpoint's port in the localhost network context
   (`GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork).Property(EndpointProperty.Port)`), which Aspire
   resolves after the allocation and before any container or app starts. `PlatformUri` is known from then on; before,
@@ -224,12 +238,15 @@ Node (the Arbeidsflate BFF) does not, and the certificate must name the host the
 (`host.containers.internal`, `host.docker.internal`). Not tried here; the HTTP endpoint is the supported local setup.
 
 **The OTLP API key and the persistent containers.** The key is in every container's environment, so a new key recreates
-all persistent containers. Aspire generates one when none is configured and saves it in the AppHost's user secrets, but
-a file-based AppHost (`apphost.cs`) does not read them back in 13.6.2, so the key changed on every run and every
-restart recreated the 18 containers (22 to 27 s instead of 3 to 4 s). The full stack therefore keeps a key generated in
-memory in `<DataDirectory>/otlp-api-key` (owner-only) and gives that one to the dashboard and the containers
-(`DashboardTelemetry.KeepOtlpApiKey`); a key from any other source (environment, appsettings, user secrets read back)
-and an unsecured dashboard without a key are left alone. Minimal mode's containers live for the run and need nothing.
+all persistent containers (the 18 of the sample: 22 to 27 s instead of 3 to 4 s). Aspire generates one when none is
+configured (`DistributedApplicationBuilder`, `GetOrSetSecret("AppHost:OtlpApiKey")`) and saves it in the AppHost's user
+secrets (a file-based AppHost has the id `apphost-<hash of its path>`, from the .NET 10 SDK), and the host reads them
+back only in Development (`HostApplicationBuilder`'s default configuration, as for every .NET app). So the key is the
+same on every run when the AppHost runs in Development ([Use](#use): `apphost.run.json`, `aspire run`), and new on every
+run in Production, which is what `dotnet run apphost.cs` without a launch profile gives; a key configured elsewhere
+(`AppHost:OtlpApiKey` in the environment or appsettings) is stable either way. Measured with Aspire 13.6.2 and 13.6.4
+alike; neither a `UserSecretsId` of one's own nor referencing the package as a `#:package` instead of a `#:project`
+changes it. Minimal mode's containers live for the run and need nothing.
 A dashboard OTLP port Aspire allocates (no `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL`) also changes every run and recreates
 them; the variables of [Use](#use) fix it at 18889.
 

@@ -159,65 +159,6 @@ public sealed class DashboardTelemetryTests
         );
     }
 
-    /// <summary>
-    /// A key Aspire generated in memory (a file-based AppHost does not read its user secrets back) is replaced by the
-    /// one kept in the data directory, the same on every run, so the persistent containers are reused.
-    /// </summary>
-    [Fact]
-    public void AGeneratedOtlpApiKeyIsKeptInTheDataDirectory()
-    {
-        var directory = Directory.CreateTempSubdirectory("otlp-key-").FullName;
-        try
-        {
-            string RunKey()
-            {
-                var configuration = new ConfigurationManager();
-                configuration.AddInMemoryCollection(
-                    new Dictionary<string, string?> { ["AppHost:OtlpApiKey"] = Guid.NewGuid().ToString("N") }
-                );
-                Assert.True(DashboardTelemetry.KeepOtlpApiKey(configuration, directory));
-                return configuration["AppHost:OtlpApiKey"]!;
-            }
-
-            var first = RunKey();
-
-            Assert.Equal(first, RunKey());
-            Assert.Equal(32, first.Length);
-            var file = Path.Combine(directory, "otlp-api-key");
-            Assert.Equal(first, File.ReadAllText(file));
-            if (!OperatingSystem.IsWindows())
-            {
-                Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
-            }
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    /// <summary>A configured key (here from the environment) and an unsecured dashboard's missing key are left alone.</summary>
-    [Fact]
-    public void AConfiguredOrMissingOtlpApiKeyIsLeftAlone()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "otlp-key-" + Guid.NewGuid().ToString("N"));
-        var configured = new ConfigurationManager();
-        Environment.SetEnvironmentVariable("ALTINN_ASPIRE_TEST_AppHost__OtlpApiKey", "own");
-        try
-        {
-            configured.AddEnvironmentVariables("ALTINN_ASPIRE_TEST_");
-
-            Assert.False(DashboardTelemetry.KeepOtlpApiKey(configured, directory));
-            Assert.Equal("own", configured["AppHost:OtlpApiKey"]);
-            Assert.False(DashboardTelemetry.KeepOtlpApiKey(new ConfigurationManager(), directory));
-            Assert.False(Directory.Exists(directory));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("ALTINN_ASPIRE_TEST_AppHost__OtlpApiKey", null);
-        }
-    }
-
     private static byte[] ManifestBytes()
     {
         using var stream = typeof(LocaltestManifest).Assembly.GetManifestResourceStream(LocaltestManifest.Resource)!;
