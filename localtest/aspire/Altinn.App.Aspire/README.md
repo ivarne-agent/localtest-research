@@ -64,7 +64,9 @@ dashboard's OTLP API key, which is in every container's environment, and a front
 AppHost's user secrets, but .NET reads user secrets back only in Development. Without `apphost.run.json`,
 `dotnet run apphost.cs` runs in Production and every start recreates all containers
 ([The OTLP API key](#telemetry-in-the-dashboard)); `aspire run` defaults to Development, and
-`DOTNET_ENVIRONMENT=Development` on the command line does the same.
+`DOTNET_ENVIRONMENT=Development` on the command line does the same. Aspire 17 removes the need: it keeps these values
+in a secrets file per environment that it reads back in every environment
+([microsoft/aspire#20135](https://github.com/microsoft/aspire/pull/20135)).
 
 Stop `studioctl env down -r localtest-v2` first: both need port 8000 at the default origin, and the package refuses to
 start while it is taken, naming the holder (or give the AppHost another port, [The public origin](#the-public-origin)). `local.altinn.cloud` must resolve to this machine (`studioctl env hosts add` writes the
@@ -247,6 +249,12 @@ run in Production, which is what `dotnet run apphost.cs` without a launch profil
 (`AppHost:OtlpApiKey` in the environment or appsettings) is stable either way. Measured with Aspire 13.6.2 and 13.6.4
 alike; neither a `UserSecretsId` of one's own nor referencing the package as a `#:package` instead of a `#:project`
 changes it. Minimal mode's containers live for the run and need nothing.
+Fixed upstream for Aspire 17 by [microsoft/aspire#20135](https://github.com/microsoft/aspire/pull/20135) (merged
+2026-10-14, in no release yet): the AppHost's generated values go to `~/.aspire/secrets/<apphost id>/<environment>.json`,
+which it reads back in every environment, so the key stays the same in Production too. On `main` the builder generated
+the same key twice in Production and in Development (a probe test, not committed; on `main` a7ea8cd89). Endpoint ports
+Aspire saves go the same way (read from the code, not tested). Until the package moves to Aspire 17, the samples'
+`apphost.run.json` is the fix; it stays useful afterwards for Aspire's other Development defaults.
 A dashboard OTLP port Aspire allocates (no `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL`) also changes every run and recreates
 them; the variables of [Use](#use) fix it at 18889.
 

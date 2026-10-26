@@ -2033,6 +2033,13 @@ brief `/home/agent/code/.briefs/task52-aspire-otlp.md`; the user's decision of 2
 
 **Done: the OTLP API key's real cause, and the workaround removed (2026-10-26, branch `task52-aspire-otlp-key`, brief
 `/home/agent/code/.briefs/task52-aspire-otlp-key.md`).**
+- Upstream (2026-10-26, checked on `microsoft/aspire` `main` a7ea8cd89, brief
+  `/home/agent/code/.briefs/aspire-otlp-key-warning.md`): already fixed for Aspire 17 by
+  [microsoft/aspire#20135](https://github.com/microsoft/aspire/pull/20135) (merged 2026-10-14, milestone 17.0, in no
+  release yet). Generated values go to a secrets file per environment that is read back in every environment; a probe
+  test on `main` kept the key in Production and Development. The planned upstream warning PR was dropped, and so were
+  the package's own warning and `CreateBuilder` wrapper. Until then the samples' `apphost.run.json` is the fix. On the
+  move to Aspire 17: check that a Production run reuses the persistent containers, and update the README's notes.
 - Cause: not the file-based AppHost but its environment. `dotnet run apphost.cs` without a launch profile runs in
   Production. Aspire 13.6.2 (`DistributedApplicationBuilder`, `UserSecretsManager.GetOrSetSecret`) generates
   `AppHost:OtlpApiKey` when configuration has none and writes it to the AppHost's user secrets
