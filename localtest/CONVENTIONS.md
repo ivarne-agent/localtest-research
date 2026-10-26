@@ -300,7 +300,7 @@ OCI images drop it, so the runtimes do the check themselves (see [The runtimes](
 | `postgres` | 5432 | `tcp` |
 | `redis` | 6379 | `tcp` |
 | `victoria-metrics` 8428, `victoria-traces` 10428, `victoria-logs` 9428 (upstream images) | own port | `/health` (default) |
-| `otel-collector` (upstream image) | 4318 (OTLP/HTTP; gRPC on 4317) | `tcp` |
+| `otel-collector`, `otel-files` (upstream image; OTLP receivers, `otlpReceiver`) | 4318 (OTLP/HTTP; gRPC on 4317) | `tcp` |
 | `grafana` (upstream image) | 3000 | `/api/health` |
 
 Each component image moves to 8080 in its own small change and the manifest drops its `port` then (section 7 of

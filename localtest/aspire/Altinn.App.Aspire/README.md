@@ -191,6 +191,13 @@ Grafana's `services__` variables, the `OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME`
 variables and the workflow engine's Grafana links, `EngineSettings__Dashboard__GrafanaUrl` and
 `...GrafanaTracesDatasourceUid`).
 
+The same goes for every OTLP receiver in the manifest (a container with `otlpReceiver`): the monitoring group's
+collector and minimal mode's `otel-files`, which writes studioctl's telemetry files. `StackSpec` never starts one,
+although the `minimal` group names `otel-files`, so minimal mode stays four containers. `GoldenComparisonTests` leaves
+the receivers out of studioctl's snapshots, with studioctl's announcement of the running one as
+`services__otlp__http__0` (the front door's `/otlp`), and compares the minimal containers' shared telemetry variables
+(protocol, service name, interval) with studioctl's minimal snapshot, where `otel-files` runs.
+
 **The workflow engine's trace links.** The engine's dashboard links a workflow's trace. studioctl points it at Grafana
 while the group runs; the package points it at the Aspire dashboard's trace page instead, with
 `EngineSettings__Dashboard__TraceUrlTemplate=<dashboard>/traces/detail/{traceId}` on the `workflow-engine` container
@@ -483,7 +490,7 @@ manifest; the package's tests compare what it builds with studioctl's golden sna
 
 Besides: `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
 world-readable and in place), `MonitoringGroupTests` (the manifest's `monitoring` group: not optional,
-not in `everything`, no method required, `WithGroup` refuses it), `DashboardTraceLinksTests` (the engine's trace URL template on the dashboard's `https` or `http` address, resolved for the engine's network as the host's address, and none without a dashboard), `DashboardTelemetryTests` (every container's OTLP variables in both modes, the dashboard's endpoint for the container's network, the manifest's own envs winning, the host-wide OTLP endpoints only without the tunnel, the kept OTLP key), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
+not in `everything`, no method required, `WithGroup` refuses it; no OTLP receiver in either mode), `DashboardTraceLinksTests` (the engine's trace URL template on the dashboard's `https` or `http` address, resolved for the engine's network as the host's address, and none without a dashboard), `DashboardTelemetryTests` (every container's OTLP variables in both modes, the dashboard's endpoint for the container's network, the manifest's own envs winning, the host-wide OTLP endpoints only without the tunnel, the kept OTLP key), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
 health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,
 `correspondence` and `everything` selections, the `services__*` of every container and of a group added later, only

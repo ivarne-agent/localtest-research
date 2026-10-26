@@ -167,6 +167,36 @@ everything. It takes no `--with` or `--without`, and `--dev-<container>` only fo
 it starts. `env status` says when the stack runs in minimal mode, and `env up` with or without
 `--minimal` stops a stack running in the other mode first.
 
+### Telemetry files in minimal mode
+
+Minimal mode also runs `otel-files`, an OpenTelemetry collector that writes what the stack sends to JSON Lines files
+on the host, so a failed test can be debugged without restarting anything. The containers always send to it. An app
+started with `studioctl run` sends only when told to: run it with
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://local.altinn.cloud:8000/otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and
+`AppSettings__UseOpenTelemetry=true` in the environment.
+
+The files are under `<home>/data/infra/localtest-v2/telemetry/`, where `<home>` is `$STUDIOCTL_HOME`, or by default
+`~/.config/altinn-studio` (Linux), `~/Library/Application Support/altinn-studio` (macOS) or
+`%AppData%\altinn-studio` (Windows). There is one folder per `service.name` (`localtest` for the front door,
+`storage`, `workflow-engine`, the app's name such as `testapp`), and in it `traces.jsonl`, `logs.jsonl` and
+`metrics.jsonl`. Each line is one OTLP/JSON export batch (`resourceSpans`, `resourceLogs` or `resourceMetrics`); IDs
+are hex and times are Unix nanoseconds as strings. A line lands within about 10 s of the request (5 s in the
+sender's batch, 5 s in the collector's).
+
+- Each file is rotated to `<signal>-<UTC time>-size.jsonl` beside it, and the two newest backups are kept: traces
+  and logs at 10 MB (at most 30 MB per service and signal), metrics at 25 MB (75 MB).
+- Metrics arrive every 5 s from every container whether anything happens or not, so their files are the ones that
+  rotate in a long session, keeping the most recent hour or more: an idle stack wrote 7 (Storage) to 70 (the front
+  door, after its smoke test) MB of metrics an hour per service. An idle app's logs grow by about 7 MB an hour
+  (studioctl's polls of its metadata), its traces and the platform's by a few MB at most.
+- `env up` in minimal mode starts with an empty folder, and `env down` deletes it. The default stack does not use or
+  touch it.
+
+The `jq` commands an agent uses on them (one trace's spans and log records, the errors of the last minutes, a trace's
+slowest spans) are in the bundled app-development skill,
+[`resources/agent/skills/app-development/SKILL.md`](resources/agent/skills/app-development/SKILL.md), under
+"Telemetry files in minimal mode".
+
 Only one runtime runs at a time: `env up` refuses to start one while the other runs, and `env down`,
 `env status`, `env logs` and `env reset` act on the running one unless `-r` says otherwise.
 

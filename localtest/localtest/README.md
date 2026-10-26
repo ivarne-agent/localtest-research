@@ -40,7 +40,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Telemetry/` | `FrontDoorTelemetry.cs`: OpenTelemetry (ASP.NET Core and HttpClient instrumentation, the emulated services' spans) only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; `LocaltestOtlp.cs`, a copy of the shared OTLP helper ([Telemetry](#telemetry)) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
 | `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link). 83 checks, 86 with the monitoring group, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link, and `/otlp`: an export reaching minimal mode's `otel-files`, or without a receiver the `503` naming the group). 84 checks, 86 with the monitoring group, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -84,10 +84,13 @@ In order:
    `dialogporten-adapter`; `/storage/` → `storage`; `/register/`, `/profile/`, `/authentication/`, `/authorization/`,
    `/events/`, `/notifications/`, `/receipt/`, `/correspondence/` → the service of that name; `/accessmanagement/` →
    `access-management`; `/resourceregistry/` → `resource-registry`; `/grafana/` → `grafana` (Grafana serves from that
-   sub-path, `GF_SERVER_SERVE_FROM_SUB_PATH`); `/otlp/` → `otel-collector`, its OTLP/HTTP receiver, with the prefix
-   removed (`/otlp/v1/traces` arrives as `/v1/traces`), for apps on the host that send OTLP over HTTP with
-   `OTEL_EXPORTER_OTLP_ENDPOINT={origin}/otlp`. The last two are the `monitoring` group's (studioctl's
-   `--with monitoring`). Paths are passed on unchanged except for the GraphQL and OTLP rewrites.
+   sub-path, `GF_SERVER_SERVE_FROM_SUB_PATH`); `/otlp/` → `otlp`, a role rather than a container: the
+   runner announces whichever OTLP receiver runs as `services__otlp__http__0` (studioctl: the monitoring group's
+   `otel-collector`, or minimal mode's `otel-files`, which writes JSON Lines files), at its OTLP/HTTP port, with the
+   prefix removed (`/otlp/v1/traces` arrives as `/v1/traces`), for apps on the host that send OTLP over HTTP with
+   `OTEL_EXPORTER_OTLP_ENDPOINT={origin}/otlp`. `/grafana/` is the `monitoring` group's (studioctl's
+   `--with monitoring`); so is `otlp` in the 503's group: minimal mode always runs its receiver, so only the default
+   stack without the group has none. Paths are passed on unchanged except for the GraphQL and OTLP rewrites.
 6. Anything else: `404` with the text "No app is registered for this path. Start it with studioctl run or an Aspire
    AppHost (or, with this app as the front door, run-app.sh <app-dir> <port>)."
 
@@ -275,8 +278,9 @@ metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, wi
 (`grpc` or `http/protobuf`) and `OTEL_SERVICE_NAME`; nothing otherwise. A per-signal endpoint
 (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and the others) overrides the general one for its signal, but does not turn
 telemetry on by itself: the exporter always sends all three signals, and one without an endpoint would go to the SDK's
-default `localhost:4317`. studioctl sets the variables on every container while the monitoring group's collector runs
-(`http://otel-collector:4317`, `grpc`, `OTEL_SERVICE_NAME=localtest`).
+default `localhost:4317`. studioctl sets the variables on every container while an OTLP receiver runs: the monitoring group's collector
+(`http://otel-collector:4317`) or minimal mode's `otel-files` (`http://otel-files:4317`), with `grpc` and
+`OTEL_SERVICE_NAME=localtest`.
 
 - **Without the variable** nothing is registered: no tracer, meter or logger provider, no activity listener, no
   exporter, so no export errors and no extra log lines.
@@ -286,7 +290,7 @@ default `localhost:4317`. studioctl sets the variables on every container while 
   `GET storage`, `GET ttd/app`, `GET frontend-dev-server`, with the route in `localtest.route`) and under it the
   forwarder's client span (`peer.service` = the route), whose `traceparent` goes to the destination. An app that sends
   its own `traceparent` is the parent of the server span, so app, front door and platform service are one trace.
-- **Not traced:** the monitoring group's routes. `/otlp`, because the span about forwarding an export would be exported
+- **Not traced:** the monitoring group's routes, `otlp` included. `/otlp`, because the span about forwarding an export would be exported
   through the same route and telemetry would feed on itself; `/grafana`, because it is the observer: every dashboard
   view would add a burst of front-door-only spans (Grafana exports none to join them) to the traces being looked at.
   Also `/health` (the runners' probes) and `/app-frontend/` (dozens of static files per page). Their child spans go

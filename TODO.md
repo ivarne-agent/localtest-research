@@ -88,7 +88,7 @@ A path matching no route still falls through to the localtest app.
 | 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | done (2026-10-26; trace-links follow-up done 2026-10-26 (commits 06032322, 83ad35d6, brief `/home/agent/code/.briefs/task52-trace-links.md`): the engine's Grafana pair only from the runner while the monitoring group runs, Aspire sets `EngineSettings__Dashboard__TraceUrlTemplate` to its dashboard (unverified until the engine change is in `tt02`); Aspire follow-up done 2026-10-26 (commit 3a9c9b6d, brief `/home/agent/code/.briefs/task52-aspire-otlp.md`): every localtest container sends traces, logs and metrics to the Aspire dashboard (`WithOtlpExporter()`, the manifest name, 5 s metrics; the dashboard's OTLP endpoints on every interface without the container tunnel; the OTLP key kept so persistent containers are reused), proven with both samples under Podman (screenshots `/home/agent/code/.handover/task52-aspire-otlp/`); collector-first follow-up done 2026-10-26 (commits 569ef9a4, 8ca809a0, brief `/home/agent/code/.briefs/task52-collector-first.md`): every other container depends on the collector, metrics every 5 s, the engine dashboard's Grafana links; part 2: the `monitoring` group with five stock images, the runner's OTLP variables while the collector runs (gRPC to `otel-collector:4317`), `/grafana` and `/otlp` on the front door; proven on the stack: 18 containers healthy, an app's trace, dashboard and logs in Grafana (screenshots `/home/agent/code/.handover/task52/`), 377-480 MB for the five; the collector is a named special case for `services__` (its HTTP receiver has no health path); the front door's new image tag waits for the images workflow on main; brief `/home/agent/code/.briefs/task52-monitoring.md`; engine follow-up done 2026-10-26 (commit f8f4148f, brief `/home/agent/code/.briefs/task52-engine-otel.md`): `EngineSettings__EnableTelemetry=false` dropped now that the engine's `tt02` is altinn-studio#21515 (revision 884b8ed755), research images pinned to `sha-38fbbba` (the last green images run on main, with the front door's task 52 routes and task 54 telemetry); on the stack with the pinned images: the engine's spans under `workflow-engine`, its enqueue joined to the front door's trace, the Workflow Engine dashboard with data (its `$service` comes from the metrics, so no `OTEL_SERVICE_NAME=workflow-engine-app`), without the group no `OTEL_*` and no connection attempts (screenshots `/home/agent/code/.handover/task52-engine/`); part 1: commits a7c97ca9 and 18c54d53: the `files` field in both loaders, written to `<DataDir>/infra/localtest-v2/files/` and mounted read-only, Aspire ignores `monitoring`; verified on Podman 2026-10-26 with a scratch entry on the minimal front door: readable by uid 1654, read-only, `ro` binds, 0644/0755 host copies, in-place rewrite seen by the running container, removed files gone. Known: a plain `env up` on a healthy, unchanged environment says "already running" and does not rewrite the files (only a real start does), and any `self install`, including `make dev-install`, stops every localtest-v2 environment; part 2 must add `monitoring` to the `go:embed` directive in `manifest.go` and leave the monitoring containers out of Aspire's `GoldenComparisonTests` (the `everything` case and the per-group loop); brief `/home/agent/code/.briefs/task52-manifest-files.md`) approved: a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
 | 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`; the workflow engine is done: altinn-studio#21515 merged (884b8ed755), in `tt02`, and the manifest's switch removed (commit f8f4148f, task 52's engine follow-up); it was PR altinn-studio#21515 from `ivarne-agent:feat/workflow-engine-otlp-env` (522ff4cc87, cf006182fd and 834dab1db9; exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, per-signal variables do not turn it on, `EngineSettings.EnableTelemetry` removed, so the manifest's `EnableTelemetry=false` is ignored once the image has it; the old `localtest` runtime checked with a branch image: no attempts to localhost:4317 without monitoring, identical series, traces and logs with it; verified on Podman 2026-10-26 against collector 0.161.0: no variable, no export and no connection attempts; variable, all three signals with `OTEL_SERVICE_NAME`; `EnableTelemetry=true` alone, localhost:4317; both, the variable wins. Export errors go to the SDK's self-diagnostics, not the engine log), PR handover in `/home/agent/code/.handover/wfe-otlp-pr.md`; batches 1-3 done in the localtest builds (the Authorization family `7c1e0dd4`; the platform components and Dialogporten `e64a2a3e`, `3973509e`), stack proof done (2026-10-26, branch `task53-stack-proof`: images `sha-609c646` (ef213725), every changed component's smoke test green with its OTLP span check on `--with everything`, every component of the table reports traces, metrics and logs under its manifest name, one `ttd/testapp` submission as one trace through the front door, Storage, the PDP and Access Management, nothing without the group; the helper filters the exporters' own HTTP logs (ea60bbf9, in the next images); open: pdf3); per-service upstream reviews in `localtest/reviews/otel/`) approved: every component, eventually all of them | medium | yes |
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
-| 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | approved (2026-10-26; the collector writes JSON Lines files for agents to read with `jq`; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md`) | small | yes |
+| 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1229,6 +1229,13 @@ signals and the default components that already export (a few hundred spans, ~1,
 collector 71.1 MB, VictoriaLogs 67.2 MB, VictoriaMetrics 55.2 MB, VictoriaTraces 49.6 MB, 480 MB. `free -m` used went
 from 925 MB (nothing running) to 2,702 MB (18 containers idle) and 3,339 MB with the app and the browser.
 
+**Minimal mode's telemetry files (2026-10-26, task 55, `podman stats --no-stream`, rootful Podman).** `otel-files`
+61 MB with the app's requests in, 70 MB a few minutes later, 88 MB after the front door's smoke test and ten minutes of
+metrics, 46 MB right after a restart; Postgres 214-224 MB, the engine 169-189 MB, Storage 91-102 MB, the front door
+26-33 MB. `env up -r localtest-v2 --minimal --detach` on the pinned images: 6.0, 5.9, 6.0 s without the collector,
+6.3, 6.3, 6.4 s with it. For comparison, the monitoring group on the default stack the same evening: the collector
+74 MB, VictoriaMetrics 68 MB, VictoriaLogs 85 MB, VictoriaTraces 57 MB, Grafana 238 MB.
+
 **Open (owner 2026-10-23): the public origin `http://local.altinn.cloud:8000` must be configurable, with a random port
 possible.** Coordinator's outline given; the scope question (collision avoidance only, or several stacks side by side)
 is with the owner before a brief.
@@ -2340,3 +2347,140 @@ the full setup (task 52).
 - The limits hold.
 - `env down` removes the files.
 - The collector's memory and the change in start-up time are measured and added to task 38's numbers.
+
+**Changes to the decision (the user, 2026-10-26, during the work).**
+
+- Metrics: "only the first 10 minutes" was a suggestion to bound the files; keeping about the last hour is as good. So
+  no OTTL time filter: the metrics files are bounded by size-based rotation like the others, which keeps the newest
+  data.
+- Names: the two collectors have different configs and defaults, so minimal mode's is `otel-files`, not a second
+  `otel-collector`. The runner's rules that were keyed on the name `otel-collector` now follow a manifest field,
+  `otlpReceiver`, and the front door's `/otlp` targets the role `otlp`, not a container (option 1 of the trade-off
+  reported to the coordinator; no stopgap alias).
+- The `/otlp` 503 keeps naming `monitoring`: minimal mode always runs its receiver, so only the default stack without
+  the group has none.
+
+**Done (2026-10-26, branch `task55-minimal-telemetry-files`, commits 575088d7, 8626bdba, 35e6fb7c and the docs commit after them; brief
+`/home/agent/code/.briefs/task55-minimal-telemetry-files.md`).**
+
+- **Manifest.** A container field `otlpReceiver` (`{"grpcPort": 4317}`, optionally `"output": "/telemetry"`, a path
+  where studioctl mounts a host folder read-write) marks the stack's OTLP receiver. `otel-collector` has it (no
+  output); `otel-files`, the same pinned `otel/opentelemetry-collector-contrib` 0.161.0 with only the `file` exporter,
+  has it with `/telemetry` and is a root of the `minimal` group, with no dependencies. `Parse` refuses two receivers in
+  the `minimal` group's selection or in the other groups' together (`errReceivers`), and checks the port and output
+  path. Both collectors read one `monitoring/otel-processors.yaml` through the collector's `${file:…}` provider, so the
+  attributes match. Found on the stack: the provider expands the included file's text, comments too, so a
+  `${file:…}` in its header comment failed the start ("too many recursive expansions"); a test keeps `${` out.
+  Why a field and not runner code or per-mode overrides: the receiver's role (OTLP variables, dependency, `/otlp`
+  announcement) is the same for both, only the name and config differ, and the field states it where the containers
+  are declared; per-mode `files`/`dependsOn` would have added a second override concept to both loaders for one
+  container.
+- **Runner** (`telemetry.go`, was `monitoring.go`). While a receiver runs, every container but the receiver, its
+  dependency closure and the monitoring group gets `OTEL_EXPORTER_OTLP_ENDPOINT=http://<receiver>:<grpcPort>`, `grpc`,
+  `OTEL_SERVICE_NAME`, the 5 s interval and the implicit dependency on the receiver; the receiver is announced as
+  `services__otlp__http__0` (the old `services__otel-collector__http__0` special case is gone); the engine's Grafana
+  pair still needs Grafana running, so it stays with `monitoring`. `otel-files` runs as the developer's uid:gid (and
+  `keep-id` under Podman, `envstack.RuntimeUser`) with `<data>/infra/localtest-v2/telemetry` read-write at
+  `/telemetry`. `env up` empties the folder unless `otel-files` already runs (a converged stack keeps its open files);
+  the teardown of a stack whose state is minimal (down, reset, Ctrl+C, a mode switch, a failed start) deletes it;
+  other modes leave it alone. The teardown selection now includes the `minimal` group, whose `otel-files` no other
+  group starts. Golden file: `services__otel-collector__http__0` becomes `services__otlp__http__0` in `everything`;
+  the minimal case gains `otel-files`, the OTLP variables and the dependency.
+- **Front door.** `/otlp` → service `otlp` (`PlatformRoutes.OtlpService`), group `monitoring` for the 503 (comment
+  states the assumption); route and telemetry tests updated; the smoke test checks an export through `/otlp` when
+  `otlp` has an address (minimal mode) and the 503 naming the group when not.
+- **Aspire.** The loader reads `otlpReceiver`; `StackSpec` never starts a receiver (minimal mode stays four
+  containers); `GoldenComparisonTests` leaves studioctl's receivers and `services__otlp__http__0` out on both sides,
+  and compares minimal mode's shared telemetry variables with studioctl's minimal snapshot instead of `everything`;
+  `NoOtlpReceiverRunsInEitherMode`.
+- **Files** (`monitoring/otel-files.yaml`). `/telemetry/<service.name>/{traces,logs,metrics}.jsonl`, `group_by` on
+  `service.name` (checked in the 0.161.0 source and on the stack: a name with `/` makes nested folders, records
+  without the attribute are dropped). With `rotation` set the exporter writes every batch at once (`flush_interval`
+  does not apply), so a request shows up within about 10 s (the sender's 5 s batch, the collector's 5 s batch).
+  Rotation at 10 MB with two backups (`<signal>-<UTC time>.jsonl`): at most 30 MB per service and signal.
+  Metrics at 25 MB with two backups (75 MB): measured on an idle minimal stack with the app (`rates-idle.txt`,
+  `metrics-size-t*.txt`), metrics grow by 7.1 MB an hour (Storage), 14.3 (the app), 31.2 (the engine) and 69.9 (the
+  front door, after its smoke test had put every route in its histograms; cumulative temporality resends every series
+  each 5 s), so 75 MB hold about an hour for the front door and two to ten for the rest. Traces and logs grow mostly
+  with requests; idle, the app's logs grow by 6.6 MB an hour (studioctl-server's 5 s polls of its metadata), Storage's
+  traces by 3.5, the rest by less. Not done: an OTTL time filter (dropped with the user's change), and the contrib
+  image's `interval` processor, which would cut metrics to one export a minute but is a deviation the user did not ask
+  for (an option if the front door's rate matters).
+- **Guide.** The bundled app-development skill (`resources/agent/skills/app-development/SKILL.md`, which ships with
+  studioctl and is where an agent working on an app looks) has "Telemetry files in minimal mode": where the files
+  are, four `jq` commands (one trace's spans and log records, errors in the last N minutes, a trace's slowest spans,
+  the app's requests with their trace IDs). studioctl's README describes the files and points there; the manifest
+  README has "OTLP receivers" and the runner's changes; the front door's README the `otlp` role.
+
+**Proof on the stack (2026-10-26, studioctl from the worktree under `STUDIOCTL_HOME=/home/agent/lt-home`, pinned
+images `sha-609c646` except the front door, built from the worktree with `--dev-localtest`; rootful Podman 5.7).**
+Evidence in `/home/agent/code/.handover/task55/`.
+
+- `env up -r localtest-v2 --minimal --dev-localtest`: five containers; `otel-files` runs as `1000:1000`, the folder
+  is `agent`'s (0755 folders, 0644 files); the front door has `services__otlp__http__0=http://otel-files:4318` and
+  `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-files:4317`.
+- `ttd/testapp` (app-lib 8.12.15) with `studioctl run` and the OTLP variables of the guide; an instance created and
+  its process moved (`PUT process/next`, 200). The guide's trace command on the app's process/next trace: 75 app
+  spans and 57 app log records, 24 front-door spans (forwarding and the emulated Authorization calls) and 23 Storage
+  spans (server and Npgsql) in one listing (`trace-process-next.tsv`). The workflow engine is not in it: this app-lib
+  never calls the engine (task 52's finding), so the engine is shown with a direct enqueue through the front door:
+  the front door's 2 spans and the engine's 4 in one trace (`trace-engine-enqueue.tsv`). The app's server span starts
+  a new trace (task 54's note), so the client's traceparent only finds the front door's 2 spans
+  (`trace-process-next-frontdoor-incoming.tsv`); the guide says to use the app's trace ID.
+- Errors: with Storage stopped for one request the errors command lists the front door's and the app's error spans
+  and the app's two Error log records with the trace ID (`errors-last-2-min.txt`); the slowest spans of the
+  process/next trace (`slowest-process-next.txt`). The guide's commands were run verbatim from the skill file
+  (`guide-verbatim-output.txt`).
+- The front door's smoke test in minimal mode: the new check "OTLP/HTTP under /otlp reaches the running receiver
+  (http://otel-files:4318)" passes; 87 ok, 6 fail, all test-data related (the app's registration replaced the
+  baseline users, so `1337` is unknown; `USER_SELECT=20001.520100 OWN_PARTY=520001`) or the dev image without
+  `FRONTEND_DIST` (`smoke-minimal.txt`).
+- Rotation, forced with a temporary 1 MB limit (the host copy of `otel-files.yaml` edited, the container restarted,
+  eight listings 30 s apart, `rotation-forced-1mb.txt`): the existing files were rotated on the first write, the front
+  door's metrics rotated about every 50 s and the engine's every 2 minutes, and from the third rotation on the oldest
+  backup was deleted, so each service's metrics stayed at the current file and two backups of about 1 MB (the 9.8 MB
+  file from before the restart went too). The guide's trace command still found the whole process/next trace with its
+  log records in a rotated `logs-…-size.jsonl`. Backups are named `<signal>-<UTC time>-size.jsonl`.
+- `env down` of the minimal stack removed `telemetry/` and left `certs/` and `files/` (`env-down-minimal.txt`). With a
+  marker folder in `telemetry/`, `env up --with monitoring` and its `env down` left it alone; the next
+  `env up --minimal` started with an empty folder (`monitoring-check.txt`, `minimal-pinned-check.txt`).
+- Start time and memory (task 38): `env up -r localtest-v2 --minimal --detach` on the pinned images, three runs each,
+  alternating, studioctl built from main (9efb6ebd, no collector) and from the branch: 6.0, 5.9, 6.0 s without,
+  6.3, 6.3, 6.4 s with, so about +0.4 s (`start-times.txt`; `.scripts/task55/time-up.sh`); everything waits for the
+  collector's readiness first. `otel-files` (`podman stats`): 61 MB after the app's requests, 70 MB a few minutes
+  later, 88 MB after the smoke test and ten minutes of metrics, 46 MB right after a restart; the four other containers
+  together 510-540 MB (`podman-stats-*.txt`). About what the monitoring group's collector alone takes (60-74 MB),
+  against 377-520 MB for the whole group; no cost worth an opt-in, so it is always on.
+- Default stack with `--with monitoring` (`--dev-localtest`, 18 containers, 36 s): no `otel-files`; the front door
+  has `services__otlp__http__0=http://otel-collector:4318`; the engine keeps both Grafana settings; `/otlp` 200,
+  Grafana's health 200; the collector mounts `config.yaml` and `processors.yaml`, logs nothing, and a Storage span in
+  VictoriaTraces carries `deployment.environment.name=local` without `telemetry.sdk.*` (the shared processors work);
+  the front door's smoke test 85 ok, its monitoring section all green (the front door's spans read back from
+  VictoriaTraces through Grafana), the one failure `FRONTEND_DIST` (`smoke-monitoring.txt`). The default stack alone
+  with the new front door: `/otlp` answers 503 with `component` `otlp` and `group` `monitoring`, and no container has
+  an `OTEL_*` variable. The pinned front door (`sha-609c646`) in minimal mode answers `/otlp` with 503 naming
+  `otel-collector`, as expected until the pin moves.
+
+**Checks.** Under `localtest/studioctl/src/cli`: `go build ./...`, `go test ./...` and `go test -race -count=1 ./...`
+pass, `make lint` 0 issues; the golden file regenerated and reviewed. The front door: `dotnet test tests` 163 passed,
+`dotnet build -c Release` 0 warnings. The Aspire package: `dotnet test tests` 170 passed, `dotnet csharpier check .`
+clean. typos clean on every changed file; Prettier clean on the studioctl README, the skill and the manifest README
+(the front door's README, `localtest/README.md`, `CONVENTIONS.md`, the Aspire README and `TODO.md` had Prettier
+differences before; their count is unchanged). The changelog's minimal-mode entry mentions the files.
+
+**For the coordinator after the merge** (the images workflow builds the front door with the `otlp` route; then
+`bump-tag.sh` and the golden file): on the pinned front door, `env up -r localtest-v2 --minimal` with a stock studioctl
+build of main, then `curl -X POST -H 'Content-Type: application/json' -d '{"resourceSpans":[]}'
+http://local.altinn.cloud:8000/otlp/v1/traces` answers 200 (not 503) and a `studioctl run` of `ttd/testapp` with the
+guide's variables leaves `localtest/` and `testapp/` folders whose `traces.jsonl` the guide's trace command reads;
+`env down`, then `env up -r localtest-v2 --with monitoring`: `/otlp` 200, Grafana's health 200, and the front door's
+`smoke-test.sh` monitoring section green (its spans read back from VictoriaTraces); with the default stack alone
+`/otlp` is a 503 naming `monitoring`. Until the pin moves, the pinned front door routes `/otlp` to
+`services__otel-collector__http__0`, which the runner no longer sets, so `/otlp` answers 503 on both stacks with the
+old image (the containers' own gRPC export is unaffected).
+
+**Not verified.** rootless Podman and Docker (this machine runs rootful Podman, where `--user 1000:1000`
+alone makes the files the developer's; the `keep-id` path for rootless Podman is `envstack.RuntimeUser`'s, as the
+old runtime and container-mode apps use it, but not tried here); macOS and Windows paths of the guide; a session
+of hours (the rates are from minutes, and the front door's metric series grow with the routes it serves); the
+pinned front door image with the `otlp` route (built locally with `--dev-localtest` only).
