@@ -85,7 +85,10 @@ A path matching no route still falls through to the localtest app.
 | 49 | [localtest-v2 "up" from the containers, not the state file](#49-localtest-v2-up-from-the-containers-not-the-state-file) | done (2026-10-25; commits aae4355b, 70e5e5c4, 3b263f5b, ec0c4ebc: `localtestv2.Current` (state file plus devenv `GraphRunning`) for every reader outside the runtime, a stale file is no localtest-v2, `run` stops at once only when the containers run and the front door does not answer (the agent's stop on a stale file was changed by the coordinator: it refused runs against `-r localtest`); proven on the stack: after `docker rm -f` of the 13 containers `app env` on loopback without the certificate, `run` in 2.5 s, the server with the host bridge, `env up -r localtest` and a run against it, `env down -r localtest-v2` removed the file; with the front door paused `run` stopped after 5 s; ported to altinn-studio#21394 as 7b4c81fc13; brief `/home/agent/code/.briefs/task49-state-file.md`) | medium | yes |
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
-| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; open: the `telemetry` field for the components' own switches, monitoring in minimal mode) | medium | yes |
+| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
+| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | unapproved (2026-10-26) | medium | yes |
+| 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | unapproved (2026-10-26) | small | yes |
+| 55 | [A small OTLP viewer in minimal mode](#55-a-small-otlp-viewer-in-minimal-mode) | unapproved (2026-10-26; open: always on or opt-in, where the UI is reached) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1824,16 +1827,18 @@ studioctl only.
     Aspire dashboard. A new group that Aspire does not know still fails the method test, so ignoring a group is
     always a deliberate decision. In studioctl, the group is turned on by `--with monitoring` or `--with everything`.
     There is no `--monitoring` flag: localtest-v2 turns every group on the same way (decided 2026-10-25).
-  - **The components' own telemetry switches (open).** These depend on the runtime: Aspire collects component
-    telemetry in its own dashboard, and studioctl only when the group is on. So `envs` cannot hard-code
-    `EngineSettings__EnableTelemetry=true`. The proposal is a container field `telemetry`: extra env variables applied
-    on top of `envs` only when the runtime collects telemetry. Examples: the workflow engine's
-    `EngineSettings__EnableTelemetry=true` and `OTEL_SERVICE_NAME=workflow-engine-app`, and Notifications'
-    `OtelSettings__Endpoint={{otlp}}`, where `{{otlp}}` is valid only inside `telemetry`. When `otel-collector` runs,
-    studioctl's runner gives every container `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`
-    and a default `OTEL_SERVICE_NAME` (the container name), then applies `telemetry`. Aspire must accept the field;
-    filling it with its dashboard endpoint can come later. The alternative is a general `envsWith` map,
-    `{ "<container>": { … } }`, applied when the named container runs.
+  - **One variable for where telemetry goes (decided 2026-10-26).** The manifest gets no telemetry field. Every
+    component, the front door and the apps send OTLP exactly when the standard `OTEL_EXPORTER_OTLP_ENDPOINT` is set,
+    and send nothing when it is not (tasks 53 and 54). When `otel-collector` runs, studioctl's runner adds to every
+    container, as it adds `services__`:
+    - `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`;
+    - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`;
+    - `OTEL_SERVICE_NAME=<container name>`, unless the container's `envs` set it (the workflow engine:
+      `workflow-engine-app`, as in the old runtime).
+    Aspire gives its containers the same variables, pointing at its dashboard, so the components' telemetry reaches it
+    with no extra work.
+  - **Not in minimal mode (decided 2026-10-26).** Grafana and the Victoria stack stay out of minimal mode, and minimal
+    mode keeps taking no optional group. Task 55 gives minimal mode a small OTLP viewer of its own.
   - **Not chosen:** the studioctl runtime adding the five containers in Go, outside the manifest. That would mean a
     second place that declares containers, plus host ports 4317 and 4318 again.
   - **Not chosen:** research images with the config files built in (2026-10-26). Mounting files keeps the stock
@@ -1847,17 +1852,13 @@ studioctl only.
     off, the existing 503 for a component that is not running names the group.
   - Grafana's `GF_SERVER_ROOT_URL` is `{{origin}}/grafana/`, so `--host` and `--port` (task 39) work.
   - A Home-page link is shown when the route is live.
-- **Whether a run turns telemetry on.** When monitoring is up, `studioctl run` and `app env` could add
-  `AppSettings__UseOpenTelemetry=true`, but only as a default the app's own settings or the shell can override. The
-  Aspire package already does this (task 21). If monitoring is off, nothing changes.
-- **Which components send telemetry.** In scope: the workflow engine (its manifest flag on when monitoring is on, the
-  same service name as the old runtime), Dialogporten (standard variables) and Notifications (traces). Out of scope,
-  recorded as a follow-up: Storage, Register, Profile and the other components that only support Application
-  Insights. They would each need a `#if !LOCALTEST` OTLP exporter in their vendor code, so that is per-component work.
+- **Apps and components** follow tasks 53 and 54. This task needs only the workflow engine's own switch
+  (`EngineSettings__EnableTelemetry=false` in the manifest) to follow the variable, so that its traces can be shown
+  end to end. Task 53 lists the rest.
 
 **Goal.**
 
-- `studioctl env up -r localtest-v2 --with monitoring` (and in minimal mode, if the group is allowed there) starts the
+- `studioctl env up -r localtest-v2 --with monitoring` starts the
   five containers on the stack's network. The Aspire host never starts them.
 - `env down` and `env reset` remove them. `env status` lists them.
 - An app run against the stack sends traces, metrics and logs that show up in Grafana's Metrics, Traces and Logs, and
@@ -1888,3 +1889,111 @@ studioctl only.
 - Memory: the five containers' resident memory, measured with `docker stats` and added to task 38's numbers, since
   this machine has 7.8 GB.
 - Do not port to altinn-studio#21394 or any other PR until the user says so (decided 2026-10-25).
+
+## 53. The standard OTLP variables in every component
+
+**Origin (2026-10-26).** From the discussion of task 52. The user's rule: "everything should just take the same
+environment variable that describes where to ship the OTEL".
+
+**The rule.**
+- Every component sends traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It uses
+  `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc` or `http/protobuf`) and `OTEL_SERVICE_NAME`, as the OpenTelemetry
+  specification defines them.
+- Without the variable, a component sends nothing and logs no export errors.
+- No component-specific switch is needed: no `EngineSettings__EnableTelemetry` and no `OtelSettings__Endpoint`.
+- Once this holds, the manifest needs no telemetry settings. studioctl (task 52) and Aspire only set the standard
+  variables.
+
+**Where each component stands** (vendored sources, 2026-10-26; the agent confirms each one):
+
+| Component | Today | Work |
+| --- | --- | --- |
+| Dialogporten (WebApi, GraphQL, Service) | exports when `OTEL_EXPORTER_OTLP_ENDPOINT` is a valid URI (`Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`), and reads the protocol | verify only |
+| Arbeidsflate BFF | exports when the variable is set (`packages/bff/src/config.ts`) | verify only |
+| pdf3 | the variable turns on every signal (`internal/config/config.go`) | verify only |
+| Workflow engine | exports OTLP; our manifest turns it off with `EngineSettings__EnableTelemetry=false` | find what it does without the variable. If it exports to a default address, gate it on the variable. It is monorepo code, so the change goes upstream, not into a `#if LOCALTEST` block. Then remove the manifest switch |
+| Notifications | traces only, through `OtelSettings:Endpoint` | in a `LOCALTEST` build, all three signals from the standard variables |
+| Storage, Events, Profile, Receipt, Correspondence, the Dialogporten adapter | OpenTelemetry with the Azure Monitor exporter | in a `LOCALTEST` build, the OTLP exporter in place of Azure Monitor, from the standard variables |
+| Authentication, Authorization, Access Management, Register, Resource Registry | `Altinn.Authorization.ServiceDefaults`, plus the classic Application Insights SDK in some | find whether ServiceDefaults already reads the standard variables, as Aspire's service defaults do. If it does, only switch off Application Insights. If not, the same `LOCALTEST` exporter |
+
+**Shape.**
+- One shared helper in `localtest/components/shared/fakes/`, such as `AddLocaltestOtlp()`. When the variable is set,
+  it calls `UseOtlpExporter()` on the OpenTelemetry builder the component already has; otherwise it does nothing.
+- Each component calls the helper from a `#else` branch where it would otherwise configure Azure Monitor or
+  Application Insights. That follows the repository's `#if !LOCALTEST` rule.
+- Production behaviour is unchanged.
+- Add the instrumentation a component lacks (ASP.NET Core, HttpClient, Npgsql) only where it has none. A service that
+  is missing from a trace is worth knowing about, but it is not a reason to rewrite its telemetry.
+
+**Proof.**
+- Each component's `smoke-test.sh` gets one check: with the variable pointing at a throwaway collector container, a
+  request creates a span with the right `service.name`.
+- Without the variable, the container's log shows no export errors.
+- On the stack after task 52: `--with everything --with monitoring`. One form submission produces a single trace in
+  Grafana, from the app through Storage, the PDP and the workflow engine.
+- Images are rebuilt one at a time (the repository rule), and their tags are bumped with `bump-tag.sh`.
+
+## 54. Apps and the front door on the same OTLP variable
+
+**Origin (2026-10-26).** The other half of task 53's rule: the apps and the localtest container itself.
+
+**Apps.**
+- app-lib uses OpenTelemetry only when `AppSettings:UseOpenTelemetry` is true. Otherwise it uses Application Insights,
+  which sends nothing locally without a connection string.
+- `app env` always sets `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel.<host>:4317`, even when nothing listens there.
+- **Goal:** when a collector runs (task 52's monitoring group, or task 55's viewer in minimal mode), `app env` sets
+  - `OTEL_EXPORTER_OTLP_ENDPOINT={{origin}}/otlp`,
+  - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`,
+  - and `AppSettings__UseOpenTelemetry=true` as a default that the app's own settings or the shell can override.
+- When no collector runs, `app env` sets none of these, so it stops pointing apps at an address with nothing behind it.
+- Container-mode apps get the in-network address. The golden file gains the cases with and without a collector.
+- Open: whether app-lib itself should switch to OpenTelemetry whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set. That is
+  a product change with an issue of its own, and the studioctl default does not wait for it.
+
+**The front door.**
+- The `localtest` container has no telemetry today. Under task 53's rule it gets:
+  - ASP.NET Core and HttpClient instrumentation, which includes YARP's forwarding;
+  - the OTLP exporter;
+  - the emulated services' calls in minimal mode as spans of their own, under their component's name, so a trace in
+    minimal mode still shows "Register" and "Authorization".
+- The front door also forwards `/otlp` to the collector (task 52) or to the viewer (task 55). Its own forwarding of
+  OTLP is not traced, so it does not feed on itself.
+
+**Proof.**
+- `app env` golden cases.
+- A front-door test that a forwarded request carries `traceparent` and creates a span.
+- On the stack: a `studioctl run` with monitoring shows the app's spans and the front door's spans in one trace.
+
+## 55. A small OTLP viewer in minimal mode
+
+**Origin (2026-10-26).** The user: Grafana and its stack should not be in minimal mode, but minimal mode should have
+some OTEL available.
+
+**Goal.**
+- `env up -r localtest-v2 --minimal` can show an app's traces, logs and metrics, with one light container and no
+  storage.
+- Everything sends to it through the same standard variables (tasks 53 and 54). In minimal mode those are only the
+  app, the front door and its emulations, Storage and the workflow engine.
+
+**Candidates** (the agent measures memory and start time; this machine has 7.8 GB):
+- **The standalone Aspire dashboard** (`mcr.microsoft.com/dotnet/aspire-dashboard`). It keeps traces, structured logs
+  and metrics in memory, receives OTLP over gRPC and HTTP, and runs as one container. Aspire users see the same
+  viewer.
+  - It runs without login when `ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true`.
+  - Verify whether it can be served under a sub-path such as `/telemetry/` behind the front door. The user prefers a
+    sub-path to a subdomain.
+- **The collector with only the `debug` exporter,** read through `studioctl env logs`. This is the smallest option,
+  but it is hardly usable.
+- **An OTLP receiver in the front door itself,** with an in-memory page. It adds no container, but it is our own
+  code, so it is the most work.
+
+**To decide at approval.**
+- Is the viewer always on in minimal mode, as a container in the `minimal` group? Or is it opt-in through a flag that
+  only minimal mode takes? Minimal mode currently takes no optional group, and `monitoring` stays out (task 52).
+- Where its UI is reached.
+
+**Proof.**
+- `--minimal` with the viewer: a `studioctl run` shows the app's request as a trace with the front door's and
+  Storage's spans.
+- Memory measured and added to task 38's numbers.
+- Without the viewer, minimal mode starts the same as before.
