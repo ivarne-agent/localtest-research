@@ -37,25 +37,32 @@ public sealed class GoldenComparisonTests
         .. LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]),
     ];
 
-    /// <summary>The standard OpenTelemetry variables studioctl gives every other container while its collector runs.</summary>
-    private static readonly string[] _otlpVariables =
+    /// <summary>
+    /// What studioctl's runner gives the other containers while its collector runs: the standard OpenTelemetry
+    /// variables, and the workflow engine's links from its dashboard to Grafana (the package sets the engine's
+    /// <c>EngineSettings__Dashboard__TraceUrlTemplate</c> to its own dashboard instead, outside the snapshot).
+    /// </summary>
+    private static readonly string[] _telemetryVariables =
     [
         "OTEL_EXPORTER_OTLP_ENDPOINT",
         "OTEL_EXPORTER_OTLP_PROTOCOL",
         "OTEL_SERVICE_NAME",
         "OTEL_METRIC_EXPORT_INTERVAL",
+        "EngineSettings__Dashboard__GrafanaUrl",
+        "EngineSettings__Dashboard__GrafanaTracesDatasourceUid",
     ];
 
     /// <summary>
     /// Whether an entry of a container's environment in the snapshot is studioctl's monitoring: a monitoring
-    /// container's <c>services__</c> variable, or an OpenTelemetry variable the container's own envs do not set.
+    /// container's <c>services__</c> variable, or a variable of the runner's telemetry the container's own envs do not
+    /// set.
     /// </summary>
     private static bool IsMonitoring(string container, string entry)
     {
         var key = entry[..entry.IndexOf('=', StringComparison.Ordinal)];
         return _monitoring.Any(m => key == $"services__{m}__http__0")
             || (
-                _otlpVariables.Contains(key, StringComparer.Ordinal)
+                _telemetryVariables.Contains(key, StringComparer.Ordinal)
                 && !LocaltestManifest.Default.Containers[container].Envs.ContainsKey(key)
             );
     }

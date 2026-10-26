@@ -1,8 +1,11 @@
 package localtestv2
 
 import (
+	"maps"
 	"slices"
 	"strconv"
+
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 )
 
 // Monitoring (env up --with monitoring): the manifest's monitoring group starts the OpenTelemetry collector, the
@@ -26,6 +29,17 @@ const (
 	// specification's 60 s, so a dashboard shows a request within seconds.
 	metricExportIntervalVariable = "OTEL_METRIC_EXPORT_INTERVAL"
 	metricExportInterval         = "5000"
+
+	// grafana is Grafana's manifest name; the front door serves it under grafanaPath on the public origin.
+	grafana     = "grafana"
+	grafanaPath = "/grafana"
+	// workflowEngine is the workflow engine's manifest name. Its dashboard links a workflow's trace to Grafana's Explore
+	// when it has Grafana's URL and the traces datasource's UID (grafanaTracesDatasourceUID, the UID in
+	// monitoring/grafana-datasources.yaml).
+	workflowEngine                  = "workflow-engine"
+	engineGrafanaURLVariable        = "EngineSettings__Dashboard__GrafanaUrl"
+	engineGrafanaDatasourceVariable = "EngineSettings__Dashboard__GrafanaTracesDatasourceUid"
+	grafanaTracesDatasourceUID      = "altinn-studio-traces"
 )
 
 // sendsTelemetry reports whether a container is given the collector: while the collector runs, every container
@@ -35,18 +49,33 @@ func sendsTelemetry(running []string, name string) bool {
 }
 
 // telemetryEnv is what a container gets when the collector runs: the collector's gRPC address, the protocol, its own
-// name as the service name and the metric export interval. The monitoring containers get none, so the collector never
-// exports to itself, and nothing is added while the collector is not running. The container's own envs win
-// (containerEnv).
-func telemetryEnv(running []string, name string) map[string]string {
+// name as the service name and the metric export interval, and for the workflow engine its dashboard's trace links
+// (engineTraceLinks). The monitoring containers get none, so the collector never exports to itself, and nothing is
+// added while the collector is not running. The container's own envs win (containerEnv).
+func telemetryEnv(origin manifest.Origin, running []string, name string) map[string]string {
 	if !sendsTelemetry(running, name) {
 		return nil
 	}
-	return map[string]string{
+	env := map[string]string{
 		otlpEndpointVariable:         "http://" + otelCollector + ":" + strconv.Itoa(otelCollectorGRPCPort),
 		otlpProtocolVariable:         "grpc",
 		otelServiceNameVariable:      name,
 		metricExportIntervalVariable: metricExportInterval,
+	}
+	maps.Copy(env, engineTraceLinks(origin, running, name))
+	return env
+}
+
+// engineTraceLinks are the workflow engine's dashboard settings that link a workflow's trace to Grafana on the public
+// origin, while Grafana runs. They are runner data, not manifest envs: without the monitoring group the links would
+// lead to the front door's "not running" page, and the Aspire host, which ignores the group, links its own dashboard.
+func engineTraceLinks(origin manifest.Origin, running []string, name string) map[string]string {
+	if name != workflowEngine || !slices.Contains(running, grafana) {
+		return nil
+	}
+	return map[string]string{
+		engineGrafanaURLVariable:        origin.URL() + grafanaPath,
+		engineGrafanaDatasourceVariable: grafanaTracesDatasourceUID,
 	}
 }
 

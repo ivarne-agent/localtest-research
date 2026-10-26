@@ -126,7 +126,8 @@ func TestWithoutTheCollectorNoContainerGetsTheOTLPVariables(t *testing.T) {
 		for name, c := range containersOf(t, opts) {
 			for key, value := range envOf(c) {
 				if key == otlpEndpointVariable || key == otlpProtocolVariable || key == otelServiceNameVariable ||
-					key == metricExportIntervalVariable || key == "services__otel-collector__http__0" {
+					key == metricExportIntervalVariable || key == "services__otel-collector__http__0" ||
+					key == engineGrafanaURLVariable || key == engineGrafanaDatasourceVariable {
 					t.Errorf("%s: %s=%s without the collector", name, key, value)
 				}
 			}
@@ -138,7 +139,7 @@ func TestWithoutTheCollectorNoContainerGetsTheOTLPVariables(t *testing.T) {
 func TestAContainersOwnEnvsWinOverTheOTLPDefaults(t *testing.T) {
 	t.Parallel()
 	env := containerEnv(
-		telemetryEnv([]string{otelCollector, "workflow-engine"}, "workflow-engine"),
+		telemetryEnv(stack().DefaultOrigin(), []string{otelCollector, workflowEngine}, workflowEngine),
 		map[string]string{otelServiceNameVariable: "workflow-engine-app", metricExportIntervalVariable: "15000"},
 		nil,
 		nil,
@@ -155,6 +156,55 @@ func TestAContainersOwnEnvsWinOverTheOTLPDefaults(t *testing.T) {
 	}
 	if len(env) != 4 {
 		t.Errorf("env %v, want 4 entries", env)
+	}
+}
+
+// With Grafana running, the workflow engine's dashboard links a workflow's trace to Grafana on the public origin (and
+// --host/--port); no other container gets the settings, and the manifest does not set them, so Aspire never gets them.
+func TestTheWorkflowEngineLinksItsTracesToGrafanaWhileItRuns(t *testing.T) {
+	t.Parallel()
+	custom := withMonitoring()
+	custom.Origin = stack().Origin("origin.test", 18000)
+	for opts, url := range map[*Options]string{
+		withMonitoring():    "http://local.altinn.cloud:8000/grafana",
+		custom:              "http://origin.test:18000/grafana",
+		everythingOptions(): "http://local.altinn.cloud:8000/grafana",
+	} {
+		for name, c := range containersOf(t, opts) {
+			env := envOf(c)
+			wantURL, wantUID := "", ""
+			if name == workflowEngine {
+				wantURL, wantUID = url, "altinn-studio-traces"
+			}
+			if got := env[engineGrafanaURLVariable]; got != wantURL {
+				t.Errorf("%s: %s=%q, want %q", name, engineGrafanaURLVariable, got, wantURL)
+			}
+			if got := env[engineGrafanaDatasourceVariable]; got != wantUID {
+				t.Errorf("%s: %s=%q, want %q", name, engineGrafanaDatasourceVariable, got, wantUID)
+			}
+		}
+	}
+	for _, key := range []string{engineGrafanaURLVariable, engineGrafanaDatasourceVariable} {
+		if value, ok := stack().Containers[workflowEngine].Envs[key]; ok {
+			t.Errorf("the manifest sets %s=%s", key, value)
+		}
+	}
+	// The collector without Grafana: no link to a Grafana that does not run.
+	env := telemetryEnv(stack().DefaultOrigin(), []string{otelCollector, workflowEngine}, workflowEngine)
+	if _, ok := env[engineGrafanaURLVariable]; ok {
+		t.Errorf("without Grafana: %v", env)
+	}
+}
+
+// The UID the engine links to is the traces datasource Grafana is provisioned with.
+func TestTheEngineLinksToGrafanasTracesDatasource(t *testing.T) {
+	t.Parallel()
+	data, err := stack().ReadFile("monitoring/grafana-datasources.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "uid: "+grafanaTracesDatasourceUID+"\n") {
+		t.Errorf("monitoring/grafana-datasources.yaml has no datasource %s", grafanaTracesDatasourceUID)
 	}
 }
 

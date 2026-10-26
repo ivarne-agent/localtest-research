@@ -244,7 +244,7 @@ func containerResource(
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
 		Env: containerEnv(
-			telemetryEnv(running, name), stack().Envs(name, opts.Origin), runnerEnv(opts, name), services,
+			telemetryEnv(opts.Origin, running, name), stack().Envs(name, opts.Origin), runnerEnv(opts, name), services,
 		),
 		Labels:     nil,
 		Command:    nil,

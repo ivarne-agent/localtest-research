@@ -177,7 +177,12 @@ Every container gets, besides its `envs`:
   the monitoring containers get none, so the collector never exports to itself. Such a container also depends on
   `otel-collector`, besides its `dependsOn`: it starts once the collector is ready (a TCP connection to 4318; the
   collector opens its receivers last, gRPC before HTTP) and stops before it, so no start-up or shutdown telemetry is
-  lost. The collector depends only on the Victoria stores, so this makes no cycle. Without the group nothing is added.
+  lost. The collector depends only on the Victoria stores, so this makes no cycle. While Grafana runs too, the
+  workflow engine also gets the links from its dashboard to a workflow's trace in Grafana:
+  `EngineSettings__Dashboard__GrafanaUrl=<public origin>/grafana` and
+  `EngineSettings__Dashboard__GrafanaTracesDatasourceUid=altinn-studio-traces` (the traces datasource in
+  `monitoring/grafana-datasources.yaml`). They are not in the engine's `envs`, so the Aspire host, which ignores the
+  group, does not get them and links its own dashboard instead. Without the group nothing is added.
 - its name as network alias, the public host and its listed subdomains (`local.altinn.cloud`, `pdf.`,
   `workflow-engine.`, `app-frontend.`, `af.` by default) and `host.docker.internal` pointed at the host gateway;
 - for the front door, `Localtest__PublicSubdomains`: the listed subdomains, comma-separated;
