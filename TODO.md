@@ -2461,6 +2461,15 @@ Evidence in `/home/agent/code/.handover/task55/`.
   an `OTEL_*` variable. The pinned front door (`sha-609c646`) in minimal mode answers `/otlp` with 503 naming
   `otel-collector`, as expected until the pin moves.
 
+**Pinned check (2026-10-26, after the merge ae45f069, pins `sha-ae45f06`, studioctl from the pin worktree, no
+`--dev-*`; evidence `/home/agent/code/.handover/task55/pinned/`).** Minimal mode: the front door
+`localtest-localtest:sha-ae45f06` and `otel-files` run; `POST /otlp/v1/traces` 200; `ttd/testapp` with the guide's
+variables, an instance and `process/next`: the guide's trace command lists 75 app spans, 57 app log records, 24
+front-door and 23 Storage spans; `env down` removed `telemetry/`. `--with monitoring`: 18 containers,
+`services__otlp__http__0=http://otel-collector:4318`, `/otlp` 200, Grafana 200, the engine's Grafana pair, the front
+door's smoke test 85 ok with its monitoring section green (the one failure is `FRONTEND_DIST`, unset for the smoke
+test). Default stack alone: `/otlp` 503 with `component` `otlp`, `group` `monitoring`.
+
 **Checks.** Under `localtest/studioctl/src/cli`: `go build ./...`, `go test ./...` and `go test -race -count=1 ./...`
 pass, `make lint` 0 issues; the golden file regenerated and reviewed. The front door: `dotnet test tests` 163 passed,
 `dotnet build -c Release` 0 warnings. The Aspire package: `dotnet test tests` 170 passed, `dotnet csharpier check .`
