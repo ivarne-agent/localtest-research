@@ -11,6 +11,12 @@ namespace Localtest.Proxy;
 public static class PlatformRoutes
 {
     /// <summary>
+    /// The group of the OpenTelemetry collector and Grafana. Only studioctl runs it; the Aspire package ignores it, since
+    /// the Aspire dashboard receives the stack's telemetry there.
+    /// </summary>
+    public const string MonitoringGroup = "monitoring";
+
+    /// <summary>
     /// Subdomain of the public host → the service that owns every path on it, the localtest app's own included. The host
     /// is <c>{subdomain}.{public host}</c> (<see cref="LocaltestSettings.HostOf"/>); a subdomain the runner does not list
     /// is off, and its host is served like the main host.
@@ -48,6 +54,11 @@ public static class PlatformRoutes
         new("/notifications", "notifications"),
         new("/receipt", "receipt"),
         new("/correspondence", "correspondence"),
+        // Grafana serves from its sub-path (GF_SERVER_SERVE_FROM_SUB_PATH), so the path is passed on unchanged.
+        new("/grafana", "grafana"),
+        // OTLP over HTTP for the apps on the host, to the collector's HTTP receiver at its root: /otlp/v1/traces
+        // reaches it as /v1/traces. The containers send over gRPC to the collector directly.
+        new("/otlp", "otel-collector", Rewrite: ""),
     ];
 
     /// <summary>
@@ -65,6 +76,11 @@ public static class PlatformRoutes
         ["correspondence"] = "correspondence",
         ["arbeidsflate"] = "arbeidsflate",
         ["arbeidsflate-bff"] = "arbeidsflate",
+        ["grafana"] = MonitoringGroup,
+        ["otel-collector"] = MonitoringGroup,
+        ["victoria-metrics"] = MonitoringGroup,
+        ["victoria-traces"] = MonitoringGroup,
+        ["victoria-logs"] = MonitoringGroup,
     };
 
     /// <summary>Every routed service, once, in table order.</summary>

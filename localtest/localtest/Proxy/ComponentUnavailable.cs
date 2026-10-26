@@ -32,6 +32,12 @@ public static class ComponentUnavailable
             detail = $"The component {service} is not running: the localtest app has no address for it (services__{service}__http__0 is not set). "
                 + $"It is part of the default stack. Start the environment with: {UpCommand}, or in an Aspire AppHost with builder.AddAltinnLocaltest().";
         }
+        else if (group == PlatformRoutes.MonitoringGroup)
+        {
+            command = $"{UpCommand} --with {group}";
+            detail = $"The component {service} belongs to the optional component group {group}, which is not running: the localtest app has no address for it (services__{service}__http__0 is not set). "
+                + $"Start it with: {UpCommand} --with {group} (--with everything starts every optional group). An Aspire AppHost does not run this group: the Aspire dashboard shows the stack's and the apps' traces, metrics and logs.";
+        }
         else
         {
             var typed = ".With" + string.Concat(group.Split('-').Select(part => char.ToUpperInvariant(part[0]) + part[1..])) + "()";

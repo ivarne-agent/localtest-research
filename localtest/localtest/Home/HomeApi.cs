@@ -123,7 +123,14 @@ public static class HomeApi
 
         html.Append("</select><label for=\"AppPathSelection\">App (org/app, optional)</label>")
             .Append("<input type=\"text\" id=\"AppPathSelection\" name=\"AppPathSelection\" placeholder=\"ttd/my-app\" value=\"").Append(Encode(query["app"].ToString())).Append("\">")
-            .Append("<button type=\"submit\">Log in</button></form></body></html>");
+            .Append("<button type=\"submit\">Log in</button></form>");
+        // Grafana's route is live only while the monitoring group runs (its services__ entry is set).
+        if (!string.IsNullOrEmpty(context.RequestServices.GetRequiredService<IConfiguration>()["services:grafana:http:0"]))
+        {
+            html.Append("<p id=\"grafana\">Traces, metrics and logs of the stack and the apps: <a href=\"/grafana/\">Grafana</a>.</p>");
+        }
+
+        html.Append("</body></html>");
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.WriteAsync(html.ToString(), context.RequestAborted);
     }

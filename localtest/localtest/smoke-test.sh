@@ -57,6 +57,19 @@ expect "server-sent events stream through unbuffered" ": connected" "$(timeout 3
 FILE=$(curl -s -m 10 -o /dev/null -w '%{http_code} %header{access-control-allow-origin}' "$BASE/app-frontend/altinn-app-frontend.js")
 expect "app-frontend bundle with CORS (needs FRONTEND_DIST)" "200 *" "$FILE"
 
+echo "== monitoring (studioctl env up -r localtest-v2 --with monitoring)"
+GRAFANA_ADDRESS=$(curl -s -m 10 "$ROUTES" | python3 -c "import sys,json; print(next((r.get('address') or '' for r in json.load(sys.stdin)['platform'] if r['service']=='grafana'), ''))" 2>/dev/null)
+if [[ -n "$GRAFANA_ADDRESS" ]]; then
+  expect "Grafana under /grafana/ (its own health)" 200 "$(code "$BASE/grafana/api/health")"
+  expect "OTLP/HTTP under /otlp reaches the collector (an empty trace export)" 200 \
+    "$(code -X POST -H 'Content-Type: application/json' -d '{"resourceSpans":[]}' "$BASE/otlp/v1/traces")"
+  expect "the Home page links to Grafana" 1 "$(curl -s -m 10 "$BASE/" | grep -c 'href="/grafana/"')"
+else
+  expect "the group is off: Grafana's route is 503 naming the group" "503 monitoring" \
+    "$(curl -s -m 10 -w ' %{http_code}' "$BASE/grafana/" | python3 -c "import sys; body, status = sys.stdin.read().rsplit(' ', 1); import json; print(status, json.loads(body)['group'])")"
+  expect "the group is off: no Grafana link on the Home page" 0 "$(curl -s -m 10 "$BASE/" | grep -c 'href="/grafana/"')"
+fi
+
 if [[ "${PROXY_CHECKS:-1}" != 0 ]]; then
 echo "== app registration"
 put() { curl -s -m 60 -o /dev/null -w '%{http_code}' -X PUT "$1" -H Content-Type:application/json -d "{\"url\":\"$2\"}"; }

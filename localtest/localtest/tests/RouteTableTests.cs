@@ -128,8 +128,8 @@ public sealed class RouteTableTests
             new[]
             {
                 "access-management", "arbeidsflate", "authentication", "authorization", "correspondence", "dialogporten-adapter",
-                "dialogporten-graphql", "dialogporten-webapi", "events", "notifications", "pdf3", "profile", "receipt", "register",
-                "resource-registry", "storage", "workflow-engine",
+                "dialogporten-graphql", "dialogporten-webapi", "events", "grafana", "notifications", "otel-collector", "pdf3", "profile",
+                "receipt", "register", "resource-registry", "storage", "workflow-engine",
             },
             PlatformRoutes.Services.Order(StringComparer.Ordinal));
 }

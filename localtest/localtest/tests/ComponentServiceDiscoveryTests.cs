@@ -89,7 +89,9 @@ public sealed class ComponentServiceDiscoveryTests
     {
         var origin = new Uri("http://local.altinn.cloud:8000/");
         var table = PlatformRoutes.Table(LocaltestSettings.FromConfiguration(new ConfigurationBuilder().Build()))
-            .Where(r => r.Host is null && r.Rewrite is null)
+            // Grafana is for the browser and OTLP for the apps on the host (rewritten anyway): no component calls them
+            // on the public origin.
+            .Where(r => r.Host is null && r.Rewrite is null && PlatformRoutes.GroupOf(r.Service) != PlatformRoutes.MonitoringGroup)
             .ToList();
         Assert.NotEmpty(table);
         foreach (var (_, prefix, service, _) in table)
