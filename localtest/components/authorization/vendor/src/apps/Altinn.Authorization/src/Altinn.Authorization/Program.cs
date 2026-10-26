@@ -275,6 +275,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         options.AllowSynchronousIO = true;
     });
 
+#if !LOCALTEST
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
         services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "/tmp/logtelemetry" });
@@ -296,6 +297,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
         logger.LogInformation("Startup // ApplicationInsightsConnectionString = {ApplicationInsightsConnectionString}", applicationInsightsConnectionString);
     }
+#else
+    // localtest: OpenTelemetry instead of Application Insights (TODO.md task 53). Traces, metrics and logs over OTLP
+    // exactly when OTEL_EXPORTER_OTLP_ENDPOINT is set, nothing otherwise (fakes/LocaltestAuthorizationTelemetry.cs).
+    Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config);
+#endif
 
     services.AddSingleton<DecisionTelemetry>();
     services.ConfigureOpenTelemetryMeterProvider(provider => provider.AddMeter(DecisionTelemetry.MeterName));

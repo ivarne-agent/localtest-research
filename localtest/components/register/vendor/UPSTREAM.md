@@ -27,6 +27,8 @@
    marked `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in
    `../Dockerfile`.
 5. Package versions in `../fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj` follow
-   `Directory.Packages.props`; update them with it.
+   `Directory.Packages.props`; update them with it; the OpenTelemetry ones (task 53) follow what the host resolves
+   (`obj/project.assets.json`: `OpenTelemetry.Extensions.Hosting` from `Directory.Packages.props`, the OTLP exporter from
+   `Altinn.Authorization.ServiceDefaults`).
 6. Update the commit line above, build the image (`podman build -t localtest-register:dev ..`) and run
    `../smoke-test.sh`. Commit the sync on its own, separate from localtest changes.

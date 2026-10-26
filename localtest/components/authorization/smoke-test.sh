@@ -5,7 +5,8 @@
 # token (as the app runner does), gets user tokens from authentication, and asks the production decision endpoint what
 # an app's PEP would ask. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 31 checks. The "store:" listing and the closing "PDP log errors" check read the PDP's container (studioctl's
+# 31 checks, 32 with the monitoring group up (`--with monitoring`: the PDP's server span in VictoriaTraces, task 53).
+# The "store:" listing and the closing "PDP log errors" check read the PDP's container (studioctl's
 # localtest-v2-authorization or the Aspire package's authorization-<suffix>, see ../../smoke/lib/containers.sh; override
 # with CONTAINER=... or LOCALTEST_CONTAINER_AUTHORIZATION=...) through podman or docker; without either or the container
 # they say "skipped" and are not counted as failures.
@@ -154,5 +155,17 @@ PY
   check "error entries in the authorization log beyond the provoked ones" "$(python3 -I "$LOGS/errors.py" "$LOGS/authorization.log")" "0"
 else
   echo "skip error lines in the authorization log (no container runtime or no PDP container)"
+fi
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named authorization in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" -H "Authorization: Bearer $SOPHIE" "$PDP/authorization/api/v1/parties?userid=1337"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" authorization)
+  check "OTLP: a server span from service.name authorization" "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")" yes
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
 fi
 exit $FAIL

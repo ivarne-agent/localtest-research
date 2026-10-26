@@ -77,6 +77,27 @@ Access Management stopped:
 `podman exec localtest-v2-postgres psql -U platform_authorization_admin -d postgres -c "drop database authorizationdb with (force)"`.
 Start recreates it, and each app runner's refresh fills the apps in again.
 
+## Telemetry (task 53)
+
+The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with
+`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`; nothing otherwise. Production code already follows the first
+half: `AltinnHost.CreateWebApplicationBuilder("access-management", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
+metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
+tail sampling), Npgsql, the lease, pipeline and core sources and meters and adds the OTLP exporter for each signal when the variable is set (Application Insights only
+without it, and only with a connection string, which localtest never has). But its resource detector sets
+`service.name` `access-management` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestAccessManagement` (`fakes/LocaltestAccessManagementExtensions.cs`) calls
+`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
+environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
+does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
+own exporters. Under studioctl the name it sets (the manifest name, `access-management`) is the one the host already had, so the
+difference shows only with another `OTEL_SERVICE_NAME`.
+
+Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
+tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
+stack; the same call was run in Authentication and Register. Not yet verified: the image build and a span check on the stack (this component has no `smoke-test.sh`).
+Production's own `UseAzureMonitor` block (`AccessManagementHost.cs:88-108`) runs only outside Development with
+`ApplicationInsights:InstrumentationKey`, so never here.
+
 ## Status
 
 Steps 1 to 6 of the plan are done. Access Management boots, migrates and seeds on the shared Postgres, imports parties

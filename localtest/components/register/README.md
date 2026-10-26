@@ -9,7 +9,7 @@ data through this component's localtest API (`test-users`, `organizations` and t
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except `#if LOCALTEST` blocks (`git diff` against the baseline commit shows them all); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, link the fakes project |
-| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, the localtest-only controllers, DI composition |
+| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, the localtest-only controllers, DI composition, `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
 | `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and what v3 added). The format, shared with apps' `testData.json`, is documented in [`../../testdata/`](../../testdata/README.md) with its JSON Schema (v3) |
 | `smoke-test.sh` | Curl checks against a running register, with a stub app for registration: the seed, the party list, the KRR stand-in (14 checks; the Profile checks moved to `../profile/smoke-test.sh`) |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned Alpine images, build and publish, tzdata, non-root `dotnet` user); each difference is marked `localtest:` |
@@ -74,6 +74,28 @@ data's e-mail and number as stored. `reservasjon` is `"JA"` (and `varslingsstatu
 `reserved: true` (Rik Forelder, 1003, in the seed), `"NEI"` (`"KAN_VARSLES"`) otherwise, which Profile's `isReserved`
 becomes through its KRR sync; national identity numbers not in the test data get no entry, which the client reads as not reserved. Production KRR
 wants a raw Maskinporten token with `krr:global/kontaktinformasjon.read`; nothing checks it here.
+
+## Telemetry (task 53)
+
+The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with
+`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`; nothing otherwise. Production code already follows the first
+half: `AltinnHost.CreateWebApplicationBuilder("register", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
+metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
+tail sampling), Register's own source and meter and adds the OTLP exporter for each signal when the variable is set (Application Insights only
+without it, and only with a connection string, which localtest never has). But its resource detector sets
+`service.name` `register` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestRegister` (`fakes/Altinn.Register.Localtest/LocaltestRegisterExtensions.cs`) calls
+`AddLocaltestOtlpResource` (`fakes/Altinn.Register.Localtest/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
+environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
+does nothing. No vendored file changes (the fakes project references `OpenTelemetry.Extensions.Hosting` 1.17.0 and `OpenTelemetry.Exporter.OpenTelemetryProtocol`
+1.15.3, the versions the host resolves). Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
+own exporters. Under studioctl the name it sets (the manifest name, `register`) is the one the host already had, so the
+difference shows only with another `OTEL_SERVICE_NAME`.
+
+Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development` and `Localtest__Register__TestDataPath` at `testdata/testData.json`, a fake OTLP/HTTP collector on a loopback
+port, `http/protobuf`): with the variable and `OTEL_SERVICE_NAME=from-env`, `/v1/traces`, `/v1/metrics` and `/v1/logs`
+arrive with `service.name` `from-env`; with the variable alone, `register`; without it nothing reaches the collector or the
+SDK defaults (4317, 4318). Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up (`--with monitoring`) and looks the
+request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
 
 ## Verified (schema v3)
 

@@ -12,7 +12,7 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`), cookies without `Secure` on http (`Cookies/`, a copy of `../shared/fakes/Cookies/`) |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`), cookies without `Secure` on http (`Cookies/`, a copy of `../shared/fakes/Cookies/`), `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
 | `smoke-test.sh` | Against the running stack: the browser sign-in, and the OIDC provider for the seeded clients (see [Verified](#verified)) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
@@ -183,6 +183,27 @@ design (`isAuthCookie`). Dialogporten's end-user API identifies a person by `pid
 - Production's `RequirePkce`, `RequireNonce` and `SubjectType` are constants in its repository and unused by the
   service; the seeded values are informational.
 - The fake ID-porten keeps no session, so its `endsession` ends nothing; the next `authorize` shows the picker again.
+
+## Telemetry (task 53)
+
+The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with
+`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`; nothing otherwise. Production code already follows the first
+half: `AltinnHost.CreateWebApplicationBuilder("authentication", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
+metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
+tail sampling), Npgsql tracing through `AddAltinnPostgresDataSource`, Authentication's own source and meters and adds the OTLP exporter for each signal when the variable is set (Application Insights only
+without it, and only with a connection string, which localtest never has). But its resource detector sets
+`service.name` `authentication` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestAuthentication` (`fakes/LocaltestAuthenticationExtensions.cs`) calls
+`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
+environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
+does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
+own exporters. Under studioctl the name it sets (the manifest name, `authentication`) is the one the host already had, so the
+difference shows only with another `OTEL_SERVICE_NAME`.
+
+Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development`, a fake OTLP/HTTP collector on a loopback
+port, `http/protobuf`): with the variable and `OTEL_SERVICE_NAME=from-env`, `/v1/traces`, `/v1/metrics` and `/v1/logs`
+arrive with `service.name` `from-env`; with the variable alone, `authentication`; without it nothing reaches the collector or the
+SDK defaults (4317, 4318). Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up (`--with monitoring`) and looks the
+request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
 
 ## Verified
 

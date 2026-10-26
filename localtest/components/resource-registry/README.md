@@ -12,7 +12,7 @@ Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites (`git diff` against the vendoring commit shows them) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored `Directory.Build.props` (which chains to `src/Directory.Build.props`), define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/Seed/**` |
-| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed |
+| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed, `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
 | `postgres-init/40-resource-registry.sh` | Postgres init script: the `resourceregistrydb` database and the roles upstream's migrations grant to (`platform_authorization_admin` superuser, `platform_authorization`), password `localtest`, which Access Management's own database step also sets. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/resource-registry/postgres-init/40-resource-registry.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.ResourceRegistry/Dockerfile` (pinned Alpine SDK image, `dotnet publish` of the host, `aspnet:10.0-alpine`, non-root `dotnet`); each difference is marked `localtest:` |
 | `smoke-test.sh` | Against the running stack: the fixture app pushed as the runner does, resources, policies, the seeded Correspondence and Profile resources, the `updated` feed, orgs, subject lookup, platform access tokens (43 checks) |
@@ -109,6 +109,26 @@ brings the developer exception page and Swagger (`/swagger`).
 - The signing keys are the shared test certificate for every issuer, not the Key Vault keys per issuer.
 - Application Insights and Key Vault are off, as without their settings in production.
 - The seed is five resources; production's registry holds thousands.
+
+## Telemetry (task 53)
+
+The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with
+`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`; nothing otherwise. Production code already follows the first
+half: `AltinnHost.CreateWebApplicationBuilder("resource-registry", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
+metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
+tail sampling), Npgsql tracing through `AddAltinnPostgresDataSource` and adds the OTLP exporter for each signal when the variable is set (Application Insights only
+without it, and only with a connection string, which localtest never has). But its resource detector sets
+`service.name` `resource-registry` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestResourceRegistry` (`fakes/LocaltestResourceRegistryExtensions.cs`) calls
+`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
+environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
+does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
+own exporters. Under studioctl the name it sets (the manifest name, `resource-registry`) is the one the host already had, so the
+difference shows only with another `OTEL_SERVICE_NAME`.
+
+Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
+tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
+stack; the same call was run in Authentication and Register. Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up (`--with monitoring`) and looks the
+request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
 
 ## Verified
 

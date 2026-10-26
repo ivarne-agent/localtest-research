@@ -4,7 +4,8 @@
 # client_secret_basic and PKCE, refresh rotation, logout through the fake ID-porten's end-session endpoint), mostly through
 # the localtest app's headless code-flow helper (localtest/api/authentication/). The last two checks, Dialogporten's
 # end-user API with the cookie JWT (refused) and with the code-flow access token, run only when the dialogporten group is
-# up (`--with dialogporten`): 34 checks with the group, 32 without. The cookie checks (task 21b) also call
+# up (`--with dialogporten`): 34 checks with the group, 32 without; one more, Authentication's server span in
+# VictoriaTraces (task 53), when the monitoring group is up (`--with monitoring`). The cookie checks (task 21b) also call
 # Authentication directly: at AUTHENTICATION_URL when set (a host port you publish yourself; neither runtime publishes one, see localtest/CONVENTIONS.mdge),
 # else by name from inside the stack's network (../../smoke/lib/containers.sh).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
@@ -131,6 +132,19 @@ if [[ "$(code "$BASE/dialogporten/health/readiness")" == 200 ]]; then
   check "GET dialogporten/api/v1/enduser/dialogs with the code-flow token" "200" "$(code -H "Authorization: Bearer $(field "$T/t.json" access_token)" "$DIALOGS")"
 else
   echo "skip the end-user dialog list (the dialogporten group is not up)"
+fi
+
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named authentication in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$AUTHN/openid/.well-known/openid-configuration"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" authentication)
+  check "OTLP: a server span from service.name authentication" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
 fi
 
 echo "$OK ok"

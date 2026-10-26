@@ -9,9 +9,9 @@ other localtest components.
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except one `#if LOCALTEST` block |
+| `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except three directive blocks in `Program.cs` (below) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, OED PIP, token handling, no-op audit queue, a localtest decision helper, DI composition |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, OED PIP, token handling, no-op audit queue, a localtest decision helper, DI composition, OpenTelemetry (`LocaltestAuthorizationTelemetry.cs`, `Otlp/`) |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
@@ -41,8 +41,45 @@ registering earlier would lose). The configuration it adds is still seen, becaus
 `GeneralSettings`, `PlatformSettings` and feature flags lazily through `IOptions`. The three eager reads inside
 `ConfigureServices` are covered: the JWT cookie metadata address is re-applied with a `Configure<JwtCookieOptions>`
 (runs before the scheme's post-configure builds the metadata manager), the OED Maskinporten client is never called
-(OED is faked), and the access token generator chosen by environment is replaced. Key Vault and Application Insights
-are skipped by production code because `kvSetting` is empty.
+(OED is faked), and the access token generator chosen by environment is replaced. Key Vault and the Application
+Insights logging provider are skipped by production code because `kvSetting` is empty.
+
+The third (task 53), a `#if !LOCALTEST` / `#else` in `ConfigureServices` around production's Application Insights block
+(`AddApplicationInsightsTelemetry` with its two telemetry processors and initializer, and the metrics-only Azure Monitor
+pipeline), which never ran here since the connection string comes only from Key Vault:
+
+```csharp
+#if !LOCALTEST
+    if (!string.IsNullOrEmpty(applicationInsightsConnectionString)) { ... }
+#else
+    Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config);
+#endif
+```
+
+## Telemetry (task 53)
+
+The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with
+`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`; nothing otherwise. The PDP host has no OpenTelemetry pipeline of
+its own (production sends traces and logs through the classic Application Insights SDK), so
+`fakes/LocaltestAuthorizationTelemetry.cs` builds one when the variable is set, from the 1.15.x packages
+`Altinn.Authorization.ServiceDefaults` 5.5.0 brings in transitively (no package reference added):
+
+- traces: ASP.NET Core (no spans for `/health`, as production's `HealthTelemetryFilter`) and HttpClient;
+- metrics: ASP.NET Core, HttpClient and production's `DecisionTelemetry` meter (`Program.cs` registers it on whatever
+  meter provider exists);
+- logs: the OpenTelemetry logger provider, after production's `ClearProviders()` and console setup, so the console
+  stays and the `Microsoft`/`System` filters apply to both;
+- `service.name` `platform-authorization` (the role name production's `CustomTelemetryInitializer` sets), which
+  `OTEL_SERVICE_NAME` overrides; then `AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`).
+
+Not carried over: `IdentityTelemetryFilter`'s user, party and organisation properties on request telemetry.
+
+Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development`, a fake
+OTLP/HTTP collector on a loopback port): with the variable and `http/protobuf`, `/v1/traces` (the API request, no
+`/health` span), `/v1/metrics` and `/v1/logs` arrive with `service.name` `platform-authorization`, or `authorization`
+with `OTEL_SERVICE_NAME=authorization`; without the variable nothing reaches the collector or the SDK defaults
+(4317, 4318) and the log has no export errors. Not yet verified: the image build and `smoke-test.sh`'s OTLP check, which runs when the monitoring group is up
+(`--with monitoring`) and looks the request's server span up in VictoriaTraces (`../../smoke/lib/traces.sh`).
 
 ## Fakes
 

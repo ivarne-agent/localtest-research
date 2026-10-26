@@ -77,4 +77,17 @@ echo "$code" | check "broken testData.json is a 400" 'd == 400'
 curl -sS -X DELETE "$REGISTER/register/api/localtest/apps/ttd/smoke-nodata" >/dev/null
 curl -sS -X DELETE "$REGISTER/register/api/localtest/apps/ttd/smoke-app" | check "unregister restores the seed" 'd["apps"] == [] and d["users"] == 8'
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named register in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if [[ "$MINIMAL" != 1 ]] && localtest_monitoring_up "$REGISTER"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$REGISTER/register/api/localtest/test-users"
+  SPANS=$(localtest_wait_spans "$REGISTER" "$TRACE" register)
+  if [[ " $SPANS" == *" 2:"* ]]; then echo true; else echo false; fi | check "OTLP: a server span from service.name register ($SPANS)" "d is True"
+else
+  echo "skip the OTLP span check (the monitoring group is not up, minimal mode, or not run against the stack)"
+fi
+
 exit $fail

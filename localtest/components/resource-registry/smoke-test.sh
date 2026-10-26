@@ -148,4 +148,17 @@ curl -s -H "PlatformAccessToken: $PLATFORM" "$BASE/resourceregistry/api/v1/acces
 expect "access-lists/get-by-member without a platform access token: 401" 401 "$(code "$BASE/resourceregistry/api/v1/access-lists/get-by-member?party=$MEMBER")"
 expect "access-lists/get-by-member with a tampered platform access token: 401" 401 "$(code -H "PlatformAccessToken: ${PLATFORM%?}x" "$BASE/resourceregistry/api/v1/access-lists/get-by-member?party=$MEMBER")"
 
+# OTLP (TODO.md task 53): with the monitoring group up, studioctl sets OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME,
+# so a request with our traceparent shows up as a server span named resource-registry in VictoriaTraces (../../smoke/lib/traces.sh).
+# shellcheck source-path=SCRIPTDIR source=../../smoke/lib/traces.sh
+. "$(cd "$(dirname "$0")" && pwd)/../../smoke/lib/traces.sh"
+if localtest_monitoring_up "$BASE"; then
+  read -r TRACE TP < <(localtest_traceparent)
+  curl -s -o /dev/null -H "traceparent: $TP" "$RR/altinn_keyrole_access"
+  SPANS=$(localtest_wait_spans "$BASE" "$TRACE" resource-registry)
+  expect "OTLP: a server span from service.name resource-registry" yes "$([[ " $SPANS" == *" 2:"* ]] && echo yes || echo "no: $SPANS")"
+else
+  echo "skip the OTLP span check (the monitoring group is not up)"
+fi
+
 exit $FAIL

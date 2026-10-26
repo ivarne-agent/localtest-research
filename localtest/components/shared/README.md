@@ -34,7 +34,10 @@ Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task
 The localtest app's tests compile both files (`localtest/localtest/tests/ComponentServiceDiscoveryTests.cs`).
 
 Consumers of the OTLP helper (`fakes/Otlp/`, TODO.md task 53): the front door, `localtest/localtest/Telemetry/LocaltestOtlp.cs`
-(a copy, since its Docker build context is its own folder; called from `FrontDoorTelemetry.Add`). The audit in task 53
+(a copy, since its Docker build context is its own folder; called from `FrontDoorTelemetry.Add`); Authorization
+(`AddLocaltestOtlp`, from `fakes/LocaltestAuthorizationTelemetry.cs`); Authentication, Access Management, Register and the
+Resource Registry (`AddLocaltestOtlpResource` only, from their fakes hooks; Register's copy is in
+`fakes/Altinn.Register.Localtest/Otlp/`). The audit in task 53
 lists, per component, where the call goes and in which batch.
 
 | Path | What |

@@ -88,6 +88,13 @@ public static class LocaltestResourceRegistryExtensions
         // once, and keeps real hosts (altinncdn.no, the public origin) as they are.
         global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
 
+        // Telemetry (TODO.md task 53): AddAltinnServiceDefaults already exports logs, metrics and traces over OTLP exactly
+        // when OTEL_EXPORTER_OTLP_ENDPOINT is set, but its resource detector names the service, so OTEL_SERVICE_NAME was
+        // ignored. With the variable set this adds the environment detector after it, so the standard variables win
+        // (fakes/Otlp/, a copy of ../shared/fakes/Otlp/); nothing otherwise. Not AddLocaltestOtlp: UseOtlpExporter()
+        // throws next to ServiceDefaults' own exporters.
+        global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlpResource(services.AddOpenTelemetry(), builder.Configuration);
+
         // Platform access tokens: the production handler validates the apps' and components' tokens against the shared
         // test certificate (AccessTokenSettings:AccessTokenSigningCertificateFullPath) instead of Key Vault keys. The
         // outgoing token (Register access-list calls) comes from the production generator, which production feeds from
