@@ -377,6 +377,29 @@ default `localhost:4317`. studioctl sets the variables on every container while 
 - `tests/` sits inside the project folder: `Localtest.csproj` excludes it (`DefaultItemExcludes`) and so does
   `.dockerignore`.
 
+## Verified (2026-10-26): the instances page on the stack
+
+The image built from this folder (`--dev-localtest`), everything else on the pinned images, studioctl from the worktree
+under a short `STUDIOCTL_HOME`; evidence in `/home/agent/code/.handover/storage-instances-page/`. `ttd/testapp` with
+`studioctl run`, four new instances as user 20001 (two for party 520001 with a text attachment, one of them completed;
+one completed for the organisation 520100; one more running), next to the instances earlier runs had left.
+
+- `--with dialogporten --with receipt --with arbeidsflate`: the list as the test user (`instanceOwner.partyId=520001`, 8
+  instances) and as the service owner (`appId=ttd/testapp`, 15; `size=5` pages through `next` with the continuation
+  token); the instance page; a similar-instances link opened the form filled in and its search ran (5 at `Task_1`).
+- The attachment through its link: as the user and as the service owner, `200`, `text/plain`, Storage's
+  `Content-Disposition` (`hello.txt`), the bytes; Chromium saved `hello.txt`; without a token `401`.
+- Every link opened in Chromium after signing in: the receipt, the app at `Task_1`, the inbox with
+  `?party=urn:altinn:organization:identifier-no:310520004` preselecting the organisation, and the dialog. The dialog
+  ids answered `200` from Dialogporten's end-user API, and the derived id equals the adapter's `dataValues["dialog.id"]`.
+  A party missing from the Register (500000, whose test data the app's replaced) gets the inbox without `party`.
+- The default stack (no groups): only "Open in the app" and "Receipt in the app" (the app's receipt page opened); with
+  the app stopped, no links.
+- `smoke-test.sh` on the default stack: 83 of 84, the known `FRONTEND_DIST` check failing.
+
+The inbox's sign-in drops `?party=` (the inbox opens on the user's own party the first time); once signed in the link
+selects the party.
+
 ## Verified (2026-10-26): telemetry on the stack
 
 The image built from this folder (`--dev-localtest`), `env up -r localtest-v2 --with monitoring`, and `ttd/testapp` run
