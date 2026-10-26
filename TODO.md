@@ -2311,7 +2311,9 @@ the full setup (task 52).
 - Minimal mode runs the stock collector (`otel-collector`, the image already pinned for `monitoring`) with only the
   `file` exporter, which was confirmed with `components` in 0.161.0.
 - It writes OTLP JSON Lines files on the host, which agents read with plain `jq`.
-- It keeps traces and logs, and metrics only for the first 10 minutes.
+- It keeps traces, logs and metrics. Metrics only need to be bounded for a minimal stack that stays up for days:
+  the first 10 minutes or the last hour would both do, so size-based rotation that keeps about the last hour is
+  enough.
 - Reasonable size limits apply.
 - The files are cleared on `env down`.
 
@@ -2325,7 +2327,7 @@ the full setup (task 52).
     it.
   - Rotation is by size, with a few backups.
   - `env down` deletes the folder, and `env up` starts empty.
-- **Metrics:** only the first 10 minutes.
+- **Metrics:** bounded by size-based rotation, holding roughly the last hour.
 - **Always on in minimal mode, if cheap:** an agent should not have to restart the stack to get telemetry after a
   test fails.
 - **Default mode and Aspire:** unchanged.
@@ -2334,7 +2336,7 @@ the full setup (task 52).
 - `env up -r localtest-v2 --minimal` and one `studioctl run` request.
 - One documented `jq` command shows that request's spans and log records from the app, the front door, Storage and
   the workflow engine.
-- Metrics stop after 10 minutes, while traces and logs continue.
+- The metrics files stay bounded, and the time window they hold is stated.
 - The limits hold.
 - `env down` removes the files.
 - The collector's memory and the change in start-up time are measured and added to task 38's numbers.
