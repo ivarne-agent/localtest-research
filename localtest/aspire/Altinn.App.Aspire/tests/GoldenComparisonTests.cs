@@ -43,6 +43,7 @@ public sealed class GoldenComparisonTests
         "OTEL_EXPORTER_OTLP_ENDPOINT",
         "OTEL_EXPORTER_OTLP_PROTOCOL",
         "OTEL_SERVICE_NAME",
+        "OTEL_METRIC_EXPORT_INTERVAL",
     ];
 
     /// <summary>

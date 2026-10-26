@@ -44,7 +44,9 @@ func TestTheCollectorGivesEveryOtherContainerTheOTLPVariables(t *testing.T) {
 	for name, c := range containersOf(t, withMonitoring()) {
 		env := envOf(c)
 		if slices.Contains(monitoringContainers, name) {
-			for _, key := range []string{otlpEndpointVariable, otlpProtocolVariable, otelServiceNameVariable} {
+			for _, key := range []string{
+				otlpEndpointVariable, otlpProtocolVariable, otelServiceNameVariable, metricExportIntervalVariable,
+			} {
 				if value, ok := env[key]; ok {
 					t.Errorf("%s: %s=%s", name, key, value)
 				}
@@ -59,6 +61,9 @@ func TestTheCollectorGivesEveryOtherContainerTheOTLPVariables(t *testing.T) {
 		}
 		if got := env[otelServiceNameVariable]; got != name {
 			t.Errorf("%s: service name %q", name, got)
+		}
+		if got := env[metricExportIntervalVariable]; got != "5000" {
+			t.Errorf("%s: metric export interval %q", name, got)
 		}
 	}
 }
@@ -121,7 +126,7 @@ func TestWithoutTheCollectorNoContainerGetsTheOTLPVariables(t *testing.T) {
 		for name, c := range containersOf(t, opts) {
 			for key, value := range envOf(c) {
 				if key == otlpEndpointVariable || key == otlpProtocolVariable || key == otelServiceNameVariable ||
-					key == "services__otel-collector__http__0" {
+					key == metricExportIntervalVariable || key == "services__otel-collector__http__0" {
 					t.Errorf("%s: %s=%s without the collector", name, key, value)
 				}
 			}
@@ -134,7 +139,7 @@ func TestAContainersOwnEnvsWinOverTheOTLPDefaults(t *testing.T) {
 	t.Parallel()
 	env := containerEnv(
 		telemetryEnv([]string{otelCollector, "workflow-engine"}, "workflow-engine"),
-		map[string]string{otelServiceNameVariable: "workflow-engine-app"},
+		map[string]string{otelServiceNameVariable: "workflow-engine-app", metricExportIntervalVariable: "15000"},
 		nil,
 		nil,
 	)
@@ -142,13 +147,14 @@ func TestAContainersOwnEnvsWinOverTheOTLPDefaults(t *testing.T) {
 		"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317",
 		"OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
 		"OTEL_SERVICE_NAME=workflow-engine-app",
+		"OTEL_METRIC_EXPORT_INTERVAL=15000",
 	} {
 		if !slices.Contains(env, want) {
 			t.Errorf("env %v lacks %s", env, want)
 		}
 	}
-	if len(env) != 3 {
-		t.Errorf("env %v, want 3 entries", env)
+	if len(env) != 4 {
+		t.Errorf("env %v, want 4 entries", env)
 	}
 }
 

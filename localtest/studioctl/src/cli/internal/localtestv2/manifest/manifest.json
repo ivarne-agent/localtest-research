@@ -168,7 +168,9 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_HTTP_PORTS": "9090",
         "AppCommandSettings__CommandEndpoint": "{{origin}}/{Org}/{App}/instances/{InstanceOwnerPartyId}/{InstanceGuid}/workflow-engine-callbacks/",
-        "ConnectionStrings__WorkflowEngine": "Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres"
+        "ConnectionStrings__WorkflowEngine": "Host=postgres;Port=5432;Database=workflow_engine;Username=postgres;Password=postgres",
+        "EngineSettings__Dashboard__GrafanaTracesDatasourceUid": "altinn-studio-traces",
+        "EngineSettings__Dashboard__GrafanaUrl": "{{origin}}/grafana"
       },
       "dependsOn": ["postgres"]
     },

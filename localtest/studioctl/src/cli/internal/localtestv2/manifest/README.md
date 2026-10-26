@@ -172,7 +172,8 @@ Every container gets, besides its `envs`:
 - while `otel-collector` runs (the `monitoring` group), every container outside that group gets the standard
   OpenTelemetry variables, unless its own `envs` set them: `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`,
   `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (inside the network gRPC needs no front door, and some components send gRPC
-  whatever the variable says) and `OTEL_SERVICE_NAME=<name>`. A component exports exactly when the endpoint is set;
+  whatever the variable says), `OTEL_SERVICE_NAME=<name>` and `OTEL_METRIC_EXPORT_INTERVAL=5000` (metrics every 5 s
+  instead of the SDKs' 60 s; Altinn's environments use 15 s). A component exports exactly when the endpoint is set;
   the monitoring containers get none, so the collector never exports to itself. Such a container also depends on
   `otel-collector`, besides its `dependsOn`: it starts once the collector is ready (a TCP connection to 4318; the
   collector opens its receivers last, gRPC before HTTP) and stops before it, so no start-up or shutdown telemetry is

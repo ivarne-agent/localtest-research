@@ -22,6 +22,10 @@ const (
 	otlpEndpointVariable    = "OTEL_EXPORTER_OTLP_ENDPOINT"
 	otlpProtocolVariable    = "OTEL_EXPORTER_OTLP_PROTOCOL"
 	otelServiceNameVariable = "OTEL_SERVICE_NAME"
+	// metricExportIntervalVariable is the SDKs' metric export interval in milliseconds; locally 5 s instead of the
+	// specification's 60 s, so a dashboard shows a request within seconds.
+	metricExportIntervalVariable = "OTEL_METRIC_EXPORT_INTERVAL"
+	metricExportInterval         = "5000"
 )
 
 // sendsTelemetry reports whether a container is given the collector: while the collector runs, every container
@@ -30,17 +34,19 @@ func sendsTelemetry(running []string, name string) bool {
 	return slices.Contains(running, otelCollector) && !slices.Contains(stack().Select([]string{monitoringGroup}), name)
 }
 
-// telemetryEnv is what a container gets when the collector runs: the collector's gRPC address, the protocol and its
-// own name as the service name. The monitoring containers get none, so the collector never exports to itself, and
-// nothing is added while the collector is not running. The container's own envs win (containerEnv).
+// telemetryEnv is what a container gets when the collector runs: the collector's gRPC address, the protocol, its own
+// name as the service name and the metric export interval. The monitoring containers get none, so the collector never
+// exports to itself, and nothing is added while the collector is not running. The container's own envs win
+// (containerEnv).
 func telemetryEnv(running []string, name string) map[string]string {
 	if !sendsTelemetry(running, name) {
 		return nil
 	}
 	return map[string]string{
-		otlpEndpointVariable:    "http://" + otelCollector + ":" + strconv.Itoa(otelCollectorGRPCPort),
-		otlpProtocolVariable:    "grpc",
-		otelServiceNameVariable: name,
+		otlpEndpointVariable:         "http://" + otelCollector + ":" + strconv.Itoa(otelCollectorGRPCPort),
+		otlpProtocolVariable:         "grpc",
+		otelServiceNameVariable:      name,
+		metricExportIntervalVariable: metricExportInterval,
 	}
 }
 
