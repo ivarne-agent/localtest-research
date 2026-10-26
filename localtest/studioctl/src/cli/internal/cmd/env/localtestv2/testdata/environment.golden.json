@@ -1006,6 +1006,9 @@
         "networks": [
           "network:localtest-v2_network"
         ],
+        "dependsOn": [
+          "container:localtest-v2-otel-collector"
+        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -1087,6 +1090,9 @@
         "networks": [
           "network:localtest-v2_network"
         ],
+        "dependsOn": [
+          "container:localtest-v2-otel-collector"
+        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -1163,7 +1169,8 @@
         ],
         "dependsOn": [
           "container:localtest-v2-postgres",
-          "container:localtest-v2-register"
+          "container:localtest-v2-register",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1242,7 +1249,8 @@
         ],
         "dependsOn": [
           "container:localtest-v2-register",
-          "container:localtest-v2-profile"
+          "container:localtest-v2-profile",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1319,7 +1327,8 @@
         ],
         "dependsOn": [
           "container:localtest-v2-register",
-          "container:localtest-v2-profile"
+          "container:localtest-v2-profile",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1407,7 +1416,8 @@
           "network:localtest-v2_network"
         ],
         "dependsOn": [
-          "container:localtest-v2-postgres"
+          "container:localtest-v2-postgres",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1494,7 +1504,8 @@
         "dependsOn": [
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
-          "container:localtest-v2-authorization"
+          "container:localtest-v2-authorization",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1573,7 +1584,8 @@
         ],
         "dependsOn": [
           "container:localtest-v2-postgres",
-          "container:localtest-v2-storage"
+          "container:localtest-v2-storage",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1662,7 +1674,8 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile",
           "container:localtest-v2-authorization",
-          "container:localtest-v2-authentication"
+          "container:localtest-v2-authentication",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1738,6 +1751,9 @@
         "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-localtest:latest",
         "networks": [
           "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-otel-collector"
         ],
         "ports": [
           {
@@ -1828,6 +1844,9 @@
         "networks": [
           "network:localtest-v2_network"
         ],
+        "dependsOn": [
+          "container:localtest-v2-otel-collector"
+        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -1904,7 +1923,8 @@
           "network:localtest-v2_network"
         ],
         "dependsOn": [
-          "container:localtest-v2-postgres"
+          "container:localtest-v2-postgres",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -1981,6 +2001,9 @@
         "networks": [
           "network:localtest-v2_network"
         ],
+        "dependsOn": [
+          "container:localtest-v2-otel-collector"
+        ],
         "volumes": [
           {
             "HostPath": "/home/dev/.altinn-studio/certs",
@@ -2056,7 +2079,8 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile",
           "container:localtest-v2-authentication",
-          "container:localtest-v2-storage"
+          "container:localtest-v2-storage",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2526,7 +2550,8 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
           "container:localtest-v2-resource-registry",
-          "container:localtest-v2-profile"
+          "container:localtest-v2-profile",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2621,7 +2646,8 @@
           "container:localtest-v2-authorization",
           "container:localtest-v2-access-management",
           "container:localtest-v2-events",
-          "container:localtest-v2-resource-registry"
+          "container:localtest-v2-resource-registry",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2696,7 +2722,8 @@
           "network:localtest-v2_network"
         ],
         "dependsOn": [
-          "container:localtest-v2-dialogporten-webapi"
+          "container:localtest-v2-dialogporten-webapi",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2771,7 +2798,8 @@
           "network:localtest-v2_network"
         ],
         "dependsOn": [
-          "container:localtest-v2-dialogporten-webapi"
+          "container:localtest-v2-dialogporten-webapi",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2849,7 +2877,8 @@
           "container:localtest-v2-storage",
           "container:localtest-v2-register",
           "container:localtest-v2-authentication",
-          "container:localtest-v2-dialogporten-webapi"
+          "container:localtest-v2-dialogporten-webapi",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -2932,7 +2961,8 @@
           "container:localtest-v2-notifications",
           "container:localtest-v2-events",
           "container:localtest-v2-redis",
-          "container:localtest-v2-dialogporten-webapi"
+          "container:localtest-v2-dialogporten-webapi",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -3021,7 +3051,8 @@
           "container:localtest-v2-register",
           "container:localtest-v2-profile",
           "container:localtest-v2-authentication",
-          "container:localtest-v2-dialogporten-graphql"
+          "container:localtest-v2-dialogporten-graphql",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {
@@ -3111,7 +3142,8 @@
           "network:localtest-v2_network"
         ],
         "dependsOn": [
-          "container:localtest-v2-arbeidsflate-bff"
+          "container:localtest-v2-arbeidsflate-bff",
+          "container:localtest-v2-otel-collector"
         ],
         "volumes": [
           {

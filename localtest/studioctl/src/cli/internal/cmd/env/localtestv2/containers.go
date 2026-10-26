@@ -219,8 +219,9 @@ func containerResource(
 	probe func(ctx context.Context) error,
 ) *resource.Container {
 	c := stack().Containers[name]
-	deps := make([]resource.ResourceRef, 0, len(c.DependsOn))
-	for _, dep := range c.DependsOn {
+	implicit := telemetryDependsOn(running, name)
+	deps := make([]resource.ResourceRef, 0, len(c.DependsOn)+len(implicit))
+	for _, dep := range append(slices.Clone(c.DependsOn), implicit...) {
 		deps = append(deps, resource.RefID(resource.ContainerID(containerOf(dep))))
 	}
 	var ports []types.PortMapping

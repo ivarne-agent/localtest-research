@@ -2,7 +2,10 @@ package localtestv2
 
 import (
 	"slices"
+	"strings"
 	"testing"
+
+	"altinn.studio/devenv/pkg/resource"
 )
 
 var monitoringContainers = []string{ //nolint:gochecknoglobals // A test fixture.
@@ -60,11 +63,61 @@ func TestTheCollectorGivesEveryOtherContainerTheOTLPVariables(t *testing.T) {
 	}
 }
 
+// While the collector runs, every other container depends on it besides its manifest dependsOn, so it starts once the
+// collector is ready and stops before it; the monitoring containers keep their own dependencies, so there is no cycle.
+func TestEveryOtherContainerStartsAfterTheCollector(t *testing.T) {
+	t.Parallel()
+	for _, opts := range []*Options{withMonitoring(), everythingOptions()} {
+		for name, c := range containersOf(t, opts) {
+			want := slices.Clone(stack().Containers[name].DependsOn)
+			if !slices.Contains(monitoringContainers, name) {
+				want = append(want, otelCollector)
+			}
+			var got []string
+			for _, dep := range c.DependsOn {
+				got = append(got, strings.TrimPrefix(dep.ID().String(), "container:"+containerPrefix))
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("%s depends on %v, want %v", name, got, want)
+			}
+		}
+		graph := resource.NewGraph("test")
+		if err := graph.AddAll(resources(opts, nil)...); err != nil {
+			t.Fatalf("graph: %v", err)
+		}
+		if _, err := graph.TopologicalOrder(); err != nil {
+			t.Fatalf("start order: %v", err)
+		}
+	}
+}
+
+func TestWithoutTheCollectorNoContainerDependsOnIt(t *testing.T) {
+	t.Parallel()
+	for _, opts := range withoutTheCollector() {
+		for name, c := range containersOf(t, opts) {
+			if len(c.DependsOn) != len(stack().Containers[name].DependsOn) {
+				t.Errorf("%s depends on %v, its manifest on %v", name, c.DependsOn, stack().Containers[name].DependsOn)
+			}
+		}
+	}
+}
+
+func everythingOptions() *Options {
+	opts := defaultOptions(testCertDir, testFilesDir)
+	opts.Groups = OptionalGroups()
+	return opts
+}
+
+// withoutTheCollector are the default stack, minimal mode and every optional group but monitoring.
+func withoutTheCollector() []*Options {
+	all := defaultOptions(testCertDir, testFilesDir)
+	all.Groups = slices.DeleteFunc(OptionalGroups(), func(g string) bool { return g == monitoringGroup })
+	return []*Options{defaultOptions(testCertDir, testFilesDir), minimalOptions(), all}
+}
+
 func TestWithoutTheCollectorNoContainerGetsTheOTLPVariables(t *testing.T) {
 	t.Parallel()
-	all := defaultOptions(testCertDir, testFilesDir)
-	all.Groups = []string{"dialogporten", "receipt", "correspondence", "arbeidsflate"}
-	for _, opts := range []*Options{defaultOptions(testCertDir, testFilesDir), minimalOptions(), all} {
+	for _, opts := range withoutTheCollector() {
 		for name, c := range containersOf(t, opts) {
 			for key, value := range envOf(c) {
 				if key == otlpEndpointVariable || key == otlpProtocolVariable || key == otelServiceNameVariable ||

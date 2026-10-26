@@ -173,7 +173,10 @@ Every container gets, besides its `envs`:
   OpenTelemetry variables, unless its own `envs` set them: `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`,
   `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (inside the network gRPC needs no front door, and some components send gRPC
   whatever the variable says) and `OTEL_SERVICE_NAME=<name>`. A component exports exactly when the endpoint is set;
-  the monitoring containers get none, so the collector never exports to itself. Without the group nothing is added.
+  the monitoring containers get none, so the collector never exports to itself. Such a container also depends on
+  `otel-collector`, besides its `dependsOn`: it starts once the collector is ready (a TCP connection to 4318; the
+  collector opens its receivers last, gRPC before HTTP) and stops before it, so no start-up or shutdown telemetry is
+  lost. The collector depends only on the Victoria stores, so this makes no cycle. Without the group nothing is added.
 - its name as network alias, the public host and its listed subdomains (`local.altinn.cloud`, `pdf.`,
   `workflow-engine.`, `app-frontend.`, `af.` by default) and `host.docker.internal` pointed at the host gateway;
 - for the front door, `Localtest__PublicSubdomains`: the listed subdomains, comma-separated;

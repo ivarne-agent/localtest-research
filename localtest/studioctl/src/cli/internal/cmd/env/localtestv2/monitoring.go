@@ -24,11 +24,17 @@ const (
 	otelServiceNameVariable = "OTEL_SERVICE_NAME"
 )
 
+// sendsTelemetry reports whether a container is given the collector: while the collector runs, every container
+// outside the monitoring group (the collector, its stores and Grafana, with what they depend on).
+func sendsTelemetry(running []string, name string) bool {
+	return slices.Contains(running, otelCollector) && !slices.Contains(stack().Select([]string{monitoringGroup}), name)
+}
+
 // telemetryEnv is what a container gets when the collector runs: the collector's gRPC address, the protocol and its
 // own name as the service name. The monitoring containers get none, so the collector never exports to itself, and
 // nothing is added while the collector is not running. The container's own envs win (containerEnv).
 func telemetryEnv(running []string, name string) map[string]string {
-	if !slices.Contains(running, otelCollector) || slices.Contains(stack().Select([]string{monitoringGroup}), name) {
+	if !sendsTelemetry(running, name) {
 		return nil
 	}
 	return map[string]string{
@@ -36,6 +42,19 @@ func telemetryEnv(running []string, name string) map[string]string {
 		otlpProtocolVariable:    "grpc",
 		otelServiceNameVariable: name,
 	}
+}
+
+// telemetryDependsOn is the runner's dependency of a container that sends telemetry on the collector, besides its
+// manifest dependsOn: it starts once the collector is ready, so its first export finds the receiver, and stops before
+// the collector, so its last one does too. The collector depends only on the monitoring group's own containers, which
+// get no such dependency, so it cannot make a cycle. Its readiness, a TCP connection to the OTLP/HTTP receiver (4318),
+// also covers the gRPC receiver the containers use (4317): the collector starts its receivers after its exporters and
+// processors, and the OTLP receiver opens its gRPC listener before its HTTP one (otlpReceiver.Start).
+func telemetryDependsOn(running []string, name string) []string {
+	if !sendsTelemetry(running, name) {
+		return nil
+	}
+	return []string{otelCollector}
 }
 
 // announced reports whether a running container gets a services__ variable: every HTTP container, and the collector,

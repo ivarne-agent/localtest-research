@@ -17,7 +17,8 @@ namespace Altinn.App.Aspire.Tests;
 /// of minimal mode by its path and options, which the package passes as <c>--tmpfs path:options</c>), the
 /// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
 /// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds,
-/// and studioctl's monitoring group, which the package ignores (<see cref="IsMonitoring" />).
+/// and studioctl's monitoring group, which the package ignores (<see cref="IsMonitoring" />), with the dependency
+/// on the collector studioctl gives every other container.
 /// </summary>
 public sealed class GoldenComparisonTests
 {
@@ -210,7 +211,9 @@ public sealed class GoldenComparisonTests
             );
             Assert.Equal(Strings(golden, "networkAliases"), [container.Name]);
             Assert.Equal(
-                Strings(golden, "dependsOn").Select(d => d["container:localtest-v2-".Length..]),
+                Strings(golden, "dependsOn")
+                    .Select(d => d["container:localtest-v2-".Length..])
+                    .Where(d => !_monitoring.Contains(d)),
                 SampleModel.HealthyWaits(container)
             );
             Assert.True(golden.GetProperty("waitForReady").GetBoolean());
