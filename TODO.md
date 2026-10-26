@@ -85,7 +85,7 @@ A path matching no route still falls through to the localtest app.
 | 49 | [localtest-v2 "up" from the containers, not the state file](#49-localtest-v2-up-from-the-containers-not-the-state-file) | done (2026-10-25; commits aae4355b, 70e5e5c4, 3b263f5b, ec0c4ebc: `localtestv2.Current` (state file plus devenv `GraphRunning`) for every reader outside the runtime, a stale file is no localtest-v2, `run` stops at once only when the containers run and the front door does not answer (the agent's stop on a stale file was changed by the coordinator: it refused runs against `-r localtest`); proven on the stack: after `docker rm -f` of the 13 containers `app env` on loopback without the certificate, `run` in 2.5 s, the server with the host bridge, `env up -r localtest` and a run against it, `env down -r localtest-v2` removed the file; with the front door paused `run` stopped after 5 s; ported to altinn-studio#21394 as 7b4c81fc13; brief `/home/agent/code/.briefs/task49-state-file.md`) | medium | yes |
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
-| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; open: the manifest format, the images and the OTLP route) | medium | yes |
+| 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | unapproved (2026-10-25; a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; open: the `telemetry` field for the components' own switches, monitoring in minimal mode) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -1785,26 +1785,35 @@ studioctl only.
 - **Where the containers are declared (the user's question, 2026-10-25: can telemetry be a group that Aspire knows to
   ignore?).** Yes, if two conditions are met.
   The group approach is chosen.
-  - **Condition 1: the manifest can describe the containers.** Today it cannot. Both loaders reject unknown fields
+  - **Condition 1: the manifest can describe the containers (decided 2026-10-26).** Both loaders reject unknown fields
     (`DisallowUnknownFields` in `manifest.go`, `JsonUnmappedMemberHandling.Disallow` in
     `ManifestJsonContext.cs`). A container has only `registry`, `tag`, `port`, `health`, `envs`, `volumes` and
-    `dependsOn`. The old runtime's specs need three more things: file mounts (the `infra/` files), command arguments
-    (`--config`, `-storageDataPath`) and host ports (4317 and 4318). Each one can be removed instead of being added to
-    the format:
-    - *Files:* two small research images, `localtest-otel-collector` and `localtest-grafana`, with the `infra/` files
-      built in, the way `localtest/postgres` and `localtest/redis` are. Their tags are pinned and bumped like the
-      others (`bump-tag.sh`).
-    - *Arguments:* the collector image's `CMD` names its configuration. The Victoria containers keep their default data
-      path and get a manifest volume there. Retention goes through an environment variable if the images read one,
-      otherwise into the default.
+    `dependsOn`. The old runtime configures the stock upstream images with bind-mounted files, command arguments and
+    env variables. It builds no images, and neither does this task: all five images stay upstream, pinned by tag and
+    digest.
+    - *Files:* a new optional container field `files`, which maps a path in the container to a file or folder kept
+      beside `manifest.json` under `monitoring/`. Both runtimes mount it read-only; studioctl writes the files out
+      first, as it does for the certificate. The images run as non-root users (the collector as UID 10001), so the
+      files must be readable by everyone.
+      - The collector's config is mounted at the stock image's default path `/etc/otelcol-contrib/config.yaml`. The
+        image's default command already points there, so it needs no arguments.
+      - Grafana gets its two provisioning files and its dashboards folder, at the same paths as in the old runtime.
+        Its other settings are `GF_*` env variables in `envs`: sub-path, `GF_SERVER_ROOT_URL={{origin}}/grafana/`,
+        anonymous Admin, and the pinned VictoriaLogs plugin through `GF_PLUGINS_PREINSTALL_SYNC`, which Grafana
+        downloads at start, as it does today.
+      - The files are the old runtime's `infra/` files. The only change is the Victoria host names, which become the
+        manifest's container names, or come from `${env:…}` in the collector config.
+    - *Arguments:* none expected. The Victoria containers run on their defaults: data in the working directory and
+      inside the container, so it goes with `env down`; the old runtime's `/tmp` path and 1-day retention add nothing.
+      Their flags can only be read from env variables after the argument `-envflag.enable`. If a default does not
+      work (for example, a data folder the image's user cannot write), an `args` field is acceptable (decided
+      2026-10-26). Aspire has `WithArgs`, and devenv's container resource has `Command`.
     - *Host ports:* none. Native apps send OTLP over HTTP through the front door, on the path prefix `/otlp` of the
       main host, which is routed to `otel-collector:4318` with the prefix removed. There is no subdomain (decided
       2026-10-25). `app env` then sets `OTEL_EXPORTER_OTLP_ENDPOINT={{origin}}/otlp` and
       `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. app-lib's plain `AddOtlpExporter()` takes both from the
       environment and adds `/v1/<signal>` to the path; verify that on the stack. gRPC through the front door would
       need h2c on port 8000, so it is not used. As a result, `--host` and `--port` work with no extra hostname setup.
-    - The service names in the `infra/` files (`localtest-victoria-*`) become the manifest's container names, so the
-      image's copy of the files differs from the old runtime's copy only in those names.
   - **Condition 2: Aspire ignores the group explicitly (decided 2026-10-25).** The group is an ordinary manifest
     group with no marker. studioctl's `everything` includes it. The Aspire host names it in its own code as a group
     it ignores, because Aspire's dashboard does the same job. For example, `LocaltestManifest.MonitoringGroup` sits
@@ -1820,10 +1829,10 @@ studioctl only.
     simply hard-code `EngineSettings__EnableTelemetry=true`. The proposal: a placeholder such as `{{otlp}}` (an empty
     value when no collector runs). Aspire fills it with its dashboard endpoint, or leaves it empty. Each runtime then
     decides by itself.
-  - **The alternative**, if this format change is too much: the studioctl runtime adds the five containers in Go,
-    sharing `components/monitoring.go` and `infra/` with the old runtime, and the manifest is not touched. That is
-    less work now. Its costs are a second place that declares containers, host ports 4317 and 4318 again, and the
-    `otel.<host>` resolution question for `--host`.
+  - **Not chosen:** the studioctl runtime adding the five containers in Go, outside the manifest. That would mean a
+    second place that declares containers, plus host ports 4317 and 4318 again.
+  - **Not chosen:** research images with the config files built in (2026-10-26). Mounting files keeps the stock
+    images and needs no image builds or tag bumps.
   - **Not chosen:** `grafana/otel-lgtm`, a single container with a collector, Prometheus, Tempo, Loki and Grafana. It
     is simpler, but it does not match the Victoria stack Altinn runs or the shared Grafana's datasource UIDs, so the
     dashboards would not carry over.
