@@ -86,7 +86,7 @@ A path matching no route still falls through to the localtest app.
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
 | 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | in progress (2026-10-26; part 1 done, commits a7c97ca9 and 18c54d53: the `files` field in both loaders, written to `<DataDir>/infra/localtest-v2/files/` and mounted read-only, Aspire ignores `monitoring`; part 2 must add `monitoring` to the `go:embed` directive in `manifest.go` and leave the monitoring containers out of Aspire's `GoldenComparisonTests` (the `everything` case and the per-group loop); brief `/home/agent/code/.briefs/task52-manifest-files.md`) approved: a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
-| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1, audit and shared helper: worktree `.worktrees/task53-audit`, branch `task53-otlp-audit`; the workflow engine upstream in altinn-studio branch `feat/workflow-engine-otlp-env`, worktree `.worktrees/wfe-otlp`) approved: every component, eventually all of them | medium | yes |
+| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`; the workflow engine upstream is committed in altinn-studio branch `feat/workflow-engine-otlp-env` (2885644a1d), not pushed, waiting for the user on its launch profiles; batches 1-4 to dispatch) approved: every component, eventually all of them | medium | yes |
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | approved (2026-10-26) | small | yes |
 | 55 | [A small OTLP viewer in minimal mode](#55-a-small-otlp-viewer-in-minimal-mode) | unapproved (2026-10-26; for agents debugging failed tests, not for humans; not thought through yet) | small | yes |
 
@@ -1831,8 +1831,12 @@ studioctl only.
     component, the front door and the apps send OTLP exactly when the standard `OTEL_EXPORTER_OTLP_ENDPOINT` is set,
     and send nothing when it is not (tasks 53 and 54). When `otel-collector` runs, studioctl's runner adds to every
     container, as it adds `services__`:
-    - `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`;
-    - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`;
+    - `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`;
+    - `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`. Task 53's audit (2026-10-26) found that Dialogporten fails to start without
+      the protocol variable and drops traces and metrics over `http/protobuf`, and that the Arbeidsflate backend sends
+      over gRPC whatever the variable says. Inside the network gRPC needs no front door, so the containers use it.
+      Only native apps go through the front door's `/otlp` over `http/protobuf` (task 54), and the .NET SDK adds the
+      `/v1/<signal>` paths correctly.
     - `OTEL_SERVICE_NAME=<container name>`, unless the container's `envs` set it (the workflow engine:
       `workflow-engine-app`, as in the old runtime).
     Aspire gives its containers the same variables, pointing at its dashboard, so the components' telemetry reaches it
