@@ -66,6 +66,32 @@ public sealed class LocaltestOtlpTests
     }
 
     [Fact]
+    public async Task HttpProtobuf_TheExportersOwnHttpCallsAreNotLogged()
+    {
+        // A host with IHttpClientFactory (nearly every component) gives the exporters factory clients, whose handlers log
+        // every export at Information under System.Net.Http.HttpClient.Otlp*Exporter; on the console that is noise.
+        await using var collector = await FakeCollector.Start(HttpProtocols.Http1);
+        var logged = new ConcurrentQueue<(string Category, LogLevel Level)>();
+
+        await RunComponent(
+            new()
+            {
+                ["OTEL_EXPORTER_OTLP_ENDPOINT"] = collector.Endpoint,
+                ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf",
+            },
+            builder =>
+            {
+                builder.Services.AddHttpClient();
+                builder.Logging.SetMinimumLevel(LogLevel.Information);
+                builder.Logging.AddProvider(new CapturingLoggerProvider(logged));
+            });
+
+        await collector.WaitFor("/v1/traces", "/v1/metrics", "/v1/logs");
+        Assert.Contains(logged, l => l.Category == typeof(LocaltestOtlpTests).FullName);
+        Assert.DoesNotContain(logged, l => l.Category.StartsWith("System.Net.Http.HttpClient.Otlp", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Grpc_SendsOverGrpc()
     {
         await using var collector = await FakeCollector.Start(HttpProtocols.Http2);
@@ -178,10 +204,12 @@ public sealed class LocaltestOtlpTests
     }
 
     /// <summary>A component as most of ours look: a hard-coded service name, a source, a meter, logs, then the helper.</summary>
-    private static async Task RunComponent(Dictionary<string, string?> settings)
+    private static async Task RunComponent(
+        Dictionary<string, string?> settings, Action<HostApplicationBuilder>? configure = null)
     {
         var builder = new HostApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.Configuration.AddInMemoryCollection(settings);
+        configure?.Invoke(builder);
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(ComponentName))
             .WithTracing(tracing => tracing.AddSource(SourceName))
@@ -207,6 +235,27 @@ public sealed class LocaltestOtlpTests
             Assert.True(host.Services.GetRequiredService<MeterProvider>().ForceFlush());
             Assert.True(host.Services.GetRequiredService<LoggerProvider>().ForceFlush());
             await host.StopAsync();
+        }
+    }
+
+    private sealed class CapturingLoggerProvider(ConcurrentQueue<(string Category, LogLevel Level)> logged) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new Logger(categoryName, logged);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Logger(string category, ConcurrentQueue<(string Category, LogLevel Level)> logged) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                logged.Enqueue((category, logLevel));
         }
     }
 

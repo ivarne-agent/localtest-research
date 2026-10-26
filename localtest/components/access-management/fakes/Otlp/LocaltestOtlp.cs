@@ -1,5 +1,7 @@
 #nullable enable
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 
@@ -41,6 +43,8 @@ public static class LocaltestOtlp
 
         builder.AddLocaltestOtlpResource(configuration);
         builder.UseOtlpExporter();
+        // The exporters' IHttpClientFactory clients log every export at Information (http/protobuf); keep warnings.
+        builder.Services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", LogLevel.Warning));
         return builder;
     }
 

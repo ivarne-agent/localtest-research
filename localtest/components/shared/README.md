@@ -126,6 +126,12 @@ Monitor or Application Insights:
 - Nearly every component hard-codes `service.name` (`AddService` or `AddAttributes`), and a later resource wins over the
   SDK's environment detector, so `OTEL_SERVICE_NAME` alone is ignored (a test without the detector fails). The helper adds
   the environment detector after the component's resource, so call it after the component's `ConfigureResource`.
+- With it, the helper also filters `System.Net.Http.HttpClient.Otlp*` below Warning. A host with `IHttpClientFactory` (nearly
+  every component) hands the exporters factory clients, whose handlers log each export at Information: over
+  `http/protobuf` 4 events (8 console lines) per export, about 8 lines a minute from the metrics alone on an idle
+  Receipt (measured 2026-10-26: 40 lines in 5 minutes, none in the exported logs). Over `grpc`, what studioctl gives the
+  containers, the exporters log nothing either way. The hosts that only take `AddLocaltestOtlpResource` keep their own
+  logging.
 - The tests flush the providers before stopping the host: when the host is only disposed, the exporter's `HttpClient` can be
   disposed before the log provider's last batch (an `ObjectDisposedException` in the exporter's event source, the batch lost).
 
@@ -139,7 +145,7 @@ Monitor or Application Insights:
 10.0.8): over http `Secure` is gone from an appended and a deleted cookie and `SameSite=None` is `Lax`; over https all
 three are unchanged. `Otlp.Tests` (OpenTelemetry 1.19.1 by default): with the variable all three signals reach a fake
 collector over `http/protobuf` and traces over `grpc`, named by `OTEL_SERVICE_NAME` over a hard-coded name, and a
-per-signal endpoint overrides the general one; without it (unset, empty, blank, or only a per-signal endpoint) nothing is
+per-signal endpoint overrides the general one, and the exporters' own HTTP calls are not logged; without it (unset, empty, blank, or only a per-signal endpoint) nothing is
 registered. The tests clear inherited `OTEL_*` variables first and only talk to the fake collector on an ephemeral
 loopback port. Then the
 Maskinporten host; it needs the stack running and restores `Altinn.ApiClients.Maskinporten` 10.1.0 from the NuGet cache or nuget.org. The host
