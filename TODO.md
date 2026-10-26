@@ -88,7 +88,7 @@ A path matching no route still falls through to the localtest app.
 | 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | done (2026-10-26; trace-links follow-up done 2026-10-26 (commits 06032322, 83ad35d6, brief `/home/agent/code/.briefs/task52-trace-links.md`): the engine's Grafana pair only from the runner while the monitoring group runs, Aspire sets `EngineSettings__Dashboard__TraceUrlTemplate` to its dashboard (unverified until the engine change is in `tt02`); Aspire follow-up done 2026-10-26 (commit 3a9c9b6d, brief `/home/agent/code/.briefs/task52-aspire-otlp.md`): every localtest container sends traces, logs and metrics to the Aspire dashboard (`WithOtlpExporter()`, the manifest name, 5 s metrics; the dashboard's OTLP endpoints on every interface without the container tunnel; the OTLP key kept so persistent containers are reused), proven with both samples under Podman (screenshots `/home/agent/code/.handover/task52-aspire-otlp/`); collector-first follow-up done 2026-10-26 (commits 569ef9a4, 8ca809a0, brief `/home/agent/code/.briefs/task52-collector-first.md`): every other container depends on the collector, metrics every 5 s, the engine dashboard's Grafana links; part 2: the `monitoring` group with five stock images, the runner's OTLP variables while the collector runs (gRPC to `otel-collector:4317`), `/grafana` and `/otlp` on the front door; proven on the stack: 18 containers healthy, an app's trace, dashboard and logs in Grafana (screenshots `/home/agent/code/.handover/task52/`), 377-480 MB for the five; the collector is a named special case for `services__` (its HTTP receiver has no health path); the front door's new image tag waits for the images workflow on main; brief `/home/agent/code/.briefs/task52-monitoring.md`; engine follow-up done 2026-10-26 (commit f8f4148f, brief `/home/agent/code/.briefs/task52-engine-otel.md`): `EngineSettings__EnableTelemetry=false` dropped now that the engine's `tt02` is altinn-studio#21515 (revision 884b8ed755), research images pinned to `sha-38fbbba` (the last green images run on main, with the front door's task 52 routes and task 54 telemetry); on the stack with the pinned images: the engine's spans under `workflow-engine`, its enqueue joined to the front door's trace, the Workflow Engine dashboard with data (its `$service` comes from the metrics, so no `OTEL_SERVICE_NAME=workflow-engine-app`), without the group no `OTEL_*` and no connection attempts (screenshots `/home/agent/code/.handover/task52-engine/`); part 1: commits a7c97ca9 and 18c54d53: the `files` field in both loaders, written to `<DataDir>/infra/localtest-v2/files/` and mounted read-only, Aspire ignores `monitoring`; verified on Podman 2026-10-26 with a scratch entry on the minimal front door: readable by uid 1654, read-only, `ro` binds, 0644/0755 host copies, in-place rewrite seen by the running container, removed files gone. Known: a plain `env up` on a healthy, unchanged environment says "already running" and does not rewrite the files (only a real start does), and any `self install`, including `make dev-install`, stops every localtest-v2 environment; part 2 must add `monitoring` to the `go:embed` directive in `manifest.go` and leave the monitoring containers out of Aspire's `GoldenComparisonTests` (the `everything` case and the per-group loop); brief `/home/agent/code/.briefs/task52-manifest-files.md`) approved: a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
 | 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`; the workflow engine is done: altinn-studio#21515 merged (884b8ed755), in `tt02`, and the manifest's switch removed (commit f8f4148f, task 52's engine follow-up); it was PR altinn-studio#21515 from `ivarne-agent:feat/workflow-engine-otlp-env` (522ff4cc87, cf006182fd and 834dab1db9; exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, per-signal variables do not turn it on, `EngineSettings.EnableTelemetry` removed, so the manifest's `EnableTelemetry=false` is ignored once the image has it; the old `localtest` runtime checked with a branch image: no attempts to localhost:4317 without monitoring, identical series, traces and logs with it; verified on Podman 2026-10-26 against collector 0.161.0: no variable, no export and no connection attempts; variable, all three signals with `OTEL_SERVICE_NAME`; `EnableTelemetry=true` alone, localhost:4317; both, the variable wins. Export errors go to the SDK's self-diagnostics, not the engine log), PR handover in `/home/agent/code/.handover/wfe-otlp-pr.md`; batches 1-3 done in the localtest builds (the Authorization family `7c1e0dd4`; the platform components and Dialogporten `e64a2a3e`, `3973509e`), stack proof done (2026-10-26, branch `task53-stack-proof`: images `sha-609c646` (ef213725), every changed component's smoke test green with its OTLP span check on `--with everything`, every component of the table reports traces, metrics and logs under its manifest name, one `ttd/testapp` submission as one trace through the front door, Storage, the PDP and Access Management, nothing without the group; the helper filters the exporters' own HTTP logs (ea60bbf9, in the next images); open: pdf3); per-service upstream reviews in `localtest/reviews/otel/`) approved: every component, eventually all of them | medium | yes |
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
-| 55 | [A small OTLP viewer in minimal mode](#55-a-small-otlp-viewer-in-minimal-mode) | unapproved (2026-10-26; for agents debugging failed tests, not for humans; not thought through yet) | small | yes |
+| 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | approved (2026-10-26; the collector writes JSON Lines files for agents to read with `jq`; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md`) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2295,41 +2295,46 @@ these.
   Not investigated.
 - Open: the apps half above (`app env`); a minimal-mode trace on a stack (minimal mode runs no collector until task 55).
 
-## 55. A small OTLP viewer in minimal mode
+## 55. Telemetry files in minimal mode
 
 **Origin (2026-10-26).** The user: Grafana and its stack should not be in minimal mode, but minimal mode should have
-some OTEL available. The main purpose is to give agents something to debug failed tests with. Humans use the default
-mode with the full setup (task 52). The user has not thought this through yet, so the task stays unapproved until
-then.
+some telemetry. The purpose is to give agents something to debug failed tests with; humans use the default mode with
+the full setup (task 52).
 
-**Goal.**
-- `env up -r localtest-v2 --minimal` can show an app's traces, logs and metrics, with one light container and no
-  storage.
-- Everything sends to it through the same standard variables (tasks 53 and 54). In minimal mode those are only the
-  app, the front door and its emulations, Storage and the workflow engine.
+**Considered and dropped.**
+- The standalone Aspire dashboard: built for people in a browser, and unclear whether agents can query it or whether it
+  can be served under a sub-path.
+- An OTLP receiver in the front door: our own code to maintain.
+- SQL: the collector has no SQLite exporter, and ClickHouse is a server. DuckDB over the files was also dropped.
 
-**What matters,** given the purpose: an agent can read the spans and logs of a failed test from the command line or
-over HTTP, filtered by trace ID or time. A UI is secondary.
+**Decision (the user, 2026-10-26).**
+- Minimal mode runs the stock collector (`otel-collector`, the image already pinned for `monitoring`) with only the
+  `file` exporter, which was confirmed with `components` in 0.161.0.
+- It writes OTLP JSON Lines files on the host, which agents read with plain `jq`.
+- It keeps traces and logs, and metrics only for the first 10 minutes.
+- Reasonable size limits apply.
+- The files are cleared on `env down`.
 
-**Candidates** (the agent measures memory and start time; this machine has 7.8 GB):
-- **The standalone Aspire dashboard** (`mcr.microsoft.com/dotnet/aspire-dashboard`). It keeps traces, structured logs
-  and metrics in memory, receives OTLP over gRPC and HTTP, and runs as one container. Aspire users see the same
-  viewer.
-  - It runs without login when `ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true`.
-  - Verify whether it can be served under a sub-path such as `/telemetry/` behind the front door. The user prefers a
-    sub-path to a subdomain.
-- **The collector with only the `debug` exporter,** read through `studioctl env logs`. This is the smallest option,
-  but it is hardly usable.
-- **An OTLP receiver in the front door itself,** with an in-memory page. It adds no container, but it is our own
-  code, so it is the most work.
-
-**To decide at approval.**
-- Is the viewer always on in minimal mode, as a container in the `minimal` group? Or is it opt-in through a flag that
-  only minimal mode takes? Minimal mode currently takes no optional group, and `monitoring` stays out (task 52).
-- Where its UI is reached.
+**Design.**
+- **Container name:** the container is named `otel-collector`, so the runner's existing rule applies unchanged: the
+  OTLP variables, the 5 s interval and the implicit dependency while the collector runs.
+- **Config:** it has its own config file next to `monitoring/otel-collector.yaml`, with the same receivers and
+  processors (the same attributes as the full setup) and the file exporter instead of the Victoria exporters.
+- **Location:**
+  - Files land in a host folder under the data directory, split per service and signal where the exporter allows
+    it.
+  - Rotation is by size, with a few backups.
+  - `env down` deletes the folder, and `env up` starts empty.
+- **Metrics:** only the first 10 minutes.
+- **Always on in minimal mode, if cheap:** an agent should not have to restart the stack to get telemetry after a
+  test fails.
+- **Default mode and Aspire:** unchanged.
 
 **Proof.**
-- `--minimal` with the viewer: a `studioctl run` shows the app's request as a trace with the front door's and
-  Storage's spans.
-- Memory measured and added to task 38's numbers.
-- Without the viewer, minimal mode starts the same as before.
+- `env up -r localtest-v2 --minimal` and one `studioctl run` request.
+- One documented `jq` command shows that request's spans and log records from the app, the front door, Storage and
+  the workflow engine.
+- Metrics stop after 10 minutes, while traces and logs continue.
+- The limits hold.
+- `env down` removes the files.
+- The collector's memory and the change in start-up time are measured and added to task 38's numbers.
