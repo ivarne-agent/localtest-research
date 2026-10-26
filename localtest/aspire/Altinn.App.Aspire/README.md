@@ -162,14 +162,16 @@ studioctl's 20 s and 21.6 s.
 
 ## The ignored `monitoring` group
 
-The manifest's `monitoring` group is studioctl's OpenTelemetry collector and Grafana. The package ignores it by name
+The manifest's `monitoring` group is studioctl's OpenTelemetry collector, its Victoria stores and Grafana. The package ignores it by name
 (`LocaltestManifest.MonitoringGroup`, beside `DefaultGroup` and `MinimalGroup`), because the Aspire dashboard already
 receives the containers' and the apps' traces, metrics and logs: it is not in `OptionalGroups`, `everything` and
 `WithEverything()` leave it out, `GroupMethodsTests` requires no typed method for it, and `WithGroup("monitoring")` (or
 `Groups` naming it) throws an `ArgumentException` that points at the dashboard. Any other new group still fails
 `GroupMethodsTests` until it gets a method, so ignoring a group is always a decision in this package's code. studioctl
-runs the group with `env up --with monitoring` and includes it in `--with everything`, so once the manifest has it the
-two runtimes' `everything` differ by that group.
+runs the group with `env up --with monitoring` and includes it in `--with everything`, so the two runtimes'
+`everything` differ by that group: `GoldenComparisonTests` leaves its containers out of studioctl's `everything`
+snapshot, and with them what studioctl's runner gives the others while its collector runs (the collector's and
+Grafana's `services__` variables and the `OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME` variables).
 
 ## Minimal mode
 
@@ -375,7 +377,7 @@ manifest; the package's tests compare what it builds with studioctl's golden sna
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
 
 Besides: `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
-world-readable and in place), `MonitoringGroupTests` (on a copy of the manifest with a `monitoring` group: not optional,
+world-readable and in place), `MonitoringGroupTests` (the manifest's `monitoring` group: not optional,
 not in `everything`, no method required, `WithGroup` refuses it), `ManifestTests` (the embedded file; defaults and start order; every validation of the Go loader: an unknown
 key, an unknown or self reference, a duplicate, a cycle, an unreached container, an empty registry or tag, a bad
 health, port, env key, volume id or volume path, no `default` group, trailing data), `ModelTests` (the default, `dialogporten`,

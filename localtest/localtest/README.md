@@ -17,7 +17,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | Proxy: one origin, `local.altinn.cloud:8000` by default (`Localtest:PlatformEndpoint`), split by host name and path prefix onto the platform services by name and onto the registered apps; the 503s; the app registration with provisioning; the frontend dev server's route | `Proxy/`, `Provisioning/` | `localtest/api/apps/`, `localtest/api/routes/` |
 | ID-porten: a fake OpenID Connect provider whose login page is the test-user picker; production Authentication signs in against it as against ID-porten | `IdPorten/` | `localtest/api/idporten/` |
 | Maskinporten: discovery and JWKS that production Authentication's `exchange/maskinporten` trusts, and the minting `/Home/GetTestOrgToken` uses | `Maskinporten/` | `localtest/api/maskinporten/` |
-| Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication | `Home/` | `/`, `/Home/…` (the old contract) |
+| Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication; the start page links to Grafana while its route is live | `Home/` | `/`, `/Home/…` (the old contract) |
 | Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
 | Minimal mode: the platform services whose address is the front door's own, emulated in memory under their public prefixes (task 35); nothing of it is registered or mapped otherwise | `Emulation/` | the services' own paths ([Minimal mode](#minimal-mode)) |
 
@@ -39,7 +39,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Emulation/` | The minimal mode: `Emulation.cs` (the two calls `Program.cs` makes), `EmulationMode.cs`, one folder per emulated service, the test-data store with its copies of the Register's format files and seed, the static PDF; [its README](Emulation/README.md) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
 | `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports; `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers). 81 checks, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link; off: the `503` naming the group and no link). 83 or 84 checks, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -82,8 +82,11 @@ In order:
    front of the GraphQL host); `/dialogporten/` → `dialogporten-webapi`; `/storage/dialogporten/` →
    `dialogporten-adapter`; `/storage/` → `storage`; `/register/`, `/profile/`, `/authentication/`, `/authorization/`,
    `/events/`, `/notifications/`, `/receipt/`, `/correspondence/` → the service of that name; `/accessmanagement/` →
-   `access-management`; `/resourceregistry/` → `resource-registry`. Paths are passed on unchanged except for the
-   GraphQL rewrite.
+   `access-management`; `/resourceregistry/` → `resource-registry`; `/grafana/` → `grafana` (Grafana serves from that
+   sub-path, `GF_SERVER_SERVE_FROM_SUB_PATH`); `/otlp/` → `otel-collector`, its OTLP/HTTP receiver, with the prefix
+   removed (`/otlp/v1/traces` arrives as `/v1/traces`), for apps on the host that send OTLP over HTTP with
+   `OTEL_EXPORTER_OTLP_ENDPOINT={origin}/otlp`. The last two are the `monitoring` group's (studioctl's
+   `--with monitoring`). Paths are passed on unchanged except for the GraphQL and OTLP rewrites.
 6. Anything else: `404` with the text "No app is registered for this path. Start it with studioctl run or an Aspire
    AppHost (or, with this app as the front door, run-app.sh <app-dir> <port>)."
 
@@ -101,7 +104,7 @@ page when the request ranks `text/html` above JSON (a browser). Ported from stud
 
 | Case | Title | Detail |
 | --- | --- | --- |
-| The service has no address (`services__<name>__http__0` is not set) | `Component not running` | Names the service and, for an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`), the group with both runtimes' hints: `studioctl env up -r localtest-v2 --with <group>`, and `.With<Group>()` or `.WithGroup("<group>")` on `AddAltinnLocaltest()` in an Aspire AppHost |
+| The service has no address (`services__<name>__http__0` is not set) | `Component not running` | Names the service and, for an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`), the group with both runtimes' hints: `studioctl env up -r localtest-v2 --with <group>`, and `.With<Group>()` or `.WithGroup("<group>")` on `AddAltinnLocaltest()` in an Aspire AppHost. For `monitoring` (Grafana, the collector) only the studioctl command, and that an Aspire AppHost does not run the group: its dashboard shows the telemetry |
 | The address does not answer (refused, timed out, unknown host) | `Component not answering` | The forwarder's error and its message (the old `502` text), and `studioctl env logs -r localtest-v2 -c <name>` and `env status`; for an app, whether it still runs; for the dev server, how to remove its route |
 
 A request the client cancelled answers nothing. An app path without a registered app keeps its `404` hint.

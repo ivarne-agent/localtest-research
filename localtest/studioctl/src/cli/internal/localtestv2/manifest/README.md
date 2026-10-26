@@ -45,6 +45,17 @@ engine, and Postgres through `dependsOn`. It is a constant name for the runners 
 listed: every HTTP container of `default` that `minimal` does not start (Register, Profile, Authentication,
 Authorization, Access Management, Events, the Resource Registry, Notifications, pdf3), which the front door emulates.
 
+`monitoring` is the OpenTelemetry collector and Grafana (roots), with the VictoriaMetrics, VictoriaTraces and
+VictoriaLogs stores they depend on, all on the stock upstream images pinned by tag and digest and configured by their
+[files](#files) under `monitoring/` and Grafana's `GF_*` envs (served from `{{origin}}/grafana/`, the front door's
+`/grafana` route). The collector's config is the router's in Altinn's environments, exporting to the stores by
+container name; Grafana's datasources carry the shared Grafana's UIDs, so the dashboards work in both. The stores keep
+their data inside the container. studioctl's `everything` includes the group; the Aspire package ignores it, since
+its dashboard receives the telemetry; minimal mode takes no optional group, so not this one either. The workflow engine
+keeps `EngineSettings__EnableTelemetry=false` until an image with
+[altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515), which exports exactly when the endpoint
+variable is set, reaches `tt02`.
+
 One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi and
 Redis because Correspondence depends on them.
 
@@ -157,7 +168,13 @@ Every container gets, besides its `envs`:
 
 - `services__<name>__http__0=http://<name>:<port>` for every running container with an HTTP health (not Postgres or
   Redis), itself included: service discovery as Aspire does it. A group that is off has no variables, so the front
-  door answers "not running" for it.
+  door answers "not running" for it. The OpenTelemetry collector is announced too, at its OTLP/HTTP port (4318), for
+  the front door's `/otlp` route, although its health is `tcp`: its receiver answers no `GET` with 200.
+- while `otel-collector` runs (the `monitoring` group), every container outside that group gets the standard
+  OpenTelemetry variables, unless its own `envs` set them: `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`,
+  `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (inside the network gRPC needs no front door, and some components send gRPC
+  whatever the variable says) and `OTEL_SERVICE_NAME=<name>`. A component exports exactly when the endpoint is set;
+  the monitoring containers get none, so the collector never exports to itself. Without the group nothing is added.
 - its name as network alias, the public host and its listed subdomains (`local.altinn.cloud`, `pdf.`,
   `workflow-engine.`, `app-frontend.`, `af.` by default) and `host.docker.internal` pointed at the host gateway;
 - for the front door, `Localtest__PublicSubdomains`: the listed subdomains, comma-separated;

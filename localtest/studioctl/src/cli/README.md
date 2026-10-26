@@ -154,8 +154,8 @@ Optional component groups are off by default: `--with dialogporten` adds Dialogp
 which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;
 `--with correspondence` Correspondence (with Dialogporten's WebApi and Redis, which it depends on);
 `--with arbeidsflate` the Altinn inbox on `http://af.local.altinn.cloud:8000` (with Dialogporten's
-GraphQL host, WebApi and Redis; `studioctl env hosts add` adds the hostname); `--with everything` all
-of them. A group starts its own containers and what they depend on; `--without <group>` leaves out
+GraphQL host, WebApi and Redis; `studioctl env hosts add` adds the hostname); `--with monitoring` the
+monitoring stack (below); `--with everything` all of them. A group starts its own containers and what they depend on; `--without <group>` leaves out
 a group's own containers. A request for a component whose group is off answers `503` with the
 `env up` command that starts it.
 
@@ -183,9 +183,21 @@ The conventions the runtime follows (the manifest, tags, service names, ports an
 certificate, the volumes) are in the
 [manifest README](internal/localtestv2/manifest/README.md).
 
-Not in localtest-v2 yet: the monitoring stack and pgAdmin (`env up` refuses `--monitoring` and
-`--pgadmin` there), container-mode apps at another origin than `http://local.altinn.cloud:8000`, and
-`doctor` checks.
+`--with monitoring` starts the monitoring stack: an OpenTelemetry collector, VictoriaMetrics,
+VictoriaTraces and VictoriaLogs, and Grafana at `http://local.altinn.cloud:8000/grafana/` (anonymous
+admin, with the Metrics, Traces and Logs datasources and the Altinn Studio dashboards; the start page
+links to it while it runs). Every other container then gets `OTEL_EXPORTER_OTLP_ENDPOINT`,
+`OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and `OTEL_SERVICE_NAME=<container>`, so a component that exports
+OpenTelemetry shows up under its container's name. An app on the host can send OTLP over HTTP to
+`http://local.altinn.cloud:8000/otlp` (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`); `studioctl run`
+keeps those variables and `AppSettings__UseOpenTelemetry=true` from the shell. The data lives in the
+containers and goes with `env down`. The stack is not in minimal mode. The workflow engine keeps
+`EngineSettings__EnableTelemetry=false` until an image with
+[altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515) is in `tt02`.
+
+Not in localtest-v2 yet: pgAdmin (`env up` refuses `--monitoring` and `--pgadmin` there; the
+monitoring stack is `--with monitoring`), container-mode apps at another origin than
+`http://local.altinn.cloud:8000`, and `doctor` checks.
 
 ## Install from source (for contributors)
 

@@ -25,8 +25,8 @@ lists the stack in three sections:
 }
 ```
 
-- `groups` names each group's **root** containers. `default` is always on; `dialogporten`, `receipt`, `correspondence`
-  and `arbeidsflate` are optional. A group starts its roots and everything they depend on (`dependsOn`, transitively),
+- `groups` names each group's **root** containers. `default` is always on; `dialogporten`, `receipt`, `correspondence`,
+  `arbeidsflate` and `monitoring` are optional (`monitoring` in studioctl only: the Aspire package ignores it). A group starts its roots and everything they depend on (`dependsOn`, transitively),
   so one group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi
   and Redis because Correspondence depends on them, but not the Dialogporten Service, GraphQL host or adapter.
   `everything` is not in the file; it is a constant of each runner meaning every optional group. A container no group
@@ -299,6 +299,9 @@ OCI images drop it, so the runtimes do the check themselves (see [The runtimes](
 | `workflow-engine` (monorepo image) | 9090 | `/api/v1/health/ready` |
 | `postgres` | 5432 | `tcp` |
 | `redis` | 6379 | `tcp` |
+| `victoria-metrics` 8428, `victoria-traces` 10428, `victoria-logs` 9428 (upstream images) | own port | `/health` (default) |
+| `otel-collector` (upstream image) | 4318 (OTLP/HTTP; gRPC on 4317) | `tcp` |
+| `grafana` (upstream image) | 3000 | `/api/health` |
 
 Each component image moves to 8080 in its own small change and the manifest drops its `port` then (section 7 of
 [`service-discovery.md`](../planned-components/service-discovery.md#7-port-and-health-convention) lists the change per

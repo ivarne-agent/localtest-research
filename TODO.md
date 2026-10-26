@@ -1222,6 +1222,13 @@ an app, `--with everything`, minimal, and both Aspire samples; reconcile `free`'
 result (GC settings in the images, AOT, shared layers, page cache counted as available). Deliverable: a reusable
 `localtest/tools/memory-stats.sh` and `localtest/reviews/2026-10-23-memory.md` with raw snapshots.
 
+**The monitoring group (2026-10-26, task 52, `docker stats --no-stream` under Podman, default stack plus
+`--with monitoring`).** Idle, a minute after start: Grafana 232.8 MB, the collector 60.4 MB, VictoriaMetrics 39.3 MB,
+VictoriaLogs 27.1 MB, VictoriaTraces 17.5 MB, 377 MB together. After a `studioctl run` of an app sending all three
+signals and the default components that already export (a few hundred spans, ~1,500 log lines): Grafana 237 MB, the
+collector 71.1 MB, VictoriaLogs 67.2 MB, VictoriaMetrics 55.2 MB, VictoriaTraces 49.6 MB, 480 MB. `free -m` used went
+from 925 MB (nothing running) to 2,702 MB (18 containers idle) and 3,339 MB with the app and the browser.
+
 **Open (owner 2026-10-23): the public origin `http://local.altinn.cloud:8000` must be configurable, with a random port
 possible.** Coordinator's outline given; the scope question (collision avoidance only, or several stacks side by side)
 is with the owner before a brief.
