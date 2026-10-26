@@ -1856,9 +1856,9 @@ studioctl only.
     off, the existing 503 for a component that is not running names the group.
   - Grafana's `GF_SERVER_ROOT_URL` is `{{origin}}/grafana/`, so `--host` and `--port` (task 39) work.
   - A Home-page link is shown when the route is live.
-- **Apps and components** follow tasks 53 and 54. This task needs only the workflow engine's own switch
-  (`EngineSettings__EnableTelemetry=false` in the manifest) to follow the variable, so that its traces can be shown
-  end to end. Task 53 lists the rest.
+- **Apps and components** follow tasks 53 and 54. The workflow engine's telemetry is not needed until its fix
+  (altinn-studio#21515) is upstream and in the image (decided 2026-10-26): the manifest keeps
+  `EngineSettings__EnableTelemetry=false` until then, with no workaround. Task 53 lists the rest.
 
 **Goal.**
 
