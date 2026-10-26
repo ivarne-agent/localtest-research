@@ -191,9 +191,7 @@ links to it while it runs). Every other container then gets `OTEL_EXPORTER_OTLP_
 OpenTelemetry shows up under its container's name. An app on the host can send OTLP over HTTP to
 `http://local.altinn.cloud:8000/otlp` (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`); `studioctl run`
 keeps those variables and `AppSettings__UseOpenTelemetry=true` from the shell. The data lives in the
-containers and goes with `env down`. The stack is not in minimal mode. The workflow engine keeps
-`EngineSettings__EnableTelemetry=false` until an image with
-[altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515) is in `tt02`.
+containers and goes with `env down`. The stack is not in minimal mode.
 
 Not in localtest-v2 yet: pgAdmin (`env up` refuses `--monitoring` and `--pgadmin` there; the
 monitoring stack is `--with monitoring`), container-mode apps at another origin than

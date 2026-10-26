@@ -52,9 +52,8 @@ VictoriaLogs stores they depend on, all on the stock upstream images pinned by t
 container name; Grafana's datasources carry the shared Grafana's UIDs, so the dashboards work in both. The stores keep
 their data inside the container. studioctl's `everything` includes the group; the Aspire package ignores it, since
 its dashboard receives the telemetry; minimal mode takes no optional group, so not this one either. The workflow engine
-keeps `EngineSettings__EnableTelemetry=false` until an image with
-[altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515), which exports exactly when the endpoint
-variable is set, reaches `tt02`.
+exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+([altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515)), so it needs no setting of its own.
 
 One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi and
 Redis because Correspondence depends on them.
