@@ -91,7 +91,7 @@ A path matching no route still falls through to the localtest app.
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
-| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done on branch `task58-tool` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d`, workflow-engine no longer vendored, `repin-vendor.py` retired; next: the Resource Registry's retarget and the removals | large | no (the verification after a sync does) |
+| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done on branch `task58-tool` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; next: the Resource Registry's retarget and the removals | large | no (the verification after a sync does) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2673,10 +2673,14 @@ Dialogporten); 5 the altinn-auth group; 6 Arbeidsflate; 7 the Resource Registry 
   passed; the host build passed and `check` warned `pins OpenTelemetry.Exporter.OpenTelemetryProtocol 1.19.1, the host
   resolves OpenTelemetry 1.20.0`; the fixes commit moved the exporter to 1.20.0. The vendored commit's message is the
   tool's summary. Profile synced d1f9871..d0cd92d (2026-10-22, 1 commit, 5 files, 0 sites merged clean).
-  **Not yet verified on images:** the lock `/home/agent/code/.locks/stack-busy` was held by the coordinator's Aspire
-  demo from 14:11 to past 19:00 (its containers already gone), so the local Profile image build, `--dev-profile` and
-  `components/profile/smoke-test.sh` (verify-after-sync 5.1, 4.2) were not run. Pending, then after the merge the images
-  workflow's `sha-<commit>` Profile image and the pinned check (5.2, with `bump-tag.sh`).
+  **Verified on images (2026-10-27, 20:07-20:20, after the coordinator released the lock):** `podman build` of the
+  Profile image (32 s; OpenTelemetry and the OTLP exporter 1.20.0 in its `deps.json`); `env up -r localtest-v2
+  --dev-profile` with the worktree's studioctl in an isolated home, 13 containers in 19 s; root smoke test 26 `ok`, 0
+  `FAIL`, 1 skip (the OTLP check); `components/profile/smoke-test.sh` 52 `ok`, 0 `FAIL`; no `fail:`/`crit:` in
+  Profile's log; with `--with monitoring` the Profile suite 53 `ok` including `OTLP: a server span from service.name
+  profile`. The images of the three components with step 1's blank-line fix build (Notifications 35 s, the Resource
+  Registry 46 s, Storage 52 s, exit 0). Evidence `/home/agent/code/.handover/task58-tool/`. Pending after the merge:
+  the images workflow's `sha-<commit>` images and the pinned check (verify-after-sync 5.2, `bump-tag.sh`).
 - `sync` merges a site file with `git merge-file`, and when that conflicts re-anchors the blocks where upstream left
   their neighbours alone; a conflict stays unmerged in the index (stages 1-3). `sync --repository … --paths …
   [--group …]` moves a component to another repository (for the Resource Registry), and a site whose two branches hold
