@@ -4,8 +4,8 @@
 {
   "repository": "Altinn/altinn-profile",
   "branch": "main",
-  "commit": "d1f9871c40bf00eda949338957ce4259e4ae5a24",
-  "date": "2026-10-19",
+  "commit": "d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2",
+  "date": "2026-10-22",
   "paths": ["src", "Dockerfile", ".dockerignore", "docker-compose.yml", ".editorconfig", "stylecop.json"],
   "group": null,
   "local": "directives",
@@ -23,7 +23,7 @@
 
 <!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-profile
-- Commit: [`d1f9871c40bf00eda949338957ce4259e4ae5a24`](https://github.com/Altinn/altinn-profile/tree/d1f9871c40bf00eda949338957ce4259e4ae5a24) (main, 2026-10-19)
+- Commit: [`d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2`](https://github.com/Altinn/altinn-profile/tree/d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2) (main, 2026-10-22)
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the host `Altinn.Profile`, `.Core`, `.Integrations` with the EF
   `Migrations/` and the legacy Yuniql `Migration/` folder the Dockerfile still copies, `.Models`, and the two vendored
