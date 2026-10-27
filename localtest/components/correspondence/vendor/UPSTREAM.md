@@ -25,8 +25,7 @@
   "reminders": [
     "grep the new tree for cookies written other than through `Response.Cookies`: `grep -rn 'Set-Cookie\\|HeaderNames.SetCookie' vendor/src` must find nothing (the cookie policy in `fakes/Cookies/` sees only `Response.Cookies`; `reviews/cookies.md`)",
     "`ConfigureAuthentication` must still name the correlation cookie and the callback path the fakes and the smoke test rely on",
-    "update the EF migration count `smoke-test.sh` expects when `src/Altinn.Correspondence.Persistence/Migrations` changed",
-    "upstream #2157 (d2dc912) passes `urn:altinn:partyid:{id}` to the PDP request factory: the `XacmlRequestFactory.cs` site is a candidate for removal (TODO.md task 58, next task)"
+    "update the EF migration count `smoke-test.sh` expects when `src/Altinn.Correspondence.Persistence/Migrations` changed"
   ]
 }
 ```
@@ -49,20 +48,22 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                                 | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
-| ------------------------------------------------------------------------------------ | ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs`                       | 26-31   | replacement | `new HttpDocumentRetriever { RequireHttps = false });`                                       |
-| `src/Altinn.Correspondence.API/Program.cs`                                           | 44-49   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
-| `src/Altinn.Correspondence.API/Program.cs`                                           | 56-58   | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(...`      |
-| `src/Altinn.Correspondence.API/Program.cs`                                           | 66-71   | addition    | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services....`          |
-| `src/Altinn.Correspondence.API/Program.cs`                                           | 179-181 | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, ...` |
-| `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` | 31-36   | replacement | `else if (party.StartsWith(AltinnXacmlUrns.PartyId) \|\| (long.TryParse(...`                 |
+| File                                                           | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| -------------------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` | 26-31   | replacement | `new HttpDocumentRetriever { RequireHttps = false });`                                       |
+| `src/Altinn.Correspondence.API/Program.cs`                     | 44-49   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/Altinn.Correspondence.API/Program.cs`                     | 56-58   | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(...`      |
+| `src/Altinn.Correspondence.API/Program.cs`                     | 66-71   | addition    | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services....`          |
+| `src/Altinn.Correspondence.API/Program.cs`                     | 179-181 | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, ...` |
 
 <!-- vendor-sync:end sites -->
 
-Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs`, and two `#if !LOCALTEST` / `#else` / `#endif` blocks, in
-`src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` (task 7b) and
-`src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` (task 11b).
+Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs`, and one `#if !LOCALTEST` / `#else` / `#endif` block, in
+`src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` (task 11b). Task 7b's block in
+`src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` (the party-id branch of
+`CreateResourceCategory`, any positive 64-bit integer for the test data's 6-digit ids) was removed in task 58's follow-up
+(2026-10-27): upstream #2157 (`d2dc912`) passes `urn:altinn:partyid:{id}` from `CreateDecisionRequest` and
+`CreateUserContactPointDecisionRequest`, option (c) of `planned-components/correspondence/party-ids.md`.
 
 | Lines | Adds | Why there |
 | --- | --- | --- |
@@ -70,7 +71,6 @@ Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs`, and two 
 | `Program.cs`, right after the `.AddEnvironmentVariables();` that ends the `builder.Configuration` chain | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(builder.Configuration);` `#endif` | `Program.cs` adds the JSON files and the environment variables a second time, so the localtest defaults have to be inserted after that chain (just below its environment source, above `appsettings.Development.json`) and before `ConfigureServices`, which reads the settings eagerly |
 | `Program.cs`, right after `services.ConfigureHangfire(config);` in `ConfigureServices` | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, config);` `#endif` | after every production registration (the last but Kestrel's), so `RemoveAll`/`Add` win, and after `ConfigureAuthentication`, so the JWT and OIDC `Configure` actions run after upstream's |
 | `Program.cs`, right after `builder.Services.ConfigureOpenTelemetry(generalSettings);` | `#if LOCALTEST` `LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTelemetry(), builder.Configuration);` `#endif`: OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53) | The pipeline is built in the Integrations project (`OpenTelemetry/DependencyInjection.cs`), which the fakes are not compiled into; this is the first place in the API host after it. A pure addition, not a `#if !LOCALTEST`/`#else`: production's call stays, and adds no Azure Monitor exporter here because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty |
-| `XacmlRequestFactory.cs`, the party-id branch of `CreateResourceCategory` | `#if !LOCALTEST` upstream's condition (`party.StartsWith(AltinnXacmlUrns.PartyId) \|\| partyWithoutPrefix.IsPartyId()`) `#else` the same `urn:altinn:partyid` prefix test, or a value that `long.TryParse` reads with `NumberStyles.None` and the invariant culture as a positive number `#endif` | Every PDP request names the party by its bare Register party id, and `IsPartyId` accepts only 8 or 10 digits, so the test data's 6-digit ids (Digdir 500006, Sophie Salt 501337, app-supplied 600000-700002) threw "RecipientId is not a valid organization number, person number or party id" (500). The branch comes after the organisation-number and national-identity-number branches, so 9- and valid 11-digit values are unchanged, and 8- and 10-digit ids pass as upstream. `IsPartyId` itself stays upstream's: `CreateDecisionRequest` and `WithUrnPrefix` use it to decide whether to resolve a party, and a looser rule there would change the production request shape (`planned-components/correspondence/party-ids.md`, option (b)). Delete it when upstream passes `urn:altinn:partyid:{id}` (option (c)) |
 | `IdportenTokenValidator.cs`, the document retriever of `ValidateTokenAsync`'s `ConfigurationManager` | `#if !LOCALTEST` upstream's `new HttpDocumentRetriever());` `#else` a `// localtest:` comment and `new HttpDocumentRetriever { RequireHttps = false });` `#endif` | The browser download of an attachment (an inbox link, no token) ends in the cascade's OIDC branch, which validates the access token it cached at the callback against the discovery document and JWKS at `{Authority}/.well-known/openid-configuration`, Authentication's on `http://local.altinn.cloud:8000`. The retriever's `RequireHttps` defaults to true, so `GetConfigurationAsync` threw, the cascade fell through to a new challenge, and Authentication's live session answered with a new code at once: a redirect loop. The fakes' `RequireHttpsMetadata = false` does not reach this retriever (built here, not from the scheme's options), and the validator is a concrete class injected by type, so no fake can replace it. Reported first in `../../arbeidsflate/README.md`, "Correspondence attachments (11b)" |
 
 Considered and not used (see the plan, section 6.2): the Redis connect (`Program.cs`, configuration only: the group's Redis), the
@@ -98,9 +98,6 @@ What the localtest code follows: `IStorageRepository`, `IResourceManager`, the s
 `ConfigureAuthentication`, the configuration keys of `../fakes/LocaltestCorrespondence.cs`, the entities and the
 Hangfire schema the inspection API reads, and the migration count the smoke test expects.
 
-The two `#if !LOCALTEST` branches are checked against upstream by the tool. The factory's block goes when upstream
-passes `urn:altinn:partyid:{id}` from `AltinnAuthorizationService.CreateDecisionRequest` and `AltinnTokenXacmlMapper`
-(option (c) of `planned-components/correspondence/party-ids.md`; upstream #2157 did, so it is the next task's), and the
-smoke test's app-lib and recipient checks prove the 6-digit ids still pass. The validator's block goes when upstream
+The `#if !LOCALTEST` branch is checked against upstream by the tool. The validator's block goes when upstream
 builds the retriever from the scheme's options (its `RequireHttpsMetadata`, which the fakes set to false) or reads
 `options.Configuration`'s discovery; the smoke test's browser-download section proves the http metadata is still read.

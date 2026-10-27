@@ -1,6 +1,14 @@
 # Party ids: Correspondence's 8-or-10-digit rule and the stack's 6-digit seed
 
-## Status (2026-10-21)
+## Status (2026-10-27)
+
+- **Closed.** Option (c) landed upstream as Altinn/altinn-correspondence#2157 (`d2dc912`, 2026-10-22):
+  `CreateDecisionRequest` and `CreateUserContactPointDecisionRequest` pass `urn:altinn:partyid:{id}`. Correspondence was
+  synced to `d2dc912` and the `XacmlRequestFactory.cs` site of option (b) removed in task 58's follow-up
+  ([`../../TODO.md`](../../TODO.md) task 58); the smoke test's app-lib and recipient checks prove the 6-digit ids pass
+  without it. The rest of this page is the history.
+
+### Earlier status (2026-10-21)
 
 - Recommendation (b) **approved 2026-10-21 with a change** (the site accepts any 64-bit integer party id, not only
   unsigned 32-bit) and **in progress** as task 7b (worktree `.worktrees/task7b-party-ids`, branch

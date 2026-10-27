@@ -9,7 +9,7 @@
 # e-mail notification to Published), the dialog in Dialogporten, the e-mail in the Notifications capture, the notification
 # condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, the reserved person (KRR)
 # alone (422 CORR-01030) and with another recipient (Reserved), app-lib's five calls with its /Home/GetTestOrgToken credential
-# (no altinn:serviceowner, so the PDP decides on Digdir's 6-digit party id 500006: attachment, upload, its status,
+# (no altinn:serviceowner, so the PDP decides on Digdir's 6-digit party id 500006, as urn:altinn:partyid since upstream #2157: attachment, upload, its status,
 # correspondence, details), the recipient's path on that correspondence with a dialog token (task 2's code-flow token for
 # user 1337, party 501337, the dialog's dialogToken: details, markasread, content, attachment download, confirm, the opened
 # and confirmed activities on the dialog, purge), a scheduled publish and the sender's purge of it, and the sender's refused
@@ -93,9 +93,9 @@ trap 'rm -rf "$TMP"' EXIT
 
 # Two senders. A service owner's direct token (altinn:serviceowner, as a service owner calling with Maskinporten would),
 # which production lets past the PDP when the token's consumer owns the resource, and app-lib's credential (without
-# altinn:serviceowner), whose every call goes to the PDP. Every PDP request names the party by its party id; production
-# accepts only 8- or 10-digit ids there and the test data's have 6 (500006, 501337), so app-lib's calls and the
-# recipient's path depend on the one #if !LOCALTEST site in XacmlRequestFactory (README, "Directive sites").
+# altinn:serviceowner), whose every call goes to the PDP. Every PDP request names the party by its party id, as
+# urn:altinn:partyid:{id} since upstream #2157; a bare id would need 8 or 10 digits and the test data's have 6 (500006,
+# 501337), so app-lib's calls and the recipient's path prove that no localtest site is needed for them any more.
 APPLIB_SCOPES="altinn:serviceowner/instances.read%20altinn:serviceowner/instances.write%20altinn:correspondence.write"
 SENDER=$(orgtoken "altinn:serviceowner%20$APPLIB_SCOPES")
 APPLIB=$(orgtoken "$APPLIB_SCOPES")

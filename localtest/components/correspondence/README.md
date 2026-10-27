@@ -22,14 +22,14 @@ failed"). With the group, the signing flow messages its signees and sends its re
 
 **Status (2026-10-21):** runs on the stack (see "Verified"): the service-owner path, app-lib's credential and the recipient's
 dialog-token path end to end, and `signering-brukerstyrt`'s call-to-sign and receipt. The test data's 6-digit party ids pass
-the PDP request factory through one `#if !LOCALTEST` site (task 7b, see "Directive sites"). With the `arbeidsflate` group, an
-attachment clicked in the inbox downloads over plain http, without a picker when the user is signed in (task 11b: a second
-`#if !LOCALTEST` site, Authentication's seeded client `correspondence-localtest` and the OIDC cookies in the fakes, see "The browser
+the PDP request factory unchanged since upstream #2157 (synced at `d2dc912`, task 58's follow-up), which removed task 7b's
+site. With the `arbeidsflate` group, an attachment clicked in the inbox downloads over plain http, without a picker when the
+user is signed in (task 11b: an `#if !LOCALTEST` site, Authentication's seeded client `correspondence-localtest` and the OIDC cookies in the fakes, see "The browser
 download of attachments").
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except two additive `#if LOCALTEST` hooks in `Program.cs` and two `#if !LOCALTEST` blocks, in `XacmlRequestFactory.cs` and `IdportenTokenValidator.cs` |
+| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except three additive `#if LOCALTEST` hooks in `Program.cs` and one `#if !LOCALTEST` block, in `IdportenTokenValidator.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
 | `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password `localtest`), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
@@ -39,8 +39,8 @@ download of attachments").
 
 ## Directive sites
 
-Three pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
-lines):
+Pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and one `#if !LOCALTEST` block (`vendor/UPSTREAM.md` has the
+lines; the OpenTelemetry addition is under "Telemetry (OTLP)"):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
    `Program.cs` adds the JSON files and the environment variables a second time after `CreateBuilder`, so the defaults are
@@ -49,11 +49,13 @@ lines):
 2. After `services.ConfigureHangfire(config);`, the last registration but Kestrel's: `AddLocaltestServices(services, config)`, so
    its `RemoveAll`/`Add` win and its authentication `Configure` actions run after upstream's.
 
-3. `vendor/src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs:31-36`, the party-id branch of
-   `CreateResourceCategory` (task 7b): `#if !LOCALTEST` production's condition (`urn:altinn:partyid` prefix or `IsPartyId`, 8 or 10
-   digits), `#else` the prefix or any positive 64-bit integer (`long.TryParse`, `NumberStyles.None`, invariant culture), `#endif`.
-   It comes after the organisation-number and national-identity-number branches, so only ids production never issues are treated
-   differently. `IsPartyId` stays upstream's, see "Differences from production".
+3. Removed in task 58's follow-up (2026-10-27): task 7b's `#if !LOCALTEST` block in
+   `vendor/src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs`, the party-id branch of
+   `CreateResourceCategory`, which accepted any positive 64-bit integer where production's `IsPartyId` takes 8 or 10 digits.
+   Upstream #2157 (`d2dc912`) passes the resolved party as `urn:altinn:partyid:{id}` from
+   `AltinnAuthorizationService.CreateDecisionRequest` and `AltinnTokenXacmlMapper.CreateUserContactPointDecisionRequest`, so
+   the factory's prefix branch takes a 6-digit id as it is (option (c) of
+   [`party-ids.md`](../../../planned-components/correspondence/party-ids.md)).
 
 4. `vendor/src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs:26-31`, the document retriever in `ValidateTokenAsync`
    (task 11b): `#if !LOCALTEST` production's `new HttpDocumentRetriever()` `#else` `new HttpDocumentRetriever { RequireHttps = false }`
@@ -223,16 +225,12 @@ volume and its `correspondence-blobs` volume (`localtest-v2-correspondence-blobs
   points are only addresses users registered for the organisation, not every role holder; official addresses come from
   Profile's brreg mirror, seeded once per organisation from the test data. Run with this group on 2026-10-21 (task 14
   phase 2, before task 7b): `smoke-test.sh` 43 ok and the 2 `KNOWN` party-id checks, unchanged.
-- **Party ids of any length.** Every PDP request Correspondence builds (`AltinnAuthorizationService.CreateDecisionRequest` →
-  `XacmlRequestFactory.CreateResourceCategory`) looks the party up in Register and names it by its bare party id; production
-  takes a bare number as a party id only when it has 8 or 10 digits (`StringExtensions.IsPartyId`) and otherwise throws
-  (500 "RecipientId is not a valid organization number, person number or party id"). The test data's party ids have 6 digits
-  (Digdir 500006, Sophie Salt 501337, `signering-brukerstyrt`'s 600000-700002), so the factory's party-id branch here accepts
-  any positive 64-bit integer (directive site 3). Organisation numbers (9 digits) and national identity numbers still take
-  their own branches first, and 8- and 10-digit ids behave as in production; only ids production never issues are treated
-  differently. `IsPartyId` itself is upstream's, so `CreateDecisionRequest` and `WithUrnPrefix` decide as in production. The
-  upstream fix (Correspondence passing `urn:altinn:partyid:{id}`, which removes the site) is drafted in
-  `../../../planned-components/correspondence/party-ids.md`, option (c).
+- **Party ids of any length: no longer a difference.** Every PDP request Correspondence builds
+  (`AltinnAuthorizationService.CreateDecisionRequest` → `XacmlRequestFactory.CreateResourceCategory`) looks the party up in
+  Register; since upstream #2157 it names it `urn:altinn:partyid:{id}`, which the factory takes whatever its length, so the
+  test data's 6-digit ids (Digdir 500006, Sophie Salt 501337, `signering-brukerstyrt`'s 600000-700002) pass as in production.
+  A bare number still needs 8 or 10 digits (`StringExtensions.IsPartyId`), but no caller passes one any more. Task 7b's site
+  for this was removed in task 58's follow-up (`../../../planned-components/correspondence/party-ids.md`).
 - Correspondence acts as `digdir`, apps as `ttd`; the seeded tt02 policies add `ttd` beside `digdir` in the service-owner rule
   (`../resource-registry/README.md`).
 - Dialog-token keys are fetched again on a key miss instead of every 12 hours.
