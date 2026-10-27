@@ -1,7 +1,52 @@
 # Vendored copy of Altinn/altinn-auth (Authorization PDP)
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-auth",
+  "branch": "main",
+  "commit": "3d51810374b255aeaa179993e53864d122586a65",
+  "date": "2026-10-19",
+  "paths": [
+    ".editorconfig",
+    "global.json",
+    "src/Altinn.ruleset",
+    "src/Directory.Build.props",
+    "src/Directory.Build.targets",
+    "src/Directory.Packages.props",
+    "src/Stylecop.json",
+    "src/apps/Altinn.Authorization",
+    "src/apps/Directory.Build.props",
+    "src/apps/Directory.Build.targets",
+    "src/libs/Altinn.Authorization.Api.Contracts",
+    "src/libs/Directory.Build.props",
+    "src/libs/Directory.Build.targets",
+    "src/pkgs/Altinn.Authorization.ABAC",
+    "src/pkgs/Altinn.Authorization.PEP",
+    "src/pkgs/Directory.Build.props",
+    "src/pkgs/Directory.Build.targets",
+    "src/pkgs/Directory.Packages.props",
+    "src/pkgs/README.md"
+  ],
+  "group": "altinn-auth",
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "src/apps/Altinn.Authorization/Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [
+    "src/apps/Altinn.Authorization/docker-bake.hcl",
+    "src/apps/Altinn.Authorization/containers",
+    "containers"
+  ],
+  "projects": ["src/apps/Altinn.Authorization/src/Altinn.Authorization"],
+  "follow": [],
+  "reminders": []
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-auth
-- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19), re-pinned from `392f9578` on 2026-10-20 together with the other altinn-auth components
+- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved:
   - `src/apps/Altinn.Authorization/` (the PDP host and its tests)
   - `src/libs/Altinn.Authorization.Api.Contracts/` (project reference from the host, not on NuGet)
@@ -13,12 +58,25 @@
     and `src/pkgs/README.md` (package readme fallback).
 - Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
-  There are three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` (line
-  numbers checked 2026-10-26), the first two pure additions: `:53-58`, right after `WebApplication.CreateBuilder`, the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`); the package comes
-  transitively from `Altinn.Authorization.ServiceDefaults`; `:67-71` (`AddLocaltestAuthorization(builder)` after
-  `ConfigureServices`); and `:278-304` (task 53), a `#if !LOCALTEST` / `#else` around the Application Insights block in
-  `ConfigureServices`, whose `#else` calls `LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config)`
-  (OpenTelemetry over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, `../fakes/LocaltestAuthorizationTelemetry.cs`).
+
+## Directive sites
+
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 53-58 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 67-71 | addition | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions.AddLocaltestAu...` |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 278-304 | replacement | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry.AddLocaltestTel...` |
+<!-- vendor-sync:end sites -->
+
+Three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, the first two pure additions:
+
+- Right after `WebApplication.CreateBuilder`: the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`); the package comes transitively from
+  `Altinn.Authorization.ServiceDefaults`.
+- `AddLocaltestAuthorization(builder)` after `ConfigureServices`.
+- Task 53: a `#if !LOCALTEST` / `#else` around the Application Insights block in `ConfigureServices`, whose `#else` calls
+  `LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config)` (OpenTelemetry over OTLP when
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is set, `../fakes/LocaltestAuthorizationTelemetry.cs`).
 
 ## Syncing to a newer upstream commit
 

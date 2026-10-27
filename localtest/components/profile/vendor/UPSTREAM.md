@@ -1,9 +1,30 @@
 # Vendored copy of Altinn/altinn-profile
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-profile",
+  "branch": "main",
+  "commit": "d1f9871c40bf00eda949338957ce4259e4ae5a24",
+  "date": "2026-10-19",
+  "paths": ["src", "Dockerfile", ".dockerignore", "docker-compose.yml", ".editorconfig", "stylecop.json"],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["src/Altinn.Profile/Altinn.Profile.csproj"],
+  "follow": [
+    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+  ],
+  "reminders": []
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-profile
-- Commit: [`d1f9871c40bf00eda949338957ce4259e4ae5a24`](https://github.com/Altinn/altinn-profile/tree/d1f9871c40bf00eda949338957ce4259e4ae5a24)
-  (main, 2026-10-19, "Document the notification settings DELETE response without a body (#1064)"; the pin of the
-  research in `planned-components/profile/profile.md`)
+- Commit: [`d1f9871c40bf00eda949338957ce4259e4ae5a24`](https://github.com/Altinn/altinn-profile/tree/d1f9871c40bf00eda949338957ce4259e4ae5a24) (main, 2026-10-19)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the host `Altinn.Profile`, `.Core`, `.Integrations` with the EF
   `Migrations/` and the legacy Yuniql `Migration/` folder the Dockerfile still copies, `.Models`, and the two vendored
   libraries `ServiceDefaults.Jobs` and `ServiceDefaults.Leases`), `Dockerfile`, `.dockerignore`, `docker-compose.yml`,
@@ -15,20 +36,28 @@
 
 ## Directive sites
 
-Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if !LOCALTEST` / `#else` (line numbers checked
-2026-10-26):
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/Altinn.Profile/Program.cs` | 54-59 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `src/Altinn.Profile/Program.cs` | 64-66 | addition | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.C...` |
+| `src/Altinn.Profile/Program.cs` | 152-158 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `src/Altinn.Profile/Program.cs` | 236-238 | addition | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, conf...` |
+<!-- vendor-sync:end sites -->
 
-1. Lines 64-66, after `SetConfigurationProviders(builder.Configuration);`:
+Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if !LOCALTEST` / `#else`:
+
+1. After `SetConfigurationProviders(builder.Configuration);`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
    It must come before `ConfigureServices`: `AddRegisterService` reads the connection string, `AddMaskinportenClient`
    binds its settings and `AddSyncJobs` reads `JobSettings` at registration time.
-2. Lines 236-238, after `services.AddSyncJobs(config);` in `ConfigureServices`:
+2. After `services.AddSyncJobs(config);` in `ConfigureServices`:
    `#if LOCALTEST` … `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, config);` … `#endif`.
    It must come after `AddRegisterService` and `AddMaskinportenClient`, whose KRR and brreg clients it replaces.
-3. Lines 54-59, right after `var builder = WebApplication.CreateBuilder(args);`: the service-discovery registration
+3. Right after `var builder = WebApplication.CreateBuilder(args);`: the service-discovery registration
    (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25,
    `planned-components/service-discovery.md`).
-4. Lines 152-158, `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
+4. `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
    production call `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
 
 ## Syncing to a newer upstream commit

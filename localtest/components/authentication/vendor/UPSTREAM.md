@@ -1,7 +1,43 @@
 # Vendored copy of Altinn/altinn-auth (Authentication)
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-auth",
+  "branch": "main",
+  "commit": "3d51810374b255aeaa179993e53864d122586a65",
+  "date": "2026-10-19",
+  "paths": [
+    ".editorconfig",
+    "global.json",
+    "src/Directory.Build.props",
+    "src/Directory.Build.targets",
+    "src/Directory.Packages.props",
+    "src/apps/Altinn.Authentication",
+    "src/apps/Directory.Build.props",
+    "src/apps/Directory.Build.targets",
+    "src/pkgs/JWTCookieAuthentication",
+    "src/pkgs/Directory.Build.props",
+    "src/pkgs/Directory.Build.targets",
+    "src/pkgs/Directory.Packages.props"
+  ],
+  "group": "altinn-auth",
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "src/apps/Altinn.Authentication/Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": ["src/apps/Altinn.Authentication/docker-bake.hcl"],
+  "projects": ["src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication"],
+  "follow": [],
+  "reminders": [
+    "grep the new tree for cookies written other than through `Response.Cookies`: `grep -rn 'Set-Cookie\\|HeaderNames.SetCookie' vendor/src/apps/Altinn.Authentication/src` must find nothing (the cookie policy in `fakes/Cookies/` sees only `Response.Cookies`; `reviews/cookies.md`)"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-auth
-- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19), re-pinned from `392f9578` on 2026-10-20 together with the other altinn-auth components
+- Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/apps/Altinn.Authentication/`, `src/pkgs/JWTCookieAuthentication/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
   `.editorconfig`, `global.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`
@@ -9,9 +45,21 @@
 - Copied with `rsync` of a clean checkout, no subtree yet; identical to `git archive` of the commit (checked
   2026-10-19). The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
-  The two sites (line numbers checked 2026-10-21), under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:
-  `AuthenticationHost.cs:293-295` (pure addition, `AddLocaltestAuthentication(builder)` before `AddPersistanceLayer()`)
-  and `Controllers/AuthenticationController.cs:1057-1070` (`IsSafeSameOrSubdomainHttps`, `#else` also accepts http).
+
+## Directive sites
+
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/AuthenticationHost.cs` | 293-295 | addition | `Altinn.Platform.Authentication.Localtest.LocaltestAuthenticationExtensions.AddLocaltest...` |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 1057-1070 | replacement | `if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)` |
+<!-- vendor-sync:end sites -->
+
+Two sites, under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:
+
+- `AuthenticationHost.cs`: a pure addition, `AddLocaltestAuthentication(builder)` right before `AddPersistanceLayer()`.
+- `Controllers/AuthenticationController.cs`: `IsSafeSameOrSubdomainHttps`, whose `#else` also accepts http (the stack
+  is plain http).
 
 ## Syncing to a newer upstream commit
 

@@ -1,8 +1,45 @@
 # Vendored copy of Altinn/dialogporten-frontend
 
+```json vendor-sync
+{
+  "repository": "Altinn/dialogporten-frontend",
+  "branch": "main",
+  "commit": "bb74dff2c425f2aff48759ed9c6370e73436545d",
+  "date": "2026-10-21",
+  "paths": ["."],
+  "group": null,
+  "local": "patches",
+  "patches": "patches",
+  "mirrors": [
+    {"upstream": "packages/bff/Dockerfile", "ours": "Dockerfile.bff"},
+    {"upstream": "packages/frontend/Dockerfile", "ours": "Dockerfile.frontend"},
+    {"upstream": "packages/frontend/nginx.conf", "ours": "nginx/nginx.conf"},
+    {"upstream": ".dockerignore", "ours": ".dockerignore"}
+  ],
+  "watch": [
+    "packages/frontend/start.sh",
+    "packages/frontend/index.html",
+    ".node-version",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "packages/bff/src/config.ts",
+    "packages/bff/src/auth",
+    "packages/bff/src/server.ts"
+  ],
+  "projects": [],
+  "follow": [],
+  "reminders": [
+    "grep `vendor/packages/bff/src` for `secure: true` and `setCookie`: a new cookie needs patch 0003's treatment",
+    "new or renamed BFF settings (`packages/bff/src/config.ts`) go into studioctl's `arbeidsflateBFFComponent` and `README.md`",
+    "move the base image digests of `Dockerfile.bff` and `Dockerfile.frontend` when upstream's tags move"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/dialogporten-frontend
-- Commit: [`bb74dff2c425f2aff48759ed9c6370e73436545d`](https://github.com/Altinn/dialogporten-frontend/tree/bb74dff2c425f2aff48759ed9c6370e73436545d)
-  (main, 2026-10-21, four commits after release 1.182.2: Node 24 for the BFF image, a CI change)
+- Commit: [`bb74dff2c425f2aff48759ed9c6370e73436545d`](https://github.com/Altinn/dialogporten-frontend/tree/bb74dff2c425f2aff48759ed9c6370e73436545d) (main, 2026-10-21)
+<!-- vendor-sync:end pin -->
 - Copied paths: the whole repository (`git archive <commit> | tar -x -C vendor`), no subtree. The pnpm workspace needs
   every package the lockfile names (`pnpm install --frozen-lockfile`), and a whole-tree copy is trivially comparable.
 - **Pristine.** The commit `arbeidsflate: vendor Altinn/dialogporten-frontend at bb74dff …, unmodified` holds the tree

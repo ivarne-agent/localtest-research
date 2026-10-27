@@ -1,7 +1,30 @@
 # Vendored copy of Altinn/altinn-events
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-events",
+  "branch": "main",
+  "commit": "1a4a80c4599e9e176c04bce1b5da7861ca1c54a6",
+  "date": "2026-10-19",
+  "paths": ["src/Events", "src/Events.Common", "src/DbTools", "stylecop.json", ".editorconfig", "Dockerfile"],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["src/Events/Altinn.Platform.Events.csproj"],
+  "follow": [
+    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+  ],
+  "reminders": []
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-events
 - Commit: [`1a4a80c4599e9e176c04bce1b5da7861ca1c54a6`](https://github.com/Altinn/altinn-events/tree/1a4a80c4599e9e176c04bce1b5da7861ca1c54a6) (main, 2026-10-19)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/Events/` (the host, including `Migration/`, unused locally),
   `src/Events.Common/` and `src/DbTools/` (both referenced by relative path from the host csproj), the root
   `stylecop.json` and `.editorconfig`, and the upstream `Dockerfile` for reference. Not copied: `src/Events.Functions`
@@ -9,12 +32,32 @@
   `Directory.Packages.props` or `global.json` upstream.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
-  `#if LOCALTEST … #endif` addition. The seven sites (line numbers checked 2026-10-22; the seventh 2026-10-26): `src/Events/Program.cs:59-64`
-  (the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`)), `:69-71` and `:76-78` (pure additions), `:170-176`
-  (`AddAzureMonitorTelemetryExporters` in `ConfigureServices`: `#if !LOCALTEST` production's call `#else`
-  `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53)), `src/Events/Controllers/SubscriptionController.cs:193-198` (`IsValidUri`) and
-  `:213-221` (`IsAppSubscription`), and `src/Events/Services/OutboundService.cs:429-435` (`GetSourceFilter`); the last
-  two (task 12) call `fakes/Sources/LocaltestAppSources.cs`.
+  `#if LOCALTEST … #endif` addition.
+
+## Directive sites
+
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/Events/Controllers/SubscriptionController.cs` | 193-198 | replacement | `return uri is not null && uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttps \|\| u...` |
+| `src/Events/Controllers/SubscriptionController.cs` | 213-221 | replacement | `else if (!string.IsNullOrEmpty(subscription.SourceFilter?.ToString()) &&` |
+| `src/Events/Program.cs` | 59-64 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `src/Events/Program.cs` | 69-71 | addition | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestConfiguration(bu...` |
+| `src/Events/Program.cs` | 76-78 | addition | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestEvents(builder);` |
+| `src/Events/Program.cs` | 170-176 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `src/Events/Services/OutboundService.cs` | 429-435 | replacement | `if (source.DnsSafeHost.Contains(_platformSettings.AppsDomain) &&` |
+<!-- vendor-sync:end sites -->
+
+Seven sites:
+
+- `src/Events/Program.cs`, right after `WebApplication.CreateBuilder`: the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
+- `src/Events/Program.cs`, two pure additions: `AddLocaltestConfiguration(builder.Configuration)` (the localtest
+  defaults) and `AddLocaltestEvents(builder)` (the fakes).
+- `src/Events/Program.cs`, `AddAzureMonitorTelemetryExporters` in `ConfigureServices`: `#if !LOCALTEST` production's
+  call `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
+- `src/Events/Controllers/SubscriptionController.cs`: `IsValidUri` and `IsAppSubscription`.
+- `src/Events/Services/OutboundService.cs`: `GetSourceFilter`. This one and `IsAppSubscription` (task 12) call
+  `fakes/Sources/LocaltestAppSources.cs`.
 
 ## Syncing to a newer upstream commit
 

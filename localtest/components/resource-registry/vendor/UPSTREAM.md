@@ -1,7 +1,39 @@
 # Vendored copy of Altinn/altinn-resource-registry
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-resource-registry",
+  "branch": "main",
+  "commit": "a3422419579832833845e47d3be57c148364bed0",
+  "date": "2026-09-25",
+  "paths": [
+    "src/apps/Altinn.ResourceRegistry/src",
+    "src/apps/Altinn.ResourceRegistry/Dockerfile",
+    "src/Directory.Build.props",
+    "src/Directory.Build.targets",
+    "src/Directory.Packages.props",
+    "src/stylecop.json",
+    "Settings.StyleCop",
+    "global.json"
+  ],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "src/apps/Altinn.ResourceRegistry/Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry"],
+  "follow": [],
+  "reminders": [
+    "Altinn/altinn-resource-registry is archived (2026-09-25); the code lives on in Altinn/altinn-auth `src/apps/Altinn.ResourceRegistry/`: retarget with `sync resource-registry --repository Altinn/altinn-auth --paths ... --group altinn-auth` (TODO.md task 58, next task)"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-resource-registry
-- Commit: [`a3422419579832833845e47d3be57c148364bed0`](https://github.com/Altinn/altinn-resource-registry/tree/a3422419579832833845e47d3be57c148364bed0) (main, 2026-09-25; still `origin/main` on 2026-10-20)
+- Commit: [`a3422419579832833845e47d3be57c148364bed0`](https://github.com/Altinn/altinn-resource-registry/tree/a3422419579832833845e47d3be57c148364bed0) (main, 2026-09-25)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/apps/Altinn.ResourceRegistry/src/` (the host `Altinn.ResourceRegistry` and
   `.Core`, `.Persistence` with the embedded `Migration/**/*.sql`, `.Integration`), `src/Directory.Build.props`,
   `src/Directory.Build.targets`, `src/Directory.Packages.props`, `src/stylecop.json`, the root `Settings.StyleCop` and
@@ -13,10 +45,17 @@
 
 ## Directive sites
 
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 46-49 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfi...` |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 191-193 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResou...` |
+<!-- vendor-sync:end sites -->
+
 Both are pure additions in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`:
 
-1. Line 46, right after `AltinnHost.CreateWebApplicationBuilder(...)`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);`
-2. Line 191, right before `return builder.Build();`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);`
+1. Right after `AltinnHost.CreateWebApplicationBuilder(...)`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);`
+2. Right before `return builder.Build();`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);`
 
 ## Syncing to a newer upstream commit
 

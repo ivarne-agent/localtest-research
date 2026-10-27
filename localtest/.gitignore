@@ -7,3 +7,4 @@ AltinnPlatformLocal/
 .run/
 frontend-dist/*
 !frontend-dist/.gitkeep
+tools/__pycache__/

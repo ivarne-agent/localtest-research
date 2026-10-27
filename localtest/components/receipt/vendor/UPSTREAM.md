@@ -1,7 +1,33 @@
 # Vendored copy of Altinn/altinn-receipt
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-receipt",
+  "branch": "main",
+  "commit": "babc0ed23483e8c3fb62dad4da903c6a88024914",
+  "date": "2026-10-20",
+  "paths": ["."],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true},
+    {"upstream": ".dockerignore", "ours": ".dockerignore", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["src/backend/Altinn.Receipt/Altinn.Platform.Receipt.csproj"],
+  "follow": [
+    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+  ],
+  "reminders": [
+    "Renovate moves the frontend almost daily: sync on backend changes or on request (decided 2026-10-20)"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-receipt
 - Commit: [`babc0ed23483e8c3fb62dad4da903c6a88024914`](https://github.com/Altinn/altinn-receipt/tree/babc0ed23483e8c3fb62dad4da903c6a88024914) (main, 2026-10-20)
+<!-- vendor-sync:end pin -->
 - Copied paths: the whole repository (the backend `src/backend/Altinn.Receipt`, the React frontend `src/frontend` with
   its committed Yarn release, `test/`, the root build and editor files, `.github/`, `.deploy/` and the upstream
   `Dockerfile` for reference). It is small, and the frontend and tests stay comparable with upstream that way.
@@ -13,17 +39,26 @@
 
 ## Directive sites
 
-All four in `src/backend/Altinn.Receipt/Program.cs` (line numbers checked 2026-10-26):
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/backend/Altinn.Receipt/Program.cs` | 36-41 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `src/backend/Altinn.Receipt/Program.cs` | 52-54 | addition | `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Conf...` |
+| `src/backend/Altinn.Receipt/Program.cs` | 190-199 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `src/backend/Altinn.Receipt/Program.cs` | 271-277 | replacement | `string url = $"{request.Scheme}://{request.Host}{request.Path}{request.QueryString}";` |
+<!-- vendor-sync:end sites -->
 
-1. Lines 52-54, after `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
+All four in `src/backend/Altinn.Receipt/Program.cs`:
+
+1. After `ConfigureServices(builder.Services, builder.Configuration);`, a pure addition: `#if LOCALTEST`
    `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Configuration);` `#endif`
    (the hook into `../fakes/`).
-2. Lines 271-277, in `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
+2. In `Configure`, the status-code page's `goto` URL for a 401: `#if !LOCALTEST` the production
    `https://platform.{GeneralSettings:Hostname}{path}{query}` `#else` the request's own scheme and host `#endif`. There
    is no `platform.` host and no TLS locally, and the proxy keeps the browser's `Host`.
-3. Lines 36-41, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
+3. Right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
    service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
-4. Lines 190-199, the Azure Monitor exporters in `ConfigureServices`: `#if !LOCALTEST` production's `if` and call
+4. The Azure Monitor exporters in `ConfigureServices`: `#if !LOCALTEST` production's `if` and call
    `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). (The Key Vault read that would set the connection string,
    `ConnectToKeyVaultAndSetApplicationInsights`, stays unguarded: it does nothing without `kvSetting:SecretUri`.)
 

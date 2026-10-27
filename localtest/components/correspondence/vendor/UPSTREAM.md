@@ -1,9 +1,35 @@
 # Vendored copy of Altinn/altinn-correspondence
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-correspondence",
+  "branch": "main",
+  "commit": "6dcf561945f73e8f28f0a95747ee4fafa012aa89",
+  "date": "2026-10-16",
+  "paths": ["src", "Dockerfile", "docker-compose.yml"],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["src/Altinn.Correspondence.API/Altinn.Correspondence.API.csproj"],
+  "follow": [
+    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+  ],
+  "reminders": [
+    "grep the new tree for cookies written other than through `Response.Cookies`: `grep -rn 'Set-Cookie\\|HeaderNames.SetCookie' vendor/src` must find nothing (the cookie policy in `fakes/Cookies/` sees only `Response.Cookies`; `reviews/cookies.md`)",
+    "`ConfigureAuthentication` must still name the correlation cookie and the callback path the fakes and the smoke test rely on",
+    "update the EF migration count `smoke-test.sh` expects when `src/Altinn.Correspondence.Persistence/Migrations` changed",
+    "upstream #2157 (d2dc912) passes `urn:altinn:partyid:{id}` to the PDP request factory: the `XacmlRequestFactory.cs` site is a candidate for removal (TODO.md task 58, next task)"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-correspondence
-- Commit: [`6dcf561945f73e8f28f0a95747ee4fafa012aa89`](https://github.com/Altinn/altinn-correspondence/tree/6dcf561945f73e8f28f0a95747ee4fafa012aa89)
-  (main, 2026-10-16, "attachment authorization context (#2150)"; the pin of the planning report,
-  `planned-components/correspondence/correspondence.md`)
+- Commit: [`6dcf561945f73e8f28f0a95747ee4fafa012aa89`](https://github.com/Altinn/altinn-correspondence/tree/6dcf561945f73e8f28f0a95747ee4fafa012aa89) (main, 2026-10-16)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the six projects `Altinn.Correspondence.{API,Application,Common,Core,Integrations,Persistence}`
   with their `Properties/` and the 69 EF migrations), the root `Dockerfile` (the reference for `../Dockerfile`) and `docker-compose.yml`
   (reference only, nothing runs it). Upstream has no `Directory.Build.props`/`.targets`, no `Directory.Packages.props`, no `global.json`
@@ -14,24 +40,35 @@
 
 ## Directive sites
 
-Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs` (line numbers checked 2026-10-26), and two `#if !LOCALTEST` / `#else` / `#endif` blocks, in
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` | 26-31 | replacement | `new HttpDocumentRetriever { RequireHttps = false });` |
+| `src/Altinn.Correspondence.API/Program.cs` | 44-49 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `src/Altinn.Correspondence.API/Program.cs` | 56-58 | addition | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(build...` |
+| `src/Altinn.Correspondence.API/Program.cs` | 66-71 | addition | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTe...` |
+| `src/Altinn.Correspondence.API/Program.cs` | 179-181 | addition | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, ...` |
+| `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` | 31-36 | replacement | `else if (party.StartsWith(AltinnXacmlUrns.PartyId) \|\| (long.TryParse(partyWithoutPref...` |
+<!-- vendor-sync:end sites -->
+
+Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs`, and two `#if !LOCALTEST` / `#else` / `#endif` blocks, in
 `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` (task 7b) and
 `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` (task 11b).
 
 | Lines | Adds | Why there |
 | --- | --- | --- |
-| `Program.cs:44-49`, right after `var builder = WebApplication.CreateBuilder(args);` | the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`) | before every registration, so every factory client resolves service names |
-| `Program.cs:56-58`, right after the `.AddEnvironmentVariables();` that ends the `builder.Configuration` chain | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(builder.Configuration);` `#endif` | `Program.cs:51-55` adds the JSON files and the environment variables a second time, so the localtest defaults have to be inserted after that chain (just below its environment source, above `appsettings.Development.json`) and before `ConfigureServices`, which reads the settings eagerly |
-| `Program.cs:179-181`, right after `services.ConfigureHangfire(config);` in `ConfigureServices` | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, config);` `#endif` | after every production registration (the last but Kestrel's), so `RemoveAll`/`Add` win, and after `ConfigureAuthentication`, so the JWT and OIDC `Configure` actions run after upstream's |
-| `Program.cs:66-71`, right after `builder.Services.ConfigureOpenTelemetry(generalSettings);` | `#if LOCALTEST` `LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTelemetry(), builder.Configuration);` `#endif`: OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53) | The pipeline is built in the Integrations project (`OpenTelemetry/DependencyInjection.cs`), which the fakes are not compiled into; this is the first place in the API host after it. A pure addition, not a `#if !LOCALTEST`/`#else`: production's call stays, and adds no Azure Monitor exporter here because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty |
-| `XacmlRequestFactory.cs:31-36`, the party-id branch of `CreateResourceCategory` | `#if !LOCALTEST` upstream's condition (`party.StartsWith(AltinnXacmlUrns.PartyId) \|\| partyWithoutPrefix.IsPartyId()`) `#else` the same `urn:altinn:partyid` prefix test, or a value that `long.TryParse` reads with `NumberStyles.None` and the invariant culture as a positive number `#endif` | Every PDP request names the party by its bare Register party id, and `IsPartyId` accepts only 8 or 10 digits, so the test data's 6-digit ids (Digdir 500006, Sophie Salt 501337, app-supplied 600000-700002) threw "RecipientId is not a valid organization number, person number or party id" (500). The branch comes after the organisation-number and national-identity-number branches, so 9- and valid 11-digit values are unchanged, and 8- and 10-digit ids pass as upstream. `IsPartyId` itself stays upstream's: `CreateDecisionRequest` and `WithUrnPrefix` use it to decide whether to resolve a party, and a looser rule there would change the production request shape (`planned-components/correspondence/party-ids.md`, option (b)). Delete it when upstream passes `urn:altinn:partyid:{id}` (option (c)) |
-| `IdportenTokenValidator.cs:26-31`, the document retriever of `ValidateTokenAsync`'s `ConfigurationManager` | `#if !LOCALTEST` upstream's `new HttpDocumentRetriever());` `#else` a `// localtest:` comment and `new HttpDocumentRetriever { RequireHttps = false });` `#endif` | The browser download of an attachment (an inbox link, no token) ends in the cascade's OIDC branch, which validates the access token it cached at the callback against the discovery document and JWKS at `{Authority}/.well-known/openid-configuration`, Authentication's on `http://local.altinn.cloud:8000`. The retriever's `RequireHttps` defaults to true, so `GetConfigurationAsync` threw, the cascade fell through to a new challenge, and Authentication's live session answered with a new code at once: a redirect loop. The fakes' `RequireHttpsMetadata = false` does not reach this retriever (built here, not from the scheme's options), and the validator is a concrete class injected by type, so no fake can replace it. Reported first in `../../arbeidsflate/README.md`, "Correspondence attachments (11b)" |
+| `Program.cs`, right after `var builder = WebApplication.CreateBuilder(args);` | the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`) | before every registration, so every factory client resolves service names |
+| `Program.cs`, right after the `.AddEnvironmentVariables();` that ends the `builder.Configuration` chain | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(builder.Configuration);` `#endif` | `Program.cs` adds the JSON files and the environment variables a second time, so the localtest defaults have to be inserted after that chain (just below its environment source, above `appsettings.Development.json`) and before `ConfigureServices`, which reads the settings eagerly |
+| `Program.cs`, right after `services.ConfigureHangfire(config);` in `ConfigureServices` | `#if LOCALTEST` `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, config);` `#endif` | after every production registration (the last but Kestrel's), so `RemoveAll`/`Add` win, and after `ConfigureAuthentication`, so the JWT and OIDC `Configure` actions run after upstream's |
+| `Program.cs`, right after `builder.Services.ConfigureOpenTelemetry(generalSettings);` | `#if LOCALTEST` `LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTelemetry(), builder.Configuration);` `#endif`: OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53) | The pipeline is built in the Integrations project (`OpenTelemetry/DependencyInjection.cs`), which the fakes are not compiled into; this is the first place in the API host after it. A pure addition, not a `#if !LOCALTEST`/`#else`: production's call stays, and adds no Azure Monitor exporter here because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty |
+| `XacmlRequestFactory.cs`, the party-id branch of `CreateResourceCategory` | `#if !LOCALTEST` upstream's condition (`party.StartsWith(AltinnXacmlUrns.PartyId) \|\| partyWithoutPrefix.IsPartyId()`) `#else` the same `urn:altinn:partyid` prefix test, or a value that `long.TryParse` reads with `NumberStyles.None` and the invariant culture as a positive number `#endif` | Every PDP request names the party by its bare Register party id, and `IsPartyId` accepts only 8 or 10 digits, so the test data's 6-digit ids (Digdir 500006, Sophie Salt 501337, app-supplied 600000-700002) threw "RecipientId is not a valid organization number, person number or party id" (500). The branch comes after the organisation-number and national-identity-number branches, so 9- and valid 11-digit values are unchanged, and 8- and 10-digit ids pass as upstream. `IsPartyId` itself stays upstream's: `CreateDecisionRequest` and `WithUrnPrefix` use it to decide whether to resolve a party, and a looser rule there would change the production request shape (`planned-components/correspondence/party-ids.md`, option (b)). Delete it when upstream passes `urn:altinn:partyid:{id}` (option (c)) |
+| `IdportenTokenValidator.cs`, the document retriever of `ValidateTokenAsync`'s `ConfigurationManager` | `#if !LOCALTEST` upstream's `new HttpDocumentRetriever());` `#else` a `// localtest:` comment and `new HttpDocumentRetriever { RequireHttps = false });` `#endif` | The browser download of an attachment (an inbox link, no token) ends in the cascade's OIDC branch, which validates the access token it cached at the callback against the discovery document and JWKS at `{Authority}/.well-known/openid-configuration`, Authentication's on `http://local.altinn.cloud:8000`. The retriever's `RequireHttps` defaults to true, so `GetConfigurationAsync` threw, the cascade fell through to a new challenge, and Authentication's live session answered with a new code at once: a redirect loop. The fakes' `RequireHttpsMetadata = false` does not reach this retriever (built here, not from the scheme's options), and the validator is a concrete class injected by type, so no fake can replace it. Reported first in `../../arbeidsflate/README.md`, "Correspondence attachments (11b)" |
 
-Considered and not used (see the plan, section 6.2): the Redis connect (`Program.cs:150-158`, configuration only: the group's Redis), the
-Development-only migrations (`Program.cs:86-95`) and the recurring jobs (`Program.cs:97`). For task 11b: the OIDC scheme's correlation
-cookie (`DependencyInjection.cs:103-107`, `SecurePolicy=Always`, `SameSite=None`) and the nonce cookie, set in the fakes after
+Considered and not used (see the plan, section 6.2): the Redis connect (`Program.cs`, configuration only: the group's Redis), the
+Development-only migrations and the recurring jobs (both in `Program.cs`). For task 11b: the OIDC scheme's correlation
+cookie (`DependencyInjection.cs`, `SecurePolicy=Always`, `SameSite=None`) and the nonce cookie, set in the fakes after
 upstream's configuration instead (`../fakes/Auth/LocaltestAuthentication.cs`). For task 21b: the retry path's `ExpireCookie`
-(`DependencyInjection.cs:140-152`, hard-coded `Secure`, `SameSite=None`), handled by the cookie policy in `../fakes/Cookies/` instead,
+(`DependencyInjection.cs`, hard-coded `Secure`, `SameSite=None`), handled by the cookie policy in `../fakes/Cookies/` instead,
 which covers every cookie written through `Response.Cookies` (none is written as a raw `Set-Cookie` header at this pin; grep for
 `Set-Cookie` after a re-pin). A further site needs a report first.
 

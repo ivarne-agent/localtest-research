@@ -1,7 +1,39 @@
 # Vendored copy of Altinn/altinn-notifications
 
+```json vendor-sync
+{
+  "repository": "Altinn/altinn-notifications",
+  "branch": "main",
+  "commit": "a4aa959a5c50094048aceb98af8dccd9db17fca8",
+  "date": "2026-10-20",
+  "paths": [
+    "components/api/src",
+    "components/shared/src",
+    "components/api/Dockerfile",
+    "Directory.Build.props",
+    "Directory.Build.targets",
+    "Directory.Packages.props",
+    "global.json",
+    "stylecop.json"
+  ],
+  "group": null,
+  "local": "directives",
+  "mirrors": [
+    {"upstream": "components/api/Dockerfile", "ours": "Dockerfile", "merge": true}
+  ],
+  "watch": [],
+  "projects": ["components/api/src/Altinn.Notifications/Altinn.Notifications.csproj"],
+  "follow": [],
+  "reminders": [
+    "new Yuniql migrations (`Migration/` folders) run only on a fresh volume: `env reset -r localtest-v2 --yes` before the smoke test"
+  ]
+}
+```
+
+<!-- vendor-sync:begin pin -->
 - Repository: https://github.com/Altinn/altinn-notifications
-- Commit: [`a4aa959a5c50094048aceb98af8dccd9db17fca8`](https://github.com/Altinn/altinn-notifications/tree/a4aa959a5c50094048aceb98af8dccd9db17fca8) (main, 2026-10-20; still `origin/main` when vendored)
+- Commit: [`a4aa959a5c50094048aceb98af8dccd9db17fca8`](https://github.com/Altinn/altinn-notifications/tree/a4aa959a5c50094048aceb98af8dccd9db17fca8) (main, 2026-10-20)
+<!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `components/api/src/` (the orders API host `Altinn.Notifications`, `.Core`,
   `.Integrations`, `.Persistence` with the Yuniql `Migration/` folders, and the build-time tool `DbTools`),
   `components/shared/src/` (`Altinn.Notifications.Shared`), the root `Directory.Build.props`, `Directory.Build.targets`,
@@ -14,17 +46,26 @@
 
 ## Directive sites
 
-All four are in `components/api/src/Altinn.Notifications/Program.cs` (line numbers checked 2026-10-26):
+<!-- vendor-sync:begin sites -->
+| File | Lines | Kind | First line of the `LOCALTEST` branch |
+| --- | --- | --- | --- |
+| `components/api/src/Altinn.Notifications/Program.cs` | 40-45 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
+| `components/api/src/Altinn.Notifications/Program.cs` | 51-53 | addition | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfigurati...` |
+| `components/api/src/Altinn.Notifications/Program.cs` | 191-198 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `components/api/src/Altinn.Notifications/Program.cs` | 242-246 | replacement | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(s...` |
+<!-- vendor-sync:end sites -->
 
-1. Lines 51-53, after `SetConfigurationProviders(builder.Configuration);`, a pure addition:
+All four are in `components/api/src/Altinn.Notifications/Program.cs`:
+
+1. After `SetConfigurationProviders(builder.Configuration);`, a pure addition:
    `#if LOCALTEST` … `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfiguration(builder.Configuration);` … `#endif`.
-2. Lines 243-247, `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
+2. `services.AddWolverineServices(config, builder.Environment);` in `ConfigureServices`, production first:
    `#if !LOCALTEST` (the production call) `#else` `…LocaltestNotificationsExtensions.AddLocaltestMessaging(services, config);` `#endif`.
    `AddWolverineServices` throws without a Service Bus connection string and registers hosted services that connect at
    start, so it cannot be neutralised by configuration or a later `Replace`.
-3. Lines 40-45, right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
+3. Right after `var builder = WebApplication.CreateBuilder(args);`, a pure addition: the
    service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
-4. Lines 192-199, `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
+4. `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
    production call (its own `OtelSettings:Endpoint` traces exporter and the Azure Monitor exporters) `#else`
    `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). The skipped function holds the only signal-specific
    `AddOtlpExporter`, so `UseOtlpExporter()` does not clash with it.
