@@ -1,18 +1,19 @@
 # Vendored copy of studioctl from Altinn/altinn-studio
 
 - Repository: https://github.com/Altinn/altinn-studio
-- Commit: [`eae0a7ea65`](https://github.com/Altinn/altinn-studio/commit/eae0a7ea65f15932f8296c8f7b38330492eb540c)
-  (2026-10-25): the head of [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env
-  stack and the Runtime/Env interface, branch `refactor/studioctl-env-shared-runtime`, on `main` at `819ad7362e`),
-  vendored as if it were merged. When #21483 merges, sync to the `main` commit that contains it.
+- Commit: [`8e4650664e`](https://github.com/Altinn/altinn-studio/commit/8e4650664e)
+  (2026-10-27): the head of [altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483) (the shared env
+  stack and the Runtime/Env interface, the host's CA bundle in `stack` and devenv's `cabundle` split and validation,
+  branch `refactor/studioctl-env-shared-runtime`, on `main` at `819ad7362e`), vendored as if it were merged. When #21483 merges, sync to the `main` commit that contains it.
 - Copied paths, monorepo layout preserved under `src/` so relative references resolve as upstream:
   - `src/cli`: studioctl (Go CLI), `studioctl-server` (C#), `studioctl-server-tests` and `common/dotnet`.
   - `src/Runtime/devenv`: Go module `altinn.studio/devenv`; `src/cli/go.mod` replaces it with `../Runtime/devenv`.
   - `src/Runtime/common/dotnet/Altinn.Studio.Runtime.Common`: `studioctl-server.csproj` compiles its `HostBridge/**`
     and `EnvTopology/**` sources by relative path.
   - `src/Runtime/localtest/infra`: staged into the install by `src/cli/cmd/dev/main.go` during `make dev-install`.
-- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `890a0366`
-  ("baseline, unmodified"). It is never amended. Earlier baselines: `9a6609eb` (altinn-studio `fd53bd173b`, #21483
+- Copied with `git archive` of that commit, no subtree. Baseline commit in this repository: `8ec94546`
+  ("baseline, unmodified"). It is never amended. Earlier baselines: `890a0366` (altinn-studio `eae0a7ea65`, #21483
+  before its CA bundle commits; the change on it is `git log 890a0366..9deb53bc -- localtest/studioctl/src`), `9a6609eb` (altinn-studio `fd53bd173b`, #21483
   before its review fixes; the change on it is `git log 9a6609eb..b9e79879 -- localtest/studioctl/src`), `58c58a6b` (altinn-studio `e45c348eac`,
   2026-10-25; the interface itself was developed on it in `9d4f10b7` with both runtimes, then upstreamed without
   localtest-v2), `24562cba` (altinn-studio `b908931519`,
@@ -20,9 +21,11 @@
   `89b1d7bc70`, 2026-10-20; `git log 3ecc3fb..a1a5df42 -- localtest/studioctl/src`).
 - Everything after the baseline is our change to upstream: the localtest-v2 runtime. There is no `#if LOCALTEST`
   here: this code is meant to be upstreamed as-is, so changes are ordinary commits. The first commit after the
-  baseline (`9d9b2f1b`) re-applies the whole change as it stood on the previous baseline, taken from #21394's head
-  `e90d8677b3`, where the restack had already adapted the env tests to `parseUpFlags` taking the container client
-  (`git log --oneline 890a0366..HEAD -- localtest/studioctl/src`). localtest-v2 implements the interface in
+  baseline (`82012f98`) re-applies the whole change as it stood on the previous baseline
+  (`git log --oneline 8ec94546..HEAD -- localtest/studioctl/src`). The next one (`cc17eb62`) changes #21483's own
+  `internal/cmd/env/stack/cabundle.go`: the copy named by the bundle's digest, and `CABundle.Digest`. It is proposed
+  for #21483; once #21483 has it, the next sync drops it. Then localtest-v2 passes the CA bundle on through that shared
+  code (`ec917db8`). localtest-v2 implements the interface in
   `internal/cmd/env/localtestv2/runtime.go`. [`README.md`](README.md) "What the
   localtest-v2 change adds" describes the result file by file.
 - Upstream, the change is a stack of branches on `ivarne-agent/altinn-studio`, each re-authored from this tree as a few
@@ -30,10 +33,9 @@
   1. `refactor/studioctl-env-shared-runtime` ([altinn-studio#21483](https://github.com/Altinn/altinn-studio/pull/21483)):
      the env-runtime refactor and the Runtime/Env interface, which the pin above includes.
   2. `feat/studioctl-localtest-v2-stack` ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)):
-     the localtest-v2 change on the refactor: the runtime as first reviewed (six commits), then what this repository
-     added after that (four commits), then the answers to the 2026-10-25 re-review (three commits, tasks 50, 49 and
-     51; head `1ab83430e1`). At its head, `diff -r` of `src/cli` and `src/Runtime/devenv` against
-     `localtest/studioctl/src` is empty.
+     the localtest-v2 change on the refactor, re-authored from this tree on #21483's `8e4650664e` as a few logical
+     commits (the proposed `stack` change first, on its own, so it can be dropped once #21483 has it). At its head,
+     `diff -r` of `src/cli` and `src/Runtime/devenv` against `localtest/studioctl/src` is empty.
 
   Later studioctl commits here go on top of branch 2.
 
@@ -43,8 +45,8 @@ From the root of this repository, the whole change since the baseline, with path
 root (`src/...`); `--binary` is needed for the `.pfx` asset:
 
 ```sh
-git diff --binary --relative=localtest/studioctl 890a0366 HEAD -- localtest/studioctl/src > studioctl.patch
-git -C <monorepo> checkout -b <branch> eae0a7ea65
+git diff --binary --relative=localtest/studioctl 8ec94546 HEAD -- localtest/studioctl/src > studioctl.patch
+git -C <monorepo> checkout -b <branch> 8e4650664e
 git -C <monorepo> apply --index < studioctl.patch
 ```
 
@@ -77,6 +79,9 @@ The procedure used for `24562cba` (task 32, 2026-10-23), from the root of this r
 For `58c58a6b` (2026-10-25) the re-apply conflicted where the refactor moved code: `internal/cmd/env.go`, the
 localtest runtime's `env.go`, and the moved `log_streamer.go` and `status.go`, which `apply -3` cannot follow. Those two
 were excluded from the patch (`--exclude`) and ported to `stack/log_streamer.go` and `env/status.go` by hand.
+
+For `8ec94546` (2026-10-27) only `AGENTS.md` and `CHANGELOG.md` conflicted, where #21483 added the CA bundle; both
+sides were kept. localtest-v2's own CA bundle code (task 57) was then replaced by the shared code.
 
 For `24562cba` the re-apply had no conflict: of the 57 changed files only `CHANGELOG.md` and
 `internal/cmd/run.go` had also changed upstream, in other places.
