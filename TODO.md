@@ -34,7 +34,7 @@ A path matching no route still falls through to the localtest app.
 
 | # | Task | Status | Size | Needs the stack |
 | --- | --- | --- | --- | --- |
-| 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20) | small | no |
+| 1 | [Vendor sync check](#1-vendor-sync-check) | deferred (2026-10-20); proposed to become `check` of task 58 (2026-10-27) | small | no |
 | 2 | [Authentication as an OIDC provider, logout, `pid`](#2-authentication-as-an-oidc-provider-logout-pid) | done (2026-10-20, commits 4b9b5f7..ddd0ecf; code-flow tokens carry `pid`, Dialogporten end-user API 200; pin sha-a3f62a8) | medium | yes |
 | 3 | [Local altinncdn.no](#3-local-altinncdnno) | won't do (2026-10-20: the stack may read altinncdn.no) | small | yes |
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
@@ -91,6 +91,7 @@ A path matching no route still falls through to the localtest app.
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
+| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | unapproved (2026-10-27; plan in `localtest/docs/vendor-sync.md`, pending the user's review; would take over task 1) | large | no (the verification after a sync does) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -115,6 +116,9 @@ and hunk named; a deliberate directive block passes.
 
 **Inputs.** `localtest/tools/repin-vendor.py`, every `vendor/UPSTREAM.md`, `planned-components/studioctl-integration.md`
 section 1.
+
+**Proposed (2026-10-27).** Task 58's plan makes this check the `check` command of the sync tool, with the pin and the
+paths in a JSON block inside `UPSTREAM.md` instead of parsed prose; still deferred until 58 is approved.
 
 ## 2. Authentication as an OIDC provider, logout, `pid`
 
@@ -2595,3 +2599,46 @@ running environment anyway, so the variable takes effect on `env down` + `env up
 `/home/agent/code/.handover/ca-bundle/old-runtime/`): with the variable `process/next` 200 and the Altinn fonts,
 without it 500 after 30 s with `ERR_CERT_AUTHORITY_INVALID`.
 
+## 58. Scripted vendor sync for the components
+
+**Origin (the user, 2026-10-27).** "Start to plan scripted vendor sync for all components (not studioctl)." Brief
+`/home/agent/code/.briefs/vendor-sync-plan.md`. The plan, with the inventory, the design and the steps:
+[`localtest/docs/vendor-sync.md`](localtest/docs/vendor-sync.md). **Unapproved, pending the user's review.** Takes over
+task 1 (its check is the `check` command).
+
+**Goal.** One tool, `localtest/tools/vendor-sync.py`, that syncs one component, a group or all 15 to a given or the latest
+upstream commit, keeps the `LOCALTEST` sites and Arbeidsflate's patches, proves "upstream at the new pin plus our sites
+and nothing else", builds what changed, and prints the summary for the commit and the TODO note. Replaces
+`localtest/tools/repin-vendor.py` and the hand-written recipes in the `UPSTREAM.md` files.
+
+**Inventory (measured 2026-10-27, details in the plan).** Pins are 6 to 14 days old (the Resource Registry 32); behind the
+default branch by 0 (Register, the Resource Registry) to 31 commits (altinn-auth; the monorepo's 183 for workflow-engine,
+9 of them in its paths), 0 to 95 changed files in the copied paths. 28 site files with 60 blocks, 3 patches. Draft path
+lists reproduce all 15 `vendor/` trees blob for blob. Found: one stray blank line next to a block in 3 site files
+(Notifications, Resource Registry, Storage), Register's two `.sln` files committed with CRLF (upstream LF), the Resource
+Registry's repository archived at our pin and the code moved into altinn-auth, Authorization's release moved to
+`docker-bake.hcl` today, Correspondence's party-id site made removable by upstream #2157, Profile's `main` moving
+OpenTelemetry past the exporter version our overrides pin. The two site files upstream changed merge clean.
+
+**Design (summary).**
+- Metadata: a `json vendor-sync` block in each `UPSTREAM.md` (repository, branch, commit, date, paths, group, mirrors,
+  watch, projects, follow, reminders); the pin bullets and a site table generated between markers; prose without line
+  numbers.
+- Sites are detected, not declared: any differing file must parse into `#if LOCALTEST … #endif` and
+  `#if !LOCALTEST … #else … #endif` blocks, and its production view must equal upstream's blob byte for byte.
+- `sync`: blob-level (`ls-tree`, `cat-file`, `update-index --cacheinfo`; never `git archive`), `git merge-file` for site
+  files changed upstream with a validation after it, conflicts left marked and reported; groups move together.
+- Arbeidsflate: replace the tree, refresh the patches by cherry-picking them in a scratch repository.
+- Verification: `check`, a host `dotnet build` with the overrides, the follow-the-host version warning, shared fakes
+  identical. Images, smoke tests and the stack: `localtest/docs/verify-after-sync.md`.
+- Mirrors: three-way merge into one-to-one mirrors when clean, otherwise report; watched paths reported.
+
+**Steps** (each mergeable, proof in the plan): 1 fix the four drifts; 2 metadata, `check`, `status` (task 1's proof);
+3 `sync` on Profile (own repository, one site file with both kinds, a small real change that trips the version check);
+4 the directive-heavy components one by one (adapter, Notifications, Events, Correspondence, Storage, Receipt,
+Dialogporten); 5 the altinn-auth group; 6 Arbeidsflate; 7 the Resource Registry from altinn-auth; 8 workflow-engine;
+9 delete `repin-vendor.py`; 10 optional CI (`check` on pull requests, weekly `status`).
+
+**Open questions** (section 4 of the plan): metadata inside `UPSTREAM.md` or beside it; fix or tolerate the stray blank
+lines; latest commit or release tags, and the cadence; may the tool commit; the Resource Registry, Register and
+workflow-engine; CI scope and the Dockerfile comparison; Correspondence's party-id site.
