@@ -327,23 +327,16 @@ order once 3 is merged.
   blob-level tool handles it, a checkout-based one does not.
 - This plan's TODO entry and the parallel verification doc may both touch `TODO.md`.
 
-**Questions for the user.**
+**The user's answers (2026-10-27).**
 
-1. **Metadata**: a JSON block inside `UPSTREAM.md` (recommended; the pin stays in `UPSTREAM.md` as decided on 2026-10-20)
-   or a separate `upstream.json` beside `vendor/`? And may the prose lose its line numbers in favour of the generated
-   table?
-2. **Strictness**: fix the three stray blank lines and Register's `.sln` line endings (step 1, recommended), or let the
-   check tolerate blank lines next to a block?
-3. **Target and cadence**: sync to the default branch's head, or to release tags where upstream has them (Arbeidsflate,
-   Receipt's "backend changes only" rule)? Sync all regularly, or on demand only?
-4. **Commits**: may the tool commit the vendored part itself (`--commit`), or only stage and print the message?
-5. **Repository moves**: re-vendor the Resource Registry from altinn-auth now and add it to the altinn-auth group? Keep
-   Register on the frozen `altinn-register` until altinn-auth#4056 lands? Keep vendoring workflow-engine, which no image
-   of ours is built from?
-6. **CI**: `check` on pull requests and pushes only, or also the weekly `status`, and should that open or update an
-   issue? Should the Dockerfile mirrors be compared in CI too (task 1's second open question)?
-7. **Correspondence's party-id site**: upstream #2157 makes it removable; drop it in the first Correspondence sync, or as
-   its own task?
+1. Metadata: the JSON block inside `UPSTREAM.md`.
+2. Line endings: the check tolerates `\r\n` against `\n` instead of fixing Register's `.sln` files.
+3. Syncs are triggered by hand, on demand, because a sync needs an agent to triage it. There is no schedule.
+4. The tool stages the sync and prints the summary. The agent finishes and commits it. There is no `--commit`.
+5. The Resource Registry is retargeted to altinn-auth. Register waits for altinn-auth#4056, and every sync checks
+   that PR. workflow-engine stops being vendored.
+6. No CI for now.
+7. Modifications that upstream has made unnecessary are removed, Correspondence's party-id site included.
 
 ## Appendix: the measured path lists
 

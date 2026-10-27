@@ -91,7 +91,7 @@ A path matching no route still falls through to the localtest app.
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
-| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | unapproved (2026-10-27; plan in `localtest/docs/vendor-sync.md`, pending the user's review; would take over task 1) | large | no (the verification after a sync does) |
+| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | approved with decisions (2026-10-27; plan in `localtest/docs/vendor-sync.md`; takes over task 1) | large | no (the verification after a sync does) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2603,8 +2603,19 @@ without it 500 after 30 s with `ERR_CERT_AUTHORITY_INVALID`.
 
 **Origin (the user, 2026-10-27).** "Start to plan scripted vendor sync for all components (not studioctl)." Brief
 `/home/agent/code/.briefs/vendor-sync-plan.md`. The plan, with the inventory, the design and the steps:
-[`localtest/docs/vendor-sync.md`](localtest/docs/vendor-sync.md). **Unapproved, pending the user's review.** Takes over
-task 1 (its check is the `check` command).
+[`localtest/docs/vendor-sync.md`](localtest/docs/vendor-sync.md). Takes over task 1 (its check is the `check` command).
+
+**The user's decisions (2026-10-27).**
+- Metadata: the block inside each `UPSTREAM.md`.
+- Line endings: the check tolerates `\r\n` against `\n` (Register's `.sln` files stay as they are).
+- A sync needs an agent to triage it, so syncs are triggered by hand, on demand. No schedule, and no CI for now.
+- The tool only stages the sync and prints the summary. The agent finishes it: resolves, builds, verifies and
+  commits. There is no `--commit`.
+- The Resource Registry is retargeted to altinn-auth.
+- Register waits for altinn-auth#4056. **Check that PR at every sync**, and retarget Register once it has landed.
+- workflow-engine stops being vendored.
+- Modifications that upstream has made unnecessary are removed, for example Correspondence's party-id site after
+  upstream #2157.
 
 **Goal.** One tool, `localtest/tools/vendor-sync.py`, that syncs one component, a group or all 15 to a given or the latest
 upstream commit, keeps the `LOCALTEST` sites and Arbeidsflate's patches, proves "upstream at the new pin plus our sites
