@@ -92,6 +92,7 @@ A path matching no route still falls through to the localtest app.
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
+| 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2785,3 +2786,13 @@ modifications upstream made unnecessary go.
   from `storage`, `resource-registry` and `correspondence`; no `FAIL`. Not run: `CORRESPONDENCE_RESTART=1`, the receipt
   and Arbeidsflate groups, 4.4 to 4.6. Teardown: `env down`, server down, the home removed, the lock released; 13 GB
   free, so the older `sha-5f13eea` images stay.
+
+## 59. Upstreaming the localtest modifications
+
+The user's request (2026-10-27): one TODO document per service for pushing our changes back upstream, taken gradually,
+the easy fixes first and the structural changes after. The documents are in
+[`localtest/upstreaming/`](localtest/upstreaming/README.md): one file per vendored service plus
+`authorization-utils.md`, each with phase 1 (easy fixes), phase 2 (structural changes) and "Stays local", every
+directive site, fake and patch accounted for. Totals at `1d08adb4`: 58 easy and 57 structural items, 7 already merged
+upstream. Progress is tracked in those files' checkboxes, not here. Nothing is opened upstream until the user picks the
+services; the user opens the pull requests.
