@@ -202,6 +202,16 @@ Arbeidsflate and logout links, Kestrel on `0.0.0.0:5005`) with its secrets at `/
 the default origin only (`run --mode container` is refused at another `--host` or `--port`), studioctl only (an Aspire
 AppHost runs apps as projects). The rule: [`CONVENTIONS.md`](CONVENTIONS.md#the-runtimes).
 
+**Behind a TLS-intercepting proxy** (a corporate network, a sandbox): set `STUDIO_CA_BUNDLE` to a PEM file with the
+proxy's CA before `env up`. pdf3's Chromium trusts its own NSS store, not the system's, so without it the app frontend
+from `altinncdn.no` does not load and PDF generation times out (`net::ERR_CERT_AUTHORITY_INVALID` in pdf3's log, the
+app's `process/next` answers 500 "Pdf generation failed"). The runner mounts a copy of the file in pdf3 (every
+container the manifest marks `caBundle`) and sets the variable there, and pdf3's entrypoint imports it at start. A
+changed or removed bundle restarts pdf3 on the next `env up`; a file that cannot be read gives a warning. An Aspire
+AppHost reads the same variable from its environment. The .NET and Node components trust the system store and
+`NODE_EXTRA_CA_CERTS` of their containers as your container runtime configures them; the variable does not change
+those ([the manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#what-the-runner-adds)).
+
 **Images.** [`images.yml`](../.github/workflows/images.yml) builds
 `ghcr.io/ivarne-agent/localtest-research/localtest-<name>` for every component, the localtest app, Postgres and Redis,
 tagged `sha-<commit>` and `latest`; the manifest pins one build, moved only by `tools/bump-tag.sh`

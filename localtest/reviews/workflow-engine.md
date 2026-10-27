@@ -6,7 +6,7 @@
 > (`../components/workflow-engine/README.md`). The database is the stack's `localtest-postgres` image (Postgres 18.3),
 > not `postgres:16-alpine`.
 
-> **Status (2026-10-20):** handled. Fixed: 1 (compose builds the vendored engine; `build-pdf3.sh` builds pdf3 from an altinn-studio checkout), 2, 3 and 4 (the Dockerfile mirrors upstream's line for line with `localtest:` markers, `.dockerignore` repeats upstream's exclusion of `Directory.*.props`, no HEALTHCHECK), 5 (the init script is idempotent), 6 (the README's hosts line has the PDF and workflow-engine names), 7 (sync instructions, the complete not-copied list), 8 (telemetry off, there is no collector), 10 (`build-pdf3.sh` labels the image with the commit and sets pdf3's service version), 12 (port 8000 bound to 127.0.0.1). Not changed: 9 (state is not reset, as decided) and 11 (specific to this sandbox's TLS interception). Verified: the engine is healthy on its non-root image; Cypress process-transition-test 19/19 and service-task 3/3 through it.
+> **Status (2026-10-20):** handled. Fixed: 1 (compose builds the vendored engine; `build-pdf3.sh` builds pdf3 from an altinn-studio checkout), 2, 3 and 4 (the Dockerfile mirrors upstream's line for line with `localtest:` markers, `.dockerignore` repeats upstream's exclusion of `Directory.*.props`, no HEALTHCHECK), 5 (the init script is idempotent), 6 (the README's hosts line has the PDF and workflow-engine names), 7 (sync instructions, the complete not-copied list), 8 (telemetry off, there is no collector), 10 (`build-pdf3.sh` labels the image with the commit and sets pdf3's service version), 12 (port 8000 bound to 127.0.0.1). Fixed later: 11 (2026-10-27, TODO task 57: the runners pass the host's `STUDIO_CA_BUNDLE` to pdf3). Not changed: 9 (state is not reset, as decided). Verified: the engine is healthy on its non-root image; Cypress process-transition-test 19/19 and service-task 3/3 through it.
 
 ## Summary
 
@@ -185,6 +185,9 @@ images and NuGet.
 11. **pdf3 cannot fetch altinncdn.no assets behind a TLS-intercepting proxy.** No `STUDIO_CA_BUNDLE` is set or
     mounted for pdf3 (`docker-compose.yml:181-188`), so PDFs render without the Altinn fonts and logo in this
     sandbox. Fix: mount the host CA bundle and set `STUDIO_CA_BUNDLE` (optional, environment-specific). **Low.**
+    **Fixed (2026-10-27, task 57):** localtest-v2 and the Aspire package mount a copy of the host's `STUDIO_CA_BUNDLE`
+    read-only at `/etc/localtest/ca-bundle.pem` in the containers the manifest marks `caBundle` (pdf3) and set the
+    variable there; pdf3's entrypoint imports it into Chromium's NSS store.
 12. **Engine endpoints are reachable from the network.** Port `8000:8000` binds all interfaces, so the engine API,
     Swagger UI and dashboard (which has no auth) can be reached from the LAN. This is the same for every
     component. Fix: `127.0.0.1:8000:8000`. **Low.**

@@ -90,6 +90,7 @@ A path matching no route still falls through to the localtest app.
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
+| 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2534,4 +2535,53 @@ the list as the service owner (19) and the test user (11); the instance pages li
 URNs), Dialog (three dialog ids, 200 from Dialogporten's end-user API), Open in the app and Receipt; the attachment
 through its link 200 with `hello.txt`, without a token 401. The default stack: only "Open in the app" and "Receipt in
 the app"; with the app stopped, none. The front door's `smoke-test.sh`: 83 of 84 (the known `FRONTEND_DIST` check).
+
+## 57. The host's CA bundle for pdf3
+
+**Origin (2026-10-27).** Review item 11 of [`localtest/reviews/workflow-engine.md`](localtest/reviews/workflow-engine.md):
+pdf3's Chromium trusts its own NSS store, not the system's, so behind a TLS-intercepting proxy (a corporate network,
+this sandbox) it cannot load the app frontend from `altinncdn.no` and PDF generation times out. pdf3's
+`docker-entrypoint.sh` already imports `$STUDIO_CA_BUNDLE` (a PEM path) into NSS; neither runner passed it. Brief
+`/home/agent/code/.briefs/pdf3-ca-bundle.md`.
+
+**Design.**
+- A manifest field `"caBundle": true` (pdf3 only), in the style of `otlpReceiver`; both loaders refuse it with the
+  variable in the container's own `envs` or a file or volume at the mount path.
+- When the host's `STUDIO_CA_BUNDLE` names a readable file, the runner copies it to
+  `<data>/infra/localtest-v2/ca-bundle/<first 16 hex digits of its SHA-256>.pem` (Aspire `<DataDirectory>/ca-bundle/`),
+  0644, and mounts the copy read-only at `/etc/localtest/ca-bundle.pem` with `STUDIO_CA_BUNDLE` set to that path. A
+  copy, not the file: it is readable by the images' non-root users whatever the original's mode, it lies under the
+  home directory Docker Desktop shares (a bundle under `/etc` or `/usr/local` is not), and SELinux relabelling (`:z`)
+  touches the copy, never a system file. The hash in the name makes a changed bundle change the container spec, so
+  devenv (and Aspire for a persistent container) recreates pdf3.
+- Unset, or naming no file: nothing is added, the copy is removed. Set but unreadable: one warning per command, the
+  containers start without it.
+- `env up` on a healthy environment: the state file records the bundle's hash, and `Changed` compares it, so a new,
+  changed or removed bundle converges (only pdf3 is recreated, 5.6 s), an unchanged one says "already running".
+- Aspire reads the variable from the AppHost's configuration (its environment), when the model is built; the copy is
+  written and the warning logged at `BeforeStartEvent`.
+- Golden file: the `everything` case is on a host with a bundle of known content, so its copy's path is fixed; the
+  other cases have none. Aspire's `everything` model gets a bundle of the same content, so the parity test compares
+  pdf3's mount and variable byte for byte instead of excluding them.
+- Other components: not marked. No other image reads `STUDIO_CA_BUNDLE`; the .NET components trust their image's system
+  store and the Node BFF `NODE_EXTRA_CA_CERTS`, which a container runtime configured for the proxy provides (this
+  sandbox's Podman sets `SSL_CERT_FILE` and `NODE_EXTRA_CA_CERTS` through `containers.conf.d/50-agent-ca.conf` and an OCI
+  hook). On the stack no component but pdf3 logged a TLS error, with or without the variable. A developer behind a
+  corporate proxy whose container runtime is not configured would need those too; that is a separate question.
+
+**Done (2026-10-27, branch `ca-bundle`).** Commits: studioctl runner (`caBundle`, the copy, the state hash, tests: read
+unset/missing/unreadable, warn once, the copy's name, mode and replacement, only pdf3 gets it, `Changed`, the manifest
+validation), the Aspire package (`HostCaBundle`, `StackSpec`, `CaBundleTests`, parity), docs. On the stack (pinned
+images `sha-ddef433`, pdf3 `tt02`, studioctl from the branch under `STUDIOCTL_HOME=/home/agent/ca-home`, the scratch
+app `ttd/testapp` copy at `/home/agent/code/apps/testapp-pdf` as user 20001, party 520001; evidence
+`/home/agent/code/.handover/ca-bundle/`):
+- with `STUDIO_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`: pdf3 has the copy at `/etc/localtest/ca-bundle.pem`
+  read-only and the variable; its NSS database was created at container start with 122 certificates (no manual
+  import); `process/next` 200 in 2 s, the PDF embeds Altinn-DIN, -Bold and -Italic (`pdffonts`), rendered in
+  `with/with-ca-bundle-page-1.png` (`ttd` has no logo in `altinn-orgs.json`, so the fonts are what comes from the CDN);
+- `env -u STUDIO_CA_BUNDLE env up`: only pdf3 recreated, without mount or variable, the copy removed, no NSS
+  database; `process/next` 500 "Pdf generation failed" after 30 s, pdf3 logs `net::ERR_CERT_AUTHORITY_INVALID` and the
+  `#readyForPrint` timeout;
+- `env up` with the variable again: pdf3 recreated with the mount, a PDF in 1 s; a second `env up`: "already running".
+Not verified: the Aspire package on the stack (unit and parity tests only), Docker Desktop, SELinux hosts.
 
