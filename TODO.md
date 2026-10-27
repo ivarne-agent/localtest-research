@@ -90,7 +90,7 @@ A path matching no route still falls through to the localtest app.
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
-| 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed | small | yes |
+| 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2584,4 +2584,14 @@ app `ttd/testapp` copy at `/home/agent/code/apps/testapp-pdf` as user 20001, par
   `#readyForPrint` timeout;
 - `env up` with the variable again: pdf3 recreated with the mount, a PDF in 1 s; a second `env up`: "already running".
 Not verified: the Aspire package on the stack (unit and parity tests only), Docker Desktop, SELinux hosts.
+
+**The old `localtest` runtime (2026-10-27, scope added by the user).** Same gap in altinn-studio's studioctl
+(`src/cli/internal/cmd/env/localtest/components/pdf.go`): fixed on branch `fix/studioctl-pdf3-ca-bundle` of
+`ivarne-agent/altinn-studio` (4082f9ee0e, pushed, PR not opened; handover
+`/home/agent/code/.handover/studioctl-pdf3-ca-bundle-pr.md`). A preparation copies the bundle to
+`<data>/infra/pdf3/ca-bundle.pem`, pdf3 mounts it read-only at `/etc/localtest/ca-bundle.pem` with the variable;
+unset or missing changes nothing, unreadable warns. No hash in the name: that runtime's `env up` returns early on a
+running environment anyway, so the variable takes effect on `env down` + `env up`. Proven the same way (evidence
+`/home/agent/code/.handover/ca-bundle/old-runtime/`): with the variable `process/next` 200 and the Altinn fonts,
+without it 500 after 30 s with `ERR_CERT_AUTHORITY_INVALID`.
 
