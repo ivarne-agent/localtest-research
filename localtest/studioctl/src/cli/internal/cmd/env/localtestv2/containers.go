@@ -10,6 +10,7 @@ import (
 
 	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
+	envstack "altinn.studio/studioctl/internal/cmd/env/stack"
 	"altinn.studio/studioctl/internal/envtopology"
 	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/localtestv2/manifest"
@@ -82,9 +83,8 @@ type Options struct {
 	CertDir string
 	// FilesDir holds the files that ship with the manifest, at their paths relative to its directory.
 	FilesDir string
-	// CABundle is the runner's copy of the host's CA bundle (cabundle.go), which the containers with caBundle mount;
-	// empty for none.
-	CABundle string
+	// CABundle is the host's CA bundle (cabundle.go), which the containers with caBundle mount; nil for none.
+	CABundle *envstack.CABundle
 	// TelemetryDir is the folder on the host an OTLP receiver with an output writes to (minimal mode's otel-files).
 	TelemetryDir string
 	// User and UsernsMode run a container that writes to the host (TelemetryDir) as the developer: their uid:gid, and
@@ -106,7 +106,7 @@ func defaultOptions(certDir, filesDir string) *Options {
 		Groups:       nil,
 		CertDir:      certDir,
 		FilesDir:     filesDir,
-		CABundle:     "",
+		CABundle:     nil,
 		TelemetryDir: "",
 		User:         "",
 		UsernsMode:   "",
@@ -292,7 +292,7 @@ func writesToHost(c manifest.Container) bool {
 // runnerEnv is what the runner adds to a container's own environment: the front door gets the public subdomains, and
 // in minimal mode its app routes stay in memory; a container with caBundle gets the host's CA bundle.
 func runnerEnv(opts *Options, name string) map[string]string {
-	env := caBundleEnv(opts, stack().Containers[name])
+	env, _ := caBundleMount(opts, stack().Containers[name], types.SELinuxRelabelNone)
 	if name != frontDoor {
 		return env
 	}
@@ -376,16 +376,8 @@ func containerVolumes(opts *Options, c manifest.Container) []types.VolumeMount {
 			ReadOnly:       true,
 		})
 	}
-	if c.CABundle && opts.CABundle != "" {
-		volumes = append(volumes, types.VolumeMount{
-			HostPath:       opts.CABundle,
-			ContainerPath:  manifest.CABundlePath,
-			Type:           types.VolumeMountTypeBind,
-			SELinuxRelabel: relabel,
-			Options:        "",
-			ReadOnly:       true,
-		})
-	}
+	_, bundle := caBundleMount(opts, c, relabel)
+	volumes = append(volumes, bundle...)
 	for _, id := range slices.Sorted(maps.Keys(c.Volumes)) {
 		volumes = append(volumes, manifestVolume(opts, id, c.Volumes[id]))
 	}

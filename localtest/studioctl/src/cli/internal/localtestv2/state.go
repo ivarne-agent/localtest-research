@@ -38,8 +38,8 @@ type State struct {
 	CertificateDir string `json:"certificateDir"`
 	// PublicHost is the public origin's host (env up --host); empty is the manifest's default.
 	PublicHost string `json:"publicHost,omitempty"`
-	// CABundle is the SHA-256 of the host's CA bundle (STUDIO_CA_BUNDLE) the containers with caBundle were started
-	// with, hex; empty for none.
+	// CABundle is the digest of the host's CA bundle (STUDIO_CA_BUNDLE, its usable certificates) the containers with
+	// caBundle were started with, hex; empty for none.
 	CABundle string `json:"caBundle,omitempty"`
 	// Groups are the optional component groups the environment was started with.
 	Groups []string `json:"groups,omitempty"`

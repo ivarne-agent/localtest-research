@@ -46,9 +46,8 @@ type Env struct {
 	out        *ui.Output
 	stack      *envstack.Stack
 	lookupHost lookupHostFunc
-	// getenv reads the host's environment (STUDIO_CA_BUNDLE).
-	getenv   func(string) string
-	caBundle func() hostCABundle
+	// caBundle is the host's CA bundle, loaded once per command (cabundle.go).
+	caBundle func() *envstack.CABundle
 	flags    UpOptions
 }
 
@@ -61,10 +60,9 @@ func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient
 		stack:      envstack.New(client, out, graphID, cfg.Verbose),
 		flags:      noUpOptions(),
 		lookupHost: net.DefaultResolver.LookupHost,
-		getenv:     os.Getenv,
 		caBundle:   nil,
 	}
-	e.caBundle = sync.OnceValue(e.readCABundle)
+	e.caBundle = sync.OnceValue(e.loadCABundle)
 	return e
 }
 
@@ -146,7 +144,7 @@ func (e *Env) Changed(opts UpOptions) (bool, error) {
 		originChanged(opts, state, up) ||
 		!slices.Equal(want, have) ||
 		opts.LatestImages != state.LatestImages ||
-		e.caBundle().Sum != state.CABundle ||
+		e.caBundle().Digest() != state.CABundle ||
 		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
 }
 
@@ -168,12 +166,7 @@ func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 	if err := ensureFiles(opts.FilesDir, stack()); err != nil {
 		return err
 	}
-	bundle := e.caBundle()
-	caBundle, copyErr := ensureCABundle(localtestv2.CABundleDir(e.cfg), bundle)
-	if copyErr != nil {
-		return copyErr
-	}
-	opts.CABundle = caBundle
+	opts.CABundle = e.caBundle()
 	if err := e.stopOnSwitch(ctx, opts); err != nil {
 		return err
 	}
@@ -187,7 +180,7 @@ func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 		Groups:         opts.Groups,
 		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
-		CABundle:       bundle.Sum,
+		CABundle:       opts.CABundle.Digest(),
 		Minimal:        opts.Minimal,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
@@ -501,14 +494,4 @@ func (e *Env) destroyResources(ctx context.Context, resources []resource.Resourc
 		return fmt.Errorf("destroy localtest-v2: %w", err)
 	}
 	return nil
-}
-
-// readCABundle reads the host's CA bundle once per command, warning once when STUDIO_CA_BUNDLE names a file that
-// cannot be read: the containers then start without it.
-func (e *Env) readCABundle() hostCABundle {
-	bundle, err := readHostCABundle(e.getenv)
-	if err != nil {
-		e.out.Warningf("%v; the containers start without the CA bundle", err)
-	}
-	return bundle
 }

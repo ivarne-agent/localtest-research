@@ -47,13 +47,14 @@ type goldenOptions struct {
 	HealthTargets   []string         `json:"healthTargets"`
 }
 
+// Not parallel: the everything case's CA bundle is loaded through STUDIO_CA_BUNDLE.
 func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
-	t.Parallel()
+	caBundleDir := t.TempDir()
 	everything := defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")
 	everything.Groups = OptionalGroups()
 	everything.LatestImages = true
 	everything.RelabelBinds = true
-	everything.CABundle = testCABundle
+	everything.CABundle = loadCABundle(t, testCABundleSource, caBundleDir)
 	everything.Dev = map[string]DevBuild{
 		"storage": {
 			Context:    "/src/localtest/components/storage",
@@ -91,6 +92,8 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	data = append(data, '\n')
+	// The copy's directory is the test's own; the snapshot has it where the runtime keeps it.
+	data = bytes.ReplaceAll(data, []byte(caBundleDir), []byte(testCABundleDir))
 
 	if os.Getenv(envUpdateGolden) != "" {
 		if mkdirErr := os.MkdirAll(filepath.Dir(goldenPath), 0o755); mkdirErr != nil {

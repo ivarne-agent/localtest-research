@@ -17,6 +17,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"altinn.studio/devenv/pkg/cabundle"
 )
 
 const (
@@ -31,11 +33,6 @@ const (
 	DefaultHealth = "/health"
 	// HealthTCP is the health of a container that is up once its port accepts a connection (Postgres, Redis).
 	HealthTCP = "tcp"
-	// CABundleVariable names a PEM file of extra CA certificates to trust: on the host, the developer's (a
-	// TLS-intercepting proxy's CA); in a container with caBundle, the runner's mount of it at CABundlePath.
-	CABundleVariable = "STUDIO_CA_BUNDLE"
-	// CABundlePath is where a container with caBundle finds the host's CA bundle, read-only.
-	CABundlePath = "/etc/localtest/ca-bundle.pem"
 
 	maxPort = 65535
 )
@@ -106,8 +103,8 @@ type Container struct {
 	DependsOn []string `json:"dependsOn"`
 	// Port is the container port the health check and the services__ variables use; zero is DefaultPort.
 	Port int `json:"port"`
-	// CABundle marks a container that trusts the host's CA bundle (CABundleVariable) when the host has one: the
-	// runner mounts it at CABundlePath and sets the variable there. For images that read the variable themselves
+	// CABundle marks a container that trusts the host's CA bundle (STUDIO_CA_BUNDLE) when the host has one: the
+	// runner mounts a copy of it read-only at cabundle.ContainerPath and sets the variable there. For images that read the variable themselves
 	// (pdf3's Chromium, whose NSS store ignores the system's).
 	CABundle bool `json:"caBundle"`
 }
@@ -501,12 +498,12 @@ func checkCABundle(c Container) error {
 	if !c.CABundle {
 		return nil
 	}
-	if _, set := c.Envs[CABundleVariable]; set {
-		return fmt.Errorf("%w: caBundle: envs sets %s, which the runner sets", errDuplicate, CABundleVariable)
+	if _, set := c.Envs[cabundle.EnvStudioCABundle]; set {
+		return fmt.Errorf("%w: caBundle: envs sets %s, which the runner sets", errDuplicate, cabundle.EnvStudioCABundle)
 	}
-	_, isFile := c.Files[CABundlePath]
-	if isFile || slices.Contains(slices.Collect(maps.Values(c.Volumes)), CABundlePath) {
-		return fmt.Errorf("%w: caBundle: %s is a volume's or a file's path too", errDuplicate, CABundlePath)
+	_, isFile := c.Files[cabundle.ContainerPath]
+	if isFile || slices.Contains(slices.Collect(maps.Values(c.Volumes)), cabundle.ContainerPath) {
+		return fmt.Errorf("%w: caBundle: %s is a volume's or a file's path too", errDuplicate, cabundle.ContainerPath)
 	}
 	return nil
 }
