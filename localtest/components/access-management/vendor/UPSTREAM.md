@@ -34,9 +34,18 @@
   "group": "altinn-auth",
   "local": "directives",
   "mirrors": [
-    {"upstream": "containers/Dockerfile.aspnet-builder", "ours": "Dockerfile"},
-    {"upstream": "containers/Dockerfile.aspnet-runtime", "ours": "Dockerfile"},
-    {"upstream": "src/apps/Altinn.AccessManagement/containers/Dockerfile.api", "ours": "Dockerfile"}
+    {
+      "upstream": "containers/Dockerfile.aspnet-builder",
+      "ours": "Dockerfile"
+    },
+    {
+      "upstream": "containers/Dockerfile.aspnet-runtime",
+      "ours": "Dockerfile"
+    },
+    {
+      "upstream": "src/apps/Altinn.AccessManagement/containers/Dockerfile.api",
+      "ours": "Dockerfile"
+    }
   ],
   "watch": ["src/apps/Altinn.AccessManagement/docker-bake.hcl"],
   "projects": ["src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement"],
@@ -46,8 +55,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-auth
 - Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved:
   - `src/apps/Altinn.AccessManagement/` (host, API projects, Core, Integration, Persistence, PersistenceEF, AppHost
@@ -67,13 +78,15 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30 | replacement | `private readonly HttpClient _httpClient;` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51 | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ILogger<IResourceReg...` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs` | 70-73 | addition | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions.AddLocaltestConfi...` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs` | 168-170 | addition | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions.AddLocaltestAcces...` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs` | 19-35 | replacement | `await Altinn.AccessManagement.Localtest.Database.LocaltestDatabase.EnsureAsync(app.Serv...` |
+
+| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                                     |
+| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                               |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`                 |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`              |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`              |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Altinn.AccessManagement.Localtest.Database.LocaltestDatabase.EnsureAsync(app....` |
+
 <!-- vendor-sync:end sites -->
 
 What each site does and why it is there: [`../README.md`](../README.md#directive-sites-in-vendor) (the host's

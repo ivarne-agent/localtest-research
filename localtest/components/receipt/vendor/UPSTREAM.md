@@ -10,13 +10,16 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true},
-    {"upstream": ".dockerignore", "ours": ".dockerignore", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true },
+    { "upstream": ".dockerignore", "ours": ".dockerignore", "merge": true }
   ],
   "watch": [],
   "projects": ["src/backend/Altinn.Receipt/Altinn.Platform.Receipt.csproj"],
   "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
   ],
   "reminders": [
     "Renovate moves the frontend almost daily: sync on backend changes or on request (decided 2026-10-20)"
@@ -25,8 +28,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-receipt
 - Commit: [`babc0ed23483e8c3fb62dad4da903c6a88024914`](https://github.com/Altinn/altinn-receipt/tree/babc0ed23483e8c3fb62dad4da903c6a88024914) (main, 2026-10-20)
+
 <!-- vendor-sync:end pin -->
 - Copied paths: the whole repository (the backend `src/backend/Altinn.Receipt`, the React frontend `src/frontend` with
   its committed Yarn release, `test/`, the root build and editor files, `.github/`, `.deploy/` and the upstream
@@ -40,12 +45,14 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/backend/Altinn.Receipt/Program.cs` | 36-41 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/backend/Altinn.Receipt/Program.cs` | 52-54 | addition | `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder.Conf...` |
+
+| File                                    | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| --------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/backend/Altinn.Receipt/Program.cs` | 36-41   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/backend/Altinn.Receipt/Program.cs` | 52-54   | addition    | `Altinn.Platform.Receipt.Localtest.LocaltestReceipt.Apply(builder.Services, builder....`     |
 | `src/backend/Altinn.Receipt/Program.cs` | 190-199 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `src/backend/Altinn.Receipt/Program.cs` | 271-277 | replacement | `string url = $"{request.Scheme}://{request.Host}{request.Path}{request.QueryString}";` |
+| `src/backend/Altinn.Receipt/Program.cs` | 271-277 | replacement | `string url = $"{request.Scheme}://{request.Host}{request.Path}{request.QueryString}";`      |
+
 <!-- vendor-sync:end sites -->
 
 All four in `src/backend/Altinn.Receipt/Program.cs`:

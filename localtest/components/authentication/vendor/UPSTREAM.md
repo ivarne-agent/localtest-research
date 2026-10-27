@@ -23,10 +23,16 @@
   "group": "altinn-auth",
   "local": "directives",
   "mirrors": [
-    {"upstream": "src/apps/Altinn.Authentication/Dockerfile", "ours": "Dockerfile", "merge": true}
+    {
+      "upstream": "src/apps/Altinn.Authentication/Dockerfile",
+      "ours": "Dockerfile",
+      "merge": true
+    }
   ],
   "watch": ["src/apps/Altinn.Authentication/docker-bake.hcl"],
-  "projects": ["src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication"],
+  "projects": [
+    "src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication"
+  ],
   "follow": [],
   "reminders": [
     "grep the new tree for cookies written other than through `Response.Cookies`: `grep -rn 'Set-Cookie\\|HeaderNames.SetCookie' vendor/src/apps/Altinn.Authentication/src` must find nothing (the cookie policy in `fakes/Cookies/` sees only `Response.Cookies`; `reviews/cookies.md`)"
@@ -35,8 +41,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-auth
 - Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/apps/Altinn.Authentication/`, `src/pkgs/JWTCookieAuthentication/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
@@ -49,10 +57,12 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/AuthenticationHost.cs` | 293-295 | addition | `Altinn.Platform.Authentication.Localtest.LocaltestAuthenticationExtensions.AddLocaltest...` |
+
+| File                                                                                                        | Lines     | Kind        | First line of the `LOCALTEST` branch                                                        |
+| ----------------------------------------------------------------------------------------------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------- |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/AuthenticationHost.cs`                   | 293-295   | addition    | `Altinn.Platform.Authentication.Localtest.LocaltestAuthenticationExtensions....`            |
 | `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 1057-1070 | replacement | `if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)` |
+
 <!-- vendor-sync:end sites -->
 
 Two sites, under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:

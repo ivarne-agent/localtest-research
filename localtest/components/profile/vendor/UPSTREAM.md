@@ -6,24 +6,36 @@
   "branch": "main",
   "commit": "d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2",
   "date": "2026-10-22",
-  "paths": ["src", "Dockerfile", ".dockerignore", "docker-compose.yml", ".editorconfig", "stylecop.json"],
+  "paths": [
+    "src",
+    "Dockerfile",
+    ".dockerignore",
+    "docker-compose.yml",
+    ".editorconfig",
+    "stylecop.json"
+  ],
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
   "projects": ["src/Altinn.Profile/Altinn.Profile.csproj"],
   "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
   ],
   "reminders": []
 }
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-profile
 - Commit: [`d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2`](https://github.com/Altinn/altinn-profile/tree/d0cd92d785cc6ce66839d189ae7aa132c2e6b5a2) (main, 2026-10-22)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the host `Altinn.Profile`, `.Core`, `.Integrations` with the EF
   `Migrations/` and the legacy Yuniql `Migration/` folder the Dockerfile still copies, `.Models`, and the two vendored
@@ -37,12 +49,14 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Altinn.Profile/Program.cs` | 54-59 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/Altinn.Profile/Program.cs` | 64-66 | addition | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder.C...` |
+
+| File                            | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Altinn.Profile/Program.cs` | 54-59   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/Altinn.Profile/Program.cs` | 64-66   | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder....`  |
 | `src/Altinn.Profile/Program.cs` | 152-158 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `src/Altinn.Profile/Program.cs` | 236-238 | addition | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, conf...` |
+| `src/Altinn.Profile/Program.cs` | 236-238 | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, ...`     |
+
 <!-- vendor-sync:end sites -->
 
 Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if !LOCALTEST` / `#else`:

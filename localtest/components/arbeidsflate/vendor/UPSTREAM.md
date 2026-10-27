@@ -11,10 +11,13 @@
   "local": "patches",
   "patches": "patches",
   "mirrors": [
-    {"upstream": "packages/bff/Dockerfile", "ours": "Dockerfile.bff"},
-    {"upstream": "packages/frontend/Dockerfile", "ours": "Dockerfile.frontend"},
-    {"upstream": "packages/frontend/nginx.conf", "ours": "nginx/nginx.conf"},
-    {"upstream": ".dockerignore", "ours": ".dockerignore"}
+    { "upstream": "packages/bff/Dockerfile", "ours": "Dockerfile.bff" },
+    {
+      "upstream": "packages/frontend/Dockerfile",
+      "ours": "Dockerfile.frontend"
+    },
+    { "upstream": "packages/frontend/nginx.conf", "ours": "nginx/nginx.conf" },
+    { "upstream": ".dockerignore", "ours": ".dockerignore" }
   ],
   "watch": [
     "packages/frontend/start.sh",
@@ -37,8 +40,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/dialogporten-frontend
 - Commit: [`bb74dff2c425f2aff48759ed9c6370e73436545d`](https://github.com/Altinn/dialogporten-frontend/tree/bb74dff2c425f2aff48759ed9c6370e73436545d) (main, 2026-10-21)
+
 <!-- vendor-sync:end pin -->
 - Copied paths: the whole repository (`git archive <commit> | tar -x -C vendor`), no subtree. The pnpm workspace needs
   every package the lockfile names (`pnpm install --frozen-lockfile`), and a whole-tree copy is trivially comparable.

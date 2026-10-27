@@ -21,16 +21,33 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
-  "projects": ["src/apps/Altinn.Register/src/Altinn.Register/Altinn.Register.csproj"],
+  "projects": [
+    "src/apps/Altinn.Register/src/Altinn.Register/Altinn.Register.csproj"
+  ],
   "follow": [
-    {"package": "Altinn.Common.AccessToken", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"},
-    {"package": "Asp.Versioning.Mvc.ApiExplorer", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"},
-    {"package": "Microsoft.Extensions.ServiceDiscovery", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"},
-    {"package": "OpenTelemetry.Extensions.Hosting", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"},
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"}
+    {
+      "package": "Altinn.Common.AccessToken",
+      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
+    },
+    {
+      "package": "Asp.Versioning.Mvc.ApiExplorer",
+      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
+    },
+    {
+      "package": "Microsoft.Extensions.ServiceDiscovery",
+      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
+    },
+    {
+      "package": "OpenTelemetry.Extensions.Hosting",
+      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
+    },
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
+    }
   ],
   "reminders": [
     "Register waits for altinn-auth#4056 (https://github.com/Altinn/altinn-auth/issues/4056, an issue: move altinn-register into Altinn/altinn-auth; open on 2026-10-27): check it and its linked pull requests at every sync; once the move has landed, retarget with `sync register --repository Altinn/altinn-auth --paths ... --group altinn-auth`"
@@ -39,8 +56,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-register
 - Commit: [`f6b5c6034609da6b69a1ffdf8ef3b5265768f0f0`](https://github.com/Altinn/altinn-register/tree/f6b5c6034609da6b69a1ffdf8ef3b5265768f0f0) (main, 2026-10-13)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/apps/Altinn.Register/`, `src/pkgs/Altinn.Register.Contracts/`,
   and the root build files `.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`,
@@ -53,9 +72,11 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
+
+| File                                                           | Lines   | Kind     | First line of the `LOCALTEST` branch                                                   |
+| -------------------------------------------------------------- | ------- | -------- | -------------------------------------------------------------------------------------- |
 | `src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs` | 249-251 | addition | `Altinn.Register.Localtest.LocaltestRegisterExtensions.AddLocaltestRegister(builder);` |
+
 <!-- vendor-sync:end sites -->
 
 One site, a pure addition in `src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs`:

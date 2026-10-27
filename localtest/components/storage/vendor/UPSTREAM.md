@@ -19,20 +19,25 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
   "projects": ["src/Storage/Altinn.Platform.Storage.csproj"],
   "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
   ],
   "reminders": []
 }
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-storage
 - Commit: [`9e72a9f128debd7b9815b615d842a2d1a6d343c5`](https://github.com/Altinn/altinn-storage/tree/9e72a9f128debd7b9815b615d842a2d1a6d343c5) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/Storage/` (the host, including `Migration/`), `src/DbTools/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
@@ -47,13 +52,15 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Storage/Controllers/InstancesController.cs` | 1465-1471 | replacement | `string host = $"{Request.Scheme}://{Request.Host}";` |
-| `src/Storage/Program.cs` | 58-63 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/Storage/Program.cs` | 77-79 | addition | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestStorage(builder);` |
-| `src/Storage/Program.cs` | 142-146 | replacement | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestConfiguration(...` |
-| `src/Storage/Program.cs` | 248-257 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+
+| File                                             | Lines     | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ------------------------------------------------ | --------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Storage/Controllers/InstancesController.cs` | 1465-1471 | replacement | `string host = $"{Request.Scheme}://{Request.Host}";`                                        |
+| `src/Storage/Program.cs`                         | 58-63     | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/Storage/Program.cs`                         | 77-79     | addition    | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestStorage(builder);` |
+| `src/Storage/Program.cs`                         | 142-146   | replacement | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestConfiguration(...` |
+| `src/Storage/Program.cs`                         | 248-257   | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+
 <!-- vendor-sync:end sites -->
 
 Five sites:

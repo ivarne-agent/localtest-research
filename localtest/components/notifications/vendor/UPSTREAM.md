@@ -19,10 +19,16 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "components/api/Dockerfile", "ours": "Dockerfile", "merge": true}
+    {
+      "upstream": "components/api/Dockerfile",
+      "ours": "Dockerfile",
+      "merge": true
+    }
   ],
   "watch": [],
-  "projects": ["components/api/src/Altinn.Notifications/Altinn.Notifications.csproj"],
+  "projects": [
+    "components/api/src/Altinn.Notifications/Altinn.Notifications.csproj"
+  ],
   "follow": [],
   "reminders": [
     "new Yuniql migrations (`Migration/` folders) run only on a fresh volume: `env reset -r localtest-v2 --yes` before the smoke test"
@@ -31,8 +37,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-notifications
 - Commit: [`a4aa959a5c50094048aceb98af8dccd9db17fca8`](https://github.com/Altinn/altinn-notifications/tree/a4aa959a5c50094048aceb98af8dccd9db17fca8) (main, 2026-10-20)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `components/api/src/` (the orders API host `Altinn.Notifications`, `.Core`,
   `.Integrations`, `.Persistence` with the Yuniql `Migration/` folders, and the build-time tool `DbTools`),
@@ -47,12 +55,14 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `components/api/src/Altinn.Notifications/Program.cs` | 40-45 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `components/api/src/Altinn.Notifications/Program.cs` | 51-53 | addition | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfigurati...` |
+
+| File                                                 | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ---------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `components/api/src/Altinn.Notifications/Program.cs` | 40-45   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `components/api/src/Altinn.Notifications/Program.cs` | 51-53   | addition    | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions....`                        |
 | `components/api/src/Altinn.Notifications/Program.cs` | 191-198 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `components/api/src/Altinn.Notifications/Program.cs` | 242-246 | replacement | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(s...` |
+| `components/api/src/Altinn.Notifications/Program.cs` | 242-246 | replacement | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(...`  |
+
 <!-- vendor-sync:end sites -->
 
 All four are in `components/api/src/Altinn.Notifications/Program.cs`:

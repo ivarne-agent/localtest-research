@@ -23,13 +23,30 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "src/Digdir.Domain.Dialogporten.WebApi/Dockerfile", "ours": "Dockerfile.webapi", "merge": true},
-    {"upstream": "src/Digdir.Domain.Dialogporten.GraphQL/Dockerfile", "ours": "Dockerfile.graphql", "merge": true},
-    {"upstream": "src/Digdir.Domain.Dialogporten.Service/Dockerfile", "ours": "Dockerfile.service", "merge": true}
+    {
+      "upstream": "src/Digdir.Domain.Dialogporten.WebApi/Dockerfile",
+      "ours": "Dockerfile.webapi",
+      "merge": true
+    },
+    {
+      "upstream": "src/Digdir.Domain.Dialogporten.GraphQL/Dockerfile",
+      "ours": "Dockerfile.graphql",
+      "merge": true
+    },
+    {
+      "upstream": "src/Digdir.Domain.Dialogporten.Service/Dockerfile",
+      "ours": "Dockerfile.service",
+      "merge": true
+    }
   ],
-  "watch": ["src/Digdir.Domain.Dialogporten.Infrastructure/MigrationBundle.dockerfile"],
+  "watch": [
+    "src/Digdir.Domain.Dialogporten.Infrastructure/MigrationBundle.dockerfile"
+  ],
   "projects": [
-    {"path": "src/Digdir.Domain.Dialogporten.WebApi", "configuration": "Debug"},
+    {
+      "path": "src/Digdir.Domain.Dialogporten.WebApi",
+      "configuration": "Debug"
+    },
     "src/Digdir.Domain.Dialogporten.GraphQL",
     "src/Digdir.Domain.Dialogporten.Service"
   ],
@@ -42,8 +59,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/dialogporten
 - Commit: [`ec333e4b4742344dd303785f5fc15f0cb5d821f6`](https://github.com/Altinn/dialogporten/tree/ec333e4b4742344dd303785f5fc15f0cb5d821f6) (main, 2026-10-20)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `Directory.Build.props`, `.editorconfig`, `global.json`, and under `src/` the nine projects
   the WebApi, GraphQL and Service hosts build from: `Digdir.Domain.Dialogporten.{WebApi,GraphQL,Service,Application,Domain,Infrastructure}`,
@@ -66,15 +85,17 @@ the three `WebApplication.CreateBuilder(args)` calls are at WebApi `Program.cs:6
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 29-34 | replacement | `.Must(x => x is null \|\| (Uri.TryCreate(x, UriKind.Absolute, out var uri) && (uri.Sche...` |
-| `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 39-44 | replacement | `.Must(x => x is null \|\| (x.IsAbsoluteUri && (x.Scheme == Uri.UriSchemeHttps \|\| x.Sc...` |
-| `src/Digdir.Domain.Dialogporten.GraphQL/Program.cs` | 45-51 | addition | `Digdir.Domain.Dialogporten.GraphQL.Localtest.LocaltestGraphQl.Apply(builder);` |
-| `src/Digdir.Domain.Dialogporten.Service/Program.cs` | 41-47 | addition | `Digdir.Domain.Dialogporten.Service.Localtest.LocaltestService.Apply(builder);` |
-| `src/Digdir.Domain.Dialogporten.WebApi/Program.cs` | 63-69 | addition | `Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);` |
-| `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs` | 106-112 | replacement | `// localtest: endpoint and protocol from the standard variables (TODO.md task 53), so that` |
-| `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs` | 134-139 | replacement | `// localtest: from the standard variables, so that http/protobuf posts to <endpoint>/v1...` |
+
+| File                                                                                                                | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ------------------------------------------------------------------------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 29-34   | replacement | `.Must(x => x is null \|\| (Uri.TryCreate(x, UriKind.Absolute, out var uri) && (uri....`     |
+| `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 39-44   | replacement | `.Must(x => x is null \|\| (x.IsAbsoluteUri && (x.Scheme == Uri.UriSchemeHttps \|\| x....`   |
+| `src/Digdir.Domain.Dialogporten.GraphQL/Program.cs`                                                                 | 45-51   | addition    | `Digdir.Domain.Dialogporten.GraphQL.Localtest.LocaltestGraphQl.Apply(builder);`              |
+| `src/Digdir.Domain.Dialogporten.Service/Program.cs`                                                                 | 41-47   | addition    | `Digdir.Domain.Dialogporten.Service.Localtest.LocaltestService.Apply(builder);`              |
+| `src/Digdir.Domain.Dialogporten.WebApi/Program.cs`                                                                  | 63-69   | addition    | `Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);`                |
+| `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`                                                        | 106-112 | replacement | `// localtest: endpoint and protocol from the standard variables (TODO.md task 53), so that` |
+| `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`                                                        | 134-139 | replacement | `// localtest: from the standard variables, so that http/protobuf posts to ...`              |
+
 <!-- vendor-sync:end sites -->
 
 Three pure additions, one per host, each right after `var builder = WebApplication.CreateBuilder(args);`. Each block also holds the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`), after the `Apply` call; the package is added in `../localtest.build.targets`,

@@ -300,18 +300,39 @@ def validate_meta(meta: dict, where: str):
         raise ToolError(f"{where}: " + "; ".join(problems))
 
 
+def _flat_json(value) -> str:
+    if isinstance(value, list):
+        return "[" + ", ".join(_flat_json(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{json.dumps(k)}: {_flat_json(v)}" for k, v in value.items()) + " }" if value else "{}"
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _json(value, indent: int, column: int, trailing: int) -> str:
+    """JSON as Prettier prints it (print width 80): a list or object on one line when it fits, else one item per line."""
+    flat = _flat_json(value)
+    if not isinstance(value, (list, dict)) or not value or column + len(flat) + trailing <= 80:
+        return flat
+    pad = " " * (indent + 2)
+    last = len(value) - 1
+    if isinstance(value, list):
+        items = [pad + _json(v, indent + 2, indent + 2, int(i < last)) for i, v in enumerate(value)]
+        return "[\n" + ",\n".join(items) + "\n" + " " * indent + "]"
+    items = []
+    for i, (k, v) in enumerate(value.items()):
+        key = f"{json.dumps(k)}: "
+        items.append(pad + key + _json(v, indent + 2, indent + 2 + len(key), int(i < last)))
+    return "{\n" + ",\n".join(items) + "\n" + " " * indent + "}"
+
+
 def format_meta(meta: dict) -> str:
+    """The metadata block's JSON, keys in a fixed order, laid out as Prettier would (so a formatter leaves it alone)."""
     ordered = {k: meta[k] for k in META_KEYS if k in meta}
     lines = []
+    last = len(ordered) - 1
     for i, (key, value) in enumerate(ordered.items()):
-        comma = "," if i < len(ordered) - 1 else ""
-        compact = json.dumps(value, ensure_ascii=False)
-        if isinstance(value, list) and value and (len(compact) > 100 or any(isinstance(v, dict) for v in value)):
-            items = [json.dumps(v, ensure_ascii=False, separators=(", ", ": ")) for v in value]
-            body = ",\n".join(f"    {item}" for item in items)
-            lines.append(f'  "{key}": [\n{body}\n  ]{comma}')
-        else:
-            lines.append(f'  "{key}": {compact}{comma}')
+        prefix = f'  "{key}": '
+        lines.append(prefix + _json(value, 2, len(prefix), int(i < last)) + ("," if i < last else ""))
     return "{\n" + "\n".join(lines) + "\n}\n"
 
 
@@ -324,7 +345,7 @@ def replace_generated(text: str, name: str, content: str, where: str) -> str:
     pattern = re.compile(re.escape(begin) + r"\n.*?" + re.escape(end), re.S)
     if not pattern.search(text):
         raise ToolError(f"{where}: no `{begin}` ... `{end}` markers")
-    return pattern.sub(lambda m: f"{begin}\n{content}{end}", text, count=1)
+    return pattern.sub(lambda m: f"{begin}\n\n{content}\n{end}", text, count=1)
 
 
 def has_generated(text: str, name: str) -> bool:
@@ -340,7 +361,9 @@ def render_pin(meta: dict) -> str:
 def md_cell(text: str, limit: int = 0) -> str:
     text = text.replace("|", "\\|")
     if limit and len(text) > limit:
-        text = text[:limit - 3] + "..."
+        cut = text[:limit - 3]
+        at = max(cut.rfind(c) for c in ".( ,")  # end at a separator, not inside a name
+        text = (cut[:at + 1] if at > limit // 2 else cut) + "..."
     return text
 
 
@@ -348,13 +371,15 @@ def render_sites(sites: dict) -> str:
     """sites: vendor-relative path -> Parsed (files with blocks)."""
     if not sites:
         return "No directive sites.\n"
-    rows = ["| File | Lines | Kind | First line of the `LOCALTEST` branch |", "| --- | --- | --- | --- |"]
+    rows = [["File", "Lines", "Kind", "First line of the `LOCALTEST` branch"]]
     for path in sorted(sites):
         for b in sites[path].blocks:
             first = b.first_local_line()
-            rows.append(f"| `{md_cell(path)}` | {b.start}-{b.end} | {b.kind} | "
-                        f"{('`' + md_cell(first, 90) + '`') if first else '(empty)'} |")
-    return "\n".join(rows) + "\n"
+            rows.append([f"`{md_cell(path)}`", f"{b.start}-{b.end}", b.kind,
+                         f"`{md_cell(first, 90)}`" if first else "(empty)"])
+    widths = [max(len(r[i]) for r in rows) for i in range(4)]  # aligned as Prettier aligns tables
+    line = lambda cells: "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
+    return "\n".join([line(rows[0]), line(["-" * w for w in widths])] + [line(r) for r in rows[1:]]) + "\n"
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -695,9 +720,9 @@ def compare(comp: Component, vendor: Vendor, upstream_files: dict, upstream_blob
                 continue
             how = tolerated_difference(parsed.production, theirs)
             if how is None:
-                ol, ul, ot, ut = first_difference(parsed.production, theirs, parsed.production_lines)
+                ol, ul, ours_text, up_text = first_difference(parsed.production, theirs, parsed.production_lines)
                 r.errors.append(f"{v}/{rel}:{ol}: production view differs from upstream (upstream line {ul})\n"
-                                f"    ours:     {ot}\n    upstream: {ut}")
+                                f"    ours:     {ours_text}\n    upstream: {up_text}")
                 continue
             if how:
                 tolerated.append(f"{rel} ({how})")
@@ -709,9 +734,9 @@ def compare(comp: Component, vendor: Vendor, upstream_files: dict, upstream_blob
             continue
         how = tolerated_difference(ours, theirs)
         if how is None:
-            ol, ul, ot, ut = first_difference(ours, theirs)
+            ol, ul, ours_text, up_text = first_difference(ours, theirs)
             r.errors.append(f"{v}/{rel}:{ol}: differs from upstream (upstream line {ul}) and has no LOCALTEST block\n"
-                            f"    ours:     {ot}\n    upstream: {ut}")
+                            f"    ours:     {ours_text}\n    upstream: {up_text}")
         else:
             tolerated.append(f"{rel} ({how})")
     if tolerated:
@@ -884,7 +909,7 @@ def cmd_render(args) -> int:
                 except DirectiveError as e:
                     raise ToolError(f"{comp.vendor_rel}/{rel}:{e.line}: {e.message}") from e
         before = comp.text
-        comp.save(sites=sites)
+        comp.save(meta=comp.meta, sites=sites)
         print(f"{comp.name}: {'updated' if comp.text != before else 'unchanged'}")
     del clones
     return 0
@@ -1371,16 +1396,16 @@ def sync_component(comp: Component, clones: Clones, new_ref: str | None, reposit
     # Mirrors: carried over when the merge is clean, otherwise reported; never staged.
     for mirror in meta.get("mirrors", []):
         u = mirror["upstream"]
-        ot, nt = old_up.tree(old, [u]).get(u), new_up.tree(new, [u]).get(u)
-        if ot == nt:
+        old_entry, nt = old_up.tree(old, [u]).get(u), new_up.tree(new, [u]).get(u)
+        if old_entry == nt:
             continue
         if nt is None:
             rep.mirrors.append(f"`{u}` is gone upstream: decide what `{mirror['ours']}` mirrors now")
             continue
-        if ot is None:
+        if old_entry is None:
             rep.mirrors.append(f"`{u}` is new upstream: compare it with `{mirror['ours']}`")
             continue
-        ob, nb = old_up.blobs([ot[1]])[ot[1]], new_up.blobs([nt[1]])[nt[1]]
+        ob, nb = old_up.blobs([old_entry[1]])[old_entry[1]], new_up.blobs([nt[1]])[nt[1]]
         diff = "".join(difflib.unified_diff(ob.decode(errors="replace").splitlines(True),
                                             nb.decode(errors="replace").splitlines(True), f"a/{u}", f"b/{u}", n=1))
         if mirror.get("merge"):

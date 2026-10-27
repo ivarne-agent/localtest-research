@@ -17,20 +17,29 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
-  "projects": ["src/Altinn.DialogportenAdapter.WebApi/Altinn.DialogportenAdapter.WebApi.csproj"],
-  "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+  "projects": [
+    "src/Altinn.DialogportenAdapter.WebApi/Altinn.DialogportenAdapter.WebApi.csproj"
   ],
-  "reminders": ["a new required setting goes into `fakes/` `LocaltestAdapterExtensions.AddLocaltestConfiguration`"]
+  "follow": [
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
+  ],
+  "reminders": [
+    "a new required setting goes into `fakes/` `LocaltestAdapterExtensions.AddLocaltestConfiguration`"
+  ]
 }
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-dialogporten-adapter
 - Commit: [`86364b876adbff3d98843d723cee76ae215203a2`](https://github.com/Altinn/altinn-dialogporten-adapter/tree/86364b876adbff3d98843d723cee76ae215203a2) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/Altinn.DialogportenAdapter.WebApi` (the host), `src/Altinn.DialogportenAdapter.Contracts`
   (`SyncInstanceCommand`, the queue names, the Service Bus defaults; referenced by relative path from the host csproj),
@@ -44,18 +53,20 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs` | 56-65 | replacement | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterTelemetry.AddLocaltestAdapt...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs` | 69-81 | replacement | `opts.EnableAutomaticFailureAcks = false;` |
-| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs` | 185-197 | replacement | `opts.LocalQueue(ContractConstants.AdapterQueueName).Sequential();` |
-| `src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs` | 366-371 | replacement | `var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platfor...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs` | 398-403 | replacement | `var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks.Platfor...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs` | 31-36 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs` | 48-50 | addition | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.AddLocaltestConf...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs` | 55-57 | addition | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.AddLocaltestAdap...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Program.cs` | 62-64 | addition | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions.MapLocaltestRout...` |
-| `src/Altinn.DialogportenAdapter.WebApi/Settings.cs` | 43-50 | replacement | `public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.GetLeftPart(UriP...` |
+
+| File                                                                                           | Lines   | Kind        | First line of the `LOCALTEST` branch                                                     |
+| ---------------------------------------------------------------------------------------------- | ------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs`       | 56-65   | replacement | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterTelemetry....`              |
+| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs`       | 69-81   | replacement | `opts.EnableAutomaticFailureAcks = false;`                                               |
+| `src/Altinn.DialogportenAdapter.WebApi/Common/Extensions/ServiceCollectionExtensions.cs`       | 185-197 | replacement | `opts.LocalQueue(ContractConstants.AdapterQueueName).Sequential();`                      |
+| `src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs` | 366-371 | replacement | `var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks....`    |
+| `src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs` | 398-403 | replacement | `var platformUrl = Localtest.LocaltestLinks.ToLocalPlatformUrl(element.SelfLinks....`    |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs`                                             | 31-36   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs`                                             | 48-50   | addition    | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions....`             |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs`                                             | 55-57   | addition    | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions....`             |
+| `src/Altinn.DialogportenAdapter.WebApi/Program.cs`                                             | 62-64   | addition    | `Altinn.DialogportenAdapter.WebApi.Localtest.LocaltestAdapterExtensions....`             |
+| `src/Altinn.DialogportenAdapter.WebApi/Settings.cs`                                            | 43-50   | replacement | `public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.GetLeftPart(...` |
+
 <!-- vendor-sync:end sites -->
 
 | File | Site |

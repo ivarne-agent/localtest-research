@@ -6,24 +6,36 @@
   "branch": "main",
   "commit": "1a4a80c4599e9e176c04bce1b5da7861ca1c54a6",
   "date": "2026-10-19",
-  "paths": ["src/Events", "src/Events.Common", "src/DbTools", "stylecop.json", ".editorconfig", "Dockerfile"],
+  "paths": [
+    "src/Events",
+    "src/Events.Common",
+    "src/DbTools",
+    "stylecop.json",
+    ".editorconfig",
+    "Dockerfile"
+  ],
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
   "projects": ["src/Events/Altinn.Platform.Events.csproj"],
   "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
   ],
   "reminders": []
 }
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-events
 - Commit: [`1a4a80c4599e9e176c04bce1b5da7861ca1c54a6`](https://github.com/Altinn/altinn-events/tree/1a4a80c4599e9e176c04bce1b5da7861ca1c54a6) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/Events/` (the host, including `Migration/`, unused locally),
   `src/Events.Common/` and `src/DbTools/` (both referenced by relative path from the host csproj), the root
@@ -37,15 +49,17 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Events/Controllers/SubscriptionController.cs` | 193-198 | replacement | `return uri is not null && uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttps \|\| u...` |
-| `src/Events/Controllers/SubscriptionController.cs` | 213-221 | replacement | `else if (!string.IsNullOrEmpty(subscription.SourceFilter?.ToString()) &&` |
-| `src/Events/Program.cs` | 59-64 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/Events/Program.cs` | 69-71 | addition | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestConfiguration(bu...` |
-| `src/Events/Program.cs` | 76-78 | addition | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestEvents(builder);` |
-| `src/Events/Program.cs` | 170-176 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `src/Events/Services/OutboundService.cs` | 429-435 | replacement | `if (source.DnsSafeHost.Contains(_platformSettings.AppsDomain) &&` |
+
+| File                                               | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| -------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Events/Controllers/SubscriptionController.cs` | 193-198 | replacement | `return uri is not null && uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttps \|\| ...`  |
+| `src/Events/Controllers/SubscriptionController.cs` | 213-221 | replacement | `else if (!string.IsNullOrEmpty(subscription.SourceFilter?.ToString()) &&`                   |
+| `src/Events/Program.cs`                            | 59-64   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/Events/Program.cs`                            | 69-71   | addition    | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestConfiguration(...`   |
+| `src/Events/Program.cs`                            | 76-78   | addition    | `Altinn.Platform.Events.Localtest.LocaltestEventsExtensions.AddLocaltestEvents(builder);`    |
+| `src/Events/Program.cs`                            | 170-176 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `src/Events/Services/OutboundService.cs`           | 429-435 | replacement | `if (source.DnsSafeHost.Contains(_platformSettings.AppsDomain) &&`                           |
+
 <!-- vendor-sync:end sites -->
 
 Seven sites:

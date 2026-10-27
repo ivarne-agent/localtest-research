@@ -30,7 +30,11 @@
   "group": "altinn-auth",
   "local": "directives",
   "mirrors": [
-    {"upstream": "src/apps/Altinn.Authorization/Dockerfile", "ours": "Dockerfile", "merge": true}
+    {
+      "upstream": "src/apps/Altinn.Authorization/Dockerfile",
+      "ours": "Dockerfile",
+      "merge": true
+    }
   ],
   "watch": [
     "src/apps/Altinn.Authorization/docker-bake.hcl",
@@ -44,8 +48,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-auth
 - Commit: [`3d51810374b255aeaa179993e53864d122586a65`](https://github.com/Altinn/altinn-auth/tree/3d51810374b255aeaa179993e53864d122586a65) (main, 2026-10-19)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved:
   - `src/apps/Altinn.Authorization/` (the PDP host and its tests)
@@ -62,11 +68,13 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 53-58 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 67-71 | addition | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions.AddLocaltestAu...` |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 278-304 | replacement | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry.AddLocaltestTel...` |
+
+| File                                                                | Lines   | Kind        | First line of the `LOCALTEST` branch                                           |
+| ------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------ |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 53-58   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`      |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 67-71   | addition    | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions....` |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 278-304 | replacement | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry....`  |
+
 <!-- vendor-sync:end sites -->
 
 Three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, the first two pure additions:

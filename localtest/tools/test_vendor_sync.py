@@ -158,7 +158,14 @@ class MetadataTests(unittest.TestCase):
         text = vs.write_meta(DOC % ("a" * 40), dict(meta, mirrors=[{"upstream": "Dockerfile", "ours": "Dockerfile"}]))
         again = vs.read_meta(text)
         self.assertEqual(again["mirrors"], [{"upstream": "Dockerfile", "ours": "Dockerfile"}])
-        self.assertIn('"mirrors": [\n    {"upstream": "Dockerfile", "ours": "Dockerfile"}\n  ]', text)
+        self.assertIn('"mirrors": [{ "upstream": "Dockerfile", "ours": "Dockerfile" }]\n}', text)
+        # Laid out as Prettier does at print width 80: what does not fit goes one item per line.
+        long = dict(meta, paths=["src/apps/Altinn.Something", "src/libs/Altinn.Other", "Directory.Build.props"],
+                    follow=[{"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}])
+        self.assertIn('  "paths": [\n    "src/apps/Altinn.Something",\n    "src/libs/Altinn.Other",\n'
+                      '    "Directory.Build.props"\n  ],\n', vs.format_meta(long))
+        self.assertIn('  "follow": [\n    {\n      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",\n'
+                      '      "follows": "OpenTelemetry"\n    }\n  ]\n}', vs.format_meta(long))
         self.assertTrue(text.endswith("Why the sites exist.\n"))
 
     def test_validation(self):
@@ -173,15 +180,16 @@ class MetadataTests(unittest.TestCase):
 
     def test_generated_sections(self):
         text = vs.replace_generated(DOC % ("a" * 40), "pin", "- one\n", "X")
-        self.assertIn("<!-- vendor-sync:begin pin -->\n- one\n<!-- vendor-sync:end pin -->", text)
+        self.assertIn("<!-- vendor-sync:begin pin -->\n\n- one\n\n<!-- vendor-sync:end pin -->", text)
         self.assertEqual(vs.replace_generated(text, "pin", "- one\n", "X"), text)
         with self.assertRaises(vs.ToolError):
             vs.replace_generated("no markers", "pin", "x", "X")
 
     def test_site_table(self):
         table = vs.render_sites({"src/Program.cs": vs.parse(PROGRAM), "a|b.cs": vs.parse(b"#if LOCALTEST\n#endif\n")})
-        self.assertIn("| `src/Program.cs` | 6-10 | replacement | `services.AddOtlp();` |", table)
-        self.assertIn("| `a\\|b.cs` | 1-2 | addition | (empty) |", table)
+        self.assertIn("| `src/Program.cs` | 6-10  | replacement | `services.AddOtlp();`                |", table)
+        self.assertIn("| `a\\|b.cs`        | 1-2   | addition    | (empty)                              |", table)
+        self.assertIn("| ---------------- | ----- | ----------- | ------------------------------------ |", table)
         self.assertEqual(vs.render_sites({}), "No directive sites.\n")
 
 

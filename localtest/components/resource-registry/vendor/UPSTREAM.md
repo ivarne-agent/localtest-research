@@ -19,7 +19,11 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "src/apps/Altinn.ResourceRegistry/Dockerfile", "ours": "Dockerfile", "merge": true}
+    {
+      "upstream": "src/apps/Altinn.ResourceRegistry/Dockerfile",
+      "ours": "Dockerfile",
+      "merge": true
+    }
   ],
   "watch": [],
   "projects": ["src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry"],
@@ -31,8 +35,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-resource-registry
 - Commit: [`a3422419579832833845e47d3be57c148364bed0`](https://github.com/Altinn/altinn-resource-registry/tree/a3422419579832833845e47d3be57c148364bed0) (main, 2026-09-25)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/apps/Altinn.ResourceRegistry/src/` (the host `Altinn.ResourceRegistry` and
   `.Core`, `.Persistence` with the embedded `Migration/**/*.sql`, `.Integration`), `src/Directory.Build.props`,
@@ -46,10 +52,12 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 46-49 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfi...` |
-| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 191-193 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResou...` |
+
+| File                                                                                   | Lines   | Kind     | First line of the `LOCALTEST` branch                                        |
+| -------------------------------------------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 46-49   | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 191-193 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
+
 <!-- vendor-sync:end sites -->
 
 Both are pure additions in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`:

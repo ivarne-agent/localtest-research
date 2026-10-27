@@ -10,12 +10,17 @@
   "group": null,
   "local": "directives",
   "mirrors": [
-    {"upstream": "Dockerfile", "ours": "Dockerfile", "merge": true}
+    { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
   "watch": [],
-  "projects": ["src/Altinn.Correspondence.API/Altinn.Correspondence.API.csproj"],
+  "projects": [
+    "src/Altinn.Correspondence.API/Altinn.Correspondence.API.csproj"
+  ],
   "follow": [
-    {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "follows": "OpenTelemetry"}
+    {
+      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+      "follows": "OpenTelemetry"
+    }
   ],
   "reminders": [
     "grep the new tree for cookies written other than through `Response.Cookies`: `grep -rn 'Set-Cookie\\|HeaderNames.SetCookie' vendor/src` must find nothing (the cookie policy in `fakes/Cookies/` sees only `Response.Cookies`; `reviews/cookies.md`)",
@@ -27,8 +32,10 @@
 ```
 
 <!-- vendor-sync:begin pin -->
+
 - Repository: https://github.com/Altinn/altinn-correspondence
 - Commit: [`6dcf561945f73e8f28f0a95747ee4fafa012aa89`](https://github.com/Altinn/altinn-correspondence/tree/6dcf561945f73e8f28f0a95747ee4fafa012aa89) (main, 2026-10-16)
+
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the six projects `Altinn.Correspondence.{API,Application,Common,Core,Integrations,Persistence}`
   with their `Properties/` and the 69 EF migrations), the root `Dockerfile` (the reference for `../Dockerfile`) and `docker-compose.yml`
@@ -41,14 +48,16 @@
 ## Directive sites
 
 <!-- vendor-sync:begin sites -->
-| File | Lines | Kind | First line of the `LOCALTEST` branch |
-| --- | --- | --- | --- |
-| `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` | 26-31 | replacement | `new HttpDocumentRetriever { RequireHttps = false });` |
-| `src/Altinn.Correspondence.API/Program.cs` | 44-49 | addition | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestService...` |
-| `src/Altinn.Correspondence.API/Program.cs` | 56-58 | addition | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(build...` |
-| `src/Altinn.Correspondence.API/Program.cs` | 66-71 | addition | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTe...` |
-| `src/Altinn.Correspondence.API/Program.cs` | 179-181 | addition | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, ...` |
-| `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` | 31-36 | replacement | `else if (party.StartsWith(AltinnXacmlUrns.PartyId) \|\| (long.TryParse(partyWithoutPref...` |
+
+| File                                                                                 | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ------------------------------------------------------------------------------------ | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs`                       | 26-31   | replacement | `new HttpDocumentRetriever { RequireHttps = false });`                                       |
+| `src/Altinn.Correspondence.API/Program.cs`                                           | 44-49   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
+| `src/Altinn.Correspondence.API/Program.cs`                                           | 56-58   | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestConfiguration(...`      |
+| `src/Altinn.Correspondence.API/Program.cs`                                           | 66-71   | addition    | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services....`          |
+| `src/Altinn.Correspondence.API/Program.cs`                                           | 179-181 | addition    | `Altinn.Correspondence.Localtest.LocaltestCorrespondence.AddLocaltestServices(services, ...` |
+| `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` | 31-36   | replacement | `else if (party.StartsWith(AltinnXacmlUrns.PartyId) \|\| (long.TryParse(...`                 |
+
 <!-- vendor-sync:end sites -->
 
 Four pure additions, all in `src/Altinn.Correspondence.API/Program.cs`, and two `#if !LOCALTEST` / `#else` / `#endif` blocks, in
