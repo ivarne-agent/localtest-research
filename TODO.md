@@ -2414,8 +2414,8 @@ the full setup (task 52).
   traces by 3.5, the rest by less. Not done: an OTTL time filter (dropped with the user's change), and the contrib
   image's `interval` processor, which would cut metrics to one export a minute but is a deviation the user did not ask
   for (an option if the front door's rate matters).
-- **Guide.** The bundled app-development skill (`resources/agent/skills/app-development/SKILL.md`, which ships with
-  studioctl and is where an agent working on an app looks) has "Telemetry files in minimal mode": where the files
+- **Guide.** The bundled app-development skill (`agents/_skills/app-development/SKILL.md` since altinn-studio#21512,
+  which ships with studioctl and is where an agent working on an app looks) has "Telemetry files in minimal mode": where the files
   are, four `jq` commands (one trace's spans and log records, errors in the last N minutes, a trace's slowest spans,
   the app's requests with their trace IDs). studioctl's README describes the files and points there; the manifest
   README has "OTLP receivers" and the runner's changes; the front door's README the `otlp` role.

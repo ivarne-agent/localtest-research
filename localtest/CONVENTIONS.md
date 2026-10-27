@@ -91,9 +91,10 @@ the public origin, exactly as a process app and the components do, its host name
 given no `services__*` variable. Every teardown (`env down`, `env reset`, a mode or origin switch, a failed start)
 first removes the app containers labelled `altinn.studio/localtest-v2=app` (running or not, with their anonymous
 volumes), which the network's removal would otherwise fail on. Container mode supports the default origin only. A
-separate network for the apps was tried and does not work today (task 34, phase 2): see the studioctl README, "Why not
-a separate apps network". The app's DNS and egress control therefore key on the container, not on a network of its
-own ([egress control](../planned-components/egress-control/README.md), section 3b).
+separate network for the apps was tried and does not work today (task 34, phase 2): see "Apps in containers" in
+[studioctl's localtest-v2 docs](studioctl/src/cli/docs/localtest-v2.md#apps-in-containers). The app's DNS and
+egress control therefore key on the container, not on a network of its own
+([egress control](../planned-components/egress-control/README.md), section 3b).
 
 Run one at a time at the default origin: both need port 8000. At different ports (`--port`, `PublicPort`) neither
 holds the other's port; running both side by side is untested.

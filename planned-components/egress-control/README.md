@@ -86,7 +86,8 @@ app's resolver can be ours, the lookup is both the inventory and the block:
   hosts upstream, records every query per app (the source address is the app), and answers **NXDOMAIN** for an
   undeclared name when the declaration is present. An IP literal bypasses DNS, so the proxy and the firewall stay; but
   NXDOMAIN closes the AMQP, SMTP and driver cases the proxy cannot see. Since task 34 a container-mode app shares the
-  stack's network (a separate one does not work today: studioctl README, "Why not a separate apps network"), so the DNS
+  stack's network (a separate one does not work today: "Apps in containers" in
+  [studioctl's localtest-v2 docs](../../localtest/studioctl/src/cli/docs/localtest-v2.md#apps-in-containers)), so the DNS
   and firewall control for a container app has to key on the container, not the network.
 - **Process app on the host:** the app uses the host's resolver; there is no per-process hook without root (a network
   namespace per app, or `LD_PRELOAD`, both out of scope). Observation only, host-wide: a packet capture on port 53
