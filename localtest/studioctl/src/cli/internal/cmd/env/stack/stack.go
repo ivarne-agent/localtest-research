@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"altinn.studio/devenv/pkg/container"
+	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
 	"altinn.studio/devenv/pkg/resource/executor"
 	containerbackend "altinn.studio/devenv/pkg/resource/executor/container"
@@ -60,11 +61,19 @@ func (s *Stack) Graph(resources []resource.Resource) (*resource.Graph, error) {
 // Active reports whether any container of this runtime's graph is running. It reads the containers' ownership
 // labels rather than a resource list, so it answers for whatever configuration the environment was started with.
 func (s *Stack) Active(ctx context.Context) (bool, error) {
-	running, err := containerbackend.GraphRunning(ctx, s.client, s.graphID)
+	containers, err := s.client.ListContainers(ctx, types.ContainerListFilter{
+		Labels: map[string]string{containerbackend.GraphIDLabel: s.graphID.String()},
+		All:    false,
+	})
 	if err != nil {
-		return false, fmt.Errorf("check %s: %w", s.graphID, err)
+		return false, fmt.Errorf("list containers of %s: %w", s.graphID, err)
 	}
-	return running, nil
+	for _, ctr := range containers {
+		if ctr.State.Running {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Apply creates or converges resources, rendering progress under spinnerMsg, and warns about images it could not

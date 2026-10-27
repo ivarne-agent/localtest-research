@@ -75,10 +75,10 @@ and all, is accepted as input.
 - `studioctl app env`: print local app harness environment as KEY=value text (`--json` for JSON output)
 - `studioctl app maskinporten`: store the Maskinporten client the app uses for local runs (`set`, `show`, `remove`)
 - `studioctl agent skills`: list, locate, and install Agent Skills distributed with studioctl
-- `studioctl env up`: start the local environment (`-r localtest`, the default, or `-r localtest-v2`)
-- `studioctl env down`: stop the local environment
+- `studioctl env up`: start localtest
+- `studioctl env down`: stop localtest
 - `studioctl env status`: show runtime/container status
-- `studioctl env logs`: stream logs from the environment's containers
+- `studioctl env logs`: stream logs from localtest containers
 - `studioctl run`: alias for `studioctl app run`
 - `studioctl doctor`: diagnose prerequisites and environment issues
 
@@ -93,139 +93,12 @@ already on your machine.
 `studioctl env status` shows each container's image and the build it is running — worth quoting in
 a bug report, since the tags that follow tt02 move whenever a new build is deployed.
 
-To run a specific build instead, set the matching variable for the session (the `localtest` runtime;
-`localtest-v2` runs the images its embedded manifest pins, see below):
+To run a specific build instead, set the matching variable for the session:
 
 ```sh
 STUDIOCTL_IMAGE_WORKFLOW_ENGINE=ghcr.io/altinn/altinn-studio/runtime-workflow-engine-app:a45a743b78 \
   studioctl env up
 ```
-
-## localtest-v2: the platform's own services
-
-`studioctl env up -r localtest-v2` runs the production platform services instead of localtest's
-emulation of them: Register, Profile, Authentication, the PDP, Access
-Management, Storage, Events, the Resource Registry and Notifications, built from the
-[localtest-research](https://github.com/ivarne-agent/localtest-research) repository with small
-local stand-ins for Azure, plus a localtest app for the test-user login and the token helpers, a
-shared Postgres, and the same PDF generator and workflow engine as `localtest`. Apps run exactly as
-before: `studioctl run` gives them the same platform URLs. The localtest app's container serves
-`http://local.altinn.cloud:8000` (the only published port), forwarding each platform prefix to the
-component behind it and `/{org}/{app}` to the app. studioctl-server registers every app it discovers
-there, one started by `studioctl run` or from an IDE, and the front door deploys it to the platform
-the way Altinn Studio does: application metadata and texts to Storage, the authorization policy to
-the PDP, and the app's `testData.json` users to the Register; the Resource Registry and Access
-Management then pick up the app's resource, policy subjects and test users. While localtest-v2 is
-up, apps listen on every interface, because the front door reaches them from its container as
-`host.docker.internal:<port>`. `studioctl run` waits until the front door has registered the app,
-and `studioctl run --dev-frontend` also routes `http://app-frontend.local.altinn.cloud:8000` to a
-frontend dev server on the host's port 8080 for as long as the run lasts. Whether localtest-v2 is up
-comes from its containers: when they are gone without `env down` (after a restart of the machine),
-studioctl treats it as down. When its containers run but the front door does not answer,
-`studioctl run` stops at once with `env up -r localtest-v2` to start it again, or `env down -r
-localtest-v2` to stop it.
-
-`studioctl run --mode container` builds the app's image from its `Dockerfile`, as for the localtest
-runtime, and runs it on the stack's network, `localtest-v2_network`, where the localtest container
-reaches it as `http://<org>-<app>:5005`; `env down` removes an app container still running. The app
-reaches the platform through `http://local.altinn.cloud:8000`,
-like a process, because the public host names are mapped to the host inside the container. It gets
-the same settings as a process run, with the access-token certificate mounted at `/certs`. Container
-mode works at the default origin only: with `env up --host` or `--port`, `run --mode container` is
-refused; run the app as a process there. A monorepo test app that references projects under
-`src/App` (such as `src/test/apps/expression-validation-test`) does not build in container mode:
-the Dockerfile studioctl generates for it does not copy `src/App/PackageVersioning.props`, which
-the referenced projects' `Directory.Build.props` imports (the same in upstream studioctl, and under
-the localtest runtime); run it as a process.
-
-**Why not a separate apps network.** A network of the apps' own, apart from the components, was
-tried and does not work today, under Podman 5.7 with netavark at least. With the localtest
-container on both networks, netavark forwards the published port 8000 to the container's address on
-one network only (the first rule wins), and it isolates the bridges from each other, so callers on
-the other network time out: either the components or the app lose `local.altinn.cloud:8000`. With
-the localtest container on the stack's network only, the app and the localtest container cannot
-reach each other through the host gateway either, for the same isolation; the Docker API, which
-studioctl uses, cannot create a network without it (Podman answers `"isolate: false" is not a
-recognized option`). A separate network would need the app to reach the localtest container
-directly on it: a per-network alias for the public host names and the localtest container listening
-on the public port.
-
-Optional component groups are off by default: `--with dialogporten` adds Dialogporten and its adapter,
-which turns instances into dialogs; `--with receipt` the platform receipt for archived instances;
-`--with correspondence` Correspondence (with Dialogporten's WebApi and Redis, which it depends on);
-`--with arbeidsflate` the Altinn inbox on `http://af.local.altinn.cloud:8000` (with Dialogporten's
-GraphQL host, WebApi and Redis; `studioctl env hosts add` adds the hostname); `--with monitoring` the
-monitoring stack (below); `--with everything` all of them. A group starts its own containers and what they depend on; `--without <group>` leaves out
-a group's own containers. A request for a component whose group is off answers `503` with the
-`env up` command that starts it.
-
-`--minimal` runs a smaller stack: Postgres, Storage, the workflow engine and the localtest container,
-which emulates Register, Profile, Authentication, authorization, Access Management, Events, the
-Resource Registry, Notifications and the PDF generator. Nothing is kept between starts (each
-container's data is in memory), so `env reset` has nothing to delete, and authorization permits
-everything. It takes no `--with` or `--without`, and `--dev-<container>` only for the four containers
-it starts. `env status` says when the stack runs in minimal mode, and `env up` with or without
-`--minimal` stops a stack running in the other mode first.
-
-### Telemetry files in minimal mode
-
-Minimal mode also runs `otel-files`, an OpenTelemetry collector that writes what the stack sends to JSON Lines files
-on the host, so a failed test can be debugged without restarting anything. The containers always send to it. An app
-started with `studioctl run` sends only when told to: run it with
-`OTEL_EXPORTER_OTLP_ENDPOINT=http://local.altinn.cloud:8000/otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and
-`AppSettings__UseOpenTelemetry=true` in the environment.
-
-The files are under `<home>/data/infra/localtest-v2/telemetry/`, where `<home>` is `$STUDIOCTL_HOME`, or by default
-`~/.config/altinn-studio` (Linux), `~/Library/Application Support/altinn-studio` (macOS) or
-`%AppData%\altinn-studio` (Windows). There is one folder per `service.name` (`localtest` for the front door,
-`storage`, `workflow-engine`, the app's name such as `testapp`), and in it `traces.jsonl`, `logs.jsonl` and
-`metrics.jsonl`. Each line is one OTLP/JSON export batch (`resourceSpans`, `resourceLogs` or `resourceMetrics`); IDs
-are hex and times are Unix nanoseconds as strings. A line lands within about 10 s of the request (5 s in the
-sender's batch, 5 s in the collector's).
-
-- Each file is rotated to `<signal>-<UTC time>-size.jsonl` beside it, and the two newest backups are kept: traces
-  and logs at 10 MB (at most 30 MB per service and signal), metrics at 25 MB (75 MB).
-- Metrics arrive every 5 s from every container whether anything happens or not, so their files are the ones that
-  rotate in a long session, keeping the most recent hour or more: an idle stack wrote 7 (Storage) to 70 (the front
-  door, after its smoke test) MB of metrics an hour per service. An idle app's logs grow by about 7 MB an hour
-  (studioctl's polls of its metadata), its traces and the platform's by a few MB at most.
-- `env up` in minimal mode starts with an empty folder, and `env down` deletes it. The default stack does not use or
-  touch it.
-
-The `jq` commands an agent uses on them (one trace's spans and log records, the errors of the last minutes, a trace's
-slowest spans) are in the bundled app-development skill,
-[`resources/agent/skills/app-development/SKILL.md`](resources/agent/skills/app-development/SKILL.md), under
-"Telemetry files in minimal mode".
-
-Only one runtime runs at a time: `env up` refuses to start one while the other runs, and `env down`,
-`env status`, `env logs` and `env reset` act on the running one unless `-r` says otherwise.
-
-The localtest-v2 images are pinned to one build in the embedded manifest; `--latest` follows every
-build on the [research repository's](https://github.com/ivarne-agent/localtest-research) main branch. To run a container from source, pass the Dockerfile or
-the directory holding it (default: the current directory); studioctl builds it and runs it instead:
-
-```sh
-cd localtest-research/localtest/components/storage   # a checkout of the research repository
-studioctl env up -r localtest-v2 --dev-storage                  # or --dev-storage=<path>
-```
-
-The conventions the runtime follows (the manifest, tags, service names, ports and health, the
-certificate, the volumes) are in the
-[manifest README](internal/localtestv2/manifest/README.md).
-
-`--with monitoring` starts the monitoring stack: an OpenTelemetry collector, VictoriaMetrics,
-VictoriaTraces and VictoriaLogs, and Grafana at `http://local.altinn.cloud:8000/grafana/` (anonymous
-admin, with the Metrics, Traces and Logs datasources and the Altinn Studio dashboards; the start page
-links to it while it runs). Every other container then gets `OTEL_EXPORTER_OTLP_ENDPOINT`,
-`OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and `OTEL_SERVICE_NAME=<container>`, so a component that exports
-OpenTelemetry shows up under its container's name. An app on the host can send OTLP over HTTP to
-`http://local.altinn.cloud:8000/otlp` (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`); `studioctl run`
-keeps those variables and `AppSettings__UseOpenTelemetry=true` from the shell. The data lives in the
-containers and goes with `env down`. The stack is not in minimal mode.
-
-Not in localtest-v2 yet: pgAdmin (`env up` refuses `--monitoring` and `--pgadmin` there; the
-monitoring stack is `--with monitoring`), container-mode apps at another origin than
-`http://local.altinn.cloud:8000`, and `doctor` checks.
 
 ## Install from source (for contributors)
 

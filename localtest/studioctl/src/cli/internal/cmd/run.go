@@ -28,8 +28,6 @@ import (
 	"altinn.studio/studioctl/internal/config"
 	repocontext "altinn.studio/studioctl/internal/context"
 	"altinn.studio/studioctl/internal/envtopology"
-	"altinn.studio/studioctl/internal/localtestv2"
-	"altinn.studio/studioctl/internal/localtestv2/frontdoor"
 	"altinn.studio/studioctl/internal/osutil"
 	"altinn.studio/studioctl/internal/studioctlserver"
 	"altinn.studio/studioctl/internal/ui"
@@ -64,8 +62,6 @@ type RunCommand struct {
 	out     *ui.Output
 	cfg     *config.Config
 	service *appsvc.Service
-	// containers connects to the container runtime, to find out whether localtest-v2 runs.
-	containers localtestv2.ContainerClientFunc
 }
 
 // NewRunCommand creates a new top-level run alias command.
@@ -75,10 +71,9 @@ func NewRunCommand(cfg *config.Config, out *ui.Output) *RunCommand {
 
 func newRunCommand(cfg *config.Config, out *ui.Output, service *appsvc.Service) *RunCommand {
 	return &RunCommand{
-		out:        out,
-		cfg:        cfg,
-		service:    service,
-		containers: containerruntime.Detect,
+		out:     out,
+		cfg:     cfg,
+		service: service,
 	}
 }
 
@@ -362,10 +357,7 @@ func (c *RunCommand) runTarget(
 	dotnetArgs []string,
 	flags runFlags,
 ) error {
-	topology, err := c.runTopology(ctx)
-	if err != nil {
-		return err
-	}
+	topology := envtopology.NewLocal(envtopology.DefaultIngressPortString())
 	switch flags.mode {
 	case runModeProcess:
 		return c.runDotnet(ctx, target, dotnetArgs, topology, flags)
@@ -420,11 +412,6 @@ func (c *RunCommand) runDotnet(
 	if err != nil {
 		return err
 	}
-	removeDevFrontend, err := c.registerDevFrontend(ctx, topology, flags)
-	if err != nil {
-		stopDotnetProcess(cmd.Process, waitErr)
-		return err
-	}
 	if flags.detach {
 		return runDetachedOutput{
 			AppID:       target.AppID,
@@ -439,7 +426,6 @@ func (c *RunCommand) runDotnet(
 		}.Print(c.out)
 	}
 	defer c.unregisterAppBestEffort(ctx, target.AppID)
-	defer removeDevFrontend()
 
 	select {
 	case err := <-waitErr:
@@ -834,27 +820,9 @@ func (c *RunCommand) registerPortAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, port, runInfo, monitor, startupTimeout)
 	if err != nil {
-		return "", err
-	}
-
-	want, err := hostAppURL(baseURL)
-	if err != nil {
-		return "", err
-	}
-	if err := waitForFrontDoorRegistration(
-		ctx,
-		c.cfg,
-		c.containers,
-		topology,
-		appID,
-		want,
-		since,
-		startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -905,7 +873,6 @@ func (c *RunCommand) registerContainerAndWaitForApp(
 	ctx context.Context,
 	appID string,
 	hostPort int,
-	frontDoorURL string,
 	containerName string,
 	topology envtopology.Local,
 	runInfo studioctlserver.AppRegistration,
@@ -920,16 +887,9 @@ func (c *RunCommand) registerContainerAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerPortAppWithStartupMonitor(ctx, client, appID, hostPort, runInfo, monitor, startupTimeout)
 	if err != nil {
-		return "", err
-	}
-
-	if err := waitForFrontDoorRegistration(
-		ctx, c.cfg, c.containers, topology, appID, frontDoorURL, since, startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -956,7 +916,6 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		return "", startupOperationError(ctx, "start studioctl-server", err)
 	}
 
-	since := time.Now()
 	client := studioctlserver.NewClient(c.cfg)
 	baseURL, err := registerProcessAppWithStartupMonitor(
 		ctx,
@@ -968,23 +927,6 @@ func (c *RunCommand) registerProcessAndWaitForApp(
 		startupTimeout,
 	)
 	if err != nil {
-		return "", err
-	}
-
-	want, err := hostAppURL(baseURL)
-	if err != nil {
-		return "", err
-	}
-	if err := waitForFrontDoorRegistration(
-		ctx,
-		c.cfg,
-		c.containers,
-		topology,
-		appID,
-		want,
-		since,
-		startupTimeout,
-	); err != nil {
 		return "", err
 	}
 
@@ -1268,8 +1210,7 @@ func containerRunProgressResources(spec appsvc.DockerRunSpec, flags runFlags) []
 				HandleDestroyError: nil,
 				RetainOnDestroy:    false,
 			},
-			WaitForReady:   false,
-			ReadinessProbe: nil,
+			WaitForReady: false,
 		},
 		Name:           spec.Config.Name,
 		RestartPolicy:  "",
@@ -1396,7 +1337,7 @@ func (c *RunCommand) runDocker(
 	flags runFlags,
 ) error {
 	result := target.Detection
-	spec, specErr := c.service.BuildDockerRunSpec(ctx, result, args, topology, appsvc.DockerRunOptions{
+	spec, specErr := c.service.BuildDockerRunSpec(result, args, topology, appsvc.DockerRunOptions{
 		ImageTag:                flags.imageTag,
 		RandomHostPort:          flags.randomHostPort,
 		AppFrontendAssetBaseUrl: runAppFrontendAssetBaseUrl(topology, flags),
@@ -1467,7 +1408,7 @@ func (c *RunCommand) runDocker(
 		c.printAppReady(target.AppID, displayURL, containerRunDetails(info.Name)...)
 	}
 
-	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, topology, flags)
+	return c.runStartedContainerApp(ctx, client, target, containerID, info, baseURL, displayURL, flags)
 }
 
 func (c *RunCommand) runStartedContainerApp(
@@ -1478,13 +1419,8 @@ func (c *RunCommand) runStartedContainerApp(
 	info containerruntime.ContainerInfo,
 	baseURL string,
 	displayURL string,
-	topology envtopology.Local,
 	flags runFlags,
 ) error {
-	removeDevFrontend, err := c.registerDevFrontend(ctx, topology, flags)
-	if err != nil {
-		return c.withAppContainerCleanup(ctx, client, containerID, err)
-	}
 	if flags.detach {
 		return c.detachedDockerOutput(
 			target.AppID,
@@ -1495,7 +1431,6 @@ func (c *RunCommand) runStartedContainerApp(
 		).Print(c.out)
 	}
 	defer c.unregisterAppBestEffort(ctx, target.AppID)
-	defer removeDevFrontend()
 
 	runErr := c.followContainer(ctx, client, containerID)
 	removeErr := c.removeForegroundContainer(ctx, client, containerID)
@@ -1575,16 +1510,10 @@ func (c *RunCommand) waitForDockerAppReady(
 		return "", errAppContainerEndpointUnavailable
 	}
 
-	// The front door reaches a container on the localtest-v2 network at its alias, any other through its port.
-	frontDoorURL := candidate.FrontDoorURL
-	if frontDoorURL == "" {
-		frontDoorURL = frontdoor.AppURL(candidate.HostPort)
-	}
 	baseURL, err := c.registerContainerAndWaitForApp(
 		ctx,
 		appID,
 		candidate.HostPort,
-		frontDoorURL,
 		info.Name,
 		topology,
 		runInfo,
