@@ -1417,7 +1417,7 @@ def summary_text(reports: list, root: Path) -> str:
     lines.append(f"Upstream: {first.comp.meta['repository']} {first.comp.meta['branch']}"
                  + (f" (moved from {first.old_repository})" if moved else ""))
     lines.append(f"Pin: {first.old[:10]} -> {first.new[:10]} ({first.date}); "
-                 f"{len(first.commits)} commits touch the copied paths" + (" (the last 20 shown; the base is another"
+                 f"{len(first.commits)} commit(s) touch the copied paths" + (" (the last 20 shown; the base is another"
                                                                           " repository)" if moved else ""))
     for c in first.commits[:20]:
         lines.append(f"  {c}")
@@ -1430,7 +1430,7 @@ def summary_text(reports: list, root: Path) -> str:
         lines.append(f"{head} {len(r.updated)} updated, {len(r.added)} added, {len(r.removed)} removed; "
                      f"site files: {len(r.merged)} merged clean, {len(r.conflicts)} conflicts, "
                      f"{r.sites_unchanged} unchanged upstream")
-        for kind, items in (("added", r.added), ("removed", r.removed)):
+        for kind, items in (("updated", r.updated), ("added", r.added), ("removed", r.removed)):
             if items and len(items) <= 15:
                 lines.extend(f"  {kind}: {p}" for p in items)
         for m in r.merged:
@@ -1457,7 +1457,7 @@ def summary_text(reports: list, root: Path) -> str:
     sites_merged = sum(len(r.merged) for r in reports)
     files = sum(len(r.updated) + len(r.added) + len(r.removed) for r in reports)
     lines += ["", f"TODO note: {', '.join(todo_parts)} synced {first.old[:7]}..{first.new[:7]} ({first.date}, "
-                  f"{len(first.commits)} commits, {files} files, {sites_merged} sites merged clean, "
+                  f"{len(first.commits)} commit(s), {files} files, {sites_merged} sites merged clean, "
                   f"verify-after-sync pending)"]
     return "\n".join(lines) + "\n"
 
