@@ -1,7 +1,8 @@
 # Workflow engine: Application Insights to OpenTelemetry
 
 Upstream: [Altinn/altinn-studio](https://github.com/Altinn/altinn-studio) `src/Runtime/workflow-engine`, vendored at
-`447e53eb` (`../../components/workflow-engine/vendor/`). Reviewed 2026-10-26 (TODO.md task 53). **Classification:
+`447e53eb` (`components/workflow-engine/vendor/`, removed 2026-10-27 in TODO.md task 58: the stack runs the monorepo's
+image). Reviewed 2026-10-26 (TODO.md task 53). **Classification:
 small, upstream; done in [altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515) (merged).**
 
 ## Upstream today (the vendored pin)

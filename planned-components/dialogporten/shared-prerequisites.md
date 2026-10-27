@@ -495,7 +495,7 @@ postgres:
   directory in the container layer (lost on recreate). The workflow engine's upstream compose and studioctl's
   component already mount `/var/lib/postgresql` for the same reason. Keep `shared_preload_libraries=pg_stat_statements`.
 - Update the four other places that spell `postgres:16-alpine`: `components/storage/smoke-test.sh:37`,
-  `components/workflow-engine/smoke-test.sh:25`, `components/storage/README.md`, `localtest/README.md`.
+  `components/workflow-engine/smoke-test.sh:25` (now `smoke/workflow-engine.sh`), `components/storage/README.md`, `localtest/README.md`.
 - Dialogporten's own compose adds `wal_level=logical`; no consumer in `src` uses it (the earlier research's
   finding, still true), so do not add it.
 

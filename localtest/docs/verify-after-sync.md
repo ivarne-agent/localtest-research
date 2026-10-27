@@ -82,7 +82,6 @@ DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PW
 | register             | `vendor/src/apps/Altinn.Register/src/Altinn.Register/Altinn.Register.csproj`                                                                                                  |
 | resource-registry    | `vendor/src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry`                                                                                                         |
 | storage              | `vendor/src/Storage/Altinn.Platform.Storage.csproj`                                                                                                                           |
-| workflow-engine      | `vendor/src/Runtime/workflow-engine-app/src/WorkflowEngine.App/WorkflowEngine.App.csproj` (not in the stack: studioctl runs the monorepo's `tt02` image)                      |
 
 **Expected:** `0 Error(s)`. Warnings come from upstream; compare the count with the same build on `origin/main` rather
 than expecting zero (on 2026-10-27: Access Management 10, Authentication 306, Authorization 2, Correspondence 24,
@@ -345,8 +344,8 @@ if memory is short. `--with everything --with monitoring` was 27 containers with
 
 Counts are from 2026-10-21 to 2026-10-26 (README "Tests" and TODO.md tasks 21, 27 and 53); they grow when a suite
 gains a check, so a different count is a reason to read the suite's history, a `FAIL` is a failure. Run Events before
-the adapter and Dialogporten suites (6.7). The workflow engine's own test (`components/workflow-engine/smoke-test.sh
---image`) starts its own Postgres container: run it under the lock.
+the adapter and Dialogporten suites (6.7). The workflow engine's own test (`smoke/workflow-engine.sh`, the image studioctl
+runs; the engine is not vendored) starts its own Postgres container: run it under the lock.
 
 ### 4.4 An app with `studioctl run`, through to a PDF
 

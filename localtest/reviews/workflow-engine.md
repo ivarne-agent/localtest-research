@@ -1,5 +1,9 @@
 # Workflow engine and PDF review (2026-10-20)
 
+> **The vendored copy is gone (2026-10-27, TODO.md task 58):** studioctl runs the monorepo's image, so
+> `components/workflow-engine/` (the copy, its Dockerfile and build overrides) was removed. Its image test lives on as
+> [`../smoke/workflow-engine.sh`](../smoke/workflow-engine.sh). The paths below are history.
+
 > **Superseded (2026-10-20):** compose was removed (`84514a3`). studioctl's `localtest-v2` runtime runs the monorepo's
 > own workflow-engine and pdf3 images, not one built from the vendored engine, so fix 1 ("compose builds the vendored
 > engine") and the compose references below are history; the vendored copy is built and tested on its own
