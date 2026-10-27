@@ -42,11 +42,13 @@ type EnvCommand struct {
 }
 
 type envUpOutput struct {
-	Runtime        string `json:"runtime"`
-	Running        bool   `json:"running"`
-	Started        bool   `json:"started"`
-	AlreadyRunning bool   `json:"alreadyRunning"`
-	JSONOutput     bool   `json:"-"`
+	Runtime string `json:"runtime"`
+	// Warnings are what the environment warned about on stderr, such as an unusable STUDIO_CA_BUNDLE.
+	Warnings       []string `json:"warnings,omitempty"`
+	Running        bool     `json:"running"`
+	Started        bool     `json:"started"`
+	AlreadyRunning bool     `json:"alreadyRunning"`
+	JSONOutput     bool     `json:"-"`
 }
 
 func (o envUpOutput) Print(out *ui.Output) error {
@@ -90,55 +92,16 @@ func (o envStatusOutput) Print(out *ui.Output) error {
 		out.Printlnf("%s is not running.", o.Runtime)
 		return nil
 	}
-	mode := ""
-	if o.Status.Mode != "" {
-		mode = " (" + o.Status.Mode + " mode)"
+	if !o.Status.Running {
+		out.Printlnf("%s is running with issues.", o.Runtime)
+		out.Println("")
+		renderEnvStatus(out, o.Status)
+		return nil
 	}
-	switch {
-	case !o.Status.Running:
-		out.Printlnf("%s is running with issues%s.", o.Runtime, mode)
-	case mode != "":
-		out.Printlnf("%s is running%s", o.Runtime, mode)
-	default:
-		out.Printlnf("%s is running.", o.Runtime)
-	}
-	if o.Status.Origin != "" {
-		out.Printlnf("Origin: %s", o.Status.Origin)
-	}
+	out.Printlnf("%s is running.", o.Runtime)
 	out.Println("")
 	renderEnvStatus(out, o.Status)
-	if len(o.Status.Emulated) > 0 {
-		out.Print(emulatedLine(o.Status.Emulated))
-	}
 	return nil
-}
-
-// emulatedLineWidth is where emulatedLine wraps the list of emulated services.
-const emulatedLineWidth = 72
-
-// emulatedLine names the services the localtest container emulates, wrapped at emulatedLineWidth.
-func emulatedLine(names []string) string {
-	var b strings.Builder
-	column := 0
-	for i, name := range names {
-		word := name + ","
-		if i == len(names)-1 {
-			word = name + ": emulated in localtest"
-		}
-		switch {
-		case column == 0:
-		case column+1+len(word) > emulatedLineWidth:
-			b.WriteString("\n")
-			column = 0
-		default:
-			b.WriteByte(' ')
-			column++
-		}
-		b.WriteString(word)
-		column += len(word)
-	}
-	b.WriteString("\n")
-	return b.String()
 }
 
 type envResetOutput struct {
@@ -284,7 +247,7 @@ func (c *EnvCommand) hostsRuntimeUsage() string {
 func (c *EnvCommand) runtimeUpUsage() string {
 	var lines []string
 	for _, runtime := range c.runtimes() {
-		lines = append(lines, "", fmt.Sprintf("Options for 'env up -r %s':", runtime.Name()))
+		lines = append(lines, "", fmt.Sprintf("Options for the %s runtime:", runtime.Name()))
 		lines = append(lines, runtime.UpUsage()...)
 	}
 	return strings.Join(lines, osutil.LineBreak)
@@ -496,6 +459,10 @@ func (c *EnvCommand) parseUpFlags(
 	if err := fs.Parse(args); err != nil {
 		return f, c.upFlagError(f.runtime, err)
 	}
+	// The flag package stops at the first argument that is not a flag, where runtimeArg reads on.
+	if fs.NArg() > 0 {
+		return f, fmt.Errorf("%w: env up takes no arguments, got %q", ErrInvalidFlagValue, fs.Arg(0))
+	}
 	// runtimeArg reads -r without the flag package; refuse a reading the parse does not share.
 	if f.runtimeFlag != requested {
 		return f, conflictingRuntimesError(requested, f.runtimeFlag)
@@ -606,13 +573,19 @@ func (c *EnvCommand) up(ctx context.Context, client container.ContainerClient, f
 			return err
 		}
 	}
-	env := flags.runtime.Env(client, commandOutput(c.out, flags.jsonOutput))
+	// With --json, the environment's warnings go to stderr and into the JSON, as env hosts does.
+	envOut := c.out
+	if flags.jsonOutput {
+		envOut = c.out.ForJSON()
+	}
+	env := flags.runtime.Env(client, envOut)
 	result, err := env.Up(ctx, envtypes.UpOptions{Detach: flags.detach, OpenBrowser: flags.openBrowser})
 	if err != nil {
 		return fmt.Errorf("env up: %w", err)
 	}
 	return envUpOutput{
 		Runtime:        name,
+		Warnings:       envOut.Warnings(),
 		Running:        true,
 		Started:        !result.AlreadyRunning,
 		AlreadyRunning: result.AlreadyRunning,
@@ -727,6 +700,16 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 	}
 	if flags.jsonOutput && !flags.yes {
 		return fmt.Errorf("%w: --json requires --yes", ErrInvalidFlagValue)
+	}
+	// A named runtime without reset is refused before connecting; an omitted one is known once the containers are.
+	if flags.runtime != "" {
+		env, envErr := c.env(flags.runtime, nil, silentOutput())
+		if envErr != nil {
+			return envErr
+		}
+		if _, ok := env.(envtypes.Resetter); !ok {
+			return fmt.Errorf("%w: %s", errResetUnsupported, flags.runtime)
+		}
 	}
 
 	target, err := c.target(ctx, flags.runtime, commandOutput(c.out, flags.jsonOutput))

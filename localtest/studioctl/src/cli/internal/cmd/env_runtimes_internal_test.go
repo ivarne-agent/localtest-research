@@ -24,6 +24,9 @@ type fakeRuntime struct {
 }
 
 type fakeRuntimeEnv struct {
+	out *ui.Output
+	// warning is printed by Up when set.
+	warning     string
 	widgets     int
 	activeCalls int
 	up          envtypes.UpOptions
@@ -47,7 +50,10 @@ func (r *fakeRuntime) BindUpFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&r.env.verbose, "monitoring", false, "Talk more")
 }
 
-func (r *fakeRuntime) Env(container.ContainerClient, *ui.Output) envtypes.Env { return r.env }
+func (r *fakeRuntime) Env(_ container.ContainerClient, out *ui.Output) envtypes.Env {
+	r.env.out = out
+	return r.env
+}
 
 func (e *fakeRuntimeEnv) Name() string { return fakeRuntimeName }
 func (e *fakeRuntimeEnv) Active(context.Context) (bool, error) {
@@ -59,6 +65,9 @@ func (e *fakeRuntimeEnv) Down(context.Context) error { return nil }
 func (e *fakeRuntimeEnv) Up(_ context.Context, opts envtypes.UpOptions) (envtypes.UpResult, error) {
 	e.up = opts
 	e.started = true
+	if e.warning != "" {
+		e.out.Warning(e.warning)
+	}
 	return envtypes.UpResult{AlreadyRunning: false}, nil
 }
 
@@ -106,6 +115,38 @@ func TestEnvUpStartsTheChosenRuntimeWithItsOwnFlags(t *testing.T) {
 	}
 }
 
+// With --json, a warning the environment prints while it starts is in the JSON and still on stderr.
+func TestEnvUpJSONReportsTheEnvironmentsWarnings(t *testing.T) {
+	t.Parallel()
+	var out, errOut bytes.Buffer
+	command, fake := commandWithFakeRuntime(t, &out)
+	command.out = ui.NewOutput(&out, &errOut, false)
+	fake.env.warning = "STUDIO_CA_BUNDLE (/ca.pem): skipping 1 unusable certificate"
+
+	if err := command.Run(t.Context(), []string{"up", "-r", fakeRuntimeName, "--json"}); err != nil {
+		t.Fatalf("Run(up -r other --json) = %v", err)
+	}
+	var got envUpOutput
+	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &got); err != nil {
+		t.Fatalf("json.Unmarshal(%q) error = %v", out.String(), err)
+	}
+	if len(got.Warnings) != 1 || got.Warnings[0] != fake.env.warning {
+		t.Fatalf("warnings = %q, want [%q]", got.Warnings, fake.env.warning)
+	}
+	if !strings.Contains(errOut.String(), fake.env.warning) {
+		t.Fatalf("stderr = %q, want the warning", errOut.String())
+	}
+
+	out.Reset()
+	fake.env.warning = ""
+	if err := command.Run(t.Context(), []string{"up", "-r", fakeRuntimeName, "--json"}); err != nil {
+		t.Fatalf("Run(up -r other --json) = %v", err)
+	}
+	if strings.Contains(out.String(), "warnings") {
+		t.Fatalf("output = %s, want no warnings field without a warning", out.String())
+	}
+}
+
 func TestEnvUpNamesTheRuntimeAForeignFlagBelongsTo(t *testing.T) {
 	t.Parallel()
 	command, _ := commandWithFakeRuntime(t, io.Discard)
@@ -131,8 +172,8 @@ func TestEnvUsageHasASectionPerRuntime(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Runtime: localtest or other (default: the one running, else localtest)",
-		"Options for 'env up -r localtest':",
-		"Options for 'env up -r other':",
+		"Options for the localtest runtime:",
+		"Options for the other runtime:",
 		"--widgets N",
 	} {
 		if !strings.Contains(out.String(), want) {
@@ -180,8 +221,8 @@ func TestEnvUpRefusesTwoDifferentRuntimes(t *testing.T) {
 	// The flag package stops at the first argument that is not a flag, so it does not read this -r.
 	if _, err := command.parseUpFlags(
 		t.Context(), mock.New(), []string{"stray", "-r", fakeRuntimeName},
-	); !errors.Is(err, ErrInvalidFlagValue) {
-		t.Fatalf("parseUpFlags(stray -r other) = %v, want ErrInvalidFlagValue", err)
+	); !errors.Is(err, ErrInvalidFlagValue) || !strings.Contains(err.Error(), `takes no arguments, got "stray"`) {
+		t.Fatalf("parseUpFlags(stray -r other) = %v, want the stray argument refused", err)
 	}
 }
 
@@ -217,14 +258,22 @@ func TestEnvUpWithRuntimeChecksNoOtherRuns(t *testing.T) {
 	}
 }
 
-func TestEnvResetRefusesARuntimeWithoutResetBeforeItPrompts(t *testing.T) {
+func TestEnvResetRefusesARuntimeWithoutResetBeforeItPromptsOrConnects(t *testing.T) {
 	t.Parallel()
 	command, _ := commandWithFakeRuntime(t, io.Discard)
+	connections := 0
+	command.containerClient = func(context.Context) (container.ContainerClient, error) {
+		connections++
+		return mock.New(), nil
+	}
 
 	// Without --yes and without a terminal, the prompt would fail with ErrInvalidFlagValue.
 	err := command.Run(t.Context(), []string{"reset", "-r", fakeRuntimeName})
 	if !errors.Is(err, errResetUnsupported) {
 		t.Fatalf("Run(reset -r other) = %v, want errResetUnsupported before the prompt", err)
+	}
+	if connections != 0 {
+		t.Fatalf("connected %d times, want the refusal before connecting", connections)
 	}
 }
 

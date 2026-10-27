@@ -41,12 +41,12 @@ On macOS, `make dev-run` from a deeply nested checkout (an agent worktree) fails
   optional), is listed in `internal/cmd/env/registry`, and describes its environment as devenv resources under its own
   graph ID. `internal/cmd/env.go` knows no runtime by name: it parses `-r`, binds the chosen runtime's flags next to
   the shared ones, and calls the interface. The one exception is `env hosts`, which writes the hostnames every
-  runtime shares with the hosts-file helpers in the localtest package. What runtimes do alike (apply, destroy, status snapshot, log streaming,
-  the container user, the legacy-localtest check) lives in `internal/cmd/env/stack`, and the shared contracts and
-  status payload in `internal/cmd/env`; a runtime does not import another runtime's package. Which runtime is up is
-  answered by `Env.Active` from the running containers (`envtypes.ResolveRuntime`, `EnsureNoOtherActive`), not by a
-  state file studioctl writes. Outside the env commands, whether localtest-v2 runs is `localtestv2.Current`, the same
-  container check plus the configuration its state file records; a state file alone never means a runtime is up
+  runtime shares with the hosts-file helpers in the localtest package. What runtimes do alike (apply, destroy, status
+  snapshot, log streaming, the container user, the legacy-localtest check, and the host's CA bundle with
+  `LoadCABundle` and `CABundle.Mount`) lives in `internal/cmd/env/stack`, and the shared contracts and status payload
+  in `internal/cmd/env`; a runtime does not import another runtime's package. Which runtime is up is answered by
+  `Env.Active` from the running containers (`envtypes.ResolveRuntime`, `EnsureNoOtherActive`), not by a state file
+  studioctl writes
 - Output states facts in a line: what is configured or wrong, and the command that changes it.
   No advice prose, and no paths to files studioctl manages
 
@@ -78,25 +78,8 @@ Invariants:
   The commit is stamped on each image as `org.opencontainers.image.revision`.
 - The container spec studioctl generates is a contract with an older client: a developer's studioctl
   is older than the image it pulls. See the service's own `AGENTS.md`.
-- `STUDIOCTL_IMAGE_*` pins one reference for a session (the `localtest` runtime; localtest-v2 runs
-  its manifest's images). It replaced a home-directory override file, which an update deletes.
-- The localtest-v2 stack is described by one embedded manifest
-  (`internal/localtestv2/manifest/manifest.json`, with its README): groups of root containers, and per container its
-  image (registry and tag; the research images share one `sha-<commit>` pin, moved only by the research repository's
-  [`bump-tag.sh`](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/tools/bump-tag.sh)),
-  environment (literal but for the public origin's placeholders, `{{origin}}` and kin, from the `public` section;
-  `manifest/origin.go`), `dependsOn`, volumes, port and health. `env up --latest` follows
-  main. Change the manifest, not Go code, to change a container; the golden file in
-  `internal/cmd/env/localtestv2/testdata/` shows the effect. The runtime lives in `internal/cmd/env/localtestv2/`
-  (network, containers, `services__*` variables, probe-container health, `--dev-<container>` builds). The front door
-  is the localtest app's container, the only published port; studioctl-server's discovery registers apps with it
-  (`Discovery/FrontDoorRegistration.cs`), `studioctl run` waits for that registration and with `--dev-frontend`
-  registers the frontend dev server's route (`run_frontdoor.go`, through the client in
-  `internal/localtestv2/frontdoor`), and `internal/localtestv2` holds the state file (the configuration the stack was
-  started with) and `Current`, which studioctl-server's start config, the app environment, container mode and `run`
-  use to find out whether the stack runs. studioctl carries no proxy, route table or provisioning for localtest-v2:
-  those are the localtest image's. The conventions the runtime and the images share (tags, ports and health, the
-  certificate, volumes, service names) are in the manifest README.
+- `STUDIOCTL_IMAGE_*` pins one reference for a session. It replaced a home-directory override file,
+  which an update deletes.
 
 ### Releases
 
