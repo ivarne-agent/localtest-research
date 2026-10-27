@@ -191,7 +191,6 @@ internal static class ResourceRegistryHost
 #if LOCALTEST
         Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);
 #endif
-
         return builder.Build();
     }
 

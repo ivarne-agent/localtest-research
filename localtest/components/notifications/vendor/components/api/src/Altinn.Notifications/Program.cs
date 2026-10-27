@@ -51,7 +51,6 @@ SetConfigurationProviders(builder.Configuration);
 #if LOCALTEST
 Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestConfiguration(builder.Configuration);
 #endif
-
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);

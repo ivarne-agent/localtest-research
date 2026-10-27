@@ -77,7 +77,6 @@ ConfigureWolverine(builder.Services, builder.Configuration);
 #if LOCALTEST
 Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestStorage(builder);
 #endif
-
 logger.LogInformation("// Checking Azure Storage connection.");
 
 var app = builder.Build();
