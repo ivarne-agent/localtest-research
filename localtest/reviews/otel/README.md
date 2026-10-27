@@ -28,6 +28,12 @@ set" would take, classified trivial / small / large) and the **localtest change*
 | Arbeidsflate BFF | [`arbeidsflate.md`](arbeidsflate.md) | small: OTLP when the variable is set, but gRPC exporters whatever the protocol says | nothing needed: studioctl sends every container `grpc` to the collector's 4317 |
 | Workflow engine | [`workflow-engine.md`](workflow-engine.md) | small, upstream: done in altinn-studio#21515 (merged; exports exactly when the variable is set, `EnableTelemetry` removed) | nothing in localtest: the `tt02` image has it, the manifest switch is gone; re-vendor at the next sync |
 
+pdf3 (not in the table: its image comes from altinn-studio) exports traces, metrics and logs over OTLP when the variable
+is set, but by default only log records at WARN and above, since the pipeline in Altinn's environments drops everything
+below WARN. Localtest's collector keeps every level, so the manifest sets `PDF3_OTEL_LOG_LEVEL=INFO` and a developer sees
+pdf3's INFO records (each PDF request's progress) next to its spans. The setting is in altinn-studio branch
+`feat/pdf3-otel-log-level`; until it reaches the `tt02` image, pdf3 ignores the variable and still exports WARN and above.
+
 Across the four ServiceDefaults hosts, one small upstream change in `Altinn/altinn-authorization-utils` would help all of
 them: make the OTLP and Azure Monitor exporters independent (today OTLP turns Azure Monitor off) and let
 `OTEL_SERVICE_NAME` win over `AltinnServiceResourceDetector`.

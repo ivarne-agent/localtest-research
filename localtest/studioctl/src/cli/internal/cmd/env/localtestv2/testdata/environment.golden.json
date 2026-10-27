@@ -811,6 +811,7 @@
         "env": [
           "PDF3_ENVIRONMENT=localtest",
           "PDF3_LOCALTEST_PUBLIC_BASE_URL=http://local.altinn.cloud:8000",
+          "PDF3_OTEL_LOG_LEVEL=INFO",
           "PDF3_QUEUE_SIZE=3",
           "TZ=Europe/Oslo",
           "services__access-management__http__0=http://access-management:5080",
@@ -1881,6 +1882,7 @@
           "OTEL_SERVICE_NAME=pdf3",
           "PDF3_ENVIRONMENT=localtest",
           "PDF3_LOCALTEST_PUBLIC_BASE_URL=http://local.altinn.cloud:8000",
+          "PDF3_OTEL_LOG_LEVEL=INFO",
           "PDF3_QUEUE_SIZE=3",
           "TZ=Europe/Oslo",
           "services__access-management__http__0=http://access-management:5080",
@@ -4359,6 +4361,7 @@
         "env": [
           "PDF3_ENVIRONMENT=localtest",
           "PDF3_LOCALTEST_PUBLIC_BASE_URL=http://origin.test:18000",
+          "PDF3_OTEL_LOG_LEVEL=INFO",
           "PDF3_QUEUE_SIZE=3",
           "TZ=Europe/Oslo",
           "services__access-management__http__0=http://access-management:5080",
