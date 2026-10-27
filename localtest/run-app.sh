@@ -30,7 +30,8 @@ export ASPNETCORE_ENVIRONMENT=Development
 # Altinn.Common.AccessTokenClient 3.x reads the full path; 1.x (the v9 app backend today) concatenates
 # <parent of cwd> + KeysFolder + FileName with no separators, so give it a relative traversal from the app folder.
 export AccessTokenSettings__AccessTokenSigningCertificateFullPath="$HERE/certs/localtest-accesstoken.pfx"
-export AccessTokenSettings__AccessTokenSigningKeysFolder="/$(realpath --relative-to="$APP_DIR" "$HERE/certs")/"
+AccessTokenSettings__AccessTokenSigningKeysFolder="/$(realpath --relative-to="$APP_DIR" "$HERE/certs")/"
+export AccessTokenSettings__AccessTokenSigningKeysFolder
 export AccessTokenSettings__AccessTokenSigningCertificateFileName="localtest-accesstoken.pfx"
 export Kestrel__EndPoints__Http__Url="http://0.0.0.0:$PORT"
 export AppSettings__OpenIdWellKnownEndpoint="$PLATFORM/authentication/api/v1/openid/"
