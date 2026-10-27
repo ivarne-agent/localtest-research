@@ -4,8 +4,8 @@
 {
   "repository": "Altinn/altinn-correspondence",
   "branch": "main",
-  "commit": "6dcf561945f73e8f28f0a95747ee4fafa012aa89",
-  "date": "2026-10-16",
+  "commit": "d2dc9123cd07523a35ba25b5ff9adb4c068f125e",
+  "date": "2026-10-22",
   "paths": ["src", "Dockerfile", "docker-compose.yml"],
   "group": null,
   "local": "directives",
@@ -34,7 +34,7 @@
 <!-- vendor-sync:begin pin -->
 
 - Repository: https://github.com/Altinn/altinn-correspondence
-- Commit: [`6dcf561945f73e8f28f0a95747ee4fafa012aa89`](https://github.com/Altinn/altinn-correspondence/tree/6dcf561945f73e8f28f0a95747ee4fafa012aa89) (main, 2026-10-16)
+- Commit: [`d2dc9123cd07523a35ba25b5ff9adb4c068f125e`](https://github.com/Altinn/altinn-correspondence/tree/d2dc9123cd07523a35ba25b5ff9adb4c068f125e) (main, 2026-10-22)
 
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/` (the six projects `Altinn.Correspondence.{API,Application,Common,Core,Integrations,Persistence}`
