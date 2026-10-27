@@ -154,6 +154,11 @@ internal static class AppEnvironment
                 Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflateUrl.Then("/profile/parties"));
             }
         }
+        // studioctl's defaults for whatever the above left unset (altinn-studio#21481): the inbox and logout links go
+        // to the start page, since the frontend shows an unconfigured link as broken. They take effect only without
+        // the certificate, which is studioctl's localtest runtime, never the package's stack; the golden file has both.
+        Default("PlatformFrontendSettings__ArbeidsflateInboxUrl", platform.Then("/"));
+        Default("PlatformFrontendSettings__LogoutUrl", platform.Then("/"));
         return values;
     }
 }
