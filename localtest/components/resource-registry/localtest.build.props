@@ -2,7 +2,8 @@
   <!--
     Localtest build overrides for the vendored Altinn Resource Registry source, selected through the
     DirectoryBuildPropsPath environment variable (see Dockerfile). The nearest vendored props above the project is
-    imported first (what MSBuild itself would have found: the host folder's, which imports src/Directory.Build.props),
+    imported first (what MSBuild itself would have found: the src folder's, which imports the vertical's own
+    src/apps/Altinn.ResourceRegistry/Directory.Build.props),
     then LOCALTEST is layered on top.
   -->
   <PropertyGroup>

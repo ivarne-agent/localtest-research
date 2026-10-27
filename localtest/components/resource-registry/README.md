@@ -1,6 +1,7 @@
 # resource-registry
 
-Production Altinn Resource Registry (`vendor/`, see `vendor/UPSTREAM.md`) on the shared Postgres, without Azure. It is the
+Production Altinn Resource Registry (`vendor/`: the `src/apps/Altinn.ResourceRegistry/` vertical of `Altinn/altinn-auth`, in the
+`altinn-auth` group with Authentication, Authorization and Access Management; see `vendor/UPSTREAM.md`) on the shared Postgres, without Azure. It is the
 platform's one answer to "which resources exist, who may use them and which subjects does each policy name": app
 resources (`app_{org}_{app}`) are computed from Storage's application list and the policies the app runner pushes, as
 in production; non-app resources come from a built-in seed. Dialogporten, Correspondence, Access Management, the PDP and
@@ -10,8 +11,8 @@ Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites (`git diff` against the vendoring commit shows them) |
-| `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored `Directory.Build.props` (which chains to `src/Directory.Build.props`), define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/Seed/**` |
+| `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites (`python3 localtest/tools/vendor-sync.py check resource-registry` proves it) |
+| `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored `Directory.Build.props` (`src/apps/Altinn.ResourceRegistry/src/`, which chains to the vertical's own; `Directory.Packages.props` is the vertical's too), define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/Seed/**` |
 | `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed, `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
 | `postgres-init/40-resource-registry.sh` | Postgres init script: the `resourceregistrydb` database and the roles upstream's migrations grant to (`platform_authorization_admin` superuser, `platform_authorization`), password `localtest`, which Access Management's own database step also sets. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/resource-registry/postgres-init/40-resource-registry.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.ResourceRegistry/Dockerfile` (pinned Alpine SDK image, `dotnet publish` of the host, `aspnet:10.0-alpine`, non-root `dotnet`); each difference is marked `localtest:` |

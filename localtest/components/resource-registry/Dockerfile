@@ -1,9 +1,9 @@
 # Vendored Altinn Resource Registry built with the localtest overrides.
 # Build context: the component folder (localtest/components/resource-registry).
 #
-# Mirrors vendor/src/apps/Altinn.ResourceRegistry/Dockerfile (the upstream one): same pinned base images, publish of
-# the host project, the non-root dotnet user. Every difference is marked "localtest:". When re-pinning, diff that file
-# against the previous pin and carry the change over here (see vendor/UPSTREAM.md).
+# Mirrors vendor/src/apps/Altinn.ResourceRegistry/Dockerfile (upstream's, in Altinn/altinn-auth): same pinned base
+# images, publish of the host project, the non-root dotnet user. Every difference is marked "localtest:". A sync
+# three-way merges upstream's changes into this file or prints the hunk (see vendor/UPSTREAM.md).
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:d8ee39817ca03a3757288e83c37ed73cc969a286c603b827c7cbe33add1c2d1c AS build
 # localtest: upstream's build context is the repository root and it copies src/ to /src. Here the same tree keeps its
 # layout under /src/vendor/src (vendor/ next to the overrides, which decide "vendored" by that path), with fakes/ and

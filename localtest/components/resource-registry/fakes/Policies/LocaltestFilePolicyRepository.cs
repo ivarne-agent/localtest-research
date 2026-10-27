@@ -77,8 +77,8 @@ public sealed class LocaltestFilePolicyRepository(IOptions<LocaltestResourceRegi
         }
     }
 
-    public Task<string> TryAcquireBlobLease(string resourceId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Guid.NewGuid().ToString());
+    public Task<string?> TryAcquireBlobLease(string resourceId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(Guid.NewGuid().ToString());
 
     public Task ReleaseBlobLease(string resourceId, string leaseId, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
