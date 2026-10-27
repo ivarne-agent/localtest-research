@@ -27,7 +27,7 @@ var (
 )
 
 // undefinedFlagPrefix starts the error flag.FlagSet.Parse returns for a flag the set does not define. The flag package
-// does not export that error, so its text is matched; TestUndefinedFlagErrorText fails if the text changes.
+// does not export that error, so its text is matched. TestUndefinedFlagErrorText fails if the text changes.
 const undefinedFlagPrefix = "flag provided but not defined: -"
 
 // EnvCommand implements the 'env' subcommand.
@@ -35,7 +35,7 @@ type EnvCommand struct {
 	hostsFileTargets func() ([]osutil.HostsTarget, error)
 	// containerClient connects to the container runtime.
 	containerClient func(ctx context.Context) (container.ContainerClient, error)
-	// newRuntimes lists the runtimes for one command, the default first; nil is the registry's.
+	// newRuntimes lists the runtimes for one command, the default first. When nil, the registry's are used.
 	newRuntimes func(cfg *config.Config) []envtypes.Runtime
 	cfg         *config.Config
 	out         *ui.Output
@@ -92,55 +92,16 @@ func (o envStatusOutput) Print(out *ui.Output) error {
 		out.Printlnf("%s is not running.", o.Runtime)
 		return nil
 	}
-	mode := ""
-	if o.Status.Mode != "" {
-		mode = " (" + o.Status.Mode + " mode)"
+	if !o.Status.Running {
+		out.Printlnf("%s is running with issues.", o.Runtime)
+		out.Println("")
+		renderEnvStatus(out, o.Status)
+		return nil
 	}
-	switch {
-	case !o.Status.Running:
-		out.Printlnf("%s is running with issues%s.", o.Runtime, mode)
-	case mode != "":
-		out.Printlnf("%s is running%s", o.Runtime, mode)
-	default:
-		out.Printlnf("%s is running.", o.Runtime)
-	}
-	if o.Status.Origin != "" {
-		out.Printlnf("Origin: %s", o.Status.Origin)
-	}
+	out.Printlnf("%s is running.", o.Runtime)
 	out.Println("")
 	renderEnvStatus(out, o.Status)
-	if len(o.Status.Emulated) > 0 {
-		out.Print(emulatedLine(o.Status.Emulated))
-	}
 	return nil
-}
-
-// emulatedLineWidth is where emulatedLine wraps the list of emulated services.
-const emulatedLineWidth = 72
-
-// emulatedLine names the services the localtest container emulates, wrapped at emulatedLineWidth.
-func emulatedLine(names []string) string {
-	var b strings.Builder
-	column := 0
-	for i, name := range names {
-		word := name + ","
-		if i == len(names)-1 {
-			word = name + ": emulated in localtest"
-		}
-		switch {
-		case column == 0:
-		case column+1+len(word) > emulatedLineWidth:
-			b.WriteString("\n")
-			column = 0
-		default:
-			b.WriteByte(' ')
-			column++
-		}
-		b.WriteString(word)
-		column += len(word)
-	}
-	b.WriteString("\n")
-	return b.String()
 }
 
 type envResetOutput struct {
@@ -333,7 +294,7 @@ type containerConnection struct {
 	err    error
 }
 
-// connectContainerRuntime connects to the container runtime for one command; the caller closes the connection.
+// connectContainerRuntime connects to the container runtime for one command. The caller closes the connection.
 func (c *EnvCommand) connectContainerRuntime(ctx context.Context) containerConnection {
 	client, err := c.containerClient(ctx)
 	if err != nil {
@@ -421,7 +382,7 @@ func (c *EnvCommand) envs(client container.ContainerClient) []envtypes.Env {
 }
 
 // env returns the named runtime's environment, with the runtime's default flags. client is nil when there is no
-// container runtime; such an environment is only inspected, not used.
+// container runtime. Such an environment is only inspected, not used.
 //
 //nolint:ireturn // environments are handed out by interface
 func (c *EnvCommand) env(name string, client container.ContainerClient, out *ui.Output) (envtypes.Env, error) {
@@ -475,7 +436,7 @@ func sharedUpFlags(f *envUpFlags) *flag.FlagSet {
 
 // parseUpFlags parses env up's arguments in two steps: -r names the runtime, which then adds its own flags to the
 // shared ones. Two runtimes may therefore have a flag of the same name, each with its own meaning. Without -r, client
-// is asked which runtime runs; a nil client means there is no container runtime to ask.
+// is asked which runtime runs. A nil client means there is no container runtime to ask.
 func (c *EnvCommand) parseUpFlags(
 	ctx context.Context,
 	client container.ContainerClient,
@@ -502,7 +463,7 @@ func (c *EnvCommand) parseUpFlags(
 	if fs.NArg() > 0 {
 		return f, fmt.Errorf("%w: env up takes no arguments, got %q", ErrInvalidFlagValue, fs.Arg(0))
 	}
-	// runtimeArg reads -r without the flag package; refuse a reading the parse does not share.
+	// runtimeArg reads -r without the flag package. Refuse a reading the parse does not share.
 	if f.runtimeFlag != requested {
 		return f, conflictingRuntimesError(requested, f.runtimeFlag)
 	}
@@ -740,7 +701,7 @@ func (c *EnvCommand) runReset(ctx context.Context, args []string) error {
 	if flags.jsonOutput && !flags.yes {
 		return fmt.Errorf("%w: --json requires --yes", ErrInvalidFlagValue)
 	}
-	// A named runtime without reset is refused before connecting; an omitted one is known once the containers are.
+	// A named runtime without reset is refused before connecting. An omitted one is known once the containers are.
 	if flags.runtime != "" {
 		env, envErr := c.env(flags.runtime, nil, silentOutput())
 		if envErr != nil {

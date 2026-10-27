@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"altinn.studio/devenv/pkg/container"
 	"altinn.studio/studioctl/internal/auth"
 	"altinn.studio/studioctl/internal/config"
 	repocontext "altinn.studio/studioctl/internal/context"
-	"altinn.studio/studioctl/internal/localtestv2"
 	"altinn.studio/studioctl/internal/studio"
 )
 
@@ -21,27 +19,11 @@ var ErrNotLoggedIn = errors.New("not logged in")
 // Service contains app command logic.
 type Service struct {
 	cfg *config.Config
-	// containers connects to the container runtime, to find out whether localtest-v2 runs.
-	containers localtestv2.ContainerClientFunc
-}
-
-// ServiceOption configures a Service.
-type ServiceOption func(*Service)
-
-// WithContainerClient sets how the service connects to the container runtime; the default is container.Detect.
-func WithContainerClient(containers localtestv2.ContainerClientFunc) ServiceOption {
-	return func(s *Service) {
-		s.containers = containers
-	}
 }
 
 // NewService creates a new app command service.
-func NewService(cfg *config.Config, opts ...ServiceOption) *Service {
-	s := &Service{cfg: cfg, containers: container.Detect}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
+func NewService(cfg *config.Config) *Service {
+	return &Service{cfg: cfg}
 }
 
 // UpdateResult contains detected app location for update flow.

@@ -1,5 +1,5 @@
 // Package stack applies, destroys and observes an environment runtime's devenv resource graph. Every env runtime
-// describes its environment as resources under its own graph ID; this package owns what they do with them alike:
+// describes its environment as resources under its own graph ID. This package owns what they do with them alike:
 // the executor, the progress rendering, the status snapshot and the log streaming.
 package stack
 
@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"altinn.studio/devenv/pkg/container"
+	"altinn.studio/devenv/pkg/container/types"
 	"altinn.studio/devenv/pkg/resource"
 	"altinn.studio/devenv/pkg/resource/executor"
 	containerbackend "altinn.studio/devenv/pkg/resource/executor/container"
@@ -60,11 +61,19 @@ func (s *Stack) Graph(resources []resource.Resource) (*resource.Graph, error) {
 // Active reports whether any container of this runtime's graph is running. It reads the containers' ownership
 // labels rather than a resource list, so it answers for whatever configuration the environment was started with.
 func (s *Stack) Active(ctx context.Context) (bool, error) {
-	running, err := containerbackend.GraphRunning(ctx, s.client, s.graphID)
+	containers, err := s.client.ListContainers(ctx, types.ContainerListFilter{
+		Labels: map[string]string{containerbackend.GraphIDLabel: s.graphID.String()},
+		All:    false,
+	})
 	if err != nil {
-		return false, fmt.Errorf("check %s: %w", s.graphID, err)
+		return false, fmt.Errorf("list containers of %s: %w", s.graphID, err)
 	}
-	return running, nil
+	for _, ctr := range containers {
+		if ctr.State.Running {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Apply creates or converges resources, rendering progress under spinnerMsg, and warns about images it could not
@@ -100,7 +109,7 @@ func (s *Stack) Apply(ctx context.Context, resources []resource.Resource, spinne
 	return nil
 }
 
-// Destroy removes resources, rendering progress; logStartMessage heads the plain log output.
+// Destroy removes resources, rendering progress. logStartMessage heads the plain log output.
 func (s *Stack) Destroy(ctx context.Context, resources []resource.Resource, logStartMessage string) error {
 	graph, err := s.Graph(resources)
 	if err != nil {
@@ -130,7 +139,7 @@ func (s *Stack) Destroy(ctx context.Context, resources []resource.Resource, logS
 	return nil
 }
 
-// Observe reads the state of resources' containers and networks; images are not inspected.
+// Observe reads the state of resources' containers and networks, not their images.
 func (s *Stack) Observe(
 	ctx context.Context,
 	resources []resource.Resource,
@@ -194,8 +203,8 @@ func (s *Stack) ContainerImages(
 }
 
 // resolveContainerImage pairs an image with the reference it came from, and keeps the reference only when it still
-// resolves to that image. A reference a command builds can name something the environment never ran - a tag that has
-// moved since, or a component the environment was started with differently - and reporting it would then misdescribe
+// resolves to that image. A reference a command builds can name something the environment never ran, such as a tag that
+// has moved since, or a component the environment was started with differently. Reporting it would then misdescribe
 // the container.
 func (s *Stack) resolveContainerImage(ctx context.Context, imageID, ref string) envtypes.ContainerImage {
 	if ref == "" {
@@ -288,7 +297,7 @@ func isImageResource(res resource.Resource) bool {
 	return ok
 }
 
-// ManagedStatus is a resource's status in snapshot; a resource this runtime does not own counts as destroyed.
+// ManagedStatus is a resource's status in snapshot. A resource this runtime does not own counts as destroyed.
 func ManagedStatus(snapshot executor.Snapshot, id resource.ResourceID) executor.Status {
 	observed, ok := snapshot.Resources[id]
 	if !ok || !observed.Managed {
