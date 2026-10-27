@@ -1,34 +1,33 @@
 # Correspondence: upstreaming
 
 - Upstream: [Altinn/altinn-correspondence](https://github.com/Altinn/altinn-correspondence)
-- Pin: `6dcf561` (main, 2026-10-16),
+- Pin: `d2dc912` (main, 2026-10-22; synced from `6dcf561` in task 58's follow-up),
   [`../components/correspondence/vendor/UPSTREAM.md`](../components/correspondence/vendor/UPSTREAM.md)
 - Group: none
 - Reminders: grep for raw `Set-Cookie` writes (the cookie policy sees only `Response.Cookies`); `ConfigureAuthentication`
-  must keep the correlation cookie name and callback path; update the smoke test's EF migration count; the
-  `XacmlRequestFactory.cs` site is removable since upstream #2157.
-- Localtest modifications: 6 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs`, `#if
-!LOCALTEST` blocks in `XacmlRequestFactory.cs` and `IdportenTokenValidator.cs`), the hook
+  must keep the correlation cookie name and callback path; update the smoke test's EF migration count.
+- Localtest modifications: 5 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs` and
+  an `#if !LOCALTEST` block in `IdportenTokenValidator.cs`; the `XacmlRequestFactory.cs` block was removed in task
+  58's follow-up), the hook
   `fakes/LocaltestCorrespondence.cs` with its options class, the fakes `Auth/`, `AzureResources/`, `Storage/`,
   `Inspection/`, the shared copies `Cookies/`, `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, two build overrides,
   the `localtest:` deviations in `Dockerfile`, `.dockerignore` and the Postgres init script.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
-`../components/correspondence/` (sites relative to its `vendor/`). Upstream `main` has two commits after the pin
-(`a67b6e7`, `d2dc912`); only `d2dc912` touches a site.
+`../components/correspondence/` (sites relative to its `vendor/`). The pin is upstream `main` (checked 2026-10-27).
 
 ## Phase 1: easy fixes
 
 - [x] **Name the party by `urn:altinn:partyid:{id}` in PDP requests.** Merged upstream as
       [altinn-correspondence#2157](https://github.com/Altinn/altinn-correspondence/pull/2157) (`d2dc912`, 2026-10-22):
       `AltinnAuthorizationService` and `AltinnTokenXacmlMapper` pass the resolved party id with its prefix, so
-      `XacmlRequestFactory.CreateResourceCategory` takes the prefix branch whatever the id's length. Block to remove at
-      next sync.
+      `XacmlRequestFactory.CreateResourceCategory` takes the prefix branch whatever the id's length. Block
+      removed in task 58's follow-up (synced to `d2dc912`).
   - Why: `IsPartyId` accepts a bare party id of 8 or 10 digits only, and the test data's 6-digit ids (Digdir 500006,
     Sophie Salt 501337) made every PDP-checked call answer 500.
   - Size: trivial (done).
-  - Removes: site `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs:31-36`. The smoke
-    test's app-lib and recipient checks prove the 6-digit ids still pass after the re-pin.
+  - Removed: site `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs:31-36`, in task
+    58's follow-up. The smoke test's app-lib and recipient checks passed without it (78 `ok`, 2026-10-27).
   - Upstream: [altinn-correspondence#2157](https://github.com/Altinn/altinn-correspondence/pull/2157), merged.
   - Detail: [`../../planned-components/correspondence/party-ids.md`](../../planned-components/correspondence/party-ids.md),
     option (c).
@@ -210,6 +209,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   and the vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into `Altinn.Correspondence.API`: as above.
 
-Coverage: 6 sites, 9 fakes (`Auth/`, `AzureResources/`, `Cookies/`, `Inspection/`, `Maskinporten/`, `Otlp/`,
-`ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with its options), 2 build overrides, 4 Dockerfile
-and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for.
+Coverage: 5 sites (a sixth removed in task 58's follow-up), 9 fakes (`Auth/`, `AzureResources/`, `Cookies/`,
+`Inspection/`, `Maskinporten/`, `Otlp/`, `ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with
+its options), 2 build overrides, 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted
+for.

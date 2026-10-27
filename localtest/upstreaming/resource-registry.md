@@ -1,15 +1,16 @@
 # Resource Registry: upstreaming
 
-- Upstream: [Altinn/altinn-auth](https://github.com/Altinn/altinn-auth), `src/apps/Altinn.ResourceRegistry/`. The pin
-  comes from [Altinn/altinn-resource-registry](https://github.com/Altinn/altinn-resource-registry), archived on
-  2026-09-25 when its history was imported into altinn-auth (altinn-auth#4196); the pin is an ancestor of altinn-auth's
-  `main`, and 16 commits have touched the vertical there since (checked 2026-10-27). **Every item targets altinn-auth.**
-- Pin: `a342241` (main, 2026-09-25), [`../components/resource-registry/vendor/UPSTREAM.md`](../components/resource-registry/vendor/UPSTREAM.md)
-- Group: none
-- Reminders: the vendored copy still names the archived repository; retarget with
-  `sync resource-registry --repository Altinn/altinn-auth --paths ... --group altinn-auth` (TODO.md task 58). Since the
-  pin, altinn-auth's `ResourceRegistryHost.cs` adds feature management and a Samarbeidsportalen client; the retarget
-  shows whether they need localtest settings.
+- Upstream: [Altinn/altinn-auth](https://github.com/Altinn/altinn-auth), `src/apps/Altinn.ResourceRegistry/`. Vendored
+  from [Altinn/altinn-resource-registry](https://github.com/Altinn/altinn-resource-registry) at `a342241` until that
+  repository was archived on 2026-09-25 and its history imported into altinn-auth (altinn-auth#4196); retargeted to
+  altinn-auth in task 58's follow-up (2026-10-27). altinn-auth `main` has three Resource Registry commits after the pin
+  (checked 2026-10-27). **Every item targets altinn-auth.**
+- Pin: `3d51810` (main, 2026-10-19), [`../components/resource-registry/vendor/UPSTREAM.md`](../components/resource-registry/vendor/UPSTREAM.md)
+- Group: `altinn-auth` (one pin with Authentication, Authorization and Access Management)
+- Reminders: none in the metadata. At the next `altinn-auth` group sync: altinn-auth `main` after the pin (`bfa6fdf8`,
+  the Maskinporten scope-prefix validation) adds feature management and a Samarbeidsportalen HTTP client to
+  `ResourceRegistryHost.cs`; check whether the client needs a localtest setting or fake. The vertical's
+  `docker-bake.hcl` and altinn-auth's `containers/` are watched.
 - Localtest modifications: 2 directive sites in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`,
   the hook `fakes/LocaltestResourceRegistryExtensions.cs` with `fakes/LocaltestResourceRegistryOptions.cs`, the fakes
   `fakes/Applications/`, `fakes/Infrastructure/` (two files), `fakes/Policies/`, `fakes/Seed/` and the shared copies
@@ -25,7 +26,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 - [ ] **Let `OTEL_SERVICE_NAME` win over the host's name.** Nothing in the Resource Registry itself: take the
       `Altinn.Authorization.ServiceDefaults` release that adds the environment resource detector after
       `AltinnServiceResourceDetector` (and makes OTLP and Azure Monitor independent), and bump the version in
-      `Directory.Packages.props`.
+      the vertical's own `src/apps/Altinn.ResourceRegistry/Directory.Packages.props`.
   - Why: ServiceDefaults already exports over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but its detector
     sets `service.name` `resource-registry` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and
     `OTEL_RESOURCE_ATTRIBUTES` are ignored.
@@ -36,7 +37,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 
 - [ ] **Drop the unused Application Insights references.** Remove `Microsoft.ApplicationInsights.AspNetCore`,
       `Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel` and `Microsoft.Extensions.Logging.ApplicationInsights`
-      from `Altinn.ResourceRegistry.csproj` and `Directory.Packages.props` (still there on altinn-auth's `main`), the
+      from `Altinn.ResourceRegistry.csproj` and `src/apps/Altinn.ResourceRegistry/Directory.Packages.props` (still there on altinn-auth's `main`), the
       unused `using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;` in
       `Utils/AuthorizationUtil.cs`, and the `ApplicationInsights` log-level sections in `appsettings*.json`.
   - Why: no code uses them; telemetry goes through ServiceDefaults.
@@ -79,7 +80,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
       ["Across services"](README.md#across-services)).
   - Why: `PolicyRepository` needs Azure Blob with versions and leases; without it no policy can be read or stored.
   - Size: large; needs agreement across the PDP, Access Management and the Resource Registry.
-  - Removes: `fakes/Policies/`, its registration in the hook and site `ResourceRegistryHost.cs:191-193` once the other
+  - Removes: `fakes/Policies/`, its registration in the hook and site `ResourceRegistryHost.cs:192-194` once the other
     hook items are done too.
   - Upstream: [altinn-auth#4061](https://github.com/Altinn/altinn-auth/issues/4061) (Resource Registry in the AppHost:
     Azurite and seed), open.

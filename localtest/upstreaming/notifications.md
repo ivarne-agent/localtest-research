@@ -29,7 +29,9 @@ Several items below can reuse that work.
 - [x] **Export over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.** Merged upstream in
       [altinn-notifications#1930](https://github.com/Altinn/altinn-notifications/pull/1930) (2026-10-22, after our pin):
       `AddAzureMonitorTelemetryExporters` calls `UseOtlpExporter()` when the variable is set and
-      `OtelSettings:Endpoint` is not. Block to remove at next sync, together with the next item.
+      `OtelSettings:Endpoint` is not. #1930 is on `main` (checked 2026-10-27, task 58's follow-up), so at the next
+      sync the OTLP block (site `Program.cs:191-198`) shrinks to setting the service name; it goes entirely with the
+      next item.
   - Why: at the pin, Notifications exports only traces, and only with its own `OtelSettings:Endpoint` (endpoint set in
     code, so no `/v1/traces` for `http/protobuf`), plus Azure Monitor with a connection string.
   - Size: small (done).
