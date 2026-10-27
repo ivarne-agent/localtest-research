@@ -2765,4 +2765,23 @@ modifications upstream made unnecessary go.
   not call Correspondence, whose browser download path is in Correspondence's own suite. Not run: `--with monitoring`,
   `CORRESPONDENCE_RESTART=1`, the other components' suites (their images are the pins). Teardown: `env down`, server down,
   both `--dev` images and their build layers removed, the home removed, the lock released. After the merge: the images
-  workflow, then the pinned check (verify-after-sync 5.2) before `bump-tag.sh`.
+  workflow, then the pinned check (verify-after-sync 5.2) before `bump-tag.sh`: done, see **Pinned check** below.
+- **Pinned check (2026-10-27, 20:57-21:10, images `sha-1d08adb` from main 1d08adb4, images run 40572353069; no
+  `--dev-*`; studioctl from the `pin-1d08adb` worktree under a short `STUDIOCTL_HOME`, `STUDIO_CA_BUNDLE` set; evidence
+  `/home/agent/code/.handover/pin-1d08adb/`).** `bump-tag.sh sha-1d08adb` pinned 20 images; the golden diff moves only
+  the tags (`sha-5f13eea` to `sha-1d08adb`). Static: `go build`/`go test ./...` all `ok`, `make lint` 0 issues, golden
+  regeneration clean; studioctl-server 1015 passed, 13 failed (the known `V8Tov9UpgradeTargetFrameworkTests`), devenv
+  `ok` except `pkg/runtimes/kind`'s two monitoring tests (known); the Aspire package 0 warnings, 178 passed, CSharpier
+  46 files clean, both AppHosts build. Minimal mode: 5 containers in 17 s (with pulls); root 23 `ok`, 4 skips, 0 `FAIL`;
+  `localtest/smoke-test.sh` 92 `ok` and the known `FRONTEND_DIST` failure; telemetry folders `localtest`, `storage`,
+  `workflow-engine`; `env down` removed `telemetry/`. Default stack: 13 containers in 34 s (with pulls); root 26 `ok`, 1
+  skip; the front door 83 of 84 (`FRONTEND_DIST`); the Resource Registry 43, Authorization 31, Profile 52,
+  Authentication 32, Events 27, Notifications 64, Register 14, the adapter `--off` 7, shared all ok; no `FAIL`. `--with
+  correspondence --with dialogporten` (19 containers, 41 s): Correspondence 78 `ok`, 1 skip (OTLP); then Events 20 `ok`
+  and 8 `FAIL` (late processing: "stored once", the deliveries, `registeredTime` ages 63 s), 27 `ok` on the rerun, no
+  `fail:` or `crit:` in the last 100 lines of its log (the fresh-stack flake of verify-after-sync 6.7); the adapter 39,
+  Dialogporten 60 (both again 39 and 60 after the Events rerun, in 6.7's order); root 26. `--with correspondence --with
+  monitoring` (21 containers, 49 s): root 27, the Resource Registry 44, Correspondence 79, with the OTLP server spans
+  from `storage`, `resource-registry` and `correspondence`; no `FAIL`. Not run: `CORRESPONDENCE_RESTART=1`, the receipt
+  and Arbeidsflate groups, 4.4 to 4.6. Teardown: `env down`, server down, the home removed, the lock released; 13 GB
+  free, so the older `sha-5f13eea` images stay.
