@@ -54,6 +54,7 @@ port 8000.
 | `run-platform-regression.sh` | The six app-frontend specs that once failed because of the platform ([Tests](#tests)) |
 | `build-pdf3.sh` | Build a pdf3 worker image from an altinn-studio checkout (`localtest-pdf3:dev`) for the old `localtest` runtime (`STUDIOCTL_IMAGE_PDF3`); under localtest-v2 run a pdf3 build with `--dev-pdf3=<path>` instead |
 | `smoke-test.sh` | End-to-end check of the running stack through the front door |
+| `docs/verify-after-sync.md` | The checklist for verifying everything after a sync (a vendored component, studioctl, the image pins, the Aspire package): static checks, machine setup, the stack levels with their expected numbers, known false alarms, cleanup |
 
 No component publishes a host port: everything is reached through `http://local.altinn.cloud:8000` and its host names,
 and inside the stack the containers reach each other by name ([`CONVENTIONS.md`](CONVENTIONS.md#service-discovery)).
@@ -252,6 +253,9 @@ renders empty and every spec fails. Set `MONOREPO=/path/to/altinn-studio` for `r
 `run-platform-regression.sh`) when running from a worktree.
 
 ## Tests
+
+After a sync, [`docs/verify-after-sync.md`](docs/verify-after-sync.md) puts these suites, the builds and unit tests in
+order from cheap to expensive, with the expected numbers and the known false alarms.
 
 Every suite runs against `http://local.altinn.cloud:8000`, or the origin in `LOCALTEST_ORIGIN`
 (`LOCALTEST_ORIGIN=http://altinn.test:18000 ./smoke-test.sh`), which also sets the `af.`, `pdf.` and `app-frontend.`
