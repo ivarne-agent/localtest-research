@@ -60,21 +60,21 @@ Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if 
 4. `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
    production call `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-profile` with both commits, re-pin with the shared script, which takes upstream's new
-   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and deletes
-   files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src Dockerfile .dockerignore docker-compose.yml .editorconfig stylecop.json`.
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and `src/Altinn.Profile/Program.cs` may differ.
-3. **Keep `../Dockerfile` as equal to `Dockerfile` as possible.** It mirrors the upstream file (base images and digests,
-   the layered restore, publish, the `Migration` copy, the `dotnet` user, `/tmp/logtelemetry`), and every deviation is
-   marked `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in `../Dockerfile`.
-4. Fix the localtest code (`../fakes/`, the overrides, `../postgres-init/`) for upstream's changes. The fakes depend on
-   `IContactRegisterHttpClient` and the KRR change log models, `IOrganizationNotificationAddressUpdateClient`,
-   `IOrganizationNotificationAddressSyncClient` and the brreg change log models (`Entry`, `EntryContent`, `DataMapper`),
-   `IProfileSettingsRepository`, `ProfileDbContext`, `JobLeaseNames`, and `PostgreSqlSettings` with the admin connection
-   string. New EF migrations run at the next start (no volume reset needed). Update the commit line above, build the
-   image (`podman build -t localtest-profile:dev ..`) and run `../smoke-test.sh`. Commit the re-pin of the vendored
-   files on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync profile` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (base images and digests, the layered restore, publish, the `Migration`
+copy, the `dotnet` user, `/tmp/logtelemetry`), and every deviation is marked `localtest:`; the tool three-way merges
+upstream's changes into it when that is clean, and otherwise prints the hunk to carry over by hand. Never let it drift
+into a different build.
+
+What the localtest code follows: the fakes depend on `IContactRegisterHttpClient` and the KRR change log models,
+`IOrganizationNotificationAddressUpdateClient`, `IOrganizationNotificationAddressSyncClient` and the brreg change log
+models (`Entry`, `EntryContent`, `DataMapper`), `IProfileSettingsRepository`, `ProfileDbContext`, `JobLeaseNames`, and
+`PostgreSqlSettings` with the admin connection string. New EF migrations run at the next start (no volume reset needed).
+The OTLP exporter in `../localtest.build.targets` follows the host's OpenTelemetry version (`follow`).

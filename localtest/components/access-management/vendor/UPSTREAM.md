@@ -79,18 +79,22 @@
 What each site does and why it is there: [`../README.md`](../README.md#directive-sites-in-vendor) (the host's
 `Program.cs` and `AccessManagementHost.cs`, and the Resource Registry client's base address and constructor).
 
-## Syncing to a newer upstream commit
+## Syncing
 
-Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and share libraries
-(`Api.Contracts`, `ABAC`, `PEP`), so re-pin all three together.
+Run it for the group: Authentication, Authorization and Access Management vendor one `Altinn/altinn-auth` commit and
+share libraries (`Api.Contracts`, `ABAC`, `PEP`): they are the group `altinn-auth`, which the tool moves as one (`sync
+altinn-auth`, or any of the three). `python3 localtest/tools/vendor-sync.py sync altinn-auth` from the repository root
+stages the sync and prints what to triage, build and verify; the agent finishes it by hand as
+[`docs/vendor-sync.md`](../../../docs/vendor-sync.md) describes (resolve, `check`, build, verify, two commits). Without
+`--to` it takes the head of `main`. The metadata block above drives it: the copied `paths`, the `mirrors` it merges or
+reports, the `watch`ed paths, the `projects` to build, the package versions that `follow` the host, and the `reminders`
+it prints.
 
-1. In a clone of `Altinn/altinn-auth` with both commits, re-pin with the shared script, which takes upstream's new
-   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
-   deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.AccessManagement src/libs/Altinn.Authorization.Api.Contracts src/libs/Altinn.Authorization.Host src/libs/Altinn.Authorization.Integration src/pkgs/Altinn.Authorization.ABAC src/pkgs/Altinn.Authorization.PEP containers/Dockerfile.aspnet-builder containers/Dockerfile.aspnet-runtime <build files>`.
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and the files with `LOCALTEST` sites (`src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`, `AccessManagementHost.cs` and, since task 40, `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`) may differ.
-3. **Keep `../Dockerfile` as equal to the release image as possible.** Access Management is released through `src/apps/Altinn.AccessManagement/docker-bake.hcl`: `containers/Dockerfile.api` in the app folder over the named contexts `aspnet-builder` and `aspnet-runtime` (the vendored `containers/` files). `../Dockerfile` is those three files in order, with the context names as stage names, and every deviation is marked `localtest:`. When `git diff <pin> <new> -- containers src/apps/Altinn.AccessManagement/containers src/apps/Altinn.AccessManagement/docker-bake.hcl` shows a change, make the same change in `../Dockerfile`. The app folder's own `Dockerfile` is only used by the manually run `publish-flux-artifacts.yml`.
-4. Fix the localtest code (`../fakes/`, the overrides) for upstream's moves and renames, update the commit line above,
-   build the image (`podman build -t localtest-access-management:dev ..`) and run the smoke tests. Commit the re-pin of the
-   vendored files on its own, separate from localtest changes.
+`../Dockerfile` follows the release image, which `src/apps/Altinn.AccessManagement/docker-bake.hcl` builds from
+`containers/Dockerfile.api` in the app folder over the named contexts `aspnet-builder` and `aspnet-runtime` (the
+vendored `containers/` files): it is those three files in order, with the context names as stage names, and every
+deviation is marked `localtest:`. The tool prints upstream's changes to the three (`mirrors`) and to `docker-bake.hcl`
+(`watch`); carry them over by hand. The app folder's own `Dockerfile` is only used by the manually run
+`publish-flux-artifacts.yml`.
+
+What the localtest code follows: `../fakes/` and the overrides, for upstream's moves and renames (see `../README.md`).

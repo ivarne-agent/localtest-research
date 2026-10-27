@@ -61,23 +61,23 @@
 One site, a pure addition in `src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs`:
 `AddLocaltestRegister(builder)` after the production persistence block.
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-register`, list what changed in the copied paths since the pin:
-   `git diff --stat <pin> <new> -- src/apps/Altinn.Register src/pkgs/Altinn.Register.Contracts .editorconfig Directory.Build.props Directory.Build.targets Directory.Packages.props global.json stylecop.json Dockerfile .dockerignore`.
-   If Register has moved into `Altinn/altinn-auth` (altinn-auth#4056), re-vendor from there instead.
-2. Copy the changed files over the vendored ones (`git archive <new> <paths> | tar -x`; delete files deleted
-   upstream). The `LOCALTEST` site (`src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs`) needs a three-way
-   merge: take the upstream file and put the directive block back unchanged.
-3. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and `RegisterHost.cs` may differ.
-4. **Keep `../Dockerfile` as equal to `vendor/Dockerfile` as possible.** It mirrors the upstream file line for line
-   (base images and digests, build and publish, tzdata, the `dotnet` user), and every deviation is a line or block
-   marked `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in
-   `../Dockerfile`.
-5. Package versions in `../fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj` follow
-   `Directory.Packages.props`; update them with it; the OpenTelemetry ones (task 53) follow what the host resolves
-   (`obj/project.assets.json`: `OpenTelemetry.Extensions.Hosting` from `Directory.Packages.props`, the OTLP exporter from
-   `Altinn.Authorization.ServiceDefaults`).
-6. Update the commit line above, build the image (`podman build -t localtest-register:dev ..`) and run
-   `../smoke-test.sh`. Commit the sync on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync register` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+**Register waits for altinn-auth#4056** (Register moving into `Altinn/altinn-auth`, which has a skeleton
+`src/apps/Altinn.Register/` so far): check that pull request at every sync (the tool prints the reminder), and once it
+has landed, retarget with `sync register --repository Altinn/altinn-auth --paths … --group altinn-auth`.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (base images and digests, build and publish, tzdata, the `dotnet` user),
+and every deviation is marked `localtest:`; the tool three-way merges upstream's changes into it when that is clean, and
+otherwise prints the hunk to carry over by hand. Never let it drift into a different build.
+
+Package versions in `../fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj` follow
+`Directory.Packages.props` and what the host resolves (`obj/project.assets.json`: `OpenTelemetry.Extensions.Hosting`
+from `Directory.Packages.props` through `ServiceDefaults.Jobs`, the OTLP exporter and service discovery from
+`Altinn.Authorization.ServiceDefaults`); `check` compares them after a host build (`follow`).

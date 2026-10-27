@@ -64,19 +64,17 @@ All four in `src/backend/Altinn.Receipt/Program.cs`:
 
 The frontend has no sites: it is built unchanged.
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-receipt` with both commits, re-pin with the shared script, which takes upstream's new
-   version of every file that is unchanged locally, three-way merges the file with `LOCALTEST` sites, adds and deletes
-   files, and reports conflicts (the paths are every top-level entry of the new commit):
-   `../../tools/repin-vendor.py <clone> babc0ed <new> vendor $(git -C <clone> ls-tree --name-only <new>)`.
-   A top-level entry upstream deleted must be added to the list by hand.
-2. Check the result: `git archive <new>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md`
-   and `src/backend/Altinn.Receipt/Program.cs` may differ.
-3. **Keep `../Dockerfile` as equal to `Dockerfile` as possible.** It mirrors the upstream file line for line (base
-   images and digests, the Node bundle stage, the SDK publish stage, the chiseled runtime as `$APP_UID`), and every
-   deviation is marked `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in
-   `../Dockerfile`; the same for `.dockerignore`.
-4. Fix the localtest code (`../fakes/`, the overrides) for upstream's changes, update the commit line above, build the
-   image (`podman build -t localtest-receipt:dev ..`) and run `../smoke-test.sh`. Commit the re-pin of the vendored
-   files on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync receipt` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+The copy is the whole repository (`paths` is `.`), so a top-level entry upstream adds or deletes is handled too.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (base images and digests, the Node bundle stage, the SDK publish stage,
+the chiseled runtime as `$APP_UID`), and every deviation is marked `localtest:`; the tool three-way merges upstream's
+changes into it when that is clean, and otherwise prints the hunk to carry over by hand. Never let it drift into a
+different build. The same for `../.dockerignore`.

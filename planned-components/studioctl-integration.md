@@ -91,9 +91,9 @@ Notifications and Correspondence stay out of scope; their prefixes keep answerin
 - **Vendoring.** The monorepo brings external repositories in with non-squashed `git subtree` of whole repositories.
   The components vendor *parts* of repositories (Register: two folders and root build files; Access Management: six
   folders, `containers/` and build files), which `git subtree` cannot take without `git subtree split` per folder
-  in a clone of each upstream. Keep the copy-plus-`UPSTREAM.md` model with `tools/repin-vendor.py` (three-way merges
-  of the `LOCALTEST` files, reports conflicts), and add a CI check that re-runs `git archive <pin> <paths>` and
-  `diff -rq` against `vendor/` so the "unmodified except directives" rule is enforced.
+  in a clone of each upstream. Keep the copy-plus-`UPSTREAM.md` model with `tools/vendor-sync.py` (since task 58: the pin
+  and paths in a metadata block, `sync` merges the `LOCALTEST` files and reports conflicts, `check` enforces the
+  "unmodified except directives" rule from blobs; a CI job could run `check --all`).
 - Root `Makefile`: a `repin-<component>` target per component (or one per upstream repository: the three
   altinn-auth components re-pin together) next to the existing subtree targets.
 

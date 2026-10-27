@@ -70,20 +70,19 @@ All four are in `components/api/src/Altinn.Notifications/Program.cs`:
    `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). The skipped function holds the only signal-specific
    `AddOtlpExporter`, so `UseOtlpExporter()` does not clash with it.
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-notifications` with both commits, re-pin with the shared script, which takes upstream's
-   new version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
-   deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor components/api/src components/shared/src components/api/Dockerfile Directory.Build.props Directory.Build.targets Directory.Packages.props global.json stylecop.json`.
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and `components/api/src/Altinn.Notifications/Program.cs` may differ.
-3. **Keep `../Dockerfile` as equal to `components/api/Dockerfile` as possible.** It mirrors the upstream file (base images
-   and digests, the layered restore, publish, `tzdata`, the `Migration` and `Views` copies, the `dotnet` user), and every
-   deviation is marked `localtest:`. When `git diff <pin> <new> -- components/api/Dockerfile` shows a change, make the
-   same change in `../Dockerfile`.
-4. Fix the localtest code (`../fakes/`, the overrides, `../postgres-init/`) for upstream's changes (the notification
-   services, the publisher interfaces and `UpdateSendStatus` are what the fakes depend on), update the commit line above,
-   build the image (`podman build -t localtest-notifications:dev ..`) and run `../smoke-test.sh`. Every re-pin runs the
-   Yuniql migrations again on a fresh volume. Commit the re-pin of the vendored files on its own, separate from localtest
-   changes.
+`python3 localtest/tools/vendor-sync.py sync notifications` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile` mirrors upstream's `components/api/Dockerfile` (base images and digests, the layered restore, publish,
+`tzdata`, the `Migration` and `Views` copies, the `dotnet` user), and every deviation is marked `localtest:`; the tool
+three-way merges upstream's changes into it when that is clean, and otherwise prints the hunk to carry over by hand.
+Never let it drift into a different build.
+
+What the localtest code follows: `../fakes/`, the overrides and `../postgres-init/`; the fakes depend on the
+notification services, the publisher interfaces and `UpdateSendStatus`. Every sync runs the Yuniql migrations again on a
+fresh volume (a reminder).

@@ -70,16 +70,17 @@
 | `src/Altinn.DialogportenAdapter.WebApi/Settings.cs` | `GetAppUriForOrg` / `GetPlatformUri` build `{org}.apps.{host}` and `platform.{host}` without the port; `#else` the one origin of `Altinn:BaseUri`, port kept |
 | `src/Altinn.DialogportenAdapter.WebApi/Features/Command/Sync/StorageDialogportenDataMerger.cs` (two blocks) | `element.SelfLinks.Platform` (Storage hard-codes `https://platform.{host}`); `#else` `LocaltestLinks.ToLocalPlatformUrl`, the same URL on the stack's origin. Identical lines in `CreateAttachmentDto` and `CreateTransmissionAttachmentDto` |
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-dialogporten-adapter` with both commits, re-pin with the shared script, which takes upstream's new version of
-   every file that is unchanged locally, three-way merges the four files with `LOCALTEST` sites, adds and deletes files, and reports conflicts:
-   `../../../tools/repin-vendor.py <clone> <pin> <new> . src/Altinn.DialogportenAdapter.WebApi src/Altinn.DialogportenAdapter.Contracts Directory.Build.props global.json Dockerfile .dockerignore`
-   (run from this folder).
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md` and the four
-   files with sites (`Program.cs`, `ServiceCollectionExtensions.cs`, `Settings.cs`, `StorageDialogportenDataMerger.cs`) may differ.
-3. **Keep `../Dockerfile` as equal to `vendor/Dockerfile` as possible.** When `git diff <pin> <new> -- Dockerfile` shows a change (a base
-   image digest, a step), make the same change in `../Dockerfile`.
-4. Fix the fakes (`../fakes/`) for upstream's changes (a new required setting goes into `LocaltestAdapterExtensions.AddLocaltestConfiguration`),
-   update the commit line above, build the image (`podman build -t localtest-dialogporten-adapter:dev ..`) and run `../smoke-test.sh`.
-   Commit the re-pin of the vendored files on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync dialogporten-adapter` from the repository root stages the sync and prints
+what to triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (a base image digest, the steps), and every deviation is marked
+`localtest:`; the tool three-way merges upstream's changes into it when that is clean, and otherwise prints the hunk to
+carry over by hand. Never let it drift into a different build.
+
+What the localtest code follows: `../fakes/`; a new required setting goes into
+`LocaltestAdapterExtensions.AddLocaltestConfiguration`.

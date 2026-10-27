@@ -66,19 +66,17 @@ Five sites:
   `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
 - `src/Storage/Controllers/InstancesController.cs`, `BuildRequestLink`.
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-storage`, list what changed in the copied paths since the pin:
-   `git diff --stat <pin> <new> -- src/Storage src/DbTools Directory.Build.props .editorconfig .csharpierignore .config/dotnet-tools.json infra/postgres_init.sql Dockerfile`.
-2. Copy the changed files over the vendored ones (`git show <new>:<path> > <path>`, or `git archive <new> <paths> | tar -x`
-   for added files; delete files deleted upstream). The `LOCALTEST` sites (`src/Storage/Program.cs`,
-   `src/Storage/Controllers/InstancesController.cs`) need a three-way merge instead: take the upstream file and put
-   the directive blocks back unchanged.
-3. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and the files with `LOCALTEST` sites may differ.
-4. **Keep `../Dockerfile` as equal to `vendor/Dockerfile` as possible.** It mirrors the upstream file line for line
-   (base images and digests, DbTools build, `Migration` copy, `USER`), and every deviation is a line or block marked
-   `localtest:`. When `git diff <pin> <new> -- Dockerfile` shows a change, make the same change in `../Dockerfile`; never
-   let it drift into a different build.
-5. Update the commit line above, build the image (`podman build -t localtest-storage:dev ..`) and run
-   `../../../smoke-test.sh` against it (with `studioctl env up -r localtest-v2 --dev storage`). Commit the sync on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync storage` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (base images and digests, the DbTools build, the `Migration` copy,
+`USER`), and every deviation is marked `localtest:`; the tool three-way merges upstream's changes into it when that is
+clean, and otherwise prints the hunk to carry over by hand. Never let it drift into a different build.
+
+Storage has no smoke test of its own: the root `../../../smoke-test.sh` exercises it, against an image built with
+`--dev-storage`.

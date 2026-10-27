@@ -61,30 +61,23 @@ Two sites, under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authenticat
 - `Controllers/AuthenticationController.cs`: `IsSafeSameOrSubdomainHttps`, whose `#else` also accepts http (the stack
   is plain http).
 
-## Syncing to a newer upstream commit
+## Syncing
 
-Authentication, Authorization and Access Management vendor the same commit; re-pin all three together.
-`../../tools/repin-vendor.py <clone> <pin> <new> vendor <paths>` does steps 1 and 2 (it three-way merges
-the files with `LOCALTEST` sites and reports conflicts).
+Run it for the group: Authentication, Authorization and Access Management vendor one `Altinn/altinn-auth` commit and
+share libraries (`Api.Contracts`, `ABAC`, `PEP`): they are the group `altinn-auth`, which the tool moves as one (`sync
+altinn-auth`, or any of the three). `python3 localtest/tools/vendor-sync.py sync altinn-auth` from the repository root
+stages the sync and prints what to triage, build and verify; the agent finishes it by hand as
+[`docs/vendor-sync.md`](../../../docs/vendor-sync.md) describes (resolve, `check`, build, verify, two commits). Without
+`--to` it takes the head of `main`. The metadata block above drives it: the copied `paths`, the `mirrors` it merges or
+reports, the `watch`ed paths, the `projects` to build, the package versions that `follow` the host, and the `reminders`
+it prints.
 
-1. In a clone of `Altinn/altinn-auth`, list what changed in the copied paths since the pin. The build files to
-   include are `.editorconfig`, `global.json` and the `Directory.Build.*` / `Directory.Packages.props` files that
-   exist at `src/`, `src/apps/` and `src/pkgs/` (the repository root has none):
-   `git diff --stat <pin> <new> -- src/apps/Altinn.Authentication src/pkgs/JWTCookieAuthentication <build files>`.
-2. Copy the changed files over the vendored ones (`git archive <new> <paths> | tar -x`; delete files deleted upstream).
-   Quote the paths: upstream has a file named `TokenClientAuthType .cs`, with a space, which an unquoted path list
-   splits. The two `LOCALTEST` sites (`AuthenticationHost.cs`, `Controllers/AuthenticationController.cs`) need a
-   three-way merge: take the upstream file and put the directive blocks back unchanged.
-3. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and the two files with `LOCALTEST` sites may differ.
-   Then grep the new tree for cookies written other than through `Response.Cookies` (a raw `Set-Cookie` header):
-   `grep -rn 'Set-Cookie\|HeaderNames.SetCookie' src/apps/Altinn.Authentication/src`. The cookie policy in
-   `../fakes/Cookies/` removes `Secure` on http only from cookies appended or deleted through `Response.Cookies`
-   (`../../../reviews/cookies.md`, task 21b); none is written otherwise at this pin.
-4. **Keep `../Dockerfile` as equal to `src/apps/Altinn.Authentication/Dockerfile` as possible.** It mirrors the upstream
-   file line for line (base images and digests, publish, the `dotnet` user), and every deviation is a line or block
-   marked `localtest:`. When `git diff <pin> <new> -- src/apps/Altinn.Authentication/Dockerfile` shows a change, make
-   the same change in `../Dockerfile`. (`docker-bake.hcl` builds from the shared `containers/` files, but its default
-   target list is empty, so the classic `Dockerfile` is the one to follow.)
-5. Update the commit line above, build the image (`podman build -t localtest-authentication:dev ..`) and run
-   `../smoke-test.sh`. Commit the sync on its own, separate from localtest changes.
+`../Dockerfile` mirrors upstream's `src/apps/Altinn.Authentication/Dockerfile` (base images and digests, publish, the
+`dotnet` user), and every deviation is marked `localtest:`; the tool three-way merges upstream's changes into it when
+that is clean, and otherwise prints the hunk to carry over by hand. Never let it drift into a different build.
+`docker-bake.hcl` builds from the shared `containers/` files, but its default target list is empty, so the classic
+`Dockerfile` is the one to follow; the tool reports a change to the bake file (`watch`).
+
+The cookie policy in `../fakes/Cookies/` removes `Secure` on http only from cookies appended or deleted through
+`Response.Cookies` (`../../../reviews/cookies.md`, task 21b); none is written otherwise at this pin, and a reminder
+greps the new tree for a raw `Set-Cookie` header at every sync.

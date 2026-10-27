@@ -78,18 +78,20 @@ Three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Prog
   `LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config)` (OpenTelemetry over OTLP when
   `OTEL_EXPORTER_OTLP_ENDPOINT` is set, `../fakes/LocaltestAuthorizationTelemetry.cs`).
 
-## Syncing to a newer upstream commit
+## Syncing
 
-Authentication, Authorization and Access Management vendor the same `Altinn/altinn-auth` commit and share libraries
-(`Api.Contracts`, `ABAC`, `PEP`), so re-pin all three together.
+Run it for the group: Authentication, Authorization and Access Management vendor one `Altinn/altinn-auth` commit and
+share libraries (`Api.Contracts`, `ABAC`, `PEP`): they are the group `altinn-auth`, which the tool moves as one (`sync
+altinn-auth`, or any of the three). `python3 localtest/tools/vendor-sync.py sync altinn-auth` from the repository root
+stages the sync and prints what to triage, build and verify; the agent finishes it by hand as
+[`docs/vendor-sync.md`](../../../docs/vendor-sync.md) describes (resolve, `check`, build, verify, two commits). Without
+`--to` it takes the head of `main`. The metadata block above drives it: the copied `paths`, the `mirrors` it merges or
+reports, the `watch`ed paths, the `projects` to build, the package versions that `follow` the host, and the `reminders`
+it prints.
 
-1. In a clone of `Altinn/altinn-auth` with both commits, re-pin with the shared script, which takes upstream's new
-   version of every file that is unchanged locally, three-way merges the files with `LOCALTEST` sites, adds and
-   deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src/apps/Altinn.Authorization src/libs/Altinn.Authorization.Api.Contracts src/pkgs/Altinn.Authorization.ABAC src/pkgs/Altinn.Authorization.PEP <build files>`.
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only
-   `UPSTREAM.md` and `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` may differ.
-3. **Keep `../Dockerfile` as equal to `src/apps/Altinn.Authorization/Dockerfile` as possible.** It mirrors that file line for line (base images and digests, publish, tzdata and krb5-libs, the `dotnet` user), and every deviation is marked `localtest:`. When `git diff <pin> <new> -- src/apps/Altinn.Authorization/Dockerfile` shows a change, make the same change in `../Dockerfile`. (`docker-bake.hcl` has an empty default group at the 2026-10-19 pin, so nothing is released from it.)
-4. Fix the localtest code (`../fakes/`, the overrides) for upstream's moves and renames, update the commit line above,
-   build the image (`podman build -t localtest-authorization:dev ..`) and run the smoke tests. Commit the re-pin of the
-   vendored files on its own, separate from localtest changes.
+`../Dockerfile` mirrors upstream's `src/apps/Altinn.Authorization/Dockerfile` (base images and digests, publish, tzdata
+and krb5-libs, the `dotnet` user), and every deviation is marked `localtest:`; the tool three-way merges upstream's
+changes into it when that is clean, and otherwise prints the hunk to carry over by hand. Never let it drift into a
+different build. `docker-bake.hcl` had an empty default group at the 2026-10-19 pin. Upstream moved the release to
+`docker-bake.hcl` and `src/apps/Altinn.Authorization/containers/Dockerfile.api` on 2026-10-27 (`0a905aa`, `6228127`);
+the tool reports both as watched paths, and the next sync decides what `../Dockerfile` mirrors.

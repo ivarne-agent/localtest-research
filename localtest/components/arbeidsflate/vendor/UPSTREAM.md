@@ -74,35 +74,22 @@ request would have.
 | `.dockerignore` | `../.dockerignore` |
 | `packages/frontend/start.sh` | used as is, copied from `vendor/` |
 
-## Syncing to a newer upstream commit
+## Syncing
 
-With `<clone>` a clone of `Altinn/dialogporten-frontend` that has both commits and `<new>` the new commit, from
-`localtest/components/arbeidsflate`:
+`python3 localtest/tools/vendor-sync.py sync arbeidsflate` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
 
-1. Replace the copy and keep it byte-identical (no local change lives in `vendor/`, so `tools/repin-vendor.py` has
-   nothing to merge):
-   ```sh
-   mv vendor/UPSTREAM.md ../UPSTREAM.md.keep && git rm -rq vendor && rm -rf vendor && mkdir vendor
-   git -C <clone> archive <new> | tar -x -C vendor
-   git add -f vendor
-   git ls-files -s vendor | while read -r mode _ _ f; do
-     [ -L "$f" ] || ! grep -q $'\r' "$f" || git update-index --cacheinfo "$mode,$(git hash-object -w --no-filters "$f"),$f"
-   done
-   test "$(git write-tree --prefix=localtest/components/arbeidsflate/vendor/)" = "$(git -C <clone> rev-parse '<new>^{tree}')"
-   ```
-   Commit that alone ("vendor … at <new>, unmodified"), then move `UPSTREAM.md` back and update the commit line.
-2. Re-check the patches against the new tree, and regenerate a failing hunk by hand with `diff -u`, keeping it as small
-   as it is now:
-   ```sh
-   tmp=$(mktemp -d) && git -C <clone> archive <new> | tar -x -C "$tmp" && (cd "$tmp" && git apply --check -v -p1 "$OLDPWD"/patches/*.patch)
-   ```
-3. Carry upstream's changes to the mirrored files over: `git -C <clone> diff <pin> <new> -- packages/bff/Dockerfile
-   packages/frontend/Dockerfile packages/frontend/nginx.conf packages/frontend/start.sh packages/frontend/index.html
-   .dockerignore .node-version package.json pnpm-workspace.yaml`, and bump the base image digests in both Dockerfiles
-   when upstream's tags move.
-4. Read `git -C <clone> diff <pin> <new> -- packages/bff/src/config.ts packages/bff/src/auth packages/bff/src/server.ts`
-   for new or renamed environment variables, cookie or session changes, and new platform calls; the BFF's environment is
-   in studioctl's `components.go` (`arbeidsflateBFFComponent`) and documented in `../README.md`.
-5. Build both images (`podman build -f Dockerfile.bff -t localtest-arbeidsflate-bff:dev .`, `podman build -f
-   Dockerfile.frontend -t localtest-arbeidsflate:dev .`, one at a time) or `studioctl env up -r localtest-v2 --with
-   arbeidsflate --dev arbeidsflate`, and run `../smoke-test.sh`.
+Here `sync` writes upstream's tree blob for blob (so the CRLF files and the files upstream's `.gitignore` ignores stay
+as upstream has them), then carries each patch over: it cherry-picks the patch, applied to the old tree in a scratch
+repository, onto the new tree, rewrites a clean one with fresh context and its `Against` line, and reports a conflicting
+one, which keeps its old text and needs a hand-made hunk as small as it is now. `check` applies every patch (`git apply
+--check`) to `vendor/`.
+
+The mirrored files in the table above and the watched ones (`package.json`, `pnpm-workspace.yaml`, `.node-version`,
+`packages/frontend/start.sh` and `index.html`, the BFF's `config.ts`, `auth/` and `server.ts`) are reported with
+upstream's diff: new or renamed BFF settings go into studioctl's `components.go` (`arbeidsflateBFFComponent`) and
+`../README.md`, cookie or session changes into the patches. Build both images (`podman build -f Dockerfile.bff -t
+localtest-arbeidsflate-bff:dev .`, then `Dockerfile.frontend`, one at a time) and run `../smoke-test.sh`.

@@ -72,28 +72,26 @@ upstream's configuration instead (`../fakes/Auth/LocaltestAuthentication.cs`). F
 which covers every cookie written through `Response.Cookies` (none is written as a raw `Set-Cookie` header at this pin; grep for
 `Set-Cookie` after a re-pin). A further site needs a report first.
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/altinn-correspondence` with both commits, re-pin with the shared script, which takes upstream's new version of
-   every file that is unchanged locally, three-way merges the three locally changed files (`Program.cs`, `XacmlRequestFactory.cs`, `IdportenTokenValidator.cs`), adds and deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor src Dockerfile docker-compose.yml`.
-2. Check the result: `git archive <new> src Dockerfile docker-compose.yml` into an empty folder and `diff -rq` it against `vendor/`.
-   Only `UPSTREAM.md`, `src/Altinn.Correspondence.API/Program.cs`,
-   `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs` and
-   `src/Altinn.Correspondence.API/Auth/IdportenTokenValidator.cs` may differ.
-   Check that the factory's `#if !LOCALTEST` branch is still upstream's party-id condition word for word; if
-   upstream now passes `urn:altinn:partyid:{id}` from `AltinnAuthorizationService.CreateDecisionRequest` and
-   `AltinnTokenXacmlMapper` (the issue drafted in `planned-components/correspondence/party-ids.md`, option (c)), delete the block
-   and the smoke test's app-lib and recipient checks prove the 6-digit ids still pass. Check that the validator's `#if !LOCALTEST`
-   branch is still upstream's retriever word for word; if upstream now builds it from the scheme's options (its
-   `RequireHttpsMetadata`, which the fakes set to false) or reads `options.Configuration`'s discovery, delete the block and the smoke
-   test's browser-download section proves the http metadata is still read. Check also that `ConfigureAuthentication` still names the
-   correlation cookie and the callback path the fakes and the smoke test rely on.
-3. **Keep `../Dockerfile` as equal to `Dockerfile` as possible.** It mirrors the upstream file (the six-project restore layer, publish,
-   port 2525, the `dotnet` user, `/mnt/storage`), and every deviation is marked `localtest:`. When `git diff <pin> <new> -- Dockerfile`
-   shows a change, make the same change in `../Dockerfile`; bump the two pinned base-image digests to what `10.0` points at then.
-4. Fix the localtest code (`../fakes/`, the overrides) for upstream's changes: `IStorageRepository`, `IResourceManager`, the scheme names
-   and `ConfigureAuthentication`, the configuration keys of `../fakes/LocaltestCorrespondence.cs`, the entities and the Hangfire schema
-   the inspection API reads. Update the commit line above and the migration count the smoke test expects, build the image
-   (`podman build -t localtest-correspondence:dev ..`) and run `../smoke-test.sh`. Commit the re-pin of the vendored files on its own,
-   separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync correspondence` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile` mirrors upstream's `Dockerfile` (the six-project restore layer, publish, port 2525, the `dotnet` user,
+`/mnt/storage`), and every deviation is marked `localtest:`; the tool three-way merges upstream's changes into it when
+that is clean, and otherwise prints the hunk to carry over by hand. Never let it drift into a different build. Its two
+pinned base-image digests move to what `10.0` points at then.
+
+What the localtest code follows: `IStorageRepository`, `IResourceManager`, the scheme names and
+`ConfigureAuthentication`, the configuration keys of `../fakes/LocaltestCorrespondence.cs`, the entities and the
+Hangfire schema the inspection API reads, and the migration count the smoke test expects.
+
+The two `#if !LOCALTEST` branches are checked against upstream by the tool. The factory's block goes when upstream
+passes `urn:altinn:partyid:{id}` from `AltinnAuthorizationService.CreateDecisionRequest` and `AltinnTokenXacmlMapper`
+(option (c) of `planned-components/correspondence/party-ids.md`; upstream #2157 did, so it is the next task's), and the
+smoke test's app-lib and recipient checks prove the 6-digit ids still pass. The validator's block goes when upstream
+builds the retriever from the scheme's options (its `RequireHttpsMetadata`, which the fakes set to false) or reads
+`options.Configuration`'s discovery; the smoke test's browser-download section proves the http metadata is still read.

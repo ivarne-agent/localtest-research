@@ -42,7 +42,7 @@ port 8000.
 | `aspire/samples/app/` | The Aspire sample: the `ttd/testapp` fixture completed into an app on app-lib 8.12.15 (`App/`) and the single-file AppHosts that run it with a second copy, on the full stack (`AppHost/apphost.cs`) and in minimal mode (`AppHost/apphost-minimal.cs`) |
 | `studioctl/` | The studioctl source vendored from `Altinn/altinn-studio` with the `localtest-v2` runtime on top, built from here until it is upstreamed (see its [README](studioctl/README.md) and [UPSTREAM.md](studioctl/UPSTREAM.md)) |
 | `tools/bump-tag.sh` | Moves every research image's `sha-<commit>` pin in the manifest to one build ([`CONVENTIONS.md`](CONVENTIONS.md#tags)) |
-| `tools/repin-vendor.py` | Re-pins a component's `vendor/` to a newer upstream commit: takes upstream's version of unchanged files, three-way merges the files with `LOCALTEST` sites, reports conflicts (see each `vendor/UPSTREAM.md`) |
+| `tools/vendor-sync.py` | The vendored copies against upstream: `check` proves each `vendor/` is upstream at its pin plus `LOCALTEST` blocks, `status` shows how far upstream has moved, `sync` stages a new pin for an agent to finish ([`docs/vendor-sync.md`](docs/vendor-sync.md)); the pin and paths are the metadata block in each `vendor/UPSTREAM.md` |
 | `reviews/` | Reviews of how each component is localtestified: vendored code fidelity, Dockerfile, fakes, differences from production, findings (dated records) |
 | `smoke/apps/` | The `ttd/testapp` fixture (metadata, texts, policy) the smoke tests push |
 | `smoke/lib/containers.sh` | The smoke tests' container names under either runtime, and requests from inside the stack's network ([Tests](#tests)) |
@@ -361,6 +361,7 @@ With the arbeidsflate group (task 11, 2026-10-21) the inbox runs on `af.local.al
 With task 11b (2026-10-21, `--with arbeidsflate --with correspondence --dev correspondence --dev authentication`) a Correspondence attachment clicked in the inbox downloads over plain http, without a picker when the user is signed in: Correspondence challenges its own OIDC client (`correspondence-localtest`, Authentication's third seeded client), Authentication reuses the browser's session, and one `#if !LOCALTEST` site lets Correspondence's `IdportenTokenValidator` read Authentication's metadata over http; its correlation and nonce cookies are `SameSite=Lax` without `Secure` (fakes). Checked in Chromium (`components/arbeidsflate/docs/attachment.png`). Every suite passes with both groups: Correspondence 76 (64 and the browser download's 12), Authentication 32, Arbeidsflate 56, Dialogporten 60, root 26; the platform regression 44 of 44 on the default stack with `--dev authentication`.
 
 Not yet: the inspection GUI over the components' `api/localtest/` endpoints (deferred); a
-CI check that every `vendor/` is upstream plus `LOCALTEST` blocks (`tools/repin-vendor.py` re-pins, nothing checks);
+CI check that every `vendor/` is upstream plus `LOCALTEST` blocks (`tools/vendor-sync.py check --all` is run by hand, no CI
+for now);
 a smoke run in CI against the stack; and the rest of the studioctl integration (upstreaming; `/app-frontend/` needs the
 built frontend mounted, `FRONTEND_DIST`, which neither runtime does). All of it, with status, is in [`../TODO.md`](../TODO.md).

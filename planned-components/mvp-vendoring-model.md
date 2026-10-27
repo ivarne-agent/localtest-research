@@ -236,8 +236,8 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
   Register links a separate fakes project (`fakes/Altinn.Register.Localtest/`).
 - **Copies, not subtrees.** `vendor/` is a `git archive` (or an identical `rsync`) of the pinned upstream paths,
   committed unmodified first; `vendor/UPSTREAM.md` holds the pin, the copied paths, every directive site and the
-  re-pin steps (`localtest/tools/repin-vendor.py`). The automated check that `vendor/` is upstream plus directive
-  blocks is task 1, deferred.
+  re-pin steps (then `localtest/tools/repin-vendor.py`; since task 58 the metadata block of
+  `localtest/tools/vendor-sync.py`, whose `check` proves `vendor/` is upstream plus directive blocks).
 - **Dockerfiles mirror upstream.** Same base images, build steps and runtime user, every difference a `localtest:`
   line; Correspondence pins upstream's floating tags by digest as such a deviation.
 - **The shared Maskinporten fake is copied.** One canonical source in

@@ -99,17 +99,18 @@ Two `#if !LOCALTEST` blocks, the first added with the Dialogporten adapter (task
 | `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs` (two blocks) | The trace and metric `AddOtlpExporter` options of `AddDialogportenTelemetry`: `#if !LOCALTEST` upstream's `options.Endpoint = endpoint; options.Protocol = otlpProtocol;` `#else` nothing, so the exporter reads `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_PROTOCOL` itself. An endpoint set in code gets no signal path, so with `http/protobuf` upstream posts traces and metrics to the bare endpoint, where a collector answers 404; from the variable the SDK appends `/v1/traces` and `/v1/metrics`. `grpc` is unchanged. The Serilog log sinks and the "protocol must be set" checks are unchanged (TODO.md task 53) |
 | `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` (two blocks) | Both `IsValidHttpsUrl` overloads (string and `Uri`) require `https`; `#else` accepts `http` too. The stack is plain http on `http://local.altinn.cloud:8000`, so every link the adapter puts in a dialog (GUI actions, API action endpoints, attachment and transmission URLs) is http, and Dialogporten refused the dialog with 400 `'Url' is not a well-formatted HTTPS URL.` The rule is a validator inside the Application project's FluentValidation rules, not reachable through DI, hence a directive. The HTML content rule (`<a href>` must start with `https://`) is unchanged |
 
-## Syncing to a newer upstream commit
+## Syncing
 
-1. In a clone of `Altinn/dialogporten` with both commits, re-pin with the shared script, which takes upstream's new version of every file that is
-   unchanged locally, three-way merges the three Program.cs files, `FluentValidationStringExtensions.cs` and `OpenTelemetryExtensions.cs`, adds and deletes files, and reports conflicts:
-   `../../tools/repin-vendor.py <clone> <pin> <new> vendor Directory.Build.props .editorconfig global.json src/Digdir.Domain.Dialogporten.WebApi ... `
-   (every path of the list above).
-2. Check the result: `git archive <new> <paths>` into an empty folder and `diff -rq` it against `vendor/`. Only `UPSTREAM.md`, the three
-   `Program.cs` files, `FluentValidationStringExtensions.cs` and `OpenTelemetryExtensions.cs` may differ.
-3. **Keep `../Dockerfile.webapi`, `.graphql` and `.service` as equal to upstream's three per-host Dockerfiles as possible.** When
-   `git diff <pin> <new> -- src/Digdir.Domain.Dialogporten.*/Dockerfile` shows a change (a base image digest, a step), make the same change in all three.
-4. Fix the fakes (`../fakes/`) for upstream's changes (a new `LocalDevelopment` flag goes into `LocaltestConfiguration`; the two
-   `TokenIssuerCache.cs` copies follow upstream's), update the commit line above, build the three images
-   (`podman build -f Dockerfile.<host> -t localtest-dialogporten-<host>:dev ..`) and run `../smoke-test.sh`. Commit the re-pin of the vendored
-   files on its own, separate from localtest changes.
+`python3 localtest/tools/vendor-sync.py sync dialogporten` from the repository root stages the sync and prints what to
+triage, build and verify; the agent finishes it by hand as [`docs/vendor-sync.md`](../../../docs/vendor-sync.md)
+describes (resolve, `check`, build, verify, two commits). Without `--to` it takes the head of `main`. The metadata block
+above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
+the package versions that `follow` the host, and the `reminders` it prints.
+
+`../Dockerfile.webapi`, `.graphql` and `.service` mirror upstream's three per-host Dockerfiles, and every deviation is
+marked `localtest:`; the tool merges upstream's changes into each when that is clean, and otherwise prints the hunk (a
+`localtest:` comment next to a changed `FROM` line conflicts). `Infrastructure/MigrationBundle.dockerfile` is watched.
+
+What the localtest code follows: a new `LocalDevelopment` flag goes into `LocaltestConfiguration`, and the two
+`TokenIssuerCache.cs` copies in `../fakes/` follow upstream's. The host builds rewrite each host's `packages.lock.json`;
+restore them before `check`.
