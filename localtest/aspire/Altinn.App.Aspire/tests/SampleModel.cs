@@ -52,12 +52,14 @@ internal sealed class SampleModel
         bool withApp = false,
         string dataDirectory = DataDirectory,
         Action<AltinnAppOptions>? configureApp = null,
-        Action<AltinnLocaltestOptions>? configure = null
+        Action<AltinnLocaltestOptions>? configure = null,
+        string? caBundle = null
     )
     {
         var builder = DistributedApplication.CreateBuilder(
             new DistributedApplicationOptions { Args = [], DisableDashboard = true }
         );
+        WithHostCaBundle(builder, caBundle);
         var localtest = builder.AddAltinnLocaltest(configure: o =>
         {
             o.DataDirectory = dataDirectory;
@@ -75,12 +77,14 @@ internal sealed class SampleModel
     public static SampleModel BuildMinimal(
         bool withApps = false,
         string dataDirectory = DataDirectory,
-        Action<AltinnLocaltestMinimalOptions>? configure = null
+        Action<AltinnLocaltestMinimalOptions>? configure = null,
+        string? caBundle = null
     )
     {
         var builder = DistributedApplication.CreateBuilder(
             new DistributedApplicationOptions { Args = [], DisableDashboard = true }
         );
+        WithHostCaBundle(builder, caBundle);
         var localtest = builder.AddAltinnLocaltestMinimal(configure: o =>
         {
             o.DataDirectory = dataDirectory;
@@ -94,6 +98,12 @@ internal sealed class SampleModel
         }
         return new SampleModel(builder, localtest, app);
     }
+
+    /// <summary>
+    /// The AppHost's <c>STUDIO_CA_BUNDLE</c>: the given path, or none, whatever the machine running the tests has.
+    /// </summary>
+    private static void WithHostCaBundle(IDistributedApplicationBuilder builder, string? caBundle) =>
+        builder.Configuration[Manifest.LocaltestManifest.CaBundleVariable] = caBundle ?? "";
 
     public IReadOnlyList<IResource> Resources => [.. Builder.Resources];
 

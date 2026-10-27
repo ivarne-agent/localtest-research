@@ -45,6 +45,9 @@ internal static partial class Log
     [LoggerMessage(LogLevel.Warning, "frontend dev server: the route could not be registered ({Url})")]
     public static partial void LogDevServerRouteFailed(this ILogger logger, Exception exception, string url);
 
+    [LoggerMessage(LogLevel.Warning, "{Warning}")]
+    public static partial void LogCaBundleUnreadable(this ILogger logger, string warning);
+
     [LoggerMessage(LogLevel.Information, "{Command}: {Arguments}")]
     public static partial void LogRuntimeCommand(this ILogger logger, string command, string arguments);
 }

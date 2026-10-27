@@ -13,7 +13,8 @@ namespace Altinn.App.Aspire.Tests;
 /// (the app's environment). Per container, every field both runners have is compared byte for byte with the
 /// application model the package builds: the selection and its start order, the image reference (the default stack;
 /// the <c>everything</c> snapshot runs <c>latest</c> and dev builds), the environment with the <c>services__</c>
-/// variables, the mounts (a named volume by its manifest id: each runner prefixes the id with its own prefix; a tmpfs
+/// variables, the mounts (the <c>everything</c> snapshot on a host with a CA bundle, which the package's model gets too,
+/// the others without) (a named volume by its manifest id: each runner prefixes the id with its own prefix; a tmpfs
 /// of minimal mode by its path and options, which the package passes as <c>--tmpfs path:options</c>), the
 /// published port, the extra hosts, the network alias, the dependencies and the health target. Not compared, being one
 /// runner's own: the network, the container names, the volume names, pull policies, SELinux relabelling, dev builds,
@@ -115,7 +116,12 @@ public sealed class GoldenComparisonTests
         selection switch
         {
             "minimal" => SampleModel.BuildMinimal(dataDirectory: DataDirectory),
-            "everything" => SampleModel.Build(["everything"], dataDirectory: DataDirectory),
+            // On a host with a CA bundle, as studioctl's everything snapshot: the same content, so the same copy.
+            "everything" => SampleModel.Build(
+                ["everything"],
+                dataDirectory: DataDirectory,
+                caBundle: CaBundleTests.GoldenBundle()
+            ),
             // studioctl's env up --host origin.test --port 18000.
             "customOrigin" => SampleModel.Build(
                 [],

@@ -39,6 +39,16 @@ internal sealed partial class LocaltestManifest
     /// <summary>The health of a container that is up once its port accepts a connection (Postgres, Redis).</summary>
     public const string HealthTcp = "tcp";
 
+    /// <summary>
+    /// A PEM file of extra CA certificates to trust: on the host the developer's (a TLS-intercepting proxy's CA), in a
+    /// container with <c>caBundle</c> the runner's mount of it at <see cref="CaBundlePath" />. studioctl's
+    /// <c>CABundleVariable</c>.
+    /// </summary>
+    public const string CaBundleVariable = "STUDIO_CA_BUNDLE";
+
+    /// <summary>Where a container with <c>caBundle</c> finds the host's CA bundle, read-only.</summary>
+    public const string CaBundlePath = "/etc/localtest/ca-bundle.pem";
+
     /// <summary>The embedded manifest's resource name.</summary>
     public const string Resource = "Altinn.App.Aspire.manifest.json";
 
@@ -316,6 +326,14 @@ internal sealed partial class LocaltestManifest
             }
         }
         CheckFiles(c, Fault);
+        if (c.CaBundle && c.Envs.ContainsKey(CaBundleVariable))
+        {
+            throw Invalid(Fault($"caBundle: envs sets {CaBundleVariable}, which the runner sets"));
+        }
+        if (c.CaBundle && (c.Files.ContainsKey(CaBundlePath) || c.Volumes.Values.Contains(CaBundlePath)))
+        {
+            throw Invalid(Fault($"caBundle: {CaBundlePath} is a volume's or a file's path too"));
+        }
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var dependency in c.DependsOn)
         {
@@ -519,6 +537,13 @@ internal sealed record ManifestContainer
 
     /// <summary>The container's port; zero is <see cref="LocaltestManifest.DefaultPort" />.</summary>
     public int Port { get; set; }
+
+    /// <summary>
+    /// Whether the container trusts the host's CA bundle (<see cref="LocaltestManifest.CaBundleVariable" />) when the
+    /// host has one: the runner mounts it at <see cref="LocaltestManifest.CaBundlePath" /> and sets the variable there.
+    /// For images that read the variable themselves (pdf3's Chromium, whose NSS store ignores the system's).
+    /// </summary>
+    public bool CaBundle { get; set; }
 
     /// <summary>An HTTP path, or <c>tcp</c>; empty is <see cref="LocaltestManifest.DefaultHealth" />.</summary>
     public string? Health { get; set; }

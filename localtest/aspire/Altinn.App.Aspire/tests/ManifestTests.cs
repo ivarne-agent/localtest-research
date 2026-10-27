@@ -83,6 +83,16 @@ public sealed class ManifestTests
             { "volume \"Db_data\"", "\"db-data\":", "\"Db_data\":" },
             { "volume \"db--data\"", "\"db-data\":", "\"db--data\":" },
             { "duplicate group extra", "\"name\": \"default\"", "\"name\": \"extra\"" },
+            {
+                "caBundle: envs sets STUDIO_CA_BUNDLE",
+                "\"envs\": { \"A\": \"b\" }",
+                "\"caBundle\": true, \"envs\": { \"STUDIO_CA_BUNDLE\": \"b\" }"
+            },
+            {
+                "caBundle: /etc/localtest/ca-bundle.pem is a volume's or a file's path too",
+                "\"volumes\": { \"db-data\": \"/data\" }",
+                "\"caBundle\": true, \"volumes\": { \"db-data\": \"/etc/localtest/ca-bundle.pem\" }"
+            },
         };
 
     [Theory]

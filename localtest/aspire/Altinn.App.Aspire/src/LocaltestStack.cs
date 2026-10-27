@@ -81,6 +81,7 @@ internal sealed class LocaltestStack
         DataDirectory = dataDirectory;
         CertificateDirectory = Path.Combine(dataDirectory, "certs");
         FilesDirectory = Path.Combine(dataDirectory, "files");
+        (CaBundle, CaBundleWarning) = HostCaBundle.Read(builder.Configuration);
     }
 
     public LocaltestManifest Manifest { get; }
@@ -128,6 +129,19 @@ internal sealed class LocaltestStack
     /// <summary>The host directory holding the files that ship with the manifest, which containers mount read-only.</summary>
     public string FilesDirectory { get; }
 
+    /// <summary>
+    /// The host's CA bundle (<c>STUDIO_CA_BUNDLE</c> in the AppHost's environment), read when the model is built; null
+    /// for none.
+    /// </summary>
+    public HostCaBundle? CaBundle { get; }
+
+    /// <summary>Why <c>STUDIO_CA_BUNDLE</c> names a file that could not be read, logged once at the start; null if not.</summary>
+    public string? CaBundleWarning { get; }
+
+    /// <summary>The host path of the CA bundle's copy, which the containers with <c>caBundle</c> mount; null for none.</summary>
+    public string? CaBundlePath =>
+        CaBundle is { } bundle ? Path.Combine(HostCaBundle.Directory(DataDirectory), bundle.FileName) : null;
+
     /// <summary>The enabled optional groups, sorted.</summary>
     public IReadOnlyCollection<string> EnabledGroups => _groups;
 
@@ -159,8 +173,8 @@ internal sealed class LocaltestStack
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>
         Minimal
-            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, FilesDirectory, _tag, Origin)
-            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, FilesDirectory, _tag, Origin);
+            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, FilesDirectory, _tag, Origin, CaBundlePath)
+            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, FilesDirectory, _tag, Origin, CaBundlePath);
 
     /// <summary>Adds the default group's containers (the minimal group's in minimal mode), then the given groups.</summary>
     public void Initialize(IResourceBuilder<AltinnLocaltestResourceBase> parent, IEnumerable<string> groups)

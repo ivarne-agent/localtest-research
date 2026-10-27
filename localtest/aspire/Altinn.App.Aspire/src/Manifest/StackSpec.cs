@@ -104,7 +104,7 @@ internal sealed record MountSpec(MountKind Kind, string Source, string Target, b
 /// </param>
 /// <param name="Mounts">
 /// The certificate (directory and legacy file), then the manifest's files sorted by their path in the container, then
-/// the named volumes (tmpfs in minimal mode) sorted by id.
+/// the host's CA bundle for a container with <c>caBundle</c>, then the named volumes (tmpfs in minimal mode) sorted by id.
 /// </param>
 /// <param name="Port">The container's port.</param>
 /// <param name="Health">The health check.</param>
@@ -191,13 +191,17 @@ internal static class StackSpec
     /// <param name="filesDirectory">The host directory holding the files that ship with the manifest.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set (<c>latest</c>, as studioctl's <c>--latest</c>).</param>
     /// <param name="origin">The public origin; null is the manifest's default.</param>
+    /// <param name="caBundle">
+    /// The host path of the host's CA bundle's copy, which the containers with <c>caBundle</c> mount; null for none.
+    /// </param>
     public static IReadOnlyList<ContainerSpec> Resolve(
         LocaltestManifest manifest,
         IEnumerable<string> groups,
         string certificateDirectory,
         string filesDirectory,
         string? tag = null,
-        PublicOrigin? origin = null
+        PublicOrigin? origin = null,
+        string? caBundle = null
     ) =>
         Resolve(
             manifest,
@@ -207,12 +211,13 @@ internal static class StackSpec
             filesDirectory,
             tag,
             origin ?? manifest.Origin(),
+            caBundle,
             minimal: false
         );
 
     /// <summary>
     /// Minimal mode, as studioctl's <c>env up --minimal</c>: the containers of the minimal group in place of the
-    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string, string?, PublicOrigin?)" />
+    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string, string?, PublicOrigin?, string?)" />
     /// resolves them but for three things: every emulated container (<see cref="Emulated" />) is announced at the
     /// front door (<c>services__&lt;name&gt;__http__0=http://localtest:8080</c>), every manifest volume is a tmpfs
     /// (<see cref="TmpfsOptions" />), and the front door keeps its app routes in memory
@@ -223,12 +228,14 @@ internal static class StackSpec
     /// <param name="filesDirectory">The host directory holding the files that ship with the manifest.</param>
     /// <param name="tag">Replaces every <c>sha-</c> pin when set.</param>
     /// <param name="origin">The public origin; null is the manifest's default.</param>
+    /// <param name="caBundle">The host path of the host's CA bundle's copy; null for none.</param>
     public static IReadOnlyList<ContainerSpec> ResolveMinimal(
         LocaltestManifest manifest,
         string certificateDirectory,
         string filesDirectory,
         string? tag = null,
-        PublicOrigin? origin = null
+        PublicOrigin? origin = null,
+        string? caBundle = null
     ) =>
         Resolve(
             manifest,
@@ -238,6 +245,7 @@ internal static class StackSpec
             filesDirectory,
             tag,
             origin ?? manifest.Origin(),
+            caBundle,
             minimal: true
         );
 
@@ -249,6 +257,7 @@ internal static class StackSpec
         string filesDirectory,
         string? tag,
         PublicOrigin origin,
+        string? caBundle,
         bool minimal
     )
     {
@@ -280,6 +289,7 @@ internal static class StackSpec
                     filesDirectory,
                     tag,
                     origin,
+                    caBundle,
                     minimal
                 )
             ),
@@ -295,10 +305,13 @@ internal static class StackSpec
         string filesDirectory,
         string? tag,
         PublicOrigin origin,
+        string? caBundle,
         bool minimal
     )
     {
         var c = manifest.Containers[name];
+        // The host's CA bundle's copy, for a container with caBundle while the host has one.
+        var bundle = c.CaBundle ? caBundle : null;
         var environment = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
         foreach (var (key, value) in manifest.Envs(name, origin))
         {
@@ -307,6 +320,10 @@ internal static class StackSpec
         foreach (var (key, value) in services)
         {
             environment[key] = OriginValue.Literal(value);
+        }
+        if (bundle is not null)
+        {
+            environment[LocaltestManifest.CaBundleVariable] = OriginValue.Literal(LocaltestManifest.CaBundlePath);
         }
         if (name == Topology.FrontDoor)
         {
@@ -333,6 +350,9 @@ internal static class StackSpec
                     f.Key,
                     true
                 )),
+            .. bundle is null
+                ? []
+                : new[] { new MountSpec(MountKind.Bind, bundle, LocaltestManifest.CaBundlePath, true) },
             .. c
                 .Volumes.OrderBy(v => v.Key, StringComparer.Ordinal)
                 .Select(v =>

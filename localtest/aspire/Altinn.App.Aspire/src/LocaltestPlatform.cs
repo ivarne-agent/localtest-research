@@ -11,7 +11,7 @@ namespace Altinn.App.Aspire;
 
 /// <summary>
 /// What <c>AddAltinnLocaltest</c> and <c>AddAltinnLocaltestMinimal</c> do alike: the parent resource, the containers,
-/// the port check, the certificate and the manifest's files before the start, and the parent's state from its containers' health.
+/// the port check, the certificate, the manifest's files and the host's CA bundle before the start, and the parent's state from its containers' health.
 /// </summary>
 internal static class LocaltestPlatform
 {
@@ -65,6 +65,13 @@ internal static class LocaltestPlatform
                 }
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
                 stack.Manifest.Files.Ensure(stack.FilesDirectory);
+                HostCaBundle.Ensure(stack.DataDirectory, stack.CaBundle);
+                if (stack.CaBundleWarning is { } warning)
+                {
+                    e.Services.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Altinn.App.Aspire")
+                        .LogCaBundleUnreadable(warning);
+                }
             }
         );
         builder.Eventing.Subscribe<InitializeResourceEvent>(parent.Resource, ReportWhenHealthyAsync);
