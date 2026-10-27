@@ -2251,17 +2251,12 @@ these.
   14 copies; the front door, Register's fakes project and Receipt build. Not in the images until the next build on main.
   The ServiceDefaults hosts (`AddLocaltestOtlpResource` only) do not get the filter.
 - Open: pdf3 (audit, and whether to make the components wait for the collector); the filter in the images.
-- TODO (2026-10-27, brief `/home/agent/code/.briefs/pdf3-otel-log-level.md`): pdf3 exports only WARN and above over
-  OTLP, as Altinn's pipeline drops the rest. altinn-studio branch `feat/pdf3-otel-log-level` (PR not yet opened) adds
-  `PDF3_OTEL_LOG_LEVEL` (default WARN), and the manifest now sets it to `INFO` (branch `pdf3-log-level-manifest`). The
-  `tt02` image ignores it until that change is deployed; then check that pdf3's INFO records reach Grafana, Aspire and
-  minimal mode's files. Proven with a dev image (`--dev-pdf3`) on `--with monitoring`: with the variable 31 INFO
-  records arrived, without it only WARN; one PDF's trace runs from the app's `PdfGeneratorClient.GeneratePdf` through
-  the front door to pdf3's `POST /pdf` and its `pdf.session.*` children (evidence
-  `/home/agent/code/.handover/pdf3-otel-log-level/`). Found on the way: pdf3's per-request INFO records are logged
-  without the request's context, so most carry no trace ID; and localtest-v2 does not pass `STUDIO_CA_BUNDLE` to pdf3,
-  so behind a TLS-intercepting proxy its Chromium cannot load the frontend from altinncdn.no (see
-  `reviews/workflow-engine.md` item 11).
+- pdf3's logs (2026-10-27, brief `/home/agent/code/.briefs/pdf3-otel-log-level.md`): pdf3 exports only WARN and above
+  over OTLP, and that stays (the user: INFO logs add nothing next to spans). A setting `PDF3_OTEL_LOG_LEVEL` was built
+  and dropped, unopened. Proven on the way (evidence `/home/agent/code/.handover/pdf3-otel-log-level/`): one PDF is one
+  trace from the app's `PdfGeneratorClient.GeneratePdf` through the front door to pdf3's `POST /pdf` and its
+  `pdf.session.*` children. Possible span metadata, not built: `altinn.app`/`altinn.service_owner` are empty in
+  localtest (derived from the host), no instance ID, no page count.
 
 ## 54. Apps and the front door on the same OTLP variable
 

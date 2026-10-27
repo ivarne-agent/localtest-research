@@ -155,7 +155,6 @@
       "envs": {
         "PDF3_ENVIRONMENT": "localtest",
         "PDF3_LOCALTEST_PUBLIC_BASE_URL": "{{origin}}",
-        "PDF3_OTEL_LOG_LEVEL": "INFO",
         "PDF3_QUEUE_SIZE": "3",
         "TZ": "Europe/Oslo"
       }
