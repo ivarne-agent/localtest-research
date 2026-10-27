@@ -8,9 +8,9 @@ proxy, other agents' containers beside yours, and no context beyond this reposit
 
 A **sync** is any of:
 
-- a component's vendored source moved to a newer upstream commit (`localtest/components/<name>/vendor`, procedure in
-  that folder's `vendor/UPSTREAM.md` and [`tools/repin-vendor.py`](../tools/repin-vendor.py); a scripted sync is
-  planned, not built, in [`vendor-sync.md`](vendor-sync.md));
+- a component's vendored source moved to a newer upstream commit (`localtest/components/<name>/vendor`, staged by
+  [`tools/vendor-sync.py`](../tools/vendor-sync.py) `sync` and finished by the agent as [`vendor-sync.md`](vendor-sync.md)
+  describes; `sync` prints which levels below apply);
 - the vendored studioctl re-based ([`studioctl/UPSTREAM.md`](../studioctl/UPSTREAM.md));
 - the image pins moved ([`tools/bump-tag.sh`](../tools/bump-tag.sh), [`CONVENTIONS.md`](../CONVENTIONS.md#tags));
 - the Aspire package changed ([`aspire/Altinn.App.Aspire/`](../aspire/Altinn.App.Aspire/README.md)).
@@ -93,10 +93,12 @@ Dialogporten 4/1/1, Resource Registry 10, Storage 4, the rest 0). Each build too
   (the service-discovery package changes the dependencies); restore them afterwards:
   `git -C "$WT" checkout -- localtest/components/dialogporten/vendor`.
 - **Arbeidsflate** (Node, pnpm) has no host build here; its check is the image build (5.1).
-- **Fidelity to upstream:** step 3 of the component's `vendor/UPSTREAM.md` (`git archive <new> <paths>` into an empty
-  folder, `diff -rq` against `vendor/`): only `UPSTREAM.md` and the files with `LOCALTEST` sites may differ. `git
-archive` applies the upstream repository's `.gitattributes` (line endings, `export-ignore`), which Register's
-  `.sln` files trip over; [`vendor-sync.md`](vendor-sync.md) section 1 lists the cases.
+- **Fidelity to upstream:** `python3 tools/vendor-sync.py check --all` (from `$L`; `VENDOR_SYNC_CLONES` names the
+  blobless clones, created when missing): every `vendor/` is upstream at its pin plus well-formed `LOCALTEST` blocks,
+  the groups share one commit, Arbeidsflate's patches apply, and the copies of `components/shared/fakes/` are
+  identical. **Expected:** one `ok` line per component and `ok shared fakes`, exit 0; notes for Register's two CRLF
+  `.sln` files (tolerated) and warnings only for `follow` versions after a host build that moved them. How a sync is
+  staged and finished: [`vendor-sync.md`](vendor-sync.md).
 - Some READMEs record more (upstream's own tests built with the overrides, "Running without Docker"); run them when
   that component changed.
 
@@ -439,7 +441,7 @@ cd "$L" && "$S" env up -r localtest-v2 --dev-postgres=postgres/Dockerfile
 
 Build one image at a time, under the lock. The Arbeidsflate BFF image is the heaviest (1.47 GB, whole-workspace
 install). A `--dev-` image can also be built on its own first: `podman build -t localtest-storage:dev .` in the
-component folder ([`components/storage/vendor/UPSTREAM.md`](../components/storage/vendor/UPSTREAM.md), step 5). Then
+component folder. Then
 run the levels of section 4 that the table in section 1 names, with the same `--dev-` flags on every `env up`.
 
 ### 5.2 The pinned check, after `bump-tag.sh`
