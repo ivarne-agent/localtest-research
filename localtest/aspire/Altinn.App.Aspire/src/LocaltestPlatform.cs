@@ -70,7 +70,7 @@ internal static class LocaltestPlatform
                 {
                     e.Services.GetRequiredService<ILoggerFactory>()
                         .CreateLogger("Altinn.App.Aspire")
-                        .LogCaBundleUnreadable(warning);
+                        .LogCaBundleWarning(warning);
                 }
             }
         );

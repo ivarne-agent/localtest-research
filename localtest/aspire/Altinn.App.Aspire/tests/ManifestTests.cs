@@ -89,9 +89,9 @@ public sealed class ManifestTests
                 "\"caBundle\": true, \"envs\": { \"STUDIO_CA_BUNDLE\": \"b\" }"
             },
             {
-                "caBundle: /etc/localtest/ca-bundle.pem is a volume's or a file's path too",
+                "caBundle: /tmp/studio-ca-bundle.pem is a volume's or a file's path too",
                 "\"volumes\": { \"db-data\": \"/data\" }",
-                "\"caBundle\": true, \"volumes\": { \"db-data\": \"/etc/localtest/ca-bundle.pem\" }"
+                "\"caBundle\": true, \"volumes\": { \"db-data\": \"/tmp/studio-ca-bundle.pem\" }"
             },
         };
 

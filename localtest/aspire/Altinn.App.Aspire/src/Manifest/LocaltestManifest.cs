@@ -41,13 +41,18 @@ internal sealed partial class LocaltestManifest
 
     /// <summary>
     /// A PEM file of extra CA certificates to trust: on the host the developer's (a TLS-intercepting proxy's CA), in a
-    /// container with <c>caBundle</c> the runner's mount of it at <see cref="CaBundlePath" />. studioctl's
-    /// <c>CABundleVariable</c>.
+    /// container with <c>caBundle</c> the runner's mount of it at <see cref="CaBundlePath" />. devenv's
+    /// <c>cabundle.EnvStudioCABundle</c>.
     /// </summary>
     public const string CaBundleVariable = "STUDIO_CA_BUNDLE";
 
-    /// <summary>Where a container with <c>caBundle</c> finds the host's CA bundle, read-only.</summary>
-    public const string CaBundlePath = "/etc/localtest/ca-bundle.pem";
+    /// <summary>
+    /// Where a container with <c>caBundle</c> finds the host's CA bundle, read-only: devenv's
+    /// <c>cabundle.ContainerPath</c>, where studioctl mounts it in both its runtimes.
+    /// </summary>
+#pragma warning disable S5443 // A path in the container, where the runner mounts a read-only file; not the host's /tmp.
+    public const string CaBundlePath = "/tmp/studio-ca-bundle.pem";
+#pragma warning restore S5443
 
     /// <summary>The embedded manifest's resource name.</summary>
     public const string Resource = "Altinn.App.Aspire.manifest.json";

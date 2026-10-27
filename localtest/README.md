@@ -207,7 +207,9 @@ proxy's CA before `env up`. pdf3's Chromium trusts its own NSS store, not the sy
 from `altinncdn.no` does not load and PDF generation times out (`net::ERR_CERT_AUTHORITY_INVALID` in pdf3's log, the
 app's `process/next` answers 500 "Pdf generation failed"). The runner mounts a copy of the file in pdf3 (every
 container the manifest marks `caBundle`) and sets the variable there, and pdf3's entrypoint imports it at start. A
-changed or removed bundle restarts pdf3 on the next `env up`; a file that cannot be read gives a warning. An Aspire
+changed or removed bundle restarts pdf3 on the next `env up`; a certificate studioctl cannot parse is left out with a
+warning, and a file that cannot be read, or holds no usable certificate, gives a warning. The old `localtest` runtime
+shares the code (`stack.LoadCABundle`), and its pdf3 gets the same mount. An Aspire
 AppHost reads the same variable from its environment. The .NET and Node components trust the system store and
 `NODE_EXTRA_CA_CERTS` of their containers as your container runtime configures them; the variable does not change
 those ([the manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#what-the-runner-adds)).

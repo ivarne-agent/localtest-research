@@ -135,7 +135,10 @@ internal sealed class LocaltestStack
     /// </summary>
     public HostCaBundle? CaBundle { get; }
 
-    /// <summary>Why <c>STUDIO_CA_BUNDLE</c> names a file that could not be read, logged once at the start; null if not.</summary>
+    /// <summary>
+    /// What is wrong with <c>STUDIO_CA_BUNDLE</c>, logged once at the start: a file that cannot be read or holds no usable
+    /// certificate, or the certificates left out of the bundle; null if nothing.
+    /// </summary>
     public string? CaBundleWarning { get; }
 
     /// <summary>The host path of the CA bundle's copy, which the containers with <c>caBundle</c> mount; null for none.</summary>
