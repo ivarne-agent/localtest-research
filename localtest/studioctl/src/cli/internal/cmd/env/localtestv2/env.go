@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"altinn.studio/devenv/pkg/container"
@@ -45,19 +46,26 @@ type Env struct {
 	out        *ui.Output
 	stack      *envstack.Stack
 	lookupHost lookupHostFunc
-	flags      UpOptions
+	// getenv reads the host's environment (STUDIO_CA_BUNDLE).
+	getenv   func(string) string
+	caBundle func() hostCABundle
+	flags    UpOptions
 }
 
 // NewEnv creates the localtest-v2 environment manager.
 func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient) *Env {
-	return &Env{
+	e := &Env{
 		cfg:        cfg,
 		out:        out,
 		client:     client,
 		stack:      envstack.New(client, out, graphID, cfg.Verbose),
 		flags:      noUpOptions(),
 		lookupHost: net.DefaultResolver.LookupHost,
+		getenv:     os.Getenv,
+		caBundle:   nil,
 	}
+	e.caBundle = sync.OnceValue(e.readCABundle)
+	return e
 }
 
 // Active reports whether any localtest-v2 container is running.
@@ -120,7 +128,7 @@ func (e *Env) Preflight(ctx context.Context, opts UpOptions) error {
 }
 
 // Changed reports whether `env up` asks for another mode, another public origin, other optional groups, other images
-// (--latest) or other dev builds than the running environment was started with, in which case an environment that is
+// (--latest), another host CA bundle (STUDIO_CA_BUNDLE, by content) or other dev builds than the running environment was started with, in which case an environment that is
 // already healthy still has to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage
 // again.
 func (e *Env) Changed(opts UpOptions) (bool, error) {
@@ -138,10 +146,12 @@ func (e *Env) Changed(opts UpOptions) (bool, error) {
 		originChanged(opts, state, up) ||
 		!slices.Equal(want, have) ||
 		opts.LatestImages != state.LatestImages ||
+		e.caBundle().Sum != state.CABundle ||
 		!slices.Equal(slices.Sorted(maps.Keys(opts.DevComponents)), state.Dev), nil
 }
 
-// Start starts the environment: writes the certificate, the manifest's files and the state file, applies the containers
+// Start starts the environment: writes the certificate, the manifest's files, the copy of the host's CA bundle and
+// the state file, applies the containers
 // (each one's health checked before what depends on it starts), waits until the front door answers on the public
 // origin, and restarts studioctl-server so that it registers the apps it discovers with the front door.
 func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
@@ -158,6 +168,12 @@ func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 	if err := ensureFiles(opts.FilesDir, stack()); err != nil {
 		return err
 	}
+	bundle := e.caBundle()
+	caBundle, copyErr := ensureCABundle(localtestv2.CABundleDir(e.cfg), bundle)
+	if copyErr != nil {
+		return copyErr
+	}
+	opts.CABundle = caBundle
 	if err := e.stopOnSwitch(ctx, opts); err != nil {
 		return err
 	}
@@ -171,6 +187,7 @@ func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 		Groups:         opts.Groups,
 		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
+		CABundle:       bundle.Sum,
 		Minimal:        opts.Minimal,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
@@ -484,4 +501,14 @@ func (e *Env) destroyResources(ctx context.Context, resources []resource.Resourc
 		return fmt.Errorf("destroy localtest-v2: %w", err)
 	}
 	return nil
+}
+
+// readCABundle reads the host's CA bundle once per command, warning once when STUDIO_CA_BUNDLE names a file that
+// cannot be read: the containers then start without it.
+func (e *Env) readCABundle() hostCABundle {
+	bundle, err := readHostCABundle(e.getenv)
+	if err != nil {
+		e.out.Warningf("%v; the containers start without the CA bundle", err)
+	}
+	return bundle
 }

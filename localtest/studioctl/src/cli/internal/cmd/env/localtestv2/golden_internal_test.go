@@ -27,7 +27,8 @@ type goldenEnvironment struct {
 	// Default is `env up` with no flags: pulled images at the pin, no optional group.
 	Default goldenOptions `json:"default"`
 	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
-	// a runtime with SELinux relabelling.
+	// a runtime with SELinux relabelling, on a host with a CA bundle (STUDIO_CA_BUNDLE, its copy at a fixed path, so
+	// the snapshot does not depend on the machine). The other cases have none.
 	Everything goldenOptions `json:"everything"`
 	// Minimal is `env up --minimal` under Podman as uid 1000: the minimal group, the emulated services at the front
 	// door, tmpfs volumes, and otel-files writing to the telemetry folder as the developer.
@@ -52,6 +53,7 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 	everything.Groups = OptionalGroups()
 	everything.LatestImages = true
 	everything.RelabelBinds = true
+	everything.CABundle = testCABundle
 	everything.Dev = map[string]DevBuild{
 		"storage": {
 			Context:    "/src/localtest/components/storage",

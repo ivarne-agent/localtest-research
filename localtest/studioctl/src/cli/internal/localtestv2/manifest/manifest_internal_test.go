@@ -162,6 +162,19 @@ func TestParseRefusesAnInvalidManifest(t *testing.T) {
 			},
 			errReceivers,
 		},
+		"caBundle with the variable in its envs": {
+			func(m map[string]any) {
+				containerNamed(m, "pdf3")["envs"] = map[string]any{CABundleVariable: "/ca.pem"}
+			},
+			errDuplicate,
+		},
+		"caBundle on a volume's path": {
+			func(m map[string]any) {
+				containerNamed(m, "storage")["caBundle"] = true
+				containerNamed(m, "storage")["volumes"] = map[string]any{"storage-blobs": CABundlePath}
+			},
+			errDuplicate,
+		},
 		"relative volume target": {
 			func(m map[string]any) {
 				containerNamed(m, "storage")["volumes"] = map[string]any{"storage-blobs": "data"}
