@@ -34,7 +34,8 @@
      the env-runtime refactor and the Runtime/Env interface, which the pin above includes.
   2. `feat/studioctl-localtest-v2-stack` ([altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394)):
      the localtest-v2 change on the refactor, re-authored from this tree on #21483's `8e4650664e` as a few logical
-     commits (the proposed `stack` change first, on its own, so it can be dropped once #21483 has it). At its head,
+     commits (the proposed `stack` change first, on its own, so it can be dropped once #21483 has it; head
+     `efa1f12e12`). At its head,
      `diff -r` of `src/cli` and `src/Runtime/devenv` against `localtest/studioctl/src` is empty.
 
   Later studioctl commits here go on top of branch 2.
