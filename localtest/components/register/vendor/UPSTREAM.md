@@ -33,7 +33,7 @@
     {"package": "OpenTelemetry.Exporter.OpenTelemetryProtocol", "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"}
   ],
   "reminders": [
-    "Register waits for altinn-auth#4056 (https://github.com/Altinn/altinn-auth/pull/4056), Register moving into Altinn/altinn-auth: check that PR at every sync; once it has landed, retarget with `sync register --repository Altinn/altinn-auth --paths ... --group altinn-auth`"
+    "Register waits for altinn-auth#4056 (https://github.com/Altinn/altinn-auth/issues/4056, an issue: move altinn-register into Altinn/altinn-auth; open on 2026-10-27): check it and its linked pull requests at every sync; once the move has landed, retarget with `sync register --repository Altinn/altinn-auth --paths ... --group altinn-auth`"
   ]
 }
 ```
@@ -69,9 +69,10 @@ describes (resolve, `check`, build, verify, two commits). Without `--to` it take
 above drives it: the copied `paths`, the `mirrors` it merges or reports, the `watch`ed paths, the `projects` to build,
 the package versions that `follow` the host, and the `reminders` it prints.
 
-**Register waits for altinn-auth#4056** (Register moving into `Altinn/altinn-auth`, which has a skeleton
-`src/apps/Altinn.Register/` so far): check that pull request at every sync (the tool prints the reminder), and once it
-has landed, retarget with `sync register --repository Altinn/altinn-auth --paths … --group altinn-auth`.
+**Register waits for [altinn-auth#4056](https://github.com/Altinn/altinn-auth/issues/4056)** (an issue, open on
+2026-10-27: move altinn-register into `Altinn/altinn-auth`, which has a skeleton `src/apps/Altinn.Register/` so far):
+check it and its linked pull requests at every sync (the tool prints the reminder), and once the move has landed,
+retarget with `sync register --repository Altinn/altinn-auth --paths … --group altinn-auth`.
 
 `../Dockerfile` mirrors upstream's `Dockerfile` (base images and digests, build and publish, tzdata, the `dotnet` user),
 and every deviation is marked `localtest:`; the tool three-way merges upstream's changes into it when that is clean, and
