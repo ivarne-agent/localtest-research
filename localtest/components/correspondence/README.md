@@ -308,6 +308,17 @@ The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactl
 
 ## Verified
 
+### Task 58's follow-up: the sync to `d2dc912` and the party-id site removed (2026-10-27)
+
+Upstream `6dcf561..d2dc912` (#2153, #2157: 7 files, no site file touched, no migration). The host build with the overrides:
+0 errors, 24 warnings, as before. `vendor-sync.py check --all` ok (2 site files, 5 blocks). On the stack (isolated studioctl
+home from the branch, `env up -r localtest-v2 --with correspondence --dev-correspondence --dev-resource-registry=…` from
+this folder, with the Resource Registry's retarget; 82 s with both image builds): `smoke-test.sh` 78 `ok`, 1 skip (OTLP),
+0 `FAIL`, among them app-lib's five calls on Digdir's party 500006 and the recipient's dialog-token path on party 501337,
+which needed the site before #2157; no "RecipientId is not a valid" in the log. Root 26 `ok`. The log's `fail:` lines are
+the suite's refusals (unknown resource, hash mismatch), the service-owner lookup without a row (the default store is
+used, see "Differences from production") and production's IP-range updater without Azure; none from the PDP path. Evidence `/home/agent/code/.handover/task58-followup/`.
+
 ### Task 11b, the browser download of attachments (2026-10-21)
 
 On main fb43d7d (pin `sha-16754da`) with this branch on top, `studioctl env up -r localtest-v2 --with arbeidsflate --with

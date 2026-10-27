@@ -132,6 +132,16 @@ stack; the same call was run in Authentication and Register. Verified on the sta
 
 ## Verified
 
+2026-10-27 (task 58's follow-up, the retarget to `Altinn/altinn-auth` `3d51810`): the host build with the overrides, 0
+errors and 0 warnings (10 at the archived pin; the one new warning, CS8613 on the fake's `TryAcquireBlobLease` after
+upstream made the interface's return nullable, fixed in `fakes/`); `vendor-sync.py check --all` ok. On the stack (isolated
+studioctl home from the branch, `env up -r localtest-v2 --dev-resource-registry` from this folder, the rest on the
+`sha-5f13eea` pins, 13 containers in 42 s with the image build): root 26 `ok`, 1 skip (OTLP); `smoke-test.sh` 43 `ok`, 1
+skip (OTLP); Authorization's suite (the PDP reads the policies from here) 31 `ok`; the shared suite "all ok". With
+`--with correspondence --dev-correspondence` on top: Correspondence's suite 78 `ok` (it reads the resources and
+`policy/rights` from here), root 26. No `fail:`/`crit:` in the log; the one exception is the suite's tampered platform
+token (401). Evidence `/home/agent/code/.handover/task58-followup/`.
+
 2026-10-21 (task 14): `smoke-test.sh` 43 of 43, including the 2 checks of the seeded `altinn-profil-api-varslingsdaresser-for-virksomheter`, whose policy the PDP applied to Profile's organisation address endpoints (read as DAGL at level 3, 403 without a role).
 
 2026-10-21 (task 7, from `../correspondence/README.md`): with the `correspondence` group on, `smoke-test.sh` 41 ok (35 + 6

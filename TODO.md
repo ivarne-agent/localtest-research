@@ -91,7 +91,7 @@ A path matching no route still falls through to the localtest app.
 | 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
 | 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
-| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; next: the Resource Registry's retarget and the removals | large | no (the verification after a sync does) |
+| 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2693,9 +2693,7 @@ Dialogporten); 5 the altinn-auth group; 6 Arbeidsflate; 7 the Resource Registry 
   pointer to the tool plus the component's own notes. altinn-auth#4056 is an issue (open), not a pull request; the
   reminder links it as one.
 - Step 6 (71d77172): the docs.
-- **Next task:** the Resource Registry's retarget to altinn-auth (`sync resource-registry --repository Altinn/altinn-auth
-  --paths src/apps/Altinn.ResourceRegistry/src … --group altinn-auth`), Correspondence's party-id site after upstream
-  #2157, and the other removals upstream made possible.
+- **Next task:** done as the follow-up below.
 
 **Pinned check (2026-10-27, 20:22-20:31, images `sha-5f13eea` from main 5f13eea3, images run 40567145923; no
 `--dev-*`; studioctl from the `pin-5f13eea` worktree under a short `STUDIOCTL_HOME`; evidence
@@ -2710,3 +2708,61 @@ skip; the front door 83 of 84 (`FRONTEND_DIST`); Profile 52, Notifications 64, t
 32, Authorization 31, Events 27, Register 14, the adapter `--off` 7 (Storage's outbox), shared all ok; no `FAIL`.
 `--with monitoring` (19 containers, 54 s): root 27, Profile 53, Notifications 65, the Resource Registry 44, each with
 its OTLP server span (`profile`, `notifications`, `resource-registry`, `storage`), no `FAIL`.
+
+**Follow-up (2026-10-27, branch `task58-followup` from main `8a41f851`, brief by the coordinator; evidence
+`/home/agent/code/.handover/task58-followup/`).** The user's decisions: the Resource Registry moves to altinn-auth, and
+modifications upstream made unnecessary go.
+- **The Resource Registry retargeted** (55351c8e vendored, 78fca0e1 fixes): `sync resource-registry --repository
+  Altinn/altinn-auth --group altinn-auth --paths src/apps/Altinn.ResourceRegistry/{src,Dockerfile,Directory.Build.props,
+  Directory.Build.targets,Directory.Packages.props,stylecop.json,.editorconfig} global.json`, at the group's commit
+  `3d51810`: no group move was needed (altinn-auth `main` has three later Resource Registry commits, 32 files: the RDF
+  contact point, a paging fix, and the Maskinporten scope-prefix validation (`bfa6fdf8`), which adds feature management
+  and a Samarbeidsportalen HTTP client to `ResourceRegistryHost.cs`; none the stack needs now. **The next altinn-auth
+  group sync** must check whether that client needs a localtest setting or fake. `docker-bake.hcl` and the `Dockerfile`
+  are unchanged on `main`). 20 upstream commits on the
+  paths (the archived repository's last ones, its import into altinn-auth `30a6fc91`, then the BOM removal, the warning
+  clean-up, NuGet updates, creation/update timestamps, the policy-rights return type); 26 files updated, 6 added, 7
+  removed. What moved: the archived repository's `src/Directory.Build.props`, `.targets`, `Directory.Packages.props` and
+  `src/stylecop.json` are now the vertical's own `src/apps/Altinn.ResourceRegistry/Directory.*` and `stylecop.json` (they
+  do not import altinn-auth's `src/Directory.*`, so those are not copied); `Settings.StyleCop` is gone, the vertical's
+  `.editorconfig` (the StyleCop severities) is new; `global.json` is altinn-auth's (SDK 10.0.107, `latestMajor`). The site
+  file `ResourceRegistryHost.cs` merged clean (blocks moved by one line, upstream added a schema filter). The `Dockerfile`
+  mirror is unchanged: upstream's is byte for byte the archived one. The metadata watches `docker-bake.hcl` and
+  `containers/` (the bake file publishes nothing at the pin) and drops the retarget reminder. Fixes: the fake
+  `LocaltestFilePolicyRepository.TryAcquireBlobLease` returns `Task<string?>` (CS8613 after upstream made the interface
+  nullable); the overrides' comment, the Dockerfile header, the README and `UPSTREAM.md` name the vertical. Host build 0
+  errors, 0 warnings (10 before).
+- **Correspondence** (1fa7aee0 vendored, 05ffe2b4 the removal): synced `6dcf561..d2dc912` (#2153 the forwarded template,
+  #2157 `urn:altinn:partyid:{id}` from `CreateDecisionRequest` and `CreateUserContactPointDecisionRequest`; 7 files, no
+  site file, no migration, no raw `Set-Cookie`). Task 7b's `#if !LOCALTEST` block in `XacmlRequestFactory.cs` removed (the
+  file is upstream's again) with its reminder; no fake depended on it. Host build 0 errors, 24 warnings (as before).
+  `planned-components/correspondence/party-ids.md` is closed.
+- **The other blocks.** `check --all` and `status --all` report no removal candidate. No site file changed upstream between
+  the pins and `main` but Notifications' `Program.cs` and the adapter's `StorageDialogportenDataMerger.cs` (`status
+  --all`; the adapter's change is outside its link blocks and merges clean), and every block's reason still holds at its
+  pin (each component README names it), so none was removed beyond Correspondence's. Kept, by kind: the hooks that wire
+  the fakes and the configuration (Access Management, Authentication, Authorization, Correspondence, the adapter,
+  Dialogporten's three hosts, Events, Notifications, Profile, Receipt, Register, the Resource Registry, Storage); the
+  service-discovery registrations (no upstream registers a configuration-only resolver); the OTLP blocks of task 53
+  (Authorization, Correspondence, the adapter, Dialogporten, Events, Notifications, Profile, Receipt, Storage: no pinned
+  upstream reads `OTEL_EXPORTER_OTLP_ENDPOINT`, and the upstream fixes in `localtest/reviews/otel/` are not merged); the
+  http and host sites (Authentication's redirect target, Correspondence's ID-porten retriever, Dialogporten's URL
+  validators, Events' webhook and source checks and app domain, Receipt's and Storage's request URLs, the adapter's
+  links and app URIs); Access Management's database step and factory-built Resource Registry client; the adapter's
+  Wolverine local queue and acks. The workflow engine's OTLP work (altinn-studio#21515) needed no change here: it is not
+  vendored, and the manifest already dropped `EngineSettings__EnableTelemetry` (task 52). **Becomes removable at a
+  later sync, not done (no other component synced):** Notifications' `main` (`09fa8030`, #1930) calls
+  `UseOtlpExporter()` when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; at its next sync the OTLP replacement in its
+  `Program.cs` shrinks to the service name (upstream keeps `platform-notifications` over `OTEL_SERVICE_NAME`), or goes if
+  the stack accepts that name. Register still waits for altinn-auth#4056 (open).
+- **Verified (2026-10-27, 20:40-20:55, under the lock, isolated studioctl home from the branch, `STUDIO_CA_BUNDLE`
+  set).** Static: both host builds above, `check --all` 14 `ok` and the shared fakes, the tool's unit tests ok, shellcheck
+  of the changed suite silent, typos only the old hits in the changed files. `env up -r localtest-v2
+  --dev-resource-registry`: 13 containers in 42 s with the image build; root 26 `ok`, 1 skip (OTLP); the Resource Registry
+  43 `ok`, 1 skip; Authorization 31 `ok`, 1 skip; shared "all ok"; no `FAIL`. `--with correspondence --dev-correspondence
+  --dev-resource-registry=…`: 82 s with both builds; Correspondence 78 `ok`, 1 skip (OTLP), including app-lib's calls on
+  party 500006 and the recipient's path on 501337 without the site; root 26 `ok`. Arbeidsflate's suite not run: it does
+  not call Correspondence, whose browser download path is in Correspondence's own suite. Not run: `--with monitoring`,
+  `CORRESPONDENCE_RESTART=1`, the other components' suites (their images are the pins). Teardown: `env down`, server down,
+  both `--dev` images and their build layers removed, the home removed, the lock released. After the merge: the images
+  workflow, then the pinned check (verify-after-sync 5.2) before `bump-tag.sh`.

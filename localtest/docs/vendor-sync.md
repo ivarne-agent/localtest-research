@@ -141,7 +141,7 @@ The tool cannot judge these; the agent does, in this order:
   Is our `#else` still right, and is the block still needed?
 - **Removal candidates**: a replacement whose two branches hold the same code, or an addition with no code. The tool
   only sees what is in the file; a site that upstream made unnecessary elsewhere (Correspondence's party-id site after
-  upstream #2157) is a reminder in the metadata. Removing a site is its own commit, with the smoke test that proves the
+  upstream #2157, removed in task 58's follow-up) is a reminder in the metadata. Removing a site is its own commit, with the smoke test that proves the
   behaviour.
 - **Mirrors**: review merged ones (unstaged) and carry printed hunks by hand, keeping the `localtest:` markings.
   Base-image digests are the usual change.
@@ -198,7 +198,9 @@ summary's TODO note with the results. After the merge the images workflow builds
 [--group G]`. The base of each merge is the old repository's file at the old pin, theirs the new repository's at the
   new commit, matched by path under `vendor/`; a site file whose path is not in the new tree is a conflict. `--group`
   joins a group, and then `--to` defaults to the group's commit. The commit list is the new repository's last 20 on the
-  paths. Pending: the Resource Registry to `Altinn/altinn-auth` (its repository is archived), Register after
+  paths. Done: the Resource Registry to `Altinn/altinn-auth` (task 58's follow-up, 2026-10-27: the archived
+  repository's `src/Directory.*` became the vertical's own `src/apps/Altinn.ResourceRegistry/Directory.*`, the one site
+  file merged clean). Pending: Register after
   [altinn-auth#4056](https://github.com/Altinn/altinn-auth/issues/4056).
 - **A new component**: copy upstream's paths blob for blob (or start from an empty `vendor/` and `sync --to <commit>`
   with the metadata in place), write the metadata block and both marker pairs into `vendor/UPSTREAM.md`, `render`, then
