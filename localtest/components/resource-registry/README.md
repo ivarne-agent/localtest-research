@@ -126,7 +126,11 @@ hook called `AddLocaltestOtlpResource` (a copy of `../shared/fakes/Otlp/`) to le
 name under studioctl or Aspire, so it was removed ([`TODO.md`](../../../TODO.md) section 61). `AddLocaltestOtlp` was never an option:
 `UseOtlpExporter()` throws next to ServiceDefaults' own exporters.
 
-Verified 2026-10-26, with that call, the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
+Verified without the call (2026-10-28, task 61, a local image, `env up -r localtest-v2 --with monitoring`): `smoke-test.sh` 44 `ok` with its OTLP check;
+under `service.name` `resource-registry` and `service.instance.id` the container's host name, 372 spans, 561 metric series, 599 log records in VictoriaTraces,
+VictoriaMetrics and VictoriaLogs (evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`).
+
+Verified 2026-10-26, with the call, the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
 tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
 stack; the same call was run in Authentication and Register. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 660 spans, 680 metric series and 1026 log records under `service.name` `resource-registry`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 

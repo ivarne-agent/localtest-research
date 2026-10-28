@@ -94,7 +94,7 @@ A path matching no route still falls through to the localtest app.
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | approved (2026-10-28; brief `/home/agent/code/.briefs/task60-db-passwords.md`) | medium | yes |
-| 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | in progress (2026-10-28; worktree `/home/agent/code/.worktrees/otlp-resource-workaround-removal`, branch `otlp-resource-workaround-removal`) | small | yes |
+| 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | approved (2026-10-28; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; after task 60) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -2836,6 +2836,23 @@ overrides the resource in these four hosts.
 - Upstreaming: both phase-1 items of `localtest/upstreaming/authorization-utils.md` move to "Not needed", and the four
   hosts' `OTEL_SERVICE_NAME` items go (nothing left to remove); phase 1 totals 52. The fork branches
   `otel-service-name-env` and `otlp-and-azure-monitor` of `ivarne-agent/altinn-authorization-utils` stay unopened.
+
+Verified 2026-10-28 on local images of the four (`--dev-` flags, `env up -r localtest-v2 --with monitoring`, 18
+containers; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`, the query script `otlp-check.sh`
+there): one request with a known `traceparent` per host gave its server span; over 15 minutes, through Grafana's
+datasource proxy, under `service.name` = the manifest name and `service.instance.id` = the container's host name:
+
+| Host | Spans | Metric series | Log records |
+| --- | --- | --- | --- |
+| `authentication` | 308 | 670 | 31 |
+| `register` | 100 | 345 | 23 |
+| `access-management` | 1253 | 427 | 2634 |
+| `resource-registry` | 372 | 561 | 599 |
+
+Smoke tests: root 27 `ok` (with the OTLP check), `localtest/smoke-test.sh` 85 `ok` and the known FRONTEND_DIST failure
+(verify-after-sync 6.1), Authentication 33, Register 15, Resource Registry 44, each with its OTLP span check. Static:
+the four host builds 0 errors, `vendor-sync.py check --all` ok (shared fakes identical), its 39 unit tests, `Otlp.Tests`
+10 of 10.
 
 ## 62. Generated database passwords per installation
 
