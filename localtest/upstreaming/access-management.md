@@ -15,8 +15,8 @@
   `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`), the
   composition `fakes/LocaltestAccessManagementExtensions.cs` with `fakes/LocaltestAccessManagementOptions.cs`, the
   database bootstrap `fakes/Database/`, the policy store `fakes/Policies/`, the token, key and metadata stand-ins
-  `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copies
-  `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
+  `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copy
+  `fakes/ServiceDiscovery/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
   `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -56,17 +56,6 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
     the same fake in [`resource-registry.md`](resource-registry.md).
   - Upstream: none found; unchanged on `main`.
   - Detail: [`../components/access-management/README.md`](../components/access-management/README.md), "Status".
-
-- [ ] **`OTEL_SERVICE_NAME` over the service's own name.** The host already exports over OTLP exactly when
-      `OTEL_EXPORTER_OTLP_ENDPOINT` is set; only the resource detector in ServiceDefaults hides `OTEL_SERVICE_NAME`. The
-      change is in the shared library, then a version bump here (5.5.0 today).
-  - Why: a runner that names the service differently sees `access-management` regardless.
-  - Size: trivial here; small in the library.
-  - Removes: `fakes/Otlp/` and the `AddLocaltestOtlpResource` call in the hook.
-  - Upstream: none found; see [`authorization-utils.md`](authorization-utils.md).
-  - Detail: [`../reviews/otel/access-management.md`](../reviews/otel/access-management.md). Optional cleanup there
-    (nothing local depends on it): the unused classic-SDK classes and Application Insights packages, and the host's own
-    `UseAzureMonitor` block.
 
 ## Phase 2: structural changes
 
@@ -145,6 +134,7 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
   vendored-project test: the mechanism that carries the sites.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 
-Coverage: 5 sites, 9 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
-`Database/`, `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`, `Otlp/`), 2 build overrides,
-4 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 5 sites, 8 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
+`Database/`, `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
+4 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/` and its `OTEL_SERVICE_NAME` item went in
+task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name, so nothing was left to remove.

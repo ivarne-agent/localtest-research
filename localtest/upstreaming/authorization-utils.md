@@ -8,10 +8,11 @@
   [Resource Registry](resource-registry.md) 6.0.0 (from the vendored csproj and `Directory.Packages.props` files).
   [Authorization](authorization.md) references 5.5.0 but never calls it. `main` has changed nothing in
   `ServiceDefaults/` since `v6.0.0` but dependency updates and the repository reorganization (checked 2026-10-27), so
-  both items below are still open.
-- Localtest code it forces: in each of the four hosts the hook calls `AddLocaltestServiceEndpointProviders` and
-  `AddLocaltestOtlpResource` from the shared copies `fakes/ServiceDiscovery/` and `fakes/Otlp/` (Register: under
-  `fakes/Altinn.Register.Localtest/`, with two OpenTelemetry package references in the fakes project).
+  the item below is still open.
+- Localtest code it forces: in each of the four hosts the hook calls `AddLocaltestServiceEndpointProviders` from the
+  shared copy `fakes/ServiceDiscovery/` (Register: under `fakes/Altinn.Register.Localtest/`). Until task 61
+  (2026-10-28, [`../../TODO.md`](../../TODO.md)) it also called `AddLocaltestOtlpResource` (`fakes/Otlp/`); see "Not
+  needed" below.
 
 A change here is one package release, then a version bump in each host's repository (Register and Access Management
 are on 5.5.0). Upstream's own plan for local runs states the ServiceDefaults side in
@@ -20,33 +21,7 @@ Aspire, ServiceDefaults 6.x); the items below belong there.
 
 ## Phase 1: easy fixes
 
-- [ ] **OTLP and Azure Monitor independent.** In `Microsoft.Extensions.Hosting/AltinnServiceDefaultsExtensions.cs`,
-      `AddOpenTelemetryExporters` adds the OTLP exporters when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and Application
-      Insights only `else if`. Make them two `if`s, so a deployment can send to both while moving from Application
-      Insights to a collector.
-  - Why: today the variable silently turns Azure Monitor off.
-  - Size: small; it changes behaviour only where both are configured.
-  - Removes: nothing locally (localtest never has a connection string); it is the production half of the stack's rule.
-    Carry the sampler note from [`../reviews/otel/README.md`](../reviews/otel/README.md) into the PR.
-  - Covers: [`authentication.md`](authentication.md), [`access-management.md`](access-management.md),
-    [`register.md`](register.md), [`resource-registry.md`](resource-registry.md), the telemetry item of each.
-  - Upstream: none found.
-  - Detail: [`../reviews/otel/authentication.md`](../reviews/otel/authentication.md), "Upstream change".
-
-- [ ] **`OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win over `AltinnServiceResourceDetector`.** The detector
-      sets `service.name` to the host's name after the SDK's environment detector. Add
-      `resource.AddEnvironmentVariableDetector()` after it in both `ConfigureResource` calls of
-      `ConfigureOpenTelemetry` (the tracer provider adds the detector a second time), or let the detector skip
-      `service.name` when `OTEL_SERVICE_NAME` is set.
-  - Why: a runner that names the service (Aspire, studioctl with another name, a manual run) is ignored.
-  - Size: small; it changes behaviour only where `OTEL_SERVICE_NAME` is set.
-  - Removes: the `AddLocaltestOtlpResource` call and `fakes/Otlp/` in Authentication, Access Management and the
-    Resource Registry; in Register `fakes/Altinn.Register.Localtest/Otlp/` and its two OpenTelemetry package
-    references.
-  - Covers: [`authentication.md`](authentication.md), [`access-management.md`](access-management.md),
-    [`register.md`](register.md), [`resource-registry.md`](resource-registry.md), the `OTEL_SERVICE_NAME` item of each.
-  - Upstream: none found.
-  - Detail: [`../reviews/otel/README.md`](../reviews/otel/README.md), "Across the four ServiceDefaults hosts".
+None open: the two former items are under "Not needed" below.
 
 ## Phase 2: structural changes
 
@@ -73,3 +48,17 @@ No other default forces localtest code in the four hosts. `AltinnHost` reads its
 before a host's hook runs, so the hosts run in environment `UNKNOWN` on purpose: `LOCAL` (`Altinn:LocalDev`) would take
 platform tokens from the remote test token generator. That costs no code, only the rule that a setting ServiceDefaults
 must see comes from the environment.
+
+## Not needed
+
+Both former phase-1 items have no local effect, so localtest does not propose them (the branches `otel-service-name-env`
+and `otlp-and-azure-monitor` on the fork `ivarne-agent/altinn-authorization-utils` stay unopened). Evidence:
+`/home/agent/code/.handover/aspire-instance-id-check/` (2026-10-28) and TODO.md section 61.
+
+- **OTLP and Azure Monitor independent** (`AddOpenTelemetryExporters`' `else if` made two `if`s): localtest never has
+  an Application Insights connection string, so it changes nothing here; a production concern for the owning team.
+- **`OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win over `AltinnServiceResourceDetector`**: each host's own
+  `service.name` is already what studioctl and Aspire set as `OTEL_SERVICE_NAME` (the manifest name), and Aspire's
+  dashboard links no container's telemetry to its resource either way (its `service.instance.id` for a container is the
+  full DCP name). Without it `service.instance.id` is the container's host name, accepted. The four hosts dropped
+  `AddLocaltestOtlpResource` and `fakes/Otlp/` in task 61.

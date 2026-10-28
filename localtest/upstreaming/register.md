@@ -15,7 +15,7 @@
   `sync register --repository Altinn/altinn-auth --paths ... --group altinn-auth`.
 - Localtest modifications: 1 directive site in `src/apps/Altinn.Register/src/Altinn.Register/RegisterHost.cs`, the
   fakes project `fakes/Altinn.Register.Localtest/` (the hook `LocaltestRegisterExtensions.cs` with its options and
-  project file, and the folders `Auth/`, `Controllers/`, `Data/`, `Otlp/`, `Persistence/`, `ServiceDiscovery/`,
+  project file, and the folders `Auth/`, `Controllers/`, `Data/`, `Persistence/`, `ServiceDiscovery/`,
   `TestData/`), the seed `testdata/`, two build overrides, and the `localtest:` deviations in `Dockerfile` plus its own
   `.dockerignore`.
 
@@ -24,20 +24,6 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 Register is an `AltinnServiceDefaults` host (`Altinn.Authorization.ServiceDefaults` 5.5.0).
 
 ## Phase 1: easy fixes
-
-- [ ] **Let `OTEL_SERVICE_NAME` win over the host's name.** Nothing in Register itself: take the
-      `Altinn.Authorization.ServiceDefaults` release that adds the environment resource detector after
-      `AltinnServiceResourceDetector` (and makes OTLP and Azure Monitor independent), and bump the version in
-      `Directory.Packages.props`.
-  - Why: ServiceDefaults already exports over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but its detector
-    sets `service.name` `register` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and
-    `OTEL_RESOURCE_ATTRIBUTES` are ignored.
-  - Size: trivial here (a version bump); the library change is small, see [`authorization-utils.md`](authorization-utils.md).
-  - Removes: `Otlp/`, the `AddLocaltestOtlpResource` call in the hook and the `OpenTelemetry.Extensions.Hosting` and
-    `OpenTelemetry.Exporter.OpenTelemetryProtocol` `PackageReference`s (and their `follow` entries) in
-    `Altinn.Register.Localtest.csproj`.
-  - Upstream: none found.
-  - Detail: [`../reviews/otel/register.md`](../reviews/otel/register.md).
 
 - [ ] **Drop the unused Application Insights reference.** Remove `Microsoft.ApplicationInsights.AspNetCore` from
       `Altinn.Register.csproj` and `Directory.Packages.props`, and the `Logging:ApplicationInsights` sections from
@@ -151,5 +137,7 @@ Register is an `AltinnServiceDefaults` host (`Altinn.Authorization.ServiceDefaul
   carries the site; gone with it.
 - `localtest.build.targets`: the `ProjectReference` to the fakes project: as above.
 
-Coverage: 1 site, 7 fakes (`Auth/`, `Controllers/`, `Data/`, `Otlp/`, `Persistence/`, `ServiceDiscovery/`, `TestData/`)
-plus the hook, 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 1 site, 6 fakes (`Auth/`, `Controllers/`, `Data/`, `Persistence/`, `ServiceDiscovery/`, `TestData/`)
+plus the hook, 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/`, its two
+OpenTelemetry package references and its `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)):
+the host's own name is the manifest name, so nothing was left to remove.

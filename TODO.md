@@ -94,6 +94,7 @@ A path matching no route still falls through to the localtest app.
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | approved (2026-10-28; brief `/home/agent/code/.briefs/task60-db-passwords.md`) | medium | yes |
+| 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | in progress (2026-10-28; worktree `/home/agent/code/.worktrees/otlp-resource-workaround-removal`, branch `otlp-resource-workaround-removal`) | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | approved (2026-10-28; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; after task 60) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -2816,6 +2817,25 @@ databases belong in the localtest repo."
 - Task 59 is unaffected: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name" stays
   in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28). Once
   localtest creates Storage's users itself, that item no longer removes anything here.
+
+## 61. Remove the OTLP resource workaround from the ServiceDefaults hosts
+
+The user's decision (2026-10-28): "remove the workaround in the four hosts, test and push the stack". Authentication,
+Access Management, Register and the Resource Registry called `AddLocaltestOtlpResource` (task 53) so that
+`OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` would win over `AltinnServiceResourceDetector`. It changes nothing
+that shows: each host already names itself what studioctl and Aspire set as `OTEL_SERVICE_NAME` (the manifest name),
+and Aspire's dashboard links no container's telemetry to its resource either way (its container `service.instance.id`
+is the full DCP name, which never matches); the Traces, Logs and Metrics pages show the same plain names with and
+without it (evidence `/home/agent/code/.handover/aspire-instance-id-check/`). Accepted consequence: `service.instance.id`
+is the container's host name (the library's `Environment.MachineName`), and `OTEL_RESOURCE_ATTRIBUTES` no longer
+overrides the resource in these four hosts.
+
+- The call goes from each hook, with the hosts' `fakes/Otlp/` copies (Register: `fakes/Altinn.Register.Localtest/Otlp/`,
+  its two OpenTelemetry package references and their `follow` entries in `vendor/UPSTREAM.md`). The shared helper stays:
+  `AddLocaltestOtlp` calls it.
+- Upstreaming: both phase-1 items of `localtest/upstreaming/authorization-utils.md` move to "Not needed", and the four
+  hosts' `OTEL_SERVICE_NAME` items go (nothing left to remove); phase 1 totals 52. The fork branches
+  `otel-service-name-env` and `otlp-and-azure-monitor` of `ivarne-agent/altinn-authorization-utils` stay unopened.
 
 ## 62. Generated database passwords per installation
 

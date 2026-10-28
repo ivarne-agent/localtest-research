@@ -227,6 +227,10 @@ package only sets the standard variables:
   Development, 1 s batch delays, `always_on` sampling and exemplars.
 - **Over Aspire's values** (`DashboardTelemetry`): `OTEL_SERVICE_NAME=<manifest name>` and
   `OTEL_METRIC_EXPORT_INTERVAL=5000`, studioctl's two. The container's own manifest `envs` win over both.
+- The four `Altinn.Authorization.ServiceDefaults` hosts (Authentication, Access Management, Register, the Resource
+  Registry) name themselves and ignore `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` (TODO.md task 61): their own
+  `service.name` is the manifest name, and their `service.instance.id` is the container's host name instead of the DCP
+  name. The dashboard shows them under the same names either way; it links no container's telemetry to its resource.
 - Postgres and Redis get the variables and ignore them. The apps export as before (`AddProject` already calls
   `WithOtlpExporter`); app-lib names them `testapp` and `testapp2`.
 

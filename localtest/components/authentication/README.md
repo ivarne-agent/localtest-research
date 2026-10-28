@@ -12,7 +12,7 @@ registered clients (authorization code with PKCE, refresh, logout), with two cli
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `#if` sites (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`), cookies without `Secure` on http (`Cookies/`, a copy of `../shared/fakes/Cookies/`), `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): configuration and DI composition (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`), the seeded OIDC clients (`LocaltestOidcClients.cs`), key providers (`Keys/`), the level table (`Login/LocaltestAuthLevels.cs`), in-memory repositories (`Persistence/`), cookies without `Secure` on http (`Cookies/`, a copy of `../shared/fakes/Cookies/`) |
 | `smoke-test.sh` | Against the running stack: the browser sign-in, and the OIDC provider for the seeded clients (see [Verified](#verified)) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authentication/Dockerfile` (same pinned Alpine images, publish, non-root `dotnet` user); each difference is marked `localtest:`. Listens on 5101, the port the stack uses |
 
@@ -191,15 +191,15 @@ The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER
 half: `AltinnHost.CreateWebApplicationBuilder("authentication", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
 metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
 tail sampling), Npgsql tracing through `AddAltinnPostgresDataSource`, Authentication's own source and meters and adds the OTLP exporter for each signal when the variable is set (Application Insights only
-without it, and only with a connection string, which localtest never has). But its resource detector sets
-`service.name` `authentication` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestAuthentication` (`fakes/LocaltestAuthenticationExtensions.cs`) calls
-`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
-environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
-does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
-own exporters. Under studioctl the name it sets (the manifest name, `authentication`) is the one the host already had, so the
-difference shows only with another `OTEL_SERVICE_NAME`.
+without it, and only with a connection string, which localtest never has). Its resource detector sets
+`service.name` `authentication` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` are
+ignored and `service.instance.id` is the container's host name. Both runtimes set `OTEL_SERVICE_NAME` to that same
+name (the manifest name), so localtest adds nothing and no vendored file changes. Until task 61 (2026-10-28) the fakes'
+hook called `AddLocaltestOtlpResource` (a copy of `../shared/fakes/Otlp/`) to let the variables win; it changed no
+name under studioctl or Aspire, so it was removed ([`TODO.md`](../../../TODO.md) section 61). `AddLocaltestOtlp` was never an option:
+`UseOtlpExporter()` throws next to ServiceDefaults' own exporters.
 
-Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development`, a fake OTLP/HTTP collector on a loopback
+Verified 2026-10-26, with that call, without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development`, a fake OTLP/HTTP collector on a loopback
 port, `http/protobuf`): with the variable and `OTEL_SERVICE_NAME=from-env`, `/v1/traces`, `/v1/metrics` and `/v1/logs`
 arrive with `service.name` `from-env`; with the variable alone, `authentication`; without it nothing reaches the collector or the
 SDK defaults (4317, 4318). Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 566 spans, 724 metric series and 128 log records under `service.name` `authentication`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line. A 150 s capture of SYNs and UDP in its network namespace during the smoke tests showed no lookup of `otel-collector` and nothing to 4317 or 4318.

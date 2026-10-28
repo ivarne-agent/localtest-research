@@ -13,7 +13,7 @@ Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites (`python3 localtest/tools/vendor-sync.py check resource-registry` proves it) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored `Directory.Build.props` (`src/apps/Altinn.ResourceRegistry/src/`, which chains to the vertical's own; `Directory.Packages.props` is the vertical's too), define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/Seed/**` |
-| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed, `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
+| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed |
 | `postgres-init/40-resource-registry.sh` | Postgres init script: the `resourceregistrydb` database and the roles upstream's migrations grant to (`platform_authorization_admin` superuser, `platform_authorization`), password `localtest`, which Access Management's own database step also sets. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/resource-registry/postgres-init/40-resource-registry.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.ResourceRegistry/Dockerfile` (pinned Alpine SDK image, `dotnet publish` of the host, `aspnet:10.0-alpine`, non-root `dotnet`); each difference is marked `localtest:` |
 | `smoke-test.sh` | Against the running stack: the fixture app pushed as the runner does, resources, policies, the seeded Correspondence and Profile resources, the `updated` feed, orgs, subject lookup, platform access tokens (43 checks) |
@@ -118,15 +118,15 @@ The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER
 half: `AltinnHost.CreateWebApplicationBuilder("resource-registry", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
 metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
 tail sampling), Npgsql tracing through `AddAltinnPostgresDataSource` and adds the OTLP exporter for each signal when the variable is set (Application Insights only
-without it, and only with a connection string, which localtest never has). But its resource detector sets
-`service.name` `resource-registry` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestResourceRegistry` (`fakes/LocaltestResourceRegistryExtensions.cs`) calls
-`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
-environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
-does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
-own exporters. Under studioctl the name it sets (the manifest name, `resource-registry`) is the one the host already had, so the
-difference shows only with another `OTEL_SERVICE_NAME`.
+without it, and only with a connection string, which localtest never has). Its resource detector sets
+`service.name` `resource-registry` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` are
+ignored and `service.instance.id` is the container's host name. Both runtimes set `OTEL_SERVICE_NAME` to that same
+name (the manifest name), so localtest adds nothing and no vendored file changes. Until task 61 (2026-10-28) the fakes'
+hook called `AddLocaltestOtlpResource` (a copy of `../shared/fakes/Otlp/`) to let the variables win; it changed no
+name under studioctl or Aspire, so it was removed ([`TODO.md`](../../../TODO.md) section 61). `AddLocaltestOtlp` was never an option:
+`UseOtlpExporter()` throws next to ServiceDefaults' own exporters.
 
-Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
+Verified 2026-10-26, with that call, the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
 tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
 stack; the same call was run in Authentication and Register. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 660 spans, 680 metric series and 1026 log records under `service.name` `resource-registry`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 

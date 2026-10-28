@@ -9,7 +9,7 @@ data through this component's localtest API (`test-users`, `organizations` and t
 | --- | --- |
 | `vendor/` | Unmodified upstream copy except `#if LOCALTEST` blocks (`git diff` against the baseline commit shows them all); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST`, link the fakes project |
-| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, the localtest-only controllers, DI composition, `OTEL_SERVICE_NAME` over the host's name (`Otlp/`, a copy of `../shared/fakes/Otlp/`) |
+| `fakes/Altinn.Register.Localtest/` | In-memory `IPartyPersistence`, `IPartyExternalRolePersistence` over a swappable `RegisterStore` snapshot (`RegisterStoreProvider`), test-data merging, static role definitions, rate limiter, signing keys from the shared test certificate, the localtest-only controllers, DI composition |
 | `testdata/testData.json` | Seed: the old localtest's built-in users with valid synthetic identifiers (see [`testdata/README.md`](testdata/README.md) for the conversion, the old→new identifier mapping and what v3 added). The format, shared with apps' `testData.json`, is documented in [`../../testdata/`](../../testdata/README.md) with its JSON Schema (v3) |
 | `smoke-test.sh` | Curl checks against a running register, with a stub app for registration: the seed, the party list, the KRR stand-in (14 checks; the Profile checks moved to `../profile/smoke-test.sh`) |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned Alpine images, build and publish, tzdata, non-root `dotnet` user); each difference is marked `localtest:` |
@@ -82,16 +82,15 @@ The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER
 half: `AltinnHost.CreateWebApplicationBuilder("register", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
 metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
 tail sampling), Register's own source and meter and adds the OTLP exporter for each signal when the variable is set (Application Insights only
-without it, and only with a connection string, which localtest never has). But its resource detector sets
-`service.name` `register` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestRegister` (`fakes/Altinn.Register.Localtest/LocaltestRegisterExtensions.cs`) calls
-`AddLocaltestOtlpResource` (`fakes/Altinn.Register.Localtest/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
-environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
-does nothing. No vendored file changes (the fakes project references `OpenTelemetry.Extensions.Hosting` 1.17.0 and `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-1.15.3, the versions the host resolves). Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
-own exporters. Under studioctl the name it sets (the manifest name, `register`) is the one the host already had, so the
-difference shows only with another `OTEL_SERVICE_NAME`.
+without it, and only with a connection string, which localtest never has). Its resource detector sets
+`service.name` `register` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` are
+ignored and `service.instance.id` is the container's host name. Both runtimes set `OTEL_SERVICE_NAME` to that same
+name (the manifest name), so localtest adds nothing and no vendored file changes. Until task 61 (2026-10-28) the fakes'
+hook called `AddLocaltestOtlpResource` (a copy of `../shared/fakes/Otlp/`) to let the variables win; it changed no
+name under studioctl or Aspire, so it was removed ([`TODO.md`](../../../TODO.md) section 61). `AddLocaltestOtlp` was never an option:
+`UseOtlpExporter()` throws next to ServiceDefaults' own exporters.
 
-Verified 2026-10-26 without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development` and `Localtest__Register__TestDataPath` at `testdata/testData.json`, a fake OTLP/HTTP collector on a loopback
+Verified 2026-10-26, with that call, without the stack (the host run as a process with `ASPNETCORE_ENVIRONMENT=Development` and `Localtest__Register__TestDataPath` at `testdata/testData.json`, a fake OTLP/HTTP collector on a loopback
 port, `http/protobuf`): with the variable and `OTEL_SERVICE_NAME=from-env`, `/v1/traces`, `/v1/metrics` and `/v1/logs`
 arrive with `service.name` `from-env`; with the variable alone, `register`; without it nothing reaches the collector or the
 SDK defaults (4317, 4318). Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 374 spans, 666 metric series and 75 log records under `service.name` `register`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.

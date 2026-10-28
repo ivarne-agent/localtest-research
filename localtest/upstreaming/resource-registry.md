@@ -13,8 +13,8 @@
   `docker-bake.hcl` and altinn-auth's `containers/` are watched.
 - Localtest modifications: 2 directive sites in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`,
   the hook `fakes/LocaltestResourceRegistryExtensions.cs` with `fakes/LocaltestResourceRegistryOptions.cs`, the fakes
-  `fakes/Applications/`, `fakes/Infrastructure/` (two files), `fakes/Policies/`, `fakes/Seed/` and the shared copies
-  `fakes/ServiceDiscovery/` and `fakes/Otlp/`, `postgres-init/`, two build overrides, and the `localtest:` deviations in
+  `fakes/Applications/`, `fakes/Infrastructure/` (two files), `fakes/Policies/`, `fakes/Seed/` and the shared copy
+  `fakes/ServiceDiscovery/`, `postgres-init/`, two build overrides, and the `localtest:` deviations in
   `Dockerfile` plus its own `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -22,18 +22,6 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 `AltinnServiceDefaults` host (`Altinn.Authorization.ServiceDefaults` 6.0.0).
 
 ## Phase 1: easy fixes
-
-- [ ] **Let `OTEL_SERVICE_NAME` win over the host's name.** Nothing in the Resource Registry itself: take the
-      `Altinn.Authorization.ServiceDefaults` release that adds the environment resource detector after
-      `AltinnServiceResourceDetector` (and makes OTLP and Azure Monitor independent), and bump the version in
-      the vertical's own `src/apps/Altinn.ResourceRegistry/Directory.Packages.props`.
-  - Why: ServiceDefaults already exports over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but its detector
-    sets `service.name` `resource-registry` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and
-    `OTEL_RESOURCE_ATTRIBUTES` are ignored.
-  - Size: trivial here (a version bump); the library change is small, see [`authorization-utils.md`](authorization-utils.md).
-  - Removes: `fakes/Otlp/` and the `AddLocaltestOtlpResource` call in the hook.
-  - Upstream: none found.
-  - Detail: [`../reviews/otel/resource-registry.md`](../reviews/otel/resource-registry.md).
 
 - [ ] **Drop the unused Application Insights references.** Remove `Microsoft.ApplicationInsights.AspNetCore`,
       `Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel` and `Microsoft.Extensions.Logging.ApplicationInsights`
@@ -158,6 +146,8 @@ Not a Resource Registry item: the eight monorepo test apps whose `delete` rule p
 assigns the fix to the test apps' `policy.xml` in altinn-studio and does not call the validator wrong
 ([`../reviews/test-apps.md`](../reviews/test-apps.md)).
 
-Coverage: 2 sites, 7 fakes (`Applications/`, `Infrastructure/LocaltestOidcMetadata.cs`,
-`Infrastructure/LocaltestPublicSigningKeyProvider.cs`, `Policies/`, `Seed/`, `ServiceDiscovery/`, `Otlp/`) plus the
-hook and `postgres-init/`, 2 build overrides, 2 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 2 sites, 6 fakes (`Applications/`, `Infrastructure/LocaltestOidcMetadata.cs`,
+`Infrastructure/LocaltestPublicSigningKeyProvider.cs`, `Policies/`, `Seed/`, `ServiceDiscovery/`) plus the
+hook and `postgres-init/`, 2 build overrides, 2 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/`
+and its `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the
+manifest name, so nothing was left to remove.

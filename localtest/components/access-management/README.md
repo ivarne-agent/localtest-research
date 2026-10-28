@@ -84,15 +84,15 @@ The stack's rule: traces, metrics and logs over OTLP exactly when `OTEL_EXPORTER
 half: `AltinnHost.CreateWebApplicationBuilder("access-management", ...)` runs `AddAltinnServiceDefaults`, which sets up logs,
 metrics (runtime, ASP.NET Core, Kestrel, HttpClient) and traces (ASP.NET Core without health paths, HttpClient,
 tail sampling), Npgsql, the lease, pipeline and core sources and meters and adds the OTLP exporter for each signal when the variable is set (Application Insights only
-without it, and only with a connection string, which localtest never has). But its resource detector sets
-`service.name` `access-management` after the SDK's environment detector, so `OTEL_SERVICE_NAME` was ignored. `AddLocaltestAccessManagement` (`fakes/LocaltestAccessManagementExtensions.cs`) calls
-`AddLocaltestOtlpResource` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`), which with the variable set adds the
-environment detector after it, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` win; without the variable it
-does nothing. No vendored file changes. Not `AddLocaltestOtlp`: `UseOtlpExporter()` throws next to ServiceDefaults'
-own exporters. Under studioctl the name it sets (the manifest name, `access-management`) is the one the host already had, so the
-difference shows only with another `OTEL_SERVICE_NAME`.
+without it, and only with a connection string, which localtest never has). Its resource detector sets
+`service.name` `access-management` after the SDK's environment detector, so `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` are
+ignored and `service.instance.id` is the container's host name. Both runtimes set `OTEL_SERVICE_NAME` to that same
+name (the manifest name), so localtest adds nothing and no vendored file changes. Until task 61 (2026-10-28) the fakes'
+hook called `AddLocaltestOtlpResource` (a copy of `../shared/fakes/Otlp/`) to let the variables win; it changed no
+name under studioctl or Aspire, so it was removed ([`TODO.md`](../../../TODO.md) section 61). `AddLocaltestOtlp` was never an option:
+`UseOtlpExporter()` throws next to ServiceDefaults' own exporters.
 
-Verified 2026-10-26: the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
+Verified 2026-10-26, with that call, the localtest build (`dotnet build -c Release` with the overrides) and the shared helper's
 tests (`../shared/Otlp.Tests`, `-p:OtelVersion=1.15.3`). The host needs Postgres at start, so it was not run outside the
 stack; the same call was run in Authentication and Register. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): a request with a `traceparent` (`GET accessmanagement/api/v1/authorizedparties`) showed up as its server span with five Npgsql client spans, and the stack's run left 1384 spans, 622 metric series and 3318 log records under `service.name` `access-management` (it has no `smoke-test.sh`). Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 Production's own `UseAzureMonitor` block (`AccessManagementHost.cs:88-108`) runs only outside Development with

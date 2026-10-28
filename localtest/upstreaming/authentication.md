@@ -16,8 +16,8 @@
   (`AuthenticationHost.cs`, `Controllers/AuthenticationController.cs`), the composition
   `fakes/LocaltestAuthenticationExtensions.cs` with `fakes/LocaltestAuthenticationOptions.cs`, the seeded clients
   `fakes/LocaltestOidcClients.cs`, the level table `fakes/Login/`, the key providers `fakes/Keys/`, the in-memory
-  repositories `fakes/Persistence/`, the shared copies `fakes/Cookies/`, `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two
-  build overrides, and the `localtest:` deviations in `Dockerfile` and `.dockerignore`.
+  repositories `fakes/Persistence/`, the shared copies `fakes/Cookies/` and `fakes/ServiceDiscovery/`, two build
+  overrides, and the `localtest:` deviations in `Dockerfile` and `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
 `../components/authentication/` (sites relative to `vendor/src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`).
@@ -72,16 +72,6 @@ targets `https://local.altinn.cloud` and keeps `Secure` cookies, so the http ite
     `All`, while [`../reviews/cookies.md`](../reviews/cookies.md) found `UseForwardedHeaders()` taking no effect; I
     could not confirm what production sees, so the setting is the safer proposal.
   - Detail: [`../reviews/cookies.md`](../reviews/cookies.md), inventory rows 1 to 8 and decision F1.
-
-- [ ] **`OTEL_SERVICE_NAME` over the service's own name.** The host already exports over OTLP exactly when
-      `OTEL_EXPORTER_OTLP_ENDPOINT` is set; only the resource detector in ServiceDefaults hides `OTEL_SERVICE_NAME`. The
-      change is in the shared library, then a version bump here.
-  - Why: a runner that names the service differently (Aspire, a manual run) sees `authentication` regardless.
-  - Size: trivial here; small in the library.
-  - Removes: `fakes/Otlp/` and the `AddLocaltestOtlpResource` call in the hook.
-  - Upstream: none found; see [`authorization-utils.md`](authorization-utils.md).
-  - Detail: [`../reviews/otel/authentication.md`](../reviews/otel/authentication.md). Optional cleanup there: the
-    direct `Azure.Monitor.OpenTelemetry.AspNetCore` reference, a version pin with no call.
 
 ## Phase 2: structural changes
 
@@ -158,6 +148,7 @@ targets `https://local.altinn.cloud` and keeps `Secure` cookies, so the http ite
   vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 
-Coverage: 2 sites, 9 fakes (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`,
-`LocaltestOidcClients.cs`, `Login/`, `Keys/`, `Persistence/`, `Cookies/`, `ServiceDiscovery/`, `Otlp/`), 2 build
-overrides, 2 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 2 sites, 8 fakes (`LocaltestAuthenticationExtensions.cs`, `LocaltestAuthenticationOptions.cs`,
+`LocaltestOidcClients.cs`, `Login/`, `Keys/`, `Persistence/`, `Cookies/`, `ServiceDiscovery/`), 2 build
+overrides, 2 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/` and its `OTEL_SERVICE_NAME` item
+went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name, so nothing was left to remove.

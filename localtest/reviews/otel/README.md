@@ -13,10 +13,10 @@ set" would take, classified trivial / small / large) and the **localtest change*
 | Service | Review | Upstream | Localtest |
 | --- | --- | --- | --- |
 | Authorization (PDP) | [`authorization.md`](authorization.md) | small: classic Application Insights SDK (logs, requests, two telemetry processors, an initializer) plus a metrics-only Azure Monitor pipeline; replace with one OpenTelemetry pipeline in `Program.cs` (moving to ServiceDefaults would be large) | done: `#if !LOCALTEST`/`#else` builds traces, metrics and logs with `AddLocaltestOtlp`, `service.name` `platform-authorization` |
-| Authentication | [`authentication.md`](authentication.md) | trivial: ServiceDefaults 6.0.0 already exports over OTLP when the variable is set | done: `AddLocaltestOtlpResource` in the fakes hook, so `OTEL_SERVICE_NAME` counts |
-| Access Management | [`access-management.md`](access-management.md) | trivial for the rule; small cleanup (dead classic-SDK classes, its own `UseAzureMonitor` block outside ServiceDefaults) | done: as Authentication |
-| Register | [`register.md`](register.md) | trivial: ServiceDefaults 5.5.0; drop an unused Application Insights reference | done: as Authentication (two package references in the fakes project) |
-| Resource Registry | [`resource-registry.md`](resource-registry.md) | trivial: ServiceDefaults 6.0.0; drop three unused Application Insights references | done: as Authentication |
+| Authentication | [`authentication.md`](authentication.md) | trivial: ServiceDefaults 6.0.0 already exports over OTLP when the variable is set | nothing needed: exports under its own name, the manifest name (`AddLocaltestOtlpResource` from task 53 removed in task 61) |
+| Access Management | [`access-management.md`](access-management.md) | trivial for the rule; small cleanup (dead classic-SDK classes, its own `UseAzureMonitor` block outside ServiceDefaults) | nothing needed: as Authentication |
+| Register | [`register.md`](register.md) | trivial: ServiceDefaults 5.5.0; drop an unused Application Insights reference | nothing needed: as Authentication (the two package references in the fakes project went too) |
+| Resource Registry | [`resource-registry.md`](resource-registry.md) | trivial: ServiceDefaults 6.0.0; drop three unused Application Insights references | nothing needed: as Authentication |
 | Storage | [`storage.md`](storage.md) | trivial: OpenTelemetry pipeline already, Azure Monitor exporters only with the Key Vault connection string; add the OTLP package and `UseOtlpExporter()` when the variable is set | done: `#if !LOCALTEST`/`#else AddLocaltestOtlp` around the Azure Monitor block |
 | Events | [`events.md`](events.md) | trivial: as Storage | done: as Storage |
 | Profile | [`profile.md`](profile.md) | trivial: as Storage | done: as Storage |
@@ -34,9 +34,10 @@ Localtest keeps that on purpose (decided 2026-10-27): pdf3's request spans alrea
 timings and link to the app's span, so its INFO records would only repeat them. A configurable level
 (`PDF3_OTEL_LOG_LEVEL`) was built and dropped. Its WARN and ERROR records carry the request's trace ID.
 
-Across the four ServiceDefaults hosts, one small upstream change in `Altinn/altinn-authorization-utils` would help all of
-them: make the OTLP and Azure Monitor exporters independent (today OTLP turns Azure Monitor off) and let
-`OTEL_SERVICE_NAME` win over `AltinnServiceResourceDetector`.
+Across the four ServiceDefaults hosts, one small upstream change in `Altinn/altinn-authorization-utils` was proposed:
+make the OTLP and Azure Monitor exporters independent (today OTLP turns Azure Monitor off) and let `OTEL_SERVICE_NAME`
+win over `AltinnServiceResourceDetector`. Neither has a local effect (each host's own name is the manifest name), so
+since task 61 (2026-10-28) localtest neither proposes it nor carries the `AddLocaltestOtlpResource` workaround.
 
 Across the Azure Monitor services (Storage, Events, Profile, Receipt, Correspondence, Notifications): they are OpenTelemetry
 first already, so the upstream change is one package and one `UseOtlpExporter()` call each. Two things to carry into those

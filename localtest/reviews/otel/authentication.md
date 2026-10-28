@@ -42,7 +42,16 @@ one package release, then a version bump in each host):
    time), or have the detector skip `service.name` when `OTEL_SERVICE_NAME` is set.
 Risk: low; (1) changes behaviour only where both are configured, (2) only where `OTEL_SERVICE_NAME` is set.
 
-## Localtest change (done)
+Localtest does not propose either (decided 2026-10-28, TODO.md task 61): neither has a local effect, see
+[`../../upstreaming/authorization-utils.md`](../../upstreaming/authorization-utils.md), "Not needed".
+
+## Localtest change (removed in task 61)
+
+**Current state (2026-10-28):** no localtest telemetry code in this host. ServiceDefaults exports with the variable,
+named `authentication` by its own detector, which is what studioctl and Aspire set as `OTEL_SERVICE_NAME`; `service.instance.id` is
+the container's host name and `OTEL_RESOURCE_ATTRIBUTES` is ignored (accepted). The call below and the `fakes/Otlp/`
+copy were removed in TODO.md task 61, which re-verified all three signals on the stack. What follows is the record of
+task 53.
 
 No vendored file changes. `AddLocaltestAuthentication` (`fakes/LocaltestAuthenticationExtensions.cs`, called from the existing `#if LOCALTEST` site `AuthenticationHost.cs:293-295`) calls
 `LocaltestOtlp.AddLocaltestOtlpResource(services.AddOpenTelemetry(), builder.Configuration)` (`fakes/Otlp/`, a copy of
