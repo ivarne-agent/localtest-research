@@ -2812,5 +2812,6 @@ databases belong in the localtest repo."
   image no longer copies it.
 - The services get the same values through the manifest (`PostgreSqlSettings__…Pwd`, connection strings, or the
   fakes' options), overriding whatever their upstream `appsettings.json` holds.
-- Consequence for task 59: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name"
-  moves to "Stays local"; the branch `storage-postgres-init-role` on the fork stays unopened.
+- Task 59 is unaffected: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name" stays
+  in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28). Once
+  localtest creates Storage's users itself, that item no longer removes anything here.
