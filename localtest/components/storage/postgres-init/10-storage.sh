@@ -1,17 +1,29 @@
 #!/bin/sh
-# Postgres init script (docker-entrypoint-initdb.d) for the storage component on the shared localtest Postgres.
-# Upstream runs infra/postgres_init.sql as the container superuser named platform_storage_admin; here the superuser
-# may be anyone, so the admin role is created first, the vendored script runs unchanged, and the database and schema
-# are handed to the admin role that runs the migrations at Storage startup.
+# Postgres init script (docker-entrypoint-initdb.d) for the storage component on the shared localtest Postgres. It does
+# what upstream's infra/postgres_init.sql does (that script assumes it runs as a superuser named platform_storage_admin;
+# here the superuser may be anyone, and localtest sets up its own users and databases): the roles
+# platform_storage_admin (owner of storagedb and its storage schema, runs the Yuniql migrations at Storage startup) and
+# platform_storage (the login role the host runs as), the grants and max_connections. The passwords come from the
+# Postgres container's environment (PLATFORM_STORAGE_ADMIN_PASSWORD, PLATFORM_STORAGE_PASSWORD; the runtimes set them
+# from the manifest). Idempotent, so it can also be run by hand against an existing volume, where Postgres skips init
+# scripts:
+#   podman exec -i localtest-v2-postgres sh < components/storage/postgres-init/10-storage.sh
 set -eu
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<'SQL'
-DO $$ BEGIN
-  CREATE ROLE platform_storage_admin WITH LOGIN PASSWORD 'Password';
-EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'platform_storage_admin exists';
-END $$;
+: "${PLATFORM_STORAGE_ADMIN_PASSWORD:?is not set: the Postgres container needs it for the role platform_storage_admin}"
+: "${PLATFORM_STORAGE_PASSWORD:?is not set: the Postgres container needs it for the role platform_storage}"
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname postgres \
+  -v admin_password="$PLATFORM_STORAGE_ADMIN_PASSWORD" -v password="$PLATFORM_STORAGE_PASSWORD" <<'SQL'
+SELECT format('CREATE ROLE platform_storage_admin WITH LOGIN PASSWORD %L', :'admin_password')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'platform_storage_admin') \gexec
+SELECT format('CREATE ROLE platform_storage WITH LOGIN PASSWORD %L', :'password')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'platform_storage') \gexec
+SELECT 'CREATE DATABASE storagedb OWNER platform_storage_admin'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'storagedb') \gexec
+ALTER SYSTEM SET max_connections TO '200';
 SQL
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -f /storage-init/postgres_init.sql
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname storagedb <<'SQL'
-ALTER DATABASE storagedb OWNER TO platform_storage_admin;
-ALTER SCHEMA storage OWNER TO platform_storage_admin;
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname storagedb <<'SQL'
+CREATE SCHEMA IF NOT EXISTS storage AUTHORIZATION platform_storage_admin;
+GRANT USAGE ON SCHEMA storage TO platform_storage;
+GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA storage TO platform_storage;
 SQL

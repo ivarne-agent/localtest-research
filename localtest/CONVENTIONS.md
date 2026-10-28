@@ -43,6 +43,10 @@ lists the stack in three sections:
   error.
 - There is no JSON Schema: the Go reader's test validates the file and `Parse` refuses an invalid one; the Aspire
   package runs the same checks on the same file, which it embeds by relative path.
+- The database passwords live in the manifest and nowhere else (TODO.md task 60; static local values): the Postgres
+  container's `envs` hold one `<ROLE>_PASSWORD` per role, which the Postgres image's init scripts read to create the
+  roles and databases (and fail without), and each service gets the same value in the form it reads. No image and no
+  fake carries one ([manifest README, Database users and passwords](studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)).
 
 **Why.** The stack is a list of services; everything both runtimes do alike is runner code, written once in each
 runner and held to one golden snapshot, rather than a vocabulary in a file that two readers interpret.

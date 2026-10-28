@@ -16,6 +16,19 @@
       "port": 5432,
       "health": "tcp",
       "envs": {
+        "ARBEIDSFLATE_PASSWORD": "localtest",
+        "CORRESPONDENCE_PASSWORD": "localtest",
+        "DIALOGPORTEN_PASSWORD": "localtest",
+        "PLATFORM_AUTHORIZATION_ADMIN_PASSWORD": "localtest",
+        "PLATFORM_AUTHORIZATION_PASSWORD": "localtest",
+        "PLATFORM_EVENTS_ADMIN_PASSWORD": "Password",
+        "PLATFORM_EVENTS_PASSWORD": "Password",
+        "PLATFORM_NOTIFICATIONS_ADMIN_PASSWORD": "Password",
+        "PLATFORM_NOTIFICATIONS_PASSWORD": "Password",
+        "PLATFORM_PROFILE_ADMIN_PASSWORD": "Password",
+        "PLATFORM_PROFILE_PASSWORD": "Password",
+        "PLATFORM_STORAGE_ADMIN_PASSWORD": "Password",
+        "PLATFORM_STORAGE_PASSWORD": "Password",
         "POSTGRES_PASSWORD": "postgres",
         "POSTGRES_USER": "postgres",
         "TZ": "UTC"
@@ -42,7 +55,9 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "Localtest__Profile__PlatformEndpoint": "{{origin}}/",
         "PostgreSqlSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_profile_admin;Password={0};Database=profiledb",
-        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True"
+        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True",
+        "PostgreSqlSettings__ProfileDbAdminPwd": "Password",
+        "PostgreSqlSettings__ProfileDbPwd": "Password"
       },
       "dependsOn": ["postgres", "register"]
     },
@@ -77,7 +92,9 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "GeneralSettings__PlatformEndpoint": "{{origin}}/",
         "PostgreSqlSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_storage_admin;Password={0};Database=storagedb",
-        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True"
+        "PostgreSqlSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True",
+        "PostgreSqlSettings__StorageDbAdminPwd": "Password",
+        "PostgreSqlSettings__StorageDbPwd": "Password"
       },
       "dependsOn": ["postgres"],
       "volumes": {
@@ -90,7 +107,9 @@
       "port": 5080,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
-        "Localtest__AccessManagement__PlatformEndpoint": "{{origin}}/"
+        "Localtest__AccessManagement__PlatformEndpoint": "{{origin}}/",
+        "PostgreSQLSettings__AuthorizationDbAdminPwd": "localtest",
+        "PostgreSQLSettings__AuthorizationDbPwd": "localtest"
       },
       "dependsOn": ["postgres", "register", "resource-registry", "profile"],
       "volumes": {
@@ -105,7 +124,9 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "Localtest__Events__PlatformEndpoint": "{{origin}}/",
         "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_events_admin;Password={0};Database=eventsdb",
-        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True"
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True",
+        "PostgreSQLSettings__EventsDbAdminPwd": "Password",
+        "PostgreSQLSettings__EventsDbPwd": "Password"
       },
       "dependsOn": ["postgres", "register", "authorization"]
     },
@@ -117,7 +138,9 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "Localtest__ResourceRegistry__PlatformEndpoint": "{{origin}}/",
         "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_authorization_admin;Password={0};Database=resourceregistrydb",
-        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True"
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True",
+        "PostgreSQLSettings__AuthorizationDbAdminPwd": "localtest",
+        "PostgreSQLSettings__AuthorizationDbPwd": "localtest"
       },
       "dependsOn": ["postgres", "storage"],
       "volumes": {
@@ -132,7 +155,9 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "Localtest__Notifications__PlatformEndpoint": "{{origin}}/",
         "PostgreSQLSettings__AdminConnectionString": "Host=postgres;Port=5432;Username=platform_notifications_admin;Password={0};Database=notificationsdb",
-        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True"
+        "PostgreSQLSettings__ConnectionString": "Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True",
+        "PostgreSQLSettings__NotificationsDbAdminPwd": "Password",
+        "PostgreSQLSettings__NotificationsDbPwd": "Password"
       },
       "dependsOn": ["postgres", "register", "profile", "authorization", "authentication"]
     },
@@ -184,6 +209,7 @@
       "tag": "sha-1d08adb",
       "health": "/health/readiness",
       "envs": {
+        "Infrastructure__DialogDbConnectionString": "Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=localtest;Include Error Detail=True",
         "Localtest__Dialogporten__PlatformEndpoint": "{{origin}}/"
       },
       "dependsOn": ["postgres", "redis", "register", "authentication", "authorization", "access-management", "events", "resource-registry"]
@@ -193,6 +219,7 @@
       "tag": "sha-1d08adb",
       "health": "/health/readiness",
       "envs": {
+        "Infrastructure__DialogDbConnectionString": "Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=localtest;Include Error Detail=True",
         "Localtest__Dialogporten__PlatformEndpoint": "{{origin}}/"
       },
       "dependsOn": ["dialogporten-webapi"]
@@ -202,6 +229,7 @@
       "tag": "sha-1d08adb",
       "health": "/health/readiness",
       "envs": {
+        "Infrastructure__DialogDbConnectionString": "Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=localtest;Include Error Detail=True",
         "Localtest__Dialogporten__PlatformEndpoint": "{{origin}}/"
       },
       "dependsOn": ["dialogporten-webapi"]

@@ -52,8 +52,7 @@ public static class LocaltestConfiguration
         {
             [$"{LocaltestDialogportenOptions.SectionName}:PlatformEndpoint"] = platform,
 
-            ["Infrastructure:DialogDbConnectionString"] =
-                $"Host={options.DatabaseHost};Port={options.DatabasePort};Database={options.DatabaseName};Username={options.DatabaseUser};Password={options.DatabasePassword};Include Error Detail=True",
+            // Infrastructure:DialogDbConnectionString: from the manifest (the runtimes), never a default here.
             ["Infrastructure:Redis:ConnectionString"] = options.RedisConnectionString,
             // Public: MetadataLinkProvider builds the links handed to clients from it. The four clients on it call the
             // services by name through LocaltestPrefixRouting (LocaltestInfrastructure); Events has a base of its own, its service name.

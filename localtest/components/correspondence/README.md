@@ -32,7 +32,7 @@ download of attachments").
 | `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except three additive `#if LOCALTEST` hooks in `Program.cs` and one `#if !LOCALTEST` block, in `IdportenTokenValidator.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
-| `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password `localtest`), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
+| `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password from `CORRESPONDENCE_PASSWORD` in the Postgres container's environment), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
 | `Dockerfile` | Mirrors upstream's `vendor/Dockerfile` (the six-project restore layer, publish, port 2525, the `dotnet` user, `/mnt/storage`); each difference is marked `localtest:`, among them the base images pinned by digest (upstream floats `sdk:10.0`/`aspnet:10.0`) |
 | `smoke-test.sh` | Against the stack with the group on, see "Tests" |
 | `.dockerignore` | Keeps host `bin/` and `obj/` out of the build context |
@@ -133,12 +133,14 @@ Malware scanning is upstream's own Development simulation ("No threats found", t
 
 ## Configuration
 
-One setting comes from studioctl, `Localtest__Correspondence__PlatformEndpoint` (the public origin); the connection string and
-Redis are set explicitly too. Everything else is a default the real setting overrides. With `{platform}` that endpoint:
+One setting comes from studioctl, `Localtest__Correspondence__PlatformEndpoint` (the public origin); the connection string
+(`DatabaseOptions__ConnectionString`, `Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=…`,
+the password the manifest also gives the Postgres container as `CORRESPONDENCE_PASSWORD`; no default in the fakes, and a
+password keeps Entra ID out) and Redis are set explicitly too. Everything else is a default the real setting overrides.
+With `{platform}` that endpoint:
 
 | Key | Default |
 | --- | --- |
-| `DatabaseOptions:ConnectionString` | `Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest` (a password keeps Entra ID out) |
 | `AttachmentStorageOptions:ConnectionString` | `UseDevelopmentStorage=true` (required by the options class, never read) |
 | `AltinnOptions:PlatformGatewayUrl`, `OpenIdWellKnown`, `ArbeidsflateOriginsCommaSeparated` | `{platform}`, Authentication's OpenID configuration, `http://af.local.altinn.cloud:8000`. `PlatformGatewayUrl` is the base of the nine platform clients and the OIDC authority and expected issuer, so it stays public; `fakes/ServiceDiscovery/LocaltestPrefixRouting.cs` (a copy of `../shared/fakes/`), outermost on those nine clients, moves each request to the service that owns its prefix (`http://register/register/…`) before service discovery resolves it (task 40) |
 | `AltinnIdProviderSettings:ClientId`, `ClientSecret` | `correspondence-localtest`, `correspondence-localtest-secret`: Authentication's seeded client for the browser download (upstream's Development file has the placeholders `clientId`/`clientSecret`) |

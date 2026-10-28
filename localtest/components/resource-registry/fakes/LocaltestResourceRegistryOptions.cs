@@ -21,5 +21,6 @@ public sealed class LocaltestResourceRegistryOptions
 
     public string DatabaseName { get; set; } = "resourceregistrydb";
 
-    public string DatabasePassword { get; set; } = "localtest";
+    // The passwords have no default here: PostgreSQLSettings__AuthorizationDbAdminPwd and __AuthorizationDbPwd come from
+    // the manifest (the runtimes), as the Postgres container's PLATFORM_AUTHORIZATION_ADMIN_PASSWORD and _PASSWORD do.
 }

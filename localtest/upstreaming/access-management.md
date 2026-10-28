@@ -14,10 +14,10 @@
 - Localtest modifications: 5 directive sites under `src/apps/Altinn.AccessManagement/src/` (`Program.cs`, two in
   `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`), the
   composition `fakes/LocaltestAccessManagementExtensions.cs` with `fakes/LocaltestAccessManagementOptions.cs`, the
-  database bootstrap `fakes/Database/`, the policy store `fakes/Policies/`, the token, key and metadata stand-ins
+  policy store `fakes/Policies/`, the token, key and metadata stand-ins
   `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copy
-  `fakes/ServiceDiscovery/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
-  `.dockerignore`.
+  `fakes/ServiceDiscovery/`, two build overrides, the Postgres init script
+  `postgres-init/45-access-management.sh`, and the `localtest:` deviations in `Dockerfile` and `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
 `../components/access-management/` (sites relative to `vendor/src/apps/Altinn.AccessManagement/src/`).
@@ -74,11 +74,12 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
       in a separate `RunInitOnly` job; the only mode that inits and then serves is `RunIntegrationTests`, and it migrates
       on the app connection (`AccessManagementHost.cs:128` picks `SourceType.Migration` only for `RunInitOnly`). Name and
       document a mode for local runs that inits and then serves, migrating on the migration connection. Localtest then
-      creates the roles and database with a `postgres-init` script and runs its seed refresh as a hosted service.
+      runs its seed refresh as a hosted service (the roles and database already come from its `postgres-init` script).
   - Why: one container has to migrate and serve; the app connection needs superuser rights today, which hides a grant
     an upstream migration forgets.
   - Size: medium; the mode needs agreement, the rest is localtest work.
-  - Removes: site `Program.cs:19-35` and `fakes/Database/`.
+  - Removes: site `Program.cs:19-35`, and the superuser grant to `platform_authorization` in
+    `postgres-init/45-access-management.sh`.
   - Upstream: related [altinn-auth#4063](https://github.com/Altinn/altinn-auth/issues/4063) (an init step in the app
     host).
   - Detail: [`../reviews/access-management.md`](../reviews/access-management.md), findings 10 and 14 and "Differences
@@ -133,8 +134,12 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
 - `localtest.build.props`: `LOCALTEST`, `TreatWarningsAsErrors=false`, the documentation `NoWarn` and the
   vendored-project test: the mechanism that carries the sites.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
+- `postgres-init/45-access-management.sh`: the roles and `authorizationdb` on the shared Postgres, with the passwords
+  from the manifest: users and databases are set up by localtest (TODO.md task 60), as production's infrastructure does
+  for its own.
 
-Coverage: 5 sites, 8 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
-`Database/`, `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
-4 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/` and its `OTEL_SERVICE_NAME` item went in
-task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name, so nothing was left to remove.
+Coverage: 5 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
+`Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
+4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for. `Otlp/` and its
+`OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name,
+so nothing was left to remove.

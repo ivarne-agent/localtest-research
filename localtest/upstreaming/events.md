@@ -74,8 +74,8 @@ features find another way in.
       `infra/postgres_init.sql`, that creates them.
   - Why: every local setup repeats those steps; the stack's shared Postgres needs them as an init script.
   - Size: small; development tooling only.
-  - Removes: `postgres-init/30-events.sh`, replaced by upstream's script (running it in the shared Postgres image stays
-    local, as for Storage).
+  - Removes: nothing here. Localtest sets up its own users and databases (TODO.md task 60), so
+    `postgres-init/30-events.sh` stays; the script is for upstream's own local setups.
   - Upstream: none found. #1149 creates the roles in its Aspire app host, not as a reusable script.
 
 ## Phase 2: structural changes

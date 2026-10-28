@@ -50,8 +50,8 @@ public static class LocaltestCorrespondence
         var defaults = new Dictionary<string, string?>
         {
             [$"{LocaltestCorrespondenceOptions.SectionName}:PlatformEndpoint"] = platform,
-            // A password keeps Entra ID out (Program.GetConnectionString, Persistence BuildAzureNpgsqlDataSource).
-            ["DatabaseOptions:ConnectionString"] = "Host=postgres;Port=5432;Database=correspondence;Username=correspondence;Password=localtest",
+            // DatabaseOptions:ConnectionString comes from the manifest (the runtimes), never a default here; its password
+            // keeps Entra ID out (Program.GetConnectionString, Persistence BuildAzureNpgsqlDataSource).
             // Required by the options class and never read: the blob repository is replaced (Storage/FileStorageRepository).
             ["AttachmentStorageOptions:ConnectionString"] = "UseDevelopmentStorage=true",
             ["AltinnOptions:PlatformGatewayUrl"] = platform,

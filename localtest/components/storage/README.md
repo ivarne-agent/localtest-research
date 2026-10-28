@@ -11,7 +11,7 @@ as in production and ends in a localtest handler that posts each command to the 
 | `vendor/` | Unmodified upstream copy except three `LOCALTEST` sites, two in `Program.cs` and one in `InstancesController.cs` (`git diff` against the baseline commit shows them); syncing is described in `vendor/UPSTREAM.md` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the vendored `Directory.Build.props` when it is there (not in the image), define `LOCALTEST`, bypass CSharpier, compile `fakes/` into the host |
 | `fakes/` | Compiled into the host assembly (its interfaces live there): file blob repository, file-scan client, signing-key provider, DI and configuration composition |
-| `postgres-init/10-storage.sh` | Postgres init script: creates `platform_storage_admin`, runs the vendored `infra/postgres_init.sql` unchanged, hands the database and schema to the admin role |
+| `postgres-init/10-storage.sh` | Postgres init script: does what upstream's `infra/postgres_init.sql` does (watched in `vendor/UPSTREAM.md`, not copied) with any superuser name: the roles `platform_storage_admin` and `platform_storage`, `storagedb` and its `storage` schema owned by the admin role, the grants, `max_connections` 200; the passwords from the Postgres container's environment |
 | `Dockerfile` | Mirrors the upstream `vendor/Dockerfile` (same pinned images, DbTools step, chiseled non-root runtime); each difference is marked `localtest:` (see [Image](#image)) |
 
 ## Directive sites in `vendor/`
@@ -121,17 +121,20 @@ change or by hand with the adapter's `syncDialog/simple` endpoint. The adapter's
 ## Postgres
 
 One shared Postgres, the stack's `localtest-postgres` image (`../../postgres/Dockerfile`, `postgres:18.3`).
-`postgres-init/10-storage.sh` (copied into `/docker-entrypoint-initdb.d` by that image, with
-`vendor/infra/postgres_init.sql` at `/storage-init/postgres_init.sql`) creates the `storagedb` database, the
-`storage` schema and the roles `platform_storage_admin` / `platform_storage`, independent of `POSTGRES_USER`. Postgres
-runs init scripts on an empty volume only. Storage
+`postgres-init/10-storage.sh` (copied into `/docker-entrypoint-initdb.d` by that image) creates the `storagedb` database,
+the `storage` schema and the roles `platform_storage_admin` / `platform_storage`, independent of `POSTGRES_USER`, as
+upstream's `infra/postgres_init.sql` does (localtest sets up its own users and databases, so that file is watched, not
+run). The roles' passwords come from the Postgres container's environment (`PLATFORM_STORAGE_ADMIN_PASSWORD`,
+`PLATFORM_STORAGE_PASSWORD`), and Storage gets the same values as `PostgreSqlSettings__StorageDbAdminPwd` /
+`__StorageDbPwd`, both from the manifest; the script fails when one is missing. Postgres runs init scripts on an empty
+volume only. Storage
 runs the production Yuniql migrations (`Migration/v0.00` … `v0.38`) itself at startup with the admin connection; a
 fresh database is migrated in about a second.
 
 ## In the stack
 
 The runtime (studioctl's `localtest-v2`, or the Aspire package) runs Storage on port 5010 (no host port) with the Postgres connection strings (the `localtest-postgres` image
-creates `storagedb` and its roles with `postgres-init/10-storage.sh` and `vendor/infra/postgres_init.sql`),
+creates `storagedb` and its roles with `postgres-init/10-storage.sh`) and their passwords,
 `GeneralSettings__PlatformEndpoint`, the shared certificate at `/certs`
 (`AccessTokenSettings__AccessTokenSigningCertificateFullPath`) and a blob volume at `/data/blobs`. Storage reaches the
 OpenID metadata, the PDP, Register and the apps through `local.altinn.cloud:8000`, the front door (the localtest

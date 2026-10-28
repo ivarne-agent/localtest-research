@@ -49,8 +49,8 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: the stack has one shared Postgres whose superuser is not `platform_storage_admin`, so the vendored script
     alone leaves the database and schema owned by the wrong role and the migrations fail.
   - Size: small; development tooling only, production does not run the script.
-  - Removes: the role and ownership steps of `postgres-init/10-storage.sh`, which then only runs upstream's script
-    (see "Stays local").
+  - Removes: nothing here. Localtest sets up its own users and databases (TODO.md task 60): `postgres-init/10-storage.sh`
+    no longer runs the script (watched in `UPSTREAM.md`, not copied); the fix is for upstream's own local setups.
   - Upstream: none found.
   - Detail: [`../components/storage/README.md`](../components/storage/README.md), "Postgres".
 
@@ -169,8 +169,9 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 - `localtest.build.props`: `LOCALTEST`, `TreatWarningsAsErrors=false`, the CSharpier bypass, `CS1591` and the
   vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
-- `postgres-init/10-storage.sh`: running upstream's `infra/postgres_init.sql` in the stack's shared Postgres image; the
-  database setup a deployment does outside the image.
+- `postgres-init/10-storage.sh`: the roles, `storagedb`, its schema and grants on the shared Postgres (what upstream's
+  `infra/postgres_init.sql` does), with the passwords from the manifest: users and databases are set up by localtest
+  (TODO.md task 60), as a deployment does outside the image.
 
 Coverage: 5 sites, 8 fakes (`Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, `Otlp/`, `ServiceDiscovery/`,
 `LocaltestStorageExtensions.cs`, `LocaltestStorageOptions.cs`), 2 build overrides, 4 Dockerfile and 1 `.dockerignore`

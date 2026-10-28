@@ -21,15 +21,11 @@ public sealed class LocaltestAccessManagementOptions
 
     public int DatabasePort { get; set; } = 5432;
 
-    /// <summary>Database the production migrations run in. Created on start when missing.</summary>
-    public string DatabaseName { get; set; } = "authorizationdb";
-
     /// <summary>
-    /// A connection that may create roles and databases on the shared container (the stack's Postgres superuser).
-    /// The production roles <c>platform_authorization_admin</c> and <c>platform_authorization</c>, which the
-    /// migrations grant to by name, are created with <see cref="DatabasePassword"/> when they do not exist.
+    /// Database the production migrations run in. It and the production roles <c>platform_authorization_admin</c> and
+    /// <c>platform_authorization</c> are created by the Postgres image's init script
+    /// (<c>postgres-init/45-access-management.sh</c>); the roles' passwords come from the manifest
+    /// (<c>PostgreSQLSettings__AuthorizationDbAdminPwd</c>, <c>__AuthorizationDbPwd</c>), never a default here.
     /// </summary>
-    public string BootstrapConnectionString { get; set; } = "Host=postgres;Port=5432;Username=postgres;Password=postgres;Database=postgres";
-
-    public string DatabasePassword { get; set; } = "localtest";
+    public string DatabaseName { get; set; } = "authorizationdb";
 }

@@ -46,15 +46,13 @@ public static class LocaltestAccessManagementExtensions
                 [$"{Section}:DatabaseHost"] = options.DatabaseHost,
                 [$"{Section}:DatabasePort"] = options.DatabasePort.ToString(),
                 [$"{Section}:DatabaseName"] = options.DatabaseName,
-                [$"{Section}:BootstrapConnectionString"] = options.BootstrapConnectionString,
-                [$"{Section}:DatabasePassword"] = options.DatabasePassword,
 
-                // Database: the production connection strings and roles, on the shared container (see LocaltestDatabase).
+                // Database: the production connection strings and roles, on the shared container
+                // (postgres-init/45-access-management.sh). The passwords (AuthorizationDbAdminPwd, AuthorizationDbPwd) come
+                // from the manifest, never a default here.
                 ["PostgreSQLSettings:EnableDBConnection"] = "true",
                 ["PostgreSQLSettings:AdminConnectionString"] = $"{db};Username=platform_authorization_admin;Password={{0}}",
                 ["PostgreSQLSettings:ConnectionString"] = $"{db};Username=platform_authorization;Password={{0}}",
-                ["PostgreSQLSettings:AuthorizationDbAdminPwd"] = options.DatabasePassword,
-                ["PostgreSQLSettings:AuthorizationDbPwd"] = options.DatabasePassword,
 
                 // Other platform services by service name (http://<service>/<prefix>/…, resolved from
                 // services__<service>__http__0; fakes/ServiceDiscovery). The issuer, the OpenID metadata (fetched outside the

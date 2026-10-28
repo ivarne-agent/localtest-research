@@ -33,7 +33,7 @@ with `503` problem details ("Component not running", `group` `dialogporten`, the
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import upstream's `Directory.Build.props`, define `LOCALTEST`, relax warnings-as-errors for the vendored projects, compile `fakes/Infrastructure` into the Infrastructure project and `fakes/{WebApi,GraphQL,Service}` into the host. One `PackageReference` (Microsoft.Extensions.ServiceDiscovery, task 25) for the three hosts, with `RestoreLockedMode=false`: upstream's `--locked-mode` restore fails with NU1004 on any added reference, so the Dockerfiles restore without it |
 | `Dockerfile.webapi`, `.graphql`, `.service` | Mirror upstream's three per-host Dockerfiles (pinned `aspnet:10.0.12` and `sdk:10.0.401`, locked restore of the closure, publish without the apphost, non-root `$APP_UID`); each difference is marked `localtest:` |
 | `fakes/` | The hook, the configuration defaults, the issuer caches and the Maskinporten fake (below) |
-| `postgres-init/50-dialogporten.sh` | Postgres init script: role `dialogporten` (password `localtest`), database `dialogporten` owned by it, `pg_trgm` and `btree_gin`. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/dialogporten/postgres-init/50-dialogporten.sh` |
+| `postgres-init/50-dialogporten.sh` | Postgres init script: role `dialogporten` (password from `DIALOGPORTEN_PASSWORD` in the Postgres container's environment), database `dialogporten` owned by it, `pg_trgm` and `btree_gin`. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/dialogporten/postgres-init/50-dialogporten.sh` |
 | `smoke-test.sh` | Against the running stack, see "Verified" |
 | `.dockerignore` | Keeps host `bin/` and `obj/` out of the build context (a host build of the vendored projects leaves `project.assets.json` with host paths, which breaks the image's locked restore) |
 
@@ -151,12 +151,15 @@ the actual POST from it carries the allow-origin header; another origin gets non
 
 ## Configuration
 
-One setting is needed from studioctl, `Localtest__Dialogporten__PlatformEndpoint` (the public origin, `http://local.altinn.cloud:8000/`);
-everything else is a default that the real setting overrides (`Infrastructure__DialogDbConnectionString=...`). With `{platform}` that endpoint:
+Two settings come from the manifest (studioctl and the Aspire package): `Localtest__Dialogporten__PlatformEndpoint` (the public
+origin, `http://local.altinn.cloud:8000/`) and `Infrastructure__DialogDbConnectionString`
+(`Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=…;Include Error Detail=True`, the password
+the manifest also gives the Postgres container as `DIALOGPORTEN_PASSWORD`; no default in the fakes, so without it upstream's
+"TODO: Add to local secrets" fails the start). Everything else is a default that the real setting overrides
+(`Infrastructure__Redis__ConnectionString=...`). With `{platform}` that endpoint:
 
 | Key | Default |
 | --- | --- |
-| `Infrastructure:DialogDbConnectionString` | `Host=postgres;Port=5432;Database=dialogporten;Username=dialogporten;Password=localtest;Include Error Detail=True` |
 | `Infrastructure:Redis:ConnectionString` | `redis:6379` |
 | `Infrastructure:Altinn:BaseUri`, `EventsBaseUri`, `SubscriptionKey` | `{platform}` (public: `MetadataLinkProvider` builds client-facing links from it), `http://events/`, `localtest` (the header must not be null). The four clients on `BaseUri` (Resource Registry, Access Management metadata, party names, the PDP with authorized parties) call the services by name: `Infrastructure/ServiceDiscovery/LocaltestPrefixRouting.cs` (a copy of `../shared/fakes/ServiceDiscovery/`, registered by `LocaltestInfrastructure`), outermost on those clients, moves `{platform}<prefix>/…` to `http://<service>/<prefix>/…` before service discovery resolves it (task 40) |
 | `Infrastructure:Maskinporten:*` | `Environment` test, `ClientId` `localtest-dialogporten`, upstream's development `Scope` list (events publish and admin, party lookup, authorize, authorized parties), `EncodedJwk` the base64 of `{"kty":"RSA"}` (validated non-empty, never read), `UseAltinnTestOrg` false; `Localtest:Maskinporten:TokenEndpoint` and `ExchangeEndpoint` the fake's defaults (`http://localtest/…`, `http://authentication/…`) |

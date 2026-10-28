@@ -27,9 +27,9 @@ else if (appsettings.RunIntegrationTests)
     await Init();
 }
 #else
-// Localtest: one container does everything. Make sure the database and its roles exist on the shared Postgres,
-// then run the production init (migrations, static data, Register import) on every start before serving.
-await Altinn.AccessManagement.Localtest.Database.LocaltestDatabase.EnsureAsync(app.Services);
+// Localtest: one container does everything. The database and its roles come from the Postgres image's init script
+// (postgres-init/45-access-management.sh); run the production init (migrations, static data, Register import) on every
+// start before serving.
 await Init();
 await Altinn.AccessManagement.Localtest.Sync.LocaltestRefreshService.RunAtStartup(app.Services);
 #endif

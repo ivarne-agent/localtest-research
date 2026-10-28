@@ -9,6 +9,7 @@ and a file-backed policy store. Plan and status: `../../../planned-components/ac
 | `vendor/` | Unmodified upstream copy except the `#if LOCALTEST` blocks listed below (`git diff` against the baseline commit shows them all) |
 | `fakes/` | Localtest composition and replacements, compiled into the host by `localtest.build.targets` |
 | `localtest.build.props` / `.targets` | Define `LOCALTEST` for the vendored projects, relax analyzers, compile `fakes/` into the host |
+| `postgres-init/45-access-management.sh` | Postgres init script (copied by `../../postgres/Dockerfile`): the roles `platform_authorization_admin` and `platform_authorization` as superusers, `authorizationdb` owned by the admin, `hstore`; passwords from the Postgres container's environment. Idempotent |
 | `Dockerfile` | Mirrors the release image: the bake files `vendor/containers/Dockerfile.aspnet-builder`, `-runtime` and `vendor/src/apps/Altinn.AccessManagement/containers/Dockerfile.api` in order (chiseled, non-root `dotnet`, Kerberos libraries); each difference is marked `localtest:`. Listens on 5080 |
 
 ## Directive sites in `vendor/`
@@ -26,8 +27,7 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
 `AccessManagementHost.cs:70-73` and `:168-170`; on 2026-10-23 `src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs:25-30` and `:42-51`).
 
 1. `src/Altinn.AccessManagement/Program.cs`: `#if !LOCALTEST` keeps the production init selection (`RunInitOnly`
-   exits after init, `RunIntegrationTests` inits then serves); `#else` ensures the database and roles exist
-   (`LocaltestDatabase`) and runs the production `Init()` (migrations, static data, Register import) on every start,
+   exits after init, `RunIntegrationTests` inits then serves); `#else` runs the production `Init()` (migrations, static data, Register import) on every start,
    then the localtest refresh (`LocaltestRefreshService.RunAtStartup`: resource sync and the seed's roles and packages),
    then serves.
 2. `src/Altinn.AccessManagement/AccessManagementHost.cs`, right after the host builder is created:
@@ -44,7 +44,7 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
 
 | Production | Localtest |
 | --- | --- |
-| Postgres roles and database created by operations | `LocaltestDatabase`: creates `platform_authorization_admin` and `platform_authorization` (superusers locally) and `authorizationdb` with `hstore` on the shared container when missing; no volume reset needed |
+| Postgres roles and database created by operations | `postgres-init/45-access-management.sh` in the stack's Postgres image: `platform_authorization_admin` and `platform_authorization` (superusers locally, shared with the Resource Registry) and `authorizationdb` with `hstore`, the passwords from the Postgres container's environment (`PLATFORM_AUTHORIZATION_ADMIN_PASSWORD`, `PLATFORM_AUTHORIZATION_PASSWORD`); the service gets the same values from the manifest (`PostgreSQLSettings__AuthorizationDbAdminPwd`, `__AuthorizationDbPwd`). Postgres runs it on an empty volume only; for an existing volume without `authorizationdb`, run it by hand: `podman exec -i localtest-v2-postgres sh < components/access-management/postgres-init/45-access-management.sh` |
 | `IPolicyFactory` over three Azure Blob containers | `LocaltestPolicyFactory` + `LocaltestFilePolicyRepository`: `{PolicyStorePath}/{container}/{path}` with every written version under `{path}.versions/{versionId}`; version ids are what Access Management stores as the delegation policy version |
 | `ITokenGenerator` (test tool or Key Vault) | `LocaltestTokenGenerator`: the production `IAccessTokenGenerator` signing with the shared test certificate (`../../certs`) |
 | `IPublicSigningKeyProvider` (Key Vault) | the shared test certificate for every issuer, so the production `AccessTokenHandler` validates platform access tokens for real |
@@ -74,8 +74,9 @@ removed (task 5b, 2026-10-20) is affected: its database holds `ttd` with the sta
 fails on the unique provider name (the container exits at start). `studioctl env reset -r localtest-v2 --yes` (which
 deletes the whole shared Postgres volume) fixes it, or drop just this database once with the stack's Postgres up and
 Access Management stopped:
-`podman exec localtest-v2-postgres psql -U platform_authorization_admin -d postgres -c "drop database authorizationdb with (force)"`.
-Start recreates it, and each app runner's refresh fills the apps in again.
+`podman exec localtest-v2-postgres psql -U platform_authorization_admin -d postgres -c "drop database authorizationdb with (force)"`,
+then recreate it with the init script (`podman exec -i localtest-v2-postgres sh < components/access-management/postgres-init/45-access-management.sh`)
+and start Access Management; each app runner's refresh fills the apps in again.
 
 ## Telemetry (task 53)
 

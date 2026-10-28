@@ -113,6 +113,17 @@ Nothing else is allowed (an unknown key is an error): no descriptions, routes, h
 commands or build information. A container's notes belong in its component's README; a command belongs in its image
 (the [Postgres](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/postgres/Dockerfile) and [Redis](https://github.com/ivarne-agent/localtest-research/blob/main/localtest/redis/Dockerfile) images); a dev build is `env up --dev-<container>=<path>`.
 
+### Database users and passwords
+
+The manifest is the one place the stack's database passwords live; they are static local-development values, and no
+image carries one. The `postgres` container's `envs` hold one variable per role, the role's name in upper case with
+`_PASSWORD` (`PLATFORM_STORAGE_ADMIN_PASSWORD`, `DIALOGPORTEN_PASSWORD`; the superuser's is the image's own
+`POSTGRES_PASSWORD`). The Postgres image's init scripts read them to create each component's roles and database and
+fail at once when one is missing. Each service gets the same value in the form it reads: a password setting
+(`PostgreSqlSettings__StorageDbPwd`, with the `Password={0}` connection strings) or a whole connection string
+(`DatabaseOptions__ConnectionString`, `DB_CONNECTION_STRING`). A changed password changes in both places; Postgres runs
+its init scripts on an empty volume only, so an existing volume keeps the old one until `env reset`.
+
 ## Files
 
 A container's `files` mount configuration that stock images read from a path, so they run as published, without a

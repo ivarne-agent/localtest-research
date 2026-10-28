@@ -41,7 +41,7 @@ organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisio
 | `nginx/nginx-start.sh` | The SPA image's command: writes nginx's `resolver` (the container runtime's DNS server from `/etc/resolv.conf`), then upstream's `/start.sh` |
 | `docs/` | Screenshots from the phase 2 browser check ("Verified") |
 | `.dockerignore` | Upstream's (root-anchored patterns) under `vendor/`, plus a developer's `node_modules` and `dist` in the packages |
-| `postgres-init/90-arbeidsflate.sh` | The role `arbeidsflate` (login, not superuser, password `localtest`) and its database, baked into the shared Postgres image (`../../postgres/Dockerfile`) |
+| `postgres-init/90-arbeidsflate.sh` | The role `arbeidsflate` (login, not superuser, password from `ARBEIDSFLATE_PASSWORD` in the Postgres container's environment, the same the manifest puts into the BFF's `DB_CONNECTION_STRING`) and its database, baked into the shared Postgres image (`../../postgres/Dockerfile`) |
 | `smoke-test.sh` | Through the front door, see "Tests" |
 
 ## What changed, and why

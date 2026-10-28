@@ -13,7 +13,6 @@
     ".editorconfig",
     ".csharpierignore",
     ".config/dotnet-tools.json",
-    "infra/postgres_init.sql",
     "Dockerfile"
   ],
   "group": null,
@@ -21,7 +20,7 @@
   "mirrors": [
     { "upstream": "Dockerfile", "ours": "Dockerfile", "merge": true }
   ],
-  "watch": [],
+  "watch": ["infra/postgres_init.sql"],
   "projects": ["src/Storage/Altinn.Platform.Storage.csproj"],
   "follow": [
     {
@@ -41,10 +40,11 @@
 <!-- vendor-sync:end pin -->
 - Copied paths, relative layout preserved: `src/Storage/` (the host, including `Migration/`), `src/DbTools/`
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
-  `Directory.Build.props`, `.editorconfig`, `.csharpierignore`, `.config/dotnet-tools.json`; plus
-  `infra/postgres_init.sql` (database, schema and role setup run by `../postgres-init/10-storage.sh` in the stack's
-  Postgres image) and the upstream
+  `Directory.Build.props`, `.editorconfig`, `.csharpierignore`, `.config/dotnet-tools.json`; plus the upstream
   `Dockerfile` for reference. There is no `global.json`, `Directory.Packages.props` or ruleset upstream.
+- Watched, not copied: `infra/postgres_init.sql`, upstream's database, schema and role setup. Localtest sets up its own
+  users and databases (TODO.md task 60): `../postgres-init/10-storage.sh` does the same with the passwords from the
+  Postgres container's environment. When the watched file changes, carry the change into that script.
 - Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
   `#if LOCALTEST … #endif` addition.
