@@ -93,6 +93,7 @@ A path matching no route still falls through to the localtest app.
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
+| 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | approved (2026-10-28; brief `/home/agent/code/.briefs/task60-db-passwords.md`) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2796,3 +2797,20 @@ the easy fixes first and the structural changes after. The documents are in
 directive site, fake and patch accounted for. Totals at `1d08adb4`: 58 easy and 57 structural items, 7 already merged
 upstream. Progress is tracked in those files' checkboxes, not here. Nothing is opened upstream until the user picks the
 services; the user opens the pull requests.
+
+## 60. Database users and passwords owned by studioctl and Aspire
+
+The user's decision (2026-10-28): "As long as studioctl and aspire owns the defaults it's fine for now (meaning it can
+be static). The standard passwords should not be hard coded in docker images or repos. I think setting up users and
+databases belong in the localtest repo."
+
+- The passwords live in one place that studioctl and Aspire share: the manifest (`manifest.json`, embedded in both).
+  Static values are fine. No password in an image: not in the Postgres init scripts, not in the fakes, not in the
+  Dockerfiles. The init scripts read them from the Postgres container's environment and fail when one is missing.
+- Each component's users and database are created by its own localtest init script (`postgres-init/NN-*.sh`), not by
+  an upstream script: Storage's `10-storage.sh` stops running the vendored `infra/postgres_init.sql`, and the Postgres
+  image no longer copies it.
+- The services get the same values through the manifest (`PostgreSqlSettings__…Pwd`, connection strings, or the
+  fakes' options), overriding whatever their upstream `appsettings.json` holds.
+- Consequence for task 59: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name"
+  moves to "Stays local"; the branch `storage-postgres-init-role` on the fork stays unopened.
