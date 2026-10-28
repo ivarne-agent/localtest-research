@@ -176,6 +176,9 @@ http, the Maskinporten package, service discovery and the localtest endpoints.
   host build matches the image; gone with the vendored copy.
 - `Dockerfile.webapi`, `.graphql`, `.service`: `ASPNETCORE_ENVIRONMENT=Development`: a deployment setting (upstream's
   compose sets it too); with a published image it moves to the manifest.
+- `Dockerfile.webapi`: a password-less `Infrastructure__DialogDbConnectionString` on the publish step only: NSwag starts
+  the host at build time and parses the connection string, which has no default in the fakes (the manifest sets it at
+  run time, TODO.md task 60).
 - `.dockerignore`: keeps host `bin/` and `obj/` out of the build context: the vendoring layout.
 - `postgres-init/50-dialogporten.sh`: the role, database and extensions on the shared Postgres; production's
   infrastructure provisions them.
@@ -187,5 +190,5 @@ http, the Maskinporten package, service discovery and the localtest endpoints.
 Coverage: 7 sites, 14 fakes (`GraphQL/`: the hook and `Authentication/`; `Infrastructure/`: `LocaltestInfrastructure.cs`,
 `LocaltestOverrides.cs`, `LocaltestConfiguration.cs`, `LocaltestCaches.cs`, `LocaltestDialogportenOptions.cs`,
 `Maskinporten/`, `ServiceDiscovery/`; `Service/`: the hook; `ServiceDiscovery/`; `WebApi/`: the hook, `Authentication/`,
-`Localtest/`), 2 build overrides, 12 Dockerfile deviations (4 in each of the three), 1 `.dockerignore` deviation, 1
+`Localtest/`), 2 build overrides, 13 Dockerfile deviations (4 in each of the three, 1 more in `Dockerfile.webapi`), 1 `.dockerignore` deviation, 1
 Postgres init script: all accounted for.

@@ -55,7 +55,11 @@ COPY ["vendor/src/", "src/"]
 
 # Publish
 WORKDIR "/src/vendor/src/Digdir.Domain.Dialogporten.WebApi"
-RUN dotnet publish "Digdir.Domain.Dialogporten.WebApi.csproj" -c Release -o /app/publish /p:UseAppHost=false --no-restore
+# localtest: the publish runs NSwag, which starts the host to generate swagger.json and builds the Npgsql data source
+# from Infrastructure:DialogDbConnectionString. The image carries no default (the manifest sets it at run time), so this
+# step alone gets a well-formed one without a password; nothing connects during the build.
+RUN Infrastructure__DialogDbConnectionString="Host=postgres;Database=dialogporten;Username=dialogporten" \
+    dotnet publish "Digdir.Domain.Dialogporten.WebApi.csproj" -c Release -o /app/publish /p:UseAppHost=false --no-restore
 
 FROM base AS final
 WORKDIR /app
