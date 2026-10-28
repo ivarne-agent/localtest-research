@@ -20,10 +20,6 @@
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.1" />
     <!-- ServiceDiscovery/: the version Altinn.Authorization.ServiceDefaults 5.5.0 brings into the host. -->
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.5.2" />
-    <!-- Otlp/: the versions the host resolves (OpenTelemetry.Extensions.Hosting from Directory.Packages.props through
-         ServiceDefaults.Jobs; the OTLP exporter from Altinn.Authorization.ServiceDefaults 5.5.0). -->
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
   </ItemGroup>
 
   <ItemGroup>

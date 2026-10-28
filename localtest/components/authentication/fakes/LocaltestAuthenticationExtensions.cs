@@ -122,12 +122,9 @@ public static class LocaltestAuthenticationExtensions
         // once, and keeps real hosts (the public origin, altinncdn.no, a client's logout URL) as they are.
         global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceEndpointProviders(services);
 
-        // Telemetry (TODO.md task 53): AddAltinnServiceDefaults already exports logs, metrics and traces over OTLP exactly
-        // when OTEL_EXPORTER_OTLP_ENDPOINT is set, but its resource detector names the service, so OTEL_SERVICE_NAME was
-        // ignored. With the variable set this adds the environment detector after it, so the standard variables win
-        // (fakes/Otlp/, a copy of ../shared/fakes/Otlp/); nothing otherwise. Not AddLocaltestOtlp: UseOtlpExporter()
-        // throws next to ServiceDefaults' own exporters.
-        global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlpResource(services.AddOpenTelemetry(), builder.Configuration);
+        // Telemetry: AddAltinnServiceDefaults exports logs, metrics and traces over OTLP exactly when
+        // OTEL_EXPORTER_OTLP_ENDPOINT is set, named by its own resource detector, which gives the manifest's name
+        // (OTEL_SERVICE_NAME is the same); nothing to add here (TODO.md task 61).
         services.TryAddSingleton(TimeProvider.System);
 
         // Upstream identity and Profile are production code: the OIDC client and token validation against the localtest

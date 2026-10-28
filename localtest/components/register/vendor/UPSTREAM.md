@@ -39,14 +39,6 @@
     {
       "package": "Microsoft.Extensions.ServiceDiscovery",
       "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
-    },
-    {
-      "package": "OpenTelemetry.Extensions.Hosting",
-      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
-    },
-    {
-      "package": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
-      "file": "fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj"
     }
   ],
   "reminders": [
@@ -100,6 +92,5 @@ and every deviation is marked `localtest:`; the tool three-way merges upstream's
 otherwise prints the hunk to carry over by hand. Never let it drift into a different build.
 
 Package versions in `../fakes/Altinn.Register.Localtest/Altinn.Register.Localtest.csproj` follow
-`Directory.Packages.props` and what the host resolves (`obj/project.assets.json`: `OpenTelemetry.Extensions.Hosting`
-from `Directory.Packages.props` through `ServiceDefaults.Jobs`, the OTLP exporter and service discovery from
+`Directory.Packages.props` and what the host resolves (`obj/project.assets.json`: service discovery from
 `Altinn.Authorization.ServiceDefaults`); `check` compares them after a host build (`follow`).
