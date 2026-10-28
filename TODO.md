@@ -94,6 +94,7 @@ A path matching no route still falls through to the localtest app.
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | approved (2026-10-28; brief `/home/agent/code/.briefs/task60-db-passwords.md`) | medium | yes |
+| 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | approved (2026-10-28; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; after task 60) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2815,3 +2816,24 @@ databases belong in the localtest repo."
 - Task 59 is unaffected: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name" stays
   in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28). Once
   localtest creates Storage's users itself, that item no longer removes anything here.
+
+## 62. Generated database passwords per installation
+
+The user's principles for database initialization (2026-10-28):
+
+1. Localtest owns the initialization of the database and the creation of the users.
+2. Platform services that run Yuniql or other migration software at startup do so in localtest too (localtest does
+   not run their migrations for them).
+
+Ideally every Postgres installation gets new, random passwords. The user's decision (2026-10-28): "store them in json
+and use `Password` as the superuser password for recovery".
+
+- Each runner keeps the role passwords in a JSON file in its own data directory, owner-only: studioctl under its
+  `data/generated/localtest-v2/`, the Aspire package under `AltinnLocaltestOptions.DataDirectory`. The two runners
+  have separate volumes (`localtest-v2-*` and `altinn-localtest-*`), so they do not share the file. A missing password
+  is generated (random, at least 128 bits) and saved before the stack starts.
+- The superuser has the fixed password `Password`, owned by the runners (not in an image). It is the recovery path: when
+  the JSON file is lost or a volume is older than the file, the runner connects as the superuser and sets every role's
+  password to the file's value before the services start, so no volume reset is ever needed for passwords.
+- Task 60's mechanism stays: the Postgres container and the services get the values through their environment; the
+  manifest describes which variable carries which role's password instead of holding the values.
