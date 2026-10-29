@@ -11,21 +11,26 @@ Authentication consume the same anonymous endpoints (`resourcelist`, `resource/{
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except two `LOCALTEST` sites (`python3 localtest/tools/vendor-sync.py check resource-registry` proves it) |
+| `vendor/` | Unmodified upstream copy except three `LOCALTEST` sites (`python3 localtest/tools/vendor-sync.py check resource-registry` proves it) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import the nearest vendored `Directory.Build.props` (`src/apps/Altinn.ResourceRegistry/src/`, which chains to the vertical's own; `Directory.Packages.props` is the vertical's too), define `LOCALTEST`, compile `fakes/**/*.cs` into the host and embed `fakes/Seed/**` |
-| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, applications client, signing keys, OIDC metadata, the seed |
+| `fakes/` | Compiled into the host assembly (the interfaces live in `Core`, the host resolves them): policy repository, signing keys, OIDC metadata, the seed |
 | `postgres-init/40-resource-registry.sh` | Postgres init script: the `resourceregistrydb` database and the roles upstream's migrations grant to (`platform_authorization_admin` superuser, `platform_authorization`), passwords from the Postgres container's environment (`PLATFORM_AUTHORIZATION_ADMIN_PASSWORD`, `PLATFORM_AUTHORIZATION_PASSWORD`, set from the manifest, which gives the registry and Access Management the same values as `PostgreSQLSettings__AuthorizationDbAdminPwd` / `__AuthorizationDbPwd`); Access Management's `45-access-management.sh` creates the same roles when missing. Idempotent; for an existing volume, where Postgres skips init scripts, run it by hand: `podman exec -i localtest-v2-postgres sh < components/resource-registry/postgres-init/40-resource-registry.sh` |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.ResourceRegistry/Dockerfile` (pinned Alpine SDK image, `dotnet publish` of the host, `aspnet:10.0-alpine`, non-root `dotnet`); each difference is marked `localtest:` |
 | `smoke-test.sh` | Against the running stack: the fixture app pushed as the runner does, resources, policies, the seeded Correspondence and Profile resources, the `updated` feed, orgs, subject lookup, platform access tokens (43 checks) |
 
 ## Directive sites in `vendor/`
 
-Both in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`, `Create`, pure additions:
+Three pure additions. Two in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`, `Create`:
 
 1. Right after `AltinnHost.CreateWebApplicationBuilder(...)`: `#if LOCALTEST … LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder)`.
    `MapPostgreSqlConfiguration` reads `PostgreSQLSettings` eagerly, so the defaults must be in place first.
 2. Right before `return builder.Build();`: `#if LOCALTEST … LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder)`,
    which replaces registrations after the production ones and adds the seed.
+
+The third (task 63, in place of the fake `LocaltestApplicationsClient`) in
+`src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry.Integration/Clients/ApplicationsClient.cs`,
+`GetApplicationList`: `_memoryCache.Remove(cacheKey)` before the cache lookup, so Storage's application list is read on
+every call and `resourcelist` and `resource/app_{org}_{app}` reflect a push at once.
 
 `Program.cs` is untouched.
 
@@ -49,7 +54,6 @@ not reset on start.
 | Replaces / adds | With |
 | --- | --- |
 | `IPolicyRepository` (two Azure Blob containers, versions, leases) | `Policies/LocaltestFilePolicyRepository` on the shared `policy-store` volume: app policies at `metadata/{org}/{app}/policy.xml`, exactly where the PDP's policy endpoint writes them, so the app runner's one push feeds both; resource policies at `resourceregistry/{id}/resourcepolicy.xml` (upstream's blob name). Written versions under `{file}.versions/{versionId}`, a lease is a process-wide lock. The Azure return types are built with `Response.FromValue` and a stub `Response` |
-| `IApplications` (`ApplicationsClient`, Storage's application list in a 10-minute memory cache) | `Applications/LocaltestApplicationsClient`: the same requests and `a1-`/`a2-` filtering without the cache, so `resourcelist` and `resource/app_{org}_{app}` reflect a push at once. There is no refresh endpoint |
 | `IPublicSigningKeyProvider` (Key Vault) | `Infrastructure/LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, mounted at `/certs`), so the production `AccessTokenHandler` validates platform access tokens for real. The same certificate feeds the production `SigningCredentialsResolver` for the outgoing token to Register (`services.Configure<AccessTokenSettings>`) |
 | OIDC metadata over https only | `Infrastructure/LocaltestOidcMetadata`: the localtest Authentication component serves its metadata over http (copy of Access Management's) |
 | nothing | `Seed/LocaltestSeedService`: the seed of non-app resources, applied at start through the production service layer (`CreateResource`, `StorePolicy`), see below |
@@ -105,7 +109,7 @@ brings the developer exception page and Swagger (`/swagger`).
 
 ## Differences from production
 
-- No application cache (see the fakes table); production's `resourcelist` lags a push by up to ten minutes.
+- No application cache (the directive in `ApplicationsClient`, above); production's `resourcelist` lags a push by up to ten minutes.
 - Policies are files on the shared volume, not blobs: no real leases, versions are timestamps, not Azure version ids.
 - The signing keys are the shared test certificate for every issuer, not the Key Vault keys per issuer.
 - Application Insights and Key Vault are off, as without their settings in production.

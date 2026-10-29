@@ -4,7 +4,6 @@ using System.Linq;
 using Altinn.Common.AccessToken.Services;
 using Altinn.ResourceRegistry.Core;
 using Altinn.ResourceRegistry.Core.Services.Interfaces;
-using Altinn.ResourceRegistry.Localtest.Applications;
 using Altinn.ResourceRegistry.Localtest.Infrastructure;
 using Altinn.ResourceRegistry.Localtest.Policies;
 using Altinn.ResourceRegistry.Localtest.Seed;
@@ -21,7 +20,8 @@ namespace Altinn.ResourceRegistry.Localtest;
 /// The localtest hooks in the vendored host's <c>ResourceRegistryHost.Create</c>: <see cref="AddLocaltestConfiguration"/>
 /// right after the builder is created (configuration defaults, before <c>MapPostgreSqlConfiguration</c> reads
 /// <c>PostgreSQLSettings</c> eagerly) and <see cref="AddLocaltestResourceRegistry"/> right before <c>Build()</c> (the
-/// DI replacements for Azure Blob, Key Vault and the application cache, and the built-in seed). Everything else in the
+/// DI replacements for Azure Blob and Key Vault, and the built-in seed; the application list skips its cache through a
+/// directive in <c>ApplicationsClient</c>). Everything else in the
 /// host (controllers, the service layer, the Postgres repositories and migrations, the org list from altinncdn.no,
 /// platform access token and user token validation) runs as in production.
 /// </summary>
@@ -100,10 +100,6 @@ public static class LocaltestResourceRegistryExtensions
 
         // Azure Blob: the two policy containers as folders on the policy store shared with the PDP.
         Replace<IPolicyRepository, LocaltestFilePolicyRepository>(services);
-
-        // No 10-minute cache of Storage's application list: a pushed app is in resourcelist at once.
-        services.RemoveAll<IApplications>();
-        services.AddHttpClient<IApplications, LocaltestApplicationsClient>();
 
         // User tokens from the localtest authentication component: OpenID metadata over http (see LocaltestOidcMetadata).
         LocaltestOidcMetadata.AllowHttpProviders(config);

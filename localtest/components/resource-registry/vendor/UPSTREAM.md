@@ -56,17 +56,21 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                                   | Lines   | Kind     | First line of the `LOCALTEST` branch                                        |
-| -------------------------------------------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------- |
-| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 46-49   | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
-| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs` | 192-194 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
+| File                                                                                                     | Lines   | Kind     | First line of the `LOCALTEST` branch                                        |
+| -------------------------------------------------------------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry.Integration/Clients/ApplicationsClient.cs` | 47-50   | addition | `_memoryCache.Remove(cacheKey);`                                            |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`                   | 46-49   | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
+| `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`                   | 192-194 | addition | `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions....` |
 
 <!-- vendor-sync:end sites -->
 
-Both are pure additions in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`:
+All three are pure additions, two in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`:
 
 1. Right after `AltinnHost.CreateWebApplicationBuilder(...)`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestConfiguration(builder);`
 2. Right before `return builder.Build();`: `Altinn.ResourceRegistry.Localtest.LocaltestResourceRegistryExtensions.AddLocaltestResourceRegistry(builder);`
+
+and one in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry.Integration/Clients/ApplicationsClient.cs`,
+`GetApplicationList` (task 63): `_memoryCache.Remove(cacheKey);` before the lookup, so the application list is not cached.
 
 ## Syncing
 

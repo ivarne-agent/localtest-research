@@ -44,6 +44,10 @@ namespace Altinn.ResourceRegistry.Integration.Clients
             try
             {
                 string cacheKey = "applications";
+#if LOCALTEST
+                // localtest: no 10-minute cache of the list, so an app the runner has just pushed is listed at once.
+                _memoryCache.Remove(cacheKey);
+#endif
                 if (!_memoryCache.TryGetValue(cacheKey, out ApplicationList? applications))
                 {
                     HttpResponseMessage response = await _client.GetAsync(availabbleServicePath, cancellationToken);

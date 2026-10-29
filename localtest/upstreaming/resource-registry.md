@@ -11,9 +11,10 @@
   the Maskinporten scope-prefix validation) adds feature management and a Samarbeidsportalen HTTP client to
   `ResourceRegistryHost.cs`; check whether the client needs a localtest setting or fake. The vertical's
   `docker-bake.hcl` and altinn-auth's `containers/` are watched.
-- Localtest modifications: 2 directive sites in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`,
+- Localtest modifications: 2 directive sites in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry/ResourceRegistryHost.cs`
+  and 1 in `src/apps/Altinn.ResourceRegistry/src/Altinn.ResourceRegistry.Integration/Clients/ApplicationsClient.cs` (task 63),
   the hook `fakes/LocaltestResourceRegistryExtensions.cs` with `fakes/LocaltestResourceRegistryOptions.cs`, the fakes
-  `fakes/Applications/`, `fakes/Infrastructure/` (two files), `fakes/Policies/`, `fakes/Seed/` and the shared copy
+  `fakes/Infrastructure/` (two files), `fakes/Policies/`, `fakes/Seed/` and the shared copy
   `fakes/ServiceDiscovery/`, `postgres-init/`, two build overrides, and the `localtest:` deviations in
   `Dockerfile` plus its own `.dockerignore`.
 
@@ -53,7 +54,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: localtest pushes an app and expects it in `resourcelist` and `resource/app_{org}_{app}` at once; with the cache
     it appears up to ten minutes later.
   - Size: small.
-  - Removes: `fakes/Applications/` and its registration in the hook.
+  - Removes: the directive site in `ApplicationsClient.GetApplicationList` (it replaced `fakes/Applications/` in task 63).
   - Upstream: none found.
   - Detail: [`../components/resource-registry/README.md`](../components/resource-registry/README.md), "Differences from
     production".
@@ -146,7 +147,7 @@ Not a Resource Registry item: the eight monorepo test apps whose `delete` rule p
 assigns the fix to the test apps' `policy.xml` in altinn-studio and does not call the validator wrong
 ([`../reviews/test-apps.md`](../reviews/test-apps.md)).
 
-Coverage: 2 sites, 6 fakes (`Applications/`, `Infrastructure/LocaltestOidcMetadata.cs`,
+Coverage: 3 sites, 5 fakes (`Infrastructure/LocaltestOidcMetadata.cs`,
 `Infrastructure/LocaltestPublicSigningKeyProvider.cs`, `Policies/`, `Seed/`, `ServiceDiscovery/`) plus the
 hook and `postgres-init/`, 2 build overrides, 2 Dockerfile and 1 `.dockerignore` deviations: all accounted for. `Otlp/`
 and its `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the
