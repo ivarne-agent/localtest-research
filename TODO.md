@@ -98,7 +98,7 @@ A path matching no route still falls through to the localtest app.
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; known gap, left as is (owner 2026-10-29): under Aspire, DCP's own `podman create` command line carries the containers' environment, passwords included, while it runs | medium | yes |
-| 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | in progress (2026-10-29, worktree `/home/agent/code/.worktrees/task63-directives-over-small-fakes`, branch `task63-directives-over-small-fakes`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`) | medium | yes |
+| 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29, main `6e1b1105`..`27e07fb5` and `4840c5e9`, pinned `sha-4840c5e`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): seven directive sites replaced eight fakes (340 lines) in Authorization, Dialogporten, the Resource Registry and Correspondence; the shared fakes stay but Correspondence's cookie-policy copy; borderline kept: Access Management's token generator, Events' queue client, the OTLP helper | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2983,3 +2983,23 @@ Resource Registry 43, Correspondence 78, Events 27, the adapter 39, Dialogporten
 `--with dialogporten --with correspondence`: Events 27, the adapter 34 + 5 FAIL on the first run (the service-owner read
 of the new dialog), 39 on two reruns, Dialogporten 60, Authentication 34, Correspondence 78; minimal root 23 (4 skips).
 Go `ok`, the Aspire package 198. Then the user widened the scope to the shared fakes (below).
+
+**Shared fakes (the user's addition, 2026-10-29, verbatim):** "Convert the shared fakes to directives too if they are
+sufficiently small and don't live in a dependency." Correspondence's copy of `Cookies/` became a `#if !LOCALTEST` block
+in upstream's `ExpireCookie` (`Auth/DependencyInjection.cs`: `Secure = false`, `SameSite = Lax`); Authentication keeps
+its copy (twelve sites, task 21b's decision). `Maskinporten/` and `ServiceDiscovery/LocaltestServiceDiscovery.cs` wrap
+packages, `LocaltestPrefixRouting` is a handler with the front door's table: kept. `Otlp/` is borderline (about six
+lines inlined into each of six `Program.cs` sites, and the tested shared implementation lost): kept, as is every
+`LocaltestPublicSigningKeyProvider` (it replaces `Altinn.Common.AccessToken`'s class). No shared file lost its last
+copy, so the copy check is unchanged.
+
+**Done (2026-10-29):** main `4840c5e9` (the cookie directive) on top of the first part, images run 40847216554, pinned
+`sha-4840c5e`. Local image: Correspondence 78 (with the restart's expiry check). Pinned check (no `--dev-*`, fresh
+`self install` under a short `STUDIOCTL_HOME`, `STUDIO_CA_BUNDLE` set; evidence `pinned2/`): golden diff only the tags,
+Go `ok`, the Aspire package 198; default stack root 26 (1 skip), the front door 83 + `FRONTEND_DIST`, Authorization 31,
+Resource Registry 43; `--with dialogporten --with correspondence`: Events 19 + 9 FAIL on the run straight after the
+converge (registered times 62-64 s old, verify-after-sync 6.7) and 27 on two reruns, the adapter 39, Dialogporten 60,
+Authentication 34, Correspondence 78; minimal root 23 (4 skips). Static: the four changed hosts build with 0 errors
+(Debug and Release; one new warning, CS0162 after the early return in `OedRoleAssignmentWrapper`),
+`vendor-sync.py check --all` ok with the shared copies identical, `Cookies.Smoke` 7 ok, `Otlp.Tests` 10. No component
+here has unit tests of its own.
