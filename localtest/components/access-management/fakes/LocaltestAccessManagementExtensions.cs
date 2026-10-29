@@ -19,9 +19,8 @@ namespace Altinn.AccessManagement.Localtest;
 /// The localtest hooks in the vendored host's <c>AccessManagementHost.Create</c>: <see cref="AddLocaltestConfiguration"/>
 /// right after the builder is created (configuration defaults), and <see cref="AddLocaltestAccessManagement"/> right
 /// before <c>Build()</c> (the DI replacements for Azure Blob and Key Vault, and the startup refresh). The integration
-/// library's test-tool token generator is configured by the manifest for the front door's mock
-/// (<c>/mockporten/api/GetPlatformAccessToken</c>) and, until the upstream setting for that URL is synced, signs locally
-/// through a directive in the vendored <c>TokenGenerator.TestTool</c>. Everything else in the host runs as in production.
+/// library's test-tool token generator runs as in production against the front door's mock of the test tool, configured
+/// by the manifest. Everything else in the host runs as in production.
 /// </summary>
 public static class LocaltestAccessManagementExtensions
 {
@@ -74,13 +73,11 @@ public static class LocaltestAccessManagementExtensions
                 ["Platform:ResourceRegistry:Endpoint"] = "http://resource-registry/",
                 ["Platform:SblBridge:Endpoint"] = platform,
                 ["Platform:Notifications:Endpoint"] = "http://notifications/",
-                // Platform access tokens for these clients: Integration.Platform's TestTool source. Its settings come from the
+                // Platform access tokens for these clients: Integration.Platform's production TestTool source, configured by the
                 // manifest (Platform__Token__TestTool__Endpoint, __Username, __Password, __PlatformAccessTokenUrl, and
-                // Environment, which the host copies into TestTool:Environment), for the front door's mock of the test tool,
-                // http://localtest:8080/mockporten/api/GetPlatformAccessToken. The lib at the pin calls {Endpoint}/api/... and
-                // knows no PlatformAccessTokenUrl (the upstream change that adds it: TODO.md task 66), so until that is synced
-                // the two directive blocks in TokenGenerator.TestTool sign with IAccessTokenGenerator and nothing is called;
-                // the settings only pass the eager options validation.
+                // Environment, which the host copies into TestTool:Environment) for the front door's mock of the test tool. The
+                // lib at the pin calls {Endpoint}/api/GetPlatformAccessToken, which the front door answers at its root for now;
+                // once the upstream PlatformAccessTokenUrl setting is synced, the canonical /mockporten/api/... (TODO.md task 66).
 
                 // The init-time Register import runs against the vendored Register; the periodic sync jobs and the outbox stay off.
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.RegisterSync"] = "false",

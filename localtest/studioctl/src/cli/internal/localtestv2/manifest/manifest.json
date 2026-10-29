@@ -109,7 +109,7 @@
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
         "Environment": "localtest",
         "Localtest__AccessManagement__PlatformEndpoint": "{{origin}}/",
-        "Platform__Token__TestTool__Endpoint": "http://localtest:8080/",
+        "Platform__Token__TestTool__Endpoint": "http://localtest:8080",
         "Platform__Token__TestTool__Password": "localtest",
         "Platform__Token__TestTool__PlatformAccessTokenUrl": "http://localtest:8080/mockporten/api/GetPlatformAccessToken",
         "Platform__Token__TestTool__Username": "localtest",

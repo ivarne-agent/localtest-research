@@ -136,10 +136,11 @@ describes the passwords:
   identifier, and placeholders without a literal superuser and password.
 
 **Not a role password: the test tool's credentials.** Access Management's `Platform__Token__TestTool__Username` and
-`__Password` (`localtest`), with `__Endpoint` (`http://localtest:8080/`), `__PlatformAccessTokenUrl`
-(`http://localtest:8080/mockporten/api/GetPlatformAccessToken`) and `Environment` (`localtest`), configure its platform
-access token source for the front door's mock of the online test tool, which requires basic auth and accepts any user
-name and password. They are inert literals, not secrets, so they do not fall under the rules above; the manifest
+`__Password` (`localtest`), with `__Endpoint` (`http://localtest:8080`, whose `/api/GetPlatformAccessToken` the front
+door answers for now), `__PlatformAccessTokenUrl` (`http://localtest:8080/mockporten/api/GetPlatformAccessToken`, the
+canonical route, for a later version of the library) and `Environment` (`localtest`), configure its platform access
+token source for the front door's mock of the online test tool, which requires basic auth and accepts any user name and
+password. They are inert literals, not secrets, so they do not fall under the rules above; the manifest
 package's `TestTheManifestHoldsNoRolePassword` skips the `Platform__Token__TestTool__` keys by name.
 
 **The password file.** studioctl keeps `data/generated/localtest-v2/secrets/postgres-passwords.json` under its home

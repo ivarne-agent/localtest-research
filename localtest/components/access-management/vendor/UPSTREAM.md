@@ -79,22 +79,20 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
-| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                                   |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`                     |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Init();`                                                                              |
-| `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`  | 12-17   | replacement | `internal class TestTool(IOptions<AltinnIntegrationOptions> options, IHttpClientFactory ...` |
-| `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`  | 45-47   | addition    | `return platformGenerator.GenerateAccessToken(issuer, app);`                                 |
+| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                        |
+| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | --------------------------------------------------------------------------- |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                  |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`    |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Init();`                                                             |
 
 <!-- vendor-sync:end sites -->
 
 What each site does and why it is there: [`../README.md`](../README.md#directive-sites-in-vendor) (the host's
-`Program.cs` and `AccessManagementHost.cs`, the Resource Registry client's base address and constructor, and the two
-`TokenGenerator.cs` blocks that sign platform access tokens locally until the upstream setting for the full URL of the
-test tool's token endpoint is synced, TODO.md task 66).
+`Program.cs` and `AccessManagementHost.cs`, and the Resource Registry client's base address and constructor). The
+integration library's `TokenGenerator.cs` has no site since task 66: its production test-tool source calls the front
+door's mock.
 
 ## Syncing
 

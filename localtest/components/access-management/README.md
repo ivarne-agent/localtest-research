@@ -39,18 +39,11 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
    and the constructor are each `#if !LOCALTEST` / `#else`; the localtest constructor takes `IHttpClientFactory` and
    creates the client from it, so its calls (`v1/resource/…`, `search`, `resourcelist`, `bysubjects`) go through the
    service-discovery handler to `http://resource-registry/`. Production's `new HttpClient()` never sees the resolver.
-5. `../../libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs` (task 63,
-   in place of the fake `LocaltestTokenGenerator`): the host has no Key Vault, so the lib picks its `TestTool` generator,
-   which asks the test tool on the internet for every platform access token. Two blocks: `#if !LOCALTEST` / `#else`
-   around `TestTool`'s primary constructor, whose localtest version also takes the production `IAccessTokenGenerator`,
-   and an additive `return platformGenerator.GenerateAccessToken(issuer, app);` at the top of
-   `CreatePlatformAccessToken(issuer, app)`, so the tokens to the Register, the Resource Registry and Notifications are
-   signed with the shared test certificate (`../../certs`). Only the Access Management host compiles the lib. The
-   lib's test-tool settings come from the manifest and name the front door's mock of the test tool (below), which the
-   lib at this pin cannot call: it requests `{Endpoint}/api/GetPlatformAccessToken` at the root, and the mock answers
-   under `/mockporten/`. The upstream change that adds a full-URL setting, after which both blocks go and Access
-   Management fetches its tokens from the mock:
-   [TODO.md task 66](../../../TODO.md#66-a-test-tool-token-generator-mock-in-the-front-door).
+The token generator in `../../libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`
+has no site since task 66 (task 63's two blocks, which signed locally, are gone): the host has no Key Vault, so the lib
+picks its production `TestTool` generator, which fetches every platform access token for the Register, the Resource
+Registry and Notifications from the front door's mock of the online test tool (below). Only the Access Management host
+compiles the lib.
 
 ## What the fakes replace
 
@@ -58,7 +51,7 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
 | --- | --- |
 | Postgres roles and database created by operations | `postgres-init/45-access-management.sh` in the stack's Postgres image: `platform_authorization_admin` and `platform_authorization` (superusers locally, shared with the Resource Registry) and `authorizationdb` with `hstore`, the passwords from the Postgres container's environment (`PLATFORM_AUTHORIZATION_ADMIN_PASSWORD`, `PLATFORM_AUTHORIZATION_PASSWORD`); the service gets the same values from the manifest (`PostgreSQLSettings__AuthorizationDbAdminPwd`, `__AuthorizationDbPwd`). Postgres runs it on an empty volume only; for an existing volume without `authorizationdb`, run it by hand: `podman exec -i localtest-v2-postgres sh < components/access-management/postgres-init/45-access-management.sh` |
 | `IPolicyFactory` over three Azure Blob containers | `LocaltestPolicyFactory` + `LocaltestFilePolicyRepository`: `{PolicyStorePath}/{container}/{path}` with every written version under `{path}.versions/{versionId}`; version ids are what Access Management stores as the delegation policy version |
-| `ITokenGenerator` (test tool or Key Vault) | the lib's `TestTool` generator, configured by the manifest for the front door's mock of the test tool (`Platform__Token__TestTool__*`, below), which signs with the production `IAccessTokenGenerator` and the shared test certificate through site 5 until the upstream full-URL setting is synced |
+| `ITokenGenerator` (test tool or Key Vault) | the lib's production `TestTool` generator against the front door's mock of the test tool (`Platform__Token__TestTool__*` in the manifest, below), which signs with the shared test certificate |
 | `IPublicSigningKeyProvider` (Key Vault) | the shared test certificate for every issuer, so the production `AccessTokenHandler` validates platform access tokens for real |
 | Lease on Azure Blob | config: no blob endpoint, so the production `NoopLeaseService` |
 
@@ -68,14 +61,16 @@ Register and Resource Registry syncs and the outbox hosted services switched off
 on; the refresh runs the resource sync).
 
 The test-tool token settings come from the manifest's `envs` since task 66 (before, the fake set dummy values in code):
-`Platform__Token__TestTool__Endpoint` `http://localtest:8080/`, `__PlatformAccessTokenUrl`
-`http://localtest:8080/mockporten/api/GetPlatformAccessToken` (the front door's mock, `../../localtest/README.md`,
-"Test tool"), `__Username` and `__Password` `localtest` (the mock accepts any basic auth; inert values, not secrets),
-and `Environment` `localtest`: the host copies the top-level `Environment` (at22 in `appsettings.json`) into
-`Platform:Token:TestTool:Environment` (`AccessManagementHost.ConfigureLibsIntegrations`), so a
-`Platform__Token__TestTool__Environment` would be overwritten. The lib at the pin knows no `PlatformAccessTokenUrl` and
-ignores it; with the directive (site 5) nothing calls the test tool yet. Access Management depends on the front door
-(`dependsOn: localtest`), so the mock is up before its start-up Register import once the directive is gone.
+`Platform__Token__TestTool__Endpoint` `http://localtest:8080` (the front door by service name), `__Username` and
+`__Password` `localtest` (the mock accepts any basic auth; inert values, not secrets), and `Environment` `localtest`:
+the host copies the top-level `Environment` (at22 in `appsettings.json`) into `Platform:Token:TestTool:Environment`
+(`AccessManagementHost.ConfigureLibsIntegrations`), so a `Platform__Token__TestTool__Environment` would be overwritten.
+The lib calls `{Endpoint}/api/GetPlatformAccessToken` with an absolute path, so it uses the front door's temporary root
+route (`../../localtest/README.md`, "Test tool"). `__PlatformAccessTokenUrl`
+`http://localtest:8080/mockporten/api/GetPlatformAccessToken`, the canonical route, is set too: the lib at the pin
+ignores it; the upstream change that adds the setting is prepared (TODO.md task 66), and once it is synced the root
+route and the `Endpoint`'s root use go. Access Management depends on the front door (`dependsOn: localtest`), so the
+mock answers before its start-up Register import.
 
 The Resource Registry is the real component (`../resource-registry/`), reached through the production clients: the
 delegation services' `ResourceRegistryClient` at `PlatformSettings:ApiResourceRegistryEndpoint`
