@@ -2,7 +2,6 @@ using Altinn.Correspondence.Core.Options;
 using Altinn.Correspondence.Core.Repositories;
 using Altinn.Correspondence.Core.Services;
 using Altinn.Correspondence.Localtest.Auth;
-using Altinn.Correspondence.Localtest.AzureResources;
 using Altinn.Correspondence.Localtest.Inspection;
 using Altinn.Correspondence.Localtest.Storage;
 using Localtest.Shared.Cookies;
@@ -20,7 +19,7 @@ namespace Altinn.Correspondence.Localtest;
 /// <c>Program.cs</c>. <see cref="AddLocaltestConfiguration"/> runs right after upstream's configuration chain, before
 /// <c>ConfigureServices</c> reads any setting, and gives the settings production gets from its deployment.
 /// <see cref="AddLocaltestServices"/> runs after every production registration (the last but Kestrel's) and replaces
-/// what cannot run without Azure: the blob store, Azure Resource Manager and the Maskinporten client, plus the
+/// what cannot run without Azure: the blob store and the Maskinporten client, plus the
 /// http-metadata relaxations and the dialog-token key resolver. Everything else (controllers, Hangfire jobs, EF
 /// repositories and migrations, the Dialogporten, Notifications, Register, Profile, PDP, Resource Registry, Events and
 /// KRR clients) is production code talking to the stack.
@@ -130,9 +129,8 @@ public static class LocaltestCorrespondence
         services.AddSingleton<FileStorageRepository>();
         services.AddSingleton<IStorageRepository>(sp => sp.GetRequiredService<FileStorageRepository>());
 
-        // Azure Resource Manager: storage account deployment and the container app's IP restrictions are no-ops.
-        services.RemoveAll<IResourceManager>();
-        services.AddScoped<IResourceManager, LocaltestResourceManager>();
+        // Azure Resource Manager stays production: Development skips the storage account deployment, and the daily IP
+        // restrictions job is not registered (a directive in RecurringJobRegistration).
 
         // Token validation over the stack's http metadata, the fake Maskinporten's metadata for the Maskinporten
         // scheme, and dialog-token keys fetched again on a miss.

@@ -6,10 +6,10 @@
 - Group: none
 - Reminders: grep for raw `Set-Cookie` writes (the cookie policy sees only `Response.Cookies`); `ConfigureAuthentication`
   must keep the correlation cookie name and callback path; update the smoke test's EF migration count.
-- Localtest modifications: 5 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs` and
-  an `#if !LOCALTEST` block in `IdportenTokenValidator.cs`; the `XacmlRequestFactory.cs` block was removed in task
-  58's follow-up), the hook
-  `fakes/LocaltestCorrespondence.cs` with its options class, the fakes `Auth/`, `AzureResources/`, `Storage/`,
+- Localtest modifications: 6 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs`,
+  an `#if !LOCALTEST` block in `IdportenTokenValidator.cs` and one in `RecurringJobRegistration.cs` from task 63; the
+  `XacmlRequestFactory.cs` block was removed in task 58's follow-up), the hook
+  `fakes/LocaltestCorrespondence.cs` with its options class, the fakes `Auth/`, `Storage/`,
   `Inspection/`, the shared copies `Cookies/`, `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, two build overrides,
   the `localtest:` deviations in `Dockerfile`, `.dockerignore` and the Postgres init script.
 
@@ -111,7 +111,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: the job fails its ten Hangfire retries on `DefaultAzureCredential` every day; the storage-account deployment is
     already skipped in Development.
   - Size: small.
-  - Removes: `fakes/AzureResources/` and its `RemoveAll`/`Add` in `fakes/LocaltestCorrespondence.cs`.
+  - Removes: the site in `RecurringJobRegistration.cs` (it replaced `fakes/AzureResources/` in task 63).
   - Upstream: the draft [altinn-correspondence#2152](https://github.com/Altinn/altinn-correspondence/pull/2152)
     ("Compatibility with Scaleway") adds `NoOpResourceManager` and skips the job, keyed on the environment name
     `ScalewayPoc`; ask for a setting instead of the environment name so localtest can use it.
@@ -209,7 +209,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   and the vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into `Altinn.Correspondence.API`: as above.
 
-Coverage: 5 sites (a sixth removed in task 58's follow-up), 9 fakes (`Auth/`, `AzureResources/`, `Cookies/`,
+Coverage: 6 sites (another removed in task 58's follow-up), 8 fakes (`Auth/`, `Cookies/`,
 `Inspection/`, `Maskinporten/`, `Otlp/`, `ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with
 its options), 2 build overrides, 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted
 for.

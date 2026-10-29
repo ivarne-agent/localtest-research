@@ -17,10 +17,15 @@ public static class RecurringJobRegistration
     {
         var recurringJobManager = services.GetRequiredService<IRecurringJobManager>();
 
+#if !LOCALTEST
         recurringJobManager.AddOrUpdate<IpSecurityRestrictionUpdater>(
             "Update IP restrictions to apimIp and current EventGrid IPs",
             handler => handler.UpdateIpRestrictions(),
             Cron.Daily());
+#else
+        // localtest: no container app and no Azure Resource Manager, so no IP restrictions to keep in step.
+        recurringJobManager.RemoveIfExists("Update IP restrictions to apimIp and current EventGrid IPs");
+#endif
 
         recurringJobManager.AddOrUpdate<GenerateDailySummaryReportHandler>(
             "Generate daily summary report",

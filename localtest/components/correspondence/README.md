@@ -29,7 +29,7 @@ download of attachments").
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except three additive `#if LOCALTEST` hooks in `Program.cs` and one `#if !LOCALTEST` block, in `IdportenTokenValidator.cs` |
+| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except four additive `#if LOCALTEST` hooks in `Program.cs` and two `#if !LOCALTEST` blocks, in `IdportenTokenValidator.cs` and `RecurringJobRegistration.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
 | `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password from `CORRESPONDENCE_PASSWORD` in the Postgres container's environment), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
@@ -39,7 +39,7 @@ download of attachments").
 
 ## Directive sites
 
-Pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and one `#if !LOCALTEST` block (`vendor/UPSTREAM.md` has the
+Pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
 lines; the OpenTelemetry addition is under "Telemetry (OTLP)"):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
@@ -68,6 +68,14 @@ lines; the OpenTelemetry addition is under "Telemetry (OTLP)"):
    `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
    factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
    name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+
+6. `vendor/src/Altinn.Correspondence.API/Helpers/RecurringJobRegistration.cs`, `Register` (task 63, in place of the fake
+   `LocaltestResourceManager`): `#if !LOCALTEST` the daily "Update IP restrictions to apimIp and current EventGrid IPs"
+   job `#else` `recurringJobManager.RemoveIfExists(...)` for the same id `#endif`. There is no container app whose IP
+   restrictions could follow APIM and Event Grid, and without Azure Resource Manager the job failed ten Hangfire retries
+   on `DefaultAzureCredential` every day; removing it also clears the job from a Hangfire database an older image
+   registered it in. The production `AzureResourceManagerService` stays registered: the only other caller, the service
+   owner initialisation, enqueues the storage account deployment, which upstream skips in Development.
 
 **Cookies without `Secure` (task 21b): no site, reported here first.** The correlation and nonce cookies are already
 `SameAsRequest`/`Lax` in the fakes (11b). The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the
@@ -112,7 +120,6 @@ Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 | Production | Here | Why |
 | --- | --- | --- |
 | `IStorageRepository` (Azure Blob, a storage account per service owner) | `Storage/FileStorageRepository.cs`: files at `/mnt/storage/attachments/{id}` (the `correspondence-blobs` volume, `localtest-v2-correspondence-blobs` under studioctl) and `reports/{name}` with a `.meta.json` sidecar for the report's two counts and hash. The MD5 of the stream as lower-case hex, `HashMismatchException` and nothing kept on a checksum mismatch, `RequestFailedException` 404 for a missing blob, as production. The location URL and the "SAS" URL are `{origin}/correspondence/api/localtest/blobs/{id}` | No Azure Storage; the Storage component's file-backed pattern |
-| `IResourceManager` (Azure Resource Manager) | `AzureResources/LocaltestResourceManager.cs`: deploying storage accounts is a no-op, there are no IP ranges | The daily "Update IP restrictions" job would otherwise fail ten Hangfire retries on `DefaultAzureCredential`; now it logs one line |
 | `IMaskinportenService` (the package hard-codes `maskinporten.no`) | `Maskinporten/`, a copy of `../shared/fakes/Maskinporten/` | Production semantics: an unsigned assertion to the localtest app's Maskinporten token endpoint, then production Authentication's `exchange/maskinporten`. Client id `991825827` with `UseAltinnTestOrg` false, so Correspondence acts as `digdir`, as Dialogporten does. KRR gets the raw token (no exchange), as in production |
 | `JwtBearerOptions` / `OpenIdConnectOptions` `RequireHttpsMetadata` (true) | `Auth/LocaltestAuthentication.cs`: `ConfigureAll` to false | Authentication, the fake Maskinporten and Dialogporten publish their metadata over http. A `Configure`, not a `PostConfigure`, see the Dialogporten README |
 | The Maskinporten scheme's metadata (hard-coded `https://test.maskinporten.no/...` outside Production) | The fake Maskinporten's `{origin}localtest/api/maskinporten/.well-known/oauth-authorization-server` | Notifications' condition check (`{id}/notification/check`) presents a raw fake-Maskinporten token |
