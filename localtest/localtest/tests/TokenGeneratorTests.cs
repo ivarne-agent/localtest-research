@@ -12,7 +12,8 @@ using Microsoft.IdentityModel.Tokens;
 namespace Localtest.Tests;
 
 /// <summary>
-/// The mock of the online test tool's <c>GET /mockporten/api/GetPlatformAccessToken</c> (<c>TokenGenerator/</c>): the token is
+/// The mock of the online test tool's <c>GET /mockporten/api/GetPlatformAccessToken</c> (and, for now, the root
+/// <c>/api/GetPlatformAccessToken</c>) (<c>TokenGenerator/</c>): the token is
 /// what <c>Altinn.Common.AccessTokenClient</c>'s <c>AccessTokenGenerator</c> writes, signed with the shared test
 /// certificate (the test host's generated one), and it passes <c>Altinn.Common.AccessToken</c>'s validation; basic auth,
 /// <c>app</c>, <c>org</c> and <c>ttl</c> as the real tool reads them.
@@ -162,16 +163,30 @@ public sealed class TokenGeneratorTests
         Assert.Equal(HttpStatusCode.BadRequest, other.StatusCode);
     }
 
-    [Fact]
-    public async Task OnlyThePrefixedPathIsTheMock()
+    [Theory]
+    [InlineData("/mockporten/api/GetPlatformAccessToken")]
+    [InlineData("/api/GetPlatformAccessToken")]
+    public async Task TheCanonicalAndTheTemporaryRootPathAnswerTheSame(string path)
     {
-        // The real tool's root path is not the front door's: it falls through to the app routes' 404.
         await using var frontDoor = new FrontDoor();
-        using var root = await Send(frontDoor, "/api/GetPlatformAccessToken?env=localtest&app=ttd.app");
-        Assert.Equal(HttpStatusCode.NotFound, root.StatusCode);
-        using var post = new HttpRequestMessage(HttpMethod.Post, $"{Path}?app=ttd.app");
+        using var ok = await Send(frontDoor, $"{path}?env=localtest&app=ttd.app&ttl=60");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var (_, payload) = Decode(await ok.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("ttd.app", payload.GetProperty("urn:altinn:app").GetString());
+        Assert.Equal(60, payload.GetProperty("exp").GetInt64() - payload.GetProperty("iat").GetInt64());
+
         using var client = frontDoor.Client();
-        Assert.NotEqual(HttpStatusCode.OK, (await client.SendAsync(post, Ct)).StatusCode);
+        using var anonymous = await client.GetAsync($"{path}?app=ttd.app", Ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+    }
+
+    [Fact]
+    public async Task OtherPathsUnderApiAreNotTheMock()
+    {
+        // Only the one path at the root: the rest of /api/ falls through to the app routes' 404.
+        await using var frontDoor = new FrontDoor();
+        using var other = await Send(frontDoor, "/api/GetEnterpriseToken?env=localtest");
+        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
     }
 
     [Fact]
@@ -179,11 +194,14 @@ public sealed class TokenGeneratorTests
     {
         await using var frontDoor = new MinimalFrontDoor();
         using var client = frontDoor.Client();
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{Path}?env=localtest&app=ttd.app");
-        request.Headers.Authorization = Basic("localtest", "localtest");
-        using var response = await client.SendAsync(request, Ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("ttd.app", Decode(await response.Content.ReadAsStringAsync(Ct)).Payload.GetProperty("urn:altinn:app").GetString());
+        foreach (var path in new[] { Path, "/api/GetPlatformAccessToken" })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{path}?env=localtest&app=ttd.app");
+            request.Headers.Authorization = Basic("localtest", "localtest");
+            using var response = await client.SendAsync(request, Ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("ttd.app", Decode(await response.Content.ReadAsStringAsync(Ct)).Payload.GetProperty("urn:altinn:app").GetString());
+        }
     }
 
     private static async Task<HttpResponseMessage> Send(FrontDoor frontDoor, string pathAndQuery, string user = "localtest", string password = "localtest")

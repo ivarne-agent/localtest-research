@@ -20,7 +20,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication; the start page links to Grafana while its route is live | `Home/` | `/`, `/Home/…` (the old contract) |
 | Storage instances: a query page for Storage's `GET storage/api/v1/instances` with a test user's or a service owner's token, the instance, its data elements, and links to the inbox, the dialog, the app or the receipt while they run | `Home/Instances/` | `/Home/Instances…` ([Storage instances](#storage-instances)) |
 | Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
-| Test tool: a mock of the online test tool's platform access token generator, signed with the shared certificate, for the components that fetch their tokens from it ([Test tool](#test-tool-mockporten)) | `TokenGenerator/` | `mockporten/api/GetPlatformAccessToken` |
+| Test tool: a mock of the online test tool's platform access token generator, signed with the shared certificate, for the components that fetch their tokens from it ([Test tool](#test-tool-mockporten)) | `TokenGenerator/` | `mockporten/api/GetPlatformAccessToken`, for now also `/api/GetPlatformAccessToken` |
 | Minimal mode: the platform services whose address is the front door's own, emulated in memory under their public prefixes (task 35); nothing of it is registered or mapped otherwise | `Emulation/` | the services' own paths ([Minimal mode](#minimal-mode)) |
 
 | File | What |
@@ -33,7 +33,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`), `StudioToken.cs` (Designer's token, for `/Home/GetTestStudioToken` and the provisioning) |
 | `Home/Instances/` | The instances page: `instances.html` (the form, embedded in the binary), `InstancesApi.cs` (the endpoints and the token), `InstanceQuery.cs` (the URL state: Storage's parameters and the token's), `StorageClient.cs`, `InstancesPages.cs` (the HTML), `InstanceLinks.cs` (which links work, the dialog id, the parties' URNs); `Home/TestTokens.cs` holds the tokens `/Home/GetTest…Token` and the page share |
 | `Authentication/` | `AuthenticationApi.cs` (endpoints), `CodeFlow.cs` (the code flow over HTTP), `SeededClients.cs` (the seeded clients' ids, secrets and redirect URIs) |
-| `TokenGenerator/` | `TokenGeneratorApi.cs`: the test tool's `GetPlatformAccessToken` under `/mockporten/`, its parameters and basic auth, and the token as `AccessTokenGenerator` writes it |
+| `TokenGenerator/` | `TokenGeneratorApi.cs`: the test tool's `GetPlatformAccessToken` under `/mockporten/` (and for now at the root), its parameters and basic auth, and the token as `AccessTokenGenerator` writes it |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts and path prefixes to service names, the rewrite, the optional groups for the hints, the public host names |
 | `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (platform routes through service discovery's handler), the transform (original `Host`; the rewrite; `Secure` removed from an app's cookies), and the error path |
@@ -80,7 +80,8 @@ In order:
 2. **`/app-frontend/`**: the built app-frontend (`FRONTEND_DIST`, mounted at `/frontend`) as static files, with
    `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. The apps' asset base.
 3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), the start page and `/Home/…`
-   (Home), and `GET /mockporten/api/GetPlatformAccessToken` ([Test tool](#test-tool-mockporten)).
+   (Home), and `GET /mockporten/api/GetPlatformAccessToken` with, for now, `GET /api/GetPlatformAccessToken`
+   ([Test tool](#test-tool-mockporten)).
 4. **App routes**: `/{org}/{app}/…` → the registered address, path unchanged.
 5. **Platform prefixes** on any other host, matched on segment boundaries, first match wins:
    `/dialogporten/graphql` → `dialogporten-graphql` with the prefix rewritten to `/graphql` (APIM does the same in
@@ -244,6 +245,13 @@ and inside the network as `http://localtest:8080/mockporten/api/…`. The interf
 [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) plans for Mockporten, so a consumer can later be
 pointed there instead; later test-tool-compatible endpoints (`GetEnterpriseToken`, `GetPersonalToken`) belong under the
 same prefix. The route is not configurable; only the consumers' URLs are (their environment variables in the manifest).
+
+**For now also at the root**, `GET /api/GetPlatformAccessToken` (the owner's decision, 2026-10-29: "Can't we just use
+the root /api in front-door for now?"), the same handler: Access Management's token source calls
+`{Endpoint}/api/GetPlatformAccessToken` with an absolute path, so it cannot reach the prefixed route until the upstream
+setting for the full URL is synced (TODO.md task 66). Only that one path: the rest of `/api/` is not the front door's
+(it falls through to the app routes' 404; no platform prefix, emulated service or app can be at `/api/GetPlatformAccessToken`,
+since app names are lower-case). It goes when Access Management is given the full URL.
 
 | `GET mockporten/api/GetPlatformAccessToken` | |
 | --- | --- |

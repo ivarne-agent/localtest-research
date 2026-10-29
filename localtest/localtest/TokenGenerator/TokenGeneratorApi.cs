@@ -11,7 +11,8 @@ namespace Localtest.TokenGenerator;
 /// <c>Altinn/AltinnTestTools</c>, <c>TokenGenerator/GetPlatformAccessToken.cs</c>), under the fixed prefix
 /// <see cref="Prefix"/>: <c>GET /mockporten/api/GetPlatformAccessToken?env&amp;app&amp;ttl&amp;org</c> with basic auth.
 /// The path below the prefix and the interface are the real tool's, which altinn-auth#4052 plans for Mockporten, so a
-/// client can later be pointed there instead; later test-tool-compatible endpoints go under the same prefix. Basic auth must be present,
+/// client can later be pointed there instead; later test-tool-compatible endpoints go under the same prefix. For now the
+/// same handler also answers at the real tool's root path (<see cref="TemporaryRootPath"/>). Basic auth must be present,
 /// as at the real tool, and any user name and password are accepted. The token is signed with the shared test
 /// certificate (<see cref="LocaltestSettings.AccessTokenCertificatePath"/>) the way <c>Altinn.Common.AccessTokenClient</c>'s
 /// <c>AccessTokenGenerator</c> signs one in production, so every component's <c>AccessTokenHandler</c> accepts it.
@@ -38,57 +39,69 @@ public static partial class TokenGeneratorApi
     /// <summary>The front door's prefix for the test tool's endpoints (fixed; an app may not register the org <c>mockporten</c>).</summary>
     public const string Prefix = "/mockporten";
 
+    /// <summary>
+    /// The real tool's own path, at the root, answered by the same handler for now: Access Management's token source
+    /// (<c>Altinn.Authorization.Integration.Platform</c> at the pin) calls <c>{Endpoint}/api/GetPlatformAccessToken</c> and
+    /// cannot be given the prefixed URL until the upstream full-URL setting is synced (TODO.md task 66); then this goes.
+    /// </summary>
+    public const string TemporaryRootPath = "/api/GetPlatformAccessToken";
+
     public static void Map(WebApplication app)
-        => app.MapGet(Prefix + "/api/GetPlatformAccessToken", (HttpRequest request, LocaltestSettings settings, ILoggerFactory loggers) =>
+    {
+        app.MapGet(Prefix + "/api/GetPlatformAccessToken", GetPlatformAccessToken);
+        app.MapGet(TemporaryRootPath, GetPlatformAccessToken);
+    }
+
+    private static IResult GetPlatformAccessToken(HttpRequest request, LocaltestSettings settings, ILoggerFactory loggers)
+    {
+        if (BasicUser(request) is not { } user)
         {
-            if (BasicUser(request) is not { } user)
+            // The real tool: 401 with a Basic challenge when the header is missing or not Basic; 400 when the
+            // credentials do not decode.
+            if (request.Headers.Authorization.ToString().StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
             {
-                // The real tool: 401 with a Basic challenge when the header is missing or not Basic; 400 when the
-                // credentials do not decode.
-                if (request.Headers.Authorization.ToString().StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
-                {
-                    return Results.Text("The basic credentials do not decode as user:password.\n", statusCode: StatusCodes.Status400BadRequest);
-                }
-
-                request.HttpContext.Response.Headers.WWWAuthenticate = BasicChallenge;
-                return Results.Text("Basic authentication is required (any user name and password are accepted locally).\n", statusCode: StatusCodes.Status401Unauthorized);
+                return Results.Text("The basic credentials do not decode as user:password.\n", statusCode: StatusCodes.Status400BadRequest);
             }
 
-            var errors = new List<string>();
-            var app = request.Query["app"].ToString();
-            if (!IsDottedIdentifier(app))
-            {
-                errors.Add("app is required: letters, digits, '_' and '-' in dot-separated parts, at most 50 characters.");
-            }
+            request.HttpContext.Response.Headers.WWWAuthenticate = BasicChallenge;
+            return Results.Text("Basic authentication is required (any user name and password are accepted locally).\n", statusCode: StatusCodes.Status401Unauthorized);
+        }
 
-            var issuer = request.Query["org"].ToString() is { Length: > 0 } org ? org : PlatformIssuer;
-            if (issuer is not (PlatformIssuer or TtdIssuer))
-            {
-                errors.Add($"org is the issuer: {PlatformIssuer} (the default) or {TtdIssuer}.");
-            }
+        var errors = new List<string>();
+        var app = request.Query["app"].ToString();
+        if (!IsDottedIdentifier(app))
+        {
+            errors.Add("app is required: letters, digits, '_' and '-' in dot-separated parts, at most 50 characters.");
+        }
 
-            var ttl = DefaultTtlSeconds;
-            if (request.Query["ttl"].ToString() is { Length: > 0 } ttlText && !uint.TryParse(ttlText, out ttl))
-            {
-                errors.Add("ttl is the lifetime in seconds, a non-negative integer (default 1800).");
-            }
+        var issuer = request.Query["org"].ToString() is { Length: > 0 } org ? org : PlatformIssuer;
+        if (issuer is not (PlatformIssuer or TtdIssuer))
+        {
+            errors.Add($"org is the issuer: {PlatformIssuer} (the default) or {TtdIssuer}.");
+        }
 
-            if (errors.Count > 0)
-            {
-                return Results.Text(string.Join('\n', errors) + "\n", statusCode: StatusCodes.Status400BadRequest);
-            }
+        var ttl = DefaultTtlSeconds;
+        if (request.Query["ttl"].ToString() is { Length: > 0 } ttlText && !uint.TryParse(ttlText, out ttl))
+        {
+            errors.Add("ttl is the lifetime in seconds, a non-negative integer (default 1800).");
+        }
 
-            if (!File.Exists(settings.AccessTokenCertificatePath))
-            {
-                return Results.Text(
-                    $"The shared test certificate is not at {settings.AccessTokenCertificatePath} (Localtest:AccessTokenCertificatePath).\n",
-                    statusCode: StatusCodes.Status500InternalServerError);
-            }
+        if (errors.Count > 0)
+        {
+            return Results.Text(string.Join('\n', errors) + "\n", statusCode: StatusCodes.Status400BadRequest);
+        }
 
-            var env = request.Query["env"].ToString();
-            loggers.CreateLogger("Localtest.TokenGenerator").LogInformation("Platform access token for app {App}, issuer {Issuer}, ttl {Ttl} s (env '{Env}', user '{User}')", app, issuer, ttl, env, user);
-            return Results.Text(Create(settings.AccessTokenCertificatePath, issuer, app, ttl, DateTimeOffset.UtcNow), "text/plain", Encoding.UTF8);
-        });
+        if (!File.Exists(settings.AccessTokenCertificatePath))
+        {
+            return Results.Text(
+                $"The shared test certificate is not at {settings.AccessTokenCertificatePath} (Localtest:AccessTokenCertificatePath).\n",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        var env = request.Query["env"].ToString();
+        loggers.CreateLogger("Localtest.TokenGenerator").LogInformation("Platform access token for app {App}, issuer {Issuer}, ttl {Ttl} s (env '{Env}', user '{User}')", app, issuer, ttl, env, user);
+        return Results.Text(Create(settings.AccessTokenCertificatePath, issuer, app, ttl, DateTimeOffset.UtcNow), "text/plain", Encoding.UTF8);
+    }
 
     /// <summary>
     /// A platform access token as <c>AccessTokenGenerator.GenerateAccessToken(issuer, app)</c> writes it: header
