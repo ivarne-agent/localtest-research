@@ -17,14 +17,15 @@ changed is marked with a dated "Superseded" note at the top of the review; the r
 | Workflow engine and PDF | [`workflow-engine.md`](workflow-engine.md) | Reviewed 2026-10-20; handled except the state reset (left as decided) |
 | Test apps (monorepo `src/test/apps`) | [`test-apps.md`](test-apps.md) | Checked 2026-10-21: 8 of 13 policies fail the Resource Registry's `policy/rules` and `policy/rights` (one template `delete` rule); test data valid. Not fixed here, for upstream |
 | Cookies with `Secure` across the stack (task 21b) | [`cookies.md`](cookies.md) | Inventory 2026-10-21, for the owner's review before merge: one cookie policy in two components' `fakes/`, a third Arbeidsflate patch, no new directive site; app routes keep the front doors' stripping (app-lib's `keepAlive`) |
-| Egress domains (task 44) | [`2026-10-23-egress-domains.md`](2026-10-23-egress-domains.md) | Phase 1 2026-10-23: static inventory per process (monorepo app, browser as a CSP, pdf3, workflow engine, components), enforcement options, capture scripts in `../tools/egress/`; phase 2 (observed) pending |
+| Egress domains (task 44) | [`2026-10-23-egress-domains.md`](2026-10-23-egress-domains.md) | Phase 1 2026-10-23: static inventory per process (monorepo app, browser as a CSP, pdf3, workflow engine, components), enforcement options, capture scripts in `../tools/egress/`; phase 2 (observed on the stack) done 2026-10-24 |
 
 ## Across components
 
 - **Dockerfiles.** Storage, Register, Authentication, Authorization and Access Management mirror the upstream image
   definition (pinned digests, non-root user, the same steps; deviations marked `localtest:`); for Access Management
-  that is the release image built through `docker-bake.hcl` from the shared `containers/` files. Events and the
-  workflow engine follow since 2026-10-20 as well.
+  that is the release image built through `docker-bake.hcl` from the shared `containers/` files. Events followed on
+  2026-10-20 as well, and the workflow engine did until it stopped being vendored (task 58, 2026-10-27: studioctl runs
+  the monorepo's `tt02` image).
 
 - **HEALTHCHECK** lines are dead everywhere: podman builds OCI images, which drop them. Health checks are left for the
   studioctl integration. (Both runtimes now check each container's health path from inside the stack's network; see

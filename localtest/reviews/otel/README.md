@@ -5,10 +5,15 @@ do it where it is simple. The stack's rule (TODO.md task 53): a service exports 
 exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (protocol and service name from the standard variables; the
 per-signal endpoint variables do not turn exporting on), and sends nothing otherwise.
 
+**Superseded 2026-10-29 by task 63's follow-up** (TODO.md section 63, commit `65411256`): the shared helper in
+`components/shared/fakes/Otlp/` and its copies are gone; each site below inlines the rule (the endpoint check,
+`UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter), and `Otlp.Tests` tests the front
+door's `localtest/Telemetry/LocaltestOtlp.cs`, the one copy left. The Localtest column is the record of 2026-10-26.
+
 Each file has two halves: the **upstream view** (how the vendored production code sends telemetry today, and what an
 upstream change to "OpenTelemetry first, Azure Monitor only when its connection string is set, OTLP when the endpoint is
 set" would take, classified trivial / small / large) and the **localtest change** (done where trivial or small, through
-`../../components/shared/fakes/Otlp/`, otherwise a plan).
+`../../components/shared/fakes/Otlp/` then, inlined since task 63; otherwise a plan).
 
 | Service | Review | Upstream | Localtest |
 | --- | --- | --- | --- |

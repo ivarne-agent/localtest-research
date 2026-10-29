@@ -27,6 +27,10 @@ Upstream: [Altinn/altinn-correspondence](https://github.com/Altinn/altinn-corres
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 The fakes compile into the API project only, so the site is in `src/Altinn.Correspondence.API/Program.cs:66-71`: a pure
 `#if LOCALTEST` addition right after `ConfigureOpenTelemetry(generalSettings)`, calling `LocaltestOtlp.AddLocaltestOtlp`
 (`fakes/Otlp/`) on the same providers. Production's call stays and adds no Azure Monitor exporter (the fakes force the

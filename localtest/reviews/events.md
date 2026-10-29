@@ -1,5 +1,9 @@
 # Events review (2026-10-20)
 
+> **Superseded (2026-10-29, task 63):** `LocaltestEventsQueueClient` is gone: production `EventsQueueClient` fails at once
+> through an additive directive in each of its four queue getters (the component README's site 8). The fakes table below
+> is the record of 2026-10-20.
+
 > **Superseded in part (2026-10-20, task 9b):** finding 10 says only apps publish, so `AppsDomain` = platform host has
 > no effect. Dialogporten now publishes to the generic endpoint, and the effect is real: its sources are cut to
 > `.../dialogporten/api` for the cached source filter (see `../components/dialogporten/README.md`, "Events", and the

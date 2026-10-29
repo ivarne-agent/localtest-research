@@ -26,6 +26,10 @@ Reviewed 2026-10-26 (TODO.md task 53). **Classification: trivial.**
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 `src/Events/Program.cs:170-176`: `AddAzureMonitorTelemetryExporters` under `#if !LOCALTEST`, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`); the OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` silenced
 in `localtest.build.props` (the unused local function). The fakes no longer force `ApplicationInsights:ConnectionString`

@@ -33,6 +33,10 @@ Upstream: [Altinn/altinn-storage](https://github.com/Altinn/altinn-storage), ven
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 `Program.cs:249-258`: the Azure Monitor block under `#if !LOCALTEST`, `#else`
 `LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config)` (`fakes/Otlp/`, a copy of
 `components/shared/fakes/Otlp/`); the OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` (the now unused local

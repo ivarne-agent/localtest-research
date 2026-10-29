@@ -33,6 +33,10 @@ Upstream: [Altinn/altinn-dialogporten-adapter](https://github.com/Altinn/altinn-
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 `ServiceCollectionExtensions.cs:56-65`: production's `if (Enabled) ConfigureTelemetry` under `#if !LOCALTEST`, `#else`
 `fakes/LocaltestAdapterTelemetry.cs`: with the variable, the same pipeline without Azure Monitor (filter, name, ASP.NET
 Core and HttpClient traces and metrics) plus `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, which adds the logs);

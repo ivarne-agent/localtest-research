@@ -23,6 +23,10 @@ csproj.
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 Directive site 4, `src/Altinn.Profile/Program.cs:152-158`: `#if !LOCALTEST` production's call, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`); OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` silenced.
 The fakes no longer force `ApplicationInsights:ConnectionString` empty. Build: 0 errors, 0 warnings. Not run: Postgres

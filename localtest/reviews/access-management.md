@@ -1,5 +1,11 @@
 # Access Management review (2026-10-20)
 
+> **Superseded (2026-10-28/29, tasks 60, 62 and 63):** `Database/LocaltestDatabase.cs` is gone: the roles and
+> `authorizationdb` come from the stack Postgres image's init script `45-access-management.sh`, with generated passwords
+> (task 62), and `Program.cs` no longer calls it. `Infrastructure/LocaltestTokenGenerator.cs` is gone: the vendored
+> Integration.Platform lib's `TestTool` generator signs with the production `IAccessTokenGenerator` through two directives
+> (task 63). The site and fakes tables below are the record of 2026-10-20.
+
 > **Superseded (2026-10-21):** compose was replaced by studioctl's `localtest-v2` runtime on 2026-10-20; finding 14's
 > start order is now studioctl's: Postgres, the Register, the Resource Registry and, since task 14, the profile
 > component, whose production Profile answers Access Management's `internal/user` calls. The one-time

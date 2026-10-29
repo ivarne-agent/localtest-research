@@ -70,6 +70,10 @@ the three classes or Application Insights (grep, 2026-10-26).
 
 ## Localtest change (done)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): `AddLocaltestOtlp` and the `fakes/Otlp/` copy are gone;
+`LocaltestAuthorizationTelemetry` inlines the rule (`UseOtlpExporter()` after the environment detector, the
+`HttpClient.Otlp` filter). What follows is the record of 2026-10-26.
+
 `Program.cs:278-304`: `#if !LOCALTEST` around the Application Insights block, `#else`
 `LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config)` (`fakes/LocaltestAuthorizationTelemetry.cs`).
 With `OTEL_EXPORTER_OTLP_ENDPOINT` set it builds the pipeline of option 1 without Azure Monitor: traces (ASP.NET Core

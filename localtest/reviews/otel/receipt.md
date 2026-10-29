@@ -20,6 +20,10 @@ block; optionally the environment detector after `AddAttributes`. Risk low. File
 
 ## Localtest (done 2026-10-26)
 
+Superseded 2026-10-29 (task 63's follow-up, TODO.md section 63): the `fakes/Otlp/` copy is gone and the site inlines
+the rule (the endpoint check, `UseOtlpExporter()` after the environment detector, the `HttpClient.Otlp` filter). What
+follows is the record of 2026-10-26.
+
 Directive site 4, `Program.cs:190-199`: the Azure Monitor block under `#if !LOCALTEST`, `#else`
 `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`); OTLP package 1.19.1 in `localtest.build.targets`; `CS8321` silenced
 in `localtest.build.props`. Build: 0 errors, 0 warnings. Upstream tests with the overrides: 19 of 19 pass.

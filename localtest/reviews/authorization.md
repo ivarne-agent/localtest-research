@@ -1,5 +1,11 @@
 # Authorization (PDP) review (2026-10-20)
 
+> **Superseded (2026-10-29, task 63):** `LocaltestPolicyRetrievalPoint`, `NoOedRoleAssignments` and
+> `NoopEventsQueueClient` are gone. Two directives in production code replaced the first two (the app-policy cache entry
+> dropped before each read in `PolicyRetrievalPoint`, an empty answer in `OedRoleAssignmentWrapper`); the audit queue is
+> production's `EventsQueueClient`, never called since `AuditLog` is off. The fakes table below is the record of
+> 2026-10-20; the current list is the component README's "Fakes".
+
 > **Superseded (2026-10-21):** `internal/user` is answered by the profile component (production Profile, task 14), not
 > the register component, wherever this review says so (finding 4 and the status line). Compose was replaced by
 > studioctl's `localtest-v2` runtime on 2026-10-20, so finding 7's compose section is history (the README has a
