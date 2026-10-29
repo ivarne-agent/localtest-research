@@ -99,6 +99,7 @@ A path matching no route still falls through to the localtest app.
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; known gap, left as is (owner 2026-10-29): under Aspire, DCP's own `podman create` command line carries the containers' environment, passwords included, while it runs | medium | yes |
 | 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29, main `6e1b1105`..`27e07fb5` and `4840c5e9`, pinned `sha-4840c5e`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): seven directive sites replaced eight fakes (340 lines) in Authorization, Dialogporten, the Resource Registry and Correspondence; the shared fakes stay but Correspondence's cookie-policy copy; borderline kept: Access Management's token generator, Events' queue client, the OTLP helper | medium | yes |
+| 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | unapproved (created at the owner's request 2026-10-29; not to be dispatched yet) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -3003,3 +3004,34 @@ Authentication 34, Correspondence 78; minimal root 23 (4 skips). Static: the fou
 (Debug and Release; one new warning, CS0162 after the early return in `OedRoleAssignmentWrapper`),
 `vendor-sync.py check --all` ok with the shared copies identical, `Cookies.Smoke` 7 ok, `Otlp.Tests` 10. No component
 here has unit tests of its own.
+
+## 64. Local platform access tokens in the Integration.Platform token generator
+
+The user's request (2026-10-29, verbatim): "Inline the borderline cases, and make a task for upstream changes to the
+token generator package".
+
+An upstream change in [Altinn/altinn-auth](https://github.com/Altinn/altinn-auth),
+`src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/`:
+
+- What: `AddAltinnPlatformIntegrationDefaults` (`Extensions/ServiceCollectionExtensions.cs`) chooses the platform access
+  token source: `TokenGenerator.KeyVault` when `Token:KeyVault:Endpoint` is set, otherwise `TokenGenerator.TestTool`,
+  which fetches every token from the test tool on the internet (`/api/GetPlatformAccessToken` with basic auth). Add a
+  local source: sign with the `IAccessTokenGenerator` the host already registers (`Altinn.Common.AccessTokenClient`,
+  with the certificate `AccessTokenSettings:AccessTokenSigningCertificateFullPath` names) when neither Key Vault nor
+  the test tool is configured, or when a setting selects it (for example `Token:Local:Enabled`). `KeyVault` already
+  calls `IAccessTokenGenerator.GenerateAccessToken(issuer, app)` for `CreatePlatformAccessToken`, so the new source is
+  that call without Key Vault.
+- Why: localtest has no Key Vault and must not call the test tool, so since task 63 two directive blocks in the
+  vendored `TokenGenerator.cs` do it (the `TestTool` primary constructor takes the generator, and
+  `CreatePlatformAccessToken(issuer, app)` returns its token first). The upstream source removes both, and the dummy
+  `Platform:Token:TestTool:*` values Access Management's hook sets only to pass the options validation.
+- Size: small: an enum value and its validation, one generator class (or a branch), the selection in the extension
+  method, a unit test; the team decides whether the local source is chosen implicitly or by a setting.
+- Removes: the two `TokenGenerator.cs` blocks in `localtest/components/access-management/vendor/` and the
+  `Platform:Token:TestTool:*` defaults in `fakes/LocaltestAccessManagementExtensions.cs`.
+- Hosts that use the lib: in this repository only Access Management (`Altinn.AccessManagement` and
+  `Altinn.AccessMgmt.Core` reference `Altinn.Authorization.Integration.Platform`); in altinn-auth check the other apps
+  at the time (none of the vendored Authentication, Authorization or Resource Registry hosts compiles it at the pin
+  `3d51810`).
+- Related: [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token generator);
+  the item in [`localtest/upstreaming/access-management.md`](localtest/upstreaming/access-management.md), phase 1.

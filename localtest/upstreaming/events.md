@@ -4,10 +4,12 @@
 - Pin: `1a4a80c` (main, 2026-10-19), [`../components/events/vendor/UPSTREAM.md`](../components/events/vendor/UPSTREAM.md)
 - Group: none
 - Reminders: none.
-- Localtest modifications: 7 directive sites (4 in `src/Events/Program.cs`, 2 in
-  `src/Events/Controllers/SubscriptionController.cs`, 1 in `src/Events/Services/OutboundService.cs`), the fakes
-  `Auth/`, `Changes/`, `Delivery/`, `Inspection/`, `Queues/`, `Sources/`, `Startup/`, the composition
-  `LocaltestEventsExtensions.cs` and `LocaltestEventsOptions.cs`, the shared copies `ServiceDiscovery/` and `Otlp/`,
+- Localtest modifications: 11 directive blocks (4 in `src/Events/Program.cs`, 2 in
+  `src/Events/Controllers/SubscriptionController.cs`, 1 in `src/Events/Services/OutboundService.cs`, 4 in
+  `src/Events/Clients/EventsQueueClient.cs` from task 63), the fakes
+  `Auth/`, `Changes/`, `Delivery/`, `Inspection/`, `Sources/`, `Startup/`, the composition
+  `LocaltestEventsExtensions.cs` and `LocaltestEventsOptions.cs`, the shared copy `ServiceDiscovery/` (the OTLP helper's
+  copy was inlined into its site in task 63),
   two build overrides, the Postgres init script `postgres-init/30-events.sh`, and the `localtest:` deviations in
   `Dockerfile` and `.dockerignore`.
 
@@ -27,7 +29,7 @@ features find another way in.
   - Why: without it, Events sends telemetry only to Azure Monitor with `ApplicationInsights:ConnectionString` from Key
     Vault, so a local run exports nothing.
   - Size: trivial.
-  - Removes: site `src/Events/Program.cs:170-176`, `fakes/Otlp/`, the OTLP `PackageReference` in
+  - Removes: site `src/Events/Program.cs:170-183` (the OTLP rule, inlined there since task 63), the OTLP `PackageReference` in
     `localtest.build.targets` and the `CS8321` `NoWarn` in `localtest.build.props`.
   - Upstream: none found. [altinn-events#1149](https://github.com/Altinn/altinn-events/pull/1149) lists telemetry in
     its local dashboard as not done.
@@ -128,9 +130,9 @@ features find another way in.
 
 - [ ] **Retire the legacy Storage Queue path.** Remove the Storage Queue publishers, `IEventsQueueClient` and the
       `inbound` / `outbound` callback endpoints the Azure Functions use, once the Functions are gone.
-  - Why: locally the queue client has nothing to talk to; the fake answers with a clear failure.
+  - Why: locally the queue client has nothing to talk to; four directives make it fail at once.
   - Size: medium; the team's own plan.
-  - Removes: `fakes/Queues/`.
+  - Removes: the four blocks in `src/Events/Clients/EventsQueueClient.cs` (they replaced `fakes/Queues/` in task 63).
   - Upstream: [altinn-events#1076](https://github.com/Altinn/altinn-events/issues/1076) (open, deletes
     `Events.Functions`); #1149 calls the path "on its way out".
 
@@ -172,6 +174,6 @@ features find another way in.
   mechanism that carries the sites.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` and embedding `fakes/**/*.sql`: as above.
 
-Coverage: 7 sites, 11 fakes (`Auth/`, `Changes/`, `Delivery/`, `Inspection/`, `Otlp/`, `Queues/`, `ServiceDiscovery/`,
+Coverage: 11 blocks in 4 files, 9 fakes (`Auth/`, `Changes/`, `Delivery/`, `Inspection/`, `ServiceDiscovery/`,
 `Sources/`, `Startup/`, `LocaltestEventsExtensions.cs`, `LocaltestEventsOptions.cs`), 2 build overrides, 2 Dockerfile
 and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for.

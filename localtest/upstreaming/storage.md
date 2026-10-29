@@ -6,8 +6,8 @@
 - Reminders: none.
 - Localtest modifications: 5 directive sites (4 in `src/Storage/Program.cs`, 1 in
   `src/Storage/Controllers/InstancesController.cs`), the fakes `Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, the
-  composition `LocaltestStorageExtensions.cs` and `LocaltestStorageOptions.cs`, the shared copies `ServiceDiscovery/`
-  and `Otlp/`, two build overrides, the Postgres init script `postgres-init/10-storage.sh`, and the `localtest:`
+  composition `LocaltestStorageExtensions.cs` and `LocaltestStorageOptions.cs`, the shared copy `ServiceDiscovery/`
+  (the OTLP helper's copy was inlined into the site in task 63), two build overrides, the Postgres init script `postgres-init/10-storage.sh`, and the `localtest:`
   deviations in `Dockerfile` and `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -22,7 +22,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: without it, Storage sends telemetry only to Azure Monitor with a connection string read from Key Vault, so a
     local run exports nothing.
   - Size: trivial.
-  - Removes: site `src/Storage/Program.cs:248-257`, `fakes/Otlp/` and the OTLP `PackageReference` in
+  - Removes: site `src/Storage/Program.cs:248-264` (the OTLP rule, inlined there since task 63) and the OTLP `PackageReference` in
     `localtest.build.targets`. The `CS8321` `NoWarn` in `localtest.build.props` also covers the Key Vault function
     under site `Program.cs:142-146`, so it goes with the image item below.
   - Upstream: none found. altinn-storage#1148 (merged before our pin) stopped the Azure Monitor exporter from sampling;
@@ -173,7 +173,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   `infra/postgres_init.sql` does), with the passwords from the manifest: users and databases are set up by localtest
   (TODO.md task 60), as a deployment does outside the image.
 
-Coverage: 5 sites, 8 fakes (`Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, `Otlp/`, `ServiceDiscovery/`,
+Coverage: 5 sites, 7 fakes (`Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, `ServiceDiscovery/`,
 `LocaltestStorageExtensions.cs`, `LocaltestStorageOptions.cs`), 2 build overrides, 4 Dockerfile and 1 `.dockerignore`
 deviations (the fourth Dockerfile block split between the blob item and "Stays local"), 1 Postgres init script: all
 accounted for.

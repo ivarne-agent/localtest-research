@@ -6,7 +6,7 @@
 - Reminders: Renovate moves the frontend almost daily; re-pin on backend changes or on request.
 - Localtest modifications: 4 directive sites in `src/backend/Altinn.Receipt/Program.cs`, the hook
   `fakes/LocaltestReceipt.cs`, the `IStorage` decorator `fakes/SelfLinksStorage.cs`, the shared copies
-  `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
+  `fakes/ServiceDiscovery/` (the OTLP helper's copy was inlined into the site in task 63), two build overrides, and the `localtest:` deviations in `Dockerfile` and
   `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -21,7 +21,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: without it, Receipt sends telemetry only to Azure Monitor with a Key Vault connection string, so a local run
     exports nothing.
   - Size: trivial.
-  - Removes: site `Program.cs:190-199`, `fakes/Otlp/`, the OTLP `PackageReference` in `localtest.build.targets` and the
+  - Removes: site `Program.cs:190-206` (with the OTLP rule inlined in it since task 63), the OTLP `PackageReference` in `localtest.build.targets` and the
     `CS8321` `NoWarn` in `localtest.build.props`.
   - Upstream: none found.
   - Detail: [`../reviews/otel/receipt.md`](../reviews/otel/receipt.md). Carry the sampler note from
@@ -90,5 +90,5 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 
-Coverage: 4 sites, 4 fakes (the hook, the decorator, `ServiceDiscovery/`, `Otlp/`), 2 build overrides, 4 Dockerfile and
+Coverage: 4 sites, 3 fakes (the hook, the decorator, `ServiceDiscovery/`), 2 build overrides, 4 Dockerfile and
 1 `.dockerignore` deviations: all accounted for.

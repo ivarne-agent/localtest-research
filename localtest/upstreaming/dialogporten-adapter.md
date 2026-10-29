@@ -8,7 +8,8 @@
 - Localtest modifications: 10 directive sites (four hooks in `Program.cs`, three blocks in
   `Common/Extensions/ServiceCollectionExtensions.cs`, one in `Settings.cs`, two in `StorageDialogportenDataMerger.cs`),
   the fakes `LocaltestAdapterExtensions.cs`, `LocaltestAdapterOptions.cs`, `LocaltestAdapterTelemetry.cs`,
-  `LocaltestLinks.cs` and the shared copies `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, three build overrides
+  `LocaltestLinks.cs` and the shared copies `Maskinporten/` and `ServiceDiscovery/` (the OTLP helper was inlined into
+  `LocaltestAdapterTelemetry.cs` in task 63), three build overrides
   (`localtest.build.props`, `localtest.build.targets`, `.editorconfig`), and the `localtest:` deviations in
   `Dockerfile` and `.dockerignore`.
 
@@ -34,8 +35,7 @@ item below.
     without a connection string, so a local run exports nothing.
   - Size: small (one method restructured; the distro's defaults become explicit).
   - Removes: site `Common/Extensions/ServiceCollectionExtensions.cs:56-65`, `fakes/LocaltestAdapterTelemetry.cs`,
-    `fakes/Otlp/`, the OTLP `PackageReference` in `localtest.build.targets` and the `fakes/Otlp` section of
-    `.editorconfig`.
+    the OTLP `PackageReference` in `localtest.build.targets` (the OTLP rule, inlined in the telemetry fake since task 63).
   - Upstream: none found.
   - Detail: [`../reviews/otel/dialogporten-adapter.md`](../reviews/otel/dialogporten-adapter.md), with the 5 % sampler
     question and the health filter's `Recorded` flag. Carry the sampler note from
@@ -168,6 +168,6 @@ item below.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 - `.editorconfig`: analyzer exceptions for the shared copies only; each section goes with its copy (items above).
 
-Coverage: 10 sites, 7 fakes (`LocaltestAdapterExtensions.cs`, `LocaltestAdapterOptions.cs`, `LocaltestAdapterTelemetry.cs`,
-`LocaltestLinks.cs`, `Maskinporten/`, `ServiceDiscovery/`, `Otlp/`), 3 build overrides, 3 Dockerfile and 1
+Coverage: 10 sites, 6 fakes (`LocaltestAdapterExtensions.cs`, `LocaltestAdapterOptions.cs`, `LocaltestAdapterTelemetry.cs`,
+`LocaltestLinks.cs`, `Maskinporten/`, `ServiceDiscovery/`), 3 build overrides, 3 Dockerfile and 1
 `.dockerignore` deviations: all accounted for.

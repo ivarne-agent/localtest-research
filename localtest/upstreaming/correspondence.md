@@ -11,7 +11,8 @@
   `Auth/DependencyInjection.cs` (`ExpireCookie`) from task 63; the
   `XacmlRequestFactory.cs` block was removed in task 58's follow-up), the hook
   `fakes/LocaltestCorrespondence.cs` with its options class, the fakes `Auth/`, `Storage/`,
-  `Inspection/`, the shared copies `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, two build overrides,
+  `Inspection/`, the shared copies `Maskinporten/` and `ServiceDiscovery/` (the OTLP helper's copy was inlined into the site
+  in task 63), two build overrides,
   the `localtest:` deviations in `Dockerfile`, `.dockerignore` and the Postgres init script.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -43,7 +44,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: the pipeline exports only to Azure Monitor with `GeneralSettings:ApplicationInsightsConnectionString`, so a
     local run exports nothing.
   - Size: trivial.
-  - Removes: site `src/Altinn.Correspondence.API/Program.cs:66-71`, `fakes/Otlp/` and the OTLP `PackageReference` in
+  - Removes: site `src/Altinn.Correspondence.API/Program.cs:66-78` (the OTLP rule, inlined there since task 63) and the OTLP `PackageReference` in
     `localtest.build.targets`.
   - Upstream: none found.
   - Detail: [`../reviews/otel/correspondence.md`](../reviews/otel/correspondence.md). Carry the sampler note from
@@ -211,7 +212,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   and the vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into `Altinn.Correspondence.API`: as above.
 
-Coverage: 7 sites (another removed in task 58's follow-up), 7 fakes (`Auth/`,
-`Inspection/`, `Maskinporten/`, `Otlp/`, `ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with
+Coverage: 7 sites (another removed in task 58's follow-up), 6 fakes (`Auth/`,
+`Inspection/`, `Maskinporten/`, `ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with
 its options), 2 build overrides, 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted
 for.

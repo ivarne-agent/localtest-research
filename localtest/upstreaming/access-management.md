@@ -12,7 +12,8 @@
   `Altinn.Authorization.ServiceDefaults` 5.5.0), so service discovery and OTLP export come from the shared library; its
   changes are in [`authorization-utils.md`](authorization-utils.md).
 - Localtest modifications: 5 directive sites under `src/apps/Altinn.AccessManagement/src/` (`Program.cs`, two in
-  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`), the
+  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`) and 2 in
+  `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs` (task 63), the
   composition `fakes/LocaltestAccessManagementExtensions.cs` with `fakes/LocaltestAccessManagementOptions.cs`, the
   policy store `fakes/Policies/`, the token, key and metadata stand-ins
   `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copy
@@ -28,6 +29,22 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
 [altinn-auth#4050](https://github.com/Altinn/altinn-auth/issues/4050).
 
 ## Phase 1: easy fixes
+
+- [ ] **Sign platform access tokens locally in the Integration.Platform token generator.** In
+      `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/`,
+      `AddAltinnPlatformIntegrationDefaults` picks `TokenGenerator.KeyVault` when `Token:KeyVault:Endpoint` is set and
+      otherwise `TokenGenerator.TestTool`, which asks the test tool on the internet for every platform access token.
+      Add a third source that signs with the `IAccessTokenGenerator` the host already registers (and the certificate
+      `AccessTokenSettings` names) when neither Key Vault nor the test tool is configured, or when a setting asks for it.
+      Task: [`../../TODO.md` task 64](../../TODO.md#64-local-platform-access-tokens-in-the-integration-platform-token-generator).
+  - Why: locally there is no Key Vault and the test tool is not wanted; the Register, the Resource Registry and
+    Notifications validate the tokens against the shared test certificate.
+  - Size: small (one option value, one class or a branch in `TestTool`, the selection in the extension method).
+  - Removes: the two blocks in `TokenGenerator.cs` (they replaced `fakes/Infrastructure/LocaltestTokenGenerator.cs` in task
+    63) and the dummy `Platform:Token:TestTool:*` values in `fakes/LocaltestAccessManagementExtensions.cs`.
+  - Upstream: related [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token
+    generator). The lib is compiled into Access Management only in this repository (`Altinn.AccessManagement` and
+    `Altinn.AccessMgmt.Core` reference it).
 
 - [ ] **A factory client for the Resource Registry.** `ResourceRegistryClient` creates its own `new HttpClient()` in a
       field initializer, so it bypasses `IHttpClientFactory` and everything ServiceDefaults adds to factory clients
@@ -93,10 +110,9 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
       ["Across services"](README.md#across-services) has the cross-service proposal.
   - Why: none of these exists locally, and localtest does not run Azurite or call the test tool.
   - Size: large; the policy store is shared by three hosts.
-  - Removes: `fakes/Policies/`, `fakes/Infrastructure/` (`LocaltestPublicSigningKeyProvider`, `LocaltestTokenGenerator`,
-    with the metadata item above `LocaltestOidcMetadata`; `LocaltestStartupLogger`, diagnostics only, moves into the
-    hook), the forced `kvSetting:SecretUri`, `Lease:StorageAccount:BlobEndpoint` and dummy `Platform:Token:TestTool:*`
-    values, and the `/policy-store` half of the `Dockerfile` setup deviation.
+  - Removes: `fakes/Policies/`, `fakes/Infrastructure/` (`LocaltestPublicSigningKeyProvider`, with the metadata item
+    above `LocaltestOidcMetadata`; `LocaltestStartupLogger`, diagnostics only, moves into the hook; the outgoing tokens
+    are the first item's), the forced `kvSetting:SecretUri` and `Lease:StorageAccount:BlobEndpoint` values, and the `/policy-store` half of the `Dockerfile` setup deviation.
   - Upstream: related [altinn-auth#4063](https://github.com/Altinn/altinn-auth/issues/4063) (Azurite),
     [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token generator); the
     Azurite choice needs raising there.
@@ -138,7 +154,7 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
   from the manifest: users and databases are set up by localtest (TODO.md task 60), as production's infrastructure does
   for its own.
 
-Coverage: 5 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
+Coverage: 7 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
 `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for. `Otlp/` and its
 `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name,

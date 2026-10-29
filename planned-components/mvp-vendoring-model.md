@@ -225,9 +225,9 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
   `Program.cs` or the host builder; `#if !LOCALTEST` sites are kept for code hard-wired to infrastructure or to `https`
   (Storage's Key Vault connect and request links, Notifications' Wolverine bootstrap, the adapter's Service Bus and link
   builders, Events' and Authentication's https checks, Receipt's `goto`, Dialogporten's issuer caches). Blocks per
-  component after task 63 (additions/replacements, from `vendor-sync.py status --all`): Access Management 5 (2/3),
-  Authentication 2 (1/1), Authorization 5 (4/1), Correspondence 6 (4/2), Dialogporten 9 (3/6), the adapter 10 (4/6),
-  Events 7 (3/4), Notifications 4 (2/2), Profile 4 (3/1), Receipt 4 (2/2), Register 1 (1/0), Resource Registry 3 (3/0),
+  component after task 63 (additions/replacements, from `vendor-sync.py status --all`): Access Management 7 (3/4),
+  Authentication 2 (1/1), Authorization 5 (4/1), Correspondence 7 (4/3), Dialogporten 9 (3/6), the adapter 10 (4/6),
+  Events 11 (7/4), Notifications 4 (2/2), Profile 4 (3/1), Receipt 4 (2/2), Register 1 (1/0), Resource Registry 3 (3/0),
   Storage 5 (2/3).
 - **A directive instead of a small fake (the user's decision, 2026-10-29).** "Anywhere a Fake class only requires 3-4
   line changes with a preprocessor directive, should be in the directive, and the fake should be deleted." `fakes/`
@@ -235,7 +235,11 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
   the shared Maskinporten fake) and what a directive cannot reach (classes from packages that are not vendored, such as
   the Key Vault signing-key provider). Such a site needs no report first. Task 63 applied it: Authorization's OED,
   policy-cache and audit-queue fakes, Dialogporten's two issuer caches, the Resource Registry's applications client and
-  Correspondence's resource manager became six sites (the audit queue none). Until then a brief named the expected
+  Correspondence's resource manager became six sites (the audit queue none); then, at the user's request, Correspondence's
+  copy of the shared cookie policy, Access Management's token generator (two blocks in the vendored
+  `Altinn.Authorization.Integration.Platform`, with the upstream change as TODO.md task 64), Events' queue client (four
+  blocks) and the shared OTLP helper (inlined in each of six `Program.cs` sites and two telemetry fakes;
+  `components/shared/fakes/Otlp/` is gone, the front door keeps its own copy). Until then a brief named the expected
   sites and one more needed a report and the owner's approval (task 2, task 7b's
   [`correspondence/party-ids.md`](correspondence/party-ids.md)); that still holds for a site that is not replacing a
   fake.

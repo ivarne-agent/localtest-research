@@ -17,7 +17,7 @@
   composition `fakes/LocaltestAuthorizationExtensions.cs` with `fakes/LocaltestAuthorizationOptions.cs`, the telemetry
   `fakes/LocaltestAuthorizationTelemetry.cs`, the policy store `fakes/Policies/`, the Azure and Key Vault stand-ins
   `fakes/Infrastructure/`, the test API `fakes/Controllers/`, the shared copies
-  `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
+  `fakes/ServiceDiscovery/` (the OTLP helper was inlined into the telemetry fake in task 63), two build overrides, and the `localtest:` deviations in `Dockerfile` and
   `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -42,7 +42,8 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
     all, so not even the decision meter goes anywhere.
   - Size: small (one host file, three classes deleted, one package swapped); the Application Insights queries and
     sampling rate need a look by the team.
-  - Removes: site `Program.cs:278-304`, `fakes/LocaltestAuthorizationTelemetry.cs` and `fakes/Otlp/`.
+  - Removes: site `Program.cs:278-304` and `fakes/LocaltestAuthorizationTelemetry.cs` (with the OTLP rule inlined in it
+    since task 63).
   - Upstream: none found for the change itself; moving the host to ServiceDefaults
     ([altinn-auth#4064](https://github.com/Altinn/altinn-auth/issues/4064)) would bring the same and is large.
   - Detail: [`../reviews/otel/authorization.md`](../reviews/otel/authorization.md), option 1.
@@ -122,5 +123,5 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
   vendored-project test: the mechanism that carries the sites.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 
-Coverage: 5 sites, 8 fakes (`LocaltestAuthorizationExtensions.cs`, `LocaltestAuthorizationOptions.cs`,
-`LocaltestAuthorizationTelemetry.cs`, `Policies/`, `Infrastructure/`, `Controllers/`, `ServiceDiscovery/`, `Otlp/`), 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 5 sites, 7 fakes (`LocaltestAuthorizationExtensions.cs`, `LocaltestAuthorizationOptions.cs`,
+`LocaltestAuthorizationTelemetry.cs`, `Policies/`, `Infrastructure/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for.

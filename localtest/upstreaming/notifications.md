@@ -10,7 +10,8 @@
 - Localtest modifications: 4 directive sites in `components/api/src/Altinn.Notifications/Program.cs`, the composition
   `fakes/LocaltestNotificationsExtensions.cs`, the transport replacement `fakes/Messaging/` with `fakes/Capture/`,
   `fakes/Startup/`, `fakes/Inspection/` and `fakes/LocaltestNotificationsOptions.cs`, the signing keys `fakes/Auth/`, the
-  shared copies `fakes/Maskinporten/`, `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build overrides, the
+  shared copies `fakes/Maskinporten/` and `fakes/ServiceDiscovery/` (the OTLP helper's copy was inlined into site 4 in
+  task 63), two build overrides, the
   `localtest:` deviations in `Dockerfile` and `.dockerignore`, and `postgres-init/60-notifications.sh`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -35,8 +36,8 @@ Several items below can reuse that work.
   - Why: at the pin, Notifications exports only traces, and only with its own `OtelSettings:Endpoint` (endpoint set in
     code, so no `/v1/traces` for `http/protobuf`), plus Azure Monitor with a connection string.
   - Size: small (done).
-  - Removes: `fakes/Otlp/` and the `CS8321` `NoWarn` in `localtest.build.props` (the host already references the OTLP
-    package); site `Program.cs:191-198` becomes an `#if LOCALTEST` addition of `AddEnvironmentVariableDetector()` after
+  - Removes: the inlined OTLP rule in site `Program.cs:191-205` (the copy of `fakes/Otlp/` until task 63) and the `CS8321`
+    `NoWarn` in `localtest.build.props` (the host already references the OTLP package); the site becomes an `#if LOCALTEST` addition of `AddEnvironmentVariableDetector()` after
     `AddAttributes(attributes)`, so the stack's spans keep the name `notifications` that `smoke-test.sh`'s OTLP check
     expects.
   - Upstream: [altinn-notifications#1930](https://github.com/Altinn/altinn-notifications/pull/1930), from issue
@@ -175,6 +176,6 @@ Several items below can reuse that work.
 - `postgres-init/60-notifications.sh`: the database and the two roles on the shared Postgres: deployment, which
   production's infrastructure provisions.
 
-Coverage: 4 sites, 10 fakes (`LocaltestNotificationsExtensions.cs`, `LocaltestNotificationsOptions.cs`, `Auth/`,
-`Capture/`, `Inspection/`, `Maskinporten/`, `Messaging/`, `Startup/`, `ServiceDiscovery/`, `Otlp/`), 2 build overrides, 4
+Coverage: 4 sites, 9 fakes (`LocaltestNotificationsExtensions.cs`, `LocaltestNotificationsOptions.cs`, `Auth/`,
+`Capture/`, `Inspection/`, `Maskinporten/`, `Messaging/`, `Startup/`, `ServiceDiscovery/`), 2 build overrides, 4
 Dockerfile and 1 `.dockerignore` deviations, the Postgres init script: all accounted for.

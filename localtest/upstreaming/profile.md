@@ -8,7 +8,7 @@
 - Localtest modifications: 4 directive sites in `src/Altinn.Profile/Program.cs`, the composition
   `fakes/LocaltestProfileExtensions.cs` with `fakes/LocaltestProfileOptions.cs`, the stand-ins `fakes/Auth/`,
   `fakes/Krr/` and `fakes/Brreg/`, the seed and start-up `fakes/Register/`, `fakes/Seed/` and `fakes/Startup/`, the
-  inspection API `fakes/Inspection/`, the shared copies `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build
+  inspection API `fakes/Inspection/`, the shared copy `fakes/ServiceDiscovery/` (the OTLP helper's copy was inlined into site 4 in task 63), two build
   overrides, the `localtest:` deviations in `Dockerfile` and `.dockerignore`, and `postgres-init/80-profile.sh`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -27,8 +27,8 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
   - Why: without it, Profile sends telemetry only to Azure Monitor with a connection string, so a local run exports
     nothing.
   - Size: trivial.
-  - Removes: `fakes/Otlp/`, the OTLP `PackageReference` in `localtest.build.targets` and the `CS8321` `NoWarn` in
-    `localtest.build.props`; site `Program.cs:152-158` becomes an `#if LOCALTEST` addition of
+  - Removes: the inlined OTLP rule in site `Program.cs:152-165` (the copy of `fakes/Otlp/` until task 63), the OTLP
+    `PackageReference` in `localtest.build.targets` and the `CS8321` `NoWarn` in `localtest.build.props`; the site becomes an `#if LOCALTEST` addition of
     `AddEnvironmentVariableDetector()` after `AddService`, so the stack's spans keep the name `profile` that
     `smoke-test.sh` checks (see "Not needed").
   - Upstream: open pull request [altinn-profile#1073](https://github.com/Altinn/altinn-profile/pull/1073) adds the
@@ -156,6 +156,6 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
 - `postgres-init/80-profile.sh`: the database and the two roles on the shared Postgres: deployment, which production's
   infrastructure provisions.
 
-Coverage: 4 sites, 11 fakes (`LocaltestProfileExtensions.cs`, `LocaltestProfileOptions.cs`, `Auth/`, `Krr/`, `Brreg/`,
-`Register/`, `Seed/`, `Startup/`, `Inspection/`, `ServiceDiscovery/`, `Otlp/`), 2 build overrides, 3 Dockerfile and 1
+Coverage: 4 sites, 10 fakes (`LocaltestProfileExtensions.cs`, `LocaltestProfileOptions.cs`, `Auth/`, `Krr/`, `Brreg/`,
+`Register/`, `Seed/`, `Startup/`, `Inspection/`, `ServiceDiscovery/`), 2 build overrides, 3 Dockerfile and 1
 `.dockerignore` deviations, the Postgres init script: all accounted for.
