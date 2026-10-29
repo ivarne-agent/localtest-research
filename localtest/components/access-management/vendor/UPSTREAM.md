@@ -79,13 +79,15 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                        |
-| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | --------------------------------------------------------------------------- |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                  |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`    |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Init();`                                                             |
+| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                                   |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`                     |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Init();`                                                                              |
+| `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`  | 12-17   | replacement | `internal class TestTool(IOptions<AltinnIntegrationOptions> options, IHttpClientFactory ...` |
+| `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`  | 45-47   | addition    | `return platformGenerator.GenerateAccessToken(issuer, app);`                                 |
 
 <!-- vendor-sync:end sites -->
 

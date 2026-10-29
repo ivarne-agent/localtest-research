@@ -5,7 +5,6 @@ using System.Linq;
 using Altinn.AccessManagement.Core.Repositories.Interfaces;
 using Altinn.AccessManagement.Localtest.Infrastructure;
 using Altinn.AccessManagement.Localtest.Policies;
-using Altinn.Authorization.Integration.Platform;
 using Altinn.Common.AccessToken.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -19,8 +18,9 @@ namespace Altinn.AccessManagement.Localtest;
 /// <summary>
 /// The localtest hooks in the vendored host's <c>AccessManagementHost.Create</c>: <see cref="AddLocaltestConfiguration"/>
 /// right after the builder is created (configuration defaults), and <see cref="AddLocaltestAccessManagement"/> right
-/// before <c>Build()</c> (the DI replacements for Azure Blob, Key Vault and the test-tool token generator, and the
-/// startup refresh). Everything else in the host runs as in production.
+/// before <c>Build()</c> (the DI replacements for Azure Blob and Key Vault, and the startup refresh). The test-tool token
+/// generator signs locally through a directive in the vendored <c>TokenGenerator.TestTool</c>. Everything else in the host
+/// runs as in production.
 /// </summary>
 public static class LocaltestAccessManagementExtensions
 {
@@ -73,7 +73,8 @@ public static class LocaltestAccessManagementExtensions
                 ["Platform:ResourceRegistry:Endpoint"] = "http://resource-registry/",
                 ["Platform:SblBridge:Endpoint"] = platform,
                 ["Platform:Notifications:Endpoint"] = "http://notifications/",
-                // Validated eagerly by Integration.Platform although the generator is replaced below (never called).
+                // Validated eagerly by Integration.Platform; the test tool is never called (a directive in TokenGenerator.TestTool
+                // signs with IAccessTokenGenerator instead).
                 ["Platform:Token:TestTool:Endpoint"] = platform,
                 ["Platform:Token:TestTool:Username"] = "localtest",
                 ["Platform:Token:TestTool:Password"] = "localtest",
@@ -126,7 +127,6 @@ public static class LocaltestAccessManagementExtensions
         // generator a Key Vault certificate and never binds the client-side settings, hence the Configure.
         services.Configure<Altinn.Common.AccessTokenClient.Configuration.AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
-        Replace<ITokenGenerator, LocaltestTokenGenerator>(services);
 
         // Azure Blob: a versioned file store instead of the three blob containers.
         Replace<IPolicyFactory, LocaltestPolicyFactory>(services);

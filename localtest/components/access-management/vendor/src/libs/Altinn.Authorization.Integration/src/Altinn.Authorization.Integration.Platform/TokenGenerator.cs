@@ -9,7 +9,12 @@ namespace Altinn.Authorization.Integration.Platform;
 
 internal class TokenGenerator
 {
+#if !LOCALTEST
     internal class TestTool(IOptions<AltinnIntegrationOptions> options, IHttpClientFactory httpClientFactory) : ITokenGenerator
+#else
+    // localtest: the production generator signs platform access tokens with the shared test certificate.
+    internal class TestTool(IOptions<AltinnIntegrationOptions> options, IHttpClientFactory httpClientFactory, IAccessTokenGenerator platformGenerator) : ITokenGenerator
+#endif
     {
         private IOptions<AltinnIntegrationOptions> Options { get; } = options;
 
@@ -37,6 +42,9 @@ internal class TokenGenerator
         /// <inheritdoc/>
         public async Task<string> CreatePlatformAccessToken(string issuer, string app, CancellationToken cancellationToken = default)
         {
+#if LOCALTEST
+            return platformGenerator.GenerateAccessToken(issuer, app);
+#endif
             var opts = Options.Value;
 
             var request = RequestComposer.New(
