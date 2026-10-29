@@ -2968,3 +2968,15 @@ before a further site": a directive site that replaces a fake needs no report fi
   a recommendation instead.
 - Docs: the rule in this file, `planned-components/mvp-vendoring-model.md`, `localtest/README.md`, the component READMEs,
   `UPSTREAM.md` prose and `localtest/upstreaming/*.md` items naming a deleted fake.
+
+**First part pinned (2026-10-29):** main `6e1b1105`..`27e07fb5`, images run 40844475916, pinned `sha-27e07fb`. Six
+directive sites replaced seven fakes (289 lines): Authorization's `NoOedRoleAssignments` and
+`LocaltestPolicyRetrievalPoint` (and `NoopEventsQueueClient` without a site: the audit log is forced off),
+Dialogporten's two `LocaltestTokenIssuerCache` copies, the Resource Registry's `LocaltestApplicationsClient` and
+Correspondence's `LocaltestResourceManager` (the IP restrictions job is no longer registered). Inventory and evidence in
+`/home/agent/code/.handover/task63-directives-over-small-fakes/`. Local images (`--dev-*`): root 26, Authorization 31,
+Resource Registry 43, Correspondence 78, Events 27, the adapter 39, Dialogporten 60, Authentication 34. Pinned check (no
+`--dev-*`): default stack root 26 (1 skip), the front door 83 + `FRONTEND_DIST`, Authorization 31, Resource Registry 43;
+`--with dialogporten --with correspondence`: Events 27, the adapter 34 + 5 FAIL on the first run (the service-owner read
+of the new dialog), 39 on two reruns, Dialogporten 60, Authentication 34, Correspondence 78; minimal root 23 (4 skips).
+Go `ok`, the Aspire package 198. Then the user widened the scope to the shared fakes (below).
