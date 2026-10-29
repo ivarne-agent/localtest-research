@@ -10,8 +10,10 @@ Status values: **unapproved** (not yet discussed, or discussed and not yet relea
 Nothing is dispatched while it is unapproved.
 
 Rules every brief inherits: work in a worktree of this repository under `/home/agent/code/.worktrees/<task>/`; a
-change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first) / `#else` / `#endif` block, everything
-else goes in `fakes/`; a component's Dockerfile mirrors upstream's with `localtest:` deviations; the old localtest in
+change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first) / `#else` / `#endif` block or an additive
+`#if LOCALTEST` block; anywhere a fake class only requires 3-4 line changes with a preprocessor directive, it goes in the
+directive and the fake is deleted (the user's decision of 2026-10-29, task 63; such a site needs no report first), and
+real local behaviour (stores, controllers, seeders, token issuing) goes in `fakes/`; a component's Dockerfile mirrors upstream's with `localtest:` deviations; the old localtest in
 `altinn-studio/src/Runtime/localtest` is reference only, never a basis; one image build or AOT publish at a time on
 this machine (7.8 GB RAM), never next to a Cypress run; extend the component's `smoke-test.sh`; update the component
 README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers. The studioctl side of a
@@ -96,6 +98,7 @@ A path matching no route still falls through to the localtest app.
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; open: under Aspire, DCP's own `podman create` command line carries the containers' environment | medium | yes |
+| 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | in progress (2026-10-29, worktree `/home/agent/code/.worktrees/task63-directives-over-small-fakes`, branch `task63-directives-over-small-fakes`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2945,3 +2948,23 @@ with `\getenv`), pinned ``sha-3e586eb``; brief `/home/agent/code/.briefs/task62-
   stack (47 s with pulls): root 26, the front door 83 + `FRONTEND_DIST`, Events 27, Notifications 64, Profile 52, the
   Resource Registry 43, Authorization 31, Authentication 32; `--with dialogporten --with correspondence`: Events 27,
   the adapter 39, Dialogporten 60, Correspondence 78; minimal: root 23 (4 skips). No `FAIL`.
+
+## 63. A directive instead of a small fake
+
+The user's decision (2026-10-29): "It looks like we have the wrong balance between #if !LOCALTEST and custom overriden
+services. Anywhere a Fake class only requries 3-4 line changes with a preprocessor directive, should be in the
+directive, and the fake should be deleted."
+
+It replaces the inherited rule "everything else goes in `fakes/`" (now in the rules above) and, for this case, "report
+before a further site": a directive site that replaces a fake needs no report first.
+
+- Inventory every class under `localtest/components/*/fakes/` and `components/shared/fakes/`: could a `#if !LOCALTEST` /
+  `#else` / `#endif` (or an additive `#if LOCALTEST`) block of about 3-4 lines in the vendored code, counting the DI
+  registration it replaces, have the same effect? Not candidates: real behaviour (stores, controllers, inspection
+  endpoints, seeders, token issuing, the Maskinporten fake), blocks inside blocks, many files, and classes from packages
+  that are not vendored.
+- Convert each candidate (production branch byte-identical, `vendor-sync.py check --all`), delete the fake and its
+  registration, `render` the site tables; list the borderline cases (5-8 lines, or a new site file for a tidy fake) with
+  a recommendation instead.
+- Docs: the rule in this file, `planned-components/mvp-vendoring-model.md`, `localtest/README.md`, the component READMEs,
+  `UPSTREAM.md` prose and `localtest/upstreaming/*.md` items naming a deleted fake.

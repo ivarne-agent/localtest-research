@@ -2,7 +2,9 @@
 
 Local platform for Altinn apps, built from vendored production services and small fakes. Each component runs the
 production source at a pinned upstream commit; local behaviour comes from `#if !LOCALTEST` switches and an adjacent
-`fakes/` folder, never from edits to the vendored code. Design:
+`fakes/` folder, never from other edits to the vendored code. A fake that a 3-4 line directive can replace becomes the
+directive (the user's decision of 2026-10-29, [TODO.md task 63](../TODO.md#63-a-directive-instead-of-a-small-fake));
+`fakes/` keeps real local behaviour: stores, controllers, seeders, token issuing. Design:
 [`../planned-components/mvp-vendoring-model.md`](../planned-components/mvp-vendoring-model.md). The rules every part
 follows (the manifest, the front door, service discovery, ports and health, the certificate, the volumes, what the app
 runner sets) are in [`CONVENTIONS.md`](CONVENTIONS.md).

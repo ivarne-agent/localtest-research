@@ -221,15 +221,24 @@ manifest model.
 Checked against `TODO.md`'s inherited rules, the component READMEs and their `vendor/UPSTREAM.md` files.
 
 - **Directive sites.** A change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first, unchanged) /
-  `#else` / `#endif` block, or a pure addition in `#if LOCALTEST … #endif`; everything else goes in `fakes/`. Most
-  components have only additive hooks in `Program.cs` or the host builder (Register 1, Resource Registry 2, Profile 2,
-  Correspondence 2, Dialogporten 3, Receipt 1 of 2); `#if !LOCALTEST` sites are kept for code hard-wired to
-  infrastructure or to `https` (Storage's Key Vault connect and request links, Notifications' Wolverine bootstrap,
-  the adapter's Service Bus and link builders, Events' and Authentication's https checks, Receipt's `goto`).
-- **Report before a further site.** A brief names the expected sites; one more needs a report and the owner's
-  approval first (task 2: "a third directive site in Authentication is not acceptable without a report first"; the
-  Correspondence and Profile briefs: "a third site needs a report first"). Task 7b followed it:
-  [`correspondence/party-ids.md`](correspondence/party-ids.md), then approval.
+  `#else` / `#endif` block, or a pure addition in `#if LOCALTEST … #endif`. Every vendored .NET component has its hooks in
+  `Program.cs` or the host builder; `#if !LOCALTEST` sites are kept for code hard-wired to infrastructure or to `https`
+  (Storage's Key Vault connect and request links, Notifications' Wolverine bootstrap, the adapter's Service Bus and link
+  builders, Events' and Authentication's https checks, Receipt's `goto`, Dialogporten's issuer caches). Blocks per
+  component after task 63 (additions/replacements, from `vendor-sync.py status --all`): Access Management 5 (2/3),
+  Authentication 2 (1/1), Authorization 5 (4/1), Correspondence 6 (4/2), Dialogporten 9 (3/6), the adapter 10 (4/6),
+  Events 7 (3/4), Notifications 4 (2/2), Profile 4 (3/1), Receipt 4 (2/2), Register 1 (1/0), Resource Registry 3 (3/0),
+  Storage 5 (2/3).
+- **A directive instead of a small fake (the user's decision, 2026-10-29).** "Anywhere a Fake class only requires 3-4
+  line changes with a preprocessor directive, should be in the directive, and the fake should be deleted." `fakes/`
+  keeps real local behaviour (in-memory and file stores, controllers, inspection endpoints, seeders, token issuing,
+  the shared Maskinporten fake) and what a directive cannot reach (classes from packages that are not vendored, such as
+  the Key Vault signing-key provider). Such a site needs no report first. Task 63 applied it: Authorization's OED,
+  policy-cache and audit-queue fakes, Dialogporten's two issuer caches, the Resource Registry's applications client and
+  Correspondence's resource manager became six sites (the audit queue none). Until then a brief named the expected
+  sites and one more needed a report and the owner's approval (task 2, task 7b's
+  [`correspondence/party-ids.md`](correspondence/party-ids.md)); that still holds for a site that is not replacing a
+  fake.
 - **Fakes compiled in.** `localtest.build.props` (selected by `DirectoryBuildPropsPath`) imports upstream's props
   where there are any and defines `LOCALTEST`; `localtest.build.targets` adds `Compile Include="fakes/**/*.cs"` to the
   host, which also keeps upstream's `packages.lock.json` restores working (Dialogporten's `--locked-mode`). Only the
