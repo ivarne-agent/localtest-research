@@ -29,6 +29,17 @@ an entry fails at once, a real host (the public origin, altinncdn.no, a client's
    are read eagerly there and its repositories use TryAdd, so the in-memory ones registered first win.
 2. `AuthenticationController.cs`, `IsSafeSameOrSubdomainHttps`: the `goto` guard accepts plain http as well,
    because localtest serves `local.altinn.cloud` without TLS.
+3. `AuthenticationController.cs`, `AuthenticateMaskinportenToken` (TODO.md task 67), three blocks:
+   - the keys: production validates against `MaskinportenWellKnownConfigEndpoint`'s keys, then the alternative's. Here
+     the token's (unvalidated) `iss` picks one endpoint of `Localtest:Authentication:MaskinportenWellKnownEndpoints`
+     (`fakes/Maskinporten/LocaltestMaskinportenIssuers.cs`, production's rule: the well-known URL contains the issuer),
+     and that endpoint's keys alone validate the token; no alternative;
+   - the issuer check: against that endpoint, not the two settings;
+   - the org: `OrgIsDigDirAndTestIsTrue(org, test || <client_id ends in -localtest>)`, so an app's local client
+     (`<org>-localtest`, which the app runners write) acts as `ttd` as with `test=true`, while the components' own
+     clients of 991825827 (Dialogporten, the adapter, Correspondence, the shared fake's smoke test) keep production's
+     `digdir`. Production supports two endpoints only (a third needs code), and a decorator of `IOrganisationsService`
+     answering `ttd` for 991825827 would have turned those components into `ttd` too.
 
 **Cookies without `Secure` (task 21b): no site, reported here first.** Production hard-codes `Secure = true` on every
 cookie it writes: `AltinnPartyId`, `AltinnPartyUuid`, `AltinnStudioRuntime` and `altinnsession` at sign-in and on
@@ -58,9 +69,15 @@ Everything else is configuration (`fakes/LocaltestAuthenticationExtensions.cs`):
   authorize on the public origin, token and metadata (and the exchange's ID-porten metadata) by service name,
   `http://localtest/localtest/api/idporten/…` (task 40; the callback's issuer is checked against the configured one). The level table `OidcProviders:idporten:AuthLevels` comes from
   `Login/LocaltestAuthLevels.cs`; the localtest app's picker has the same table (`IdPorten/AuthLevels.cs`).
-- `MaskinportenWellKnownConfigEndpoint` (and the alternative) point at the fake Maskinporten
-  (`localtest/api/maskinporten/.well-known/oauth-authorization-server`). The exchange accepts a token when that URL
-  contains its `iss`, so the public URL is used.
+- `exchange/maskinporten` trusts the instances in `Localtest:Authentication:MaskinportenWellKnownEndpoints`, which the
+  manifest sets to the fake Maskinporten on the public origin
+  (`{{origin}}/localtest/api/maskinporten/.well-known/oauth-authorization-server`; the exchange accepts a token when
+  the URL contains its `iss`, so the public URL is used), test Maskinporten and production Maskinporten (site 3 above;
+  without the setting the fake alone). Each token is held to its own issuer's keys; test and production metadata and
+  keys are fetched from the internet only when such a token arrives (no cache, `LocaltestSigningKeysRetriever`), so
+  offline only those tokens fail. A real token becomes the organisation `altinn-orgs.json` (altinncdn.no) names for its
+  `consumer` organisation number. `MaskinportenWellKnownConfigEndpoint` and the alternative are still forced to the
+  fake, and read by nothing on the stack.
 - `PlatformSettings:ApiProfileEndpoint` points at the profile component (production Profile, `http://profile/profile/api/v1/`),
   which answers `internal/user` (`Localtest:Authentication:ProfileEndpoint` overrides it). Until task 14 the register component
   answered it.
@@ -222,7 +239,15 @@ refresh rotation and reuse detection; logout through `endsession` and `handlelog
 refresh token is refused; and, with the dialogporten group up, Dialogporten's end-user dialog list with the code-flow
 access token (the cookie JWT, without `pid`, is refused with 403). Since task 21b also the sign-in's callback straight on
 Authentication (`authentication:5101`, from inside the stack's network since task 27a): its four cookies without `Secure`, and the same attributes through the front door. That
-is 34 checks with the group and 32 without it, where the last two are skipped.
+is 34 checks with the group and 32 without it, where the last two are skipped. Since task 67 seven more for the
+Maskinporten exchange: an app's local client (`ttd-localtest`) exchanges to `ttd` without `test=true`, another client of
+991825827 to `digdir`; a token signed by a key of our own is refused under the fake's, test Maskinporten's and
+production Maskinporten's issuer and under an untrusted one; the fake's tokens still exchange afterwards (41 and 39).
+
+2026-10-30 (task 67, `--dev-authentication`, default stack and `--host local.altinn.test --port 18000`): 39 ok at both
+origins. Authentication's log shows each refusal tried against its own issuer's keys: the fake's key, test
+Maskinporten's (`kid` `Cz39ByeN…`) and production's (`LBkn0bwa…`, both the live JWKS's on that day), and no keys for the
+untrusted issuer. A real test or production token was not available: its acceptance is unverified.
 
 On the stack (2026-10-20, `env up -r localtest-v2 --with dialogporten --dev authentication --dev localtest`): 32 ok,
 none failing. User 1337's access token carries `pid` `01839012345`, the Register's national identity number for

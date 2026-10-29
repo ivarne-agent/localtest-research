@@ -85,12 +85,29 @@ OpenTelemetry under its container's name. An app on the host can send OTLP over 
 prints the origin, and `studioctl run` and `app env` use it. The name and its subdomains must resolve to 127.0.0.1, and
 `env up` prints the hosts-file line to add when they do not.
 
+## Maskinporten
+
+An app that runs against the stack needs no Maskinporten client of yours. `studioctl run` and `app env` write a local
+client into the app's secrets directory, for the stack's own Maskinporten at
+`http://local.altinn.cloud:8000/localtest/api/maskinporten/` (or the `--host` and `--port` you chose), with the client
+id `<org>-localtest` and a key generated once for the app and kept. Nothing in it expires, and nothing rotates it. The
+app then gets its service-owner tokens the way it does in a cluster: a token from Maskinporten, exchanged by the
+platform's Authentication. The stack's exchange makes a `<org>-localtest` client act as `ttd`.
+
+A client you store with `studioctl app maskinporten set` is used instead, and is never overwritten. The stack's
+exchange also accepts tokens from test and production Maskinporten, checked against their own published keys, so such a
+client works against the stack too. The exchange then gives the organisation that Altinn's organisation list names for
+the client's organisation number, as the real platform does. Reaching test or production Maskinporten needs the
+internet, and the local client works without it. `studioctl app maskinporten remove` goes back to the local client on
+the next run. `show` and `doctor` report only a client you stored.
+
 ## Apps in containers
 
 `studioctl run --mode container` builds the app's image from its `Dockerfile` and runs it on the stack's network,
 `localtest-v2_network`, where the front door reaches it as `http://<org>-<app>:5005`. The public host names map to
 the host inside the container, so the app calls the platform through `http://local.altinn.cloud:8000`, as a process
-does. It gets the same settings as a process run, with the access-token certificate mounted at `/certs`. `env down`
+does. It gets the same settings as a process run, with the access-token certificate mounted at `/certs` and the secrets
+directory, with the local Maskinporten client, at `/mnt/app-secrets`. `env down`
 removes an app container that still runs.
 
 - Container mode works only at the default address, so `run --mode container` is refused after `env up --host` or

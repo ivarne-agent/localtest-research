@@ -68,11 +68,14 @@
 
 <!-- vendor-sync:end sites -->
 
-Two sites, under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:
+Two site files, under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`:
 
 - `AuthenticationHost.cs`: a pure addition, `AddLocaltestAuthentication(builder)` right before `AddPersistanceLayer()`.
 - `Controllers/AuthenticationController.cs`: `IsSafeSameOrSubdomainHttps`, whose `#else` also accepts http (the stack
-  is plain http).
+  is plain http); and three blocks in `AuthenticateMaskinportenToken` (TODO.md task 67): the token's `iss` picks one of
+  the manifest's trusted Maskinporten instances, whose keys alone validate it, the issuer check against that instance,
+  and an app's local client (`<org>-localtest`) acting as `ttd` as with `test=true` (the component README, "Directive
+  sites").
 
 ## Syncing
 

@@ -407,8 +407,14 @@ dashboard's variables where the development certificate is not trusted.
   `app-environment.golden.json`): `ASPNETCORE_ENVIRONMENT=Development`, `STUDIOCTL_APP_RUN=1`, the platform endpoints on
   `http://local.altinn.cloud:8000`, the OpenID well-known endpoint, `GeneralSettings__*`, the certificate
   (`<data>/certs/localtest-accesstoken.pfx`, and the keys folder as a traversal from the app root for app-lib v9's 1.x
-  client), the secrets directory `<data>/apps/<org>/<app>/secrets` with the development app codes written before the
-  AppHost starts (byte for byte studioctl's), the app frontend's inbox links: with `WithArbeidsflate()` the inbox,
+  client), the secrets directory `<data>/apps/<org>/<app>/secrets` (also as `AppSettings__RuntimeSecretsDirectory`, which
+  app-lib 8 reads its Maskinporten client from) with the development app codes written before the AppHost starts (byte
+  for byte studioctl's) and the local Maskinporten client written when the app resource starts, once the public port is
+  known (`LocalMaskinportenClient`, byte for byte studioctl's for the same origin, org and key: authority
+  `<origin>/localtest/api/maskinporten/`, client id `<org>-localtest`, a 2048-bit RSA key generated once per app and
+  kept, nothing that expires; a file of the developer's in the directory is left alone and used, since the stack's
+  exchange trusts test and production Maskinporten too; [CONVENTIONS](../../CONVENTIONS.md), "The local Maskinporten
+  client"), the app frontend's inbox links: with `WithArbeidsflate()` the inbox,
   dialog, profile and parties links into the local Arbeidsflate
   (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` on `http://af.local.altinn.cloud:8000`),
   without it only the inbox link, to the front door's Home (`http://local.altinn.cloud:8000/`), so "back to inbox" keeps
@@ -493,6 +499,7 @@ manifest; the package's tests compare what it builds with studioctl's golden sna
 | `internal/cmd/env/localtestv2/testdata/environment.golden.json`: `env up`, `--with everything` and `--minimal` | `GoldenComparisonTests`: the selection and start order; per container, from the built application model, the image reference (default stack), the environment with the `services__*` variables, the mounts, the published port, the extra hosts, the alias, the dependencies; the health targets and the front door's; the groups' selections and the volume ids. A named volume compares by its id, each runner's prefix stripped (studioctl's from the snapshot's `volumePrefix`); `ThePackageNamesItsVolumesByItsOwnPrefix` holds the package to `altinn-localtest-`. In the `minimal` case a tmpfs compares by its path and options (`--tmpfs path:options` in the runtime arguments), and `MinimalModeEmulatesWhatStudioctlEmulatesAndMountsNoVolume` holds the emulated set to the snapshot's. The `everything` snapshot is studioctl on a host with a CA bundle, and the package's `everything` model is built with the same bundle (`CaBundleTests.GoldenBundle`, studioctl's `testdata/ca-bundle.pem`), so pdf3's copy has the same path and compares like the rest; the other cases have none on both sides. Each runner's telemetry variables (studioctl's while its collector runs, the package's always) are left out of the environment comparison on both sides unless the manifest sets them; `EveryContainerSendsItsTelemetryAsStudioctlsCollectorGetsIt` compares what both choose (protocol, service name, metric interval) with the `everything` snapshot, container by container, in every selection |
 | `internal/cmd/app/testdata/app-environment.golden.json` | `GoldenComparisonTests`: every case (native, inherited variables, ingress port 80, container) from the same inputs |
 | `internal/appsecrets/testdata/app-codes.golden.json` | `AppTests`: byte-equal, owner-only, not rewritten when unchanged |
+| `internal/appsecrets/testdata/local-maskinporten.golden.json` | `LocalMaskinportenClientTests`: byte-equal for studioctl's placeholder key; the generated key signs, the file is owner-only, kept across runs, rewritten for another origin with the same key, a developer's or unreadable file left alone |
 
 Besides: `CaBundleTests` (the host's CA bundle: unset, missing, unreadable and without a certificate, a malformed certificate skipped with a warning, the copy's name, permissions and replacement, only the `caBundle` containers getting it, nothing without one), `ManifestFilesTests` (the manifest's `files`: the Go loader's validation, the read-only mounts, writing them out
 world-readable and in place), `MonitoringGroupTests` (the manifest's `monitoring` group: not optional,

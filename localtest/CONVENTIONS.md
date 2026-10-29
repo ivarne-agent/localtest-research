@@ -399,7 +399,9 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
   `GeneralSettings__ExternalAppBaseUrl` and `GeneralSettings__HostName`; `OTEL_EXPORTER_OTLP_ENDPOINT` (Aspire sets its
   dashboard's);
 - the secrets contract `RUNTIME_APP_SECRETS_DIR`, `RUNTIME_APP_SECRETS_MASKINPORTEN_FILENAME`,
-  `RUNTIME_APP_SECRETS_APPCODES_FILENAME` (and `ALTINN_KEYS_DIRECTORY` for a container run);
+  `RUNTIME_APP_SECRETS_APPCODES_FILENAME` (and `ALTINN_KEYS_DIRECTORY` for a container run), and
+  `AppSettings__RuntimeSecretsDirectory` with the same directory for app-lib 8, which reads its Maskinporten client
+  from there and not from the three (TODO.md task 67);
 - **a container run** (`studioctl run --mode container`, against localtest-v2 at the default origin only; golden cases
   `container` and `container-arbeidsflate`): Kestrel on `http://0.0.0.0:5005`, the secrets directory read-only at
   `/mnt/app-secrets`, the keys directory at `/mnt/keys`, the certificate directory read-only at `/certs` with the
@@ -425,6 +427,36 @@ back to the inbox URL), and the profile and parties links stay hidden. The relea
 the start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
 `AccessManagementChangeAndRedirectUrl` stays unset (the stack's Access Management does not serve
 `reportee/changeandredirect`), and so do the all-forms, access-management and help links.
+
+**The local Maskinporten client** (TODO.md task 67). Against localtest-v2 both runners write into the secrets directory,
+before the app starts, the file a developer's client goes in (`maskinporten-settings.json`, the operator's format: the
+client wrapped in `MaskinportenSettings`): authority `<public origin>/localtest/api/maskinporten/` (the trailing slash
+matters for the discovery document), client id `<org>-localtest`, and an RSA key with every JWK field the app
+libraries' converter requires, generated once per app and kept (a later run reuses it and rewrites the file only when
+the origin moved); owner-only and atomic. Nothing in it expires and nothing rotates it: rotation is the operator's in a
+cluster (its own e2e test covers it) and out of scope locally (the owner, 2026-10-29). A developer's client
+(`studioctl app maskinporten set`, or a file of the developer's in the Aspire package's directory) is never
+overwritten, and an unreadable file is left alone. The local client is recognised by its id and its authority's path:
+`show`, `remove` and `doctor` treat it as no client, `set` replaces it. studioctl writes it on `run` (process and
+container) and `app env`; the Aspire package when the app resource starts, once the public port is known. Both
+compare the bytes with the shared golden file `internal/appsecrets/testdata/local-maskinporten.golden.json`. The real
+`MaskinportenClient` then gets a token from the front door's Maskinporten fake and production Authentication's
+`exchange/maskinporten` turns it into an Altinn token for `ttd` (the `<org>-localtest` rule in Authentication, below).
+The monorepo resolver still takes the `/Home/GetTestOrgToken` short-cut at the default origin until TODO 67b (and app-lib
+8 until 67c, which needs a release); at another origin it takes the real client, which now works.
+
+**Which Maskinporten tokens the stack trusts.** Authentication's `exchange/maskinporten` accepts the fake's, test
+Maskinporten's and production Maskinporten's tokens: the manifest's
+`Localtest__Authentication__MaskinportenWellKnownEndpoints__0..2` on the `authentication` container (the fake at
+`{{origin}}/localtest/api/maskinporten/.well-known/oauth-authorization-server`, `https://test.maskinporten.no/…` and
+`https://maskinporten.no/…`). The token's `iss` picks the one endpoint whose URL contains it (production's own rule),
+and only that endpoint's keys validate it, so a test or production Maskinporten that cannot be reached (offline) fails
+only its own tokens. That adds two egress hosts to Authentication's (task 44): `test.maskinporten.no` and
+`maskinporten.no`, fetched only when such a token arrives. A real token becomes the organisation the org list
+(`altinncdn.no`) names for its `consumer` organisation number, without `test=true` as the apps call it (Digdir's
+clients therefore `digdir`); a fake token from a `<org>-localtest` client becomes `ttd`, as with `test=true`. The other
+components that validate Maskinporten tokens themselves (Dialogporten's and Correspondence's Maskinporten schemes) trust
+the fake only: see TODO.md section 67.
 
 Then the runner registers the app with the front door (`PUT localtest/api/apps/{org}/{app}` with
 `http://host.docker.internal:<port>`, or `http://<org>-<app>:5005` for a container run, from the container's

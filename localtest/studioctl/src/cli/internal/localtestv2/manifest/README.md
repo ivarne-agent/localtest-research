@@ -300,7 +300,11 @@ Every container gets, besides its `envs`:
   run as the developer), which `env down` deletes.
 
 Only the `localtest` container publishes a port: the public port (8000, or `--port`) onto its 8080. The app's environment is not
-in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `internal/cmd/app/testdata/app-environment.golden.json`.
+in the manifest: it is runner code (`internal/cmd/app/env.go`), held by `internal/cmd/app/testdata/app-environment.golden.json`,
+and so is the local Maskinporten client the runner writes into the app's secrets directory against localtest-v2
+(`internal/appsecrets/localclient.go`, held by `internal/appsecrets/testdata/local-maskinporten.golden.json`; the
+Maskinporten instances Authentication's exchange trusts are the `authentication` container's
+`Localtest__Authentication__MaskinportenWellKnownEndpoints__*`: the fake, test and production Maskinporten).
 
 ## Changing it
 

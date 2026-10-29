@@ -16,6 +16,7 @@ Section ordering: Added, Changed, Fixed, Removed, Security, Deprecated.
     - `--minimal` starts a small stack with its telemetry in JSON Lines files
     - `--host` and `--port` serve it on another address
     - `--dev-<container>` builds a container from a Dockerfile
+- `studioctl app run` and `studioctl app env` against `localtest-v2` give the app a Maskinporten client for the stack's own Maskinporten, so service-owner requests work at any `--host` and `--port` without a client of yours. A client you store with `studioctl app maskinporten set` is used instead, and the stack accepts its test or production Maskinporten tokens too. v8 apps now read the same secrets directory as v9 apps.
 - `studioctl app upgrade v9` reports classes that implement the removed `IProcessEnd`, and their registrations, and points to `IOnProcessEndedHandler` instead. ([#21014](https://github.com/Altinn/altinn-studio/issues/21014))
 - `studioctl app upgrade v9` removes the `JsonObjectInDataResponse` feature flag from the appsettings files, and points out when it was off, since clients of the data API then get validation issues as JSON instead of text. ([#21166](https://github.com/Altinn/altinn-studio/pull/21166))
 - Localtest has a _Messages_ page that shows the messages apps have sent, with their attachments, and the emails and SMS messages that would have gone out. A button clears them without resetting the rest of your data. ([#21224](https://github.com/Altinn/altinn-studio/pull/21224))

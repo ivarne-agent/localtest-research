@@ -15,7 +15,8 @@
 - Localtest modifications: 2 directive sites under `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/`
   (`AuthenticationHost.cs`, `Controllers/AuthenticationController.cs`), the composition
   `fakes/LocaltestAuthenticationExtensions.cs` with `fakes/LocaltestAuthenticationOptions.cs`, the seeded clients
-  `fakes/LocaltestOidcClients.cs`, the level table `fakes/Login/`, the key providers `fakes/Keys/`, the in-memory
+  `fakes/LocaltestOidcClients.cs`, the level table `fakes/Login/`, the key providers `fakes/Keys/`, the trusted
+  Maskinporten instances `fakes/Maskinporten/` (TODO.md task 67), the in-memory
   repositories `fakes/Persistence/`, the shared copies `fakes/Cookies/` and `fakes/ServiceDiscovery/`, two build
   overrides, and the `localtest:` deviations in `Dockerfile` and `.dockerignore`.
 
@@ -72,6 +73,23 @@ targets `https://local.altinn.cloud` and keeps `Secure` cookies, so the http ite
     `All`, while [`../reviews/cookies.md`](../reviews/cookies.md) found `UseForwardedHeaders()` taking no effect; I
     could not confirm what production sees, so the setting is the safer proposal.
   - Detail: [`../reviews/cookies.md`](../reviews/cookies.md), inventory rows 1 to 8 and decision F1.
+
+- [ ] **A list of trusted Maskinporten instances for `exchange/maskinporten`, each token held to its own issuer's
+      keys.** `AuthenticateMaskinportenToken` in `Controllers/AuthenticationController.cs` reads two settings,
+      `MaskinportenWellKnownConfigEndpoint` and `MaskinportenWellKnownAlternativeConfigEndpoint`, validates a token
+      against the first's keys and then the second's, and checks the issuer by `Contains` against both. Read a list
+      instead (for example `GeneralSettings:MaskinportenWellKnownConfigEndpoints`), pick the entry whose URL contains
+      the token's `iss`, and validate with that entry's keys alone.
+  - Why: localtest trusts three (its fake, test and production Maskinporten, the owner's decision of 2026-10-29), so
+    a developer's real client works against the local stack; with the list a deployment could also add an instance
+    without code, and a token is never validated against another issuer's keys.
+  - Size: small.
+  - Removes: the first two blocks of the task 67 site (UPSTREAM.md's site table) and
+    `fakes/Maskinporten/LocaltestMaskinportenIssuers.cs`; the manifest's `Localtest__Authentication__…` variables
+    become the upstream setting's.
+  - Upstream: none found.
+- The third block of that site (an app's `<org>-localtest` client acts as `ttd`) stays local: it names the
+  runners' client id convention, which production has no reason to know.
 
 ## Phase 2: structural changes
 

@@ -81,7 +81,10 @@ Maskinporten needs deliberate handling. A v9 app has **one** Maskinporten identi
 credentials: it reads whatever the platform provisions for it. Deployed, that is the client Studio provisions. On a
 local run studioctl is the platform, and it cannot yet hand over the credentials Studio issues - so to test against a
 real external API you supply a client for studioctl to provision in their place, with
-`studioctl app maskinporten set`. That is a gap in the local harness, not a second identity for the app.
+`studioctl app maskinporten set`. That is a gap in the local harness, not a second identity for the app. Against
+`localtest-v2` no client is needed for the platform itself: studioctl writes a local client for the stack's own
+Maskinporten (`<org>-localtest`), which the stack's Authentication exchanges into a service-owner token for `ttd`. A
+client you store is used instead of it.
 
 The consequence that matters is about scopes. Maskinporten grants scopes per client registration, and the client a
 local run uses is not the registration the deployed app uses. So a scope selected in Studio is not thereby available
