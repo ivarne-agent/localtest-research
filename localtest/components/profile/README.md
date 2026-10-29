@@ -111,7 +111,7 @@ reported.
 | `JobSettings:KrrSyncEnabled`, `OrgSyncEnabled` | `true` (upstream `false`) | The two syncs, with the stand-ins |
 | `JobSettings:KrrSyncWaitTimeInMinutes`, `OrgSyncWaitTimeInMinutes` | `1` (upstream `10`) | Also the settings seed's interval |
 | `CoreSettings:ProfileCacheLifetimeSeconds` | `10` (production `600`) | The Register id cache |
-| `PostgreSqlSettings:AdminConnectionString`, `ConnectionString` | upstream's `localhost`; the manifest sets `Host=postgres;Port=5432` | `{0}` is the password (`ProfileDbAdminPwd`, `ProfileDbPwd`, both `Password` in upstream's appsettings) |
+| `PostgreSqlSettings:AdminConnectionString`, `ConnectionString` | upstream's `localhost`; the manifest sets `Host=postgres;Port=5432` | `{0}` is the password (`ProfileDbAdminPwd`, `ProfileDbPwd`: `Password` in upstream's appsettings, overridden by the manifest's `{{password:…}}` from the runner's password file) |
 | `AccessTokenSettings:AccessTokenSigningCertificateFullPath` | `/certs/localtest-accesstoken.pfx` (manifest) | The shared certificate: validates incoming platform tokens (fake provider) and signs outgoing ones (production generator, `platform`/`profile`, to the Register and Notifications) |
 
 The image sets `ASPNETCORE_ENVIRONMENT=Development` (the JWT handler reads the OpenID metadata over http only there) and

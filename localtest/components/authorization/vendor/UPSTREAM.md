@@ -62,7 +62,7 @@
     `src/Directory.Build.targets`, `src/Directory.Packages.props`, `src/Altinn.ruleset`, `src/Stylecop.json`,
     `Directory.Build.props/targets` in `src/apps/`, `src/libs/` and `src/pkgs/`, `src/pkgs/Directory.Packages.props`
     and `src/pkgs/README.md` (package readme fallback).
-- Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
+- Copied with `rsync`, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
 
 ## Directive sites

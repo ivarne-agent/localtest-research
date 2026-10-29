@@ -50,7 +50,7 @@
   (referenced by relative path from the host csproj), and the build files on the path from the repository root:
   `.editorconfig`, `global.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`
   at the root, `src/`, `src/apps/` and `src/pkgs/` levels where they exist.
-- Copied with `rsync` of a clean checkout, no subtree yet; identical to `git archive` of the commit (checked
+- Copied with `rsync` of a clean checkout, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58); identical to `git archive` of the commit (checked
   2026-10-19). The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
 

@@ -42,7 +42,7 @@
   `stylecop.json` and `.editorconfig`, and the upstream `Dockerfile` for reference. Not copied: `src/Events.Functions`
   (Azure Functions for the legacy Storage Queue path), `emulator/`, `test/`. There is no `Directory.Build.props`,
   `Directory.Packages.props` or `global.json` upstream.
-- Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
+- Copied with `git archive` of that commit, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
   `#if LOCALTEST … #endif` addition.
 

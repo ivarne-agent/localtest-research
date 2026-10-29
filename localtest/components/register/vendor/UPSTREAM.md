@@ -57,7 +57,7 @@
   and the root build files `.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`,
   `Directory.Packages.props`, `global.json`, `stylecop.json`; plus the upstream `Dockerfile` and `.dockerignore`
   (added 2026-10-19, same commit) for reference.
-- Copied with `rsync` of a clean checkout, no subtree yet; identical to `git archive` of the commit (checked
+- Copied with `rsync` of a clean checkout, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58); identical to `git archive` of the commit (checked
   2026-10-19). The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
 

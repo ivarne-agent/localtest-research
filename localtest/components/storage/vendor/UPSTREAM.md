@@ -45,7 +45,7 @@
 - Watched, not copied: `infra/postgres_init.sql`, upstream's database, schema and role setup. Localtest sets up its own
   users and databases (TODO.md task 60): `../postgres-init/10-storage.sh` does the same with the passwords from the
   Postgres container's environment. When the watched file changes, carry the change into that script.
-- Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
+- Copied with `git archive` of that commit, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
   `#if LOCALTEST … #endif` addition.
 

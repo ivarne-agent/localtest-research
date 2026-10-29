@@ -55,12 +55,15 @@ door's, `localtest/localtest/Telemetry/LocaltestOtlp.cs` (not vendored code; cal
 
 **Copy these files into a consumer's own `fakes/` folder when that consumer is vendored; do not reference this folder
 from a build.** A component's Docker build context is its own folder, so there is no shared build context for now
-(TODO.md task 15 is the long-term replacement). Change the canonical copy here, then re-copy it into each consumer (the table above).
+(the Maskinporten fake goes with each consumer's bump to `Altinn.ApiClients.Maskinporten` 10.2.0, see
+[`../../upstreaming/README.md`](../../upstreaming/README.md), "`Altinn.ApiClients.Maskinporten`"). Change the canonical copy here, then re-copy it into each consumer (the table above).
 
 ## `IMaskinportenService` fake
 
 The package hard-codes `https://*.maskinporten.no` and the exchange hosts per environment, and
-`MaskinportenSettings` cannot override them, so the consumer's DI gets this service instead. Call
+`MaskinportenSettings` cannot override them in 10.1.0, which every consumer still restores, so the consumer's DI gets
+this service instead. 10.2.0 (released 2026-10-26, altinn-apiclient-maskinporten#92) can (`TokenEndpoint`,
+`AssertionAudience`); a consumer's bump to it removes this fake. Call
 `services.AddLocaltestMaskinporten(configuration)` after the consumer's own Maskinporten registrations (the package adds
 its service with `TryAdd`).
 
@@ -76,8 +79,8 @@ its service with `TryAdd`).
 
 ## Cookie policy (`fakes/Cookies/`)
 
-Production code hard-codes `Secure = true` on cookies (Authentication's runtime, party and session cookies, Correspondence's
-retry-path expiry) or `SameSite=None` with it. The stack is plain http, where a browser refuses both, and since task 21b the
+Production code hard-codes `Secure = true` on cookies (Authentication's runtime, party and session cookies; Correspondence's
+retry-path expiry is a directive since task 63) or `SameSite=None` with it. The stack is plain http, where a browser refuses both, and since task 21b the
 front doors no longer remove `Secure` from a platform component's `Set-Cookie`. Call `services.AddLocaltestCookiePolicy()` from
 the consumer's additive hook; no vendored file changes.
 

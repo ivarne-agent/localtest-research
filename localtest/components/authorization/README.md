@@ -1,8 +1,9 @@
 # authorization
 
 Production Altinn Authorization, the PDP (`vendor/`, see `UPSTREAM.md`), answering `authorization/api/v1/decision`,
-`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management), the OED PIP, the
-audit queue and Key Vault are replaced by fakes; Register, Profile (`internal/user`, answered by the profile
+`parties` and `roles` for apps. Azure Blob policies (a file store shared with Access Management) and Key Vault are
+replaced by fakes, the OED PIP by a directive that answers empty, and the audit log is off (the production queue client
+is never called); Register, Profile (`internal/user`, answered by the profile
 component, production Profile), Storage, Access Management (roles, access packages, delegations, authorized parties) and the Resource
 Registry (resources, resource policies such as `altinn_keyrole_access`, access lists) stay production HTTP calls to the
 other localtest components.

@@ -36,7 +36,7 @@
 - Copied paths: the whole repository (the backend `src/backend/Altinn.Receipt`, the React frontend `src/frontend` with
   its committed Yarn release, `test/`, the root build and editor files, `.github/`, `.deploy/` and the upstream
   `Dockerfile` for reference). It is small, and the frontend and tests stay comparable with upstream that way.
-- Copied with `git archive` of that commit, no subtree yet. The first commit (`receipt: vendor Altinn/altinn-receipt
+- Copied with `git archive` of that commit, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit (`receipt: vendor Altinn/altinn-receipt
   at babc0ed, unmodified`) holds the files unmodified, blob for blob; every later change inside this folder is a
   `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST … #endif` addition.
 - Pin cadence (decided 2026-10-20): Renovate updates the frontend almost daily; re-pin on backend changes or on

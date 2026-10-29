@@ -49,7 +49,7 @@ a copy of `../shared/fakes/` compiled into each host, without pass-through: a na
 it is), so factory clients resolve `http://<service>/` from `services__<service>__http__0`; the package is added in `localtest.build.targets`,
 which turns the locked restore off, and the Dockerfiles restore without `--locked-mode` ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
 
-One `#if !LOCALTEST` block (added with the Dialogporten adapter, task 10): the Application project's `IsValidHttpsUrl` validators
+Two `#if !LOCALTEST` blocks (added with the Dialogporten adapter, task 10): the Application project's `IsValidHttpsUrl` validators
 (`FluentValidationStringExtensions.cs`) accept `http` as well as `https`. The stack is plain http, so the links in the adapter's dialogs
 (go-to and delete actions, the read API action, attachments, transmission attachments) are `http://local.altinn.cloud:8000/...`, and
 production's rule refused every such dialog with a 400. A service owner may therefore also create dialogs with http links locally, which

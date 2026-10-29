@@ -198,8 +198,6 @@ refreshed every 6 hours) are upstream's. The migrations at start are listed in `
 
 ## Known gaps
 
-- Both images are in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev-arbeidsflate` and
-  `--dev-arbeidsflate-bff=Dockerfile.bff` build them from this folder.
 - **An existing Postgres volume needs the init script once.** A volume created before this component predates
   `90-arbeidsflate.sh` (Postgres runs init scripts on an empty volume only), and the BFF then fails to connect: run
   `studioctl env reset -r localtest-v2 --yes` once (it also empties Storage and Dialogporten), or the script by hand (`podman exec -i localtest-v2-postgres sh <

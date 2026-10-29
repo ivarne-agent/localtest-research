@@ -48,7 +48,7 @@
   `Directory.Packages.props`, `global.json` and `stylecop.json`, and the upstream `components/api/Dockerfile` for
   reference. Not copied: `components/email-service` and `components/sms-service` (the hosts behind the queue, not run
   locally), every `test/` folder, `tools/`, `docs/`, `.github/`, the solution files. Upstream has no lock files.
-- Copied with `git archive` of that commit, no subtree yet. The first commit holds the files unmodified; every later
+- Copied with `git archive` of that commit, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit holds the files unmodified; every later
   change inside this folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure
   `#if LOCALTEST … #endif` addition.
 

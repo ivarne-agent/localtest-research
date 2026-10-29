@@ -95,6 +95,6 @@ one, which keeps its old text and needs a hand-made hunk as small as it is now. 
 
 The mirrored files in the table above and the watched ones (`package.json`, `pnpm-workspace.yaml`, `.node-version`,
 `packages/frontend/start.sh` and `index.html`, the BFF's `config.ts`, `auth/` and `server.ts`) are reported with
-upstream's diff: new or renamed BFF settings go into studioctl's `components.go` (`arbeidsflateBFFComponent`) and
-`../README.md`, cookie or session changes into the patches. Build both images (`podman build -f Dockerfile.bff -t
+upstream's diff: new or renamed BFF settings go into the `arbeidsflate-bff` envs in
+`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json` and `../README.md`, cookie or session changes into the patches. Build both images (`podman build -f Dockerfile.bff -t
 localtest-arbeidsflate-bff:dev .`, then `Dockerfile.frontend`, one at a time) and run `../smoke-test.sh`.

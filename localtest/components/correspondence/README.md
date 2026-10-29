@@ -267,8 +267,6 @@ Hangfire's 5 s schedule polling, its retry schedule, Correspondence's own caches
   with `28P01 password authentication failed for user "correspondence"`. Run `studioctl env reset -r localtest-v2 --yes` (or the
   script by hand, see the table at the top) once.
 - Organisation recipients are not exercised by the smoke test (DDG Fitness and Digdir have official addresses since test data v3).
-- The image is in the pinned build (`sha-6d928ad` in the manifest, 2026-10-23); `--dev-correspondence` builds it from this
-  folder.
 
 ## Tests
 
@@ -302,7 +300,7 @@ attachment; the reused `session` (a new challenge, no bytes); no cookie (the pic
 at the callback (one restart with `oidcRetry=1`, then the bytes); the restart's expiry of the two cookies without `Secure`
 and not `SameSite=None` (task 21b); the callback without the correlation cookie (one restart, then
 the inbox). `CORRESPONDENCE_RESTART=1` restarts the container and checks that the data remain and no migration runs again.
-78 checks, 81 with the restart (76 and 79 before task 21b); a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
+79 checks, 82 with the restart (78 and 81 before task 65's event check, 76 and 79 before task 21b); a `FAIL` makes it exit 1. The waits are generous since task 12 (attachments 60 s, a
 correspondence to `Published` 180 s, the notification 120 s, the activity jobs and the dialog's activities 90 s; each
 returns as soon as it holds): Hangfire polls every 5 s and the first jobs after `env up` are slow, and with the earlier
 limits one check failed on each of two first runs. With them the first run after a fresh `env up --with everything`
@@ -315,7 +313,7 @@ jobs patches the same dialog gets Dialogporten's 409 (optimistic concurrency) an
 
 ## Telemetry (OTLP)
 
-The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `src/Altinn.Correspondence.API/Program.cs:66-71`, a pure addition right after production's `ConfigureOpenTelemetry(generalSettings)`: the inlined rule (task 63, in place of the copy of `../shared/fakes/Otlp/`): with the variable set, `UseOtlpExporter()` and the environment detector after the host's own resource, and the `System.Net.Http.HttpClient.Otlp` log category at Warning, on the pipeline that call builds in the Integrations project (the Hangfire source, ASP.NET Core with its filter, HttpClient, the Npgsql meters, `RequestFilterProcessor`, `WithLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.18.0 (the host's version) in `localtest.build.targets`. The service name is `altinn-correspondence` unless `OTEL_SERVICE_NAME` is set. The Azure Monitor exporters stay off because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty.
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `src/Altinn.Correspondence.API/Program.cs:66-78`, a pure addition right after production's `ConfigureOpenTelemetry(generalSettings)`: the inlined rule (task 63, in place of the copy of `../shared/fakes/Otlp/`): with the variable set, `UseOtlpExporter()` and the environment detector after the host's own resource, and the `System.Net.Http.HttpClient.Otlp` log category at Warning, on the pipeline that call builds in the Integrations project (the Hangfire source, ASP.NET Core with its filter, HttpClient, the Npgsql meters, `RequestFilterProcessor`, `WithLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.18.0 (the host's version) in `localtest.build.targets`. The service name is `altinn-correspondence` unless `OTEL_SERVICE_NAME` is set. The Azure Monitor exporters stay off because the fakes force `GeneralSettings:ApplicationInsightsConnectionString` empty.
 
 `dotnet build -c Release` of the API host with the overrides: 0 errors, the same 24 upstream warnings (2026-10-26). The host needs Postgres and Redis to start, so it was not run. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 302 spans, 1371 metric series and 605 log records under `service.name` `correspondence`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 

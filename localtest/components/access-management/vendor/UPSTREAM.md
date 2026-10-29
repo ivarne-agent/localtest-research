@@ -72,7 +72,7 @@
     `Directory.Build.*`, `Directory.Packages.props` and `README.md` files in `src/apps/`, `src/libs/` and `src/pkgs/`.
   - `containers/Dockerfile.aspnet-builder` and `containers/Dockerfile.aspnet-runtime` (added 2026-10-20): the shared
     build and runtime images `docker-bake.hcl` builds Access Management's release image with, for reference.
-- Copied with `rsync`, no subtree yet. The first commit holds the files unmodified; every later change inside this
+- Copied with `rsync`, no subtree (later syncs: `tools/vendor-sync.py sync`, task 58). The first commit holds the files unmodified; every later change inside this
   folder is a `#if !LOCALTEST` / `#else` / `#endif` block, production code first, or a pure `#if LOCALTEST` addition.
 
 ## Directive sites

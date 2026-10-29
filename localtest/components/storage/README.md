@@ -90,8 +90,9 @@ Forced (cannot differ without Azure): `kvSetting:SecretUri` empty,
 shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, mounted from `../../certs`).
 `ASPNETCORE_ENVIRONMENT=Development` (set by the Dockerfile) is required: Wolverine uses local queues only in
 Development, and JWT metadata over plain http is allowed only there. Postgres connection strings come from the
-environment (`PostgreSqlSettings__AdminConnectionString` / `__ConnectionString`, `{0}` is replaced by the password
-settings, both `Password` as upstream).
+environment (`PostgreSqlSettings__AdminConnectionString` / `__ConnectionString`, `{0}` is replaced by
+`PostgreSqlSettings__StorageDbAdminPwd` / `__StorageDbPwd`, which the manifest sets from the runner's password file;
+upstream's appsettings have `Password` for both, used only when nothing overrides them).
 
 ## Dialogporten outbox
 
@@ -126,7 +127,8 @@ the `storage` schema and the roles `platform_storage_admin` / `platform_storage`
 upstream's `infra/postgres_init.sql` does (localtest sets up its own users and databases, so that file is watched, not
 run). The roles' passwords come from the Postgres container's environment (`PLATFORM_STORAGE_ADMIN_PASSWORD`,
 `PLATFORM_STORAGE_PASSWORD`), and Storage gets the same values as `PostgreSqlSettings__StorageDbAdminPwd` /
-`__StorageDbPwd`, both from the manifest; the script fails when one is missing. Postgres runs init scripts on an empty
+`__StorageDbPwd`, both from the runner's password file, named in the manifest (`{{password:<role>}}`); the script fails
+when one is missing. Postgres runs init scripts on an empty
 volume only. Storage
 runs the production Yuniql migrations (`Migration/v0.00` … `v0.38`) itself at startup with the admin connection; a
 fresh database is migrated in about a second.
@@ -169,7 +171,7 @@ marked `localtest:`:
 
 ## Telemetry (OTLP)
 
-The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `Program.cs:249-258`: production's Azure Monitor exporters under `#if !LOCALTEST`, `#else` the inlined rule (task 63, in place of the copy of `../shared/fakes/Otlp/`): with the variable set, `UseOtlpExporter()` and the environment detector after the host's own resource, and the `System.Net.Http.HttpClient.Otlp` log category at Warning, on the host's own pipeline (ASP.NET Core, HttpClient, Npgsql, `RequestFilterProcessor`, its meters, the logs of `ConfigureApplicationLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-storage` unless `OTEL_SERVICE_NAME` is set.
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `Program.cs:248-264`: production's Azure Monitor exporters under `#if !LOCALTEST`, `#else` the inlined rule (task 63, in place of the copy of `../shared/fakes/Otlp/`): with the variable set, `UseOtlpExporter()` and the environment detector after the host's own resource, and the `System.Net.Http.HttpClient.Otlp` log category at Warning, on the host's own pipeline (ASP.NET Core, HttpClient, Npgsql, `RequestFilterProcessor`, its meters, the logs of `ConfigureApplicationLogging`); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-storage` unless `OTEL_SERVICE_NAME` is set.
 
 `dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The host needs Postgres to start, so it was not run. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): the root `../../smoke-test.sh` passed with its OTLP check, and the stack's run left 1285 spans, 893 metric series and 24 log records under `service.name` `storage`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line. A 150 s capture of SYNs and UDP in its network namespace during the smoke tests showed no lookup of `otel-collector` and nothing to 4317 or 4318.
 
@@ -199,7 +201,8 @@ decisions, instance create, process start and end by the app, upload, read-back,
 listing) with a fresh Postgres and blob volume; blobs are written as uid 1654. The full app-lib lifecycle runs in the
 Cypress suite, see `../../README.md`.
 
-Run locally without Docker (Postgres prepared with the init script on 5433):
+Run locally without Docker (Postgres prepared with the init script on 5433; the script takes the roles' passwords from
+`PLATFORM_STORAGE_ADMIN_PASSWORD` and `PLATFORM_STORAGE_PASSWORD`, so give Storage the same two values):
 
 ```sh
 export DirectoryBuildPropsPath=$PWD/localtest.build.props DirectoryBuildTargetsPath=$PWD/localtest.build.targets
@@ -208,6 +211,7 @@ cd vendor/src/Storage   # Yuniql reads ./Migration relative to the working direc
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5010 \
   PostgreSqlSettings__AdminConnectionString='Host=127.0.0.1;Port=5433;Username=platform_storage_admin;Password={0};Database=storagedb' \
   PostgreSqlSettings__ConnectionString='Host=127.0.0.1;Port=5433;Username=platform_storage;Password={0};Database=storagedb' \
+  PostgreSqlSettings__StorageDbAdminPwd="$PLATFORM_STORAGE_ADMIN_PASSWORD" PostgreSqlSettings__StorageDbPwd="$PLATFORM_STORAGE_PASSWORD" \
   Localtest__Storage__BlobRootPath=/tmp/storage-blobs \
   dotnet bin/Release/net10.0/Altinn.Platform.Storage.dll
 ```
