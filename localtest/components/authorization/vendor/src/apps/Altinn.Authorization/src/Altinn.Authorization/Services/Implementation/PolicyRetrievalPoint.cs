@@ -51,6 +51,10 @@ namespace Altinn.Platform.Authorization.Services.Implementation
         public async Task<XacmlPolicy> GetPolicyAsync(string org, string app)
         {
             string policyPath = PolicyHelper.GetAltinnAppsPolicyPath(org, app);
+#if LOCALTEST
+            // localtest: the app runner pushes policies at any time, so an app policy is read again for every decision.
+            _memoryCache.Remove(policyPath);
+#endif
             return await GetPolicyInternalAsync(policyPath);
         }
 

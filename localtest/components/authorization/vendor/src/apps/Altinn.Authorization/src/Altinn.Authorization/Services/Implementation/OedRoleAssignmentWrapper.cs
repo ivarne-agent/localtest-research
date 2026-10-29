@@ -44,6 +44,10 @@ namespace Altinn.Platform.Authorization.Services.Implementation
         /// <inheritdoc/>
         public async Task<List<OedRoleAssignment>> GetOedRoleAssignments(string from, string to)
         {
+#if LOCALTEST
+            // localtest: no digitalt dødsbo (OED) role assignments; production asks the OED API through Maskinporten.
+            return [];
+#endif
             try
             {
                 TokenResponse tokenResponse = await _maskinportenService.GetToken(_maskinportenClientSettings.EncodedJwk, _maskinportenClientSettings.Environment, _maskinportenClientSettings.ClientId, _maskinportenClientSettings.Scope, string.Empty);

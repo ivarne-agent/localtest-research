@@ -9,9 +9,9 @@ other localtest components.
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except three directive blocks in `Program.cs` (below) |
+| `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except five directive blocks: three in `Program.cs`, one each in `OedRoleAssignmentWrapper.cs` and `PolicyRetrievalPoint.cs` (below) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, OED PIP, token handling, no-op audit queue, a localtest decision helper, DI composition, OpenTelemetry (`LocaltestAuthorizationTelemetry.cs`, `Otlp/`) |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, token handling, a localtest decision helper, DI composition, OpenTelemetry (`LocaltestAuthorizationTelemetry.cs`, `Otlp/`) |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
@@ -41,7 +41,7 @@ registering earlier would lose). The configuration it adds is still seen, becaus
 `GeneralSettings`, `PlatformSettings` and feature flags lazily through `IOptions`. The three eager reads inside
 `ConfigureServices` are covered: the JWT cookie metadata address is re-applied with a `Configure<JwtCookieOptions>`
 (runs before the scheme's post-configure builds the metadata manager), the OED Maskinporten client is never called
-(OED is faked), and the access token generator chosen by environment is replaced. Key Vault and the Application
+(a directive answers OED empty, below), and the access token generator chosen by environment is replaced. Key Vault and the Application
 Insights logging provider are skipped by production code because `kvSetting` is empty.
 
 The third (task 53), a `#if !LOCALTEST` / `#else` in `ConfigureServices` around production's Application Insights block
@@ -55,6 +55,19 @@ pipeline), which never ran here since the connection string comes only from Key 
     Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config);
 #endif
 ```
+
+Two small additions in place of fakes (task 63, the user's rule of 2026-10-29: a fake that a 3-4 line directive can
+replace becomes the directive):
+
+- `Services/Implementation/OedRoleAssignmentWrapper.cs`, first thing in `GetOedRoleAssignments`: `return [];`. No
+  digitalt dødsbo role assignments locally; production asks the OED API through Maskinporten. Replaced
+  `NoOedRoleAssignments`.
+- `Services/Implementation/PolicyRetrievalPoint.cs`, `GetPolicyAsync(org, app)`: `_memoryCache.Remove(policyPath)`
+  before the read, so the file store is read for every decision and a policy the app runner pushes applies to the next
+  one (production: after the cache timeout, at least a minute). Replaced `LocaltestPolicyRetrievalPoint`.
+
+The audit queue needs neither: `FeatureManagement:AuditLog` is forced off, so the production `EventsQueueClient` is
+registered but never called (the no-op `NoopEventsQueueClient` was deleted in task 63).
 
 ## Telemetry (task 53)
 
@@ -85,9 +98,9 @@ with `OTEL_SERVICE_NAME=authorization`; without the variable nothing reaches the
 | Production | Localtest (`fakes/`) |
 | --- | --- |
 | `IPolicyRepository` (Azure Blob `metadata`, `delegationpolicies`) | `LocaltestPolicyRepository`: the file store shared with Access Management (`Localtest:Authorization:PolicyStorePath`, the `policy-store` volume), laid out as the containers: `metadata/{org}/{app}/policy.xml` written by the production `POST authorization/api/v1/policies` (the runner pushes it, placeholders already replaced as Designer does) and `delegationpolicies/{path}` with versions under `{path}.versions/{versionId}`, written by Access Management and read here by the version it recorded. Nothing is fetched from apps and no placeholders are replaced |
-| `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint` wrapped by `LocaltestPolicyRetrievalPoint`, which drops its minutes-long cache entry for the app policy before each read; the store reads the file every time, so a pushed policy applies to the next decision |
-| `IOedRoleAssignmentWrapper` | `NoOedRoleAssignments` (empty) |
-| `IEventsQueueClient` (audit queue) | `NoopEventsQueueClient`; `FeatureManagement:AuditLog` forced off |
+| `IPolicyRetrievalPoint` | Production `PolicyRetrievalPoint`; a directive drops its minutes-long cache entry for the app policy before each read, and the store reads the file every time, so a pushed policy applies to the next decision |
+| `IOedRoleAssignmentWrapper` | Production `OedRoleAssignmentWrapper`; a directive answers empty |
+| `IEventsQueueClient` (audit queue) | Production `EventsQueueClient`, never called: `FeatureManagement:AuditLog` forced off |
 | `IPublicSigningKeyProvider` (Key Vault certificates) | `LocaltestPublicSigningKeyProvider`: the shared test certificate (`AccessTokenSettings:AccessTokenSigningCertificateFullPath`, see `../../certs/README.md`) for every issuer. The production `AccessTokenGenerator` and `AccessTokenHandler` run unchanged: outgoing platform access tokens (to Register) are signed with it, incoming ones validated against it |
 | (none) | `GET authorization/api/localtest/decision?userId&partyId&org&app&action[&instanceId&task&authenticationLevel]`, anonymous: builds the request an app's PEP sends and posts it to the production `decision` endpoint |
 | (none) | `POST authorization/api/localtest/refresh`, anonymous: drops every production PDP cache entry (profiles, parties, roles and packages, delegation changes) |

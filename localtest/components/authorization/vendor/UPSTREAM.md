@@ -69,15 +69,17 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                | Lines   | Kind        | First line of the `LOCALTEST` branch                                           |
-| ------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------ |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 53-58   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`      |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 67-71   | addition    | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions....` |
-| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` | 278-304 | replacement | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry....`  |
+| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                           |
+| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | ------------------------------------------------------------------------------ |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`                                          | 53-58   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`      |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`                                          | 67-71   | addition    | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions....` |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`                                          | 278-304 | replacement | `Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationTelemetry....`  |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Services/Implementation/OedRoleAssignmentWrapper.cs` | 47-50   | addition    | `return [];`                                                                   |
+| `src/apps/Altinn.Authorization/src/Altinn.Authorization/Services/Implementation/PolicyRetrievalPoint.cs`     | 54-57   | addition    | `_memoryCache.Remove(policyPath);`                                             |
 
 <!-- vendor-sync:end sites -->
 
-Three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, the first two pure additions:
+Five sites, three in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, the first two pure additions:
 
 - Right after `WebApplication.CreateBuilder`: the service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`); the package comes transitively from
   `Altinn.Authorization.ServiceDefaults`.
@@ -85,6 +87,12 @@ Three sites, all in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Prog
 - Task 53: a `#if !LOCALTEST` / `#else` around the Application Insights block in `ConfigureServices`, whose `#else` calls
   `LocaltestAuthorizationTelemetry.AddLocaltestTelemetry(services, config)` (OpenTelemetry over OTLP when
   `OTEL_EXPORTER_OTLP_ENDPOINT` is set, `../fakes/LocaltestAuthorizationTelemetry.cs`).
+
+Two additions in place of fakes (task 63), in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Services/Implementation/`:
+
+- `OedRoleAssignmentWrapper.cs`, `GetOedRoleAssignments`: returns an empty list before the Maskinporten call (no OED locally).
+- `PolicyRetrievalPoint.cs`, `GetPolicyAsync(org, app)`: removes the app policy's cache entry before the read, so a
+  pushed policy applies to the next decision.
 
 ## Syncing
 

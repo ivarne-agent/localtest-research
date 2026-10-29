@@ -6,13 +6,9 @@ using System.Net.Http;
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.AccessTokenClient.Services;
-using Altinn.Platform.Authorization.Clients.Interfaces;
 using Altinn.Platform.Authorization.Localtest.Infrastructure;
-using Altinn.Platform.Authorization.Localtest.Pip;
 using Altinn.Platform.Authorization.Localtest.Policies;
 using Altinn.Platform.Authorization.Repositories.Interface;
-using Altinn.Platform.Authorization.Services.Implementation;
-using Altinn.Platform.Authorization.Services.Interface;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -25,9 +21,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Altinn.Platform.Authorization.Localtest;
 
 /// <summary>
-/// Localtest composition for the vendored PDP, called from the single <c>#if LOCALTEST</c> block in <c>Program.cs</c>
-/// right after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store, the OED PIP, the audit queue
-/// and the Key Vault backed token handling. Register (v1 parties), Profile (<c>internal/user</c>, answered by the profile
+/// Localtest composition for the vendored PDP, called from the <c>#if LOCALTEST</c> block in <c>Program.cs</c> right
+/// after the production <c>ConfigureServices</c>. Replaces the Azure Blob policy store and the Key Vault backed token
+/// handling; the OED PIP answers empty and app policies skip the cache by directives in the production classes
+/// (<c>OedRoleAssignmentWrapper</c>, <c>PolicyRetrievalPoint</c>), and the audit queue is never called (the audit log is
+/// forced off below). Register (v1 parties), Profile (<c>internal/user</c>, answered by the profile
 /// component), Storage (instance authinfo), Access Management (roles, access packages, delegations) and the Resource
 /// Registry (resources, resource policies, access lists) stay production HTTP clients, pointed at the services by name
 /// (<c>http://register/register/api/v1/</c>, resolved from <c>services__register__http__0</c>, fakes/ServiceDiscovery).
@@ -61,8 +59,8 @@ public static class LocaltestAuthorizationExtensions
                 ["GeneralSettings:BridgeApiEndpoint"] = platform + "sblbridge/",
                 ["GeneralSettings:SBLBaseAdress"] = platform,
 
-                // Production caches for whole minutes; 1 is the smallest valid value. App policies bypass it (see
-                // LocaltestPolicyRetrievalPoint), so this mainly bounds profile and party lookups.
+                // Production caches for whole minutes; 1 is the smallest valid value. App policies bypass it (a directive
+                // in PolicyRetrievalPoint.GetPolicyAsync), so this mainly bounds profile and party lookups.
                 ["GeneralSettings:PolicyCacheTimeout"] = "1",
                 ["GeneralSettings:RoleCacheTimeout"] = "1",
                 ["GeneralSettings:MainUnitCacheTimeout"] = "1",
@@ -78,7 +76,8 @@ public static class LocaltestAuthorizationExtensions
         var lastEnvironmentSource = config.Sources.ToList().FindLastIndex(s => s is EnvironmentVariablesConfigurationSource);
         config.Sources.Insert(lastEnvironmentSource < 0 ? config.Sources.Count : lastEnvironmentSource, defaults);
 
-        // Cannot be anything else without Azure: forced over every other source.
+        // Cannot be anything else without Azure: forced over every other source. With the audit log off the production
+        // EventsQueueClient is registered but never called.
         config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["FeatureManagement:AuditLog"] = "false",
@@ -95,20 +94,15 @@ public static class LocaltestAuthorizationExtensions
         services.Configure<JwtCookieOptions>(JwtCookieDefaults.AuthenticationScheme, o => o.MetadataAddress = config["GeneralSettings:OpenIdWellKnownEndpoint"]);
 
         // Policies: a file store (written by the production policies endpoint, which the app runner calls) instead of
-        // Azure Blob; the production PRP, without its cache for app policies.
+        // Azure Blob.
         services.RemoveAll<IPolicyRepository>();
         services.AddSingleton<IPolicyRepository, LocaltestPolicyRepository>();
-        services.TryAddSingleton<PolicyRetrievalPoint>();
-        Replace<IPolicyRetrievalPoint, LocaltestPolicyRetrievalPoint>(services);
 
         // PIPs. Roles, access packages, delegation changes and authorized parties come from the real Access Management
         // component through the production AccessManagementWrapper (registered by Program.cs). The Altinn 2 roles
         // endpoint (IRoles, SBL bridge) keeps its production wrapper and answers empty: nothing locally calls it.
-        Replace<IOedRoleAssignmentWrapper, NoOedRoleAssignments>(services);
 
-        // Azure: no audit queue, no Key Vault.
-        Replace<IEventsQueueClient, NoopEventsQueueClient>(services);
-        // Platform access tokens: production generator and handler, with the shared localtest certificate standing in
+        // Key Vault. Platform access tokens: production generator and handler, with the shared localtest certificate standing in
         // for Key Vault on both sides (AccessTokenSettings:AccessTokenSigningCertificateFullPath).
         // Production passes the generator a Key Vault certificate explicitly and never binds the client-side settings,
         // so the resolver's AccessTokenSigningCertificateFullPath would be empty without this.
