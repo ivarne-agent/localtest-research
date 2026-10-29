@@ -27,8 +27,9 @@ lists the stack in three sections:
 
 - `groups` names each group's **root** containers. `default` is always on; `dialogporten`, `receipt`, `correspondence`,
   `arbeidsflate` and `monitoring` are optional (`monitoring` in studioctl only: the Aspire package ignores it). A group starts its roots and everything they depend on (`dependsOn`, transitively),
-  so one group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi
-  and Redis because Correspondence depends on them, but not the Dialogporten Service, GraphQL host or adapter.
+  so one group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi,
+  Service host and Redis because Correspondence depends on them (its dialogs, and their events, which the Service host
+  publishes), but not the Dialogporten GraphQL host or adapter.
   `everything` is not in the file; it is a constant of each runner meaning every optional group. A container no group
   reaches is an error.
 - `public` is the public origin's default host and port and the dedicated subdomains of the host

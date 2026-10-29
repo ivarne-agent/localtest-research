@@ -36,6 +36,7 @@
       "redis",
       "access-management",
       "dialogporten-webapi",
+      "dialogporten-service",
       "correspondence"
     ],
     "default": [
@@ -3087,6 +3088,7 @@
           "container:localtest-v2-events",
           "container:localtest-v2-redis",
           "container:localtest-v2-dialogporten-webapi",
+          "container:localtest-v2-dialogporten-service",
           "container:localtest-v2-otel-collector"
         ],
         "volumes": [

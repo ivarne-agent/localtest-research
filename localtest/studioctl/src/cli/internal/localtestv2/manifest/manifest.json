@@ -267,7 +267,7 @@
         "GeneralSettings__RedisConnectionString": "redis:6379,defaultDatabase=1",
         "Localtest__Correspondence__PlatformEndpoint": "{{origin}}/"
       },
-      "dependsOn": ["postgres", "register", "profile", "authorization", "resource-registry", "notifications", "events", "redis", "dialogporten-webapi"],
+      "dependsOn": ["postgres", "register", "profile", "authorization", "resource-registry", "notifications", "events", "redis", "dialogporten-webapi", "dialogporten-service"],
       "volumes": {
         "correspondence-blobs": "/mnt/storage"
       }

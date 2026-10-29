@@ -4,7 +4,8 @@ Production Dialogporten (`vendor/`, see `vendor/UPSTREAM.md`): the WebApi, Graph
 database in the shared Postgres 18, with a Redis, as an **optional component group** of the `localtest-v2` runtime. The group's
 roots are the GraphQL and Service hosts and the Dialogporten adapter (`../dialogporten-adapter/`); the WebApi and Redis come
 with them as their `dependsOn`. Groups close over `dependsOn` ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)), so
-`--with correspondence` starts the WebApi and Redis only, and `--with arbeidsflate` the WebApi, GraphQL host and Redis. It
+`--with correspondence` starts the WebApi, the Service host and Redis (Correspondence's dialogs need their events
+published), and `--with arbeidsflate` the WebApi, GraphQL host and Redis. It
 is off by default (apps never call Dialogporten, and the three hosts and Redis cost about 0.5 GB of memory, the adapter about
 0.26 GB more) and started with
 

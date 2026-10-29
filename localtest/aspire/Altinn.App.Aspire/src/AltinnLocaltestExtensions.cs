@@ -110,7 +110,7 @@ public static class AltinnLocaltestExtensions
 
     /// <summary>
     /// Enables an optional group of the manifest: its root containers and what they depend on (<c>correspondence</c>
-    /// starts Dialogporten's WebApi, its dependency; <c>everything</c> enables every group). A group that is off has
+    /// starts Dialogporten's WebApi and Service host, its dependencies; <c>everything</c> enables every group). A group that is off has
     /// no containers and no <c>services__</c> variables, so the front door answers 503 "not running" for it.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
@@ -151,7 +151,7 @@ public static class AltinnLocaltestExtensions
 
     /// <summary>
     /// Enables the <c>correspondence</c> group: Altinn Correspondence, with what it depends on: Redis and Dialogporten's
-    /// WebApi among them, which its publish needs.
+    /// WebApi (its dialogs and dialog tokens) and Service host (which publishes the dialogs' events) among them.
     /// </summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>

@@ -281,9 +281,14 @@ func TestSelectStartsTheRootsAndTheirDependenciesInOrder(t *testing.T) {
 	assertStartOrder(t, m, def)
 
 	correspondence := m.Select([]string{DefaultGroup, "correspondence"})
-	for _, want := range []string{"correspondence", "redis", "dialogporten-webapi"} {
+	for _, want := range []string{"correspondence", "redis", "dialogporten-webapi", "dialogporten-service"} {
 		if !slices.Contains(correspondence, want) {
 			t.Errorf("--with correspondence leaves out %s: %v", want, correspondence)
+		}
+	}
+	for _, unwanted := range []string{"dialogporten-graphql", "dialogporten-adapter"} {
+		if slices.Contains(correspondence, unwanted) {
+			t.Errorf("--with correspondence starts %s: %v", unwanted, correspondence)
 		}
 	}
 	assertStartOrder(t, m, correspondence)

@@ -75,9 +75,10 @@ public sealed class ModelTests
     {
         var model = SampleModel.Build(["correspondence"]);
 
-        // Correspondence depends on Redis and Dialogporten's WebApi (and what that depends on), not on its other hosts.
+        // Correspondence depends on Redis and Dialogporten's WebApi and Service host (and what they depend on), not on
+        // the GraphQL host or the adapter.
         Assert.Equal(
-            [.. _default, "redis", "dialogporten-webapi", "correspondence"],
+            [.. _default, "redis", "dialogporten-webapi", "dialogporten-service", "correspondence"],
             model.Containers.Select(c => c.Name)
         );
     }

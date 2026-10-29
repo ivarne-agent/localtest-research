@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Smoke test for the correspondence component (production Altinn Correspondence, the API host) in the running stack,
-# everything through the proxy except /health on the host port. The stack must be up with the optional group, which also
-# starts Dialogporten:
+# everything through the front door except /health and the cookie check, which are read from inside the stack's network.
+# The stack must be up with the optional group, which also starts Dialogporten's WebApi and Service host and Redis:
 #   studioctl env up -r localtest-v2 --with correspondence      (see ../../README.md)
 # Covers: health and the migration count (upstream swallows a failed migration, so /health alone proves nothing), the
 # refusals (401, 403, 400 CORR-01036 for an unknown resource), the sequence with a service owner's token (attachment, upload
 # with MD5, the simulated malware scan to Published, the blob in the file store, the correspondence to Sophie Salt with an
-# e-mail notification to Published), the dialog in Dialogporten, the e-mail in the Notifications capture, the notification
+# e-mail notification to Published), the dialog in Dialogporten and its created event in Events, the e-mail in the Notifications capture, the notification
 # condition check with a raw fake-Maskinporten token, a checksum mismatch, an unknown recipient, the reserved person (KRR)
 # alone (422 CORR-01030) and with another recipient (Reserved), app-lib's five calls with its /Home/GetTestOrgToken credential
 # (no altinn:serviceowner, so the PDP decides on Digdir's 6-digit party id 500006, as urn:altinn:partyid since upstream #2157: attachment, upload, its status,
@@ -179,6 +179,11 @@ curl -s "$LT/correspondences?resourceId=$RESOURCE" | check "inspection list has 
 DIALOG=$(curl -s "$LT/correspondences/$CID" | field 'd["dialog"].rsplit("/", 1)[1]')
 curl -s -H "Authorization: Bearer $DPSO" "$SO/dialogs/$DIALOG" | check "the dialog exists in Dialogporten with the resource, the party and the content URL" \
   'd["serviceResource"] == "urn:altinn:resource:'$RESOURCE'" and d["party"] == "'"$RECIPIENT"'" and "correspondence/api/v1/correspondence/'"$CID"'/content" in json.dumps(d)'
+# Dialogporten's Service host drains the outbox and publishes the dialog's events to Events (the reason the group starts
+# it); the Events inspection API lists them by resource and type, about 8 s after the create.
+okwait "  ... its dialogporten.dialog.created.v1 event reached Events (published by Dialogporten's Service host)" 60 \
+  "$BASE/events/api/localtest/events?resource=urn:altinn:resource:$RESOURCE&type=dialogporten.dialog.created.v1&limit=1000" \
+  'any(e.get("resourceInstance") == "'"$DIALOG"'" and e["source"] == "'"$BASE"'/dialogporten/api/v1/enduser/dialogs/'"$DIALOG"'" and e["subject"] == "'"$RECIPIENT"'" for e in d["items"])'
 curl -s "$LT/correspondences/$CID" | check "inspection detail: statuses Initialized, ReadyForPublish, Published; Hangfire jobs succeeded" \
   '[s["status"] for s in d["statusHistory"]][:3] == ["Initialized", "ReadyForPublish", "Published"] and d["jobs"] and not any(j["state"] == "Failed" for j in d["jobs"])'
 

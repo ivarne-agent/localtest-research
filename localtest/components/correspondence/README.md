@@ -4,8 +4,8 @@ Production Altinn Correspondence (`vendor/`, see `vendor/UPSTREAM.md`): the API 
 inside the same process, on a `correspondence` database in the shared Postgres 18, as the **optional component group
 `correspondence`** of the `localtest-v2` runtime. A group starts its root and what it depends on
 ([`../../CONVENTIONS.md`](../../CONVENTIONS.md#the-manifest)): `--with correspondence` starts Correspondence, Redis and
-Dialogporten's WebApi (its `dependsOn`), not Dialogporten's Service and GraphQL hosts or the adapter (`--with dialogporten`
-adds them):
+Dialogporten's WebApi and Service host (its `dependsOn`, see "Dialogporten is required"), not Dialogporten's GraphQL host
+or the adapter (`--with dialogporten` adds them):
 
 ```sh
 studioctl env up -r localtest-v2 --with correspondence      # --dev-correspondence builds the image from this folder
@@ -177,7 +177,12 @@ its `dependsOn`, so `--with correspondence` starts it.
 The publish job marks a correspondence `Failed` when it has no dialog ("Dialogporten dialog not created",
 `PublishCorrespondenceHandler.cs`); the dialog is created by an earlier Hangfire job. Correspondence also validates dialog
 tokens against Dialogporten's JWKS. It therefore never runs without Dialogporten's WebApi (its `dependsOn`), and the runtime starts it after the
-WebApi is healthy (migrated, JWKS served). A dialog that cannot be created leaves the correspondence
+WebApi is healthy (migrated, JWKS served). Dialogporten is the WebApi and its Service host together: the WebApi writes each
+dialog change to an outbox, and the Service host drains it and publishes the dialog's events (`dialogporten.dialog.created.v1`,
+the activities) to Events. Without it a correspondence's dialog exists but its events never leave the outbox, so the Service
+host is in Correspondence's `dependsOn` too (the owner's decision of 2026-10-29: "corresponcence needs dialogporten, so if it
+does not that is a bug"), and the runtime starts Correspondence after it is healthy. The GraphQL host and the adapter are not
+needed. A dialog that cannot be created leaves the correspondence
 `Initialized` for a long time: Hangfire's default `AutomaticRetry` (10 attempts with growing delays) runs first; the
 `jobs` view shows it.
 
@@ -273,7 +278,8 @@ being no superuser); 401 without a token, 403 without `altinn:correspondence.wri
 with a service owner's token: `POST attachment`, the upload with its
 MD5, `Published` after the simulated scan, the bytes in `blobs/{id}`; a wrong checksum (400, `Failed` with "Checksum mismatch", no
 blob); `POST correspondence` to Sophie Salt with the attachment and an e-mail notification to `Published`, the dialog in
-Dialogporten (resource, party, content URL), the status history and Hangfire jobs; the e-mail captured and `Delivered`;
+Dialogporten (resource, party, content URL) and its `dialogporten.dialog.created.v1` event in Events (published by the Service
+host), the status history and Hangfire jobs; the e-mail captured and `Delivered`;
 `notification/check` with a raw fake-Maskinporten token (the Maskinporten scheme's metadata override) and without one; an unknown
 recipient (404); the reserved person Rik Forelder (KRR `JA`): alone 422 `CORR-01030`, with a second recipient `Reserved`; the
 sender's purge of a published correspondence refused (`CORR-01013`). Then **app-lib's credential** (`/Home/GetTestOrgToken`

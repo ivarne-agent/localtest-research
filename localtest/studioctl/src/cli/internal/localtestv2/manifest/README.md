@@ -56,8 +56,9 @@ receiver instead (`otel-files`). The workflow engine
 exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
 ([altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515)), so it needs no setting of its own.
 
-One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi and
-Redis because Correspondence depends on them.
+One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi,
+Service host and Redis because Correspondence depends on them (it creates its dialogs through the WebApi, and the
+Service host publishes their events), not the GraphQL host or the adapter.
 
 ## `public`
 
