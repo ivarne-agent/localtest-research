@@ -164,26 +164,13 @@ public static class AltinnAppExtensions
             }
         });
         // The local Maskinporten client, once the origin is known (an allocated public port is, by the time the app
-        // starts); a client of the developer's in the directory stays, with a warning.
+        // starts); a client of the developer's in the directory stays and is used (the stack's exchange trusts test and
+        // production Maskinporten too).
         builder.Eventing.Subscribe<BeforeResourceStartedEvent>(
             app.Resource,
-            (e, _) =>
+            (_, _) =>
             {
-                var developer = LocalMaskinportenClient.Provision(
-                    secretsDirectory,
-                    stack.PlatformUri.ToString(),
-                    appId.Org
-                );
-                if (developer is not null)
-                {
-                    e.Services.GetRequiredService<ResourceLoggerService>()
-                        .GetLogger(e.Resource)
-                        .LogDeveloperMaskinportenClient(
-                            appId.ToString(),
-                            developer,
-                            Path.Combine(secretsDirectory, AppEnvironment.MaskinportenFileName)
-                        );
-                }
+                LocalMaskinportenClient.Provision(secretsDirectory, stack.PlatformUri.ToString(), appId.Org);
                 return Task.CompletedTask;
             }
         );

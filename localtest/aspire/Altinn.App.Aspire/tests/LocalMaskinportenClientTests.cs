@@ -45,7 +45,7 @@ public sealed class LocalMaskinportenClientTests : IDisposable
     [Fact]
     public void TheLocalClientPointsAtTheFakeWithAWorkingKey()
     {
-        Assert.Null(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
+        Assert.True(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
 
         var settings = Settings();
         Assert.Equal("http://local.altinn.cloud:8000/localtest/api/maskinporten/", (string?)settings["authority"]);
@@ -90,7 +90,7 @@ public sealed class LocalMaskinportenClientTests : IDisposable
         var first = Settings()["jwk"]!.ToJsonString();
         var written = File.GetLastWriteTimeUtc(_filePath);
 
-        LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd");
+        Assert.False(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
         Assert.Equal(written, File.GetLastWriteTimeUtc(_filePath));
 
         LocalMaskinportenClient.Provision(_secrets, "http://local.altinn.test:18000/", "ttd");
@@ -108,11 +108,11 @@ public sealed class LocalMaskinportenClientTests : IDisposable
             """;
         File.WriteAllText(_filePath, developers);
 
-        Assert.Equal("real-client", LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
+        Assert.False(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
         Assert.Equal(developers, File.ReadAllText(_filePath));
 
         File.WriteAllText(_filePath, "{not json");
-        Assert.Null(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
+        Assert.False(LocalMaskinportenClient.Provision(_secrets, DefaultOrigin, "ttd"));
         Assert.Equal("{not json", File.ReadAllText(_filePath));
     }
 

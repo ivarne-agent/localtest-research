@@ -63,13 +63,13 @@ internal static class LocalMaskinportenClient
 
     /// <summary>
     /// Writes the local client into the secrets directory, unless the developer put a client of their own there, which
-    /// is never overwritten (an unreadable file is left alone too). The key is generated once per app and kept: a later
+    /// is never overwritten and which the stack's exchange trusts too (an unreadable file is left alone too). The key is generated once per app and kept: a later
     /// start reuses the key of the local client already there and rewrites the file only when the origin moved.
     /// Nothing rotates it and nothing in it expires (the JWK carries no validity): rotation is the operator's in a
     /// cluster, out of scope locally. Atomic and owner-only, as studioctl writes it.
     /// </summary>
-    /// <returns>The developer's client id when one is there (the local client is then not written), else null.</returns>
-    public static string? Provision(string directory, string origin, string org)
+    /// <returns>Whether the file was written (created, a new key, or another origin).</returns>
+    public static bool Provision(string directory, string origin, string org)
     {
         var path = Path.Combine(directory, Manifest.AppEnvironment.MaskinportenFileName);
         JsonObject? jwk = null;
@@ -87,21 +87,21 @@ internal static class LocalMaskinportenClient
             catch (Exception e) when (e is JsonException or InvalidOperationException)
             {
                 // Unreadable: the developer's to fix, never replaced here.
-                return null;
+                return false;
             }
             if (!IsLocal(authority, clientId))
             {
-                return clientId ?? "";
+                return false;
             }
             jwk = settings!["jwk"] as JsonObject;
         }
         var payload = Encode(origin, org, jwk ?? GenerateKey());
         if (File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(payload))
         {
-            return null;
+            return false;
         }
         AppSecrets.WriteOwnerOnly(directory, Manifest.AppEnvironment.MaskinportenFileName, payload);
-        return null;
+        return true;
     }
 
     /// <summary>A 2048-bit RSA key as a JWK with every field the app libraries' converter requires.</summary>
