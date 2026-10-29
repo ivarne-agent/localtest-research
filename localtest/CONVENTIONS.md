@@ -238,6 +238,10 @@ publishes it as the public port (8000 by default).
   pushes](README.md#what-the-app-runner-pushes)); `DELETE` deprovisions it and removes the route; both idempotent.
 - **The frontend dev server**: `PUT`/`DELETE localtest/api/routes/frontend-dev-server` routes
   `app-frontend.local.altinn.cloud` to it.
+- **Its own endpoints** besides `localtest/api/…`: the old localtest's `/` and `/Home/…`, and under the fixed prefix
+  `/mockporten/` a mock of the online test tool's token generator, `GET /mockporten/api/GetPlatformAccessToken`
+  (task 66), which signs platform access tokens with the shared certificate; the org names `localtest` and
+  `mockporten` cannot be registered as apps.
 - **`Secure` is stripped** from `Set-Cookie` on app routes only, because app-lib's `keepAlive` sets the runtime cookie
   `Secure` in every environment; this stays until app-lib honours an explicit localtest environment
   ([`../TODO.md`](../TODO.md) task 22).

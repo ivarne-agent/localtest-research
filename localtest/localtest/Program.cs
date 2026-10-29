@@ -7,6 +7,7 @@ using Localtest.Maskinporten;
 using Localtest.Provisioning;
 using Localtest.Proxy;
 using Localtest.Telemetry;
+using Localtest.TokenGenerator;
 using Localtest.Tokens;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
@@ -19,7 +20,8 @@ using Microsoft.Extensions.FileProviders;
 // a fake ID-porten (IdPorten/) with the test-user picker and a
 // fake Maskinporten (Maskinporten/), which production Authentication trusts; the old localtest's start page and
 // test helpers (Home/), which sign in and exchange tokens through production Authentication; and a headless
-// authorization-code flow for the registered OIDC clients production Authentication is seeded with (Authentication/).
+// authorization-code flow for the registered OIDC clients production Authentication is seeded with (Authentication/);
+// and a mock of the online test tool's platform access token generator (TokenGenerator/).
 // Forwarding is YARP's IHttpForwarder; the route table is code (PlatformRoutes) and the app and dev-server routes arrive
 // over HTTP (RoutesApi), saved on the data volume. Each feature keeps its own API under localtest/api/{feature}/.
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -128,6 +130,8 @@ MaskinportenApi.Map(app);
 HomeApi.Map(app);
 InstancesApi.Map(app);
 AuthenticationApi.Map(app);
+// The online test tool's platform access token generator, at its own path (TokenGenerator/).
+TokenGeneratorApi.Map(app);
 // Any other localtest/api/… path is the localtest app's own and unknown: its own 404, not the app-runner hint below.
 // (The specific feature routes win by route precedence; a plain RequestDelegate, as for the fallback.)
 app.Map("/localtest/api/{**rest}", context =>

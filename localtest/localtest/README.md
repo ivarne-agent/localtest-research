@@ -20,6 +20,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | Home: the old localtest's start page and test helpers (`/`, `/Home/LogInTestUser`, `/Home/GetTest*Token`, `/Home/Localtest/Version`), which sign in and exchange tokens through production Authentication; the start page links to Grafana while its route is live | `Home/` | `/`, `/Home/…` (the old contract) |
 | Storage instances: a query page for Storage's `GET storage/api/v1/instances` with a test user's or a service owner's token, the instance, its data elements, and links to the inbox, the dialog, the app or the receipt while they run | `Home/Instances/` | `/Home/Instances…` ([Storage instances](#storage-instances)) |
 | Authentication: production Authentication's authorization-code flow for a seeded OIDC client, run headlessly; tokens with `pid`, refresh | `Authentication/` | `localtest/api/authentication/` |
+| Test tool: a mock of the online test tool's platform access token generator, signed with the shared certificate, for the components that fetch their tokens from it ([Test tool](#test-tool-mockporten)) | `TokenGenerator/` | `mockporten/api/GetPlatformAccessToken` |
 | Minimal mode: the platform services whose address is the front door's own, emulated in memory under their public prefixes (task 35); nothing of it is registered or mapped otherwise | `Emulation/` | the services' own paths ([Minimal mode](#minimal-mode)) |
 
 | File | What |
@@ -32,6 +33,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Home/` | `HomeApi.cs` (the old contract), `AuthenticationClient.cs` (the headless sign-in and the exchanges over HTTP; its upstream half is shared with `Authentication/`), `StudioToken.cs` (Designer's token, for `/Home/GetTestStudioToken` and the provisioning) |
 | `Home/Instances/` | The instances page: `instances.html` (the form, embedded in the binary), `InstancesApi.cs` (the endpoints and the token), `InstanceQuery.cs` (the URL state: Storage's parameters and the token's), `StorageClient.cs`, `InstancesPages.cs` (the HTML), `InstanceLinks.cs` (which links work, the dialog id, the parties' URNs); `Home/TestTokens.cs` holds the tokens `/Home/GetTest…Token` and the page share |
 | `Authentication/` | `AuthenticationApi.cs` (endpoints), `CodeFlow.cs` (the code flow over HTTP), `SeededClients.cs` (the seeded clients' ids, secrets and redirect URIs) |
+| `TokenGenerator/` | `TokenGeneratorApi.cs`: the test tool's `GetPlatformAccessToken` under `/mockporten/`, its parameters and basic auth, and the token as `AccessTokenGenerator` writes it |
 | `LocaltestJsonContext.cs` | Source-generated JSON for every feature (Native AOT has no reflection serializer) |
 | `Proxy/PlatformRoutes.cs` | The route table: dedicated hosts and path prefixes to service names, the rewrite, the optional groups for the hints, the public host names |
 | `Proxy/Forwarder.cs` | Resolves a request, forwards it with [YARP](https://github.com/dotnet/yarp)'s `IHttpForwarder` (platform routes through service discovery's handler), the transform (original `Host`; the rewrite; `Secure` removed from an app's cookies), and the error path |
@@ -42,7 +44,7 @@ service discovery without pass-through, the `503`s, the registration, the public
 | `Telemetry/` | `FrontDoorTelemetry.cs`: OpenTelemetry (ASP.NET Core and HttpClient instrumentation, the emulated services' spans) only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; `LocaltestOtlp.cs`, the stack's one copy of the OTLP helper since task 63 inlined the rule in the components (`../components/shared/Otlp.Tests` tests it; [Telemetry](#telemetry)) |
 | `Dockerfile` | Native AOT publish for the build machine's architecture (`linux-musl-arm64` or `-x64`); listens on 8080 |
 | `tests/` | `Localtest.Tests.csproj`, xunit v3: the route table, the 503s, the registration API against a fake app and a fake platform on loopback ports, the telemetry (`TelemetryTests.cs`, against an in-process stand-in collector; inherited `OTEL_*` variables are cleared first); the instances page (`InstancesPageTests.cs`, against a fake Storage, Authentication and Register); `tests/Emulation/`, the minimal mode (`dotnet test tests`) |
-| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link, and `/otlp`: an export reaching minimal mode's `otel-files`, or without a receiver the `503` naming the group). 84 checks, 86 with the monitoring group, in both modes; in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
+| `smoke-test.sh` | Against the running stack: the routing contract, the 503, the registration API and the dev-server route, the fake ID-porten and Maskinporten, the test tool's token generator (`/mockporten/`), and the Home contract (sign-in at every level, party cookies, token helpers), and the monitoring routes (with the group on: Grafana's health, an OTLP export through `/otlp`, the Home link, the front door's own server and client span for a forwarded request and none for an export through `/otlp`, read back from VictoriaTraces through Grafana; off: the `503` naming the group and no link, and `/otlp`: an export reaching minimal mode's `otel-files`, or without a receiver the `503` naming the group). 87 checks, 89 with the monitoring group, in both modes (task 66 added three for the test tool); in minimal mode 9 more, one per emulated service (the header and one answer); `PROXY_CHECKS=0` skips the 14 registration checks (only useful before task 27a, when another front door ran) |
 
 ## Proxy
 
@@ -77,8 +79,8 @@ In order:
    client's `http://af.<host>:<port>/api/cb`.
 2. **`/app-frontend/`**: the built app-frontend (`FRONTEND_DIST`, mounted at `/frontend`) as static files, with
    `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. The apps' asset base.
-3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), and the start page and `/Home/…`
-   (Home).
+3. **The localtest app's own endpoints**: `GET /health`, `localtest/api/…` (below), the start page and `/Home/…`
+   (Home), and `GET /mockporten/api/GetPlatformAccessToken` ([Test tool](#test-tool-mockporten)).
 4. **App routes**: `/{org}/{app}/…` → the registered address, path unchanged.
 5. **Platform prefixes** on any other host, matched on segment boundaries, first match wins:
    `/dialogporten/graphql` → `dialogporten-graphql` with the prefix rewritten to `/graphql` (APIM does the same in
@@ -137,7 +139,7 @@ rest from the running app.
 
 | Call | What |
 | --- | --- |
-| `PUT apps/{org}/{app}` with `{ "url": "http://host.docker.internal:5005" }` | Validates (org and app are lower-case letters, digits and hyphens; not an org that is a platform prefix, `localtest`, `app-frontend` or `health`; the URL is an http(s) origin without a path or query; `400` otherwise), stores the route, then provisions from the app's API under `{url}/{org}/{app}/` (`api/v1/applicationmetadata`, `api/v1/meta/authorizationpolicy`, `api/v1/applicationlanguages`, `api/v1/texts/{lang}`, `testData.json`): the test users to the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access Management's refresh, and Dialogporten's sync when `dialogporten-adapter` has an address. `200` with the route and its provisioning (`state`, `at`, `result`: `textCount`, `hasPolicy`, `hasTestData`, `dialogporten` `Skipped`/`Synced`/`Failed`). A failed provisioning keeps the route and answers `502` problem details naming the failing request (or the service without an address); register again to retry. Idempotent: a repeat provisions again and keeps the registration time |
+| `PUT apps/{org}/{app}` with `{ "url": "http://host.docker.internal:5005" }` | Validates (org and app are lower-case letters, digits and hyphens; not an org that is a platform prefix, `localtest`, `mockporten`, `app-frontend` or `health`; the URL is an http(s) origin without a path or query; `400` otherwise), stores the route, then provisions from the app's API under `{url}/{org}/{app}/` (`api/v1/applicationmetadata`, `api/v1/meta/authorizationpolicy`, `api/v1/applicationlanguages`, `api/v1/texts/{lang}`, `testData.json`): the test users to the Register, metadata and texts to Storage, the policy to the PDP, the Resource Registry's subject reload, Access Management's refresh, and Dialogporten's sync when `dialogporten-adapter` has an address. `200` with the route and its provisioning (`state`, `at`, `result`: `textCount`, `hasPolicy`, `hasTestData`, `dialogporten` `Skipped`/`Synced`/`Failed`). A failed provisioning keeps the route and answers `502` problem details naming the failing request (or the service without an address); register again to retry. Idempotent: a repeat provisions again and keeps the registration time |
 | `DELETE apps/{org}/{app}` | Removes the app's test users from the Register, refreshes Access Management and removes the route; `204`, also when there was no route. Storage, the policy store and the Resource Registry keep the app, as they keep one Designer no longer deploys. A failed deprovisioning still removes the route and answers `502` |
 | `GET apps` | Every route with its address, registration time and last provisioning |
 
@@ -230,6 +232,38 @@ its production exchanges. Calls to Authentication go by service name (`http://au
 
 Production `exchange/maskinporten` looks the organisation code up in `https://altinncdn.no/orgs/altinn-orgs.json`, so a
 service-owner org token needs internet access from the authentication container.
+
+## Test tool (`mockporten`)
+
+A mock of the online test tool's platform access token generator (`altinn-testtools-token-generator`, source
+[Altinn/AltinnTestTools](https://github.com/Altinn/AltinnTestTools) `TokenGenerator/GetPlatformAccessToken.cs`), for the
+components whose development setup fetches platform access tokens from it, so the stack never calls the internet for
+one. It answers under the fixed prefix `/mockporten/` (the owner's choice, 2026-10-29; the path below it is the real
+tool's), on the public origin like the stack's other token issuers (`http://local.altinn.cloud:8000/mockporten/api/…`)
+and inside the network as `http://localtest:8080/mockporten/api/…`. The interface is the one
+[altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) plans for Mockporten, so a consumer can later be
+pointed there instead; later test-tool-compatible endpoints (`GetEnterpriseToken`, `GetPersonalToken`) belong under the
+same prefix. The route is not configurable; only the consumers' URLs are (their environment variables in the manifest).
+
+| `GET mockporten/api/GetPlatformAccessToken` | |
+| --- | --- |
+| Basic auth | Required, as at the real tool: without an `Authorization: Basic` header (or with another scheme) `401` with `WWW-Authenticate: Basic`; credentials that do not decode as `user:password` `400`. Any user name and password are accepted |
+| `app` | Required, the real tool's rule (letters, digits, `_` and `-` in dot-separated parts, 2 to 50 characters); becomes `urn:altinn:app`. Otherwise `400` |
+| `ttl` | The lifetime in seconds, an unsigned 32-bit integer; default 1800 and no maximum, as at the real tool. Otherwise `400` |
+| `org` | The issuer, as at the real tool: `platform` (the default) or `ttd`. Otherwise `400` |
+| `env` | Accepted and ignored (logged at Information with the user name) |
+| Answer | `200 text/plain`, the bare token |
+
+The token is what `Altinn.Common.AccessTokenClient`'s `AccessTokenGenerator.GenerateAccessToken(issuer, app)` writes in
+production, signed with the shared test certificate (`Localtest:AccessTokenCertificatePath`): header `alg` RS256, `kid`
+the certificate's thumbprint, `x5t`, `typ` JWT; claims `urn:altinn:app`, `nbf` (five seconds before now, the client
+library's `ValidFromAdjustmentSeconds`), `exp` (now plus `ttl`), `iat`, `iss` and `aud` `platform.altinn.no`. Every
+component validates platform access tokens against that certificate (`Altinn.Common.AccessToken`'s handler, which
+checks the signature and the lifetime, not the issuer or audience), so they accept it unchanged. Issuer `platform`
+because it is the real tool's default (its `PlatformAccessTokenIssuerName`) and what production's own generators use for
+these calls. Differences from the real tool: no `actual_iss` claim (production's tokens have none), no `dump`, `env` not
+checked, and the `400` body is plain text. `tests/TokenGeneratorTests.cs` checks the claims, the signature against the
+certificate's public key with the validator's parameters, the basic auth, `app`, `org` and `ttl`.
 
 ## Storage instances
 

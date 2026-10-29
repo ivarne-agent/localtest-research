@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # End-to-end check of the stack through the front door: sign-in, tokens, PDP decisions and a full instance lifecycle on
 # production Storage. Requires the stack (`studioctl env up -r localtest-v2`) and local.altinn.cloud in /etc/hosts.
-# 26 checks, 27 with the monitoring group up (Storage's server span in VictoriaTraces, task 53); check 26 (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
+# 28 checks, 29 with the monitoring group up (Storage's server span in VictoriaTraces, task 53); check 28 (no errors in Storage's log, read from its container: localtest-v2-storage under studioctl,
 # storage-<suffix> under the Aspire package, see smoke/lib/containers.sh) skipped without podman or docker or the
 # container. In minimal mode (studioctl env up --minimal: the front door emulates the platform and its PDP permits
 # everything; read from GET localtest/api/routes, or forced with LOCALTEST_MINIMAL=1, or off with LOCALTEST_MINIMAL=0)
-# the three checks that need real authorization decisions are skipped by name with the reason: 23 checks.
+# the three checks that need real authorization decisions are skipped by name with the reason: 25 checks.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source-path=SCRIPTDIR source=smoke/lib/containers.sh
@@ -69,6 +69,11 @@ DR=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $USR" -H 'Content-Typ
 check "storage: user uploads data in Task_1" "201" "$(echo "$DR" | tail -1)"
 DID=$(echo "$DR" | head -1 | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
 check "storage: user reads the data back" "hello localtest" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/instances/$ID/data/$DID")"
+# A platform access token from the front door's test-tool mock (task 66) passes Storage's PlatformAccess policy.
+TT="$BASE/mockporten/api/GetPlatformAccessToken"
+check "mockporten: the token generator needs basic auth (401)" "401" "$(code "$TT?env=localtest&app=smoke-test")"
+PAT=$(curl -s -u localtest:localtest "$TT?env=localtest&app=smoke-test")
+check "storage: a mockporten platform access token passes PlatformAccess" "true" "$(curl -s -H "PlatformAccessToken: $PAT" "$BASE/storage/api/v1/instances/$ID/dataelementexists/$DID")"
 check "storage: file scan result" "Clean" "$(curl -s -H "Authorization: Bearer $USR" "$BASE/storage/api/v1/instances/$ID" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["fileScanResult"])')"
 decided "storage: user without the role cannot upload" "403" "$([[ "$MINIMAL" == 1 ]] || code -H "Authorization: Bearer $U2" -H 'Content-Type: text/plain' -X POST --data-binary x "$BASE/storage/api/v1/instances/$ID/data?dataType=attachment")"
 check "storage: the app ends the process" "200" "$(code -H "Authorization: Bearer $ORG" -H 'Content-Type: application/json' -X PUT "$BASE/storage/api/v1/instances/$ID/process" -d '{"started":"2026-10-17T07:00:00Z","startEvent":"StartEvent_1","ended":"2026-10-17T07:05:00Z","endEvent":"EndEvent_1"}')"

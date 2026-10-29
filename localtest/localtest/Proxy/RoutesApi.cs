@@ -23,7 +23,7 @@ public static class RoutesApi
                 return Results.BadRequest("org and app must be lower-case letters, digits and hyphens");
             }
 
-            if (PlatformRoutes.IsPlatformPath($"/{org}/") || org is "localtest" or "app-frontend" or "Home" or "health")
+            if (PlatformRoutes.IsPlatformPath($"/{org}/") || org is "localtest" or "mockporten" or "app-frontend" or "Home" or "health")
             {
                 return Results.BadRequest($"/{org}/ belongs to the platform or the localtest app; an app route there would shadow it");
             }

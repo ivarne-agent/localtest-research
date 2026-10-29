@@ -122,6 +122,7 @@ public sealed class RegistrationTests : IAsyncLifetime
     [InlineData("ttd/Not_Valid", "http://127.0.0.1:5005")]
     [InlineData("storage/app", "http://127.0.0.1:5005")]
     [InlineData("localtest/app", "http://127.0.0.1:5005")]
+    [InlineData("mockporten/api", "http://127.0.0.1:5005")]
     [InlineData("ttd/app", "http://127.0.0.1:5005/ttd/app")]
     [InlineData("ttd/app", "http://127.0.0.1:5005/?x=1")]
     [InlineData("ttd/app", "ftp://127.0.0.1:5005")]

@@ -3,7 +3,7 @@
 # - the front door: the contract the nginx ingress had (routes by host and path, trailing-slash redirects, cookies
 #   without Secure, streaming, the app-frontend files), the 503 for a service that is off, and the registration API the
 #   app runners use (registers, provisions and removes ttd/proxy-smoke only, and the frontend dev server's route);
-# - the fake ID-porten and Maskinporten;
+# - the fake ID-porten and Maskinporten, and the test tool's token generator under /mockporten/;
 # - Home: the old localtest login contract (start page, LogInTestUser and the party cookies of the selected party,
 #   authentication levels in the token, version probe, token helpers), all through production Authentication;
 # - in minimal mode (studioctl env up --minimal, read from GET localtest/api/routes, or LOCALTEST_MINIMAL=1), one check
@@ -142,6 +142,12 @@ expect "consumer_org in the assertion wins" 0192:974760673 "$(consumer_id '{"iss
 expect "Maskinporten token: grant_type client_credentials" unsupported_grant_type "$(curl -s -m 10 -X POST "$MP/token" -d grant_type=client_credentials | json error)"
 expect "Maskinporten token: no assertion" invalid_request "$(curl -s -m 10 -X POST "$MP/token" -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer | json error)"
 expect "Maskinporten token: assertion without iss" invalid_request "$(mp_token '{"scope":"x"}' | json error)"
+# The test tool's token generator (TokenGenerator/, task 66): basic auth with any value, the production claims.
+TT="$BASE/mockporten/api/GetPlatformAccessToken"
+expect "test tool: no basic auth is a 401" 401 "$(code "$TT?env=localtest&app=smoke.test")"
+expect "test tool: no app is a 400" 400 "$(code -u any:thing "$TT?env=localtest")"
+TT_TOKEN=$(curl -s -m 10 -u any:thing "$TT?env=localtest&app=smoke.test&ttl=60")
+expect "test tool: iss, urn:altinn:app, aud, lifetime" "platform smoke.test platform.altinn.no 60" "$(claim "$TT_TOKEN" iss) $(claim "$TT_TOKEN" urn:altinn:app) $(claim "$TT_TOKEN" aud) $(( $(claim "$TT_TOKEN" exp) - $(claim "$TT_TOKEN" iat) ))"
 J=$(mktemp); LOC=$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -c "$J" "$BASE/authentication/api/v1/authentication?goTo=$BASE/")
 q() { python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query).get(sys.argv[2],[''])[0])" "$LOC" "$1"; }
 expect "Authentication sends an S256 PKCE challenge" "S256" "$(q code_challenge_method)"
