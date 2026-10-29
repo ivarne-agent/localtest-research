@@ -174,6 +174,9 @@ public sealed class AuthenticationTests
 
         var serviceOwner = MaskinportenApi.Mint(key, settings, "991825827", "altinn:serviceowner/instances.read", "localtest-smoke");
         Assert.Equal("ttd", MinimalFrontDoor.Claims(await Exchange(client, serviceOwner, "?test=true")).GetProperty("urn:altinn:org").GetString());
+        Assert.Equal("digdir", MinimalFrontDoor.Claims(await Exchange(client, serviceOwner, string.Empty)).GetProperty("urn:altinn:org").GetString());
+        var localClient = MaskinportenApi.Mint(key, settings, "991825827", "altinn:serviceowner/instances.read", "ttd-localtest");
+        Assert.Equal("ttd", MinimalFrontDoor.Claims(await Exchange(client, localClient, string.Empty)).GetProperty("urn:altinn:org").GetString());
         var plain = MinimalFrontDoor.Claims(await Exchange(client, MaskinportenApi.Mint(key, settings, "974760673", "altinn:instances.read", "x"), string.Empty));
         Assert.False(plain.TryGetProperty("urn:altinn:org", out _));
         Assert.Equal("974760673", plain.GetProperty("urn:altinn:orgNumber").GetString());

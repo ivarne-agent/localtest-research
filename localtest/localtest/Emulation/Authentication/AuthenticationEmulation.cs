@@ -225,7 +225,10 @@ public sealed class AuthenticationEmulation(
                     return (null, "The Maskinporten token has no consumer organisation.", StatusCodes.Status401Unauthorized);
                 }
 
-                var org = Jwt.Claim(claims, "scope")?.Contains("altinn:serviceowner", StringComparison.Ordinal) == true ? OrgCode(orgNumber, test) : null;
+                // An app's local Maskinporten client (<org>-localtest, which the app runners write) acts as ttd, as with
+                // test=true: the stack's Authentication has the same rule.
+                var localClient = Jwt.Claim(claims, "client_id")?.EndsWith("-localtest", StringComparison.Ordinal) == true;
+                var org = Jwt.Claim(claims, "scope")?.Contains("altinn:serviceowner", StringComparison.Ordinal) == true ? OrgCode(orgNumber, test || localClient) : null;
                 return (minter.Org(claims, orgNumber, org), null, StatusCodes.Status200OK);
             }
 
