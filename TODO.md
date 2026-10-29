@@ -108,7 +108,7 @@ A path matching no route still falls through to the localtest app.
 | 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29; main `6e1b1105`..`27e07fb5`, `4840c5e9`, then the follow-up `c42c24b6` and its parents; pinned `sha-c42c24b`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): 19 fake files (1073 lines) became 13 new directive blocks plus the OTLP rule inlined in six existing sites, in Authorization, Dialogporten, the Resource Registry, Correspondence, Access Management, Events and the OTLP consumers; `components/shared/fakes/Otlp/` is gone (the front door keeps its copy, which `Otlp.Tests` now tests); the upstream token-generator change is task 64 | medium | yes |
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | **superseded by [66](#66-a-test-tool-token-generator-mock-in-the-front-door)** (the owner, 2026-10-29: "Can localtest just use a mock of the online token generator?"); was unapproved (created at the owner's request 2026-10-29; not to be dispatched); its plan stays as history and may come back as an optional idea for `dotnet run` developers | small | no |
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
-| 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | in progress (2026-10-29; worktree `/home/agent/code/.worktrees/task66-testtool-mock`, branch `task66-testtool-mock`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`) | small | yes |
+| 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
 
 ## 1. Vendor sync check
 
@@ -3163,3 +3163,16 @@ in front-door for now?". Task 64 is superseded.
 - **Follow-up**, when the upstream change is merged and synced: remove the front door's root `/api/GetPlatformAccessToken`
   route (and its tests and README paragraph) and the root use of `Platform__Token__TestTool__Endpoint`, and check that
   Access Management's log shows its calls at `/mockporten/api/GetPlatformAccessToken`.
+
+**Done (2026-10-29):** main `db670995`..`8023057f`, images run 40887997111, pinned `sha-8023057`. Static: the front door's
+tests 206 (25 new), its Release build 0 warnings; Access Management 0 errors in Debug and Release (8 warnings, the
+CS0162 gone with the directive); `vendor-sync.py check --all` ok (Access Management 3 site files, 5 blocks); Go `ok`,
+`make lint` 0 issues, the Aspire package 198. Local images (`--dev-localtest`, `--dev-access-management`,
+`--with monitoring`, evidence `run2/`): Access Management's log shows 20 calls to
+`http://localtest:8080/api/GetPlatformAccessToken`, all `200`, then the Register streams `200`; the refresh re-imported
+158 role assignments; root 30 (the three new mock checks: no basic auth `401`, the token passes Storage's
+`PlatformAccess`, a broken signature `401`), the front door 88 + `FRONTEND_DIST`, Authorization 32, Resource Registry
+44, Register 15; minimal: root 26 (4 skips), the front door 95 + `FRONTEND_DIST`. Pinned check (no `--dev-*`, evidence
+`pinned/`): golden diff only the tags; `--with monitoring`: Access Management's mock calls `200`, refresh 158, root 30,
+the front door 88 + `FRONTEND_DIST`, Authorization 32, Resource Registry 44, Register 15; minimal root 26 (4 skips).
+
