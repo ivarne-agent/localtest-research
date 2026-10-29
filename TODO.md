@@ -109,6 +109,7 @@ A path matching no route still falls through to the localtest app.
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | **superseded by [66](#66-a-test-tool-token-generator-mock-in-the-front-door)** (the owner, 2026-10-29: "Can localtest just use a mock of the online token generator?"); was unapproved (created at the owner's request 2026-10-29; not to be dispatched); its plan stays as history and may come back as an optional idea for `dotnet run` developers | small | no |
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 | 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
+| 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`) | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -3175,4 +3176,38 @@ CS0162 gone with the directive); `vendor-sync.py check --all` ok (Access Managem
 44, Register 15; minimal: root 26 (4 skips), the front door 95 + `FRONTEND_DIST`. Pinned check (no `--dev-*`, evidence
 `pinned/`): golden diff only the tags; `--with monitoring`: Access Management's mock calls `200`, refresh 158, root 30,
 the front door 88 + `FRONTEND_DIST`, Authorization 32, Resource Registry 44, Register 15; minimal root 26 (4 skips).
+
+## 67. File-based Maskinporten token source for apps on localtest
+
+The owner's questions and decision (2026-10-29, verbatim): "The production version of apps gets maskinporten keys from a
+volume mount that altinn operator manages. Is there any way we can run that code path in localtest?", "Is it feasable
+to run the real operator code?" (answer: feasible only with a Kubernetes API, kind or a bare API server, and a sync of
+the Secret out to the apps; not recommended by default; a contract test between the operator's writer, studioctl's
+writer and the app libraries' reader covers the format drift), then "Add the file based token source to the TODO and
+dispatch agents to fix all 4".
+
+The four changes are those of task 43's review, "The switch to the proper fakes"
+([`localtest/reviews/2026-10-23-app-maskinporten.md`](localtest/reviews/2026-10-23-app-maskinporten.md)):
+
+1. **The runners write a local client** into the app's secrets directory (`RUNTIME_APP_SECRETS_DIR`, the file
+   `RUNTIME_APP_SECRETS_MASKINPORTEN_FILENAME` names, the format the operator's `maskinporten-settings.json` and
+   studioctl's `appsecrets` writer use) on every run against localtest-v2, unless the developer stored one: authority
+   `<origin>/localtest/api/maskinporten/` (trailing slash), client id `<org>-localtest`, a generated RSA key. studioctl
+   and the Aspire package alike. (67a)
+2. **The exchange makes the app's org**: production Authentication's `exchange/maskinporten` turns the fake
+   Maskinporten token for 991825827 into `ttd`, not `digdir`, through the Authentication fakes. (67a)
+3. **The monorepo app libraries' `AuthenticationTokenResolver`** takes the real `MaskinportenClient` for `AltinnToken`
+   whenever a client is configured, keeping the `/Home/GetTestOrgToken` short-cut only without one (the old localtest).
+   A pull request to altinn-studio. (67b)
+4. **app-lib 8**: the runners also set `AppSettings__RuntimeSecretsDirectory` for a process run (67a); the same
+   resolver change in app-lib-dotnet, a pull request from the fork, which needs a release to take effect (67c).
+
+Also in 67b: a contract test in the monorepo that the operator's Secret writer, studioctl's writer and the app
+libraries' reader agree on the file name and format.
+
+Open point, decided by default until the owner says otherwise: a client the developer stores (`studioctl app
+maskinporten set`, a real test client) wins over the local one, and service-owner requests then fail at the local
+exchange (`401`, the real token is not trusted); the runners say so when they see a stored client against localtest-v2.
+Alternatives for the owner: a second file for the local exchange, or Authentication's fakes also trusting test
+Maskinporten.
 
