@@ -12,15 +12,16 @@
 - Host: a plain `WebApplication.CreateBuilder` host, not an `AltinnServiceDefaults` one: it references
   `Altinn.Authorization.ServiceDefaults` 5.5.0 but never calls it (only its transitive packages are used), and its
   telemetry is the classic Application Insights SDK.
-- Localtest modifications: 3 directive sites in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs`, the
+- Localtest modifications: 3 directive sites in `src/apps/Altinn.Authorization/src/Altinn.Authorization/Program.cs` and
+  one each in `Services/Implementation/OedRoleAssignmentWrapper.cs` and `PolicyRetrievalPoint.cs` (task 63), the
   composition `fakes/LocaltestAuthorizationExtensions.cs` with `fakes/LocaltestAuthorizationOptions.cs`, the telemetry
   `fakes/LocaltestAuthorizationTelemetry.cs`, the policy store `fakes/Policies/`, the Azure and Key Vault stand-ins
-  `fakes/Infrastructure/`, the OED stand-in `fakes/Pip/`, the test API `fakes/Controllers/`, the shared copies
+  `fakes/Infrastructure/`, the test API `fakes/Controllers/`, the shared copies
   `fakes/ServiceDiscovery/` and `fakes/Otlp/`, two build overrides, and the `localtest:` deviations in `Dockerfile` and
   `.dockerignore`.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
-`../components/authorization/` (sites relative to its `vendor/`, all in `Program.cs`).
+`../components/authorization/` (sites relative to its `vendor/`).
 
 Upstream plans to move the host to ServiceDefaults and into a local Aspire app host:
 [altinn-auth#4064](https://github.com/Altinn/altinn-auth/issues/4064) (under the epic
@@ -53,8 +54,8 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
   - Why: the app runner pushes a policy and the next decision should use it; locally the shortest timeout is still a
     minute.
   - Size: small.
-  - Removes: `fakes/Policies/LocaltestPolicyRetrievalPoint.cs` and its registration (the rest of `fakes/Policies/`
-    goes with the Azure item below).
+  - Removes: the directive site in `PolicyRetrievalPoint.GetPolicyAsync(org, app)` (it replaced
+    `fakes/Policies/LocaltestPolicyRetrievalPoint.cs` in task 63).
   - Upstream: none found. With several replicas only the one that took the write sees it at once; I could not confirm
     how many production runs, but nothing gets worse.
   - Detail: [`../components/authorization/README.md`](../components/authorization/README.md), "Fakes".
@@ -83,8 +84,8 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
       a local certificate. The README's ["Across services"](README.md#across-services) has the cross-service proposal.
   - Why: none of the three Azure services exists locally, and localtest does not run Azurite.
   - Size: large; the policy store is shared by three hosts.
-  - Removes: `fakes/Policies/` (with the cache item above), `fakes/Infrastructure/` (`NoopEventsQueueClient`,
-    `LocaltestPublicSigningKeyProvider`), the generator and `AccessTokenSettings` replacements in the hook, and the
+  - Removes: `fakes/Policies/`, `fakes/Infrastructure/` (`LocaltestPublicSigningKeyProvider`; the audit queue's no-op
+    went in task 63, the forced-off audit log leaves the production client uncalled), the generator and `AccessTokenSettings` replacements in the hook, and the
     `/policy-store` deviation in `Dockerfile`.
   - Upstream: related [altinn-auth#4064](https://github.com/Altinn/altinn-auth/issues/4064), which proposes Azurite
     instead; the difference needs raising there.
@@ -108,7 +109,8 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
 - `fakes/LocaltestAuthorizationExtensions.cs` and `fakes/LocaltestAuthorizationOptions.cs`, configuration defaults:
   service names, the public origin for the JWT cookie metadata and SBL links, one-minute caches, production's feature
   flags with the audit log off: deployment settings; with the environment they need no `JwtCookieOptions` re-apply.
-- `fakes/Pip/`: `NoOedRoleAssignments`, a stand-in for the external Digitalt dødsbo API reached through Maskinporten.
+- The directive site in `OedRoleAssignmentWrapper.GetOedRoleAssignments` (task 63, in place of `fakes/Pip/`): an empty
+  answer instead of the external Digitalt dødsbo API reached through Maskinporten.
 - `fakes/Controllers/`: the anonymous `localtest/decision` and `localtest/refresh` endpoints for tests and debugging.
 - `Dockerfile`: `COPY vendor/...` and the `/src` layout with `DirectoryBuildPropsPath` and `DirectoryBuildTargetsPath`:
   the vendoring layout.
@@ -120,6 +122,5 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
   vendored-project test: the mechanism that carries the sites.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 
-Coverage: 3 sites, 9 fakes (`LocaltestAuthorizationExtensions.cs`, `LocaltestAuthorizationOptions.cs`,
-`LocaltestAuthorizationTelemetry.cs`, `Policies/`, `Infrastructure/`, `Pip/`, `Controllers/`, `ServiceDiscovery/`,
-`Otlp/`), 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for.
+Coverage: 5 sites, 8 fakes (`LocaltestAuthorizationExtensions.cs`, `LocaltestAuthorizationOptions.cs`,
+`LocaltestAuthorizationTelemetry.cs`, `Policies/`, `Infrastructure/`, `Controllers/`, `ServiceDiscovery/`, `Otlp/`), 2 build overrides, 3 Dockerfile and 1 `.dockerignore` deviations: all accounted for.

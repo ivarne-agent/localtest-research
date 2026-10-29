@@ -5,10 +5,9 @@
   [`../components/dialogporten/vendor/UPSTREAM.md`](../components/dialogporten/vendor/UPSTREAM.md)
 - Group: none
 - Reminders: the host builds rewrite each host's `packages.lock.json` (`git checkout -- vendor` before `check`); a new
-  `LocalDevelopment` flag goes into `fakes/` `LocaltestConfiguration`; the two `TokenIssuerCache.cs` copies in `fakes/`
-  follow upstream's.
-- Localtest modifications: 7 directive sites (one hook per host's `Program.cs`, two in `OpenTelemetryExtensions.cs`, two
-  in `FluentValidationStringExtensions.cs`), the fakes `GraphQL/`, `Infrastructure/` (with the shared copies
+  `LocalDevelopment` flag goes into `fakes/` `LocaltestConfiguration`.
+- Localtest modifications: 9 directive sites (one hook per host's `Program.cs`, two in `OpenTelemetryExtensions.cs`, two
+  in `FluentValidationStringExtensions.cs`, one in each host's `TokenIssuerCache.cs` from task 63), the fakes `GraphQL/`, `Infrastructure/` (with the shared copies
   `Maskinporten/` and `ServiceDiscovery/LocaltestPrefixRouting.cs`), `Service/`, `WebApi/` and the shared copy
   `ServiceDiscovery/`, two build overrides, the `localtest:` deviations in `Dockerfile.webapi`, `.graphql` and
   `.service`, `.dockerignore` and `postgres-init/`.
@@ -49,8 +48,10 @@ http, the Maskinporten package, service discovery and the localtest endpoints.
   - Why: the stack's Authentication and the fake Maskinporten and ID-porten publish their metadata over plain http; the
     JWT schemes refuse it, and the issuer cache's retriever refuses it whatever the scheme says.
   - Size: small.
-  - Removes: `fakes/WebApi/Authentication/`, `fakes/GraphQL/Authentication/` and the `ConfigureAll<JwtBearerOptions>`
-    and `ITokenIssuerCache` replacements in `fakes/WebApi/LocaltestWebApi.cs` and `fakes/GraphQL/LocaltestGraphQl.cs`.
+  - Removes: the sites in `Digdir.Domain.Dialogporten.WebApi/Common/Authentication/TokenIssuerCache.cs` and
+    `Digdir.Domain.Dialogporten.GraphQL/Common/Authentication/TokenIssuerCache.cs` (which replaced the two
+    `Authentication/` fakes in task 63) and the `ConfigureAll<JwtBearerOptions>` in `fakes/WebApi/LocaltestWebApi.cs` and
+    `fakes/GraphQL/LocaltestGraphQl.cs`.
   - Upstream: none found.
   - Detail: [`../components/dialogporten/README.md`](../components/dialogporten/README.md), "Fakes (`fakes/`)".
 
@@ -187,8 +188,7 @@ http, the Maskinporten package, service discovery and the localtest endpoints.
 - `localtest.build.targets`: compiling `fakes/Infrastructure`, `fakes/WebApi`, `fakes/GraphQL` and `fakes/Service` into
   their projects: as above.
 
-Coverage: 7 sites, 14 fakes (`GraphQL/`: the hook and `Authentication/`; `Infrastructure/`: `LocaltestInfrastructure.cs`,
+Coverage: 9 sites, 12 fakes (`GraphQL/`: the hook; `Infrastructure/`: `LocaltestInfrastructure.cs`,
 `LocaltestOverrides.cs`, `LocaltestConfiguration.cs`, `LocaltestCaches.cs`, `LocaltestDialogportenOptions.cs`,
-`Maskinporten/`, `ServiceDiscovery/`; `Service/`: the hook; `ServiceDiscovery/`; `WebApi/`: the hook, `Authentication/`,
-`Localtest/`), 2 build overrides, 13 Dockerfile deviations (4 in each of the three, 1 more in `Dockerfile.webapi`), 1 `.dockerignore` deviation, 1
+`Maskinporten/`, `ServiceDiscovery/`; `Service/`: the hook; `ServiceDiscovery/`; `WebApi/`: the hook, `Localtest/`), 2 build overrides, 13 Dockerfile deviations (4 in each of the three, 1 more in `Dockerfile.webapi`), 1 `.dockerignore` deviation, 1
 Postgres init script: all accounted for.
