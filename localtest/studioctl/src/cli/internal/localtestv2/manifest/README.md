@@ -22,7 +22,7 @@ it hold the files its containers mount ([Files](#files)), which ship with it.
     "containers": {
         "storage": {
             "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-storage",
-            "tag": "sha-6d928ad",
+            "tag": "sha-<commit>",
             "port": 5010,
             "envs": { "GeneralSettings__PlatformEndpoint": "{{origin}}/" },
             "dependsOn": ["postgres"],
@@ -148,8 +148,8 @@ stack.
 or before the file was lost) has other passwords. Once the `postgres` container is healthy and before anything that
 depends on it starts, the runner sets every existing role's password (and the superuser's) to the values in the
 container's environment: it runs `psql` as the superuser over the container's Unix socket, which the image's
-`pg_hba.conf` trusts (initdb's default `local all all trust`), so it works whatever the superuser's password was (a
-volume from before task 62 has `postgres`). The script (`ReconcileScript` in `passwords.go`, the Aspire package's
+`pg_hba.conf` trusts (initdb's default `local all all trust`), so it works whatever the superuser's password was (an
+older volume's superuser password is `postgres`). The script (`ReconcileScript` in `passwords.go`, the Aspire package's
 `LocaltestManifest.ReconcileScript`, compared through the golden file) reads each password with `\getenv`, so neither
 the arguments nor the script hold one, skips a role that does not exist yet, keeps the statements out of the server's
 log and `pg_stat_statements`, and prints the roles it set. studioctl runs it as part of Postgres's readiness check
@@ -157,8 +157,11 @@ log and `pg_stat_statements`, and prints the roles it set. studioctl runs it as 
 needed for passwords.
 
 The passwords appear in the containers' environment (`podman inspect`), which is accepted, and nowhere else: not in an
-image, the manifest, a fake, a log line or a command line (studioctl's Podman CLI client passes the environment in a
-temporary `--env-file`).
+image, the manifest, a fake or a log line. Under studioctl not in a command line either (its Podman CLI client passes the
+environment in a temporary `--env-file`). Under the Aspire package they are: DCP creates each container with
+`podman create … -e KEY=VALUE`, so the values are in that command line while it runs, visible to other local users who
+can list processes. A known gap, left as is: the values are random per installation, work only against the local
+Postgres and are in the containers' environment anyway.
 
 ## Files
 

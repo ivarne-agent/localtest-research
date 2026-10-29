@@ -48,12 +48,13 @@ whose group is off answers `503` with the `env up` command that starts it.
 
 ## Minimal mode
 
-`--minimal` runs Postgres, Storage, the workflow engine and the front door, which then emulates the other services.
+`--minimal` runs five containers: Postgres, Storage, the workflow engine, the front door, which then emulates the other
+services, and `otel-files` (below).
 Use it for quick work and an app's own tests, not to test authorization:
 
 - authorization permits every request
 - each container keeps its data in memory, so nothing is kept between starts and `env reset` has nothing to delete
-- it takes no `--with` or `--without`, and `--dev-<container>` only for the four containers it starts
+- it takes no `--with` or `--without`, and `--dev-<container>` only for the containers it starts
 
 `env status` says when the stack runs in minimal mode. `env up` stops a stack that runs in the other mode first.
 

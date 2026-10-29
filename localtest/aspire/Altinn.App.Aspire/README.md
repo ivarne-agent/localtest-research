@@ -89,8 +89,8 @@ workflow run's artifact into a local folder source.
 | `.WithGroup(group)` | Adds a group's root containers and what they depend on; `everything` adds every group. An unknown group, `default` (always on) or `monitoring` ([ignored](#the-ignored-monitoring-group)) throws |
 | `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups (all but `default`, `minimal` and the ignored `monitoring`) differ |
 | `.WithFrontendDevServer(port = 8080)` | `studioctl run --dev-frontend`: once the front door is healthy, `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:<port>`, and every app loads app-frontend from `http://app-frontend.local.altinn.cloud:8000` |
-| `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`; pulled on every start). Default: the manifest's pins |
-| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`, the installation's database passwords in `secrets/postgres-passwords.json` (owner-only; a random password per role, generated when the AppHost first starts and set in Postgres before its dependants start, see the [manifest README](../../studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)). The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
+| `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`). Any tag that does not start with `sha-` floats and is pulled on every start (`StackSpec.ImageOf`), so a locally built image needs a `sha-…` tag (for example `sha-mylocal`): under another tag the pull fails and the container never starts. Default: the manifest's pins |
+| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`, the installation's database passwords in `secrets/postgres-passwords.json` (owner-only; a random password per role, generated when the AppHost first starts and set in Postgres before its dependants start, see the [manifest README](../../studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords); known gap, left as is: DCP passes the containers' environment, passwords included, on its `podman create … -e KEY=VALUE` command line while it runs, TODO.md task 62). The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
 | `AltinnLocaltestOptions.PostgresHostPort` | Publishes Postgres on this loopback port, for `psql`; default none, as studioctl |
 | `AltinnLocaltestOptions.PublicHost`, `.PublicPort` | The public origin's host and port ([The public origin](#the-public-origin)); null is the manifest's (`local.altinn.cloud`, 8000), `PublicPort = 0` a port Aspire allocates |
@@ -160,7 +160,8 @@ studioctl's loader (`internal/cmd/env/localtestv2/containers.go`) builds it:
 | `health` | [Health](#health) | |
 | the front door | the localtest container's `http` endpoint, host port 8000 onto `port` (8080), unproxied, on every interface (the containers reach it through the host gateway); its check is `/health` through 8000 | none |
 
-Nothing else is published. `--dev-<container>` builds have no counterpart (`Tag`, or a locally built image by hand).
+Nothing else is published. `--dev-<container>` builds have no counterpart (`Tag` naming a locally built image under a
+`sha-…` tag; any other tag is pulled).
 
 ### Health
 

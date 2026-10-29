@@ -5,7 +5,7 @@ package), the localtest app as the front door and the component images. Each sec
 where the code is. Other documents link here instead of restating them. The rules the studioctl code depends on are
 stated with that code, in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md), which travels with it into the monorepo; the sections
 below name the matching section there and add what only this repository needs (the Aspire package, the images'
-sources, the history). Where the two disagree, the manifest README is right. State as of 2026-10-24 (after tasks 25 to 28, 31, and phase 1 of 34, 35 and 39 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
+sources, the history). Where the two disagree, the manifest README is right. State as of 2026-10-29 (through task 65 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
 
@@ -52,6 +52,8 @@ lists the stack in three sections:
   dependants start, the runner sets every role's password to the file's, so no volume needs a reset for passwords. No
   image, fake or manifest carries a role password
   ([manifest README, Database users and passwords](studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)).
+  Known gap under Aspire, left as is (TODO.md task 62): DCP runs `podman create … -e KEY=VALUE`, so the passwords are
+  in that command line while it runs; studioctl passes them in an owner-only `--env-file`.
 - Database initialization (the user's principles, TODO.md task 62): **localtest owns the initialization of the database
   and the creation of the users** (each component's `postgres-init/NN-*.sh`, not an upstream script), and **platform
   services that run Yuniql or other migration software at startup do so in localtest too** (localtest does not run
@@ -70,13 +72,16 @@ runner and held to one golden snapshot, rather than a vocabulary in a file that 
 
 Stated for studioctl in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md#tags).
 
-**Rule.** Every research image carries the same `sha-<commit>` pin (today `sha-6d928ad`); pdf3 and the workflow engine
+**Rule.** Every research image carries the same `sha-<commit>` pin (the current one is the `tag` of each research image in
+[`manifest.json`](studioctl/src/cli/internal/localtestv2/manifest/manifest.json)); pdf3 and the workflow engine
 run the monorepo's `tt02` tag, re-pulled on every start. A pin moves only by
 [`tools/bump-tag.sh`](tools/bump-tag.sh)` sha-<commit>`, run by whoever proved that build against the stack, followed by
 regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/cmd/env/localtestv2/` under
 `studioctl/src/cli`) and reviewing its diff. No workflow writes the manifest:
 [`images.yml`](../.github/workflows/images.yml) only pushes `sha-<commit>` and, from main, `latest`.
-`env up --latest` (Aspire: `AltinnLocaltestOptions.Tag = "latest"`) runs `latest` instead of the pins.
+`env up --latest` (Aspire: `AltinnLocaltestOptions.Tag = "latest"`) runs `latest` instead of the pins. Aspire treats any
+tag that does not start with `sha-` (and has no digest) as floating and pulls it on every start (`StackSpec.ImageOf`),
+so a locally built image given to `Tag` needs a `sha-…` tag, or the pull fails and no container starts (TODO.md task 60).
 
 **Why.** A pin is a statement that the stack was run with that build; a workflow cannot make it.
 
@@ -95,7 +100,7 @@ regenerating the golden snapshot (`STUDIOCTL_UPDATE_GOLDEN=1 go test ./internal/
 | Start order and health | `dependsOn`; each container's check runs in a short-lived probe container (the Postgres image's bash over `/dev/tcp`) before what depends on it starts | `WaitFor`; the same bash probe through `exec` in the Postgres container |
 | Published ports | only `localtest`'s 8080, as the public port (8000, `--port`) on every interface | the same (`PublicPort`, 0 allocated by Aspire); Postgres on a loopback port only with `PostgresHostPort` |
 | Public origin | `--host`, `--port` (0 picks a free port), recorded in the state file | `PublicHost`, `PublicPort` on both option classes |
-| A build from source | `--dev-<container>[=<path>]` | none (`Tag`, or a locally built image by hand) |
+| A build from source | `--dev-<container>[=<path>]` | none (`Tag` naming a locally built image, which needs a `sha-…` tag: any other is pulled) |
 | Minimal mode | `--minimal` ([Minimal mode](#minimal-mode)) | `AddAltinnLocaltestMinimal()`, its own resource type |
 
 **App containers.** A container-mode app (`studioctl run --mode container`) joins the stack's network,
@@ -123,7 +128,8 @@ holds the other's port; running both side by side is untested.
 
 ## Minimal mode
 
-**Rule.** The `minimal` group (`localtest`, `storage`, `workflow-engine`, and `postgres` through `dependsOn`) is the
+**Rule.** The `minimal` group (`localtest`, `storage`, `workflow-engine`, `otel-files`, and `postgres` through
+`dependsOn`: five containers under studioctl; the Aspire package never starts `otel-files`, so four there) is the
 one group that **replaces** `default` instead of adding to it; like `default` and `everything` it is a constant of
 each runner, not an optional group, and `--with`/`--without` are refused with it. The emulated set is derived, not
 listed: every HTTP container of `default` that `minimal` does not start (register, profile, authentication,
@@ -135,7 +141,7 @@ Every manifest volume of a started container is a **tmpfs** instead of the named
 slate, and the `localtest-v2-*` volumes of the default stack are never mounted, so `env reset` has nothing to remove in
 the mode and switching back finds the default stack's data intact. A switch between the modes is `env down`, then
 `env up`. The state file records the mode; `env status` prints it and the emulated list. `--dev-<container>` works for
-the four containers only. **Aspire**: `builder.AddAltinnLocaltestMinimal()` returns a builder of its own resource type
+the mode's containers only. **Aspire**: `builder.AddAltinnLocaltestMinimal()` returns a builder of its own resource type
 (`AltinnLocaltestMinimalResource`) that no group method takes; the four containers have session lifetime, so an
 AppHost's stop is the clean slate, and there is no `reset` command
 ([package README, "Minimal mode"](aspire/Altinn.App.Aspire/README.md#minimal-mode)).

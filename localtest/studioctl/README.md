@@ -28,8 +28,10 @@ build/dev-home/bin/studioctl env logs [-c <container>]
 build/dev-home/bin/studioctl env down        # env reset also deletes the manifest's volumes
 ```
 
-- `--with <group>` starts an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`, or
-  `everything`): its root containers and what they depend on. `--without <group>` leaves out a group's own roots; a
+- `--with <group>` starts an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`,
+  `monitoring`, or `everything`): its root containers and what they depend on (`--with correspondence` also starts
+  Dialogporten's WebApi, Service host and Redis: Correspondence creates its dialogs through the WebApi, and the Service
+  host publishes their events). `--without <group>` leaves out a group's own roots; a
   container another enabled group depends on still starts. The groups are in the manifest; `everything` is a constant.
 - `--dev-<container>[=<path>]` builds the container's image from a Dockerfile, or a
   directory holding `Dockerfile`, default the current directory, tags it `localtest-v2-dev-<container>` and runs it
@@ -67,7 +69,9 @@ snapshot `internal/cmd/env/localtestv2/testdata/environment.golden.json` pins wh
 `localtest/tools/bump-tag.sh sha-<commit>`. CI: [`.github/workflows/manifest-parity.yml`](../../.github/workflows/manifest-parity.yml).
 
 To add a container: add it to `manifest.json` and to a group's roots or another container's `dependsOn`, its image to
-`.github/workflows/images.yml`, its database init script to `localtest/postgres/Dockerfile`; then run `go test ./...`
+`.github/workflows/images.yml`, its database init script to `localtest/postgres/Dockerfile` (a container with a database also gets a
+`{{password:<role>}}` per role: a `<ROLE>_PASSWORD` variable on `postgres` and the same placeholder in its own settings,
+see the [manifest README](src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)); then run `go test ./...`
 under `src/cli` and regenerate the snapshot. No Go change is needed.
 
 ## Not mergeable yet
