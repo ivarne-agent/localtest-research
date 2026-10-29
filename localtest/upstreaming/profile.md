@@ -23,17 +23,17 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
 
 - [ ] **Export over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.** Add `OpenTelemetry.Exporter.OpenTelemetryProtocol`
       (at the host's OpenTelemetry version, 1.20.0) to `Altinn.Profile.csproj` and call `UseOtlpExporter()` in
-      `ConfigureServices` when the variable is set, next to the Azure Monitor block; add the environment resource
-      detector after `AddService` so `OTEL_SERVICE_NAME` wins over `platform-profile`.
+      `ConfigureServices` when the variable is set, next to the Azure Monitor block.
   - Why: without it, Profile sends telemetry only to Azure Monitor with a connection string, so a local run exports
     nothing.
   - Size: trivial.
-  - Removes: site `Program.cs:152-158`, `fakes/Otlp/`, the OTLP `PackageReference` in `localtest.build.targets` and the
-    `CS8321` `NoWarn` in `localtest.build.props`.
+  - Removes: `fakes/Otlp/`, the OTLP `PackageReference` in `localtest.build.targets` and the `CS8321` `NoWarn` in
+    `localtest.build.props`; site `Program.cs:152-158` becomes an `#if LOCALTEST` addition of
+    `AddEnvironmentVariableDetector()` after `AddService`, so the stack's spans keep the name `profile` that
+    `smoke-test.sh` checks (see "Not needed").
   - Upstream: open pull request [altinn-profile#1073](https://github.com/Altinn/altinn-profile/pull/1073) adds the
     package at 1.20.0 and `UseOtlpExporter()` inside `AddAzureMonitorTelemetryExporters` when the variable is set. It
-    does not add the environment detector, so the stack's `OTEL_SERVICE_NAME` (`profile`, which `smoke-test.sh` checks)
-    would still lose to `platform-profile`; ask for the detector in that pull request or a follow-up.
+    does not add the environment detector, which localtest keeps as its own line (see "Not needed").
   - Detail: [`../reviews/otel/profile.md`](../reviews/otel/profile.md). Carry the sampler note from
     [`../reviews/otel/README.md`](../reviews/otel/README.md) into the PR.
 
@@ -118,7 +118,18 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
     itself.
   - Upstream: none found.
 
+## Not needed
+
+- **Let `OTEL_SERVICE_NAME` win over the hard-coded service name** (the environment detector after `AddService`):
+  localtest gets the same with an `#if LOCALTEST` line once the OTLP item is in, and the hard-coded `platform-profile`
+  is production's name, so nothing local depends on an upstream change. Aspire's dashboard links no container's
+  telemetry to its resource either way (TODO.md section 61). Decided 2026-10-29; the branch `otel-service-name` on the
+  fork `ivarne-agent/altinn-profile` (on altinn-profile#1073) stays unopened, and no comment goes to #1073.
+
 ## Stays local
+
+- Site `Program.cs:152-158` once the OTLP item is in: the environment detector after `AddService`, so the stack's
+  `OTEL_SERVICE_NAME` wins (see "Not needed").
 
 - Sites `Program.cs:64-66` and `Program.cs:236-238`, `fakes/LocaltestProfileExtensions.cs` and
   `fakes/LocaltestProfileOptions.cs`: localtest's composition. The configuration half sets deployment settings (the

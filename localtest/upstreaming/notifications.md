@@ -30,29 +30,18 @@ Several items below can reuse that work.
       [altinn-notifications#1930](https://github.com/Altinn/altinn-notifications/pull/1930) (2026-10-22, after our pin):
       `AddAzureMonitorTelemetryExporters` calls `UseOtlpExporter()` when the variable is set and
       `OtelSettings:Endpoint` is not. #1930 is on `main` (checked 2026-10-27, task 58's follow-up), so at the next
-      sync the OTLP block (site `Program.cs:191-198`) shrinks to setting the service name; it goes entirely with the
-      next item.
+      sync the OTLP block (site `Program.cs:191-198`) shrinks to an addition of the environment detector, which stays
+      local (see "Not needed").
   - Why: at the pin, Notifications exports only traces, and only with its own `OtelSettings:Endpoint` (endpoint set in
     code, so no `/v1/traces` for `http/protobuf`), plus Azure Monitor with a connection string.
   - Size: small (done).
-  - Removes: site `Program.cs:191-198`, `fakes/Otlp/` and the `CS8321` `NoWarn` in `localtest.build.props` (the host
-    already references the OTLP package). Without the next item, the stack's spans are named `platform-notifications`
-    and `smoke-test.sh`'s OTLP check, which expects `notifications`, fails.
+  - Removes: `fakes/Otlp/` and the `CS8321` `NoWarn` in `localtest.build.props` (the host already references the OTLP
+    package); site `Program.cs:191-198` becomes an `#if LOCALTEST` addition of `AddEnvironmentVariableDetector()` after
+    `AddAttributes(attributes)`, so the stack's spans keep the name `notifications` that `smoke-test.sh`'s OTLP check
+    expects.
   - Upstream: [altinn-notifications#1930](https://github.com/Altinn/altinn-notifications/pull/1930), from issue
     [altinn-notifications#1925](https://github.com/Altinn/altinn-notifications/issues/1925).
   - Detail: [`../reviews/otel/notifications.md`](../reviews/otel/notifications.md).
-
-- [ ] **Let `OTEL_SERVICE_NAME` win over the hard-coded service name.** In `ConfigureServices`, add the environment
-      resource detector (`AddEnvironmentVariableDetector()`) after `AddAttributes(attributes)`, which sets `service.name`
-      to `platform-notifications`; optionally the same in the Email and SMS hosts.
-  - Why: a later resource wins over the SDK's environment detector, so the name the stack gives each container is
-    ignored.
-  - Size: trivial.
-  - Removes: nothing on its own; it lets the item above remove site `Program.cs:191-198` without changing the stack's
-    service names.
-  - Upstream: none found.
-  - Detail: [`../reviews/otel/README.md`](../reviews/otel/README.md) (the `service.name` and sampler notes to carry into
-    the PR).
 
 - [ ] **Bump `Altinn.ApiClients.Maskinporten` to 10.2.0.** `Directory.Packages.props` pins 10.1.0 on upstream `main`.
       Version 10.2.0 adds `TokenEndpoint`, `AssertionAudience` and `TokenExchangeEndpoint` to `MaskinportenSettings`,
@@ -153,7 +142,18 @@ Several items below can reuse that work.
     itself.
   - Upstream: none found.
 
+## Not needed
+
+- **Let `OTEL_SERVICE_NAME` win over the hard-coded service name** (the environment detector after
+  `AddAttributes(attributes)`): localtest gets the same with an `#if LOCALTEST` line after the upstream OTLP change
+  (above), and the hard-coded `platform-notifications` is production's name, so nothing local depends on an upstream
+  change. Aspire's dashboard links no container's telemetry to its resource either way (TODO.md section 61). Decided
+  2026-10-29; the branch `otel-service-name` on the fork `ivarne-agent/altinn-notifications` stays unopened.
+
 ## Stays local
+
+- Site `Program.cs:191-198` once the OTLP item is synced: the environment detector after the service's own resource, so
+  the stack's `OTEL_SERVICE_NAME` wins (see "Not needed").
 
 - Site `Program.cs:51-53` and `fakes/LocaltestNotificationsExtensions.cs`: localtest's composition. The configuration
   half sets deployment settings (the public origin for `GeneralSettings:BaseUri` and the OpenID metadata, service
