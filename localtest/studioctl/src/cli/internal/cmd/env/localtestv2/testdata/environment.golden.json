@@ -395,6 +395,9 @@
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__0=http://local.altinn.cloud:8000/localtest/api/maskinporten/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__1=https://test.maskinporten.no/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__2=https://maskinporten.no/.well-known/oauth-authorization-server",
           "services__access-management__http__0=http://access-management:5080",
           "services__authentication__http__0=http://authentication:5101",
           "services__authorization__http__0=http://authorization:5070",
@@ -1357,6 +1360,9 @@
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__0=http://local.altinn.cloud:8000/localtest/api/maskinporten/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__1=https://test.maskinporten.no/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__2=https://maskinporten.no/.well-known/oauth-authorization-server",
           "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317",
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
@@ -4032,6 +4038,9 @@
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
           "GeneralSettings__PlatformEndpoint=http://origin.test:18000/",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__0=http://origin.test:18000/localtest/api/maskinporten/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__1=https://test.maskinporten.no/.well-known/oauth-authorization-server",
+          "Localtest__Authentication__MaskinportenWellKnownEndpoints__2=https://maskinporten.no/.well-known/oauth-authorization-server",
           "services__access-management__http__0=http://access-management:5080",
           "services__authentication__http__0=http://authentication:5101",
           "services__authorization__http__0=http://authorization:5070",

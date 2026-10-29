@@ -6,6 +6,7 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Platform.Authentication.Core.RepositoryInterfaces;
 using Altinn.Platform.Authentication.Localtest.Keys;
 using Altinn.Platform.Authentication.Localtest.Login;
+using Altinn.Platform.Authentication.Localtest.Maskinporten;
 using Altinn.Platform.Authentication.Localtest.Persistence;
 using Altinn.Platform.Authentication.Services.Interfaces;
 using Localtest.Shared.Cookies;
@@ -113,6 +114,11 @@ public static class LocaltestAuthenticationExtensions
             ["GeneralSettings:BaseUrl"] = platform.TrimEnd('/'),
             ["GeneralSettings:HostName"] = new Uri(platform).Host,
         });
+
+        // The Maskinporten instances exchange/maskinporten trusts (the manifest's list: the fake, test and production
+        // Maskinporten), each token held to the keys of its own issuer's metadata; without the list the fake alone.
+        var trustedMaskinporten = builder.Configuration.GetSection("Localtest:Authentication:MaskinportenWellKnownEndpoints").Get<string[]>();
+        LocaltestMaskinportenIssuers.WellKnownEndpoints = trustedMaskinporten is { Length: > 0 } ? trustedMaskinporten : [maskinportenWellKnown];
 
         var services = builder.Services;
         services.AddOptions<LocaltestAuthenticationOptions>().BindConfiguration("Localtest:Authentication");

@@ -61,7 +61,10 @@
 | File                                                                                                        | Lines     | Kind        | First line of the `LOCALTEST` branch                                                        |
 | ----------------------------------------------------------------------------------------------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------- |
 | `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/AuthenticationHost.cs`                   | 293-295   | addition    | `Altinn.Platform.Authentication.Localtest.LocaltestAuthenticationExtensions....`            |
-| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 1057-1070 | replacement | `if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)` |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 434-442   | replacement | `string trustedWellKnown = Localtest.Maskinporten.LocaltestMaskinportenIssuers....`         |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 460-464   | replacement | `if (IsValidIssuer(issOriginal, trustedWellKnown, trustedWellKnown))`                       |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 491-496   | replacement | `if (OrgIsDigDirAndTestIsTrue(org, test \|\| (originalPrincipal.FindFirstValue(...`         |
+| `src/apps/Altinn.Authentication/src/Altinn.Platform.Authentication/Controllers/AuthenticationController.cs` | 1073-1086 | replacement | `if (!string.Equals(target.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)` |
 
 <!-- vendor-sync:end sites -->
 

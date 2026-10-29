@@ -431,8 +431,15 @@ namespace Altinn.Platform.Authentication.Controllers
         {
             try
             {
+#if !LOCALTEST
                 ICollection<SecurityKey> signingKeys = await GetSigningKeys(_generalSettings.MaskinportenWellKnownConfigEndpoint);
                 ICollection<SecurityKey> alternativeSigningKeys = await GetSigningKeys(_generalSettings.MaskinportenWellKnownAlternativeConfigEndpoint);
+#else
+                // localtest: the token's iss picks one of the trusted Maskinporten instances (the manifest's list), whose keys alone validate it
+                string trustedWellKnown = Localtest.Maskinporten.LocaltestMaskinportenIssuers.WellKnownFor(originalToken);
+                ICollection<SecurityKey> signingKeys = await GetSigningKeys(trustedWellKnown);
+                ICollection<SecurityKey> alternativeSigningKeys = null;
+#endif
 
                 TokenValidationParameters validationParameters = new TokenValidationParameters
                 {
@@ -450,7 +457,11 @@ namespace Altinn.Platform.Authentication.Controllers
 
                 string? issOriginal = originalPrincipal.Claims.Where(c => c.Type.Equals(IssClaimName)).Select(c => c.Value).FirstOrDefault();
                 string? externalSessionId = originalPrincipal.Claims.Where(c => c.Type.Equals(ExternalSessionIdClaimName)).Select(c => c.Value).FirstOrDefault();
+#if !LOCALTEST
                 if (IsValidIssuer(issOriginal, _generalSettings.MaskinportenWellKnownConfigEndpoint, _generalSettings.MaskinportenWellKnownAlternativeConfigEndpoint))
+#else
+                if (IsValidIssuer(issOriginal, trustedWellKnown, trustedWellKnown))
+#endif
                 {
                     _logger.LogInformation("Invalid issuer {issOriginal}", issOriginal);
                     return Unauthorized();
@@ -477,7 +488,12 @@ namespace Altinn.Platform.Authentication.Controllers
                 if (HasServiceOwnerScope(originalPrincipal))
                 {
                     org = await _organisationService.LookupOrg(orgNumber);
+#if !LOCALTEST
                     if (OrgIsDigDirAndTestIsTrue(org, test))
+#else
+                    // localtest: an app's local Maskinporten client (<org>-localtest, written by the app runners) acts as ttd, as with test=true
+                    if (OrgIsDigDirAndTestIsTrue(org, test || (originalPrincipal.FindFirstValue("client_id")?.EndsWith("-localtest", StringComparison.Ordinal) ?? false)))
+#endif
                     {
                         org = "ttd";
                     }

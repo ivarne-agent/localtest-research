@@ -67,7 +67,10 @@
       "port": 5101,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
-        "GeneralSettings__PlatformEndpoint": "{{origin}}/"
+        "GeneralSettings__PlatformEndpoint": "{{origin}}/",
+        "Localtest__Authentication__MaskinportenWellKnownEndpoints__0": "{{origin}}/localtest/api/maskinporten/.well-known/oauth-authorization-server",
+        "Localtest__Authentication__MaskinportenWellKnownEndpoints__1": "https://test.maskinporten.no/.well-known/oauth-authorization-server",
+        "Localtest__Authentication__MaskinportenWellKnownEndpoints__2": "https://maskinporten.no/.well-known/oauth-authorization-server"
       },
       "dependsOn": ["register", "profile"]
     },
