@@ -52,18 +52,15 @@ const (
 
 // DotnetRunSpec contains build and subprocess execution details for native app run.
 type DotnetRunSpec struct {
-	// DeveloperMaskinportenClient is the developer's stored client while localtest-v2 runs, which the run uses
-	// instead of the local one: service-owner requests then fail at the stack's exchange. Nil otherwise.
-	DeveloperMaskinportenClient *appsecrets.MaskinportenClientSummary
-	Dir                         string
-	ProjectPath                 string
-	BaseURL                     string
-	SecretsDir                  string
-	AppArgs                     []string
-	BuildArgs                   []string
-	TargetPathArgs              []string
-	Env                         []string
-	Port                        int
+	Dir            string
+	ProjectPath    string
+	BaseURL        string
+	SecretsDir     string
+	AppArgs        []string
+	BuildArgs      []string
+	TargetPathArgs []string
+	Env            []string
+	Port           int
 }
 
 // DotnetRunOptions contains native run-specific app options.
@@ -74,11 +71,9 @@ type DotnetRunOptions struct {
 
 // DockerRunSpec contains container execution details for `studioctl app run --mode container`.
 type DockerRunSpec struct {
-	// DeveloperMaskinportenClient is as in DotnetRunSpec.
-	DeveloperMaskinportenClient *appsecrets.MaskinportenClientSummary
-	SecretsDir                  string
-	KeysDir                     string
-	Config                      types.ContainerConfig
+	SecretsDir string
+	KeysDir    string
+	Config     types.ContainerConfig
 }
 
 // DockerRunOptions contains docker run-specific app options.
@@ -152,15 +147,12 @@ func (s *Service) BuildDotnetRunSpec(
 		return DotnetRunSpec{}, signingErr
 	}
 	kestrelURL := baseURL
-	var developerClient *appsecrets.MaskinportenClientSummary
 	if signing != nil {
 		// localtest-v2 is up: its front door needs the app on every interface.
 		kestrelURL = "http://" + allInterfacesHost + ":" + port
-		client, provisionErr := provisionLocalMaskinporten(appPath, secretsDir, topology)
-		if provisionErr != nil {
+		if provisionErr := provisionLocalMaskinporten(appPath, secretsDir, topology); provisionErr != nil {
 			return DotnetRunSpec{}, provisionErr
 		}
-		developerClient = client
 	}
 
 	return DotnetRunSpec{
@@ -181,7 +173,6 @@ func (s *Service) BuildDotnetRunSpec(
 			"",
 			signing,
 		),
-		DeveloperMaskinportenClient: developerClient,
 	}, nil
 }
 
@@ -215,26 +206,23 @@ func (s *Service) nativeAccessTokenSigning(ctx context.Context, appPath string) 
 
 // provisionLocalMaskinporten writes the local Maskinporten client for a run against localtest-v2: the stack's
 // Maskinporten fake on the public origin, as <org>-localtest, with a key generated once per app. A client the developer
-// stored stays, and is returned, so that the caller can say what it means on this stack. A container run reaches the
-// same public origin (its host names resolve to the host gateway), so the file is the same for both modes.
-func provisionLocalMaskinporten(
-	appPath, secretsDir string,
-	topology envtopology.Local,
-) (*appsecrets.MaskinportenClientSummary, error) {
+// stored stays and is used: the stack's exchange trusts test and production Maskinporten too. A container run reaches
+// the same public origin (its host names resolve to the host gateway), so the file is the same for both modes.
+func provisionLocalMaskinporten(appPath, secretsDir string, topology envtopology.Local) error {
 	appID, err := ReadAppID(appPath)
 	if err != nil {
-		return nil, fmt.Errorf("read app id: %w", err)
+		return fmt.Errorf("read app id: %w", err)
 	}
 	org, _, _ := strings.Cut(appID, "/")
-	result, err := appsecrets.ProvisionLocalMaskinportenClient(
+	_, err = appsecrets.ProvisionLocalMaskinportenClient(
 		secretsDir,
 		topology.PublicBaseURL(envtopology.ComponentPlatform),
 		org,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("provision the local Maskinporten client: %w", err)
+		return fmt.Errorf("provision the local Maskinporten client: %w", err)
 	}
-	return result.Developer, nil
+	return nil
 }
 
 // arbeidsflateUp reports whether the environment runs the arbeidsflate group. The group's name is the component's: the
@@ -354,8 +342,6 @@ func (s *Service) BuildDockerRunSpec(
 		SecretsDir: secretsDir,
 		KeysDir:    keysDir,
 		Config:     appContainerConfig(appPath, imageTag, hostPort, secretsDir, keysDir, args),
-
-		DeveloperMaskinportenClient: nil,
 	}
 	kestrelURL := "http://*:" + appcontainers.DefaultContainerPort
 	var signing *accessTokenSigning
@@ -365,11 +351,9 @@ func (s *Service) BuildDockerRunSpec(
 			return DockerRunSpec{}, fmt.Errorf("read app id: %w", idErr)
 		}
 		signing = onStackNetwork(&spec.Config, v2.State, appID)
-		developerClient, provisionErr := provisionLocalMaskinporten(appPath, secretsDir, topology)
-		if provisionErr != nil {
+		if provisionErr := provisionLocalMaskinporten(appPath, secretsDir, topology); provisionErr != nil {
 			return DockerRunSpec{}, provisionErr
 		}
-		spec.DeveloperMaskinportenClient = developerClient
 		kestrelURL = "http://" + allInterfacesHost + ":" + appcontainers.DefaultContainerPort
 	}
 	// The container is named the mount point its secrets directory is mounted at, and is told where its keys go,

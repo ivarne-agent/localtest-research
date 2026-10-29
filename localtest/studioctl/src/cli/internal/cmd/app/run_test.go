@@ -981,7 +981,7 @@ func TestBuildDockerRunSpec_RefusesALocaltestV2CustomOrigin(t *testing.T) {
 }
 
 // Against localtest-v2 a run gets the local Maskinporten client, on the environment's own origin, for both modes; a
-// client the developer stored stays and is reported.
+// client the developer stored stays.
 func TestBuildRunSpecs_WriteTheLocalMaskinportenClientForLocaltestV2(t *testing.T) {
 	t.Parallel()
 
@@ -991,9 +991,6 @@ func TestBuildRunSpecs_WriteTheLocalMaskinportenClientForLocaltestV2(t *testing.
 	spec, err := service.BuildDotnetRunSpec(t.Context(), appPath, nil, nil, topology, appsvc.DotnetRunOptions{})
 	if err != nil {
 		t.Fatalf("BuildDotnetRunSpec() error = %v", err)
-	}
-	if spec.DeveloperMaskinportenClient != nil {
-		t.Fatalf("DeveloperMaskinportenClient = %+v, want none", spec.DeveloperMaskinportenClient)
 	}
 	data, err := os.ReadFile(appsecrets.MaskinportenPath(spec.SecretsDir))
 	if err != nil {
@@ -1025,8 +1022,11 @@ func TestBuildRunSpecs_WriteTheLocalMaskinportenClientForLocaltestV2(t *testing.
 	if err != nil {
 		t.Fatalf("BuildDockerRunSpec() error = %v", err)
 	}
-	if docker.DeveloperMaskinportenClient == nil || docker.DeveloperMaskinportenClient.ClientID != "real-client" {
-		t.Fatalf("DeveloperMaskinportenClient = %+v, want real-client", docker.DeveloperMaskinportenClient)
+	if client, loadErr := appsecrets.LoadMaskinportenClient(
+		docker.SecretsDir,
+	); loadErr != nil ||
+		client.ClientID != "real-client" {
+		t.Fatalf("stored client = %s, %v; want real-client left in place", client.ClientID, loadErr)
 	}
 	assertEnvContainsAll(t, docker.Config.Env, []string{"AppSettings__RuntimeSecretsDirectory=/mnt/app-secrets"})
 }

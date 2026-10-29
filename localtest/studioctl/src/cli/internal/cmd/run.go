@@ -405,7 +405,6 @@ func (c *RunCommand) runDotnet(
 	if specErr != nil {
 		return fmt.Errorf("build process run spec: %w", specErr)
 	}
-	warnDeveloperMaskinportenClient(c.out, spec.DeveloperMaskinportenClient)
 
 	if err := c.buildDotnetAppIfNeeded(ctx, spec, flags); err != nil {
 		return err
@@ -1405,7 +1404,6 @@ func (c *RunCommand) runDocker(
 	if specErr != nil {
 		return fmt.Errorf("build docker run spec: %w", specErr)
 	}
-	warnDeveloperMaskinportenClient(c.out, spec.DeveloperMaskinportenClient)
 
 	if err := validateDockerRunImageFlags(flags); err != nil {
 		return err

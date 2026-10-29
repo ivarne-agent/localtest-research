@@ -201,20 +201,6 @@ func readMaskinportenFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-// warnDeveloperMaskinportenClient says, in one line, what a stored client means for a run against localtest-v2: the app
-// uses it instead of the local client, and the stack's exchange trusts only its own Maskinporten fake, so every
-// service-owner request fails there. Nothing is printed without a stored client or without localtest-v2.
-func warnDeveloperMaskinportenClient(out *ui.Output, client *appsecrets.MaskinportenClientSummary) {
-	if client == nil {
-		return
-	}
-	out.Warningf(
-		"Maskinporten: the app uses your stored client %s (%s), not the local one; service-owner requests will fail "+
-			"at localtest-v2's exchange, which trusts only the local Maskinporten ('%s app maskinporten remove' switches back)",
-		client.ClientID, client.Environment, osutil.CurrentBin(),
-	)
-}
-
 func printMaskinportenClient(out *ui.Output, summary appsecrets.MaskinportenClientSummary) {
 	out.Printlnf("  Client id:    %s", summary.ClientID)
 	out.Printlnf("  Environment:  %s (%s)", summary.Environment, summary.Authority)

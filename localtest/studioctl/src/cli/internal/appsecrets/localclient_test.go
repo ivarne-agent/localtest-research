@@ -69,12 +69,9 @@ func readLocalClient(t *testing.T, dir string) appsecrets.MaskinportenClient {
 func TestProvisionLocalMaskinportenClient_WritesTheFakesClient(t *testing.T) {
 	t.Parallel()
 	dir := filepath.Join(t.TempDir(), "secrets")
-	result, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.Written || result.Developer != nil {
-		t.Fatalf("result = %+v, want written, no developer client", result)
+	written, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
+	if err != nil || !written {
+		t.Fatalf("ProvisionLocalMaskinportenClient() = %v, %v; want written", written, err)
 	}
 	client := readLocalClient(t, dir)
 	if client.Authority != "http://local.altinn.cloud:8000/localtest/api/maskinporten/" ||
@@ -142,13 +139,13 @@ func TestProvisionLocalMaskinportenClient_KeepsTheKeyAndFollowsTheOrigin(t *test
 	first := readLocalClient(t, dir)
 
 	again, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
-	if err != nil || again.Written {
-		t.Fatalf("second run: %+v, %v; want nothing written", again, err)
+	if err != nil || again {
+		t.Fatalf("second run: %v, %v; want nothing written", again, err)
 	}
 
 	moved, err := appsecrets.ProvisionLocalMaskinportenClient(dir, customOrigin, "ttd")
-	if err != nil || !moved.Written {
-		t.Fatalf("other origin: %+v, %v; want written", moved, err)
+	if err != nil || !moved {
+		t.Fatalf("other origin: %v, %v; want written", moved, err)
 	}
 	second := readLocalClient(t, dir)
 	if second.Authority != customOrigin+"/localtest/api/maskinporten/" {
@@ -186,12 +183,9 @@ func TestProvisionLocalMaskinportenClient_LeavesTheDevelopersClient(t *testing.T
 		t.Fatal(err)
 	}
 	before := readFile(t, appsecrets.MaskinportenPath(dir))
-	result, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Written || result.Developer == nil || result.Developer.ClientID != "real-client" {
-		t.Fatalf("result = %+v, want the developer's client reported and nothing written", result)
+	written, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
+	if err != nil || written {
+		t.Fatalf("ProvisionLocalMaskinportenClient() = %v, %v; want nothing written", written, err)
 	}
 	if after := readFile(t, appsecrets.MaskinportenPath(dir)); before != after {
 		t.Fatal("the developer's client was changed")
@@ -204,9 +198,9 @@ func TestProvisionLocalMaskinportenClient_LeavesAnUnreadableFile(t *testing.T) {
 	if err := os.WriteFile(appsecrets.MaskinportenPath(dir), []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	result, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
-	if err != nil || result.Written {
-		t.Fatalf("result = %+v, %v; want the file left alone", result, err)
+	written, err := appsecrets.ProvisionLocalMaskinportenClient(dir, defaultOrigin, "ttd")
+	if err != nil || written {
+		t.Fatalf("ProvisionLocalMaskinportenClient() = %v, %v; want the file left alone", written, err)
 	}
 	if data := readFile(t, appsecrets.MaskinportenPath(dir)); data != "{not json" {
 		t.Fatalf("file = %s, want it unchanged", data)

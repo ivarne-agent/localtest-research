@@ -56,51 +56,42 @@ func (c MaskinportenClient) IsLocal() bool {
 	return err == nil && parsed.Host != "" && parsed.Path == LocalAuthorityPath
 }
 
-// LocalClientResult says what ProvisionLocalMaskinportenClient found and did.
-type LocalClientResult struct {
-	// Developer is the developer's own client, when one is stored: it is left alone and the local one not written.
-	Developer *MaskinportenClientSummary
-	// Written is true when the file was created or changed (a new key, or another origin).
-	Written bool
-}
-
 // ProvisionLocalMaskinportenClient writes the local client for a run against localtest-v2 at origin, unless the
-// developer stored a client of their own, which is never overwritten (an unreadable file is left alone too: it is
-// the developer's to fix, and doctor reports it). The key is generated once per app and kept: a later run reuses
+// developer stored a client of their own, which is never overwritten and which the stack's exchange trusts too (its
+// test or production Maskinporten is in the manifest's list); an unreadable file is left alone too: it is the
+// developer's to fix, and doctor reports it. It reports whether the file was written (created, a new key, or
+// another origin). The key is generated once per app and kept: a later run reuses
 // the key of the local client already there and rewrites the file only when the origin moved. Nothing rotates it,
 // and nothing in the file expires (the JWK carries no validity): rotation is the operator's in a cluster, out of
 // scope locally. The write is atomic and owner-only, as for a developer's client.
-func ProvisionLocalMaskinportenClient(dir, origin, org string) (LocalClientResult, error) {
-	result := LocalClientResult{Developer: nil, Written: false}
+func ProvisionLocalMaskinportenClient(dir, origin, org string) (bool, error) {
 	existing, local, err := readStoredClient(dir)
 	switch {
 	case errors.Is(err, ErrNoMaskinportenClient):
 	case err != nil:
 		// An unreadable file is the developer's to fix (doctor reports it), never replaced here.
-		return result, nil //nolint:nilerr // Not a failure of the run: the file is left as it is.
+		return false, nil //nolint:nilerr // Not a failure of the run: the file is left as it is.
 	case !local:
-		summary := existing.Summary()
-		result.Developer = &summary
-		return result, nil
+		return false, nil
 	}
 
 	jwk := existing.Jwk
 	if !local || len(jwk) == 0 {
 		if jwk, err = GenerateLocalKey(); err != nil {
-			return result, err
+			return false, err
 		}
 	}
 	payload, err := EncodeLocalMaskinportenClient(origin, org, jwk)
 	if err != nil {
-		return result, err
+		return false, err
 	}
 	path := MaskinportenPath(dir)
 	current, readErr := os.ReadFile(path) //nolint:gosec // The path is under the configured studioctl home.
 	if readErr == nil && bytes.Equal(current, payload) {
-		return result, nil
+		return false, nil
 	}
 	if err = EnsureDir(dir); err != nil {
-		return result, err
+		return false, err
 	}
 	err = osutil.WriteFileAtomic(
 		path,
@@ -108,10 +99,9 @@ func ProvisionLocalMaskinportenClient(dir, origin, org string) (LocalClientResul
 		osutil.AtomicWriteOptions{Perm: osutil.FilePermOwnerOnly, OwnerOnly: true},
 	)
 	if err != nil {
-		return result, fmt.Errorf("store the local %s: %w", MaskinportenFileName, err)
+		return false, fmt.Errorf("store the local %s: %w", MaskinportenFileName, err)
 	}
-	result.Written = true
-	return result, nil
+	return true, nil
 }
 
 // EncodeLocalMaskinportenClient is the local client's file: the operator's format, the client wrapped in

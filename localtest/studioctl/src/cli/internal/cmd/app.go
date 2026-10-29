@@ -311,7 +311,6 @@ func (c *AppCommand) runEnv(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("build app environment: %w", err)
 	}
-	warnDeveloperMaskinportenClient(c.out, spec.DeveloperMaskinportenClient)
 
 	return printAppEnv(c.out, spec.Env, flags.jsonOutput)
 }
