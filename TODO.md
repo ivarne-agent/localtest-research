@@ -98,7 +98,7 @@ A path matching no route still falls through to the localtest app.
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; known gap, left as is (owner 2026-10-29): under Aspire, DCP's own `podman create` command line carries the containers' environment, passwords included, while it runs | medium | yes |
-| 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29, main `6e1b1105`..`27e07fb5` and `4840c5e9`, pinned `sha-4840c5e`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): seven directive sites replaced eight fakes (340 lines) in Authorization, Dialogporten, the Resource Registry and Correspondence; the shared fakes stay but Correspondence's cookie-policy copy; borderline kept: Access Management's token generator, Events' queue client, the OTLP helper | medium | yes |
+| 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29; main `6e1b1105`..`27e07fb5`, `4840c5e9`, then the follow-up `c42c24b6` and its parents; pinned `sha-c42c24b`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): 19 fake files (1073 lines) became 13 new directive blocks plus the OTLP rule inlined in six existing sites, in Authorization, Dialogporten, the Resource Registry, Correspondence, Access Management, Events and the OTLP consumers; `components/shared/fakes/Otlp/` is gone (the front door keeps its copy, which `Otlp.Tests` now tests); the upstream token-generator change is task 64 | medium | yes |
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | unapproved (created at the owner's request 2026-10-29; not to be dispatched yet) | small | no |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -3004,6 +3004,35 @@ Authentication 34, Correspondence 78; minimal root 23 (4 skips). Static: the fou
 (Debug and Release; one new warning, CS0162 after the early return in `OedRoleAssignmentWrapper`),
 `vendor-sync.py check --all` ok with the shared copies identical, `Cookies.Smoke` 7 ok, `Otlp.Tests` 10. No component
 here has unit tests of its own.
+
+**Follow-up (the user, 2026-10-29, verbatim):** "Inline the borderline cases, and make a task for upstream changes to the
+token generator package". Access Management's `LocaltestTokenGenerator` became two blocks in the vendored
+`Altinn.Authorization.Integration.Platform/TokenGenerator.cs` (`TestTool`'s primary constructor takes the production
+`IAccessTokenGenerator`; `CreatePlatformAccessToken(issuer, app)` returns its token first); the lib is compiled into
+Access Management only. Events' `LocaltestEventsQueueClient` became a `NotSupportedException` at the top of each of the
+four queue getters in `EventsQueueClient.cs` (`Enqueue*` answers `Success = false` with it, as the fake did). The OTLP
+helper is inlined: the six `Program.cs` sites (Storage, Events, Profile, Notifications, Receipt, Correspondence) and the
+two telemetry fakes (Authorization, the adapter) carry the endpoint check, `UseOtlpExporter()` after the environment
+detector and the `HttpClient.Otlp` filter; its nine copies are deleted, `Otlp.Tests` compiles the front door's
+`LocaltestOtlp.cs`, and `vendor-sync.py` needed no change (its copy check walks whatever `shared/fakes/` holds). The
+upstream change is task 64, also an item in `localtest/upstreaming/access-management.md` (phase 1 total 52).
+
+**Follow-up done (2026-10-29):** main `c42c24b6` (and its three parents), images run 40860589985, pinned `sha-c42c24b`.
+Static: the nine changed hosts build with 0 errors in Debug and Release (new warnings: CS0162 once in `TokenGenerator.cs`,
+four times in `EventsQueueClient.cs`), `vendor-sync.py check --all` ok, `Otlp.Tests` 10, `Cookies.Smoke` 7, Go `ok`, the
+Aspire package 198. Local images, one `--dev-*` per `env up` with `--with monitoring` (evidence `followup/`): root 27
+and Authorization 32 and the Resource Registry 44 with the new Access Management (its refresh re-imported 158 role
+assignments from the Register with the locally signed token, no test-tool call in its log), Authorization 32, root 27
+(Storage), Events 28, Notifications 65, Profile 53, Receipt 28, Correspondence 79, Events 28 / the adapter 40 /
+Dialogporten 61, each suite's OTLP span check passing under the manifest name. Pinned check (no `--dev-*`, evidence
+`pinned3/`): `--with monitoring`: root 27, the front door 85 + `FRONTEND_DIST`, Authorization 32, Resource Registry 44,
+Events 28, Notifications 65, Profile 53, Authentication 33; `--with monitoring --with receipt`: Receipt 28;
+`--with monitoring --with dialogporten --with correspondence`: Events 22 + 7 FAIL on the run straight after the converge
+(6.7; the same on `sha-4840c5e` before the queue change) and 28 on two reruns, the adapter 40, Dialogporten 61,
+Correspondence 79, Authentication 35; Grafana shows spans, metric series and log records under `access-management`,
+`authorization`, `storage`, `events`, `notifications`, `profile`, `correspondence` and `dialogporten-adapter` (Receipt:
+its suite's span check passed, the 15-minute count afterwards found one log record and no spans); default without
+monitoring root 26, minimal root 23 (4 skips).
 
 ## 64. Local platform access tokens in the Integration.Platform token generator
 
