@@ -93,8 +93,8 @@ A path matching no route still falls through to the localtest app.
 | 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
-| 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | approved (2026-10-28; brief `/home/agent/code/.briefs/task60-db-passwords.md`) | medium | yes |
-| 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
+| 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
+| 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | approved (2026-10-28; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; after task 60) | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
@@ -2818,6 +2818,8 @@ databases belong in the localtest repo."
   in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28). Once
   localtest creates Storage's users itself, that item no longer removes anything here.
 
+**Done (2026-10-29):** merged as main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8` (pinned check under section 61). The Aspire run (sample AppHost, the changed images built locally and selected with `Tag = "sha-t60local"`; a `Tag` that does not start with `sha-` floats and is pulled, so a local tag never starts, which is why the first attempt created no container): on the package's existing pre-task-60 volume and on a fresh one, 18 containers healthy, both apps provisioned, root 26, the front door 83 + `FRONTEND_DIST`, Profile 52, the Resource Registry 43, Authorization 31, Authentication 34, the adapter 39, Dialogporten 60; Notifications 64 on the rerun; Events under Aspire 27 + 1 (6.7) on the fresh volume's first run, more delivery failures on reruns after the Dialogporten suites, no database error (evidence `aspire-run-outcome.txt`).
+
 ## 61. Remove the OTLP resource workaround from the ServiceDefaults hosts
 
 The user's decision (2026-10-28): "remove the workaround in the four hosts, test and push the stack". Authentication,
@@ -2853,6 +2855,20 @@ Smoke tests: root 27 `ok` (with the OTLP check), `localtest/smoke-test.sh` 85 `o
 (verify-after-sync 6.1), Authentication 33, Register 15, Resource Registry 44, each with its OTLP span check. Static:
 the four host builds 0 errors, `vendor-sync.py check --all` ok (shared fakes identical), its 39 unit tests, `Otlp.Tests`
 10 of 10.
+
+**Pinned check (2026-10-29, 07:05-07:40, images `sha-e089ff8` from main e089ff84 (tasks 60 and 61), images run
+40802133116; no `--dev-*`; studioctl from the task 60 worktree under a short `STUDIOCTL_HOME`, `STUDIO_CA_BUNDLE` set;
+evidence `/home/agent/code/.handover/task60-db-passwords/pinned/`).** `bump-tag.sh sha-e089ff8`; the golden diff moves
+only the tags. Static: `go test ./...` all `ok`, the Aspire package 178 passed. Existing volumes: default stack up in
+24 s, root 26. After `env reset`: default stack 21 s; root 26 (1 skip), the front door 83 + `FRONTEND_DIST`, Events 27
+(on the rerun; the first run "third event registered", 6.7), Notifications 64, Profile 52, the Resource Registry 43,
+Authorization 31, Authentication 32, Register 14, the adapter `--off` 7, shared 13. `--with dialogporten --with
+correspondence`: Events 27, the adapter 39, Dialogporten 60, Authentication 34, Correspondence 78. `--with dialogporten
+--with arbeidsflate`: Arbeidsflate 59 (`--with arbeidsflate` alone starts no adapter, so its inbox checks fail: 53 + 6,
+as its README says). Task 61's checks, `--with monitoring`: root 27, Authentication 33, Register 15, the Resource
+Registry 44, and `otlp-check.sh`: `authentication`, `register`, `access-management` and `resource-registry` export
+traces, metrics and logs under their own `service.name`. Minimal mode: root 23 (4 skips), the front door 92 +
+`FRONTEND_DIST`. No other `FAIL`.
 
 ## 62. Generated database passwords per installation
 
