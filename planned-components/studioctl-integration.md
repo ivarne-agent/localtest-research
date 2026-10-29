@@ -9,7 +9,7 @@ the unmodified baseline `3ecc3fb`):
 
 | What | Commits |
 | --- | --- |
-| The `localtest-v2` runtime (`studioctl env up -r localtest-v2`), one container per component, images pinned in `config/images.go` (now `sha-0485d0a`), `--latest`, `--dev <component>`, `STUDIOCTL_IMAGE_LOCALTEST_V2_*` | `7e3f1cd`, then one commit per component and pin |
+| The `localtest-v2` runtime (`studioctl env up -r localtest-v2`), one container per component, images pinned in `config/images.go` (`sha-0485d0a` on 2026-10-21), `--latest`, `--dev <component>`, `STUDIOCTL_IMAGE_LOCALTEST_V2_*` | `7e3f1cd`, then one commit per component and pin |
 | studioctl-server as the front door on `local.altinn.cloud:8000`, the `/dialogporten/graphql` path rewrite | `7e3f1cd`, `df84b0a` |
 | Provisioning in studioctl-server: steps 1 to 4 as section 3.4, step 3b (Resource Registry subject reload), step 5 (Dialogporten sync, only with the group) | `7e3f1cd`, `b6f4c47`, `70ea0e1` |
 | The group table (`dialogporten`, `receipt`, `correspondence` implying `dialogporten`, `everything`; `--with`, `--without`) | `6b41c96` (task 16) |

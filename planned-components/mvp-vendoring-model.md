@@ -45,6 +45,8 @@ Rules:
 - `fakes/` is a normal project next to `vendor/`. It holds every localtest replacement: in-memory repositories,
   no-op queue clients, a signing-key provider that reads the shared localtest certificate, and one
   `LocaltestOverrides.Apply(IServiceCollection, IConfiguration)` entry point that `Replace()`s registrations.
+  _Superseded 2026-10-29 (task 63): a fake that a 3-4 line directive can replace becomes the directive and is deleted;
+  `fakes/` keeps real local behaviour (see "A directive instead of a small fake" below)._
 - Components without a production counterpart worth vendoring (authentication, events, notifications, profile for
   now) are fake-only folders with their own small project and Dockerfile, in the same layout minus `vendor/`.
   They are written fresh; the current localtest source is not copied, only consulted for the behaviours apps rely on.
@@ -114,6 +116,8 @@ and the fake layer replaces what it must:
 Beyond that, directives only where code is hard-wired to infrastructure outside DI (a Key Vault connect, a
 Wolverine or Npgsql bootstrap, an Aspire-style host builder). Everything reachable through an interface is
 replaced in `fakes/` with no directive at all.
+_Superseded 2026-10-29 (task 63): the opposite now holds for a small fake: where a 3-4 line directive does what the
+fake did, the directive replaces it (see "A directive instead of a small fake" below)._
 
 ## Dependency assessment per component
 
@@ -256,14 +260,20 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
 - **The shared Maskinporten fake is copied.** One canonical source in
   [`../localtest/components/shared/fakes/Maskinporten/`](../localtest/components/shared/README.md), copied unchanged
   into each consumer's `fakes/` (Notifications, Dialogporten, the adapter, Correspondence); no shared build context
-  (task 4). Task 15, unapproved, would make it unnecessary upstream.
-- **Groups.** A component the default stack does not need is an optional group in studioctl's group table
-  (`localtest/studioctl/src/cli/internal/cmd/env/localtestv2/groups.go`): `dialogporten`, `receipt`, `correspondence`
-  (implies `dialogporten`) and `everything`, all off by default, `--with` and `--without` on `env up`. A route of a
-  component that is off answers `503` problem details naming the `--with` command.
-- **Orchestration.** No compose file; studioctl's `localtest-v2` runtime starts the images built by
-  `.github/workflows/images.yml`, studioctl-server is the front door and provisions apps, and the localtest app keeps
-  the fake ID-porten, Maskinporten and `/Home`.
+  (task 4). Upstream made it unnecessary: [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)
+  (`TokenEndpoint`, `AssertionAudience`; it superseded task 15) is released in 10.2.0 (2026-10-26); the consumers'
+  bumps that delete the copies are items in [`../localtest/upstreaming/`](../localtest/upstreaming/README.md).
+- **Groups.** A component the default stack does not need is in an optional group of the manifest
+  (`localtest/studioctl/src/cli/internal/localtestv2/manifest/manifest.json`, since manifest v2, task 27):
+  `dialogporten`, `receipt`, `correspondence`, `arbeidsflate` and `monitoring` (studioctl only), with `everything` a
+  constant of each runner; all off by default, `--with` and `--without` on `env up`. A group names its root containers
+  and starts what they depend on (`dependsOn`); no group implies another, so `--with correspondence` starts
+  Dialogporten's WebApi, Service host and Redis (Correspondence creates its dialogs through the WebApi, and the Service
+  host publishes their events), not the GraphQL host or the adapter. A route of a component that is off answers `503`
+  problem details naming the `--with` command ([`../localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md#the-manifest)).
+- **Orchestration.** No compose file; studioctl's `localtest-v2` runtime or the Aspire package starts the images built
+  by `.github/workflows/images.yml`. Since task 26 the localtest container is the front door and provisions apps (not
+  studioctl-server), and it keeps the fake ID-porten, Maskinporten and `/Home`.
 
 ## Where the model was bent (2026-10-21)
 
@@ -271,6 +281,6 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
 | --- | --- | --- |
 | Dialogporten, Application project `FluentValidationStringExtensions.cs` (task 10) | A `#if !LOCALTEST` site added by the adapter's task in another component: `IsValidHttpsUrl` accepts `http` too | The stack is plain http, and production's validators refused every dialog the adapter built (400). It is a validation rule, not infrastructure, and lets a service owner create http links locally that production refuses (documented in `components/dialogporten/README.md`) |
 | Events, `OutboundService.GetSourceFilter` and `SubscriptionController.IsAppSubscription` (task 12) | Two `#if !LOCALTEST` sites: a source on the platform host is an app's only when its first path segment is not a platform component's prefix | Production tells app sources by host (`apps.altinn.no`); the stack serves apps and platform components on one host, so Dialogporten's sources were cut to `.../dialogporten/api` (one cached authorization decision for every app's dialog events) and a Dialogporten source filter made an app subscription. Both are private decisions selecting a production code path; no fake reaches them. Reported first in `components/events/README.md`, "Directive sites" |
-| Correspondence, `XacmlRequestFactory` (task 7b, **in progress**) | The component's first `#if !LOCALTEST` site: any 64-bit integer party id is a party id | Production guesses a party id's type by its length (8 or 10 digits) and the seed's 6-digit ids fail every PDP-checked call; renumbering the seed would break Cypress and apps' test data. Reported first ([`correspondence/party-ids.md`](correspondence/party-ids.md)), approved 2026-10-21, with an upstream fix proposed |
-| studioctl ([`../localtest/studioctl/`](../localtest/studioctl/UPSTREAM.md)) | Vendored, but changed by **ordinary commits** on top of the unmodified baseline `3ecc3fb`, no `#if LOCALTEST` | The change is meant to be upstreamed to `Altinn/altinn-studio` as-is (branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio`); the patch is regenerated with `git diff 3ecc3fb HEAD` |
+| Correspondence, `XacmlRequestFactory` (task 7b, done 2026-10-21; the site was removed in task 58's follow-up, 2026-10-27, after upstream #2157 took the change in) | The component's first `#if !LOCALTEST` site: any 64-bit integer party id is a party id | Production guesses a party id's type by its length (8 or 10 digits) and the seed's 6-digit ids fail every PDP-checked call; renumbering the seed would break Cypress and apps' test data. Reported first ([`correspondence/party-ids.md`](correspondence/party-ids.md)), approved 2026-10-21, with an upstream fix proposed |
+| studioctl ([`../localtest/studioctl/`](../localtest/studioctl/UPSTREAM.md)) | Vendored, but changed by **ordinary commits** on top of an unmodified baseline commit, no `#if LOCALTEST` | The change is meant to be upstreamed to `Altinn/altinn-studio` as-is (branch `feat/studioctl-localtest-v2-stack` on `ivarne-agent/altinn-studio`); the patch is regenerated with `git diff <baseline> HEAD`, the current baseline and upstream commit being the ones [`../localtest/studioctl/UPSTREAM.md`](../localtest/studioctl/UPSTREAM.md) names |
 | Register | Fakes in a separate project linked by `ProjectReference`, not compiled into the host | Built first (2026-10-17), before the compiled-in pattern settled; not changed since |

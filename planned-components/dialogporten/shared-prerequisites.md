@@ -464,6 +464,10 @@ Scanned (migrations, init scripts, runtime SQL) by a sub-task; details per consu
 | Events | Yuniql `v0.00`-`v0.59` at start; `components/events/postgres-init/30-events.sh` | `CREATE EXTENSION pg_trgm` ([`v0.04`](https://github.com/Altinn/altinn-events/blob/1a4a80c4599e9e176c04bce1b5da7861ca1c54a6/src/Events/Migration/v0.04/01-setup-index.sql#L1)), range partitioning with dynamic `PARTITION OF`, GIN `jsonb_path_ops` | [`postgres:17`](https://github.com/Altinn/altinn-events/blob/1a4a80c4599e9e176c04bce1b5da7861ca1c54a6/test/Altinn.Platform.Events.IntegrationTests/container-images.json#L6) in integration tests |
 | Workflow engine | EF Core at start under an advisory lock; `localtest/postgres-init/20-workflow-engine.sh` (`CREATE EXTENSION pg_stat_statements`) | `gen_random_uuid()`, `FOR UPDATE SKIP LOCKED`, `LISTEN/NOTIFY`, `pg_advisory_lock`, GIN; v7 ids are made client-side | [`postgres:18`](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/Runtime/workflow-engine/docker-compose.yaml#L3) in compose, [`18.3` in studioctl](https://github.com/Altinn/altinn-studio/blob/447e53eb9797d4fffe63d0c61d05a1f692b4ec48/src/cli/internal/config/images.go#L78), 18 in every Testcontainers fixture |
 
+_2026-10-29 (tasks 60 and 62): Storage's init is `10-storage.sh` alone (no vendored `infra/postgres_init.sql`), and
+Access Management's `LocaltestDatabase.cs` became the init script `45-access-management.sh`
+(`localtest/postgres/Dockerfile`); every role's password is generated per installation._
+
 Nothing uses a feature PG 17 or 18 removed; the only extensions are `pg_stat_statements`, `pg_trgm`, `hstore`
 (contrib, present in `postgres:18-alpine`). Every role is created with a plain `PASSWORD '…'` and nothing sets
 `password_encryption`, so the default `scram-sha-256` applies (the PG 18 md5 deprecation does not fire). Npgsql is

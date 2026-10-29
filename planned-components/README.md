@@ -14,6 +14,16 @@ side), and the app runners set the Arbeidsflate links (task 28). The rules are i
 [`../localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md); the plans that describe the earlier wiring carry a
 "Superseded 2026-10-23" line at the top.
 
+**Current (2026-10-29).** Three later shifts that the plans' own "Superseded" lines do not cover: groups imply nothing
+(manifest v2, task 27): a group names its root containers and starts what they depend on, so where a plan says
+"`correspondence` implying `dialogporten`", `--with correspondence` now starts Dialogporten's WebApi, Service host and
+Redis (Correspondence creates its dialogs through the WebApi and the Service host publishes their events; task 65),
+not the GraphQL host or the adapter. Database roles, databases and passwords are localtest's init scripts with
+passwords generated per installation (tasks 60 and 62): a static role password or a `LocaltestDatabase` fake in a plan
+is history ([`../localtest/CONVENTIONS.md`](../localtest/CONVENTIONS.md#the-manifest)). A fake that a 3-4 line
+directive can replace is the directive (task 63), so several fakes the plans name are directives now (the component
+READMEs list them). Minimal mode is five containers under studioctl (with `otel-files`, task 55), four under Aspire.
+
 One row per plan. Task numbers, dates and commit ranges are from [`../TODO.md`](../TODO.md)'s table, corrected to the
 commits on `main` where a range there names a commit from before a rebase. Smoke-test counts are the runs recorded on
 2026-10-21 in [`../localtest/README.md`](../localtest/README.md), "Status". Each plan carries its own "Status
@@ -36,10 +46,10 @@ commits on `main` where a range there names a commit from before a rebase. Smoke
 | [`dialogporten/dialogporten-adapter.md`](dialogporten/dialogporten-adapter.md) | **implemented**, task 10 (2026-10-21, `c940fd6..3c9b03f`), group `dialogporten` | [`../localtest/components/dialogporten-adapter/`](../localtest/components/dialogporten-adapter/), smoke 39 |
 | [`dialogporten/arbeidsflate.md`](dialogporten/arbeidsflate.md) | **implemented**, task 11 and 11b (2026-10-21), optional group `arbeidsflate` | [`../localtest/components/arbeidsflate/`](../localtest/components/arbeidsflate/), smoke 56 |
 | [`notifications/README.md`](notifications/README.md) | **implemented**, task 6 (2026-10-20, `45e99a1..0b38452`), default stack | [`../localtest/components/notifications/`](../localtest/components/notifications/), smoke 64 |
-| [`correspondence/README.md`](correspondence/README.md) | **implemented with a known gap**, task 7 (2026-10-21, `94c1acb..e96f904`), group `correspondence`; the party-id fix [`correspondence/party-ids.md`](correspondence/party-ids.md) is task 7b, **in progress** | [`../localtest/components/correspondence/`](../localtest/components/correspondence/), smoke 43 ok + 2 `KNOWN` |
+| [`correspondence/README.md`](correspondence/README.md) | **implemented**, task 7 (2026-10-21, `94c1acb..e96f904`), group `correspondence`; the party-id fix [`correspondence/party-ids.md`](correspondence/party-ids.md) was task 7b (done 2026-10-21), and its site is gone since task 58's follow-up (2026-10-27: upstream #2157 took the change in) | [`../localtest/components/correspondence/`](../localtest/components/correspondence/), smoke 43 ok + 2 `KNOWN` |
 | [`receipt/README.md`](receipt/README.md) | **implemented**, task 16 (2026-10-21, `f40027a..319a712`), in the optional group `receipt` rather than the default stack the plan recommended | [`../localtest/components/receipt/`](../localtest/components/receipt/), smoke 27 |
 | [`egress-control/README.md`](egress-control/README.md): apps declare the hosts they call, localtest enforces and records them | **plan**, task 45 (2026-10-23): the declaration, the forward proxy in the front door, the inventory, phases 1–4, open questions for the owner | not built |
-| [`minimal-emulation/README.md`](minimal-emulation/README.md): minimal mode (four containers, the rest emulated in the localtest container) | **phase 1 implemented by task 35 on 2026-10-23** (code, tests, goldens, docs; the proof on the stack is phase 2); **phase 2 (Aspire, `AddAltinnLocaltestMinimal()`) by task 37**, in code, tests and docs, and proven under Podman on 2026-10-23 (8 s to healthy, the root suite 23 with the 3 named skips, a clean slate on restart); design task 33 (2026-10-23), owner's scope decisions at its top | [`../localtest/localtest/Emulation/`](../localtest/localtest/Emulation/README.md), `studioctl env up -r localtest-v2 --minimal`, Aspire's `AddAltinnLocaltestMinimal()` |
+| [`minimal-emulation/README.md`](minimal-emulation/README.md): minimal mode (four containers then, five under studioctl since `otel-files`, task 55; the rest emulated in the localtest container) | **phase 1 implemented by task 35 on 2026-10-23** (code, tests, goldens, docs; the proof on the stack is phase 2); **phase 2 (Aspire, `AddAltinnLocaltestMinimal()`) by task 37**, in code, tests and docs, and proven under Podman on 2026-10-23 (8 s to healthy, the root suite 23 with the 3 named skips, a clean slate on restart); design task 33 (2026-10-23), owner's scope decisions at its top | [`../localtest/localtest/Emulation/`](../localtest/localtest/Emulation/README.md), `studioctl env up -r localtest-v2 --minimal`, Aspire's `AddAltinnLocaltestMinimal()` |
 | [`profile/README.md`](profile/README.md) | **implemented**, task 14 (2026-10-21, `f7b7f50..097b474`), default stack | [`../localtest/components/profile/`](../localtest/components/profile/), smoke 52 |
 | [`inspection-gui/README.md`](inspection-gui/README.md) | **deferred**: task 8 (2026-10-20), pending the owner's decision after task 17 | none |
 | [`admin-running-services/README.md`](admin-running-services/README.md) | **research done**, task 17 (2026-10-20); its recommendation (build task 8, do not reuse admin) stands, task 8 stays deferred | none |
@@ -127,7 +137,7 @@ The plans' "Open questions for the product owner" lists, each question with the 
 | 1 | A built-in seed in the registry's fakes, applied at start through the production service layer; the runner pushes no seed (task 5) |
 | 2 | A separate `resourceregistrydb` (task 5) |
 | 3 | The registry reads altinncdn.no (task 5; task 3 won't do) |
-| 4 | No cache locally: a fake replaces the Storage applications client, no refresh endpoint (task 5) |
+| 4 | No cache locally: a fake replaced the Storage applications client, no refresh endpoint (task 5); a directive in `ApplicationsClient` since task 63 |
 | 5 | The registry is the only source; the PDP's folder moved into the seed (task 5) |
 
 ### [`dialogporten/dialogporten-adapter.md`](dialogporten/dialogporten-adapter.md) section 12
@@ -179,7 +189,7 @@ The plans' "Open questions for the product owner" lists, each question with the 
 
 | # | Answer |
 | --- | --- |
-| 1 | Approved 2026-10-21 with a change: the `#if !LOCALTEST` site accepts any 64-bit integer party id, not only unsigned 32-bit; task 7b **in progress** |
+| 1 | Approved 2026-10-21 with a change: the `#if !LOCALTEST` site accepts any 64-bit integer party id, not only unsigned 32-bit; task 7b done 2026-10-21, the site removed in task 58's follow-up after upstream #2157 |
 | 2 | **open** |
 | 3 | The seed is not renumbered (task 7b brief); the sentence in `localtest/testdata/README.md` is **open** |
 | 4, 5 | **open** |
