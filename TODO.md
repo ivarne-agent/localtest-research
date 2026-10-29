@@ -3057,22 +3057,25 @@ token generator package".
 An upstream change in [Altinn/altinn-auth](https://github.com/Altinn/altinn-auth),
 `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/`:
 
-- What: `AddAltinnPlatformIntegrationDefaults` (`Extensions/ServiceCollectionExtensions.cs`) chooses the platform access
-  token source: `TokenGenerator.KeyVault` when `Token:KeyVault:Endpoint` is set, otherwise `TokenGenerator.TestTool`,
-  which fetches every token from the test tool on the internet (`/api/GetPlatformAccessToken` with basic auth). Add a
-  local source: sign with the `IAccessTokenGenerator` the host already registers (`Altinn.Common.AccessTokenClient`,
-  with the certificate `AccessTokenSettings:AccessTokenSigningCertificateFullPath` names) when neither Key Vault nor
-  the test tool is configured, or when a setting selects it (for example `Token:Local:Enabled`). `KeyVault` already
-  calls `IAccessTokenGenerator.GenerateAccessToken(issuer, app)` for `CreatePlatformAccessToken`, so the new source is
-  that call without Key Vault.
+- What (plan, option B, chosen by the owner 2026-10-29: `/home/agent/code/.handover/task64-token-generator/plan.md`;
+  the earlier option A in `plan-option-a.md` beside it): `AddAltinnPlatformIntegrationDefaults`
+  (`Extensions/ServiceCollectionExtensions.cs`) chooses the platform access token source: `TokenGenerator.KeyVault` when
+  `Token:KeyVault:Endpoint` is set, otherwise `TokenGenerator.TestTool`, which fetches every token from the test tool on
+  the internet. Add a third source, `TokenSource.Local`, selected by an explicit `Platform:Token:Local:Enabled=true`,
+  allowed only when ServiceDefaults reports local development (`IsLocalDev`, fail-fast otherwise), refused together
+  with a Key Vault endpoint, signing with the host's `IAccessTokenGenerator.GenerateAccessToken(issuer, app)` (the
+  call `KeyVault.CreatePlatformAccessToken` already makes) with the certificate the client library's
+  `AccessTokenSettings:AccessTokenSigningCertificateFullPath` names (no new path setting; the convention
+  [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) keeps), binding that section itself
+  in this branch only, and throwing instead of sending a request without a token.
 - Why: localtest has no Key Vault and must not call the test tool, so since task 63 two directive blocks in the
   vendored `TokenGenerator.cs` do it (the `TestTool` primary constructor takes the generator, and
   `CreatePlatformAccessToken(issuer, app)` returns its token first). The upstream source removes both, and the dummy
   `Platform:Token:TestTool:*` values Access Management's hook sets only to pass the options validation.
-- Size: small: an enum value and its validation, one generator class (or a branch), the selection in the extension
-  method, a unit test; the team decides whether the local source is chosen implicitly or by a setting.
+- Size: small: about 40 lines of library code, 150 lines of tests (11 cases in the plan) and a README section.
 - Removes: the two `TokenGenerator.cs` blocks in `localtest/components/access-management/vendor/` and the
-  `Platform:Token:TestTool:*` defaults in `fakes/LocaltestAccessManagementExtensions.cs`.
+  `Platform:Token:TestTool:*` defaults in `fakes/LocaltestAccessManagementExtensions.cs` (and its
+  `Configure<AccessTokenSettings>` line, once the source binds the section itself).
 - Hosts that use the lib: in this repository only Access Management (`Altinn.AccessManagement` and
   `Altinn.AccessMgmt.Core` reference `Altinn.Authorization.Integration.Platform`); in altinn-auth check the other apps
   at the time (none of the vendored Authentication, Authorization or Resource Registry hosts compiles it at the pin
