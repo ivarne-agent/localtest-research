@@ -160,7 +160,7 @@ public sealed class LocaltestOtlpTests
     public void WithoutTheVariable_ASignalSpecificExporterStillWorks()
     {
         // UseOtlpExporter and a signal-specific AddOtlpExporter cannot be combined; without the variable the helper must
-        // not have called it, so a component's own exporter (e.g. Notifications' OtelSettings) is unaffected.
+        // not have called it, so a host's own signal-specific exporter is unaffected.
         var configuration = new ConfigurationBuilder().Build();
         var services = new ServiceCollection();
         services.AddOpenTelemetry()
@@ -174,8 +174,9 @@ public sealed class LocaltestOtlpTests
     [Fact]
     public async Task ResourceOnly_NamesAHostThatExportsByItself()
     {
-        // The Altinn.Authorization.ServiceDefaults shape: signal-specific AddOtlpExporter when the variable is set, and a
-        // resource detector with a hard-coded service.name.
+        // A host that exports by itself (the Altinn.Authorization.ServiceDefaults shape until task 61 removed this call
+        // there; no consumer now): signal-specific AddOtlpExporter when the variable is set, and a resource detector with a
+        // hard-coded service.name.
         await using var collector = await FakeCollector.Start(HttpProtocols.Http1);
         var builder = new HostApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>

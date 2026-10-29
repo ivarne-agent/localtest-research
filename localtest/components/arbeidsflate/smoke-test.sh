@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for Arbeidsflate (the SPA's nginx and the BFF behind it) in the running stack, everything through the front
 # door: the inbox on http://af.local.altinn.cloud:8000, the platform on BASE.
-#   studioctl env up -r localtest-v2 --with arbeidsflate      (also starts the dialogporten group)
+#   studioctl env up -r localtest-v2 --with arbeidsflate --with dialogporten   (arbeidsflate alone starts no adapter, so
+#                                                                              no app instance becomes a dialog)
 #   ./smoke-test.sh [BASE]                                    (default http://local.altinn.cloud:8000; AF overrides the inbox)
 #
 # In order: readiness and the BFF's own health checks; the SPA (index.html with the stream URL start.sh wrote, an asset,

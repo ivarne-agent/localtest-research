@@ -9,9 +9,9 @@ using OpenTelemetry.Trace;
 namespace Localtest.Telemetry;
 
 /// <summary>
-/// The front door's OpenTelemetry, by the stack's rule (<see cref="LocaltestOtlp"/>, a copy of
-/// <c>components/shared/fakes/Otlp/</c>): traces, metrics and logs over OTLP exactly when
-/// <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> (or a per-signal endpoint) is set, with the protocol from
+/// The front door's OpenTelemetry, by the stack's rule (<see cref="LocaltestOtlp"/>, the stack's one copy of the rule,
+/// which the components inline): traces, metrics and logs over OTLP exactly when
+/// <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set (a per-signal endpoint alone does not turn it on), with the protocol from
 /// <c>OTEL_EXPORTER_OTLP_PROTOCOL</c> and the name from <c>OTEL_SERVICE_NAME</c> (default <see cref="ServiceName"/>).
 /// Without the variable nothing is registered: no provider, no listener, no exporter.
 /// </summary>

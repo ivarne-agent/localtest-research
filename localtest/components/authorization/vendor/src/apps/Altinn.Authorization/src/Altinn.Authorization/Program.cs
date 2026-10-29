@@ -66,7 +66,7 @@ ConfigureLogging(builder.Logging);
 ConfigureServices(builder.Services, builder.Configuration);
 #if LOCALTEST
 
-// Localtest: configuration defaults and fakes for policies, PIPs, tokens and Azure (see localtest/components/authorization).
+// Localtest: configuration defaults and fakes for policies, tokens and Azure (see localtest/components/authorization).
 Altinn.Platform.Authorization.Localtest.LocaltestAuthorizationExtensions.AddLocaltestAuthorization(builder);
 #endif
 

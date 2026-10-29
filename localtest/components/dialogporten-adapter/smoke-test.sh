@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Smoke test for the dialogporten-adapter component in the running stack, everything through the proxy except the
-# adapter's /health (no public route; read on its host port). Two modes:
+# Smoke test for the dialogporten-adapter component in the running stack, everything through the front door except the
+# adapter's /health (no public route; read from inside the stack's network, or DIALOGPORTEN_ADAPTER_URL). Two modes:
 #
 #   ./smoke-test.sh [BASE]          the stack is up WITH the group:  studioctl env up -r localtest-v2 --with dialogporten
 #   ./smoke-test.sh --off [BASE]    the stack is up WITHOUT the group (the default stack)

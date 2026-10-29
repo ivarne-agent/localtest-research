@@ -1,7 +1,7 @@
 # The shared Postgres for the localtest stack: one server, one database per component, created by the components' own
 # init scripts (Postgres runs them on an empty data volume only; each is idempotent so it can be rerun by hand). No
 # password is baked in: each script reads its roles' passwords from the container's environment (<ROLE>_PASSWORD, set by
-# the runtimes from the manifest) and fails when one is missing.
+# the runtimes from their password file, named in the manifest as {{password:<role>}}) and fails when one is missing.
 # Build context: the localtest/ root, so the scripts come from the component folders they belong to:
 #   docker build -f postgres/Dockerfile -t localtest-postgres .
 # The image version follows studioctl (its workflow-engine database runs the same one).

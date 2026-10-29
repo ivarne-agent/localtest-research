@@ -24,8 +24,9 @@ public sealed class LocaltestAccessManagementOptions
     /// <summary>
     /// Database the production migrations run in. It and the production roles <c>platform_authorization_admin</c> and
     /// <c>platform_authorization</c> are created by the Postgres image's init script
-    /// (<c>postgres-init/45-access-management.sh</c>); the roles' passwords come from the manifest
-    /// (<c>PostgreSQLSettings__AuthorizationDbAdminPwd</c>, <c>__AuthorizationDbPwd</c>), never a default here.
+    /// (<c>postgres-init/45-access-management.sh</c>); the roles' passwords come from the runner's
+    /// password file, named in the manifest (<c>PostgreSQLSettings__AuthorizationDbAdminPwd</c>,
+    /// <c>__AuthorizationDbPwd</c>), never a default here.
     /// </summary>
     public string DatabaseName { get; set; } = "authorizationdb";
 }

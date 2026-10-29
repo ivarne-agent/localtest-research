@@ -5,7 +5,7 @@ namespace Digdir.Domain.Dialogporten.Infrastructure.Localtest;
 /// defaults (<see cref="LocaltestConfiguration"/>); every default can still be overridden by the real setting it
 /// produces, for instance <c>Infrastructure__Redis__ConnectionString</c>, because the defaults sit below the
 /// environment variables. The database connection string (<c>Infrastructure__DialogDbConnectionString</c>, with the
-/// password) has no default here: the runtimes set it from the manifest.
+/// password) has no default here: the runtimes set it from the manifest, with the password from their password file.
 /// </summary>
 public sealed class LocaltestDialogportenOptions
 {

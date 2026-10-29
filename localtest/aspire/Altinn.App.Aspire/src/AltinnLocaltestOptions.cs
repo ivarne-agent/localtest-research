@@ -5,7 +5,8 @@ public sealed class AltinnLocaltestOptions
 {
     /// <summary>
     /// The tag that replaces every research image's <c>sha-</c> pin; null (the default) runs the manifest's pins.
-    /// <c>latest</c> follows main (studioctl's <c>--latest</c>) and is pulled on every start.
+    /// <c>latest</c> follows main (studioctl's <c>--latest</c>). Any tag that does not start with <c>sha-</c> floats and
+    /// is pulled on every start, so a locally built image needs a <c>sha-</c> tag (for example <c>sha-local</c>).
     /// </summary>
     public string? Tag { get; set; }
 

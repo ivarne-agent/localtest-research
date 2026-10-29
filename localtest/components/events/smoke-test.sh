@@ -4,7 +4,7 @@
 # access token, an idempotency key), subscribes the way an integrator does, and reads the outcome back from the
 # localtest inspection API. Resets the component's data first. Requires the stack (`studioctl env up -r localtest-v2`, see ../../README.md).
 #   ./smoke-test.sh [BASE]   (default http://local.altinn.cloud:8000)
-# 27 checks. Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
+# 27 checks, 28 with the monitoring group (the OTLP span check). Run it before the Dialogporten and adapter smoke tests (or a few seconds after): their late dialog events
 # would land after the reset and break "stored once".
 set -uo pipefail
 shopt -s lastpipe   # `inspect … | check` runs check in this shell, so a failure counts
