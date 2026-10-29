@@ -30,21 +30,28 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
 
 ## Phase 1: easy fixes
 
-- [ ] **Sign platform access tokens locally in the Integration.Platform token generator.** In
-      `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/`,
-      `AddAltinnPlatformIntegrationDefaults` picks `TokenGenerator.KeyVault` when `Token:KeyVault:Endpoint` is set and
-      otherwise `TokenGenerator.TestTool`, which asks the test tool on the internet for every platform access token.
-      Add a third source that signs with the `IAccessTokenGenerator` the host already registers (and the certificate
-      `AccessTokenSettings` names) when neither Key Vault nor the test tool is configured, or when a setting asks for it.
-      Task: [`../../TODO.md` task 64](../../TODO.md#64-local-platform-access-tokens-in-the-integration-platform-token-generator).
-  - Why: locally there is no Key Vault and the test tool is not wanted; the Register, the Resource Registry and
-    Notifications validate the tokens against the shared test certificate.
-  - Size: small (one option value, one class or a branch in `TestTool`, the selection in the extension method).
-  - Removes: the two blocks in `TokenGenerator.cs` (they replaced `fakes/Infrastructure/LocaltestTokenGenerator.cs` in task
-    63) and the dummy `Platform:Token:TestTool:*` values in `fakes/LocaltestAccessManagementExtensions.cs`.
-  - Upstream: related [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token
-    generator). The lib is compiled into Access Management only in this repository (`Altinn.AccessManagement` and
-    `Altinn.AccessMgmt.Core` reference it).
+- [ ] **The full URL of the test tool's platform access token endpoint, as a setting.** In
+      `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/`, `TokenGenerator.TestTool`
+      (the token source without Key Vault) always calls `{Endpoint}/api/GetPlatformAccessToken`, an absolute path that
+      drops any path in `Endpoint`. Add an optional `Platform:Token:TestTool:PlatformAccessTokenUrl`, the full URL, used as
+      is when set (the `env`, `ttl` and `app` parameters appended; validation: `Endpoint` or it). Task:
+      [`../../TODO.md` task 66](../../TODO.md#66-a-test-tool-token-generator-mock-in-the-front-door) (the owner's
+      decision, 2026-10-29: "I would like to upstream an environment variable that have the full path"; it supersedes
+      task 64's local signing source).
+  - Why: the front door's mock of the test tool answers under `/mockporten/`
+    (`http://localtest:8080/mockporten/api/GetPlatformAccessToken`), which the lib cannot reach today; the manifest
+    already sets the variable (`Platform__Token__TestTool__PlatformAccessTokenUrl`), which the lib at the pin ignores.
+  - Size: small (one option in two option classes, one branch in `CreatePlatformAccessToken`, the validation, 11 unit
+    tests, a README paragraph).
+  - Removes: the two blocks in `TokenGenerator.cs` (lines 12-17 and 45-47 at the pin); Access Management then fetches its
+    platform access tokens from the mock, configured by the manifest alone.
+  - Upstream: prepared, not opened: the local branch `feat/test-tool-platform-access-token-url` in
+    `/home/agent/code/altinn-auth` and its description in
+    `/home/agent/code/.handover/altinn-auth-upstream/test-tool-platform-access-token-url.md` (the fork
+    `ivarne-agent/altinn-auth` is still to be created). Related
+    [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten serves the same API). The lib is
+    compiled into Access Management only in this repository (`Altinn.AccessManagement` and `Altinn.AccessMgmt.Core`
+    reference it). Authorization's `TokenGeneratorSettings:Url` is already a full URL.
 
 - [ ] **A factory client for the Resource Registry.** `ResourceRegistryClient` creates its own `new HttpClient()` in a
       field initializer, so it bypasses `IHttpClientFactory` and everything ServiceDefaults adds to factory clients
@@ -108,7 +115,7 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
       local mode: a file policy store (shared with the PDP and the Resource Registry), the certificate from a file for
       every issuer, and the production `IAccessTokenGenerator` signing with a local certificate. The README's
       ["Across services"](README.md#across-services) has the cross-service proposal.
-  - Why: none of these exists locally, and localtest does not run Azurite or call the test tool.
+  - Why: none of these exists locally, and localtest does not run Azurite or call the test tool on the internet.
   - Size: large; the policy store is shared by three hosts.
   - Removes: `fakes/Policies/`, `fakes/Infrastructure/` (`LocaltestPublicSigningKeyProvider`, with the metadata item
     above `LocaltestOidcMetadata`; `LocaltestStartupLogger`, diagnostics only, moves into the hook; the outgoing tokens

@@ -106,8 +106,9 @@ A path matching no route still falls through to the localtest app.
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; known gap, left as is (owner 2026-10-29): under Aspire, DCP's own `podman create` command line carries the containers' environment, passwords included, while it runs | medium | yes |
 | 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29; main `6e1b1105`..`27e07fb5`, `4840c5e9`, then the follow-up `c42c24b6` and its parents; pinned `sha-c42c24b`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): 19 fake files (1073 lines) became 13 new directive blocks plus the OTLP rule inlined in six existing sites, in Authorization, Dialogporten, the Resource Registry, Correspondence, Access Management, Events and the OTLP consumers; `components/shared/fakes/Otlp/` is gone (the front door keeps its copy, which `Otlp.Tests` now tests); the upstream token-generator change is task 64 | medium | yes |
-| 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | unapproved (created at the owner's request 2026-10-29; not to be dispatched yet) | small | no |
+| 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | **superseded by [66](#66-a-test-tool-token-generator-mock-in-the-front-door)** (the owner, 2026-10-29: "Can localtest just use a mock of the online token generator?"); was unapproved (created at the owner's request 2026-10-29; not to be dispatched); its plan stays as history and may come back as an optional idea for `dotnet run` developers | small | no |
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
+| 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | in progress (2026-10-29; worktree `/home/agent/code/.worktrees/task66-testtool-mock`, branch `task66-testtool-mock`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`) | small | yes |
 
 ## 1. Vendor sync check
 
@@ -3051,6 +3052,11 @@ monitoring root 26, minimal root 23 (4 skips).
 
 ## 64. Local platform access tokens in the Integration.Platform token generator
 
+**Superseded by [task 66](#66-a-test-tool-token-generator-mock-in-the-front-door) (2026-10-29).** The owner asked "Can
+localtest just use a mock of the online token generator?" and chose the mock in the front door. The plan
+(`/home/agent/code/.handover/task64-token-generator/plan.md`) stays as history; a local signing source may come back as
+an optional idea for developers who run Access Management with `dotnet run`. The text below is the task as it was.
+
 The user's request (2026-10-29, verbatim): "Inline the borderline cases, and make a task for upstream changes to the
 token generator package".
 
@@ -3117,3 +3123,42 @@ shellcheck clean on the changed scripts. The per-finding outcomes: `findings.md`
 - Open: whether the rules every brief inherits (top of this file) should also state task 62's database principles
   (localtest owns the init scripts and users; the services migrate at start). `localtest/CONVENTIONS.md` states them as
   rules already; one sentence here if the owner wants them inherited.
+
+## 66. A test-tool token generator mock in the front door
+
+The owner's decisions (2026-10-29, verbatim): "Can localtest just use a mock of the online token generator?" then "go
+ahead with the mock in the front door. Make a task so we can configure the url through environment variables"; for
+the route "By the way, use /mockporten/api/..." and "I don't need to configure the url front-door answers on"; for
+Access Management, after the lib was found to call the test tool at an absolute path, "Upstream fix, keep current", then
+"I would like to upstream an environment variable that have the full path". Task 64 is superseded.
+
+- **The mock** (`localtest/localtest/TokenGenerator/`, README "Test tool"): `GET /mockporten/api/GetPlatformAccessToken`
+  on the front door, a fixed route (the org `mockporten` cannot be registered as an app), on the public origin and as
+  `http://localtest:8080/mockporten/…` inside the network. The real tool's interface (Altinn/AltinnTestTools
+  `TokenGenerator/GetPlatformAccessToken.cs`, which altinn-auth#4052 plans for Mockporten): basic auth required (`401`
+  with a Basic challenge without it, `400` when it does not decode), any value accepted; `app` required (the real
+  tool's dotted-identifier rule) as `urn:altinn:app`; `ttl` seconds, default 1800 and no maximum as at the real tool;
+  `org` the issuer, `platform` (default, the real tool's and production's) or `ttd`; `env` ignored and logged. The
+  token is what `Altinn.Common.AccessTokenClient`'s `AccessTokenGenerator` writes (RS256, `kid` thumbprint, `x5t`;
+  `urn:altinn:app`, `nbf` now minus 5 s, `exp` now plus `ttl`, `iat`, `iss`, `aud` `platform.altinn.no`), signed with
+  the shared certificate, answered as `text/plain`.
+- **Access Management** keeps the two `TokenGenerator.cs` directive blocks (task 63) for now: the lib at the pin calls
+  `{Endpoint}/api/GetPlatformAccessToken`, which drops the `/mockporten/` prefix. Its test-tool settings moved from the
+  fake's code to the manifest `envs` (`Platform__Token__TestTool__Endpoint` `http://localtest:8080/`,
+  `__PlatformAccessTokenUrl` the mock's full URL (ignored by the lib at the pin), `__Username` and `__Password`
+  `localtest`, and `Environment` `localtest`, which the host copies into the test tool's environment); it depends on
+  the front door. `Configure<AccessTokenSettings>` stays: its own clients call `IAccessTokenGenerator`.
+- **Authorization's `TokenGeneratorSettings:Url`** (the full URL of the online tool, `appsettings.Development.json`) is
+  not used locally: its `DevAccessTokenGenerator` is registered in Development and the fake replaces it with the
+  production `AccessTokenGenerator` signing with the shared certificate, which production runs too. No other consumer
+  of the test tool in the vendored hosts.
+- **The upstream change** (prepared, not opened; the fork `ivarne-agent/altinn-auth` is to be created by the owner):
+  `feat(platform-integration): configure the full URL of the test tool's platform access token endpoint`, an optional
+  `Platform:Token:TestTool:PlatformAccessTokenUrl` used as is when set (validation: `Endpoint` or it), 11 unit tests.
+  Local branch `feat/test-tool-platform-access-token-url` in `/home/agent/code/altinn-auth`, description
+  `/home/agent/code/.handover/altinn-auth-upstream/test-tool-platform-access-token-url.md`; the item in
+  [`localtest/upstreaming/access-management.md`](localtest/upstreaming/access-management.md), phase 1.
+- **Follow-up**, when the upstream change is merged and synced: remove the two directive blocks in `TokenGenerator.cs`
+  and verify Access Management against the mock (its log shows the calls, the start-up Register import and the refresh
+  re-import 158 role assignments).
+

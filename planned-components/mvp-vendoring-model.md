@@ -241,7 +241,7 @@ Checked against `TODO.md`'s inherited rules, the component READMEs and their `ve
   policy-cache and audit-queue fakes, Dialogporten's two issuer caches, the Resource Registry's applications client and
   Correspondence's resource manager became six sites (the audit queue none); then, at the user's request, Correspondence's
   copy of the shared cookie policy, Access Management's token generator (two blocks in the vendored
-  `Altinn.Authorization.Integration.Platform`, with the upstream change as TODO.md task 64), Events' queue client (four
+  `Altinn.Authorization.Integration.Platform`, with the upstream change as TODO.md task 66, which superseded task 64), Events' queue client (four
   blocks) and the shared OTLP helper (inlined in each of six `Program.cs` sites and two telemetry fakes;
   `components/shared/fakes/Otlp/` is gone, the front door keeps its own copy). Until then a brief named the expected
   sites and one more needed a report and the owner's approval (task 2, task 7b's
