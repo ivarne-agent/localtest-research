@@ -4,7 +4,7 @@
 # client_secret_basic and PKCE, refresh rotation, logout through the fake ID-porten's end-session endpoint), mostly through
 # the localtest app's headless code-flow helper (localtest/api/authentication/). The last two checks, Dialogporten's
 # end-user API with the cookie JWT (refused) and with the code-flow access token, run only when the dialogporten group is
-# up (`--with dialogporten`): 34 checks with the group, 32 without; one more, Authentication's server span in
+# up (`--with dialogporten`): 41 checks with the group, 39 without (seven for the Maskinporten exchange, task 67); one more, Authentication's server span in
 # VictoriaTraces (task 53), when the monitoring group is up (`--with monitoring`). The cookie checks (task 21b) also call
 # Authentication directly: at AUTHENTICATION_URL when set (a host port you publish yourself; neither runtime publishes one, see localtest/CONVENTIONS.mdge),
 # else by name from inside the stack's network (../../smoke/lib/containers.sh).
@@ -122,6 +122,29 @@ BACK=$(curl -s -o /dev/null -w '%{redirect_url}' "${OUT#* }")
 check "endsession redirects to Authentication's handleloggedout" "$AUTHN/logout/handleloggedout" "$BACK"
 check "handleloggedout redirects to the platform" "302" "$(code "$BACK")"
 check "after logout the session's refresh token is refused" "invalid_grant" "$(curl -s -X POST "$HELPER/refresh" -d client=localtest-smoke --data-urlencode "refresh_token=$LRT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("error"))')"
+
+echo "== Maskinporten exchange: the trusted instances and the app's local client (task 67)"
+# A token from the fake Maskinporten (it reads only the assertion's payload) for client CLIENT with a service-owner scope.
+mp_token() { curl -s -X POST "$BASE/localtest/api/maskinporten/token" -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer --data-urlencode "assertion=$(python3 -c 'import sys,base64,json; b=lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).rstrip(b"=").decode(); print(b({"alg":"none"})+"."+b({"iss":sys.argv[1],"scope":"altinn:serviceowner/instances.read"})+".")' "$1")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'; }
+# exchange TOKEN: "<status> <urn:altinn:org>" of exchange/maskinporten without test=true, as the apps call it.
+exchange() { local status; status=$(curl -s -o "$T/x" -w '%{http_code}' -H "Authorization: Bearer $1" "$AUTHN/exchange/maskinporten"); if [[ $status == 200 ]]; then echo "$status $(claim "$(cat "$T/x")" urn:altinn:org)"; else echo "$status"; fi; }
+# forged TOKEN ISS: TOKEN's claims with iss ISS, signed RS256 by a key of our own (no trusted instance has it).
+openssl genrsa -out "$T/own.pem" 2048 2>/dev/null
+forged() { python3 -c '
+import sys,base64,json,subprocess
+p=sys.argv[1].split(".")[1]; p+="="*(-len(p)%4); claims=json.loads(base64.urlsafe_b64decode(p)); claims["iss"]=sys.argv[2]
+b=lambda raw: base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+signed=b(json.dumps({"alg":"RS256","typ":"JWT","kid":"own"}).encode())+"."+b(json.dumps(claims).encode())
+sig=subprocess.run(["openssl","dgst","-sha256","-sign",sys.argv[3]],input=signed.encode(),capture_output=True,check=True).stdout
+print(signed+"."+b(sig))' "$1" "$2" "$T/own.pem"; }
+LOCAL_CLIENT=$(mp_token ttd-localtest)
+check "an app's local client (ttd-localtest) exchanges to ttd without test=true" "200 ttd" "$(exchange "$LOCAL_CLIENT")"
+check "another client of 991825827 exchanges to digdir (production)" "200 digdir" "$(exchange "$(mp_token localtest-smoke)")"
+check "the fake's issuer with a key of our own: refused" "401" "$(exchange "$(forged "$LOCAL_CLIENT" "$BASE/localtest/api/maskinporten/")")"
+check "test Maskinporten's issuer with a key of our own: refused" "401" "$(exchange "$(forged "$LOCAL_CLIENT" https://test.maskinporten.no/)")"
+check "production Maskinporten's issuer with a key of our own: refused" "401" "$(exchange "$(forged "$LOCAL_CLIENT" https://maskinporten.no/)")"
+check "an issuer that is not trusted: refused" "401" "$(exchange "$(forged "$LOCAL_CLIENT" https://maskinporten.example/)")"
+check "the fake's tokens still exchange after those" "200 ttd" "$(exchange "$LOCAL_CLIENT")"
 
 echo "== Dialogporten's end-user API with the code-flow access token"
 if [[ "$(code "$BASE/dialogporten/health/readiness")" == 200 ]]; then
