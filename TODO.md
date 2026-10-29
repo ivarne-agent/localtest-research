@@ -16,7 +16,7 @@ Rules every brief inherits: work in a worktree of this repository under `/home/a
 change to a `vendor/` file is only ever a `#if !LOCALTEST` (production first) / `#else` / `#endif` block or an additive
 `#if LOCALTEST` block; anywhere a fake class only requires 3-4 line changes with a preprocessor directive, it goes in the
 directive and the fake is deleted (the user's decision of 2026-10-29, task 63; such a site needs no report first), and
-real local behaviour (stores, controllers, seeders, token issuing) goes in `fakes/`; a component's Dockerfile mirrors upstream's with `localtest:` deviations; the old localtest in
+real local behaviour (stores, controllers, seeders, token issuing) goes in `fakes/`; localtest owns the initialization of the database and the creation of the users (the component's `postgres-init/NN-*.sh`, role passwords as `{{password:<role>}}` from the runner's generated file, never a fixed value in an image, fake or the manifest), and platform services that run Yuniql or other migration software at startup do so in localtest too (the user's principles, task 62; `localtest/CONVENTIONS.md`); a component's Dockerfile mirrors upstream's with `localtest:` deviations; the old localtest in
 `altinn-studio/src/Runtime/localtest` is reference only, never a basis; one image build or AOT publish at a time on
 this machine (7.8 GB RAM), never next to a Cypress run; extend the component's `smoke-test.sh`; update the component
 README and `vendor/UPSTREAM.md`; no `Co-Authored-By` trailers. The studioctl side of a
