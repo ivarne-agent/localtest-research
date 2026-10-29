@@ -95,7 +95,7 @@ A path matching no route still falls through to the localtest app.
 | 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
 | 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
-| 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | approved (2026-10-28; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; after task 60) | medium | yes |
+| 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; open: under Aspire, DCP's own `podman create` command line carries the containers' environment | medium | yes |
 
 Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
 
@@ -2890,3 +2890,58 @@ and use `Password` as the superuser password for recovery".
   password to the file's value before the services start, so no volume reset is ever needed for passwords.
 - Task 60's mechanism stays: the Postgres container and the services get the values through their environment; the
   manifest describes which variable carries which role's password instead of holding the values.
+
+**Done (2026-10-29):** main `ea619ad5` (runners, manifest, docs) and `3e586ebb` (the init scripts read the passwords
+with `\getenv`), pinned ``sha-3e586eb``; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`, evidence
+`/home/agent/code/.handover/task62-generated-db-passwords/`.
+
+- **Manifest:** no role password; `{{password:<role>}}` in `envs`, resolved by both runners. The `postgres` variables
+  whose value is exactly a role's placeholder are the roles (13); every other value with the placeholder is a consumer.
+  The superuser `postgres` has the literal `POSTGRES_PASSWORD` `Password` (the workflow engine connects as it). Both
+  readers check the placeholders (role name, carried by `postgres`, carried once, a literal superuser).
+- **Files:** studioctl `data/generated/localtest-v2/secrets/postgres-passwords.json`, the Aspire package
+  `<DataDirectory>/secrets/postgres-passwords.json`: role to password, 192 random bits as 48 hex digits, directory 0700,
+  file 0600, atomic write, missing roles filled before anything starts, stored ones kept, unusable values refused.
+  studioctl records a digest in its state file, so `env up` converges a running stack after the file changed.
+- **Reconciliation:** after Postgres's health check and before its dependants start (studioctl: part of the readiness
+  probe; Aspire: part of Postgres's health check), `exec -i` of `psql` as the superuser over the Unix socket (the image's
+  `pg_hba.conf` trusts local connections, initdb's default; verified), with a script on stdin that reads each password
+  from the container's environment with `\getenv`, sets the superuser's and every existing role's, and keeps the
+  statements out of the server log and `pg_stat_statements`. The same script and command in both runners, compared
+  through the golden file.
+- **No password in argv:** the init scripts now use `\getenv` (they passed `psql -v password=…`, visible in `ps` on the
+  host during a fresh volume's init); studioctl's Podman CLI client passes container environments in an owner-only
+  `--env-file`. Remaining: under Aspire, DCP itself runs `podman create … -e KEY=VALUE` (the containers' environment), so
+  the values are in that command line for its lifetime; the package could move the password variables to an owner-only
+  `--env-file` of its own (with a digest variable so a changed file still recreates the containers). Not done.
+- **Tests:** Go: the manifest's roles, placeholders, checks and script; the password file (generation, modes, kept and
+  filled, refused files, digest); the runner's reconciliation (after the probe only for Postgres, the script on stdin,
+  masked errors, the digest as a change); the Podman env file. Aspire: the same file and manifest cases, studioctl's
+  roles, script and command from the golden file, the health check's reconciliation, golden comparison with the
+  golden passwords. Go `ok`, lint 0 issues; Aspire 198 passed, CSharpier clean.
+- **Proven on studioctl:** (c) the volume from before the task (superuser `postgres`/`postgres`, static role
+  passwords): no reset, the 13 roles and the superuser set, the file's passwords log in over TCP and the old ones are
+  refused, root 26, Events 27, Notifications 64, Profile 52, the Resource Registry 43, Authorization 31. (a) a fresh
+  volume with the new Postgres image and a new file: the init scripts create the roles with the file's passwords, root
+  26, the front door 83 + `FRONTEND_DIST`, Events 27, Notifications 64, Profile 52, the Resource Registry 43,
+  Authorization 31, Authentication 32; `--with dialogporten --with correspondence`: Events 27, the adapter 39 (rerun; the
+  first run lost one dialog lookup), Dialogporten 60, Correspondence 78; `--with dialogporten --with arbeidsflate`:
+  Arbeidsflate 59. (b) the file deleted between runs: 13 new passwords, the same volume, reconciled, root 26, Events 27,
+  Profile 52, Notifications 64, the Resource Registry 43, Authorization 31; and deleted while running: `env up`
+  converged and reconciled, root 26.
+- **Proven under Aspire** (sample AppHost, the new Postgres image and the pinned rest under a local `sha-` tag): (a) fresh
+  volumes, 18 containers healthy in 61 s, both apps provisioned, root 26, the front door 83 + `FRONTEND_DIST`,
+  Notifications 64, Profile 52, the Resource Registry 43, Authorization 31, Authentication 34, the adapter 39,
+  Dialogporten 60, Events 26 + 2 (the 6.7 "third event registered" flake seen under Aspire in task 60's run too); (b) the
+  file deleted: new passwords, Postgres recreated on the same volume and reconciled, root 26, Profile 52, Notifications
+  64, the Resource Registry 43, Dialogporten 60; (c) the roles and the superuser set back to the old static values on
+  the stopped stack: the next start reconciled them, root 26, Profile 52, the Resource Registry 43.
+- **(d):** no password in any container's log, in `podman inspect`'s `Path`/`Args`/`Cmd`/`Entrypoint`, in studioctl's
+  logs or state file, in the AppHost's console or in the evidence; in `ps` samples every 0.2 s during studioctl's starts
+  none after the init-script fix (the pinned image's init scripts showed them in `psql -v`); under Aspire only in DCP's
+  `podman create` lines. They are in the containers' environment (`podman inspect` `Config.Env`), as accepted.
+- **Pinned check (2026-10-29, images `sha-3e586eb` from main 3e586ebb, images run 40840486674; no `--dev-*`; a new
+  password file on fresh volumes; evidence `pinned/`):** the golden diff moves only the tags; Go `ok`, Aspire 198. Default
+  stack (47 s with pulls): root 26, the front door 83 + `FRONTEND_DIST`, Events 27, Notifications 64, Profile 52, the
+  Resource Registry 43, Authorization 31, Authentication 32; `--with dialogporten --with correspondence`: Events 27,
+  the adapter 39, Dialogporten 60, Correspondence 78; minimal: root 23 (4 skips). No `FAIL`.
