@@ -976,7 +976,8 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
           "container:localtest-v2-resource-registry",
-          "container:localtest-v2-profile"
+          "container:localtest-v2-profile",
+          "container:localtest-v2-localtest"
         ],
         "volumes": [
           {
@@ -1003,7 +1004,12 @@
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "Environment=localtest",
           "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/",
+          "Platform__Token__TestTool__Endpoint=http://localtest:8080/",
+          "Platform__Token__TestTool__Password=localtest",
+          "Platform__Token__TestTool__PlatformAccessTokenUrl=http://localtest:8080/mockporten/api/GetPlatformAccessToken",
+          "Platform__Token__TestTool__Username=localtest",
           "PostgreSQLSettings__AuthorizationDbAdminPwd=golden-platform_authorization_admin",
           "PostgreSQLSettings__AuthorizationDbPwd=golden-platform_authorization",
           "services__access-management__http__0=http://access-management:5080",
@@ -2667,6 +2673,7 @@
           "container:localtest-v2-register",
           "container:localtest-v2-resource-registry",
           "container:localtest-v2-profile",
+          "container:localtest-v2-localtest",
           "container:localtest-v2-otel-collector"
         ],
         "volumes": [
@@ -2694,11 +2701,16 @@
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "Environment=localtest",
           "Localtest__AccessManagement__PlatformEndpoint=http://local.altinn.cloud:8000/",
           "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317",
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=access-management",
+          "Platform__Token__TestTool__Endpoint=http://localtest:8080/",
+          "Platform__Token__TestTool__Password=localtest",
+          "Platform__Token__TestTool__PlatformAccessTokenUrl=http://localtest:8080/mockporten/api/GetPlatformAccessToken",
+          "Platform__Token__TestTool__Username=localtest",
           "PostgreSQLSettings__AuthorizationDbAdminPwd=golden-platform_authorization_admin",
           "PostgreSQLSettings__AuthorizationDbPwd=golden-platform_authorization",
           "services__access-management__http__0=http://access-management:5080",
@@ -4601,7 +4613,8 @@
           "container:localtest-v2-postgres",
           "container:localtest-v2-register",
           "container:localtest-v2-resource-registry",
-          "container:localtest-v2-profile"
+          "container:localtest-v2-profile",
+          "container:localtest-v2-localtest"
         ],
         "volumes": [
           {
@@ -4628,7 +4641,12 @@
         ],
         "env": [
           "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "Environment=localtest",
           "Localtest__AccessManagement__PlatformEndpoint=http://origin.test:18000/",
+          "Platform__Token__TestTool__Endpoint=http://localtest:8080/",
+          "Platform__Token__TestTool__Password=localtest",
+          "Platform__Token__TestTool__PlatformAccessTokenUrl=http://localtest:8080/mockporten/api/GetPlatformAccessToken",
+          "Platform__Token__TestTool__Username=localtest",
           "PostgreSQLSettings__AuthorizationDbAdminPwd=golden-platform_authorization_admin",
           "PostgreSQLSettings__AuthorizationDbPwd=golden-platform_authorization",
           "services__access-management__http__0=http://access-management:5080",

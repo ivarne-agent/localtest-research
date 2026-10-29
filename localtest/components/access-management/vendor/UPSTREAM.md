@@ -92,7 +92,9 @@
 <!-- vendor-sync:end sites -->
 
 What each site does and why it is there: [`../README.md`](../README.md#directive-sites-in-vendor) (the host's
-`Program.cs` and `AccessManagementHost.cs`, and the Resource Registry client's base address and constructor).
+`Program.cs` and `AccessManagementHost.cs`, the Resource Registry client's base address and constructor, and the two
+`TokenGenerator.cs` blocks that sign platform access tokens locally until the upstream setting for the full URL of the
+test tool's token endpoint is synced, TODO.md task 66).
 
 ## Syncing
 

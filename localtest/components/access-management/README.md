@@ -45,8 +45,12 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
    around `TestTool`'s primary constructor, whose localtest version also takes the production `IAccessTokenGenerator`,
    and an additive `return platformGenerator.GenerateAccessToken(issuer, app);` at the top of
    `CreatePlatformAccessToken(issuer, app)`, so the tokens to the Register, the Resource Registry and Notifications are
-   signed with the shared test certificate (`../../certs`). Only the Access Management host compiles the lib. The upstream
-   change that would remove it: [TODO.md task 64](../../../TODO.md#64-local-platform-access-tokens-in-the-integration-platform-token-generator).
+   signed with the shared test certificate (`../../certs`). Only the Access Management host compiles the lib. The
+   lib's test-tool settings come from the manifest and name the front door's mock of the test tool (below), which the
+   lib at this pin cannot call: it requests `{Endpoint}/api/GetPlatformAccessToken` at the root, and the mock answers
+   under `/mockporten/`. The upstream change that adds a full-URL setting, after which both blocks go and Access
+   Management fetches its tokens from the mock:
+   [TODO.md task 66](../../../TODO.md#66-a-test-tool-token-generator-mock-in-the-front-door).
 
 ## What the fakes replace
 
@@ -54,14 +58,24 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
 | --- | --- |
 | Postgres roles and database created by operations | `postgres-init/45-access-management.sh` in the stack's Postgres image: `platform_authorization_admin` and `platform_authorization` (superusers locally, shared with the Resource Registry) and `authorizationdb` with `hstore`, the passwords from the Postgres container's environment (`PLATFORM_AUTHORIZATION_ADMIN_PASSWORD`, `PLATFORM_AUTHORIZATION_PASSWORD`); the service gets the same values from the manifest (`PostgreSQLSettings__AuthorizationDbAdminPwd`, `__AuthorizationDbPwd`). Postgres runs it on an empty volume only; for an existing volume without `authorizationdb`, run it by hand: `podman exec -i localtest-v2-postgres sh < components/access-management/postgres-init/45-access-management.sh` |
 | `IPolicyFactory` over three Azure Blob containers | `LocaltestPolicyFactory` + `LocaltestFilePolicyRepository`: `{PolicyStorePath}/{container}/{path}` with every written version under `{path}.versions/{versionId}`; version ids are what Access Management stores as the delegation policy version |
-| `ITokenGenerator` (test tool or Key Vault) | the lib's `TestTool` generator, which signs with the production `IAccessTokenGenerator` and the shared test certificate through site 5 |
+| `ITokenGenerator` (test tool or Key Vault) | the lib's `TestTool` generator, configured by the manifest for the front door's mock of the test tool (`Platform__Token__TestTool__*`, below), which signs with the production `IAccessTokenGenerator` and the shared test certificate through site 5 until the upstream full-URL setting is synced |
 | `IPublicSigningKeyProvider` (Key Vault) | the shared test certificate for every issuer, so the production `AccessTokenHandler` validates platform access tokens for real |
 | Lease on Azure Blob | config: no blob endpoint, so the production `NoopLeaseService` |
 
 Configuration defaults live in `LocaltestAccessManagementExtensions` (section `Localtest:AccessManagement`): every
-platform endpoint by service name, the production connection strings pointed at the shared Postgres, dummy
-test-tool token settings to satisfy eager validation, and the periodic Register and Resource Registry syncs and the
-outbox hosted services switched off (the init-time Register import stays on; the refresh runs the resource sync).
+platform endpoint by service name, the production connection strings pointed at the shared Postgres, and the periodic
+Register and Resource Registry syncs and the outbox hosted services switched off (the init-time Register import stays
+on; the refresh runs the resource sync).
+
+The test-tool token settings come from the manifest's `envs` since task 66 (before, the fake set dummy values in code):
+`Platform__Token__TestTool__Endpoint` `http://localtest:8080/`, `__PlatformAccessTokenUrl`
+`http://localtest:8080/mockporten/api/GetPlatformAccessToken` (the front door's mock, `../../localtest/README.md`,
+"Test tool"), `__Username` and `__Password` `localtest` (the mock accepts any basic auth; inert values, not secrets),
+and `Environment` `localtest`: the host copies the top-level `Environment` (at22 in `appsettings.json`) into
+`Platform:Token:TestTool:Environment` (`AccessManagementHost.ConfigureLibsIntegrations`), so a
+`Platform__Token__TestTool__Environment` would be overwritten. The lib at the pin knows no `PlatformAccessTokenUrl` and
+ignores it; with the directive (site 5) nothing calls the test tool yet. Access Management depends on the front door
+(`dependsOn: localtest`), so the mock is up before its start-up Register import once the directive is gone.
 
 The Resource Registry is the real component (`../resource-registry/`), reached through the production clients: the
 delegation services' `ResourceRegistryClient` at `PlatformSettings:ApiResourceRegistryEndpoint`

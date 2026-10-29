@@ -107,11 +107,16 @@
       "port": 5080,
       "envs": {
         "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "Environment": "localtest",
         "Localtest__AccessManagement__PlatformEndpoint": "{{origin}}/",
+        "Platform__Token__TestTool__Endpoint": "http://localtest:8080/",
+        "Platform__Token__TestTool__Password": "localtest",
+        "Platform__Token__TestTool__PlatformAccessTokenUrl": "http://localtest:8080/mockporten/api/GetPlatformAccessToken",
+        "Platform__Token__TestTool__Username": "localtest",
         "PostgreSQLSettings__AuthorizationDbAdminPwd": "{{password:platform_authorization_admin}}",
         "PostgreSQLSettings__AuthorizationDbPwd": "{{password:platform_authorization}}"
       },
-      "dependsOn": ["postgres", "register", "resource-registry", "profile"],
+      "dependsOn": ["postgres", "register", "resource-registry", "profile", "localtest"],
       "volumes": {
         "policy-store": "/policy-store"
       }

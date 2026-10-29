@@ -34,6 +34,9 @@ func TestTheRolesAreThePostgresVariablesThatCarryAPassword(t *testing.T) {
 	}
 }
 
+// testToolPrefix names Access Management's settings for the test tool's token generator, which the front door mocks.
+const testToolPrefix = "Platform__Token__TestTool__"
+
 // No password in the manifest: every value that carries one names it by its placeholder.
 func TestTheManifestHoldsNoRolePassword(t *testing.T) {
 	t.Parallel()
@@ -42,6 +45,9 @@ func TestTheManifestHoldsNoRolePassword(t *testing.T) {
 		for key, value := range m.Containers[name].Envs {
 			if key == SuperuserPasswordVariable || strings.Contains(value, "Username=postgres;") {
 				continue // the superuser's fixed password, the recovery path
+			}
+			if strings.HasPrefix(key, testToolPrefix) {
+				continue // the front door's test-tool mock accepts any basic auth: inert values, not a role password
 			}
 			lower := strings.ToLower(key + "=" + value)
 			if (strings.Contains(lower, "password=") || strings.HasSuffix(key, "Pwd") ||

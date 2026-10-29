@@ -135,6 +135,13 @@ describes the passwords:
   placeholder the `postgres` container does not carry, a role carried twice, a role name that is not a plain
   identifier, and placeholders without a literal superuser and password.
 
+**Not a role password: the test tool's credentials.** Access Management's `Platform__Token__TestTool__Username` and
+`__Password` (`localtest`), with `__Endpoint` (`http://localtest:8080/`), `__PlatformAccessTokenUrl`
+(`http://localtest:8080/mockporten/api/GetPlatformAccessToken`) and `Environment` (`localtest`), configure its platform
+access token source for the front door's mock of the online test tool, which requires basic auth and accepts any user
+name and password. They are inert literals, not secrets, so they do not fall under the rules above; the manifest
+package's `TestTheManifestHoldsNoRolePassword` skips the `Platform__Token__TestTool__` keys by name.
+
 **The password file.** studioctl keeps `data/generated/localtest-v2/secrets/postgres-passwords.json` under its home
 (beside `state.json`), the Aspire package `secrets/postgres-passwords.json` under `AltinnLocaltestOptions.DataDirectory`:
 a JSON object of role name to password, the directory `0700` and the file `0600`, written atomically. Before anything

@@ -18,9 +18,10 @@ namespace Altinn.AccessManagement.Localtest;
 /// <summary>
 /// The localtest hooks in the vendored host's <c>AccessManagementHost.Create</c>: <see cref="AddLocaltestConfiguration"/>
 /// right after the builder is created (configuration defaults), and <see cref="AddLocaltestAccessManagement"/> right
-/// before <c>Build()</c> (the DI replacements for Azure Blob and Key Vault, and the startup refresh). The test-tool token
-/// generator signs locally through a directive in the vendored <c>TokenGenerator.TestTool</c>. Everything else in the host
-/// runs as in production.
+/// before <c>Build()</c> (the DI replacements for Azure Blob and Key Vault, and the startup refresh). The integration
+/// library's test-tool token generator is configured by the manifest for the front door's mock
+/// (<c>/mockporten/api/GetPlatformAccessToken</c>) and, until the upstream setting for that URL is synced, signs locally
+/// through a directive in the vendored <c>TokenGenerator.TestTool</c>. Everything else in the host runs as in production.
 /// </summary>
 public static class LocaltestAccessManagementExtensions
 {
@@ -73,12 +74,13 @@ public static class LocaltestAccessManagementExtensions
                 ["Platform:ResourceRegistry:Endpoint"] = "http://resource-registry/",
                 ["Platform:SblBridge:Endpoint"] = platform,
                 ["Platform:Notifications:Endpoint"] = "http://notifications/",
-                // Validated eagerly by Integration.Platform; the test tool is never called (a directive in TokenGenerator.TestTool
-                // signs with IAccessTokenGenerator instead).
-                ["Platform:Token:TestTool:Endpoint"] = platform,
-                ["Platform:Token:TestTool:Username"] = "localtest",
-                ["Platform:Token:TestTool:Password"] = "localtest",
-                ["Platform:Token:TestTool:Environment"] = "localtest",
+                // Platform access tokens for these clients: Integration.Platform's TestTool source. Its settings come from the
+                // manifest (Platform__Token__TestTool__Endpoint, __Username, __Password, __PlatformAccessTokenUrl, and
+                // Environment, which the host copies into TestTool:Environment), for the front door's mock of the test tool,
+                // http://localtest:8080/mockporten/api/GetPlatformAccessToken. The lib at the pin calls {Endpoint}/api/... and
+                // knows no PlatformAccessTokenUrl (the upstream change that adds it: TODO.md task 66), so until that is synced
+                // the two directive blocks in TokenGenerator.TestTool sign with IAccessTokenGenerator and nothing is called;
+                // the settings only pass the eager options validation.
 
                 // The init-time Register import runs against the vendored Register; the periodic sync jobs and the outbox stay off.
                 ["FeatureManagement:AccessMgmt.Core.HostedServices.RegisterSync"] = "false",
@@ -122,9 +124,10 @@ public static class LocaltestAccessManagementExtensions
         // OTEL_EXPORTER_OTLP_ENDPOINT is set, named by its own resource detector, which gives the manifest's name
         // (OTEL_SERVICE_NAME is the same); nothing to add here (TODO.md task 61).
 
-        // Platform access tokens: production generator and handler with the shared test certificate standing in for
-        // Key Vault on both sides (AccessTokenSettings:AccessTokenSigningCertificateFullPath). Production hands the
-        // generator a Key Vault certificate and never binds the client-side settings, hence the Configure.
+        // Platform access tokens of Access Management's own clients (PartiesClient, ProfileClient,
+        // AccessListAuthorizationClient call IAccessTokenGenerator directly): production generator and handler with the
+        // shared test certificate standing in for the mounted secret and Key Vault (AccessTokenSettings:
+        // AccessTokenSigningCertificateFullPath). Production never binds the client-side settings, hence the Configure.
         services.Configure<Altinn.Common.AccessTokenClient.Configuration.AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
         Replace<IPublicSigningKeyProvider, LocaltestPublicSigningKeyProvider>(services);
 
