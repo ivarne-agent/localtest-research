@@ -7,6 +7,9 @@ the components' "Known gaps", [`localtest/reviews/`](localtest/reviews/README.md
 Status values: **unapproved** (not yet discussed, or discussed and not yet released to an agent), **approved**
 (design settled, an agent may be dispatched), **deferred** (discussed, parked until something needs it), **won't do** (discussed and dropped),
 **in progress** (agent name, worktree, branch), **done** (commit).
+Older rows also use **research done** (a research task whose document is merged), **plan written** and **brief drafted**
+(stages of an approved task before dispatch), **PR open** (waiting on an upstream review) and **pinned** (the images
+carry it); read them as the nearest of the values above.
 Nothing is dispatched while it is unapproved.
 
 Rules every brief inherits: work in a worktree of this repository under `/home/agent/code/.worktrees/<task>/`; a
@@ -22,13 +25,17 @@ source under `localtest/studioctl/src/cli/` (ordinary commits on top of the base
 `localtest/studioctl/UPSTREAM.md`), built with `make dev-install` there and verified with
 `studioctl env up -r localtest-v2 --dev <component>`; nothing is edited in an altinn-studio checkout.
 
-**Optional component groups (decided 2026-10-20).** `localtest/studioctl/src/cli/internal/cmd/env/localtestv2/groups.go`
-becomes a group table: each group has a default (all off) and the groups it implies; `--with x` enables `x` and,
+**Optional component groups (decided 2026-10-20; superseded 2026-10-22 by manifest v2, task 27a: the groups are in
+the manifest, each lists its root containers and `dependsOn` decides what else starts; no group implies another, so
+`--with correspondence` starts Dialogporten's WebApi, Service host and Redis (task 65), and `--with arbeidsflate` its
+WebApi, GraphQL host and Redis; see `localtest/CONVENTIONS.md`, "The manifest"; the original text follows).**
+`localtest/studioctl/src/cli/internal/cmd/env/localtestv2/groups.go` becomes a group table: each group has a default (all off) and the groups it implies; `--with x` enables `x` and,
 transitively, what it implies; `--without` removes only the named group. Groups: `dialogporten` (Redis, the three
 Dialogporten hosts, the adapter from task 10) implies nothing; `receipt` implies nothing; `correspondence` implies
 `dialogporten`; `everything` implies every other group. Task 16 lands the table (its first commit, merged ahead of the
 rest); 7 and 10 build on it. **Front door for components that are not running (decided 2026-10-20, in task 16's
-studioctl step):** `env up` writes every known component's route, enabled or not, and studioctl-server answers `503`
+studioctl step; since tasks 26 and 27 the front door, the localtest container, answers both `503` kinds, and
+studioctl-server no longer proxies):** `env up` writes every known component's route, enabled or not, and the front door answers `503`
 with an RFC 9457 ProblemDetails (`application/problem+json`; a small HTML page when `Accept` prefers `text/html`)
 naming the component and group and the exact `studioctl env up -r localtest-v2 --with <group>` command (and
 `--with everything`); an enabled component that does not answer gets the same shape pointing at `studioctl env logs`.
@@ -42,15 +49,15 @@ A path matching no route still falls through to the localtest app.
 | 4 | [Maskinporten token endpoint and the shared `IMaskinportenService` fake](#4-maskinporten-token-endpoint-and-the-shared-imaskinportenservice-fake) | done (2026-10-20, commit 798f18e) | small | yes |
 | 5 | [Resource Registry component](#5-resource-registry-component) | done (2026-10-20: 5a commits e0cba40..b6f4c47, pin a3422419; 5b commits 9b7278d..aaa099e) | large | yes |
 | 6 | [Notifications](#6-notifications) | done (2026-10-20, commits 45e99a1..0b38452, pin a4aa959; follow-up: seed data for SMS numbers and organisation addresses, see section 6) | medium | yes |
-| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 94c1acb..e96f904; group `correspondence` implying `dialogporten`, port 8033; 7b done the same day closed the 6-digit party-id gap with one directive site, see `planned-components/correspondence/party-ids.md`; pin sha-735e5d2, proven 2026-10-21) | medium | yes |
+| 7 | [Correspondence](#7-correspondence) | done (2026-10-21, commits 94c1acb..e96f904; group `correspondence` implying `dialogporten` (until manifest v2, 2026-10-22: dependencies decide, see the header), port 8033; 7b done the same day closed the 6-digit party-id gap with one directive site, see `planned-components/correspondence/party-ids.md`; pin sha-735e5d2, proven 2026-10-21) | medium | yes |
 | 8 | [Inspection GUI](#8-inspection-gui) | deferred (2026-10-20: possible overlap with Altinn Studio's admin of running services, see task 17; plan in `planned-components/inspection-gui/`) | medium | yes |
 | 9 | [Dialogporten core](#9-dialogporten-core) | 9a done (2026-10-20, commits 4ab03f0..76b8787, pin ec333e4); 9b done (2026-10-20, commits 4749bd7..d7827bf, pin sha-d7827bf) | large | yes |
 | 10 | [Dialogporten adapter and the Storage outbox](#10-dialogporten-adapter-and-the-storage-outbox) | done (2026-10-21, commits c940fd6..3c9b03f; adapter in the dialogporten group, Storage outbox on in the default stack, one `#if !LOCALTEST` site added in Dialogporten for http URLs; pin sha-3c9b03f, proven 2026-10-21 with `--with everything`) | large | yes |
-| 11 | [Arbeidsflate](#11-arbeidsflate) | done (2026-10-21, commits dc1ae37..b136eabf; group `arbeidsflate` implying `dialogporten`, host `af.local.altinn.cloud:8000`, nginx 8037 and BFF 8038, two build-time patches on an unmodified vendor tree, 56-check smoke test, inbox verified in Chromium; 11b done the same day (Correspondence attachments from the inbox, commits 789edcd3..8e510e91, one directive site in Correspondence, see section 11); pin sha-7f21882, proven 2026-10-21 on plain images with `--with correspondence`: root, authentication, correspondence and dialogporten smoke tests pass) | large | yes |
+| 11 | [Arbeidsflate](#11-arbeidsflate) | done (2026-10-21, commits dc1ae37..b136eabf; group `arbeidsflate` implying `dialogporten` (until manifest v2, 2026-10-22: dependencies decide, see the header), host `af.local.altinn.cloud:8000`, nginx 8037 and BFF 8038, two build-time patches on an unmodified vendor tree, 56-check smoke test, inbox verified in Chromium; 11b done the same day (Correspondence attachments from the inbox, commits 789edcd3..8e510e91, one directive site in Correspondence, see section 11); pin sha-7f21882, proven 2026-10-21 on plain images with `--with correspondence`: root, authentication, correspondence and dialogporten smoke tests pass) | large | yes |
 | 12 | [Review leftovers](#12-review-leftovers) | done for the audit findings (2026-10-21, commits 6ba99ee..90c6bc4: Postgres in UTC, two Events directive sites for Dialogporten sources, authorization and root smoke tests fixed, Storage standalone test removed, `reviews/test-apps.md`; still open: HEAD on the localtest app, a WebSocket test, the Events reset not draining queues, Slack deliveries without their event, the Altinn 2 roles stub; pin sha-3143730, proven 2026-10-21 on plain images) | small each | mostly |
 | 13 | [studioctl integration leftovers](#13-studioctl-integration-leftovers) | unapproved | medium | yes |
 | 14 | [Profile beyond the Register](#14-profile-beyond-the-register) | done (2026-10-21, commits f7b7f50..097b474; production Profile in the default stack on port 8036, `/profile` off the Register, two additive hooks; pin sha-0485d0a, proven 2026-10-21 on plain images) | unknown | yes |
-| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | approved (owner 2026-10-23: "dispatch agents on the maskinporten package"); brief `/home/agent/code/.briefs/task15-maskinporten-package.md`; **superseded by [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)** (task 47, 2026-10-24: another contributor's draft with the same setting names covers our need; ours stays unopened on the fork; the owner may post the draft review comment from `localtest/reviews/2026-10-24-maskinporten-pr92.md`); the consumer follow-up after its release stands | small | no |
+| 15 | [Localtest URLs in the Maskinporten client package](#15-localtest-urls-in-the-maskinporten-client-package) | approved (owner 2026-10-23: "dispatch agents on the maskinporten package"); brief `/home/agent/code/.briefs/task15-maskinporten-package.md`; **superseded by [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)** (task 47, 2026-10-24: another contributor's draft with the same setting names covers our need; ours stays unopened on the fork; the owner may post the draft review comment from `localtest/reviews/2026-10-24-maskinporten-pr92.md`); #92 merged and released as 10.2.0 on 2026-10-26; the consumer follow-up (the version bumps that delete the `IMaskinportenService` fakes) stands, as items in `localtest/upstreaming/` | small | no |
 | 16 | [Receipt](#16-receipt) | done (2026-10-21, commits f40027a..319a712; group `receipt`, port 8034; group table and the 503 front door landed from this task as 6b41c96 and adf6ee6; pin sha-902ddfc, proven 2026-10-21) | medium | yes |
 | 17 | [Admin of running services and the inspection GUI](#17-admin-of-running-services-and-the-inspection-gui) | done (2026-10-20: plan in `planned-components/admin-running-services/`; finding: not straightforward, the admin frontend depends on the runtime gateway, Kubernetes, Gitea teams and Designer\'s database; recommends building 8 as planned with admin\'s instance labels; 8 stays deferred pending the owner\'s decision) | small | no |
 | 18 | [Test data format: docs, JSON schema, extended baseline](#18-test-data-format-docs-json-schema-extended-baseline) | done (2026-10-21, commits 76fa790..96f1917; `localtest/testdata/` with the v3 schema, seed on v3, `reserved` mirrored into `isReserved`; pin sha-55ce57f, proven 2026-10-21 under task 7) | small | yes |
@@ -77,7 +84,7 @@ A path matching no route still falls through to the localtest app.
 | 39 | [Configurable public host names and port](#39-configurable-public-host-names-and-port) | approved (owner 2026-10-23: "dispatch"); brief `/home/agent/code/.briefs/task39-configurable-origin.md`; **done, merged** 2026-10-23 (ff to 6fd85eff); the front door and fake changes reach the stack at the next pin bump | large | yes (phase 2) |
 | 40 | [Service names for the components' URLs, pass-through off](#40-service-names-for-the-components-urls-pass-through-off) | approved (owner 2026-10-23: "dispatch an agent to use service names for the urls and turn pass-through provider off"); brief `/home/agent/code/.briefs/task40-service-names.md`; **done, merged** 2026-10-23 (ff to e2a9b82c); the images carry it at the next pin bump | large | yes (phase 2) |
 | 41 | [`env up` tears down after a failed start](#41-env-up-tears-down-after-a-failed-start) | approved (owner 2026-10-23: "if it has a simple fix it would be nice"); brief `/home/agent/code/.briefs/task41-up-failure-teardown.md`; **done, merged** 2026-10-23 (ff to 80dc9815) | small | no |
-| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | PR open ([altinn-studio#21481](https://github.com/Altinn/altinn-studio/pull/21481), head b0e5555fc5); 2026-10-25 follow-up dispatched (owner: "add a changelog entry … see if there is any hints about why cypress fails"): brief `/home/agent/code/.briefs/task42b-changelog-and-cypress.md`, the studioctl changelog check and a Cypress 90-minute timeout; **done** 2026-10-25 (head bdaac448ca: changelog entry + comment, validator passes; Cypress: the runner stalled on `payment-test/payment.ts` after spec 81, nothing points at the PR, the earlier run on 4f865e2a62 passed 101/101; rerun needed); approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **PR open as [altinn-studio#21481](https://github.com/Altinn/altinn-studio/pull/21481) at b0e5555fc5** (2026-10-24: unconfigured links visibly broken with an alert naming the setting; the owner pastes the revised body from the hand-over, the token cannot edit it); the research runner branch merged (ff to 9d0d8f5d); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
+| 42 | [App frontend: platform links from the settings alone](#42-app-frontend-platform-links-from-the-settings-alone) | done, merged upstream 2026-10-26 ([altinn-studio#21481](https://github.com/Altinn/altinn-studio/pull/21481)); history: PR opened at head b0e5555fc5; 2026-10-25 follow-up dispatched (owner: "add a changelog entry … see if there is any hints about why cypress fails"): brief `/home/agent/code/.briefs/task42b-changelog-and-cypress.md`, the studioctl changelog check and a Cypress 90-minute timeout; **done** 2026-10-25 (head bdaac448ca: changelog entry + comment, validator passes; Cypress: the runner stalled on `payment-test/payment.ts` after spec 81, nothing points at the PR, the earlier run on 4f865e2a62 passed 101/101; rerun needed); approved (owner 2026-10-23: #21436 was merged, "we need to create a new one"); design `/home/agent/code/pr-app-frontend-host-rule.md`, brief `/home/agent/code/.briefs/task42-frontend-settings-only.md`; **PR open as [altinn-studio#21481](https://github.com/Altinn/altinn-studio/pull/21481) at b0e5555fc5** (2026-10-24: unconfigured links visibly broken with an alert naming the setting; the owner pastes the revised body from the hand-over, the token cannot edit it); the research runner branch merged (ff to 9d0d8f5d); the v4 app-frontend-react fix is a separate upstream PR, not yet tasked | medium | yes (proof) |
 | 43 | [The apps' Maskinporten clients on localtest-v2](#43-the-apps-maskinporten-clients-on-localtest-v2) | approved (owner 2026-10-23: "look into the maskinporten client in monorepo if that need adaption"); brief `/home/agent/code/.briefs/task43-app-maskinporten-clients.md`; **done, merged** 2026-10-23 (`localtest/reviews/2026-10-23-app-maskinporten.md`); finding: a monorepo app does not start at a custom origin without a Maskinporten client | medium | yes |
 | 44 | [Egress domains of apps and the stack](#44-egress-domains-of-apps-and-the-stack) | research, approved (owner 2026-10-23: "track the domain name for all external network calls, for security so we can block anything not on the list in production"); brief `/home/agent/code/.briefs/task44-egress-domains.md`; **done, merged** 2026-10-24 (ff to 13326070): static inventory plus the observed run; three domains not predicted | medium | yes (phase 2) |
 | 45 | [Egress control: declared hosts enforced on localtest](#45-egress-control-declared-hosts-enforced-on-localtest) | plan written (owner 2026-10-23: "block any domain not declared in applicationmetadata"; "a rather big feature, create a new folder for the planning"): `planned-components/egress-control/README.md`; open questions with the owner before phase 1 is briefed | large | yes |
@@ -88,20 +95,19 @@ A path matching no route still falls through to the localtest app.
 | 50 | [Front-door registration off the discovery loop](#50-front-door-registration-off-the-discovery-loop) | done (2026-10-25; commits 7899901f, 11fb0b25: `Reconcile` starts the calls on their own tasks, one per app, `Settled` gates each start, `WhenIdle` for the tests, three new tests; proven on the stack: with the front door paused B's `PUT` hung 17 s while `app ps` answered in 0.2 s and A's removal and `DELETE` went out at once, both completed on unpause and B answered through 8000; ported to altinn-studio#21394 as d6220f4b9c; brief `/home/agent/code/.briefs/task50-registration-worker.md`) | small | yes |
 | 51 | [Monorepo-ready references in the studioctl change](#51-monorepo-ready-references-in-the-studioctl-change) | done (2026-10-25; commit 296929ac: no task numbers, no links out of `src/`, the manifest README states tags, port and health and the certificate, `CONVENTIONS.md` points there, remaining references listed in `localtest/studioctl/README.md` "Not mergeable yet"; ported to altinn-studio#21394 as 1ab83430e1) | small | no |
 | 52 | [Monitoring in localtest-v2: OpenTelemetry collector and Grafana](#52-monitoring-in-localtest-v2-opentelemetry-collector-and-grafana) | done (2026-10-26; trace-links follow-up done 2026-10-26 (commits 06032322, 83ad35d6, brief `/home/agent/code/.briefs/task52-trace-links.md`): the engine's Grafana pair only from the runner while the monitoring group runs, Aspire sets `EngineSettings__Dashboard__TraceUrlTemplate` to its dashboard (unverified until the engine change is in `tt02`); Aspire follow-up done 2026-10-26 (commit 3a9c9b6d, brief `/home/agent/code/.briefs/task52-aspire-otlp.md`): every localtest container sends traces, logs and metrics to the Aspire dashboard (`WithOtlpExporter()`, the manifest name, 5 s metrics; the dashboard's OTLP endpoints on every interface without the container tunnel; the OTLP key kept so persistent containers are reused), proven with both samples under Podman (screenshots `/home/agent/code/.handover/task52-aspire-otlp/`); collector-first follow-up done 2026-10-26 (commits 569ef9a4, 8ca809a0, brief `/home/agent/code/.briefs/task52-collector-first.md`): every other container depends on the collector, metrics every 5 s, the engine dashboard's Grafana links; part 2: the `monitoring` group with five stock images, the runner's OTLP variables while the collector runs (gRPC to `otel-collector:4317`), `/grafana` and `/otlp` on the front door; proven on the stack: 18 containers healthy, an app's trace, dashboard and logs in Grafana (screenshots `/home/agent/code/.handover/task52/`), 377-480 MB for the five; the collector is a named special case for `services__` (its HTTP receiver has no health path); the front door's new image tag waits for the images workflow on main; brief `/home/agent/code/.briefs/task52-monitoring.md`; engine follow-up done 2026-10-26 (commit f8f4148f, brief `/home/agent/code/.briefs/task52-engine-otel.md`): `EngineSettings__EnableTelemetry=false` dropped now that the engine's `tt02` is altinn-studio#21515 (revision 884b8ed755), research images pinned to `sha-38fbbba` (the last green images run on main, with the front door's task 52 routes and task 54 telemetry); on the stack with the pinned images: the engine's spans under `workflow-engine`, its enqueue joined to the front door's trace, the Workflow Engine dashboard with data (its `$service` comes from the metrics, so no `OTEL_SERVICE_NAME=workflow-engine-app`), without the group no `OTEL_*` and no connection attempts (screenshots `/home/agent/code/.handover/task52-engine/`); part 1: commits a7c97ca9 and 18c54d53: the `files` field in both loaders, written to `<DataDir>/infra/localtest-v2/files/` and mounted read-only, Aspire ignores `monitoring`; verified on Podman 2026-10-26 with a scratch entry on the minimal front door: readable by uid 1654, read-only, `ro` binds, 0644/0755 host copies, in-place rewrite seen by the running container, removed files gone. Known: a plain `env up` on a healthy, unchanged environment says "already running" and does not rewrite the files (only a real start does), and any `self install`, including `make dev-install`, stops every localtest-v2 environment; part 2 must add `monitoring` to the `go:embed` directive in `manifest.go` and leave the monitoring containers out of Aspire's `GoldenComparisonTests` (the `everything` case and the per-group loop); brief `/home/agent/code/.briefs/task52-manifest-files.md`) approved: a `monitoring` group in the shared manifest, part of `everything`, which the Aspire host ignores explicitly; stock images configured through a new `files` field, `args` only if needed; Grafana under `/grafana/` and OTLP under `/otlp` on the front door; every container gets the standard `OTEL_EXPORTER_OTLP_*` variables when the collector runs; not in minimal mode; needs 53 and 54 for full coverage) | medium | yes |
-| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`; the workflow engine is done: altinn-studio#21515 merged (884b8ed755), in `tt02`, and the manifest's switch removed (commit f8f4148f, task 52's engine follow-up); it was PR altinn-studio#21515 from `ivarne-agent:feat/workflow-engine-otlp-env` (522ff4cc87, cf006182fd and 834dab1db9; exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, per-signal variables do not turn it on, `EngineSettings.EnableTelemetry` removed, so the manifest's `EnableTelemetry=false` is ignored once the image has it; the old `localtest` runtime checked with a branch image: no attempts to localhost:4317 without monitoring, identical series, traces and logs with it; verified on Podman 2026-10-26 against collector 0.161.0: no variable, no export and no connection attempts; variable, all three signals with `OTEL_SERVICE_NAME`; `EnableTelemetry=true` alone, localhost:4317; both, the variable wins. Export errors go to the SDK's self-diagnostics, not the engine log), PR handover in `/home/agent/code/.handover/wfe-otlp-pr.md`; batches 1-3 done in the localtest builds (the Authorization family `7c1e0dd4`; the platform components and Dialogporten `e64a2a3e`, `3973509e`), stack proof done (2026-10-26, branch `task53-stack-proof`: images `sha-609c646` (ef213725), every changed component's smoke test green with its OTLP span check on `--with everything`, every component of the table reports traces, metrics and logs under its manifest name, one `ttd/testapp` submission as one trace through the front door, Storage, the PDP and Access Management, nothing without the group; the helper filters the exporters' own HTTP logs (ea60bbf9, in the next images); open: pdf3); per-service upstream reviews in `localtest/reviews/otel/`) approved: every component, eventually all of them | medium | yes |
+| 53 | [The standard OTLP variables in every component](#53-the-standard-otlp-variables-in-every-component) | done (settled from the records in task 65, 2026-10-29: every component exports by the rule, the workflow engine upstream, pdf3's WARN-only logs kept on purpose (decided 2026-10-27, section 53's last item), the log filter in the images since `sha-ae45f06`; the components do not wait for the collector, which `localtest/docs/verify-after-sync.md` 6.11 records as no failure); history: in progress (2026-10-26; part 1 done, commits 49e56853 and a841a9f1: the audit in the section below and `AddLocaltestOtlp` in `components/shared/fakes/Otlp/`, inlined in each component's directive since task 63's follow-up, the folder gone; the workflow engine is done: altinn-studio#21515 merged (884b8ed755), in `tt02`, and the manifest's switch removed (commit f8f4148f, task 52's engine follow-up); it was PR altinn-studio#21515 from `ivarne-agent:feat/workflow-engine-otlp-env` (522ff4cc87, cf006182fd and 834dab1db9; exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, per-signal variables do not turn it on, `EngineSettings.EnableTelemetry` removed, so the manifest's `EnableTelemetry=false` is ignored once the image has it; the old `localtest` runtime checked with a branch image: no attempts to localhost:4317 without monitoring, identical series, traces and logs with it; verified on Podman 2026-10-26 against collector 0.161.0: no variable, no export and no connection attempts; variable, all three signals with `OTEL_SERVICE_NAME`; `EnableTelemetry=true` alone, localhost:4317; both, the variable wins. Export errors go to the SDK's self-diagnostics, not the engine log), PR handover in `/home/agent/code/.handover/wfe-otlp-pr.md`; batches 1-3 done in the localtest builds (the Authorization family `7c1e0dd4`; the platform components and Dialogporten `e64a2a3e`, `3973509e`), stack proof done (2026-10-26, branch `task53-stack-proof`: images `sha-609c646` (ef213725), every changed component's smoke test green with its OTLP span check on `--with everything`, every component of the table reports traces, metrics and logs under its manifest name, one `ttd/testapp` submission as one trace through the front door, Storage, the PDP and Access Management, nothing without the group; the helper filters the exporters' own HTTP logs (ea60bbf9, in the next images); open: pdf3); per-service upstream reviews in `localtest/reviews/otel/`) approved: every component, eventually all of them | medium | yes |
 | 54 | [Apps and the front door on the same OTLP variable](#54-apps-and-the-front-door-on-the-same-otlp-variable) | in progress (2026-10-26); front-door half done (2026-10-26, branch `task54-frontdoor-otel`: OpenTelemetry in the front door by the rule, `/otlp`, `/grafana`, `/health` and `/app-frontend/` not traced, a span per emulated call in minimal mode; proven on the stack with `ttd/testapp`: app client span → front door server span → forwarding client span → Register's server span in one trace, screenshot `/home/agent/code/.handover/task54-frontdoor/`; the shared helper no longer turns on for a per-signal endpoint alone; brief `/home/agent/code/.briefs/task54-frontdoor-otel.md`); apps half open | small | yes |
-| 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done on branch `task55-minimal-telemetry-files` (2026-10-26, not pushed; commits 575088d7, 8626bdba, 35e6fb7c and the docs commit): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
-| 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done on branch `storage-instances-page` (2026-10-26, not pushed; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
-| 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done on branch `ca-bundle` (2026-10-27, not pushed; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
+| 55 | [Telemetry files in minimal mode](#55-telemetry-files-in-minimal-mode) | done, merged (2026-10-26, main `673facf4`..`ae45f069`, pinned `sha-ae45f06` in `e7629021`; history: done on branch `task55-minimal-telemetry-files`, commits 575088d7, 8626bdba, 35e6fb7c and the docs commit before the rebase): minimal mode's `otel-files` collector writes `<home>/data/infra/localtest-v2/telemetry/<service>/{traces,logs,metrics}.jsonl` for agents to read with `jq` (guide in the bundled app-development skill), size-rotated, emptied by `env up`, deleted by `env down`; a manifest field `otlpReceiver` replaces the runner's `otel-collector` special cases and the front door's `/otlp` targets the role `otlp`; proven with `--dev-localtest`, the pinned front door needs the next images run; brief `/home/agent/code/.briefs/task55-minimal-telemetry-files.md` | small | yes |
+| 56 | [A query page for Storage's instances](#56-a-query-page-for-storages-instances) | done, merged (2026-10-26, main `510facd6` and `ddef4331`, pinned `sha-ddef433` in `25734221`; history: done on branch `storage-instances-page`; brief `/home/agent/code/.briefs/storage-instances-query-page.md`): `/Home/Instances` form, list, instance page, downloads through the proxy, links only while they work, similar instances; route tests; proven with `--dev-localtest` with and without `arbeidsflate`/`receipt` (evidence `/home/agent/code/.handover/storage-instances-page/`); the pinned front door needs the next images run | small | yes |
+| 57 | [The host's CA bundle for pdf3](#57-the-hosts-ca-bundle-for-pdf3) | done, merged (2026-10-27, main `f3052353`..`ea0bd3f6`, runner code only, no image change; history: done on branch `ca-bundle`; brief `/home/agent/code/.briefs/pdf3-ca-bundle.md`): manifest field `caBundle` (pdf3), studioctl and Aspire mount a copy of the host's `STUDIO_CA_BUNDLE` at `/etc/localtest/ca-bundle.pem` and set the variable; proven on the stack with and without (evidence `/home/agent/code/.handover/ca-bundle/`); review item 11 fixed; the old `localtest` runtime fixed too on altinn-studio branch `fix/studioctl-pdf3-ca-bundle` (fork, PR not opened) | small | yes |
 | 58 | [Scripted vendor sync for the components](#58-scripted-vendor-sync-for-the-components) | done (2026-10-27, merged as main `5f13eea3`, pinned check on `sha-5f13eea` green; brief `/home/agent/code/.briefs/task58-tool.md`): `localtest/tools/vendor-sync.py` (`status`, `check`, `render`, `sync` staging only), metadata in every `UPSTREAM.md`, 39 unit tests, the drifts fixed, Profile synced to `d0cd92d` and verified on a local image (root 26, Profile 52, 53 with monitoring), workflow-engine no longer vendored, `repin-vendor.py` retired; follow-up done on branch `task58-followup` (2026-10-27): the Resource Registry retargeted to altinn-auth `3d51810`, Correspondence synced to `d2dc912` and its party-id site removed, verified on local images | large | no (the verification after a sync does) |
-| 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
-| 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest, the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
+| 59 | [Upstreaming the localtest modifications](#59-upstreaming-the-localtest-modifications) | in progress (the owner opens the PRs, tracked in `localtest/upstreaming/`; open on 2026-10-29: [altinn-storage#1173](https://github.com/Altinn/altinn-storage/pull/1173), [#1174](https://github.com/Altinn/altinn-storage/pull/1174), [#1175](https://github.com/Altinn/altinn-storage/pull/1175), [#1178](https://github.com/Altinn/altinn-storage/pull/1178) and [altinn-profile#1076](https://github.com/Altinn/altinn-profile/pull/1076); [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280), another contributor's, relates to the signing-key items); history: unapproved (2026-10-27: per-service TODOs written in `localtest/upstreaming/`; phase 1, easy fixes, first) | small each | no |
+| 60 | [Database users and passwords owned by studioctl and Aspire](#60-database-users-and-passwords-owned-by-studioctl-and-aspire) | done (2026-10-29, main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8`; brief `/home/agent/code/.briefs/task60-db-passwords.md`; evidence `/home/agent/code/.handover/task60-db-passwords/`): the passwords in the manifest (superseded by task 62: generated per installation, `{{password:<role>}}` in the manifest), the init scripts read them from the Postgres container's environment, Storage's users created by `10-storage.sh`; proven on studioctl (fresh and existing volume) and under Aspire (sample AppHost, local images, existing and fresh volume) | medium | yes |
 | 61 | [Remove the OTLP resource workaround from the ServiceDefaults hosts](#61-remove-the-otlp-resource-workaround-from-the-servicedefaults-hosts) | pinned (`sha-e089ff8`, 2026-10-29, with task 60; see section 61) — done (2026-10-28, branch `otlp-resource-workaround-removal`; evidence `/home/agent/code/.handover/otlp-resource-workaround-removal/`): the call and the four `Otlp/` copies removed; on local images with `--with monitoring` all four export traces, metrics and logs under their plain names; root 27, front door 85 + the known FRONTEND_DIST failure, Authentication 33, Register 15, Resource Registry 44 | small | yes |
 | 62 | [Generated database passwords per installation](#62-generated-database-passwords-per-installation) | done (2026-10-29, main `ea619ad5` and `3e586ebb`, pinned `sha-3e586eb`; brief `/home/agent/code/.briefs/task62-generated-db-passwords.md`; evidence `/home/agent/code/.handover/task62-generated-db-passwords/`): a random password per role in each runner's owner-only JSON file, `{{password:<role>}}` in the manifest, superuser `Password`, reconciliation in Postgres before its dependants start; proven on studioctl and under Aspire on a fresh volume, after the file was deleted and on an older volume; known gap, left as is (owner 2026-10-29): under Aspire, DCP's own `podman create` command line carries the containers' environment, passwords included, while it runs | medium | yes |
 | 63 | [A directive instead of a small fake](#63-a-directive-instead-of-a-small-fake) | done (2026-10-29; main `6e1b1105`..`27e07fb5`, `4840c5e9`, then the follow-up `c42c24b6` and its parents; pinned `sha-c42c24b`; brief `/home/agent/code/.briefs/task63-directives-over-small-fakes.md`; evidence `/home/agent/code/.handover/task63-directives-over-small-fakes/`): 19 fake files (1073 lines) became 13 new directive blocks plus the OTLP rule inlined in six existing sites, in Authorization, Dialogporten, the Resource Registry, Correspondence, Access Management, Events and the OTLP consumers; `components/shared/fakes/Otlp/` is gone (the front door keeps its copy, which `Otlp.Tests` now tests); the upstream token-generator change is task 64 | medium | yes |
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | unapproved (created at the owner's request 2026-10-29; not to be dispatched yet) | small | no |
-
-Suggested order: 21a, 21b, 21c running (stack: 21a, then 21c, then 21b); then 21d and 21e; 8 when decided. 13 stays with the maintainer; 12 is a filler.
+| 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -516,9 +522,10 @@ From `planned-components/studioctl-integration.md`, sections 1, 4, 5, 6 and its 
 studioctl in `localtest/studioctl/src/cli/` (upstreamed later as one patch, see `localtest/studioctl/UPSTREAM.md`): moving the stack into the monorepo (`src/Runtime/localtest-v2/`) with its image workflow, the
 `/health` body (`ok` versus the integration tests' `Healthy` snapshot), docs and the bundled skill, Cypress and
 `StudioctlEnvironment` tests in CI against the new runtime, the rollout and the default flip, re-push on app change
-(watch, restart or `studioctl app sync`), frontend version override and cookie-domain rewriting (port or drop), and
-two front-door gaps seen on 2026-10-20: studioctl-server answers 404 for a platform prefix without its trailing slash
-(`/storage`), where the localtest app redirects, and for `/app-frontend/`. The maintainer's; not for a subagent until
+(watch, restart or `studioctl app sync`), frontend version override and cookie-domain rewriting (port or drop). The two
+front-door gaps seen on 2026-10-20 (studioctl-server's 404 for a platform prefix without its trailing slash and for
+`/app-frontend/`) are gone: since task 27a studioctl-server no longer proxies, and the front door (the localtest
+container) redirects a bare prefix to its slashed form and serves `/app-frontend/`. The maintainer's; not for a subagent until
 split into pieces.
 
 ## 14. Profile beyond the Register
@@ -541,6 +548,21 @@ and the compiled-in `IMaskinportenService` fake from task 4 can be deleted. An u
 `Altinn/altinn-apiclient-maskinporten` (the `switch` tables in `MaskinportenService.GetTokenEndpoint` and
 `GetTokenExchangeEndpoint` throw for unknown environments; `MaskinportenSettings` has no URL fields), then a version
 bump in each consumer. Also covers the BFF, which is already configurable, and Correspondence's own token service.
+
+**Outcome (2026-10-23, task 15 phase 1).** Upstream change prepared: `TokenEndpoint` and `TokenExchangeEndpoint` on
+`MaskinportenSettings`/`IMaskinportenSettings` (empty = unset; absolute http(s) URL validated with the property
+named), used before the `Environment`/`TokenExchangeEnvironment` switches; the assertion `aud` follows `Environment`
+when set, else the token endpoint's base; `UseAltinnTestOrg` appends `test=true` correctly; a new xUnit test project
+(25 tests, the repo had none; CI does not run tests) and a README section. Interface addition is a minor-version break
+in the repo's own precedent (#83). The fork was refused (403), so the owner forks and pushes (steps in the hand-over);
+release is tag-driven (`v10.2.0` asked for). Follow-up after the release: bump Dialogporten, Notifications, the
+adapter, Correspondence and the shared copy, delete their `IMaskinportenService` fakes, and give each a throwaway RSA
+JWK (the placeholders `e30=`/`{"kty":"RSA"}` will fail once the package signs). Coordinator ran the tests.
+
+**Released (2026-10-26).** Not through this branch: another contributor's
+[altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92) (task 47) merged
+and was released as `v10.2.0` with `TokenEndpoint` and `AssertionAudience`. The consumer follow-up above applies to
+10.2.0; it is tracked as items in `localtest/upstreaming/` (the `Altinn.ApiClients.Maskinporten` theme in its README).
 
 ## 16. Receipt
 
@@ -982,49 +1004,11 @@ needs the monorepo root marker, pre-existing); server tests 1009 passed; Aspire 
 case); `actionlint` clean. Known gaps left: an app already registered is not synced to Dialogporten when the group is
 added later; a detached `run --dev-frontend` leaves its route; a registration can block the discovery loop up to 2 min.
 
-## 33. Minimal in-memory emulation in the localtest image
-
-**Goal (2026-10-23, owner's request).** People complain about the number of containers the default stack starts.
-Research how the localtest image could carry a truly minimal emulation of the platform services so that one container
-serves an app: a simple Register from our seed data, a PDP that always permits, Notifications in an in-memory list, and
-whatever else the app cannot run without (Profile, Authentication's tokens, in-memory Storage, a PDF stub), all in
-memory. Reference for what is sufficient: the monorepo's `src/Runtime/localtest` (the old runtime's emulation, 36k
-lines, file-backed, MVC) and app-lib's clients. The document decides how the front door picks emulation versus a real
-service, how registration provisions into memory, what fidelity is lost, how studioctl and Aspire expose it, reuse
-versus rewrite, and a phased plan. Deliverable `planned-components/minimal-emulation/README.md`; no code, no stack.
-
 **Owner decision 2026-10-23 (flag form).** The owner does not like `--dev NAME[=PATH]` and does not see the
 `--dev-workflow-engine` clash as a reason: the per-container form `--dev-<container>[=<path>]` comes back in a phase-B
 fix commit. `--dev-workflow-engine` stays one flag whose meaning follows the runtime (upstream's hidden host-process
 routing under `-r localtest`, a container build under `-r localtest-v2`); `env up` refusing the other runtime's flags
 keeps the two meanings apart. The agent was told during phase B.
-
-## 34. `studioctl run --mode container` against localtest-v2
-
-**Goal (2026-10-23, owner's request).** Container-mode apps must work against localtest-v2. Today (task 32) the mode is
-refused up front because the app container joined the old runtime's `localtest` network, which v2 never creates, and
-the run failed at container creation. What a working version needs, to discuss before a brief: the app container joins
-the `localtest-v2` network (or none, with the public host names mapped to the host gateway so `local.altinn.cloud:8000`
-resolves inside it); the certificate mounted at `/certs` as for the components (the `container` golden case gets its
-signing settings and Arbeidsflate links back); the registration address: studioctl-server already records
-`ContainerId`/`HostPort` per discovered app and registers `host.docker.internal:<hostPort>` today, which works when the
-container publishes a port, or the container's alias and internal port on the v2 network if we prefer no published
-port (then `FrontDoorUrl` needs the network address); `run --dev-frontend` and the registration wait in the container
-path (removed in task 32); the Aspire side is unaffected (apps are projects). Decide: network versus host gateway,
-published port versus alias, and whether the app image needs the CA bundle or `/accesstoken` file.
-
-**Owner decision 2026-10-23 (scope).** Storage and the workflow engine are not emulated: too central to apps. Minimal
-means the localtest container plus the real `storage`, `workflow-engine` and `pdf3` images with `postgres` (five
-containers instead of the default group's thirteen; whether pdf3 can be stubbed is still for the research), with
-Register, Profile, Authentication, Authorization (permit-all), Access Management, Events, the Resource Registry and
-Notifications emulated in the localtest container, which must then also answer the calls Storage and the workflow
-engine make to those services (their `services__*` pointed at `http://localtest:8080`). The agent was told.
-
-**Owner decisions 2026-10-23 (ephemeral, PDF).** In minimal mode Postgres and every read/write volume are ephemeral
-(anonymous or tmpfs, gone with the containers; `env reset` has nothing to remove; every start pays the database init and
-migrations, the research says what that costs and whether a pre-initialised image is worth it). pdf3 is not in the
-minimal set: the localtest container mocks the PDF service with one static file whose page says "Minimal PDF without
-content". Minimal set: postgres, storage, workflow-engine, localtest. The agent was told.
 
 **Phase B (pushed 2ccabb35, verified by the coordinator and merged ff 2026-10-23).** Rebased on main, so the baseline
 is `24562cba` and the re-apply `a1a5df42` (subtree identical to the phase-A hashes). Suites on the pins with `--with
@@ -1046,6 +1030,41 @@ manifest's names. Side effect to note: the agent removed the superseded research
 `sha-98e2bae` to free disk (2.5 → 5.3 GB); pullable again. Observation: `make dev-install` does not stop a `run
 --detach` app (upstream's `self install`), not investigated. Dev studioctl rebuilt from main.
 
+**Phase C (2026-10-23).** PR branch re-authored on altinn-studio `origin/main` f240887cfa (moved past the baseline,
+nothing under the four paths) as six commits: devenv readiness probe (c23ec15c97), manifest and reader (a5c7429e35),
+the localtest-v2 runtime (78f5dbb1d5), running apps against it (80379bdc57), studioctl-server registration
+(b2de05b1f2), docs (dfc5fdd348). Force-pushed to the fork with lease; `diff -r` of the four paths against
+`localtest/studioctl/src` empty (coordinator re-ran it); go build/test/lint clean at the head (coordinator re-ran),
+server tests 1010, Prettier and actionlint clean. The token was refused for `gh pr edit` and `gh pr comment`
+("Resource not accessible by personal access token"): the owner pastes `/home/agent/code/pr-studioctl-localtest-v2-stack.md`
+(description, 110 lines, "Since the last draft", "Not mergeable yet") and `...-comment.md` (9 lines) on
+[altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394). Worktree `task32-studioctl` and branch
+removed; `.worktrees/studioctl-pr` kept as the PR checkout.
+
+## 33. Minimal in-memory emulation in the localtest image
+
+**Goal (2026-10-23, owner's request).** People complain about the number of containers the default stack starts.
+Research how the localtest image could carry a truly minimal emulation of the platform services so that one container
+serves an app: a simple Register from our seed data, a PDP that always permits, Notifications in an in-memory list, and
+whatever else the app cannot run without (Profile, Authentication's tokens, in-memory Storage, a PDF stub), all in
+memory. Reference for what is sufficient: the monorepo's `src/Runtime/localtest` (the old runtime's emulation, 36k
+lines, file-backed, MVC) and app-lib's clients. The document decides how the front door picks emulation versus a real
+service, how registration provisions into memory, what fidelity is lost, how studioctl and Aspire expose it, reuse
+versus rewrite, and a phased plan. Deliverable `planned-components/minimal-emulation/README.md`; no code, no stack.
+
+**Owner decision 2026-10-23 (scope).** Storage and the workflow engine are not emulated: too central to apps. Minimal
+means the localtest container plus the real `storage`, `workflow-engine` and `pdf3` images with `postgres` (five
+containers instead of the default group's thirteen; whether pdf3 can be stubbed is still for the research), with
+Register, Profile, Authentication, Authorization (permit-all), Access Management, Events, the Resource Registry and
+Notifications emulated in the localtest container, which must then also answer the calls Storage and the workflow
+engine make to those services (their `services__*` pointed at `http://localtest:8080`). The agent was told.
+
+**Owner decisions 2026-10-23 (ephemeral, PDF).** In minimal mode Postgres and every read/write volume are ephemeral
+(anonymous or tmpfs, gone with the containers; `env reset` has nothing to remove; every start pays the database init and
+migrations, the research says what that costs and whether a pre-initialised image is worth it). pdf3 is not in the
+minimal set: the localtest container mocks the PDF service with one static file whose page says "Minimal PDF without
+content". Minimal set: postgres, storage, workflow-engine, localtest. The agent was told.
+
 **Outcome (merged 2026-10-23, document `planned-components/minimal-emulation/README.md`).** Recommendation: one new
 manifest group `minimal` (`localtest`, `storage`, `workflow-engine`; `postgres` via dependsOn) that replaces `default`;
 the emulated set derived (every HTTP container of `default` the mode does not start) and injected as
@@ -1066,16 +1085,73 @@ the blob tmpfs; the banner and `X-Localtest-Emulated` header; `--print docker` i
 recipe. Coordinator verified the Storage result-mapping, workflow-engine and `podman rm` claims against the code, typos
 and links clean, and answered open question 4 with task 32's re-registration.
 
-**Phase C (2026-10-23).** PR branch re-authored on altinn-studio `origin/main` f240887cfa (moved past the baseline,
-nothing under the four paths) as six commits: devenv readiness probe (c23ec15c97), manifest and reader (a5c7429e35),
-the localtest-v2 runtime (78f5dbb1d5), running apps against it (80379bdc57), studioctl-server registration
-(b2de05b1f2), docs (dfc5fdd348). Force-pushed to the fork with lease; `diff -r` of the four paths against
-`localtest/studioctl/src` empty (coordinator re-ran it); go build/test/lint clean at the head (coordinator re-ran),
-server tests 1010, Prettier and actionlint clean. The token was refused for `gh pr edit` and `gh pr comment`
-("Resource not accessible by personal access token"): the owner pastes `/home/agent/code/pr-studioctl-localtest-v2-stack.md`
-(description, 110 lines, "Since the last draft", "Not mergeable yet") and `...-comment.md` (9 lines) on
-[altinn-studio#21394](https://github.com/Altinn/altinn-studio/pull/21394). Worktree `task32-studioctl` and branch
-removed; `.worktrees/studioctl-pr` kept as the PR checkout.
+## 34. `studioctl run --mode container` against localtest-v2
+
+**Goal (2026-10-23, owner's request).** Container-mode apps must work against localtest-v2. Today (task 32) the mode is
+refused up front because the app container joined the old runtime's `localtest` network, which v2 never creates, and
+the run failed at container creation. What a working version needs, to discuss before a brief: the app container joins
+the `localtest-v2` network (or none, with the public host names mapped to the host gateway so `local.altinn.cloud:8000`
+resolves inside it); the certificate mounted at `/certs` as for the components (the `container` golden case gets its
+signing settings and Arbeidsflate links back); the registration address: studioctl-server already records
+`ContainerId`/`HostPort` per discovered app and registers `host.docker.internal:<hostPort>` today, which works when the
+container publishes a port, or the container's alias and internal port on the v2 network if we prefer no published
+port (then `FrontDoorUrl` needs the network address); `run --dev-frontend` and the registration wait in the container
+path (removed in task 32); the Aspire side is unaffected (apps are projects). Decide: network versus host gateway,
+published port versus alias, and whether the app image needs the CA bundle or `/accesstoken` file.
+
+**Owner 2026-10-23 on container-mode apps (task 34):** keep the option of running apps in containers locally; the
+host-gateway versus stack-network trade-off is with the owner (coordinator's description given in chat).
+
+**Owner decisions 2026-10-24 (task 34).** Container mode is studioctl only (Aspire runs projects). The app container
+runs on the container network, ideally a separate apps network; v4 and v8 apps keep working unchanged, only with the
+standard domains (no custom origin in container mode). Brief drafted: an apps network `localtest-v2_apps` with the
+front door attached to both, the app by alias `<org>-<app>` without a published port, the host-gateway mappings for
+the public host names, the certificate and secrets mounts, the registration URL from discovery (`http://<alias>:<port>`),
+the wait and `--dev-frontend` in the container path, cleanup with `stop` and `env down`; proof with the app-lib 8
+sample and the monorepo app, a Dialogporten sync, minimal mode once.
+
+**Phase 1 (pushed 31a9c0c3, verified by the coordinator 2026-10-24).** `env up` creates `localtest-v2_apps` beside
+the stack network (own label); only the front door joins both (Podman: one `--network` per network, the alias applies
+on both; Docker: `NetworkConnect` before start, devenv already supported it). The app container is on the apps network
+only, alias `<org>-<app>`, the public host and its four subdomains mapped to the host gateway, a published port kept on
+127.0.0.1 (studioctl-server discovers and reads metadata through it), labels `altinn.studio/front-door-url` and
+`altinn.studio/localtest-v2=app`, secrets, keys and `/certs` mounted read-only; every teardown path removes labelled app
+containers with their volumes (`apps.go`). Registration: `__app-containers` reports the front-door URL from the label,
+`FrontDoorRegistration.FrontDoorUrl` uses it and falls back to `host.docker.internal` for host apps; the container path
+waits for the registration and routes the dev server. Refusals: a non-default origin (message names `env up --host
+local.altinn.cloud --port 8000`); an environment without the apps network (older studioctl, before the build). Golden:
+the `container` case regains the certificate settings and the inbox and logout links, Kestrel on `0.0.0.0`; new cases
+`container-arbeidsflate` and `container-localtest`; every stack case gains the apps network. Checks: go clean, server
+tests 1012, Aspire 127 (coordinator re-ran). Phase 2 confirms the alias on both networks, the host-gateway route, the
+certificate path and Kestrel's bind.
+
+**Phase 2, first attempt (2026-10-24): the separate apps network does not work under Podman.** netavark forwards the
+front door's published port 8000 with one DNAT rule to its address on the first network listed, and isolates the two
+bridges, so with the front door on both networks the stack's calls to `local.altinn.cloud:8000` timed out
+(provisioning hung) and, after reordering, the app's calls did; a front door on the stack network only cannot reach
+the app's published port through the host gateway either (bridges isolated); the Docker-compatible API refuses
+`isolate=false` (only the CLI has it). The front door's alias also applies only on its first network. Coordinator's
+decision: option 1, the app container on the stack network under its alias (the old runtime's model), the host-gateway
+mappings kept, the apps network removed; the evidence recorded in the studioctl README and the egress plan (DNS and
+firewall control for a container app must key on the container, not a network). Also found: the app-lib 8 sample has
+no Dockerfile (container mode needs one, as before; the agent used a copy with the template Dockerfile), and the
+30-second startup timeout is short while provisioning runs.
+
+**Phase 2 (pushed 63452dc3, verified by the coordinator and merged ff 2026-10-24).** Option 1 implemented
+(9d13ddc1): the app container on `localtest-v2_network` under `<org>-<app>`, the label, the host-gateway mappings,
+`/certs`, the loopback port for discovery, Kestrel on `0.0.0.0`, registration at the alias; the stack golden back to
+main's. Proof with the app-lib 8 sample (a copy with the template Dockerfile, since the sample has none): `run --mode
+container` 39 s including the image build, registered at `http://ttd-testapp:5005`, provisioned in 2.5 s with
+`dialogporten: Synced`, the app reaching `local.altinn.cloud:8000` from the stack network, metadata 200, a Chromium
+flow to the receipt, `--dev-frontend` routed to the host (503 without a server, served with one), `stop` removing the
+container and its registration, `env down` with an app running removing it and the network; minimal mode up in 5 s
+with the app provisioned in 0.3 s. Root suite 23+3 with the app stopped (with the sample registered about 10 checks
+fail because its `testData.json` replaces the seed users, as task 21e documented). Not done: the monorepo app's image
+build fails in studioctl's generated Dockerfile (`PackageVersioning.props` not copied; `repo_context.go` is identical
+upstream: an existing bug, documented in the README), so the v9 certificate path is only partly checked (the mounted
+file resolves). Checks: go clean, server tests 1012, Aspire 127 (coordinator re-ran). Follow-ups: the studioctl
+Dockerfile bug for monorepo test apps (upstream); a Dockerfile for the app-lib 8 sample if container mode should work
+on it as shipped. Worktree and branch removed; dev studioctl rebuilt from main.
 
 ## 35. Minimal mode phase 1
 
@@ -1354,9 +1430,6 @@ mode with `--dev-localtest` and `--dev-storage`.
 down` does, the state file is not left behind, and the original error is returned; a health timeout's behaviour is
 decided by the agent and named in the error.
 
-**Owner 2026-10-23 on container-mode apps (task 34):** keep the option of running apps in containers locally; the
-host-gateway versus stack-network trade-off is with the owner (coordinator's description given in chat).
-
 **Outcome (merged 2026-10-23).** `failedstart.go`: a create or start error, a port in use or a cancellation partway
 through removes what the start created (containers, probes, the network if this runtime made it; named volumes kept),
 deletes the state file and returns the original error (the task-39 port message kept); a health timeout leaves the
@@ -1373,6 +1446,23 @@ from before the settings and can go: a link exists when its URL is configured, t
 scheme, and the runners set the Arbeidsflate URLs to the front door's Home when the group is off. The released v4
 frontend has no settings; its `getHostname()` must stop throwing for an unrecognised host and treat it as the
 platform's own origin (upstream PR to app-frontend-react). Details and the proof plan in the hand-over file.
+
+**Owner decision 2026-10-24 (task 42, PR #21481 open and unreviewed).** The "configured or hidden" rule is replaced:
+a platform link without a configured URL stays visible, marked as not working, and a click shows an alert naming the
+`PlatformFrontendSettings` key. Reason: no real users in the environments without Arbeidsflate (at22, at24 set no
+inbox URL; every environment sets the logout URL), and a broken link exposes a misconfiguration where a hidden one
+masks it. Covers every settings-driven link including logout and the "all forms" link from #21436; the backend's
+"null hides the link" doc comments change accordingly; one shared component renders both states. The runner-side
+defaults (inbox to Home, logout to the platform's logout) stay, so nothing is unconfigured on localtest-v2.
+
+**Task 42 revision (2026-10-24, head 4f865e2a62, verified by the coordinator: focused Vitest 163 and type check).**
+`src/App/frontend/src/components/PlatformLink/PlatformLink.tsx`: with a URL a plain anchor; without one the same
+anchor with `aria-disabled`, a dashed muted style, a title, a marker href (`#platform-setting-not-configured=<key>`),
+a click that prevents navigation and alerts `PlatformFrontendSettings.<key> is not configured in this environment`;
+links inside built-in texts get the marker through `platformLinkHref` and a `sharedLanguage` rule. Covers the inbox
+(header, receipt, signing panel, party selection), all forms, profile, parties, access management, the roles help and
+logout; the hiding from #21436 is gone; the backend's doc comments updated; both states tested per link; a signing
+panel `Button asChild` nesting bug fixed on the way. The PR body must be pasted by the owner.
 
 ## 43. The apps' Maskinporten clients on localtest-v2
 
@@ -1391,16 +1481,6 @@ what format; a measurement design (OpenTelemetry `server.address` from the clien
 a logging forward proxy, deny-by-default egress on localtest as a later task) with scripts; phase 2 observes on the
 full stack through every suite and a browser flow and reconciles observed against static. Document
 `localtest/reviews/2026-10-23-egress-domains.md`.
-
-**Outcome (2026-10-23, task 15 phase 1).** Upstream change prepared: `TokenEndpoint` and `TokenExchangeEndpoint` on
-`MaskinportenSettings`/`IMaskinportenSettings` (empty = unset; absolute http(s) URL validated with the property
-named), used before the `Environment`/`TokenExchangeEnvironment` switches; the assertion `aud` follows `Environment`
-when set, else the token endpoint's base; `UseAltinnTestOrg` appends `test=true` correctly; a new xUnit test project
-(25 tests, the repo had none; CI does not run tests) and a README section. Interface addition is a minor-version break
-in the repo's own precedent (#83). The fork was refused (403), so the owner forks and pushes (steps in the hand-over);
-release is tag-driven (`v10.2.0` asked for). Follow-up after the release: bump Dialogporten, Notifications, the
-adapter, Correspondence and the shared copy, delete their `IMaskinportenService` fakes, and give each a throwaway RSA
-JWK (the placeholders `e30=`/`{"kty":"RSA"}` will fail once the package signs). Coordinator ran the tests.
 
 **Owner decisions 2026-10-23.** Task 44: do not inventory app-lib v8; the app side is the monorepo backend and
 frontend only (the agent was told). Task 43: the apps' localtest short-cut is fine for now; when the new localtest
@@ -1568,31 +1648,6 @@ in `localtest/reviews/egress/` (52 KB). Follow-ups for the plan (task 45): MassT
 Dialogporten fakes; the at22 paths removed; the firewall's allow-list is `altinncdn.no` only (the Receipt page's font
 hosts are the browser's, not the stack's).
 
-**Owner decision 2026-10-24 (task 42, PR #21481 open and unreviewed).** The "configured or hidden" rule is replaced:
-a platform link without a configured URL stays visible, marked as not working, and a click shows an alert naming the
-`PlatformFrontendSettings` key. Reason: no real users in the environments without Arbeidsflate (at22, at24 set no
-inbox URL; every environment sets the logout URL), and a broken link exposes a misconfiguration where a hidden one
-masks it. Covers every settings-driven link including logout and the "all forms" link from #21436; the backend's
-"null hides the link" doc comments change accordingly; one shared component renders both states. The runner-side
-defaults (inbox to Home, logout to the platform's logout) stay, so nothing is unconfigured on localtest-v2.
-
-**Task 42 revision (2026-10-24, head 4f865e2a62, verified by the coordinator: focused Vitest 163 and type check).**
-`src/App/frontend/src/components/PlatformLink/PlatformLink.tsx`: with a URL a plain anchor; without one the same
-anchor with `aria-disabled`, a dashed muted style, a title, a marker href (`#platform-setting-not-configured=<key>`),
-a click that prevents navigation and alerts `PlatformFrontendSettings.<key> is not configured in this environment`;
-links inside built-in texts get the marker through `platformLinkHref` and a `sharedLanguage` rule. Covers the inbox
-(header, receipt, signing panel, party selection), all forms, profile, parties, access management, the roles help and
-logout; the hiding from #21436 is gone; the backend's doc comments updated; both states tested per link; a signing
-panel `Button asChild` nesting bug fixed on the way. The PR body must be pasted by the owner.
-
-**Owner decisions 2026-10-24 (task 34).** Container mode is studioctl only (Aspire runs projects). The app container
-runs on the container network, ideally a separate apps network; v4 and v8 apps keep working unchanged, only with the
-standard domains (no custom origin in container mode). Brief drafted: an apps network `localtest-v2_apps` with the
-front door attached to both, the app by alias `<org>-<app>` without a published port, the host-gateway mappings for
-the public host names, the certificate and secrets mounts, the registration URL from discovery (`http://<alias>:<port>`),
-the wait and `--dev-frontend` in the container path, cleanup with `stop` and `env down`; proof with the app-lib 8
-sample and the monorepo app, a Dialogporten sync, minimal mode once.
-
 ## 47. Compare altinn-apiclient-maskinporten#92 with our change
 
 **Goal (2026-10-24).** Another contributor opened [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)
@@ -1610,50 +1665,7 @@ a mock must accept. Ours is better on four small points (empty values as unset; 
 setting; `&test=true` when the exchange URL has a query, where #92 sends `?x=1?test=true`; the audience without
 `Environment`), offered as non-blocking suggestions in a draft review comment. Both suites pass (#92: 12, ours: 25); a
 probe against a localtest-shaped server shows #92 works over plain http. Nothing was posted. The reference clone has a
-local branch `pr-92`.
-
-**Phase 1 (pushed 31a9c0c3, verified by the coordinator 2026-10-24).** `env up` creates `localtest-v2_apps` beside
-the stack network (own label); only the front door joins both (Podman: one `--network` per network, the alias applies
-on both; Docker: `NetworkConnect` before start, devenv already supported it). The app container is on the apps network
-only, alias `<org>-<app>`, the public host and its four subdomains mapped to the host gateway, a published port kept on
-127.0.0.1 (studioctl-server discovers and reads metadata through it), labels `altinn.studio/front-door-url` and
-`altinn.studio/localtest-v2=app`, secrets, keys and `/certs` mounted read-only; every teardown path removes labelled app
-containers with their volumes (`apps.go`). Registration: `__app-containers` reports the front-door URL from the label,
-`FrontDoorRegistration.FrontDoorUrl` uses it and falls back to `host.docker.internal` for host apps; the container path
-waits for the registration and routes the dev server. Refusals: a non-default origin (message names `env up --host
-local.altinn.cloud --port 8000`); an environment without the apps network (older studioctl, before the build). Golden:
-the `container` case regains the certificate settings and the inbox and logout links, Kestrel on `0.0.0.0`; new cases
-`container-arbeidsflate` and `container-localtest`; every stack case gains the apps network. Checks: go clean, server
-tests 1012, Aspire 127 (coordinator re-ran). Phase 2 confirms the alias on both networks, the host-gateway route, the
-certificate path and Kestrel's bind.
-
-**Phase 2, first attempt (2026-10-24): the separate apps network does not work under Podman.** netavark forwards the
-front door's published port 8000 with one DNAT rule to its address on the first network listed, and isolates the two
-bridges, so with the front door on both networks the stack's calls to `local.altinn.cloud:8000` timed out
-(provisioning hung) and, after reordering, the app's calls did; a front door on the stack network only cannot reach
-the app's published port through the host gateway either (bridges isolated); the Docker-compatible API refuses
-`isolate=false` (only the CLI has it). The front door's alias also applies only on its first network. Coordinator's
-decision: option 1, the app container on the stack network under its alias (the old runtime's model), the host-gateway
-mappings kept, the apps network removed; the evidence recorded in the studioctl README and the egress plan (DNS and
-firewall control for a container app must key on the container, not a network). Also found: the app-lib 8 sample has
-no Dockerfile (container mode needs one, as before; the agent used a copy with the template Dockerfile), and the
-30-second startup timeout is short while provisioning runs.
-
-**Phase 2 (pushed 63452dc3, verified by the coordinator and merged ff 2026-10-24).** Option 1 implemented
-(9d13ddc1): the app container on `localtest-v2_network` under `<org>-<app>`, the label, the host-gateway mappings,
-`/certs`, the loopback port for discovery, Kestrel on `0.0.0.0`, registration at the alias; the stack golden back to
-main's. Proof with the app-lib 8 sample (a copy with the template Dockerfile, since the sample has none): `run --mode
-container` 39 s including the image build, registered at `http://ttd-testapp:5005`, provisioned in 2.5 s with
-`dialogporten: Synced`, the app reaching `local.altinn.cloud:8000` from the stack network, metadata 200, a Chromium
-flow to the receipt, `--dev-frontend` routed to the host (503 without a server, served with one), `stop` removing the
-container and its registration, `env down` with an app running removing it and the network; minimal mode up in 5 s
-with the app provisioned in 0.3 s. Root suite 23+3 with the app stopped (with the sample registered about 10 checks
-fail because its `testData.json` replaces the seed users, as task 21e documented). Not done: the monorepo app's image
-build fails in studioctl's generated Dockerfile (`PackageVersioning.props` not copied; `repo_context.go` is identical
-upstream: an existing bug, documented in the README), so the v9 certificate path is only partly checked (the mounted
-file resolves). Checks: go clean, server tests 1012, Aspire 127 (coordinator re-ran). Follow-ups: the studioctl
-Dockerfile bug for monorepo test apps (upstream); a Dockerfile for the app-lib 8 sample if container mode should work
-on it as shipped. Worktree and branch removed; dev studioctl rebuilt from main.
+local branch `pr-92`. (2026-10-26: #92 merged and released as `v10.2.0`; see section 15.)
 
 ## 48. Text parameters as React elements (explore)
 
@@ -2383,7 +2395,7 @@ the full setup (task 52).
 - The `/otlp` 503 keeps naming `monitoring`: minimal mode always runs its receiver, so only the default stack without
   the group has none.
 
-**Done (2026-10-26, branch `task55-minimal-telemetry-files`, commits 575088d7, 8626bdba, 35e6fb7c and the docs commit after them; brief
+**Done (2026-10-26, branch `task55-minimal-telemetry-files`, commits 575088d7, 8626bdba, 35e6fb7c and the docs commit after them; merged as main `673facf4`..`ae45f069` and pinned `sha-ae45f06` the same day; brief
 `/home/agent/code/.briefs/task55-minimal-telemetry-files.md`).**
 
 - **Manifest.** A container field `otlpReceiver` (`{"grpcPort": 4317}`, optionally `"output": "/telemetry"`, a path
@@ -2537,7 +2549,7 @@ dialog, the app or the receipt while they run. Brief `/home/agent/code/.briefs/s
 
 Details in [`localtest/localtest/README.md`](localtest/localtest/README.md#storage-instances).
 
-**Done (2026-10-26, branch `storage-instances-page`).** Route tests in `localtest/localtest/tests/InstancesPageTests.cs`
+**Done (2026-10-26, branch `storage-instances-page`; merged as main `510facd6` and `ddef4331`, pinned `sha-ddef433`).** Route tests in `localtest/localtest/tests/InstancesPageTests.cs`
 (16 cases, 179 tests in the project); on the stack with the front door built from the branch, see the front door's
 README, "Verified (2026-10-26): the instances page on the stack". Open: the pinned image (the next images run on main,
 then `bump-tag.sh`).
@@ -2584,7 +2596,7 @@ this sandbox) it cannot load the app frontend from `altinncdn.no` and PDF genera
   hook). On the stack no component but pdf3 logged a TLS error, with or without the variable. A developer behind a
   corporate proxy whose container runtime is not configured would need those too; that is a separate question.
 
-**Done (2026-10-27, branch `ca-bundle`).** Commits: studioctl runner (`caBundle`, the copy, the state hash, tests: read
+**Done (2026-10-27, branch `ca-bundle`; merged as main `f3052353`..`ea0bd3f6`; runner code only, no image change).** Commits: studioctl runner (`caBundle`, the copy, the state hash, tests: read
 unset/missing/unreadable, warn once, the copy's name, mode and replacement, only pdf3 gets it, `Changed`, the manifest
 validation), the Aspire package (`HostCaBundle`, `StackSpec`, `CaBundleTests`, parity), docs. On the stack (pinned
 images `sha-ddef433`, pdf3 `tt02`, studioctl from the branch under `STUDIOCTL_HOME=/home/agent/ca-home`, the scratch
@@ -2811,7 +2823,8 @@ be static). The standard passwords should not be hard coded in docker images or 
 databases belong in the localtest repo."
 
 - The passwords live in one place that studioctl and Aspire share: the manifest (`manifest.json`, embedded in both).
-  Static values are fine. No password in an image: not in the Postgres init scripts, not in the fakes, not in the
+  Static values are fine. (Superseded a day later by task 62: each runner generates the passwords per installation
+  and the manifest holds only `{{password:<role>}}`.) No password in an image: not in the Postgres init scripts, not in the fakes, not in the
   Dockerfiles. The init scripts read them from the Postgres container's environment and fail when one is missing.
 - Each component's users and database are created by its own localtest init script (`postgres-init/NN-*.sh`), not by
   an upstream script: Storage's `10-storage.sh` stops running the vendored `infra/postgres_init.sql`, and the Postgres
@@ -2819,7 +2832,8 @@ databases belong in the localtest repo."
 - The services get the same values through the manifest (`PostgreSqlSettings__…Pwd`, connection strings, or the
   fakes' options), overriding whatever their upstream `appsettings.json` holds.
 - Task 59 is unaffected: the Storage item "Make `infra/postgres_init.sql` independent of the superuser's name" stays
-  in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28). Once
+  in phase 1 and its PR (fork branch `storage-postgres-init-role`) is still to be opened (the user, 2026-10-28; opened
+  as [altinn-storage#1178](https://github.com/Altinn/altinn-storage/pull/1178) the same day). Once
   localtest creates Storage's users itself, that item no longer removes anything here.
 
 **Done (2026-10-29):** merged as main `d7e15e9e` and `e089ff84`, pinned `sha-e089ff8` (pinned check under section 61). The Aspire run (sample AppHost, the changed images built locally and selected with `Tag = "sha-t60local"`; a `Tag` that does not start with `sha-` floats and is pulled, so a local tag never starts, which is why the first attempt created no container): on the package's existing pre-task-60 volume and on a fresh one, 18 containers healthy, both apps provisioned, root 26, the front door 83 + `FRONTEND_DIST`, Profile 52, the Resource Registry 43, Authorization 31, Authentication 34, the adapter 39, Dialogporten 60; Notifications 64 on the rerun; Events under Aspire 27 + 1 (6.7) on the fresh volume's first run, more delivery failures on reruns after the Dialogporten suites, no database error (evidence `aspire-run-outcome.txt`).
@@ -2838,7 +2852,8 @@ overrides the resource in these four hosts.
 
 - The call goes from each hook, with the hosts' `fakes/Otlp/` copies (Register: `fakes/Altinn.Register.Localtest/Otlp/`,
   its two OpenTelemetry package references and their `follow` entries in `vendor/UPSTREAM.md`). The shared helper stays:
-  `AddLocaltestOtlp` calls it.
+  `AddLocaltestOtlp` calls it (until task 63's follow-up inlined the rule in each component and deleted the shared
+  folder).
 - Upstreaming: both phase-1 items of `localtest/upstreaming/authorization-utils.md` move to "Not needed", and the four
   hosts' `OTEL_SERVICE_NAME` items go (nothing left to remove); phase 1 totals 52. The fork branches
   `otel-service-name-env` and `otlp-and-azure-monitor` of `ivarne-agent/altinn-authorization-utils` stay unopened.
@@ -3064,3 +3079,38 @@ An upstream change in [Altinn/altinn-auth](https://github.com/Altinn/altinn-auth
   `3d51810`).
 - Related: [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token generator);
   the item in [`localtest/upstreaming/access-management.md`](localtest/upstreaming/access-management.md), phase 1.
+
+## 65. Docs audit fixes and Correspondence's Service host
+
+The user's decisions (2026-10-29, verbatim): "Go through docs and code to find any assumptions and principles that have
+since changed." (the audit: `/home/agent/code/.handover/audit-stale-principles/general.md` and
+`components-and-code.md`, 79 findings: 17 wrong, 52 stale, 10 unclear), then "corresponcence needs dialogporten, so if
+it does not that is a bug." and "Go ahead, with the Correspondence change to require dialogporten-service".
+
+- Correspondence depends on `dialogporten-service` as well as the WebApi and Redis (not the GraphQL host or the
+  adapter, which it does not use): the WebApi writes each dialog change to an outbox, and the Service host drains it
+  and publishes the dialog's events to Events, so without it a correspondence's dialog never has events. The runtime
+  starts the Service host after the WebApi is healthy (the hosts migrate at start) and Correspondence after the
+  Service host. Correspondence's smoke test checks that its dialog's `dialogporten.dialog.created.v1` reaches Events.
+- Every wrong and stale finding fixed in the docs and comments it names, no behaviour change beyond the item above.
+  Dated records stay history: a superseded statement that reads as current got a dated note or was corrected. Task
+  34's records filed under sections 41, 46 and 47, task 32's and 33's under 33 and 34, task 42's under 46 and task
+  15's under 44 moved to their own sections.
+- Unclear findings settled from the code and the records; one left for the owner (below).
+
+**Done (2026-10-29):** main `23dc68e3` (manifest, golden, the Go and Aspire tests, the smoke check, the group docs),
+then docs commits for the plans, the reviews, the stack docs, `localtest/upstreaming/`, the component READMEs and
+`UPSTREAM.md` files, the code comments, and this file. On the pinned images (`sha-c42c24b`, no image change, so no pin),
+`make dev-install` from the branch, `env up -r localtest-v2 --with correspondence` started exactly 17 containers: the
+13 default plus `redis`, `dialogporten-webapi`, `dialogporten-service` and `correspondence` (no GraphQL host, no
+adapter), in 26 s; Correspondence 79 `ok` (the event check included, twice), root 26 `ok` (1 skip, OTLP). With the
+Service host stopped by hand the event check failed and the other 78 passed, so the check depends on it. Static: Go
+build and test `ok`, `make lint` 0 issues, golden regeneration unchanged after the commit, the Aspire package 198,
+CSharpier clean on the package, `Otlp.Tests` 10, `vendor-sync.py check --all` ok and `render --all` unchanged,
+shellcheck clean on the changed scripts. The per-finding outcomes: `findings.md` in the evidence folder.
+
+- Upstreaming index after the fixes: phase 1 52 (Profile's #1076 item added, Correspondence's merged party-id item
+  deleted per "Marking progress"), done 6.
+- Open: whether the rules every brief inherits (top of this file) should also state task 62's database principles
+  (localtest owns the init scripts and users; the services migrate at start). `localtest/CONVENTIONS.md` states them as
+  rules already; one sentence here if the owner wants them inherited.
