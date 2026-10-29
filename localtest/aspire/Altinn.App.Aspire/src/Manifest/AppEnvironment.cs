@@ -90,6 +90,8 @@ internal static class AppEnvironment
         values[SecretsDirectory] = OriginValue.Literal(secretsDirectory);
         values[MaskinportenFileNameVariable] = OriginValue.Literal(MaskinportenFileName);
         values[AppCodesFileNameVariable] = OriginValue.Literal(AppCodesFileName);
+        // app-lib v8 reads its Maskinporten client from AppSettings:RuntimeSecretsDirectory, not from the three above.
+        DefaultText("AppSettings__RuntimeSecretsDirectory", secretsDirectory);
         if (keysDirectory.Length > 0)
         {
             values["ALTINN_KEYS_DIRECTORY"] = OriginValue.Literal(keysDirectory);

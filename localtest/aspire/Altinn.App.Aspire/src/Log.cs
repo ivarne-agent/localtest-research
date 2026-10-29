@@ -48,6 +48,17 @@ internal static partial class Log
     [LoggerMessage(LogLevel.Warning, "{Warning}")]
     public static partial void LogCaBundleWarning(this ILogger logger, string warning);
 
+    [LoggerMessage(
+        LogLevel.Warning,
+        "{AppId}: Maskinporten: the app uses the client {ClientId} in its secrets directory, not the local one; service-owner requests will fail at the stack's exchange, which trusts only the local Maskinporten (delete {Path} to switch back)"
+    )]
+    public static partial void LogDeveloperMaskinportenClient(
+        this ILogger logger,
+        string appId,
+        string clientId,
+        string path
+    );
+
     [LoggerMessage(LogLevel.Information, "{Command}: {Arguments}")]
     public static partial void LogRuntimeCommand(this ILogger logger, string command, string arguments);
 }

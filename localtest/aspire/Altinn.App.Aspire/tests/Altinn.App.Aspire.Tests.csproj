@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <!-- studioctl's golden snapshots, by relative path: the container stack (internal/cmd/env/localtestv2) with the CA
-       bundle of its everything case, the app environment (internal/cmd/app) and the app codes (internal/appsecrets). -->
+       bundle of its everything case, the app environment (internal/cmd/app), the app codes and the local Maskinporten client (internal/appsecrets). -->
   <ItemGroup>
     <Content
       Include="../../../studioctl/src/cli/internal/cmd/env/localtestv2/testdata/environment.golden.json"
@@ -41,6 +41,11 @@
     <Content
       Include="../../../studioctl/src/cli/internal/appsecrets/testdata/app-codes.golden.json"
       Link="golden/app-codes.golden.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../../studioctl/src/cli/internal/appsecrets/testdata/local-maskinporten.golden.json"
+      Link="golden/local-maskinporten.golden.json"
       CopyToOutputDirectory="PreserveNewest"
     />
   </ItemGroup>

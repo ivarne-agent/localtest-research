@@ -48,6 +48,18 @@ internal static class AppSecrets
         {
             return path;
         }
+        WriteOwnerOnly(directory, fileName, payload);
+        return path;
+    }
+
+    /// <summary>
+    /// Writes a file into the secrets directory, creating the directory owner-only: owner-only and atomic (a temporary
+    /// file in the same directory renamed into place), so an app polling the file never reads a half-written one.
+    /// </summary>
+    public static void WriteOwnerOnly(string directory, string fileName, byte[] payload)
+    {
+        EnsureDirectory(directory);
+        var path = Path.Combine(directory, fileName);
         var temporary = Path.Combine(directory, $".{fileName}.{Guid.NewGuid():N}.tmp");
         try
         {
@@ -66,7 +78,6 @@ internal static class AppSecrets
         {
             File.Delete(temporary);
         }
-        return path;
     }
 
     private static void EnsureDirectory(string directory)
