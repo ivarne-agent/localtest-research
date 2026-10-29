@@ -240,8 +240,9 @@ publishes it as the public port (8000 by default).
   `app-frontend.local.altinn.cloud` to it.
 - **Its own endpoints** besides `localtest/api/…`: the old localtest's `/` and `/Home/…`, and under the fixed prefix
   `/mockporten/` a mock of the online test tool's token generator, `GET /mockporten/api/GetPlatformAccessToken`
-  (task 66), which signs platform access tokens with the shared certificate; the org names `localtest` and
-  `mockporten` cannot be registered as apps.
+  (task 66), which signs platform access tokens with the shared certificate, for now also at the root
+  `/api/GetPlatformAccessToken` for Access Management; the org names `localtest` and `mockporten` cannot be registered
+  as apps.
 - **`Secure` is stripped** from `Set-Cookie` on app routes only, because app-lib's `keepAlive` sets the runtime cookie
   `Secure` in every environment; this stays until app-lib honours an explicit localtest environment
   ([`../TODO.md`](../TODO.md) task 22).

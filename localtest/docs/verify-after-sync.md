@@ -287,7 +287,7 @@ ls "$STUDIOCTL_HOME/data/infra/localtest-v2/telemetry" 2>&1   # No such file or 
 - `env up`: five containers (`localtest`, `postgres`, `storage`, `workflow-engine`, `otel-files`), about 6 s (task 55);
   `env status` says "running (minimal mode)" and lists the emulated services (register, profile, authentication,
   authorization, access-management, events, resource-registry, notifications, pdf3).
-- Root smoke test, about 1 s: "minimal mode: …" first, then 23 `ok`, no `FAIL`, exit 0, and four `skip` lines: the
+- Root smoke test, about 1 s: "minimal mode: …" first, then 26 `ok` (23 before task 66 added three mock checks), no `FAIL`, exit 0, and four `skip` lines: the
   three checks that need real authorization decisions and the OTLP span check (no `monitoring` group). Without
   Podman the Storage log check is skipped too.
 - Telemetry: a folder per `service.name` (`localtest`, `storage`, `workflow-engine`) with `traces.jsonl`, `logs.jsonl`
@@ -297,7 +297,7 @@ ls "$STUDIOCTL_HOME/data/infra/localtest-v2/telemetry" 2>&1   # No such file or 
 - Memory: the five containers about 0.64 GB by `podman stats` (Postgres 249 MB, Storage 148, the engine 128,
   `otel-files` 81, the front door 33).
 
-Also useful in minimal mode: `localtest/smoke-test.sh` (one check per emulated service; 92 `ok` and the one known
+Also useful in minimal mode: `localtest/smoke-test.sh` (one check per emulated service; 95 `ok` (92 before task 66) and the one known
 `FAIL`, 6.1, on 2026-10-27) and
 `components/register/smoke-test.sh http://local.altinn.cloud:8000` (the emulated Register).
 
@@ -317,9 +317,9 @@ app registered (6.6).
 
 - `env up`: 13 containers, `env status` lists them `running`; 17 s with the images present (2026-10-27), 43 s with
   pulls (TODO.md task 27).
-- Root smoke test, about 3 s: 26 `ok`, no `FAIL`, exit 0, one `skip` line (the OTLP span check; with the `monitoring`
-  group it runs and makes 27).
-- `localtest/smoke-test.sh`, about 6 s: 83 `ok` and one `FAIL`, `app-frontend bundle with CORS (needs FRONTEND_DIST)`
+- Root smoke test, about 3 s: 29 `ok` (26 before task 66), no `FAIL`, exit 0, one `skip` line (the OTLP span check;
+  with the `monitoring` group it runs and makes 30).
+- `localtest/smoke-test.sh`, about 6 s: 86 `ok` (83 before task 66) and one `FAIL`, `app-frontend bundle with CORS (needs FRONTEND_DIST)`
   (6.1), exit 1.
 - Memory: the 13 containers 1.7 GB by `podman stats`. Release the .NET build servers that section 2 left behind
   before the stack levels, when no other agent is building: `dotnet build-server shutdown` (on 2026-10-27 the
@@ -466,7 +466,7 @@ TODO.md, "Pinned check" in sections 55 and 56.
 Do not chase these; do report them.
 
 1. **`localtest/smoke-test.sh`: `/app-frontend/`** fails on every stack: the check needs the built frontend mounted
-   (`FRONTEND_DIST`), which neither runtime does. 83 of 84 is a pass.
+   (`FRONTEND_DIST`), which neither runtime does. 86 of 87 is a pass (83 of 84 before task 66).
 2. **studioctl-server's 13 `V8Tov9UpgradeTargetFrameworkTests`** fail (`app upgrade v9` moves apps to .NET 11, which this
    machine lacks). They fail the same way on an unmodified altinn-studio checkout of the pinned commit
    (`/home/agent/code/.handover/sync-35c9f5d/studioctl-server-failed.txt`).

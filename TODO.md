@@ -3129,36 +3129,37 @@ shellcheck clean on the changed scripts. The per-finding outcomes: `findings.md`
 The owner's decisions (2026-10-29, verbatim): "Can localtest just use a mock of the online token generator?" then "go
 ahead with the mock in the front door. Make a task so we can configure the url through environment variables"; for
 the route "By the way, use /mockporten/api/..." and "I don't need to configure the url front-door answers on"; for
-Access Management, after the lib was found to call the test tool at an absolute path, "Upstream fix, keep current", then
-"I would like to upstream an environment variable that have the full path". Task 64 is superseded.
+Access Management, after the lib was found to call the test tool at an absolute path, "Upstream fix, keep current",
+then "I would like to upstream an environment variable that have the full path", then "Can't we just use the root /api
+in front-door for now?". Task 64 is superseded.
 
 - **The mock** (`localtest/localtest/TokenGenerator/`, README "Test tool"): `GET /mockporten/api/GetPlatformAccessToken`
   on the front door, a fixed route (the org `mockporten` cannot be registered as an app), on the public origin and as
-  `http://localtest:8080/mockporten/…` inside the network. The real tool's interface (Altinn/AltinnTestTools
-  `TokenGenerator/GetPlatformAccessToken.cs`, which altinn-auth#4052 plans for Mockporten): basic auth required (`401`
-  with a Basic challenge without it, `400` when it does not decode), any value accepted; `app` required (the real
-  tool's dotted-identifier rule) as `urn:altinn:app`; `ttl` seconds, default 1800 and no maximum as at the real tool;
-  `org` the issuer, `platform` (default, the real tool's and production's) or `ttd`; `env` ignored and logged. The
-  token is what `Altinn.Common.AccessTokenClient`'s `AccessTokenGenerator` writes (RS256, `kid` thumbprint, `x5t`;
-  `urn:altinn:app`, `nbf` now minus 5 s, `exp` now plus `ttl`, `iat`, `iss`, `aud` `platform.altinn.no`), signed with
-  the shared certificate, answered as `text/plain`.
-- **Access Management** keeps the two `TokenGenerator.cs` directive blocks (task 63) for now: the lib at the pin calls
-  `{Endpoint}/api/GetPlatformAccessToken`, which drops the `/mockporten/` prefix. Its test-tool settings moved from the
-  fake's code to the manifest `envs` (`Platform__Token__TestTool__Endpoint` `http://localtest:8080/`,
-  `__PlatformAccessTokenUrl` the mock's full URL (ignored by the lib at the pin), `__Username` and `__Password`
-  `localtest`, and `Environment` `localtest`, which the host copies into the test tool's environment); it depends on
-  the front door. `Configure<AccessTokenSettings>` stays: its own clients call `IAccessTokenGenerator`.
+  `http://localtest:8080/mockporten/…` inside the network; for now the same handler also at the root,
+  `GET /api/GetPlatformAccessToken` (only that path; nothing else is at `/api/` in either mode). The real tool's
+  interface (Altinn/AltinnTestTools `TokenGenerator/GetPlatformAccessToken.cs`, which altinn-auth#4052 plans for
+  Mockporten): basic auth required (`401` with a Basic challenge without it, `400` when it does not decode), any value
+  accepted; `app` required (the real tool's dotted-identifier rule) as `urn:altinn:app`; `ttl` seconds, default 1800
+  and no maximum as at the real tool; `org` the issuer, `platform` (default, the real tool's and production's) or
+  `ttd`; `env` ignored and logged. The token is what `Altinn.Common.AccessTokenClient`'s `AccessTokenGenerator` writes
+  (RS256, `kid` thumbprint, `x5t`; `urn:altinn:app`, `nbf` now minus 5 s, `exp` now plus `ttl`, `iat`, `iss`, `aud`
+  `platform.altinn.no`), signed with the shared certificate, answered as `text/plain`.
+- **Access Management** fetches its platform access tokens from the mock: task 63's two `TokenGenerator.cs` directive
+  blocks are gone and production's `TestTool` runs unchanged. Its settings moved from the fake's code to the manifest
+  `envs`: `Platform__Token__TestTool__Endpoint` `http://localtest:8080` (the lib calls `{Endpoint}/api/…`, the root
+  route), `__Username` and `__Password` `localtest`, `Environment` `localtest` (the host copies it into the test tool's
+  environment), and `__PlatformAccessTokenUrl` the canonical URL (ignored by the lib at the pin); it depends on the front
+  door. `Configure<AccessTokenSettings>` stays: its own clients call `IAccessTokenGenerator`.
 - **Authorization's `TokenGeneratorSettings:Url`** (the full URL of the online tool, `appsettings.Development.json`) is
   not used locally: its `DevAccessTokenGenerator` is registered in Development and the fake replaces it with the
   production `AccessTokenGenerator` signing with the shared certificate, which production runs too. No other consumer
   of the test tool in the vendored hosts.
-- **The upstream change** (prepared, not opened; the fork `ivarne-agent/altinn-auth` is to be created by the owner):
+- **The upstream change**, pushed to the fork (the owner opens the PR):
   `feat(platform-integration): configure the full URL of the test tool's platform access token endpoint`, an optional
-  `Platform:Token:TestTool:PlatformAccessTokenUrl` used as is when set (validation: `Endpoint` or it), 11 unit tests.
-  Local branch `feat/test-tool-platform-access-token-url` in `/home/agent/code/altinn-auth`, description
+  `Platform:Token:TestTool:PlatformAccessTokenUrl` used as is when set (validation: `Endpoint` or it), 11 unit tests;
+  `ivarne-agent/altinn-auth` branch `feat/test-tool-platform-access-token-url`, commit `826df92`, description
   `/home/agent/code/.handover/altinn-auth-upstream/test-tool-platform-access-token-url.md`; the item in
   [`localtest/upstreaming/access-management.md`](localtest/upstreaming/access-management.md), phase 1.
-- **Follow-up**, when the upstream change is merged and synced: remove the two directive blocks in `TokenGenerator.cs`
-  and verify Access Management against the mock (its log shows the calls, the start-up Register import and the refresh
-  re-import 158 role assignments).
-
+- **Follow-up**, when the upstream change is merged and synced: remove the front door's root `/api/GetPlatformAccessToken`
+  route (and its tests and README paragraph) and the root use of `Platform__Token__TestTool__Endpoint`, and check that
+  Access Management's log shows its calls at `/mockporten/api/GetPlatformAccessToken`.

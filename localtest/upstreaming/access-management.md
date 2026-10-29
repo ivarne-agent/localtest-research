@@ -12,8 +12,8 @@
   `Altinn.Authorization.ServiceDefaults` 5.5.0), so service discovery and OTLP export come from the shared library; its
   changes are in [`authorization-utils.md`](authorization-utils.md).
 - Localtest modifications: 5 directive sites under `src/apps/Altinn.AccessManagement/src/` (`Program.cs`, two in
-  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`) and 2 in
-  `src/libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs` (task 63), the
+  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`; task 63's two
+  in the lib's `TokenGenerator.cs` went in task 66), the
   composition `fakes/LocaltestAccessManagementExtensions.cs` with `fakes/LocaltestAccessManagementOptions.cs`, the
   policy store `fakes/Policies/`, the token, key and metadata stand-ins
   `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copy
@@ -39,16 +39,20 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
       decision, 2026-10-29: "I would like to upstream an environment variable that have the full path"; it supersedes
       task 64's local signing source).
   - Why: the front door's mock of the test tool answers under `/mockporten/`
-    (`http://localtest:8080/mockporten/api/GetPlatformAccessToken`), which the lib cannot reach today; the manifest
-    already sets the variable (`Platform__Token__TestTool__PlatformAccessTokenUrl`), which the lib at the pin ignores.
+    (`http://localtest:8080/mockporten/api/GetPlatformAccessToken`), which the lib cannot reach today, so the front door
+    also answers at the root `/api/GetPlatformAccessToken` for it; the manifest already sets the variable
+    (`Platform__Token__TestTool__PlatformAccessTokenUrl`), which the lib at the pin ignores.
   - Size: small (one option in two option classes, one branch in `CreatePlatformAccessToken`, the validation, 11 unit
     tests, a README paragraph).
-  - Removes: the two blocks in `TokenGenerator.cs` (lines 12-17 and 45-47 at the pin); Access Management then fetches its
-    platform access tokens from the mock, configured by the manifest alone.
-  - Upstream: prepared, not opened: the local branch `feat/test-tool-platform-access-token-url` in
-    `/home/agent/code/altinn-auth` and its description in
-    `/home/agent/code/.handover/altinn-auth-upstream/test-tool-platform-access-token-url.md` (the fork
-    `ivarne-agent/altinn-auth` is still to be created). Related
+  - Removes: no site (task 66 removed the two `TokenGenerator.cs` blocks; production's `TestTool` already calls the mock
+    at the front door's root); the front door's temporary root route `/api/GetPlatformAccessToken` and the root use of
+    `Platform__Token__TestTool__Endpoint`, so the mock has one route.
+  - Upstream: prepared, not opened: the branch `feat/test-tool-platform-access-token-url` (local clone
+    `/home/agent/code/altinn-auth`) and its description in
+    `/home/agent/code/.handover/altinn-auth-upstream/test-tool-platform-access-token-url.md`, pushed to the fork
+    (`ivarne-agent/altinn-auth`, branch `feat/test-tool-platform-access-token-url`, commit `826df92`); to be opened:
+    https://github.com/Altinn/altinn-auth/compare/main...ivarne-agent:altinn-auth:feat/test-tool-platform-access-token-url?expand=1.
+    Related
     [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten serves the same API). The lib is
     compiled into Access Management only in this repository (`Altinn.AccessManagement` and `Altinn.AccessMgmt.Core`
     reference it). Authorization's `TokenGeneratorSettings:Url` is already a full URL.
@@ -166,7 +170,7 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
   from the manifest: users and databases are set up by localtest (TODO.md task 60), as production's infrastructure does
   for its own.
 
-Coverage: 7 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
+Coverage: 5 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
 `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for. `Otlp/` and its
 `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name,
