@@ -85,6 +85,10 @@ func (e appEnv) addRunDefaults(
 	e.values[appsecrets.EnvSecretsDir] = secretsDir
 	e.values[appsecrets.EnvMaskinportenFileName] = appsecrets.MaskinportenFileName
 	e.values[appsecrets.EnvAppCodesFileName] = appsecrets.AppCodesFileName
+	// app-lib v8 reads none of the three: it reads its Maskinporten client from AppSettings:RuntimeSecretsDirectory
+	// (default /mnt/app-secrets, the platform's mount), under the same file name. Pointing it at the same directory
+	// gives a v8 app the client the v9 backend reads, the developer's or, against localtest-v2, the local one.
+	e.setDefault("AppSettings__RuntimeSecretsDirectory", secretsDir)
 	// Where the app persists its data-protection keys, which is the one part a run can leave unsaid: a
 	// native run keeps the app libraries' default, the developer's own home directory, and only a container
 	// run is told a directory, the one studioctl mounts for it, as the platform tells a deployed app.

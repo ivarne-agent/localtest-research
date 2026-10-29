@@ -979,3 +979,76 @@ func TestBuildDockerRunSpec_RefusesALocaltestV2CustomOrigin(t *testing.T) {
 		}
 	}
 }
+
+// Against localtest-v2 a run gets the local Maskinporten client, on the environment's own origin, for both modes; a
+// client the developer stored stays and is reported.
+func TestBuildRunSpecs_WriteTheLocalMaskinportenClientForLocaltestV2(t *testing.T) {
+	t.Parallel()
+
+	service, appPath, _ := localtestV2Service(t, localtestv2.State{}, true)
+	writeAppProject(t, appPath)
+	topology := envtopology.NewLocalAt("local.altinn.test", "18000")
+	spec, err := service.BuildDotnetRunSpec(t.Context(), appPath, nil, nil, topology, appsvc.DotnetRunOptions{})
+	if err != nil {
+		t.Fatalf("BuildDotnetRunSpec() error = %v", err)
+	}
+	if spec.DeveloperMaskinportenClient != nil {
+		t.Fatalf("DeveloperMaskinportenClient = %+v, want none", spec.DeveloperMaskinportenClient)
+	}
+	data, err := os.ReadFile(appsecrets.MaskinportenPath(spec.SecretsDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"authority": "http://local.altinn.test:18000/localtest/api/maskinporten/"`,
+		`"clientId": "ttd-localtest"`,
+	} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("local client = (masked), want %s", want)
+		}
+	}
+	assertEnvContainsAll(t, spec.Env, []string{"AppSettings__RuntimeSecretsDirectory=" + spec.SecretsDir})
+
+	if _, err = appsecrets.StoreMaskinportenClient(spec.SecretsDir, appsecrets.MaskinportenClient{
+		Authority: "https://test.maskinporten.no/",
+		ClientID:  "real-client",
+		JwkBase64: "",
+		Jwk: []byte(`{"kty":"RSA","use":"sig","kid":"k","alg":"RS256","n":"n","e":"AQAB","d":"d","p":"p",` +
+			`"q":"q","qi":"qi","dp":"dp","dq":"dq"}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	docker, err := service.BuildDockerRunSpec(t.Context(), repocontext.Detection{
+		AppRoot:   appPath,
+		InAppRepo: true,
+	}, nil, defaultTopology(), appsvc.DockerRunOptions{})
+	if err != nil {
+		t.Fatalf("BuildDockerRunSpec() error = %v", err)
+	}
+	if docker.DeveloperMaskinportenClient == nil || docker.DeveloperMaskinportenClient.ClientID != "real-client" {
+		t.Fatalf("DeveloperMaskinportenClient = %+v, want real-client", docker.DeveloperMaskinportenClient)
+	}
+	assertEnvContainsAll(t, docker.Config.Env, []string{"AppSettings__RuntimeSecretsDirectory=/mnt/app-secrets"})
+}
+
+// Without localtest-v2 nothing is written: the old localtest has no Maskinporten fake.
+func TestBuildDotnetRunSpec_WritesNoLocalMaskinportenClientWithoutLocaltestV2(t *testing.T) {
+	t.Parallel()
+
+	service, appPath, _ := localtestV2Service(t, localtestv2.State{}, false)
+	writeAppProject(t, appPath)
+	spec, err := service.BuildDotnetRunSpec(
+		t.Context(),
+		appPath,
+		nil,
+		nil,
+		defaultTopology(),
+		appsvc.DotnetRunOptions{},
+	)
+	if err != nil {
+		t.Fatalf("BuildDotnetRunSpec() error = %v", err)
+	}
+	if _, err := os.Stat(appsecrets.MaskinportenPath(spec.SecretsDir)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat(maskinporten-settings.json) error = %v, want none written", err)
+	}
+}

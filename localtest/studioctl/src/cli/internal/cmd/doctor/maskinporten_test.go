@@ -165,3 +165,23 @@ func TestBuildDisk_WithADetectedApp_IncludesTheMaskinportenCheck(t *testing.T) {
 		t.Fatal("maskinporten check missing for a detected app")
 	}
 }
+
+// The local client a run against localtest-v2 writes is not the developer's: doctor reports no client.
+func TestCheckMaskinportenClientState_WithTheLocalClient_ReportsNone(t *testing.T) {
+	t.Parallel()
+
+	service := newServiceWithHome(t)
+	dir, err := service.cfg.AppSecretsDir(testAppID)
+	if err != nil {
+		t.Fatalf("AppSecretsDir() error = %v", err)
+	}
+	if _, err := appsecrets.ProvisionLocalMaskinportenClient(dir, "http://local.altinn.cloud:8000", "ttd"); err != nil {
+		t.Fatalf("ProvisionLocalMaskinportenClient() error = %v", err)
+	}
+
+	check, _ := service.checkMaskinportenClientState(newAppFolder(t))
+
+	if check.Level != diskLevelInfo || check.Message != "no local Maskinporten client configured" {
+		t.Fatalf("check = %s %q, want the no-client info", check.Level, check.Message)
+	}
+}

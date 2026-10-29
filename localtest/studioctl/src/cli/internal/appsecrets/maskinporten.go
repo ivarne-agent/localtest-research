@@ -1,8 +1,9 @@
 // Package appsecrets provisions an app's secrets for a local run the way the operator does in a cluster: a
 // directory of files the app libraries read from a location the platform names, never from the app's own
 // configuration. The names studioctl hands the app are in provisioned.go; the directory holds the app's
-// Maskinporten client, stored by the developer, and its callback verification codes, which studioctl
-// provisions for every local run.
+// Maskinporten client, stored by the developer or, for a run against localtest-v2 without one, the local
+// client for the stack's Maskinporten fake (localclient.go), and its callback verification codes, which
+// studioctl provisions for every local run.
 package appsecrets
 
 import (
@@ -217,16 +218,16 @@ func StoreMaskinportenClient(dir string, client MaskinportenClient) (string, err
 	if err := EnsureDir(dir); err != nil {
 		return "", err
 	}
-	payload, err := json.MarshalIndent(map[string]MaskinportenClient{wrapperKey: client}, "", "  ")
+	payload, err := encodeClientFile(client)
 	if err != nil {
-		return "", fmt.Errorf("encode Maskinporten client: %w", err)
+		return "", err
 	}
 	path := MaskinportenPath(dir)
 	// Owner-only on every platform: the mode on Unix, and on Windows the protected DACL the credentials file
 	// gets, applied before the file appears at its final path.
 	err = osutil.WriteFileAtomic(
 		path,
-		append(payload, '\n'),
+		payload,
 		osutil.AtomicWriteOptions{Perm: osutil.FilePermOwnerOnly, OwnerOnly: true},
 	)
 	if err != nil {
@@ -235,28 +236,26 @@ func StoreMaskinportenClient(dir string, client MaskinportenClient) (string, err
 	return path, nil
 }
 
-// LoadMaskinportenClient reads the stored client, or ErrNoMaskinportenClient when there is none.
+// LoadMaskinportenClient reads the client the developer stored, or ErrNoMaskinportenClient when there is none. The
+// local client a run against localtest-v2 writes (ProvisionLocalMaskinportenClient) is not the developer's, so it
+// reads as none: show, doctor and the run summary never present it as theirs.
 func LoadMaskinportenClient(dir string) (MaskinportenClient, error) {
-	path := MaskinportenPath(dir)
-	data, err := os.ReadFile(path) //nolint:gosec // The path is under the configured studioctl home.
-	if errors.Is(err, os.ErrNotExist) {
+	client, local, err := readStoredClient(dir)
+	if err != nil {
+		return MaskinportenClient{}, err
+	}
+	if local {
 		return MaskinportenClient{}, ErrNoMaskinportenClient
-	}
-	if err != nil {
-		return MaskinportenClient{}, fmt.Errorf("read the stored Maskinporten client: %w", err)
-	}
-	client, err := ParseMaskinportenClient(data)
-	if err != nil {
-		return MaskinportenClient{}, fmt.Errorf(
-			"the stored Maskinporten client is unreadable (%w); remove it and store it again",
-			err,
-		)
 	}
 	return client, nil
 }
 
-// RemoveMaskinportenClient deletes the stored client and reports whether there was one.
+// RemoveMaskinportenClient deletes the client the developer stored and reports whether there was one. The local
+// client is not the developer's and stays (the next run against localtest-v2 would write it again anyway).
 func RemoveMaskinportenClient(dir string) (bool, error) {
+	if _, local, err := readStoredClient(dir); local && err == nil {
+		return false, nil
+	}
 	err := os.Remove(MaskinportenPath(dir))
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil

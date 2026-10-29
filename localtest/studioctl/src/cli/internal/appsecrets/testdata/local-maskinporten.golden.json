@@ -1,0 +1,20 @@
+{
+  "MaskinportenSettings": {
+    "authority": "http://local.altinn.cloud:8000/localtest/api/maskinporten/",
+    "clientId": "ttd-localtest",
+    "jwk": {
+      "kty": "RSA",
+      "use": "sig",
+      "kid": "test-key",
+      "alg": "RS256",
+      "n": "modulus",
+      "e": "AQAB",
+      "d": "private-part",
+      "p": "p",
+      "q": "q",
+      "qi": "qi",
+      "dp": "dp",
+      "dq": "dq"
+    }
+  }
+}
