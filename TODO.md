@@ -109,7 +109,7 @@ A path matching no route still falls through to the localtest app.
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | **superseded by [66](#66-a-test-tool-token-generator-mock-in-the-front-door)** (the owner, 2026-10-29: "Can localtest just use a mock of the online token generator?"); was unapproved (created at the owner's request 2026-10-29; not to be dispatched); its plan stays as history and may come back as an optional idea for `dotnet run` developers | small | no |
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 | 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
-| 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`); **67a done** (2026-10-30, commits `2f8a249e`..`589ee2a4`, see section 67; evidence `/home/agent/code/.handover/task67a/`); 67b and 67c in progress | medium | yes |
+| 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`); **67a done** (2026-10-30, commits `2f8a249e`..`d3bbf4a2`, pinned `sha-d3bbf4a`, see section 67; evidence `/home/agent/code/.handover/task67a/`); 67b and 67c in progress | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -3218,7 +3218,11 @@ long." Nothing in the local client carries a validity (a bare JWK: no `x5c`, no 
 or the operator's format checks), so the key is generated once per app and kept, and nothing rotates it. Rotation is
 out of scope locally by the owner's decision; the operator's rotation stays covered by its own e2e test.
 
-**67a done (2026-10-30)**, commits `2f8a249e`..`589ee2a4` and this file's update.
+**67a done (2026-10-30)**, commits `2f8a249e`..`d3bbf4a2`, images run 40971523592, pinned `sha-d3bbf4a`. Pinned check
+(no `--dev-*`, a fresh `self install`, `STUDIO_CA_BUNDLE` set; evidence `pinned/`): golden diff only the tags, Go `ok`,
+the Aspire package 206; default stack root 29, the front door 86 + `FRONTEND_DIST`, Authentication 39, the monorepo
+app's exchanged token `ttd` with Storage 200; minimal root 26 (4 skips), its exchange `ttd` for `ttd-localtest` and
+`digdir` for another client.
 
 - (1) **The runners write a local client.** studioctl (`internal/appsecrets/localclient.go`, called from
   `BuildDotnetRunSpec`/`BuildDockerRunSpec`, so `run` in both modes and `app env`) and the Aspire package
