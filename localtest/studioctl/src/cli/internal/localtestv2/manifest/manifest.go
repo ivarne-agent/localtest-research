@@ -82,7 +82,7 @@ type Group struct {
 // Container is one container: its image, environment, start order, volumes, port and health.
 type Container struct {
 	// Envs are the container's environment variables: literal strings but for the public origin's placeholders
-	// (origin.go), which Manifest.Envs resolves.
+	// (origin.go) and the database passwords' (passwords.go), which Manifest.Envs resolves.
 	Envs map[string]string `json:"envs"`
 	// Volumes maps a volume id to where the volume is mounted in the container. The id names one volume for the whole
 	// manifest (containers naming the same id share it). The runtime prefixes it with its own prefix.
@@ -362,6 +362,9 @@ func (m *Manifest) check() error {
 		return err
 	}
 	if err := m.checkPublic(); err != nil {
+		return err
+	}
+	if err := m.checkPasswords(); err != nil {
 		return err
 	}
 	if err := m.checkGroups(); err != nil {

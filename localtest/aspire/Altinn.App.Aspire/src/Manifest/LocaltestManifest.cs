@@ -9,7 +9,7 @@ namespace Altinn.App.Aspire.Manifest;
 /// README beside it): the groups and the containers. Parsed and checked as studioctl's Go loader
 /// (<c>manifest.go</c>) does: known keys only, every reference resolves, no dependency cycle, every container reached
 /// by a group, the values in range, the public section valid, every placeholder in <c>envs</c> one of the public
-/// origin's (<see cref="PublicOrigin" />) and every source of <c>files</c> one that ships with the manifest
+/// origin's (<see cref="PublicOrigin" />) or a database password's (<see cref="CheckPasswords" />) and every source of <c>files</c> one that ships with the manifest
 /// (<see cref="ManifestFiles" />).
 /// </summary>
 internal sealed partial class LocaltestManifest
@@ -122,9 +122,21 @@ internal sealed partial class LocaltestManifest
             Public.Subdomains
         );
 
-    /// <summary>A container's envs with the placeholders resolved for <paramref name="origin" />.</summary>
-    public IReadOnlyDictionary<string, OriginValue> Envs(string name, PublicOrigin origin) =>
-        _containers[name].Envs.ToDictionary(kv => kv.Key, kv => origin.Resolve(kv.Value), StringComparer.Ordinal);
+    /// <summary>
+    /// A container's envs with the placeholders resolved for <paramref name="origin" /> and the installation's
+    /// <paramref name="passwords" /> (<see cref="ResolvePasswords" />).
+    /// </summary>
+    public IReadOnlyDictionary<string, OriginValue> Envs(
+        string name,
+        PublicOrigin origin,
+        IReadOnlyDictionary<string, string> passwords
+    ) =>
+        _containers[name]
+            .Envs.ToDictionary(
+                kv => kv.Key,
+                kv => origin.Resolve(ResolvePasswords(kv.Value, passwords)),
+                StringComparer.Ordinal
+            );
 
     /// <summary>The containers by name.</summary>
     public IReadOnlyDictionary<string, ManifestContainer> Containers => _containers;
@@ -283,6 +295,7 @@ internal sealed partial class LocaltestManifest
             CheckContainer(name, _containers[name]);
         }
         CheckPublic();
+        CheckPasswords();
         CheckGroups();
         if (StartOrder([.. _names]).Count != _names.Count)
         {

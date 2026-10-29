@@ -15,6 +15,7 @@ import (
 	envstack "altinn.studio/studioctl/internal/cmd/env/stack"
 	"altinn.studio/studioctl/internal/config"
 	"altinn.studio/studioctl/internal/localtestv2"
+	"altinn.studio/studioctl/internal/localtestv2/manifest"
 	"altinn.studio/studioctl/internal/ui"
 )
 
@@ -26,14 +27,21 @@ const (
 	testCABundleDir = "/home/dev/.altinn-studio/ca-bundle"
 )
 
-// newTestEnv is NewEnv on a host without STUDIO_CA_BUNDLE, whatever the machine running the tests has.
+// newTestEnv is NewEnv on a host without STUDIO_CA_BUNDLE, whatever the machine running the tests has, with the golden
+// file's passwords instead of a password file.
 func newTestEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient) *Env {
 	return withCABundle(NewEnv(cfg, out, client), nil)
 }
 
 func withCABundle(e *Env, bundle *envstack.CABundle) *Env {
 	e.caBundle = func() *envstack.CABundle { return bundle }
+	e.passwords = func() (manifest.Passwords, error) { return goldenPasswords(), nil }
 	return e
+}
+
+// goldenPasswordsDigest is the state's digest of goldenPasswords, which newTestEnv runs with.
+func goldenPasswordsDigest() string {
+	return localtestv2.PasswordsDigest(goldenPasswords())
 }
 
 // loadCABundle is the host's CA bundle with the given source, its copy in dir. It sets STUDIO_CA_BUNDLE, so the test
@@ -131,6 +139,7 @@ func TestAnUpWithAnotherCABundleChangesTheRunningEnvironment(t *testing.T) {
 	write := func(digest string) {
 		t.Helper()
 		if err := localtestv2.WriteState(cfg, localtestv2.State{
+			Passwords:      goldenPasswordsDigest(),
 			CertificateDir: localtestv2.CertificateDir(cfg),
 			CABundle:       digest,
 		}); err != nil {

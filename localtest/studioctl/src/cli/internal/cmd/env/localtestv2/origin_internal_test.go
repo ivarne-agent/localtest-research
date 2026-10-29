@@ -174,6 +174,7 @@ func TestPortZeroPicksAFreePortAndTheStateRecordsIt(t *testing.T) {
 		t.Fatalf("origin %s", opts.Origin.URL())
 	}
 	if writeErr := localtestv2.WriteState(cfg, localtestv2.State{
+		Passwords:      goldenPasswordsDigest(),
 		CertificateDir: opts.CertDir, PublicHost: opts.Origin.Host, PublicPort: opts.Origin.Port,
 	}); writeErr != nil {
 		t.Fatal(writeErr)

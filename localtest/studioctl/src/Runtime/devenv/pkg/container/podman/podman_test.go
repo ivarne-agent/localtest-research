@@ -2,6 +2,7 @@ package podman
 
 import (
 	"errors"
+	"os"
 	"slices"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestBuildCreateArgs_UserNamespaceAndRelabelBind(t *testing.T) {
 			SELinuxRelabel: types.SELinuxRelabelShared,
 			ReadOnly:       true,
 		}},
-	})
+	}, "")
 
 	for _, want := range []string{
 		"/tmp/config.sql:/docker-entrypoint-initdb.d/01-tuning.sql:ro,z",
@@ -48,7 +49,7 @@ func TestBuildCreateArgs_Tmpfs(t *testing.T) {
 			{ContainerPath: "/var/lib/postgresql", Type: types.VolumeMountTypeTmpfs},
 			{ContainerPath: "/data/blobs", Type: types.VolumeMountTypeTmpfs, Options: "size=1g"},
 		},
-	})
+	}, "")
 
 	for _, want := range [][]string{
 		{"--tmpfs", "/var/lib/postgresql"},
@@ -305,5 +306,37 @@ func TestBuildRemoveArgs_RemovesAnonymousVolumes(t *testing.T) {
 				t.Fatalf("buildRemoveArgs() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTheEnvironmentGoesThroughAnEnvFileNotTheArguments(t *testing.T) {
+	t.Parallel()
+
+	env := []string{"PASSWORD=s3cret", "MULTI=a\nb"}
+	file, remove, err := writeEnvFile(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "PASSWORD=s3cret\n" {
+		t.Fatalf("env file %q", data)
+	}
+	if info, statErr := os.Stat(file); statErr != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("env file mode %v (%v), want 0600", info.Mode().Perm(), statErr)
+	}
+	args := buildCreateArgs(types.ContainerConfig{Name: "a", Image: "alpine", Env: env}, file)
+	if slices.Contains(args, "PASSWORD=s3cret") || !slices.Contains(args, file) ||
+		!slices.Contains(args, "MULTI=a\nb") {
+		t.Fatalf("args %#v", args)
+	}
+	remove()
+	if _, statErr := os.Stat(file); !os.IsNotExist(statErr) {
+		t.Fatalf("env file left behind: %v", statErr)
+	}
+	if none, _, noneErr := writeEnvFile(nil); none != "" || noneErr != nil {
+		t.Fatalf("no env: %q, %v", none, noneErr)
 	}
 }

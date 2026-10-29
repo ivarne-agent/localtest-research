@@ -128,9 +128,12 @@ func TestTheManifestEnvironmentComesFirstResolvedForTheOrigin(t *testing.T) {
 	t.Parallel()
 	custom := defaultOptions(testCertDir, testFilesDir)
 	custom.Origin = stack().Origin("origin.test", 18000)
-	for _, opts := range []*Options{defaultOptions(testCertDir, testFilesDir), custom} {
+	custom.Passwords = goldenPasswords()
+	plain := defaultOptions(testCertDir, testFilesDir)
+	plain.Passwords = goldenPasswords()
+	for _, opts := range []*Options{plain, custom} {
 		for name, c := range containersOf(t, opts) {
-			own := stack().Envs(name, opts.Origin)
+			own := stack().Envs(name, opts.Origin, opts.Passwords)
 			if own == nil {
 				own = map[string]string{}
 			}
@@ -404,6 +407,7 @@ func TestAnUpWithOtherGroupsOrImagesChangesTheRunningEnvironment(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir()}
 	if err := localtestv2.WriteState(cfg, localtestv2.State{
+		Passwords:      goldenPasswordsDigest(),
 		CertificateDir: localtestv2.CertificateDir(cfg),
 		Groups:         []string{"receipt"},
 		LatestImages:   false,

@@ -47,7 +47,7 @@ internal static class LocaltestPlatform
         // The containers send their telemetry to the dashboard (LocaltestStack), which they must reach.
         builder.Services.TryAddEventingSubscriber<DashboardTelemetry.HostWideOtlp>();
 
-        // The port check, the certificate and the manifest's files run when the AppHost starts, not when the model is built.
+        // The port check, the database passwords, the certificate and the manifest's files run when the AppHost starts, not when the model is built.
         builder.Eventing.Subscribe<BeforeStartEvent>(
             async (e, ct) =>
             {
@@ -63,6 +63,8 @@ internal static class LocaltestPlatform
                         ContainerRuntime.Cli(builder.Configuration)
                     );
                 }
+                // Before any container's environment is read: the passwords resolve it.
+                stack.EnsurePasswords();
                 LocaltestCertificate.Ensure(stack.CertificateDirectory);
                 stack.Manifest.Files.Ensure(stack.FilesDirectory);
                 HostCaBundle.Ensure(stack.DataDirectory, stack.CaBundle);

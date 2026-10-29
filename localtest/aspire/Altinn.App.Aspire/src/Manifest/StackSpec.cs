@@ -194,6 +194,9 @@ internal static class StackSpec
     /// <param name="caBundle">
     /// The host path of the host's CA bundle's copy, which the containers with <c>caBundle</c> mount; null for none.
     /// </param>
+    /// <param name="passwords">
+    /// The installation's database passwords by role (<see cref="PostgresPasswords" />); null leaves the placeholders.
+    /// </param>
     public static IReadOnlyList<ContainerSpec> Resolve(
         LocaltestManifest manifest,
         IEnumerable<string> groups,
@@ -201,7 +204,8 @@ internal static class StackSpec
         string filesDirectory,
         string? tag = null,
         PublicOrigin? origin = null,
-        string? caBundle = null
+        string? caBundle = null,
+        IReadOnlyDictionary<string, string>? passwords = null
     ) =>
         Resolve(
             manifest,
@@ -212,12 +216,15 @@ internal static class StackSpec
             tag,
             origin ?? manifest.Origin(),
             caBundle,
+            passwords ?? _noPasswords,
             minimal: false
         );
 
+    private static readonly IReadOnlyDictionary<string, string> _noPasswords = new Dictionary<string, string>();
+
     /// <summary>
     /// Minimal mode, as studioctl's <c>env up --minimal</c>: the containers of the minimal group in place of the
-    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string, string?, PublicOrigin?, string?)" />
+    /// default one, in start order, as <see cref="Resolve(LocaltestManifest, IEnumerable{string}, string, string, string?, PublicOrigin?, string?, IReadOnlyDictionary{string, string}?)" />
     /// resolves them but for three things: every emulated container (<see cref="Emulated" />) is announced at the
     /// front door (<c>services__&lt;name&gt;__http__0=http://localtest:8080</c>), every manifest volume is a tmpfs
     /// (<see cref="TmpfsOptions" />), and the front door keeps its app routes in memory
@@ -229,13 +236,15 @@ internal static class StackSpec
     /// <param name="tag">Replaces every <c>sha-</c> pin when set.</param>
     /// <param name="origin">The public origin; null is the manifest's default.</param>
     /// <param name="caBundle">The host path of the host's CA bundle's copy; null for none.</param>
+    /// <param name="passwords">The installation's database passwords by role; null leaves the placeholders.</param>
     public static IReadOnlyList<ContainerSpec> ResolveMinimal(
         LocaltestManifest manifest,
         string certificateDirectory,
         string filesDirectory,
         string? tag = null,
         PublicOrigin? origin = null,
-        string? caBundle = null
+        string? caBundle = null,
+        IReadOnlyDictionary<string, string>? passwords = null
     ) =>
         Resolve(
             manifest,
@@ -246,6 +255,7 @@ internal static class StackSpec
             tag,
             origin ?? manifest.Origin(),
             caBundle,
+            passwords ?? _noPasswords,
             minimal: true
         );
 
@@ -258,6 +268,7 @@ internal static class StackSpec
         string? tag,
         PublicOrigin origin,
         string? caBundle,
+        IReadOnlyDictionary<string, string> passwords,
         bool minimal
     )
     {
@@ -290,6 +301,7 @@ internal static class StackSpec
                     tag,
                     origin,
                     caBundle,
+                    passwords,
                     minimal
                 )
             ),
@@ -306,6 +318,7 @@ internal static class StackSpec
         string? tag,
         PublicOrigin origin,
         string? caBundle,
+        IReadOnlyDictionary<string, string> passwords,
         bool minimal
     )
     {
@@ -313,7 +326,7 @@ internal static class StackSpec
         // The host's CA bundle's copy, for a container with caBundle while the host has one.
         var bundle = c.CaBundle ? caBundle : null;
         var environment = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
-        foreach (var (key, value) in manifest.Envs(name, origin))
+        foreach (var (key, value) in manifest.Envs(name, origin, passwords))
         {
             environment[key] = value;
         }

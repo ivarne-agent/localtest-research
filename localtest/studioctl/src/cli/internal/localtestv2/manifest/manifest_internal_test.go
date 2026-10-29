@@ -351,7 +351,11 @@ func TestTheEnvironmentIsTheContainersOwn(t *testing.T) {
 	t.Parallel()
 	m := MustDefault()
 	for _, name := range m.Names() {
-		for key, value := range m.Envs(name, m.Origin("origin.test", 18000)) {
+		passwords := Passwords{}
+		for _, role := range m.RoleNames() {
+			passwords[role] = "secret"
+		}
+		for key, value := range m.Envs(name, m.Origin("origin.test", 18000), passwords) {
 			if strings.Contains(value, "{{") || strings.HasPrefix(key, "services__") {
 				t.Errorf("%s: %s=%s is not a resolved value of the container's own", name, key, value)
 			}

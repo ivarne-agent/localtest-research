@@ -185,6 +185,7 @@ func TestMinimalModeBuildsItsOwnContainersFromSource(t *testing.T) {
 func writeTestState(t *testing.T, cfg *config.Config, minimal bool) {
 	t.Helper()
 	if err := localtestv2.WriteState(cfg, localtestv2.State{
+		Passwords:      goldenPasswordsDigest(),
 		CertificateDir: localtestv2.CertificateDir(cfg),
 		Groups:         nil,
 		Dev:            nil,

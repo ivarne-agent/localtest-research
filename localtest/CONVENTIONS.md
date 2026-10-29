@@ -43,10 +43,18 @@ lists the stack in three sections:
   error.
 - There is no JSON Schema: the Go reader's test validates the file and `Parse` refuses an invalid one; the Aspire
   package runs the same checks on the same file, which it embeds by relative path.
-- The database passwords live in the manifest and nowhere else (TODO.md task 60; static local values): the Postgres
-  container's `envs` hold one `<ROLE>_PASSWORD` per role, which the Postgres image's init scripts read to create the
-  roles and databases (and fail without), and each service gets the same value in the form it reads. No image and no
-  fake carries one ([manifest README, Database users and passwords](studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)).
+- The database passwords are generated per installation (TODO.md tasks 60 and 62): each runner keeps a random password
+  per role in a JSON file of its own, owner-only, and the manifest only says where each goes, by the placeholder
+  `{{password:<role>}}`: the Postgres container's `<ROLE>_PASSWORD`, which the Postgres image's init scripts read to
+  create the roles and databases (and fail without), and each service's setting in the form it reads. The superuser
+  `postgres` has the fixed password `Password`, the runners' recovery path: once Postgres is healthy and before its
+  dependants start, the runner sets every role's password to the file's, so no volume needs a reset for passwords. No
+  image, fake or manifest carries a role password
+  ([manifest README, Database users and passwords](studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)).
+- Database initialization (the user's principles, TODO.md task 62): **localtest owns the initialization of the database
+  and the creation of the users** (each component's `postgres-init/NN-*.sh`, not an upstream script), and **platform
+  services that run Yuniql or other migration software at startup do so in localtest too** (localtest does not run
+  their migrations for them).
 
 **Why.** The stack is a list of services; everything both runtimes do alike is runner code, written once in each
 runner and held to one golden snapshot, rather than a vocabulary in a file that two readers interpret.

@@ -76,7 +76,8 @@ knows, refusing to start on one it does not. A known subdomain left out of the l
 
 ## The placeholders
 
-`envs` values name the public origin only through these, resolved for the environment's host and port:
+`envs` values name the public origin only through these, resolved for the environment's host and port (and a database
+password through `{{password:<role>}}`, [below](#database-users-and-passwords)):
 
 | Placeholder        | Value                        |
 | ------------------ | ---------------------------- |
@@ -89,7 +90,7 @@ knows, refusing to start on one it does not. A known subdomain left out of the l
 `<sub>` must be in `public.subdomains`. Any other `{{…}}` (an unknown name, an unlisted subdomain, `{{port:<sub>}}`, an
 unclosed `{{`) is a manifest error naming the container and the key. Nothing else is substituted: single braces
 (`{Org}`, `Password={0}`) are literal, and the `services__*` addresses are the runner's, never in `envs`. The Go reader
-resolves with `Manifest.Envs(name, origin)` (`origin.go`); the Aspire package resolves into parts, so that with a port
+resolves with `Manifest.Envs(name, origin, passwords)` (`origin.go`, `passwords.go`); the Aspire package resolves into parts, so that with a port
 Aspire allocates a value is a `ReferenceExpression` over the front door's endpoint.
 
 ## `containers`
@@ -115,14 +116,48 @@ commands or build information. A container's notes belong in its component's REA
 
 ### Database users and passwords
 
-The manifest is the one place the stack's database passwords live; they are static local-development values, and no
-image carries one. The `postgres` container's `envs` hold one variable per role, the role's name in upper case with
-`_PASSWORD` (`PLATFORM_STORAGE_ADMIN_PASSWORD`, `DIALOGPORTEN_PASSWORD`; the superuser's is the image's own
-`POSTGRES_PASSWORD`). The Postgres image's init scripts read them to create each component's roles and database and
-fail at once when one is missing. Each service gets the same value in the form it reads: a password setting
-(`PostgreSqlSettings__StorageDbPwd`, with the `Password={0}` connection strings) or a whole connection string
-(`DatabaseOptions__ConnectionString`, `DB_CONNECTION_STRING`). A changed password changes in both places; Postgres runs
-its init scripts on an empty volume only, so an existing volume keeps the old one until `env reset`.
+The manifest holds no role password. A value names one by the placeholder `{{password:<role>}}` (a lower-case SQL
+identifier), which each runner resolves from its own file of passwords generated for the installation. Nothing else
+describes the passwords:
+
+- **The roles.** The `postgres` container's `envs` carry one variable per role, the role's name in upper case with
+  `_PASSWORD`, whose value is exactly the role's placeholder (`"PLATFORM_STORAGE_ADMIN_PASSWORD":
+  "{{password:platform_storage_admin}}"`). Those variables are the roles the runner generates passwords for; the
+  Postgres image's init scripts read them to create each component's roles and database on an empty volume, and fail at
+  once when one is missing.
+- **The consumers.** Every other value that names a role's placeholder gets the same password in the form its service
+  reads: a password setting (`"PostgreSqlSettings__StorageDbPwd": "{{password:platform_storage}}"`, with the
+  `Password={0}` connection strings), a connection string (`Password={{password:dialogporten}};`) or a URL
+  (`postgres://arbeidsflate:{{password:arbeidsflate}}@postgres:5432/arbeidsflate`).
+- **The superuser** is the `postgres` container's literal `POSTGRES_USER` (`postgres`) with the fixed
+  `POSTGRES_PASSWORD` `Password`, the recovery path; the workflow engine connects as it. Both readers refuse a
+  placeholder the `postgres` container does not carry, a role carried twice, a role name that is not a plain
+  identifier, and placeholders without a literal superuser and password.
+
+**The password file.** studioctl keeps `data/generated/localtest-v2/secrets/postgres-passwords.json` under its home
+(beside `state.json`), the Aspire package `secrets/postgres-passwords.json` under `AltinnLocaltestOptions.DataDirectory`:
+a JSON object of role name to password, the directory `0700` and the file `0600`, written atomically. Before anything
+starts, a role without a password gets a new one (192 random bits as 48 hex digits, safe unquoted in every form above);
+a stored one is never changed, and roles the manifest no longer has are kept. A value that is not 16 to 256 letters,
+digits, `-` or `_` is refused (delete the entry). The two runners have separate volumes, so they do not share the file.
+studioctl records a digest of the passwords in its state file, so `env up` after the file changed converges the running
+stack.
+
+**Reconciliation.** Postgres runs its init scripts only on an empty volume, so an older volume (created before the file,
+or before the file was lost) has other passwords. Once the `postgres` container is healthy and before anything that
+depends on it starts, the runner sets every existing role's password (and the superuser's) to the values in the
+container's environment: it runs `psql` as the superuser over the container's Unix socket, which the image's
+`pg_hba.conf` trusts (initdb's default `local all all trust`), so it works whatever the superuser's password was (a
+volume from before task 62 has `postgres`). The script (`ReconcileScript` in `passwords.go`, the Aspire package's
+`LocaltestManifest.ReconcileScript`, compared through the golden file) reads each password with `\getenv`, so neither
+the arguments nor the script hold one, skips a role that does not exist yet, keeps the statements out of the server's
+log and `pg_stat_statements`, and prints the roles it set. studioctl runs it as part of Postgres's readiness check
+(`reconcilingAfter`), the Aspire package in Postgres's health check (`PasswordReconciliation`). No volume reset is ever
+needed for passwords.
+
+The passwords appear in the containers' environment (`podman inspect`), which is accepted, and nowhere else: not in an
+image, the manifest, a fake, a log line or a command line (studioctl's Podman CLI client passes the environment in a
+temporary `--env-file`).
 
 ## Files
 

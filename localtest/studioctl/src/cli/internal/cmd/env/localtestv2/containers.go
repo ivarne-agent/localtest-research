@@ -76,28 +76,19 @@ type DevBuild struct {
 
 // Options configures the environment.
 type Options struct {
-	// Dev are the containers built from source instead of pulled, by manifest name.
-	Dev map[string]DevBuild
-	// Groups are the optional groups that are on, sorted. The default group always is.
-	Groups  []string
-	CertDir string
-	// FilesDir holds the files that ship with the manifest, at their paths relative to its directory.
-	FilesDir string
-	// CABundle is the host's CA bundle (cabundle.go), which the containers with caBundle mount. nil for none.
-	CABundle *envstack.CABundle
-	// TelemetryDir is the folder on the host an OTLP receiver with an output writes to (minimal mode's otel-files).
+	CABundle     *envstack.CABundle
+	Passwords    manifest.Passwords
+	Dev          map[string]DevBuild
+	User         string
+	FilesDir     string
 	TelemetryDir string
-	// User and UsernsMode run a container that writes to the host (TelemetryDir) as the developer: their uid:gid, and
-	// under Podman keep-id, so the files are theirs to read and delete.
-	User       string
-	UsernsMode string
-	// Origin is the public origin: its host and port, the front door's published port, and the subdomains.
-	Origin manifest.Origin
-	// LatestImages runs the research images at "latest" instead of their pinned sha- tag.
+	CertDir      string
+	UsernsMode   string
+	Groups       []string
+	Origin       manifest.Origin
 	LatestImages bool
 	RelabelBinds bool
-	// Minimal starts the minimal group instead of the default one, the front door emulating the rest (minimal.go).
-	Minimal bool
+	Minimal      bool
 }
 
 func defaultOptions(certDir, filesDir string) *Options {
@@ -114,6 +105,7 @@ func defaultOptions(certDir, filesDir string) *Options {
 		LatestImages: false,
 		RelabelBinds: false,
 		Minimal:      false,
+		Passwords:    nil,
 	}
 }
 
@@ -264,7 +256,14 @@ func containerResource(
 		Ports:       ports,
 		Volumes:     containerVolumes(opts, c),
 		Env: containerEnv(
-			telemetryEnv(opts.Origin, running, name), stack().Envs(name, opts.Origin), runnerEnv(opts, name), services,
+			telemetryEnv(
+				opts.Origin,
+				running,
+				name,
+			),
+			stack().Envs(name, opts.Origin, opts.Passwords),
+			runnerEnv(opts, name),
+			services,
 		),
 		Labels:     nil,
 		Command:    nil,

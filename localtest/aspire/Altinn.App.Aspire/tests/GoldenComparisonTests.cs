@@ -112,7 +112,24 @@ public sealed class GoldenComparisonTests
         return document.RootElement.Clone();
     }
 
-    private static SampleModel Model(string selection) =>
+    /// <summary>
+    /// The snapshot's stand-ins for an installation's database passwords, which every case runs with (each runner
+    /// generates its own).
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> GoldenPasswords =>
+        _golden
+            .GetProperty("passwords")
+            .EnumerateObject()
+            .ToDictionary(p => p.Name, p => p.Value.GetString()!, StringComparer.Ordinal);
+
+    private static SampleModel Model(string selection)
+    {
+        var model = UnresolvedModel(selection);
+        model.Platform.Resource.Stack.Passwords = GoldenPasswords;
+        return model;
+    }
+
+    private static SampleModel UnresolvedModel(string selection) =>
         selection switch
         {
             "minimal" => SampleModel.BuildMinimal(dataDirectory: DataDirectory),

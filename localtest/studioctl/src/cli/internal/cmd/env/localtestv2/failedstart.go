@@ -18,7 +18,7 @@ import (
 // startContainers applies the containers and waits for the front door. A start that fails is cleaned up
 // (failedStart).
 func (e *Env) startContainers(ctx context.Context, opts *Options) error {
-	probes := newProber(e.client, e.out.Verbosef).probes
+	probes := reconcilingAfter(newProber(e.client, e.out.Verbosef).probes, e.reconcilePasswords(opts))
 	if err := e.applyResources(ctx, resources(opts, probes), len(opts.Dev) > 0); err != nil {
 		return e.failedStart(ctx, opts, err)
 	}

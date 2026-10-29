@@ -48,7 +48,9 @@ type Env struct {
 	lookupHost lookupHostFunc
 	// caBundle is the host's CA bundle, loaded once per command (cabundle.go).
 	caBundle func() *envstack.CABundle
-	flags    UpOptions
+	// passwords are the installation's database passwords, read (and completed) once per command (passwords.go).
+	passwords func() (manifest.Passwords, error)
+	flags     UpOptions
 }
 
 // NewEnv creates the localtest-v2 environment manager.
@@ -61,8 +63,10 @@ func NewEnv(cfg *config.Config, out *ui.Output, client container.ContainerClient
 		flags:      noUpOptions(),
 		lookupHost: net.DefaultResolver.LookupHost,
 		caBundle:   nil,
+		passwords:  nil,
 	}
 	e.caBundle = sync.OnceValue(e.loadCABundle)
+	e.passwords = sync.OnceValues(e.loadPasswords)
 	return e
 }
 
@@ -126,7 +130,7 @@ func (e *Env) Preflight(ctx context.Context, opts UpOptions) error {
 }
 
 // Changed reports whether `env up` asks for another mode, another public origin, other optional groups, other images
-// (--latest), another host CA bundle (STUDIO_CA_BUNDLE, by content) or other dev builds than the running environment was started with, in which case an environment that is
+// (--latest), another host CA bundle (STUDIO_CA_BUNDLE, by content), other database passwords (a password file deleted or edited) or other dev builds than the running environment was started with, in which case an environment that is
 // already healthy still has to be converged: a plain `env up` after `env up --dev-storage` runs the pinned Storage
 // again.
 func (e *Env) Changed(opts UpOptions) (bool, error) {
@@ -140,7 +144,12 @@ func (e *Env) Changed(opts UpOptions) (bool, error) {
 	}
 	have := slices.Clone(state.Groups)
 	slices.Sort(have)
+	passwords, err := e.passwords()
+	if err != nil {
+		return false, err
+	}
 	return opts.Minimal != state.Minimal ||
+		localtestv2.PasswordsDigest(passwords) != state.Passwords ||
 		originChanged(opts, state, up) ||
 		!slices.Equal(want, have) ||
 		opts.LatestImages != state.LatestImages ||
@@ -181,6 +190,7 @@ func (e *Env) Start(ctx context.Context, upOpts UpOptions) error {
 		Dev:            slices.Sorted(maps.Keys(opts.Dev)),
 		LatestImages:   opts.LatestImages,
 		CABundle:       opts.CABundle.Digest(),
+		Passwords:      localtestv2.PasswordsDigest(opts.Passwords),
 		Minimal:        opts.Minimal,
 	}); err != nil {
 		return fmt.Errorf("record localtest-v2 state: %w", err)
@@ -413,6 +423,9 @@ func (e *Env) options(ctx context.Context, upOpts UpOptions) (*Options, error) {
 		}
 	}
 	opts.Origin = stack().Origin(host, port)
+	if opts.Passwords, err = e.passwords(); err != nil {
+		return nil, err
+	}
 	return opts, nil
 }
 

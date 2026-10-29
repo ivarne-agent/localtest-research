@@ -17,11 +17,16 @@ namespace Altinn.App.Aspire;
 /// container is replaced (a new container ID): the check is a start gate, as studioctl's, not a liveness probe, so a
 /// running stack costs no execs.
 /// </para>
+/// <para>
+/// Postgres's check also sets the database passwords once its probe passed (<see cref="PasswordReconciliation" />):
+/// it is healthy only then, so the components that use it start with their passwords in place.
+/// </para>
 /// </summary>
 internal sealed class InNetworkHealthCheck(
     HealthTarget target,
     ResourceNotificationService notifications,
-    IConfiguration configuration
+    IConfiguration configuration,
+    PasswordReconciliation? reconciliation = null
 ) : IHealthCheck
 {
     /// <summary>The container the probes run in.</summary>
@@ -42,6 +47,9 @@ internal sealed class InNetworkHealthCheck(
 
     /// <summary>The target, for the tests.</summary>
     public HealthTarget Target => target;
+
+    /// <summary>The password reconciliation it runs once healthy (Postgres's), for the tests.</summary>
+    public PasswordReconciliation? Reconciliation => reconciliation;
 
     /// <inheritdoc />
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -72,6 +80,18 @@ internal sealed class InNetworkHealthCheck(
                     limit.Token
                 )
                 .ConfigureAwait(false);
+            if (
+                exitCode == 0
+                && reconciliation is not null
+                && container is not null
+                && await reconciliation
+                    .RunAsync(ContainerRuntime.Cli(configuration), container, limit.Token)
+                    .ConfigureAwait(false)
+                    is { } failure
+            )
+            {
+                return HealthCheckResult.Unhealthy($"{target}: {failure}");
+            }
             if (exitCode == 0)
             {
                 _healthyContainer = container;

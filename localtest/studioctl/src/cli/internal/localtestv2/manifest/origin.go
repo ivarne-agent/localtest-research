@@ -20,7 +20,8 @@ import (
 //	{{origin:<sub>}}  http://<sub>.<host>:<port>, for a listed subdomain
 //	{{host:<sub>}}    <sub>.<host>, for a listed subdomain
 //
-// Nothing else in a value is substituted. Parse refuses any other {{…}}.
+// The one other placeholder, {{password:<role>}}, is a database password (passwords.go). Nothing else in a value is
+// substituted. Parse refuses any other {{…}}.
 const (
 	// Scheme is the public origin's scheme.
 	Scheme = "http"
@@ -110,15 +111,15 @@ func (o Origin) Resolve(value string) string {
 	})
 }
 
-// Envs are a container's envs with the placeholders resolved for the origin.
-func (m *Manifest) Envs(name string, o Origin) map[string]string {
+// Envs are a container's envs with the placeholders resolved for the origin and the installation's passwords.
+func (m *Manifest) Envs(name string, o Origin, passwords Passwords) map[string]string {
 	envs := m.Containers[name].Envs
 	if envs == nil {
 		return nil
 	}
 	out := make(map[string]string, len(envs))
 	for key, value := range envs {
-		out[key] = o.Resolve(value)
+		out[key] = o.Resolve(passwords.Resolve(value))
 	}
 	return out
 }
@@ -146,8 +147,8 @@ func (o Origin) resolveOne(inner string) (string, error) {
 	case placeholderPort:
 		return strconv.Itoa(o.Port), nil
 	}
-	return "", fmt.Errorf("%w {{%s}}: one of {{origin}}, {{host}}, {{port}}, {{origin:<sub>}}, {{host:<sub>}}",
-		errPlaceholder, inner)
+	return "", fmt.Errorf("%w {{%s}}: one of {{origin}}, {{host}}, {{port}}, {{origin:<sub>}}, {{host:<sub>}}, "+
+		"{{password:<role>}}", errPlaceholder, inner)
 }
 
 // checkPlaceholders refuses a value whose {{…}} is not one of the placeholders, or names a subdomain the public section
@@ -157,6 +158,9 @@ func (o Origin) checkPlaceholders(value string) error {
 		return fmt.Errorf("%w in %q: an unclosed {{", errPlaceholder, value)
 	}
 	for _, match := range placeholder.FindAllStringSubmatch(value, -1) {
+		if _, isPassword := passwordRole(match[1]); isPassword {
+			continue // checkPasswords
+		}
 		if _, err := o.resolveOne(match[1]); err != nil {
 			return err
 		}

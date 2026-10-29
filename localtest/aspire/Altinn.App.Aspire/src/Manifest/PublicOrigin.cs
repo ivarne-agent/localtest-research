@@ -25,7 +25,8 @@ internal sealed record ManifestPublic
 /// The public origin of one stack: its host, its port (null: allocated by Aspire when the AppHost runs) and the
 /// manifest's subdomains. Resolves the manifest's placeholders as studioctl's reader does (<c>manifest/origin.go</c>):
 /// <c>{{origin}}</c> = <c>http://host:port</c>, <c>{{host}}</c>, <c>{{port}}</c>, <c>{{origin:sub}}</c> =
-/// <c>http://sub.host:port</c> and <c>{{host:sub}}</c> = <c>sub.host</c> for a listed subdomain; nothing else.
+/// <c>http://sub.host:port</c> and <c>{{host:sub}}</c> = <c>sub.host</c> for a listed subdomain; nothing else (the
+/// database passwords' <c>{{password:role}}</c> are <see cref="LocaltestManifest.ResolvePasswords" />'s).
 /// </summary>
 internal sealed partial record PublicOrigin(string Host, int? Port, IReadOnlyList<string> Subdomains)
 {
@@ -90,6 +91,10 @@ internal sealed partial record PublicOrigin(string Host, int? Port, IReadOnlyLis
         }
         foreach (Match match in matches)
         {
+            if (LocaltestManifest.PasswordRole(match.Groups[1].Value) is not null)
+            {
+                continue; // LocaltestManifest.CheckPasswords
+            }
             if (ResolveOne(match.Groups[1].Value) is null)
             {
                 var (name, sub) = Split(match.Groups[1].Value);
@@ -98,7 +103,7 @@ internal sealed partial record PublicOrigin(string Host, int? Port, IReadOnlyLis
                     && name is OriginName or HostName
                     && !Subdomains.Contains(sub, StringComparer.Ordinal)
                     ? $"bad placeholder {match.Value}: \"{sub}\" is not a listed subdomain ({string.Join(", ", Subdomains)})"
-                    : $"bad placeholder {match.Value}: one of {{{{origin}}}}, {{{{host}}}}, {{{{port}}}}, {{{{origin:<sub>}}}}, {{{{host:<sub>}}}}";
+                    : $"bad placeholder {match.Value}: one of {{{{origin}}}}, {{{{host}}}}, {{{{port}}}}, {{{{origin:<sub>}}}}, {{{{host:<sub>}}}}, {{{{password:<role>}}}}";
             }
         }
         return null;

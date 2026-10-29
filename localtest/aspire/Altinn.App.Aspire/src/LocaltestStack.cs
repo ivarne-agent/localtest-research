@@ -173,11 +173,39 @@ internal sealed class LocaltestStack
             ),
         ];
 
+    /// <summary>
+    /// The installation's database passwords by role (<see cref="PostgresPasswords" />), which resolve the manifest's
+    /// <c>{{password:&lt;role&gt;}}</c>: read, and completed, when the AppHost starts (<see cref="EnsurePasswords" />);
+    /// null before, which leaves the placeholders.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Passwords { get; set; }
+
+    /// <summary>Reads the password file under the data directory, completing it with a password for every role.</summary>
+    public void EnsurePasswords() =>
+        Passwords = PostgresPasswords.Ensure(PostgresPasswords.PathOf(DataDirectory), Manifest.RoleNames);
+
     /// <summary>The selected containers as they run now, with the groups enabled so far.</summary>
     public IReadOnlyList<ContainerSpec> Specs() =>
         Minimal
-            ? StackSpec.ResolveMinimal(Manifest, CertificateDirectory, FilesDirectory, _tag, Origin, CaBundlePath)
-            : StackSpec.Resolve(Manifest, _groups, CertificateDirectory, FilesDirectory, _tag, Origin, CaBundlePath);
+            ? StackSpec.ResolveMinimal(
+                Manifest,
+                CertificateDirectory,
+                FilesDirectory,
+                _tag,
+                Origin,
+                CaBundlePath,
+                Passwords
+            )
+            : StackSpec.Resolve(
+                Manifest,
+                _groups,
+                CertificateDirectory,
+                FilesDirectory,
+                _tag,
+                Origin,
+                CaBundlePath,
+                Passwords
+            );
 
     /// <summary>Adds the default group's containers (the minimal group's in minimal mode), then the given groups.</summary>
     public void Initialize(IResourceBuilder<AltinnLocaltestResourceBase> parent, IEnumerable<string> groups)
@@ -379,7 +407,10 @@ internal sealed class LocaltestStack
                         check ??= new InNetworkHealthCheck(
                             spec.Health,
                             services.GetRequiredService<ResourceNotificationService>(),
-                            services.GetRequiredService<IConfiguration>()
+                            services.GetRequiredService<IConfiguration>(),
+                            spec.Name == LocaltestManifest.PostgresContainer
+                                ? new PasswordReconciliation(Manifest, () => Passwords)
+                                : null
                         ),
                     failureStatus: null,
                     tags: null

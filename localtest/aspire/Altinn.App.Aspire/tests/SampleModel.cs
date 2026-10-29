@@ -1,6 +1,9 @@
 using System.Reflection;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.App.Aspire.Tests;
 
@@ -112,6 +115,17 @@ internal sealed class SampleModel
 
     /// <summary>The container resources, in the order they were added.</summary>
     public IReadOnlyList<ContainerResource> Containers => [.. Builder.Resources.OfType<ContainerResource>()];
+
+    /// <summary>The containers' in-network health checks, by manifest name, as the registrations create them.</summary>
+    public IReadOnlyDictionary<string, InNetworkHealthCheck> HealthChecks()
+    {
+        const string suffix = "_in_network_check";
+        using var services = Builder.Services.BuildServiceProvider();
+        return services
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>()
+            .Value.Registrations.Where(r => r.Name.EndsWith(suffix, StringComparison.Ordinal))
+            .ToDictionary(r => r.Name[..^suffix.Length], r => (InNetworkHealthCheck)r.Factory(services));
+    }
 
     /// <summary>The resources a container waits for to be healthy.</summary>
     public static IReadOnlyList<string> HealthyWaits(IResource resource) =>

@@ -41,6 +41,8 @@ type State struct {
 	// CABundle is the digest of the host's CA bundle (STUDIO_CA_BUNDLE, its usable certificates) the containers with
 	// caBundle were started with, hex. Empty for none.
 	CABundle string `json:"caBundle,omitempty"`
+	// Passwords is the digest of the database passwords the containers were started with (PasswordsDigest), hex.
+	Passwords string `json:"passwords,omitempty"`
 	// Groups are the optional component groups the environment was started with.
 	Groups []string `json:"groups,omitempty"`
 	// Dev are the containers built from source (env up --dev-<container>), sorted.
@@ -170,6 +172,7 @@ func noState() State {
 		PublicPort:     0,
 		LatestImages:   false,
 		CABundle:       "",
+		Passwords:      "",
 		Minimal:        false,
 	}
 }

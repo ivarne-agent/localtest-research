@@ -181,7 +181,12 @@ func (c *Client) Tag(ctx context.Context, source, target string) error {
 
 // CreateContainer creates and optionally starts a container.
 func (c *Client) CreateContainer(ctx context.Context, cfg types.ContainerConfig) (string, error) {
-	args := buildCreateArgs(cfg)
+	envFile, removeEnvFile, err := writeEnvFile(cfg.Env)
+	if err != nil {
+		return "", err
+	}
+	defer removeEnvFile()
+	args := buildCreateArgs(cfg, envFile)
 
 	cmd := processutil.CommandContext(ctx, "podman", args...)
 	output, err := cmd.CombinedOutput()
@@ -207,8 +212,50 @@ func (c *Client) CreateContainer(ctx context.Context, cfg types.ContainerConfig)
 	return containerID, nil
 }
 
-// buildCreateArgs assembles the podman create CLI arguments from a ContainerConfig.
-func buildCreateArgs(cfg types.ContainerConfig) []string {
+// writeEnvFile writes the environment variables podman can read from an --env-file (one KEY=VALUE per line, so none
+// with a line break) to an owner-only temporary file, so that their values (database passwords) are not in podman's
+// argument list, which any process listing shows. The returned func removes it. No such variable: no file.
+func writeEnvFile(env []string) (string, func(), error) {
+	var lines strings.Builder
+	for _, e := range env {
+		if !strings.ContainsAny(e, "\r\n") {
+			lines.WriteString(e)
+			lines.WriteByte('\n')
+		}
+	}
+	if lines.Len() == 0 {
+		return "", func() {}, nil
+	}
+	file, err := os.CreateTemp("", "devenv-env-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("create env file: %w", err)
+	}
+	remove := func() { _ = os.Remove(file.Name()) } //nolint:errcheck // A temporary file; nothing to do on failure.
+	_, writeErr := file.WriteString(lines.String())
+	closeErr := file.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		remove()
+		return "", nil, fmt.Errorf("write env file: %w", err)
+	}
+	return file.Name(), remove, nil
+}
+
+// appendEnvArgs adds the env file, and -e for each variable it does not hold (all of them without one).
+func appendEnvArgs(args, env []string, envFile string) []string {
+	if envFile != "" {
+		args = append(args, "--env-file", envFile)
+	}
+	for _, e := range env {
+		if envFile == "" || strings.ContainsAny(e, "\r\n") {
+			args = append(args, "-e", e)
+		}
+	}
+	return args
+}
+
+// buildCreateArgs assembles the podman create CLI arguments from a ContainerConfig. envFile holds the variables
+// writeEnvFile wrote; the others (none, or those with a line break) are passed with -e.
+func buildCreateArgs(cfg types.ContainerConfig, envFile string) []string {
 	args := []string{"create"}
 
 	if cfg.Name != "" {
@@ -237,9 +284,7 @@ func buildCreateArgs(cfg types.ContainerConfig) []string {
 
 	args = appendVolumeArgs(args, cfg.Volumes)
 
-	for _, e := range cfg.Env {
-		args = append(args, "-e", e)
-	}
+	args = appendEnvArgs(args, cfg.Env, envFile)
 
 	for k, v := range cfg.Labels {
 		args = append(args, "--label", fmt.Sprintf("%s=%s", k, v))

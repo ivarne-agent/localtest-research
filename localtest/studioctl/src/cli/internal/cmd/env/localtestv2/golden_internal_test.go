@@ -21,24 +21,30 @@ var goldenPath = filepath.Join("testdata", "environment.golden.json") //nolint:g
 // goldenEnvironment is what the runtime builds from the manifest. Each container's env is the manifest's envs plus the
 // services__ variables.
 type goldenEnvironment struct {
-	// Groups are the containers each group selects with the default group, in start order. The minimal group, which
-	// replaces the default one, alone.
-	Groups map[string][]string `json:"groups"`
-	// Default is `env up` with no flags: pulled images at the pin, no optional group.
-	Default goldenOptions `json:"default"`
-	// Everything is `env up --with everything --latest --dev-storage --dev-dialogporten-webapi=Dockerfile.webapi` on
-	// a runtime with SELinux relabelling, on a host with a CA bundle (STUDIO_CA_BUNDLE, its copy at a fixed path, so
-	// the snapshot does not depend on the machine). The other cases have none.
-	Everything goldenOptions `json:"everything"`
-	// Minimal is `env up --minimal` under Podman as uid 1000: the minimal group, the emulated services at the front
-	// door, tmpfs volumes, and otel-files writing to the telemetry folder as the developer.
-	Minimal goldenOptions `json:"minimal"`
-	// CustomOrigin is `env up --host origin.test --port 18000`: the default group at another public origin.
-	CustomOrigin goldenOptions `json:"customOrigin"`
-	// VolumePrefix is this runtime's volume prefix. A mount's HostPath and each of Volumes is it plus a volume id.
-	VolumePrefix string `json:"volumePrefix"`
-	// Volumes are the volumes env reset removes.
-	Volumes []string `json:"volumes"`
+	Groups       map[string][]string `json:"groups"`
+	Passwords    manifest.Passwords  `json:"passwords"`
+	Reconcile    goldenReconcile     `json:"reconcile"`
+	VolumePrefix string              `json:"volumePrefix"`
+	Default      goldenOptions       `json:"default"`
+	Everything   goldenOptions       `json:"everything"`
+	Minimal      goldenOptions       `json:"minimal"`
+	CustomOrigin goldenOptions       `json:"customOrigin"`
+	Volumes      []string            `json:"volumes"`
+}
+
+type goldenReconcile struct {
+	Container string   `json:"container"`
+	Script    string   `json:"script"`
+	Command   []string `json:"command"`
+}
+
+// goldenPasswords are fixed stand-ins for an installation's passwords: "golden-<role>" for every role.
+func goldenPasswords() manifest.Passwords {
+	out := manifest.Passwords{}
+	for _, role := range stack().RoleNames() {
+		out[role] = "golden-" + role
+	}
+	return out
 }
 
 type goldenOptions struct {
@@ -51,6 +57,7 @@ type goldenOptions struct {
 func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 	caBundleDir := t.TempDir()
 	everything := defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")
+	everything.Passwords = goldenPasswords()
 	everything.Groups = OptionalGroups()
 	everything.LatestImages = true
 	everything.RelabelBinds = true
@@ -68,17 +75,27 @@ func TestTheEnvironmentMatchesTheGoldenFile(t *testing.T) {
 
 	minimal := defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")
 	minimal.Minimal = true
+	minimal.Passwords = goldenPasswords()
 	minimal.TelemetryDir = "/home/dev/.altinn-studio/telemetry"
 	minimal.User, minimal.UsernsMode = testUser, testUsernsMode
 
 	custom := defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")
 	custom.Origin = stack().Origin("origin.test", 18000)
+	custom.Passwords = goldenPasswords()
+	plain := defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")
+	plain.Passwords = goldenPasswords()
 
 	got := goldenEnvironment{
 		Groups:       map[string][]string{},
 		Volumes:      volumeNames(),
 		VolumePrefix: volumePrefix,
-		Default:      goldenOf(t, defaultOptions("/home/dev/.altinn-studio/certs", "/home/dev/.altinn-studio/files")),
+		Default:      goldenOf(t, plain),
+		Passwords:    goldenPasswords(),
+		Reconcile: goldenReconcile{
+			Container: containerOf(manifest.PostgresContainer),
+			Command:   stack().ReconcileCommand(),
+			Script:    stack().ReconcileScript(),
+		},
 		Everything:   goldenOf(t, everything),
 		Minimal:      goldenOf(t, minimal),
 		CustomOrigin: goldenOf(t, custom),

@@ -28,15 +28,20 @@ internal static class ContainerRuntime
             ? id
             : null;
 
-    /// <summary>Runs the CLI; returns its exit code and its output (stderr first when it failed).</summary>
+    /// <summary>
+    /// Runs the CLI, with <paramref name="input" /> on its standard input when given; returns its exit code and its
+    /// output (stderr first when it failed).
+    /// </summary>
     public static async Task<(int ExitCode, string Output)> RunAsync(
         string cli,
         IEnumerable<string> arguments,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? input = null
     )
     {
         var start = new ProcessStartInfo(cli)
         {
+            RedirectStandardInput = input is not null,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -48,6 +53,11 @@ internal static class ContainerRuntime
         using var process = Process.Start(start) ?? throw new InvalidOperationException($"{cli} did not start.");
         try
         {
+            if (input is not null)
+            {
+                await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+                process.StandardInput.Close();
+            }
             var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);

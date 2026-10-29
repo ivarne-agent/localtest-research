@@ -90,7 +90,7 @@ workflow run's artifact into a local folder source.
 | `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups (all but `default`, `minimal` and the ignored `monitoring`) differ |
 | `.WithFrontendDevServer(port = 8080)` | `studioctl run --dev-frontend`: once the front door is healthy, `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:<port>`, and every app loads app-frontend from `http://app-frontend.local.altinn.cloud:8000` |
 | `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`; pulled on every start). Default: the manifest's pins |
-| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`. The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
+| `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`, the installation's database passwords in `secrets/postgres-passwords.json` (owner-only; a random password per role, generated when the AppHost first starts and set in Postgres before its dependants start, see the [manifest README](../../studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords)). The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
 | `AltinnLocaltestOptions.Groups` | The same as `WithGroup` for each |
 | `AltinnLocaltestOptions.PostgresHostPort` | Publishes Postgres on this loopback port, for `psql`; default none, as studioctl |
 | `AltinnLocaltestOptions.PublicHost`, `.PublicPort` | The public origin's host and port ([The public origin](#the-public-origin)); null is the manifest's (`local.altinn.cloud`, 8000), `PublicPort = 0` a port Aspire allocates |
@@ -347,7 +347,7 @@ reflection that these are the only public methods that take the minimal builder.
 | --- | --- | --- |
 | `Tag` | replaces the `sha-` pins | the same |
 | `PostgresHostPort` | publishes Postgres on a loopback port | the same: `psql` into the run's tmpfs database |
-| `DataDirectory` | the certificate and the apps' secrets | not offered: minimal mode keeps no data, and the certificate and secrets stay in the default `~/.altinn-app-aspire`, shared with the full stack |
+| `DataDirectory` | the certificate, the apps' secrets and the database passwords | not offered: minimal mode keeps no data, and the certificate, secrets and passwords stay in the default `~/.altinn-app-aspire`, shared with the full stack |
 | `Groups` | optional groups | not offered: there are none |
 
 **Commands.** No `reset`: there is nothing to reset, the AppHost's stop removes everything. The apps' `provision` and
