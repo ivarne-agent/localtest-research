@@ -65,9 +65,16 @@ static void BuildAndRun(string[] args)
     builder.Services.ConfigureOpenTelemetry(generalSettings);
 #if LOCALTEST
     // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
-    // nothing otherwise (fakes/Otlp, TODO.md task 53). ConfigureOpenTelemetry adds no Azure Monitor exporter here: the
+    // nothing otherwise (TODO.md task 53). ConfigureOpenTelemetry adds no Azure Monitor exporter here: the
     // fakes force GeneralSettings:ApplicationInsightsConnectionString empty.
-    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(builder.Services.AddOpenTelemetry(), builder.Configuration);
+    if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    {
+        // The environment detector after the component's own resource lets OTEL_SERVICE_NAME win; the exporter's
+        // HttpClient logs every export at Information, so it stays at Warning.
+        OpenTelemetry.OpenTelemetryBuilderOtlpExporterExtensions.UseOtlpExporter(
+            builder.Services.AddOpenTelemetry().ConfigureResource(resource => OpenTelemetry.Resources.ResourceBuilderExtensions.AddEnvironmentVariableDetector(resource)));
+        builder.Services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", Microsoft.Extensions.Logging.LogLevel.Warning));
+    }
 #endif
 
     var app = builder.Build();

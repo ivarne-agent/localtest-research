@@ -50,12 +50,12 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                            | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
-| ------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `src/Altinn.Profile/Program.cs` | 54-59   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
-| `src/Altinn.Profile/Program.cs` | 64-66   | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder....`  |
-| `src/Altinn.Profile/Program.cs` | 152-158 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `src/Altinn.Profile/Program.cs` | 236-238 | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, ...`     |
+| File                            | Lines   | Kind        | First line of the `LOCALTEST` branch                                                        |
+| ------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------- |
+| `src/Altinn.Profile/Program.cs` | 54-59   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                   |
+| `src/Altinn.Profile/Program.cs` | 64-66   | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestConfiguration(builder....` |
+| `src/Altinn.Profile/Program.cs` | 152-165 | replacement | `if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))`                    |
+| `src/Altinn.Profile/Program.cs` | 243-245 | addition    | `Altinn.Profile.Localtest.LocaltestProfileExtensions.AddLocaltestServices(services, ...`    |
 
 <!-- vendor-sync:end sites -->
 
@@ -72,7 +72,7 @@ Four, all in `src/Altinn.Profile/Program.cs`, three pure additions and one `#if 
    (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25,
    `planned-components/service-discovery.md`).
 4. `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
-   production call `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
+   production call `#else` the inlined OTLP rule (task 63, in place of a copy of `components/shared/fakes/Otlp/`): with `OTEL_EXPORTER_OTLP_ENDPOINT` set, `UseOtlpExporter()` for traces, metrics and logs from the standard variables, the environment detector after the host's own resource and the `System.Net.Http.HttpClient.Otlp` log category at Warning; nothing otherwise (TODO.md task 53).
 
 ## Syncing
 

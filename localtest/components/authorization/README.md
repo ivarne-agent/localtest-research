@@ -11,7 +11,7 @@ other localtest components.
 | --- | --- |
 | `vendor/` | Unmodified upstream copy (PDP host, `src/libs/Altinn.Authorization.Api.Contracts`, `src/pkgs` ABAC and PEP) except five directive blocks: three in `Program.cs`, one each in `OedRoleAssignmentWrapper.cs` and `PolicyRetrievalPoint.cs` (below) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: define `LOCALTEST` for the vendored projects, relax the documentation rules, compile `fakes/` into the host |
-| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, token handling, a localtest decision helper, DI composition, OpenTelemetry (`LocaltestAuthorizationTelemetry.cs`, `Otlp/`) |
+| `fakes/` | Compiled into the host assembly (its interfaces live there): policy store, token handling, a localtest decision helper, DI composition, OpenTelemetry (`LocaltestAuthorizationTelemetry.cs`) |
 | `smoke-test.sh` | Checks decisions, policy pushes and authorized parties against the running stack (see below) |
 | `Dockerfile` | Mirrors the upstream `vendor/src/apps/Altinn.Authorization/Dockerfile` (pinned Alpine images, tzdata and krb5-libs, non-root `dotnet`); each difference is marked `localtest:`. Listens on 5070 |
 
@@ -83,7 +83,7 @@ its own (production sends traces and logs through the classic Application Insigh
 - logs: the OpenTelemetry logger provider, after production's `ClearProviders()` and console setup, so the console
   stays and the `Microsoft`/`System` filters apply to both;
 - `service.name` `platform-authorization` (the role name production's `CustomTelemetryInitializer` sets), which
-  `OTEL_SERVICE_NAME` overrides; then `AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`).
+  `OTEL_SERVICE_NAME` overrides; then `UseOtlpExporter()` with the environment detector after that resource and the `System.Net.Http.HttpClient.Otlp` log category at Warning (inlined in task 63; a copy of `../shared/fakes/Otlp/` before).
 
 Not carried over: `IdentityTelemetryFilter`'s user, party and organisation properties on request telemetry.
 

@@ -56,12 +56,12 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                 | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
-| ---------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `components/api/src/Altinn.Notifications/Program.cs` | 40-45   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
-| `components/api/src/Altinn.Notifications/Program.cs` | 51-53   | addition    | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions....`                        |
-| `components/api/src/Altinn.Notifications/Program.cs` | 191-198 | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
-| `components/api/src/Altinn.Notifications/Program.cs` | 242-246 | replacement | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(...`  |
+| File                                                 | Lines   | Kind        | First line of the `LOCALTEST` branch                                                        |
+| ---------------------------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------- |
+| `components/api/src/Altinn.Notifications/Program.cs` | 40-45   | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                   |
+| `components/api/src/Altinn.Notifications/Program.cs` | 51-53   | addition    | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions....`                       |
+| `components/api/src/Altinn.Notifications/Program.cs` | 191-205 | replacement | `if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))`                    |
+| `components/api/src/Altinn.Notifications/Program.cs` | 249-253 | replacement | `Altinn.Notifications.Localtest.LocaltestNotificationsExtensions.AddLocaltestMessaging(...` |
 
 <!-- vendor-sync:end sites -->
 
@@ -77,7 +77,7 @@ All four are in `components/api/src/Altinn.Notifications/Program.cs`:
    service-discovery registration (`LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services)` from `fakes/ServiceDiscovery/`, no pass-through since task 40; site from task 25, `planned-components/service-discovery.md`).
 4. `AddAzureMonitorTelemetryExporters(services, config);` in `ConfigureServices`: `#if !LOCALTEST` the
    production call (its own `OtelSettings:Endpoint` traces exporter and the Azure Monitor exporters) `#else`
-   `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53). The skipped function holds the only signal-specific
+   the inlined OTLP rule (task 63, in place of a copy of `components/shared/fakes/Otlp/`): with `OTEL_EXPORTER_OTLP_ENDPOINT` set, `UseOtlpExporter()` for traces, metrics and logs from the standard variables, the environment detector after the host's own resource and the `System.Net.Http.HttpClient.Otlp` log category at Warning; nothing otherwise (TODO.md task 53). The skipped function holds the only signal-specific
    `AddOtlpExporter`, so `UseOtlpExporter()` does not clash with it.
 
 ## Syncing

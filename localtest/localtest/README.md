@@ -316,7 +316,7 @@ emulated, the token claim sets, the test-data copies and the seams it plugs into
 
 ## Telemetry
 
-The stack's rule ([`../components/shared/README.md`](../components/shared/README.md#otlp-helper-fakesotlp)): traces,
+The stack's rule ([`../components/shared/README.md`](../components/shared/README.md#the-otlp-rule-inlined-in-each-component-since-task-63)): traces,
 metrics and logs over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL`
 (`grpc` or `http/protobuf`) and `OTEL_SERVICE_NAME`; nothing otherwise. A per-signal endpoint
 (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and the others) overrides the general one for its signal, but does not turn
@@ -327,7 +327,7 @@ default `localhost:4317`. studioctl sets the variables on every container while 
 
 - **Without the variable** nothing is registered: no tracer, meter or logger provider, no activity listener, no
   exporter, so no export errors and no extra log lines.
-- **Name:** `service.name` is `localtest` unless `OTEL_SERVICE_NAME` is set (the shared helper adds the environment
+- **Name:** `service.name` is `localtest` unless `OTEL_SERVICE_NAME` is set (the helper `Telemetry/LocaltestOtlp.cs` adds the environment
   detector after the front door's own resource).
 - **Traces:** ASP.NET Core and HttpClient instrumentation. A forwarded request is a server span (named after the route:
   `GET storage`, `GET ttd/app`, `GET frontend-dev-server`, with the route in `localtest.route`) and under it the

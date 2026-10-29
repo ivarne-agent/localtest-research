@@ -8,7 +8,7 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Altinn.Platform.Receipt'">
     <!-- Service discovery by name for the #if LOCALTEST registration in Program.cs (planned-components/service-discovery.md). -->
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
-    <!-- OTLP for the #else of the Azure Monitor exporters in Program.cs (fakes/Otlp, TODO.md task 53), at the host's OpenTelemetry version. -->
+    <!-- OTLP for the #else of the Azure Monitor exporters in Program.cs (TODO.md task 53), at the host's OpenTelemetry version. -->
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
     <Compile Include="$(MSBuildThisFileDirectory)fakes/**/*.cs" LinkBase="Localtest" />
   </ItemGroup>

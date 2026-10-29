@@ -35,12 +35,11 @@ Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task
 
 The localtest app's tests compile both files (`localtest/localtest/tests/ComponentServiceDiscoveryTests.cs`).
 
-Consumers of the OTLP helper (`fakes/Otlp/`, TODO.md task 53): the front door, `localtest/localtest/Telemetry/LocaltestOtlp.cs`
-(a copy, since its Docker build context is its own folder; called from `FrontDoorTelemetry.Add`); Authorization
-(`AddLocaltestOtlp`, from `fakes/LocaltestAuthorizationTelemetry.cs`); and the other components the audit in task 53
-lists (per component, where the call goes and in which batch). No consumer calls `AddLocaltestOtlpResource` on its own
-since task 61 (2026-10-28): Authentication, Access Management, Register and the Resource Registry had it, and dropped it
-with their copies, because their own `service.name` is already the manifest name (TODO.md section 61).
+The OTLP helper (`fakes/Otlp/`, TODO.md task 53) is gone from here since task 63 (2026-10-29): every component inlined
+it in its directive (Storage, Events, Profile, Notifications, Receipt, Correspondence) or its telemetry fake
+(Authorization, the Dialogporten adapter), the same rule in about six lines (below). The one copy left is the front
+door's, `localtest/localtest/Telemetry/LocaltestOtlp.cs` (not vendored code; called from `FrontDoorTelemetry.Add`), and
+`Otlp.Tests/` now tests that file.
 
 | Path | What |
 | --- | --- |
@@ -48,8 +47,7 @@ with their copies, because their own `service.name` is already the manifest name
 | `Maskinporten.Smoke/` | A net10.0 console host that compiles those three files against the package and asks the fake for a token |
 | `fakes/Cookies/` | `LocaltestCookiePolicy`: `AddLocaltestCookiePolicy()` registers an `IStartupFilter` that puts ASP.NET Core's cookie policy middleware in front of the host's pipeline; on plain http it removes `Secure` and turns `SameSite=None` into `Lax` |
 | `fakes/ServiceDiscovery/` | `LocaltestServiceDiscovery`: core, the configuration provider and a provider for real hosts (a dot, an IP, `localhost`; the configuration provider alone refuses any host it has no entry for), no pass-through, so a service name without `services__<name>__http__0` fails at once; `NoAddress` recognises that failure. `LocaltestPrefixRouting`: a handler that moves a request on the public origin to the service owning its path prefix, by the front door's table |
-| `fakes/Otlp/` | `LocaltestOtlp`: `AddLocaltestOtlp(configuration)` on a component's `IOpenTelemetryBuilder` turns on OTLP for traces, metrics and logs (`UseOtlpExporter()`) exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and lets `OTEL_SERVICE_NAME` win over a hard-coded `service.name`; `AddLocaltestOtlpResource(configuration)` is only the naming half (the helper calls it; no host calls it alone since task 61) |
-| `Otlp.Tests/` | xunit tests of that file against a fake collector on a loopback port (http/protobuf and grpc, with and without the variable); the OpenTelemetry version is a property (`-p:OtelVersion=1.15.3`) |
+| `Otlp.Tests/` | xunit tests of the front door's `LocaltestOtlp.cs` (the rule the components inline) against a fake collector on a loopback port (http/protobuf and grpc, with and without the variable); the OpenTelemetry version is a property (`-p:OtelVersion=1.15.3`) |
 | `Cookies.Smoke/` | A net10.0 host on ASP.NET Core's in-memory `TestServer` that compiles that file and checks the cookies it writes over http and https |
 | `smoke-test.sh` | Runs `Cookies.Smoke` and `Otlp.Tests` (no stack needed), then the Maskinporten host twice against the running stack |
 
@@ -93,21 +91,27 @@ the consumer's additive hook; no vendored file changes.
 - The options go to `UseCookiePolicy` directly; a host's own `CookiePolicyOptions` (and its own `UseCookiePolicy`, if any) are
   untouched.
 
-## OTLP helper (`fakes/Otlp/`)
+## The OTLP rule (inlined in each component since task 63)
 
 The stack's rule (TODO.md task 53): a component sends traces, metrics and logs over OTLP exactly when
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME`, and sends nothing
-otherwise. Copy `fakes/Otlp/LocaltestOtlp.cs` into the consumer's `fakes/`, add `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-in its `localtest.build.targets` where the host does not have it yet (at the host's OpenTelemetry version; with central
-package management the version goes in `VersionOverride`), and call it from the `#else` branch where production adds Azure
-Monitor or Application Insights:
+otherwise. A new consumer adds `OpenTelemetry.Exporter.OpenTelemetryProtocol` in its `localtest.build.targets` where the
+host does not have it yet (at the host's OpenTelemetry version; with central package management the version goes in
+`VersionOverride`), and writes the rule in the `#else` branch where production adds Azure Monitor or Application Insights
+(the extension methods are called through their classes where `Program.cs` lacks the `using`):
 
 ```csharp
 #if !LOCALTEST
     AddAzureMonitorTelemetryExporters(services, config);
 #else
-    // localtest: OTLP from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set, nothing otherwise.
-    services.AddOpenTelemetry().AddLocaltestOtlp(config);
+    // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
+    // nothing otherwise (TODO.md task 53).
+    if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    {
+        OpenTelemetry.OpenTelemetryBuilderOtlpExporterExtensions.UseOtlpExporter(
+            services.AddOpenTelemetry().ConfigureResource(resource => OpenTelemetry.Resources.ResourceBuilderExtensions.AddEnvironmentVariableDetector(resource)));
+        services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", Microsoft.Extensions.Logging.LogLevel.Warning));
+    }
 #endif
 ```
 
@@ -122,17 +126,17 @@ Monitor or Application Insights:
   protocol and headers from the standard variables and appends `/v1/traces`, `/v1/metrics` and `/v1/logs` for
   `http/protobuf`. Without `OTEL_EXPORTER_OTLP_PROTOCOL` the .NET SDK uses `grpc`.
 - `UseOtlpExporter()` can be called once per service collection and never next to a signal-specific `AddOtlpExporter`
-  (`NotSupportedException` when the providers are built). So the helper is not for a host that already exports OTLP:
+  (`NotSupportedException` when the providers are built). So the rule is not for a host that already exports OTLP:
   the `Altinn.Authorization.ServiceDefaults` hosts, Dialogporten and the workflow engine take neither (the
   ServiceDefaults hosts took `AddLocaltestOtlpResource` until task 61; their own name is the manifest's).
 - Nearly every component hard-codes `service.name` (`AddService` or `AddAttributes`), and a later resource wins over the
-  SDK's environment detector, so `OTEL_SERVICE_NAME` alone is ignored (a test without the detector fails). The helper adds
-  the environment detector after the component's resource, so call it after the component's `ConfigureResource`.
-- With it, the helper also filters `System.Net.Http.HttpClient.Otlp*` below Warning. A host with `IHttpClientFactory` (nearly
+  SDK's environment detector, so `OTEL_SERVICE_NAME` alone is ignored (a test without the detector fails). The rule adds
+  the environment detector after the component's resource, so it goes after the component's `ConfigureResource`.
+- With it, the rule also filters `System.Net.Http.HttpClient.Otlp*` below Warning. A host with `IHttpClientFactory` (nearly
   every component) hands the exporters factory clients, whose handlers log each export at Information: over
   `http/protobuf` 4 events (8 console lines) per export, about 8 lines a minute from the metrics alone on an idle
   Receipt (measured 2026-10-26: 40 lines in 5 minutes, none in the exported logs). Over `grpc`, what studioctl gives the
-  containers, the exporters log nothing either way. The hosts without the helper keep their own logging.
+  containers, the exporters log nothing either way. The hosts without the rule keep their own logging.
 - The tests flush the providers before stopping the host: when the host is only disposed, the exporter's `HttpClient` can be
   disposed before the log provider's last batch (an `ObjectDisposedException` in the exporter's event source, the batch lost).
 

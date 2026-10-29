@@ -59,7 +59,7 @@
 | `src/Storage/Program.cs`                         | 58-63     | addition    | `global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery....`                    |
 | `src/Storage/Program.cs`                         | 77-79     | addition    | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestStorage(builder);` |
 | `src/Storage/Program.cs`                         | 142-146   | replacement | `Altinn.Platform.Storage.Localtest.LocaltestStorageExtensions.AddLocaltestConfiguration(...` |
-| `src/Storage/Program.cs`                         | 248-257   | replacement | `global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(...` |
+| `src/Storage/Program.cs`                         | 248-264   | replacement | `if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))`                     |
 
 <!-- vendor-sync:end sites -->
 
@@ -70,7 +70,7 @@ Five sites:
 - `src/Storage/Program.cs`, in `SetConfigurationProviders`: `#if !LOCALTEST` the Key Vault read
   (`ConnectToKeyVaultAndSetApplicationInsights`) `#else` `AddLocaltestConfiguration(config)`, the localtest defaults.
 - `src/Storage/Program.cs`, the Azure Monitor exporters in `ConfigureServices`: `#if !LOCALTEST` production's call
-  `#else` `LocaltestOtlp.AddLocaltestOtlp`, OTLP for traces, metrics and logs from the standard variables when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, nothing otherwise (`../fakes/Otlp/`, a copy of `components/shared/fakes/Otlp/`; TODO.md task 53).
+  `#else` the inlined OTLP rule (task 63, in place of a copy of `components/shared/fakes/Otlp/`): with `OTEL_EXPORTER_OTLP_ENDPOINT` set, `UseOtlpExporter()` for traces, metrics and logs from the standard variables, the environment detector after the host's own resource and the `System.Net.Http.HttpClient.Otlp` log category at Warning; nothing otherwise (TODO.md task 53).
 - `src/Storage/Controllers/InstancesController.cs`, `BuildRequestLink`.
 
 ## Syncing

@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Tests of the shared OTLP helper (../fakes/Otlp/) against a fake collector on a loopback port; no stack needed.
+    Tests of the front door's OTLP helper (localtest/localtest/Telemetry/LocaltestOtlp.cs) against a fake collector on a
+    loopback port; no stack needed. Until task 63 the components carried copies of it; they now inline the same rule in
+    their Program.cs directives (UseOtlpExporter, the environment detector, the HttpClient.Otlp filter), which these
+    tests describe as well.
       dotnet test localtest/components/shared/Otlp.Tests
     The consumers carry different OpenTelemetry versions (1.15.3 in Authorization through Altinn.Authorization.ServiceDefaults,
     1.18.0 in Correspondence, 1.19.x elsewhere), so the version is a property:
@@ -25,8 +28,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The helper exactly as a consumer's localtest.build.targets compiles it. -->
-    <Compile Include="../fakes/Otlp/*.cs" LinkBase="Fakes" />
+    <!-- The front door's helper, the one implementation left. -->
+    <Compile Include="../../../localtest/Telemetry/LocaltestOtlp.cs" Link="FrontDoor/LocaltestOtlp.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

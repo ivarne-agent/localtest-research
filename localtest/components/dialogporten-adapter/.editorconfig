@@ -12,7 +12,3 @@ dotnet_diagnostic.CA5351.severity = none
 # fakes/ServiceDiscovery is an unchanged copy of components/shared/fakes/ServiceDiscovery, with the same namespace.
 [fakes/ServiceDiscovery/*.cs]
 dotnet_diagnostic.CA1716.severity = none
-
-# fakes/Otlp is an unchanged copy of components/shared/fakes/Otlp, with the same namespace.
-[fakes/Otlp/*.cs]
-dotnet_diagnostic.CA1716.severity = none

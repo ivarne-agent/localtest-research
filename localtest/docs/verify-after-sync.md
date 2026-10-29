@@ -108,7 +108,7 @@ stack, 4.2):
 ```sh
 cd "$L/components/shared"
 dotnet run --project Cookies.Smoke      # every line "ok", exit 0
-dotnet test Otlp.Tests                  # Passed: 10 (2026-10-27)
+dotnet test Otlp.Tests                  # Passed: 10 (2026-10-29; the front door's LocaltestOtlp.cs since task 63)
 ```
 
 ### 2.2 studioctl

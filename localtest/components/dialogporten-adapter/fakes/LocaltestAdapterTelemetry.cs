@@ -1,5 +1,5 @@
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
-using Localtest.Shared.Otlp;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -18,7 +18,7 @@ internal static class LocaltestAdapterTelemetry
 {
     public static IServiceCollection AddLocaltestAdapterTelemetry(IServiceCollection services, IConfiguration configuration)
     {
-        if (!LocaltestOtlp.IsEnabled(configuration))
+        if (string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
             return services;
         }
@@ -37,7 +37,12 @@ internal static class LocaltestAdapterTelemetry
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation())
-            .AddLocaltestOtlp(configuration);
+            // The environment detector after the resource above lets OTEL_SERVICE_NAME win (TODO.md task 53).
+            .ConfigureResource(resource => resource.AddEnvironmentVariableDetector())
+            .UseOtlpExporter();
+
+        // The exporter's HttpClient logs every export at Information; keep warnings.
+        services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", LogLevel.Warning));
 
         return services;
     }

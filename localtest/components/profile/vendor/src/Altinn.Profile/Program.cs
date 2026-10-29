@@ -153,8 +153,15 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     AddAzureMonitorTelemetryExporters(services, config);
 #else
     // localtest: OTLP for traces, metrics and logs from the standard variables when OTEL_EXPORTER_OTLP_ENDPOINT is set,
-    // nothing otherwise (fakes/Otlp, TODO.md task 53). There is no Application Insights connection string here.
-    global::Localtest.Shared.Otlp.LocaltestOtlp.AddLocaltestOtlp(services.AddOpenTelemetry(), config);
+    // nothing otherwise (TODO.md task 53). There is no Application Insights connection string here.
+    if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    {
+        // The environment detector after the component's own resource lets OTEL_SERVICE_NAME win; the exporter's
+        // HttpClient logs every export at Information, so it stays at Warning.
+        OpenTelemetry.OpenTelemetryBuilderOtlpExporterExtensions.UseOtlpExporter(
+            services.AddOpenTelemetry().ConfigureResource(resource => OpenTelemetry.Resources.ResourceBuilderExtensions.AddEnvironmentVariableDetector(resource)));
+        services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", Microsoft.Extensions.Logging.LogLevel.Warning));
+    }
 #endif
 
     services.AddSingleton<Telemetry>();

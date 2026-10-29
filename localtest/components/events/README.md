@@ -30,6 +30,12 @@ of the component. `events/api/localtest/` shows everything for the GUI and for t
    `LocaltestServiceDiscovery.AddLocaltestServiceDiscovery` (`fakes/ServiceDiscovery/`, a copy of `../shared/fakes/`), so
    factory clients resolve `http://<service>/` from `services__<service>__http__0`; since task 40 without pass-through: a
    name without an entry fails at once, a real host (a dot, an IP, `localhost`) is used as it is ([`planned-components/service-discovery.md`](../../../planned-components/service-discovery.md)).
+7. `src/Events/Program.cs`, the OTLP `#else` (see "Telemetry (OTLP)").
+8. `src/Events/Clients/EventsQueueClient.cs` (task 63, in place of the fake `LocaltestEventsQueueClient`): an additive
+   `throw new NotSupportedException(...)` at the top of each of the four queue getters. Localtest runs the Wolverine
+   pipeline in-process, so only the endpoints the Azure Functions call back (`inbound`, `outbound`) still reach a queue;
+   the production `Enqueue*` catches the exception and answers `QueuePostReceipt { Success = false }` at once, instead
+   of trying Azurite on `127.0.0.1:10001`.
 
 **Service names (task 40):** the PDP, the Register and Profile are called as `http://authorization/authorization/api/v1/`,
 `http://register/register/api/`, `http://profile/profile/api/v1/` (fakes' defaults); `Localtest__Events__PlatformEndpoint`
@@ -92,7 +98,7 @@ clock and that the read API holds back an event published after one older than 3
 | --- | --- |
 | `IRegistrationEventPublisher`, `ISubscriptionValidationPublisher` (with all Service Bus flags off production picks the Storage Queue ones) | The production bus publishers. With no transport, Wolverine's local routing delivers the commands to the production handlers in this process |
 | Retry handling (production attaches its policies only to Service Bus listeners) | The production `Registration/Inbound/Outbound/ValidationEventHandlerPolicy` on the local queues through `services.ConfigureWolverine`, with seconds instead of hours (see Configuration) |
-| `IEventsQueueClient` (Azure Storage Queues) | `LocaltestEventsQueueClient`: fails clearly. Only the Azure Functions callback endpoints (`inbound`, `outbound`) still use it |
+| `IEventsQueueClient` (Azure Storage Queues) | production `EventsQueueClient`, failing at once through site 8. Only the Azure Functions callback endpoints (`inbound`, `outbound`) still use it |
 | `IPublicSigningKeyProvider` (Key Vault) | The shared test certificate, as in Storage, so the production `AccessTokenHandler` validates the apps' platform access tokens |
 | nothing (production sends every webhook) | `Delivery/LocaltestWebhookDeliveryHandler` on the production named client `WebhookService`: records each POST (request, response or error, duration) in `localtest.delivery` and, by `Localtest:Events:Delivery`, sends it or answers `200` with `X-Localtest-Captured: true` |
 | nothing | `Changes/`: decorators around the production repositories that raise an in-process notification after each write (an event created, a claimed event's status committed, a trace row, a subscription change), for the inspection stream. They pass every call through unchanged |
@@ -146,7 +152,7 @@ Information (`Logging__LogLevel__Default`).
 
 ## Telemetry (OTLP)
 
-The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `src/Events/Program.cs:170-176`: `AddAzureMonitorTelemetryExporters` under `#if !LOCALTEST`, `#else` `LocaltestOtlp.AddLocaltestOtlp` (`fakes/Otlp/`, a copy of `../shared/fakes/Otlp/`) on the host's own pipeline (its sources, ASP.NET Core, HttpClient, Npgsql, `RequestFilterProcessor`, its meter, the logs); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-events` unless `OTEL_SERVICE_NAME` is set. The fakes no longer force `ApplicationInsights:ConnectionString` empty: nothing reads it under `LOCALTEST`.
+The stack's rule (TODO.md task 53): traces, metrics and logs go over OTLP exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, with `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc`, the .NET default, or `http/protobuf`) and `OTEL_SERVICE_NAME`; without it nothing is exported and no export error is logged. A per-signal endpoint alone does not turn it on. Directive site `src/Events/Program.cs:170-176`: `AddAzureMonitorTelemetryExporters` under `#if !LOCALTEST`, `#else` the inlined rule (task 63, in place of the copy of `../shared/fakes/Otlp/`): with the variable set, `UseOtlpExporter()` and the environment detector after the host's own resource, and the `System.Net.Http.HttpClient.Otlp` log category at Warning, on the host's own pipeline (its sources, ASP.NET Core, HttpClient, Npgsql, `RequestFilterProcessor`, its meter, the logs); `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.19.1 in `localtest.build.targets`. The service name is `platform-events` unless `OTEL_SERVICE_NAME` is set. The fakes no longer force `ApplicationInsights:ConnectionString` empty: nothing reads it under `LOCALTEST`.
 
 `dotnet build -c Release` of the host with the overrides: 0 errors, no new warnings (2026-10-26). The host needs Postgres to start, so it was not run. Verified on the stack (2026-10-26, task 53's stack proof, images `sha-609c646`, `studioctl env up -r localtest-v2 --with everything`): `smoke-test.sh` passed with its OTLP check, and the stack's run left 2241 spans, 583 metric series and 2563 log records under `service.name` `events`. Without the monitoring group the container has no `OTEL_*` variable and its log no exporter line.
 

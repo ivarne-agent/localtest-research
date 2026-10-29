@@ -1,8 +1,9 @@
 #nullable enable
-using Localtest.Shared.Otlp;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -12,7 +13,7 @@ namespace Altinn.Platform.Authorization.Localtest;
 /// <summary>
 /// The PDP's telemetry in localtest (TODO.md task 53), called from the <c>#else</c> branch in <c>Program.cs</c> where
 /// production sets up the classic Application Insights SDK and its metrics-only Azure Monitor pipeline. Traces, metrics
-/// and logs go over OTLP exactly when <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set (<see cref="LocaltestOtlp"/>); otherwise
+/// and logs go over OTLP exactly when <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set; otherwise
 /// nothing is registered, as before.
 /// </summary>
 /// <remarks>
@@ -30,7 +31,7 @@ public static class LocaltestAuthorizationTelemetry
 
     public static IServiceCollection AddLocaltestTelemetry(IServiceCollection services, IConfiguration configuration)
     {
-        if (!LocaltestOtlp.IsEnabled(configuration))
+        if (string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
             return services;
         }
@@ -43,7 +44,12 @@ public static class LocaltestAuthorizationTelemetry
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation())
-            .AddLocaltestOtlp(configuration);
+            // The environment detector after the resource above lets OTEL_SERVICE_NAME win (TODO.md task 53).
+            .ConfigureResource(resource => resource.AddEnvironmentVariableDetector())
+            .UseOtlpExporter();
+
+        // The exporter's HttpClient logs every export at Information; keep warnings.
+        services.AddLogging(logging => logging.AddFilter("System.Net.Http.HttpClient.Otlp", LogLevel.Warning));
 
         return services;
     }
