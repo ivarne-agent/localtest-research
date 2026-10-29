@@ -4,13 +4,14 @@
 - Pin: `d2dc912` (main, 2026-10-22; synced from `6dcf561` in task 58's follow-up),
   [`../components/correspondence/vendor/UPSTREAM.md`](../components/correspondence/vendor/UPSTREAM.md)
 - Group: none
-- Reminders: grep for raw `Set-Cookie` writes (the cookie policy sees only `Response.Cookies`); `ConfigureAuthentication`
+- Reminders: grep for other hard-coded `Secure`/`SameSite=None` cookie writes besides `ExpireCookie`; `ConfigureAuthentication`
   must keep the correlation cookie name and callback path; update the smoke test's EF migration count.
-- Localtest modifications: 6 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs`,
-  an `#if !LOCALTEST` block in `IdportenTokenValidator.cs` and one in `RecurringJobRegistration.cs` from task 63; the
+- Localtest modifications: 7 directive sites (4 pure additions in `src/Altinn.Correspondence.API/Program.cs`,
+  an `#if !LOCALTEST` block in `IdportenTokenValidator.cs`, and one each in `RecurringJobRegistration.cs` and
+  `Auth/DependencyInjection.cs` (`ExpireCookie`) from task 63; the
   `XacmlRequestFactory.cs` block was removed in task 58's follow-up), the hook
   `fakes/LocaltestCorrespondence.cs` with its options class, the fakes `Auth/`, `Storage/`,
-  `Inspection/`, the shared copies `Cookies/`, `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, two build overrides,
+  `Inspection/`, the shared copies `Maskinporten/`, `ServiceDiscovery/` and `Otlp/`, two build overrides,
   the `localtest:` deviations in `Dockerfile`, `.dockerignore` and the Postgres init script.
 
 Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are relative to
@@ -85,7 +86,8 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Why: over http a browser drops a `Secure` cookie and a `SameSite=None` cookie without `Secure`, so the callback
     failed with "Correlation failed" and the expiry on the retry path never applied.
   - Size: small.
-  - Removes: `fakes/Cookies/` with its `AddLocaltestCookiePolicy()` call, and the `OpenIdConnectDefaults` `Configure` in
+  - Removes: the site in `Auth/DependencyInjection.cs` (`ExpireCookie`, which replaced the copy of the shared cookie policy
+    in task 63), and the `OpenIdConnectDefaults` `Configure` in
     `fakes/Auth/LocaltestAuthentication.cs`.
   - Upstream: none found. `SameAsRequest` alone outside Development depends on the production ingress passing the scheme
     through; I could not confirm that, so the proposal keeps `Always` there.
@@ -209,7 +211,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   and the vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into `Altinn.Correspondence.API`: as above.
 
-Coverage: 6 sites (another removed in task 58's follow-up), 8 fakes (`Auth/`, `Cookies/`,
+Coverage: 7 sites (another removed in task 58's follow-up), 7 fakes (`Auth/`,
 `Inspection/`, `Maskinporten/`, `Otlp/`, `ServiceDiscovery/`, `Storage/`, the hook `LocaltestCorrespondence.cs` with
 its options), 2 build overrides, 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted
 for.

@@ -146,8 +146,14 @@ namespace Altinn.Correspondence.API.Auth
                                 {
                                     Expires = DateTimeOffset.UnixEpoch,
                                     Path = path,
+#if !LOCALTEST
                                     Secure = true,
                                     SameSite = SameSiteMode.None,
+#else
+                                    // localtest: plain http, where a browser ignores a Secure or SameSite=None expiry.
+                                    Secure = false,
+                                    SameSite = SameSiteMode.Lax,
+#endif
                                     HttpOnly = true
                                 });
                         }

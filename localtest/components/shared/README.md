@@ -21,7 +21,9 @@ Consumers of the cookie policy (`fakes/Cookies/`, copies identical to the files 
 | Copy | Used by | Registered from |
 | --- | --- | --- |
 | `components/authentication/fakes/Cookies/` | the runtime, party and session cookies and their expiries (hard-coded `Secure`) | `AddLocaltestAuthentication` |
-| `components/correspondence/fakes/Cookies/` | the retry path's expiry of the OIDC correlation and nonce cookies (hard-coded `Secure`, `SameSite=None`) | `AddLocaltestServices` |
+
+Correspondence had a copy for one cookie expiry until task 63, which made it a directive in its `ExpireCookie`
+(`components/correspondence/README.md`, "Directive sites").
 
 Consumers of the service-discovery registration (`fakes/ServiceDiscovery/`, task 40; copies identical to the files here):
 

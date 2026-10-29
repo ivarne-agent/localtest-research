@@ -348,8 +348,8 @@ else
   fail "wrong-client code: ${HOPS[*]}"
 fi
 # Upstream's restart expires the correlation and nonce cookies with a hard-coded Secure and SameSite=None
-# (DependencyInjection.cs, ExpireCookie); over http the cookie policy in fakes/Cookies sends them without Secure and Lax
-# (task 21b), so a browser applies the expiry.
+# (DependencyInjection.cs, ExpireCookie); its LOCALTEST branch sends them without Secure and Lax (task 63; a cookie policy
+# in fakes/Cookies did it from task 21b), so a browser applies the expiry over http.
 OTHER_CODE=$(curl -s "$BASE/localtest/api/authentication/code?client=localtest-smoke&userId=1337&authenticationLevel=3" | field 'd["code"]')
 STATE=$(qp "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$DOWNLOAD")" state)
 curl -s -b "$JAR" -D "$TMP/retry.h" -o /dev/null "$API/idporten-callback?code=$OTHER_CODE&state=$STATE"

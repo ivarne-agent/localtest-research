@@ -29,7 +29,7 @@ download of attachments").
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except four additive `#if LOCALTEST` hooks in `Program.cs` and two `#if !LOCALTEST` blocks, in `IdportenTokenValidator.cs` and `RecurringJobRegistration.cs` |
+| `vendor/` | Unmodified upstream copy (`src/`, `Dockerfile`, `docker-compose.yml`) except four additive `#if LOCALTEST` hooks in `Program.cs` and three `#if !LOCALTEST` blocks, in `IdportenTokenValidator.cs`, `RecurringJobRegistration.cs` and `Auth/DependencyInjection.cs` |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath` (copied from Notifications): define `LOCALTEST` for the vendored projects and compile `fakes/**/*.cs` into `Altinn.Correspondence.API`. Upstream has no CPM, no `Directory.Build.props`, no analyzers and no warnings as errors |
 | `fakes/` | Compiled into the host (namespace `Altinn.Correspondence.Localtest`), below |
 | `postgres-init/70-correspondence.sh` | Postgres init script: role `correspondence` (login, not superuser, password from `CORRESPONDENCE_PASSWORD` in the Postgres container's environment), database `correspondence` (upstream's own name) owned by it. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/correspondence/postgres-init/70-correspondence.sh` |
@@ -39,7 +39,7 @@ download of attachments").
 
 ## Directive sites
 
-Pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and two `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
+Pure additions in `vendor/src/Altinn.Correspondence.API/Program.cs` and three `#if !LOCALTEST` blocks (`vendor/UPSTREAM.md` has the
 lines; the OpenTelemetry addition is under "Telemetry (OTLP)"):
 
 1. After the `.AddEnvironmentVariables();` that ends upstream's configuration chain: `AddLocaltestConfiguration(builder.Configuration)`.
@@ -77,14 +77,13 @@ lines; the OpenTelemetry addition is under "Telemetry (OTLP)"):
    registered it in. The production `AzureResourceManagerService` stays registered: the only other caller, the service
    owner initialisation, enqueues the storage account deployment, which upstream skips in Development.
 
-**Cookies without `Secure` (task 21b): no site, reported here first.** The correlation and nonce cookies are already
-`SameAsRequest`/`Lax` in the fakes (11b). The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the
-expiry of those two on the "Correlation failed" retry path (`vendor/src/Altinn.Correspondence.API/Auth/DependencyInjection.cs:140-152`,
-`ExpireCookie`, a local function inside upstream's OIDC events, which no `Configure` reaches). Instead of a fifth site,
-`fakes/Cookies/LocaltestCookiePolicy.cs` (a copy of `../shared/fakes/Cookies/`, registered from `AddLocaltestServices`) puts
-ASP.NET Core's cookie policy middleware in front of the pipeline: on a request that is not https every cookie appended or deleted
-loses `Secure`, and `SameSite=None` becomes `Lax` (a browser refuses `None` without `Secure`). On https nothing changes.
-Inventory and decision: [`../../reviews/cookies.md`](../../reviews/cookies.md).
+7. **Cookies without `Secure`.** The correlation and nonce cookies are already `SameAsRequest`/`Lax` in the fakes (11b).
+   The one cookie left with a hard-coded `Secure = true` and `SameSite=None` is the expiry of those two on the "Correlation
+   failed" retry path (`vendor/src/Altinn.Correspondence.API/Auth/DependencyInjection.cs`, `ExpireCookie`, a local function
+   inside upstream's OIDC events, which no `Configure` reaches). Task 63 replaced the cookie policy copy
+   (`fakes/Cookies/`, from task 21b, [`../../reviews/cookies.md`](../../reviews/cookies.md)) with a `#if !LOCALTEST` block
+   there: `#else` `Secure = false` and `SameSite = SameSiteMode.Lax`, so a browser applies the expiry over http. Unlike the
+   policy it does not look at the request's scheme (the stack is plain http).
 
 ## The browser download of attachments (task 11b)
 
@@ -111,7 +110,7 @@ once with `oidcRetry=1`, and a second failure ends at `GeneralSettings:Arbeidsfl
 The cookie decision: `SameSite=Lax` is enough because the callback is a top-level GET redirect on the same site
 (`local.altinn.cloud`), and Lax cookies go with top-level GET navigations even across sites; `SecurePolicy=SameAsRequest` keeps
 `Secure` off over http and would set it behind https. Upstream's best-effort expiry of the cookies on the retry path hard-codes
-`Secure`/`None`, which a browser ignored over http until task 21b; the cookie policy in `fakes/Cookies/` now sends it without
+`Secure`/`None`, which a browser ignored over http until task 21b; a directive in `ExpireCookie` (task 63; the cookie policy in `fakes/Cookies/` from task 21b before it) now sends it without
 `Secure` and as `Lax` on http, so the expiry works (see "Directive sites"). The download needs
 Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 
@@ -124,7 +123,6 @@ Authentication and this group only; the inbox comes with `--with arbeidsflate`.
 | `JwtBearerOptions` / `OpenIdConnectOptions` `RequireHttpsMetadata` (true) | `Auth/LocaltestAuthentication.cs`: `ConfigureAll` to false | Authentication, the fake Maskinporten and Dialogporten publish their metadata over http. A `Configure`, not a `PostConfigure`, see the Dialogporten README |
 | The Maskinporten scheme's metadata (hard-coded `https://test.maskinporten.no/...` outside Production) | The fake Maskinporten's `{origin}localtest/api/maskinporten/.well-known/oauth-authorization-server` | Notifications' condition check (`{id}/notification/check`) presents a raw fake-Maskinporten token |
 | The OIDC scheme's correlation cookie (`SecurePolicy=Always`, `SameSite=None`) and nonce cookie (the framework's same defaults) | `Auth/LocaltestAuthentication.cs`: both `SameSite=Lax`, `SecurePolicy=SameAsRequest` (a `Configure` for the named scheme after upstream's) | Over http a browser drops a `Secure` cookie, and a `SameSite=None` cookie without `Secure`: the callback failed with "Correlation failed". See "The browser download of attachments" |
-| Hard-coded `Secure`/`SameSite=None` on the retry path's cookie expiry (`ExpireCookie`) | `Cookies/LocaltestCookiePolicy.cs`, a copy of `../shared/fakes/Cookies/`: on http the cookie policy middleware drops `Secure` and turns `None` into `Lax` | The expiry is otherwise refused by a browser over http; the front door no longer removes `Secure` (task 21b) |
 | The dialog-token keys (`EdDsaSecurityKeysCacheService`: Dialogporten's JWKS at start and every 12 hours) | `Auth/LocaltestDialogTokenKeys.cs`: the Dialogporten scheme's `IssuerSigningKeyResolver` fetches the JWKS on the first token and again when a token names an unknown key, at most every 10 s (`Localtest:Correspondence:DialogTokenKeyRefreshSeconds`). Upstream's service still runs; its list is no longer read | A Correspondence that starts before Dialogporten serves its keys would refuse every dialog token for 12 hours |
 | Settings from the deployment | `LocaltestCorrespondence.AddLocaltestConfiguration`, below | |
 | nothing | `Inspection/`: `correspondence/api/localtest/`, below | A failing dependency shows up as a Hangfire job, not as an HTTP error |
