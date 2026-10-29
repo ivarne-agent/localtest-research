@@ -58,7 +58,12 @@ public sealed class TokenIssuerCache : ITokenIssuerCache, IDisposable
             foreach (var schema in _jwtTokenSchemas)
             {
                 var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+#if !LOCALTEST
                     schema.WellKnown, new OpenIdConnectConfigurationRetriever());
+#else
+                    // localtest: the stack publishes its OpenID metadata over plain http.
+                    schema.WellKnown, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever { RequireHttps = false });
+#endif
                 var config = await configManager.GetConfigurationAsync();
                 _issuerMappings[schema.Name] = config.Issuer;
             }

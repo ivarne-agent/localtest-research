@@ -1,9 +1,6 @@
 using Digdir.Domain.Dialogporten.GraphQL.Common;
-using Digdir.Domain.Dialogporten.GraphQL.Common.Authentication;
-using Digdir.Domain.Dialogporten.GraphQL.Localtest.Authentication;
 using Digdir.Domain.Dialogporten.Infrastructure.Localtest;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Digdir.Domain.Dialogporten.GraphQL.Localtest;
 
@@ -36,11 +33,9 @@ public static class LocaltestGraphQl
         {
             LocaltestInfrastructure.Apply(services, builder.Configuration);
 
-            // See LocaltestWebApi: http metadata, set with Configure so it is in place before the post-configure step.
+            // See LocaltestWebApi: http metadata, set with Configure so it is in place before the post-configure step
+            // (the production TokenIssuerCache allows http through a directive).
             services.ConfigureAll<JwtBearerOptions>(o => o.RequireHttpsMetadata = false);
-
-            services.RemoveAll<ITokenIssuerCache>();
-            services.AddSingleton<ITokenIssuerCache, LocaltestTokenIssuerCache>();
         });
     }
 }

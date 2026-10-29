@@ -29,10 +29,10 @@ with `503` problem details ("Component not running", `group` `dialogporten`, the
 
 | Path | What |
 | --- | --- |
-| `vendor/` | Unmodified upstream copy except three one-line `LOCALTEST` hooks, one per host's `Program.cs`, and one `#if !LOCALTEST` block (http URLs, below) |
+| `vendor/` | Unmodified upstream copy except three one-line `LOCALTEST` hooks, one per host's `Program.cs`, and `#if !LOCALTEST` blocks for http URLs, the OTLP exporter options and the issuer caches (below; `vendor/UPSTREAM.md` lists them all) |
 | `localtest.build.props` / `.targets` | MSBuild overrides selected by `DirectoryBuildPropsPath` / `DirectoryBuildTargetsPath`: import upstream's `Directory.Build.props`, define `LOCALTEST`, relax warnings-as-errors for the vendored projects, compile `fakes/Infrastructure` into the Infrastructure project and `fakes/{WebApi,GraphQL,Service}` into the host. One `PackageReference` (Microsoft.Extensions.ServiceDiscovery, task 25) for the three hosts, with `RestoreLockedMode=false`: upstream's `--locked-mode` restore fails with NU1004 on any added reference, so the Dockerfiles restore without it |
 | `Dockerfile.webapi`, `.graphql`, `.service` | Mirror upstream's three per-host Dockerfiles (pinned `aspnet:10.0.12` and `sdk:10.0.401`, locked restore of the closure, publish without the apphost, non-root `$APP_UID`); each difference is marked `localtest:` |
-| `fakes/` | The hook, the configuration defaults, the issuer caches and the Maskinporten fake (below) |
+| `fakes/` | The hook, the configuration defaults and the Maskinporten fake (below) |
 | `postgres-init/50-dialogporten.sh` | Postgres init script: role `dialogporten` (password from `DIALOGPORTEN_PASSWORD` in the Postgres container's environment), database `dialogporten` owned by it, `pg_trgm` and `btree_gin`. Idempotent; for an existing volume run it by hand: `podman exec -i localtest-v2-postgres sh < components/dialogporten/postgres-init/50-dialogporten.sh` |
 | `smoke-test.sh` | Against the running stack, see "Verified" |
 | `.dockerignore` | Keeps host `bin/` and `obj/` out of the build context (a host build of the vendored projects leaves `project.assets.json` with host paths, which breaks the image's locked restore) |
@@ -54,12 +54,16 @@ One `#if !LOCALTEST` block (added with the Dialogporten adapter, task 10): the A
 production's rule refused every such dialog with a 400. A service owner may therefore also create dialogs with http links locally, which
 production refuses: a difference testers should know about.
 
+One more `#if !LOCALTEST` block in each of the WebApi's and the GraphQL host's `Common/Authentication/TokenIssuerCache.cs`
+(task 63, in place of two copies of the class in `fakes/`): the `ConfigurationManager` that reads each JWT scheme's issuer
+gets `new HttpDocumentRetriever { RequireHttps = false }`, because the stack's Authentication, Maskinporten and ID-porten
+publish their metadata over http.
+
 ## Fakes (`fakes/`)
 
 | Replaces / adds | With |
 | --- | --- |
 | `IMaskinportenService` (the `Altinn.ApiClients.Maskinporten` package hard-codes `maskinporten.no`) | `Infrastructure/Maskinporten/`, a copy of `../shared/fakes/Maskinporten/` with production semantics: an unsigned assertion to the localtest app's Maskinporten token endpoint, then Authentication's `exchange/maskinporten`, with `?test=true` only when `UseAltinnTestOrg` is true, which it is not here, so Dialogporten acts as `digdir` and the exchanged token names org number 991825827. The three Maskinporten-backed clients (events, party names, authorization) are otherwise the production ones. A client id that is not an organisation number is Digdir |
-| `ITokenIssuerCache` of the WebApi and of the GraphQL host (production builds an `OpenIdConnectConfigurationRetriever` that refuses http) | `WebApi/Authentication/LocaltestTokenIssuerCache.cs` and `GraphQL/...`: the production classes with `HttpDocumentRetriever { RequireHttps = false }` |
 | `JwtBearerOptions.RequireHttpsMetadata` (true) | `ConfigureAll<JwtBearerOptions>` in the hook. It has to be a `Configure`, not a `PostConfigure`: `JwtBearerPostConfigureOptions` builds the metadata manager from the value and post-configure callbacks run in registration order |
 | `Localtest:Dialogporten` options and the defaults | `Infrastructure/LocaltestDialogportenOptions.cs`, `LocaltestConfiguration.cs`: see below |
 | Service-provider factory | `Infrastructure/LocaltestOverrides.cs` (a copy of the host's Development default, validating scopes and the build, that runs the replacements first) |

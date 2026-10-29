@@ -53,7 +53,7 @@
   "follow": [],
   "reminders": [
     "the host builds rewrite each host's `packages.lock.json`: `git checkout -- localtest/components/dialogporten/vendor` before `check`",
-    "a new `LocalDevelopment` flag goes into `fakes/` `LocaltestConfiguration`; the two `TokenIssuerCache.cs` copies in `fakes/` follow upstream's"
+    "a new `LocalDevelopment` flag goes into `fakes/` `LocaltestConfiguration`"
   ]
 }
 ```
@@ -90,8 +90,10 @@ the three `WebApplication.CreateBuilder(args)` calls are at WebApi `Program.cs:6
 | ------------------------------------------------------------------------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
 | `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 29-34   | replacement | `.Must(x => x is null \|\| (Uri.TryCreate(x, UriKind.Absolute, out var uri) && (uri....`     |
 | `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` | 39-44   | replacement | `.Must(x => x is null \|\| (x.IsAbsoluteUri && (x.Scheme == Uri.UriSchemeHttps \|\| x....`   |
+| `src/Digdir.Domain.Dialogporten.GraphQL/Common/Authentication/TokenIssuerCache.cs`                                  | 53-58   | replacement | `schema.WellKnown, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever ...` |
 | `src/Digdir.Domain.Dialogporten.GraphQL/Program.cs`                                                                 | 45-51   | addition    | `Digdir.Domain.Dialogporten.GraphQL.Localtest.LocaltestGraphQl.Apply(builder);`              |
 | `src/Digdir.Domain.Dialogporten.Service/Program.cs`                                                                 | 41-47   | addition    | `Digdir.Domain.Dialogporten.Service.Localtest.LocaltestService.Apply(builder);`              |
+| `src/Digdir.Domain.Dialogporten.WebApi/Common/Authentication/TokenIssuerCache.cs`                                   | 61-66   | replacement | `schema.WellKnown, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever ...` |
 | `src/Digdir.Domain.Dialogporten.WebApi/Program.cs`                                                                  | 63-69   | addition    | `Digdir.Domain.Dialogporten.WebApi.Localtest.LocaltestWebApi.Apply(builder);`                |
 | `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`                                                        | 106-112 | replacement | `// localtest: endpoint and protocol from the standard variables (TODO.md task 53), so that` |
 | `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs`                                                        | 134-139 | replacement | `// localtest: from the standard variables, so that http/protobuf posts to ...`              |
@@ -109,16 +111,18 @@ which turns the locked restore off (the three Dockerfiles drop `--locked-mode` f
 
 The hook goes there, and not before `Build()` as the planning report had it, because the hosts read their settings eagerly while
 registering (the JWT schemes' metadata addresses, the health probes, the Infrastructure settings), so the configuration defaults must be in
-before the first registration. The service replacements (the two `ITokenIssuerCache`s, `IMaskinportenService`) must come after the production
+before the first registration. The service replacements (`IMaskinportenService`, the prefix routing) must come after the production
 `AddSingleton`s, so the hook installs an `IServiceProviderFactory` (`fakes/Infrastructure/LocaltestOverrides.cs`) that applies them to the finished
 service collection: one site per host instead of two.
 
-Two `#if !LOCALTEST` blocks, the first added with the Dialogporten adapter (task 10), the second with task 53:
+Three `#if !LOCALTEST` sites, the first added with the Dialogporten adapter (task 10), the second with task 53, the third
+with task 63:
 
 | File | Site |
 | --- | --- |
 | `src/Digdir.Library.Utils.AspNet/OpenTelemetryExtensions.cs` (two blocks) | The trace and metric `AddOtlpExporter` options of `AddDialogportenTelemetry`: `#if !LOCALTEST` upstream's `options.Endpoint = endpoint; options.Protocol = otlpProtocol;` `#else` nothing, so the exporter reads `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_PROTOCOL` itself. An endpoint set in code gets no signal path, so with `http/protobuf` upstream posts traces and metrics to the bare endpoint, where a collector answers 404; from the variable the SDK appends `/v1/traces` and `/v1/metrics`. `grpc` is unchanged. The Serilog log sinks and the "protocol must be set" checks are unchanged (TODO.md task 53) |
 | `src/Digdir.Domain.Dialogporten.Application/Common/Extensions/FluentValidation/FluentValidationStringExtensions.cs` (two blocks) | Both `IsValidHttpsUrl` overloads (string and `Uri`) require `https`; `#else` accepts `http` too. The stack is plain http on `http://local.altinn.cloud:8000`, so every link the adapter puts in a dialog (GUI actions, API action endpoints, attachment and transmission URLs) is http, and Dialogporten refused the dialog with 400 `'Url' is not a well-formatted HTTPS URL.` The rule is a validator inside the Application project's FluentValidation rules, not reachable through DI, hence a directive. The HTML content rule (`<a href>` must start with `https://`) is unchanged |
+| `src/Digdir.Domain.Dialogporten.WebApi/Common/Authentication/TokenIssuerCache.cs` and `src/Digdir.Domain.Dialogporten.GraphQL/Common/Authentication/TokenIssuerCache.cs` (one block each) | The `ConfigurationManager` that reads each JWT scheme's issuer: `#else` passes `new HttpDocumentRetriever { RequireHttps = false }`, because the stack's Authentication, Maskinporten and ID-porten publish their metadata over http. Replaced the two `LocaltestTokenIssuerCache` copies in `fakes/` (task 63) |
 
 ## Syncing
 
@@ -132,6 +136,5 @@ the package versions that `follow` the host, and the `reminders` it prints.
 marked `localtest:`; the tool merges upstream's changes into each when that is clean, and otherwise prints the hunk (a
 `localtest:` comment next to a changed `FROM` line conflicts). `Infrastructure/MigrationBundle.dockerfile` is watched.
 
-What the localtest code follows: a new `LocalDevelopment` flag goes into `LocaltestConfiguration`, and the two
-`TokenIssuerCache.cs` copies in `../fakes/` follow upstream's. The host builds rewrite each host's `packages.lock.json`;
+What the localtest code follows: a new `LocalDevelopment` flag goes into `LocaltestConfiguration`. The host builds rewrite each host's `packages.lock.json`;
 restore them before `check`.

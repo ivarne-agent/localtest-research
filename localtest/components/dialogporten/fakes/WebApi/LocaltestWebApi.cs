@@ -1,9 +1,6 @@
 using Digdir.Domain.Dialogporten.Infrastructure.Localtest;
 using Digdir.Domain.Dialogporten.WebApi.Common;
-using Digdir.Domain.Dialogporten.WebApi.Common.Authentication;
-using Digdir.Domain.Dialogporten.WebApi.Localtest.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Digdir.Domain.Dialogporten.WebApi.Localtest;
 
@@ -38,11 +35,8 @@ public static class LocaltestWebApi
             // The metadata of the localtest Authentication and the fake Maskinporten and ID-porten is plain http. Must be a
             // Configure, not a PostConfigure: JwtBearerPostConfigureOptions builds the metadata manager from this value and
             // post-configure callbacks run in registration order, so one added here would run after it.
+            // The production TokenIssuerCache reads the same metadata over http through a directive in its own file.
             services.ConfigureAll<JwtBearerOptions>(o => o.RequireHttpsMetadata = false);
-
-            // The production class reads the same metadata through a retriever that refuses http.
-            services.RemoveAll<ITokenIssuerCache>();
-            services.AddSingleton<ITokenIssuerCache, LocaltestTokenIssuerCache>();
         });
     }
 }
