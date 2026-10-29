@@ -8,7 +8,6 @@ using Altinn.Platform.Events.Configuration;
 using Altinn.Platform.Events.Localtest.Auth;
 using Altinn.Platform.Events.Localtest.Delivery;
 using Altinn.Platform.Events.Localtest.Changes;
-using Altinn.Platform.Events.Localtest.Queues;
 using Altinn.Platform.Events.Localtest.Startup;
 using Altinn.Platform.Events.Repository;
 using Altinn.Platform.Events.Services;
@@ -128,7 +127,7 @@ public static class LocaltestEventsExtensions
         services.AddScoped<IRegistrationEventPublisher, RegistrationEventPublisher>();
         services.RemoveAll<ISubscriptionValidationPublisher>();
         services.AddScoped<ISubscriptionValidationPublisher, SubscriptionValidationPublisher>();
-        Replace<IEventsQueueClient, LocaltestEventsQueueClient>(services);
+        // The legacy Storage Queue client stays production; a directive in each of its queue getters fails at once (no Azurite).
 
         // Production attaches its retry policies only to Service Bus listeners; the same policies on the local queues.
         var wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>() ?? new WolverineSettings();

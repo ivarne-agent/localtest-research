@@ -107,6 +107,9 @@ namespace Altinn.Platform.Events.Clients
 
         private async Task<QueueClient> GetRegistrationQueueClient()
         {
+#if LOCALTEST
+            throw new NotSupportedException("localtest: no registration storage queue; events are processed in-process.");
+#endif
             if (_registrationQueueClient == null)
             {
                 _registrationQueueClient = new QueueClient(_settings.ConnectionString, _settings.RegistrationQueueName, _queueClientOptions);
@@ -118,6 +121,9 @@ namespace Altinn.Platform.Events.Clients
 
         private async Task<QueueClient> GetInboundQueueClient()
         {
+#if LOCALTEST
+            throw new NotSupportedException("localtest: no inbound storage queue; events are processed in-process.");
+#endif
             if (_inboundQueueClient == null)
             {
                 _inboundQueueClient = new QueueClient(_settings.ConnectionString, _settings.InboundQueueName, _queueClientOptions);
@@ -129,6 +135,9 @@ namespace Altinn.Platform.Events.Clients
 
         private async Task<QueueClient> GetOutboundQueueClient()
         {
+#if LOCALTEST
+            throw new NotSupportedException("localtest: no outbound storage queue; events are processed in-process.");
+#endif
             if (_outboundQueueClient == null)
             {
                 _outboundQueueClient = new QueueClient(_settings.ConnectionString, _settings.OutboundQueueName, _queueClientOptions);
@@ -140,6 +149,9 @@ namespace Altinn.Platform.Events.Clients
 
         private async Task<QueueClient> GetValidationQueueClient()
         {
+#if LOCALTEST
+            throw new NotSupportedException("localtest: no subscription validation storage queue; events are processed in-process.");
+#endif
             if (_validationQueueClient == null)
             {
                 _validationQueueClient = new QueueClient(_settings.ConnectionString, _settings.ValidationQueueName, _queueClientOptions);
