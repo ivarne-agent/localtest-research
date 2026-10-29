@@ -109,7 +109,7 @@ A path matching no route still falls through to the localtest app.
 | 64 | [Local platform access tokens in the Integration.Platform token generator](#64-local-platform-access-tokens-in-the-integration-platform-token-generator) | **superseded by [66](#66-a-test-tool-token-generator-mock-in-the-front-door)** (the owner, 2026-10-29: "Can localtest just use a mock of the online token generator?"); was unapproved (created at the owner's request 2026-10-29; not to be dispatched); its plan stays as history and may come back as an optional idea for `dotnet run` developers | small | no |
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 | 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
-| 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`) | medium | yes |
+| 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`); **67a done** (2026-10-30, commits `2f8a249e`..`589ee2a4`, see section 67; evidence `/home/agent/code/.handover/task67a/`); 67b and 67c in progress | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -3205,9 +3205,75 @@ The four changes are those of task 43's review, "The switch to the proper fakes"
 Also in 67b: a contract test in the monorepo that the operator's Secret writer, studioctl's writer and the app
 libraries' reader agree on the file name and format.
 
-Open point, decided by default until the owner says otherwise: a client the developer stores (`studioctl app
+~~Open point, decided by default until the owner says otherwise: a client the developer stores (`studioctl app
 maskinporten set`, a real test client) wins over the local one, and service-owner requests then fail at the local
 exchange (`401`, the real token is not trusted); the runners say so when they see a stored client against localtest-v2.
 Alternatives for the owner: a second file for the local exchange, or Authentication's fakes also trusting test
-Maskinporten.
+Maskinporten.~~ Settled by the owner (2026-10-29, verbatim): "And also, let the authorization faces accept any
+envionments maskinporten keys (test or prod or local) Ideally by config in the manifest." A stored client still wins
+over the local one, and now works: the stack's exchange trusts test and production Maskinporten too. No warning.
+
+Key lifetime (the owner, 2026-10-29, verbatim): "If key rotation in localtest is hard, rather make the lifetime really
+long." Nothing in the local client carries a validity (a bare JWK: no `x5c`, no dated key id, no expiry that the fake
+or the operator's format checks), so the key is generated once per app and kept, and nothing rotates it. Rotation is
+out of scope locally by the owner's decision; the operator's rotation stays covered by its own e2e test.
+
+**67a done (2026-10-30)**, commits `2f8a249e`..`589ee2a4` and this file's update.
+
+- (1) **The runners write a local client.** studioctl (`internal/appsecrets/localclient.go`, called from
+  `BuildDotnetRunSpec`/`BuildDockerRunSpec`, so `run` in both modes and `app env`) and the Aspire package
+  (`LocalMaskinportenClient`, on the app resource's `BeforeResourceStartedEvent`, when an allocated public port is
+  known) write `maskinporten-settings.json` against localtest-v2 only: authority `<origin>/localtest/api/maskinporten/`
+  (follows `--host`/`--port`, `PublicHost`/`PublicPort`), client id `<org>-localtest`, a 2048-bit RSA JWK with all
+  twelve fields, generated once per app and reused (rewritten only when the origin moves), owner-only and atomic. A
+  developer's client is never overwritten (an unreadable file neither); `show`, `remove` and `doctor` treat the local
+  one as no client (recognised by the `-localtest` id and the fake's path), `set` replaces it. Shared golden file
+  `internal/appsecrets/testdata/local-maskinporten.golden.json` (a placeholder key: no private key committed).
+- (4, runner part) **app-lib 8**: both runners set `AppSettings__RuntimeSecretsDirectory` to the secrets directory
+  (a process run) or `/mnt/app-secrets` (a container run) on every run; golden `app-environment.golden.json`.
+- (2) **The exchange makes the app's org**, by a directive, not a fake: `OrgIsDigDirAndTestIsTrue(org, test ||
+  <client_id ends in -localtest>)` in `AuthenticateMaskinportenToken`. Not the `IOrganisationsService` decorator: that
+  would also have made the components' own clients of 991825827 (Dialogporten, the adapter, Correspondence, the shared
+  fake's `UseAltinnTestOrg=false` check) `ttd`, where they act as `digdir` by design. Minimal mode's emulated exchange
+  has the same rule. An app of another org still gets `ttd` (the fake issues 991825827 for any client id that is not
+  nine digits).
+- **Trusted Maskinporten instances (the owner's addition).** Production Authentication has exactly two settings
+  (`MaskinportenWellKnownConfigEndpoint` and the alternative), validates against the first's keys, then the second's,
+  and checks the issuer with `Contains` on both; three need code. Two more blocks in the same method: the token's
+  unvalidated `iss` picks one endpoint of `Localtest:Authentication:MaskinportenWellKnownEndpoints` (production's
+  `Contains` rule; `fakes/Maskinporten/LocaltestMaskinportenIssuers.cs`), whose keys alone validate it, and the issuer
+  check uses that endpoint. The manifest sets the list on the `authentication` container (`__0` the fake on
+  `{{origin}}`, `__1` `https://test.maskinporten.no/.well-known/oauth-authorization-server`, `__2`
+  `https://maskinporten.no/.well-known/oauth-authorization-server`); without it the fake alone. Egress: Authentication
+  now also reaches `test.maskinporten.no` and `maskinporten.no` (task 44's inventory), only when such a token arrives
+  (no cache). Offline: only the chosen endpoint is fetched, so the fake's tokens do not depend on the internet ones (by
+  construction; the smoke test shows the fake's tokens exchanging after the test and production refusals; a run without
+  the internet was not made). A real token becomes the organisation `altinn-orgs.json` (altinncdn.no) names for its
+  `consumer` organisation number, exchanged without `test=true` as the apps call it: Digdir's clients `digdir` (so a
+  `ttd` app with a Digdir test client acts as `digdir`, as production does without `test=true`), a service owner's own
+  client that service owner. Upstreaming item: a list setting (`localtest/upstreaming/authentication.md`).
+- **Other components that validate Maskinporten tokens themselves** keep the fake only: Dialogporten's WebApi and
+  GraphQL (`JwtBearerTokenSchemas` is a configurable list, but `TokenIssuerCache` fetches every scheme's metadata in one
+  initialisation, so one unreachable internet instance would fail every scheme's tokens offline; adding two schemes
+  needs a directive there first), Correspondence (one `MetadataAddress` for its Maskinporten scheme, and upstream
+  refuses `maskinporten.no` issuers there on purpose, asking for an exchanged token). Access Management's Development
+  settings name test Maskinporten as an OIDC provider; not examined. Apps call the platform with exchanged Altinn
+  tokens, so the exchange is the one that matters for a developer's client.
+- Docs: `localtest/CONVENTIONS.md` ("The local Maskinporten client", "Which Maskinporten tokens the stack trusts"),
+  the manifest README, studioctl's `docs/localtest-v2.md` ("Maskinporten"), CHANGELOG and README, the bundled skill,
+  the Aspire README, Authentication's README, `vendor/UPSTREAM.md` and `localtest/upstreaming/authentication.md`.
+- Proven on the stack (2026-10-30, studioctl from the branch, `--dev-authentication`; evidence
+  `/home/agent/code/.handover/task67a/`): the monorepo app `expression-validation-test` (altinn-studio `d8848b118f`)
+  and app-lib 8 (`ttd/testapp`, 8.12.15), each with a scratch probe, at the default origin and at `--host
+  local.altinn.test --port 18000`: both start; `GetAccessToken` gets the fake's token (`client_id` `ttd-localtest`);
+  `GetAltinnExchangedToken` an Altinn token with `urn:altinn:org` `ttd` and Storage 200; instantiation 201 (the
+  monorepo app's workflow-engine callbacks to Storage 200). The resolver takes the real client at the custom host
+  (`client_id` `ttd-localtest`, `ttd`, Storage 200) and the `/Home/GetTestOrgToken` short-cut at the default origin
+  until 67b (monorepo) and 67c (app-lib 8, which needs a release) land. A stored developer client
+  (`https://test.maskinporten.no/`, unregistered) stayed byte for byte, without a warning, and the app used it (test
+  Maskinporten answered `invalid_grant`, as expected for an unregistered client); `remove` and the next `app env`
+  brought the local client back. Root 29, front door 86 + the known `FRONTEND_DIST` failure, Authentication 39 at both
+  origins, shared all ok. A real test or production token was not available (no credentials): its acceptance is
+  unverified; the refusal of a foreign key under each issuer, each checked against that instance's own live keys, is in
+  Authentication's log.
 
