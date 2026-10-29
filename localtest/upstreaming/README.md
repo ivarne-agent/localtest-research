@@ -48,17 +48,17 @@ until those move out of the host. `[x]` items are counted in their phase.
 | [Access Management](access-management.md)       | Altinn/altinn-auth                              | 3       | 4       | 1          | 5 / 7                                               | Group `altinn-auth`; image public                                                                                                                                                       |
 | [Register](register.md)                         | Altinn/altinn-register, then Altinn/altinn-auth | 1       | 5       | 0          | 1 / 1 (the hook only once `Controllers/` moves out) | Waits on altinn-auth#4056 (the move into altinn-auth); phase 2 targets altinn-auth                                                                                                      |
 | [Resource Registry](resource-registry.md)       | Altinn/altinn-auth                              | 3       | 5       | 0          | 3 / 3                                               | Group `altinn-auth` since task 58's follow-up (pin `3d51810`); the next group sync brings a Samarbeidsportalen client                                                                   |
-| [Storage](storage.md)                           | Altinn/altinn-storage                           | 3       | 7       | 0          | 5 / 5                                               | Self-link base is in the `Storage.Interface` package; signing keys depend on altinn-accesstoken#136                                                                                     |
+| [Storage](storage.md)                           | Altinn/altinn-storage                           | 3       | 7       | 0          | 5 / 5                                               | Open altinn-storage#1173, #1175, #1178 (phase 1) and #1174 (no item); self-link base is in the `Storage.Interface` package; signing keys depend on altinn-accesstoken#136 (#280 open) |
 | [Events](events.md)                             | Altinn/altinn-events                            | 5       | 6       | 0          | 10 / 11                                               | Two Postgres bugs found (`trace_log` partitions end with 2026, time defaults assume a UTC server); altinn-events#1149 (Aspire, emulators) is related                                    |
-| [Profile](profile.md)                           | Altinn/altinn-profile                           | 2       | 4       | 0          | 1 / 4                                               | Open altinn-profile#1073 (Aspire host, OTLP); the environment detector stays local                                                                                                      |
+| [Profile](profile.md)                           | Altinn/altinn-profile                           | 3       | 4       | 0          | 1 / 4                                               | Open altinn-profile#1073 (Aspire host, OTLP) and altinn-profile#1076 (migrations at start-up, ours); the environment detector stays local                                                |
 | [Receipt](receipt.md)                           | Altinn/altinn-receipt                           | 3       | 2       | 0          | 4 / 4                                               |                                                                                                                                                                                         |
-| [Correspondence](correspondence.md)             | Altinn/altinn-correspondence                    | 9       | 3       | 2          | 7 / 7 (the hook only once inspection moves out)     | Party-id site removed in task 58's follow-up (pin `d2dc912`, altinn-correspondence#2157); image public; draft #2152 overlaps two items                                                  |
+| [Correspondence](correspondence.md)             | Altinn/altinn-correspondence                    | 8       | 3       | 1          | 7 / 7 (the hook only once inspection moves out)     | Party-id site removed in task 58's follow-up (pin `d2dc912`, altinn-correspondence#2157); image public; draft #2152 overlaps two items                                                  |
 | [Notifications](notifications.md)               | Altinn/altinn-notifications                     | 3       | 4       | 1          | 2 / 4                                               | OTLP merged (altinn-notifications#1930, on `main`): at the next sync the OTLP block shrinks to the service name, which stays local; open Aspire mock-stack PRs relate to the transport item |
 | [Dialogporten](dialogporten.md)                 | Altinn/dialogporten                             | 5       | 4       | 1          | 9 / 9                                               | Images public; already runs in upstream's own local mode (Development, `LocalDevelopment`)                                                                                              |
 | [Dialogporten adapter](dialogporten-adapter.md) | Altinn/altinn-dialogporten-adapter              | 6       | 3       | 1          | 10 / 10                                             | No public image; upstream's local mode is the Service Bus emulator                                                                                                                      |
 | [Arbeidsflate](arbeidsflate.md)                 | Altinn/dialogporten-frontend                    | 4       | 2       | 0          | 3 / 3 patches                                       | No `#if` sites; images public on ghcr; patch 0003 reverses a security fix's `secure: true` for http only                                                                                |
 | [authorization-utils](authorization-utils.md)   | Altinn/altinn-authorization-utils               | 0       | 1       | 0          | none of its own                                     | The ServiceDefaults package of the four `AltinnServiceDefaults` hosts; see below                                                                                                        |
-| **Total**                                       |                                                 | **52**  | **57**  | **7**      |                                                     |                                                                                                                                                                                         |
+| **Total**                                       |                                                 | **52**  | **57**  | **6**      |                                                     |                                                                                                                                                                                         |
 
 The workflow engine is done: its OTLP fix, altinn-studio#21515, is merged, studioctl runs the monorepo's image
 unchanged, and it is no longer vendored.
@@ -80,10 +80,11 @@ items went in task 61 ("Not needed" there). Details and the per-host items it co
 
 ### OTLP in the Azure Monitor services
 
-Storage, Events, Profile, Receipt and Correspondence are OpenTelemetry first already; each needs the OTLP package, one
-`UseOtlpExporter()` when the variable is set, and the environment detector after its hard-coded `service.name`
-(Notifications has the exporter since altinn-notifications#1930). For Notifications and Profile the detector is not
-proposed: it stays a local `#if LOCALTEST` line ("Not needed" in their files, decided 2026-10-29). Authorization and the
+Storage, Events, Profile, Receipt and Correspondence are OpenTelemetry first already; each needs the OTLP package and
+one `UseOtlpExporter()` when the variable is set (Notifications has the exporter since altinn-notifications#1930).
+Storage, Events, Receipt and Correspondence also need the environment detector after their hard-coded `service.name`;
+for Profile and Notifications it is not proposed: it stays a local `#if LOCALTEST` line ("Not needed" in their files,
+decided 2026-10-29). Authorization and the
 Dialogporten adapter need their pipeline built first, Dialogporten needs the exporters to read endpoint and protocol
 themselves, and the Arbeidsflate BFF needs its exporter chosen by `OTEL_EXPORTER_OTLP_PROTOCOL`. The OTLP item in each
 service file; the classification per service is in [`../reviews/otel/README.md`](../reviews/otel/README.md), with the
@@ -110,7 +111,13 @@ difference there.
 
 - **Platform access token keys without Key Vault.** `PublicSigningKeyProvider` in `Altinn/altinn-accesstoken`
   reads Key Vault only; [altinn-accesstoken#136](https://github.com/Altinn/altinn-accesstoken/issues/136) (open) asks
-  for a local mode. Covers the signing-key items in [Storage](storage.md), [Events](events.md),
+  for a local mode. [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another
+  contributor, 2026-10-28) answers it: the public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+  when no Key Vault is configured. It removes nothing yet. Prerequisite for the consumers: the provider reads the path
+  through `IOptions<AccessTokenSettings>`, and five hosts bind only `kvSetting`, not `AccessTokenSettings`
+  (Notifications, Events, Authorization, Access Management and the Resource Registry; Storage, Profile, Register and
+  Authentication bind it), so each of the five needs that binding, or the package a registration helper that binds both
+  (the review comment drafted for #280: `/home/agent/code/.handover/altinn-accesstoken-pr280-review-comment.md`). Covers the signing-key items in [Storage](storage.md), [Events](events.md),
   [Profile](profile.md), [Notifications](notifications.md), [Register](register.md),
   [Resource Registry](resource-registry.md), [Authentication](authentication.md), [Authorization](authorization.md) and
   [Access Management](access-management.md).
@@ -141,8 +148,8 @@ on http for Authentication; Correspondence's one expiry is a directive since tas
 ### `Altinn.ApiClients.Maskinporten`
 
 The package hard-coded the Maskinporten and exchange hosts; configurable endpoints are merged and released in 10.2.0
-([altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)). What is left is a
-bump to 10.2.0 in each consumer, which removes its copy of `fakes/Maskinporten/`: [Correspondence](correspondence.md),
+on 2026-10-26 ([altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92)).
+What is left is a bump to 10.2.0 in each consumer, which removes its copy of `fakes/Maskinporten/`: [Correspondence](correspondence.md),
 [Notifications](notifications.md), [Dialogporten](dialogporten.md), [Dialogporten adapter](dialogporten-adapter.md),
 and [Profile](profile.md) (a prerequisite for its KRR item there).
 

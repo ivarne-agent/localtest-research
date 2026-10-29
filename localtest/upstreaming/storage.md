@@ -4,6 +4,10 @@
 - Pin: `9e72a9f` (main, 2026-10-19), [`../components/storage/vendor/UPSTREAM.md`](../components/storage/vendor/UPSTREAM.md)
 - Group: none
 - Reminders: none.
+- Open pull requests from localtest: #1175, #1173 and #1178 (items below), and
+  [altinn-storage#1174](https://github.com/Altinn/altinn-storage/pull/1174) (2026-10-27, from the fork branch
+  `agents-nullable`: `#nullable` guidance in the repository's agent instructions; it removes nothing here, so it has no
+  item).
 - Localtest modifications: 5 directive sites (4 in `src/Storage/Program.cs`, 1 in
   `src/Storage/Controllers/InstancesController.cs`), the fakes `Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, the
   composition `LocaltestStorageExtensions.cs` and `LocaltestStorageOptions.cs`, the shared copy `ServiceDiscovery/`
@@ -25,8 +29,9 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Removes: site `src/Storage/Program.cs:248-264` (the OTLP rule, inlined there since task 63) and the OTLP `PackageReference` in
     `localtest.build.targets`. The `CS8321` `NoWarn` in `localtest.build.props` also covers the Key Vault function
     under site `Program.cs:142-146`, so it goes with the image item below.
-  - Upstream: none found. altinn-storage#1148 (merged before our pin) stopped the Azure Monitor exporter from sampling;
-    it does not add OTLP.
+  - Upstream: open pull request [altinn-storage#1175](https://github.com/Altinn/altinn-storage/pull/1175) (2026-10-27,
+    from the fork branch `storage-otlp-exporter`). altinn-storage#1148 (merged before our pin) stopped the Azure Monitor
+    exporter from sampling; it does not add OTLP.
   - Detail: [`../reviews/otel/storage.md`](../reviews/otel/storage.md). Carry the sampler note from
     [`../reviews/otel/README.md`](../reviews/otel/README.md) into the PR.
 
@@ -38,7 +43,9 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
     no TLS, so the link does not resolve.
   - Size: small.
   - Removes: site `src/Storage/Controllers/InstancesController.cs:1465-1471`.
-  - Upstream: none found. Localtest uses the request's own scheme and host; that depends on the production ingress
+  - Upstream: open pull request [altinn-storage#1173](https://github.com/Altinn/altinn-storage/pull/1173) (2026-10-27,
+    from the fork branch `storage-paging-link-base`). Localtest uses the request's own scheme and host; that depends on
+    the production ingress
     passing the browser's `Host` and scheme through, which I could not confirm, so the setting is the safer proposal.
   - Detail: [`../components/storage/README.md`](../components/storage/README.md), "Directive sites in `vendor/`", 3.
 
@@ -51,7 +58,8 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Size: small; development tooling only, production does not run the script.
   - Removes: nothing here. Localtest sets up its own users and databases (TODO.md task 60): `postgres-init/10-storage.sh`
     no longer runs the script (watched in `UPSTREAM.md`, not copied); the fix is for upstream's own local setups.
-  - Upstream: none found.
+  - Upstream: open pull request [altinn-storage#1178](https://github.com/Altinn/altinn-storage/pull/1178) (2026-10-28,
+    from the fork branch `storage-postgres-init-role`).
   - Detail: [`../components/storage/README.md`](../components/storage/README.md), "Postgres".
 
 ## Phase 2: structural changes
@@ -142,6 +150,10 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   - Upstream: [altinn-accesstoken#136](https://github.com/Altinn/altinn-accesstoken/issues/136) (open), which names
     Storage. Events' open [altinn-events#1149](https://github.com/Altinn/altinn-events/pull/1149) shows the other way,
     an emulated Key Vault (Lowkey Vault) with no code change.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds `AccessTokenSettings`, so the setting would take effect.
 
 - [ ] **Publish the image where localtest can pull it.** No GitHub workflow in the repository builds or pushes the
       image (they build, test and push the `Storage.Interface` NuGet package); I could not confirm where the
@@ -170,7 +182,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
   vendored-project test: the mechanism that carries the sites; gone with the last one.
 - `localtest.build.targets`: compiling `fakes/**/*.cs` into the host: as above.
 - `postgres-init/10-storage.sh`: the roles, `storagedb`, its schema and grants on the shared Postgres (what upstream's
-  `infra/postgres_init.sql` does), with the passwords from the manifest: users and databases are set up by localtest
+  `infra/postgres_init.sql` does), with the passwords from the runner's password file, named in the manifest: users and databases are set up by localtest
   (TODO.md task 60), as a deployment does outside the image.
 
 Coverage: 5 sites, 7 fakes (`Auth/`, `Blobs/`, `Dialogporten/`, `FileScan/`, `ServiceDiscovery/`,

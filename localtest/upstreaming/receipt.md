@@ -33,7 +33,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
       `platform.` prefix.
   - Why: locally there is no `platform.` host and no TLS, so the browser is sent back to a host that does not resolve.
   - Size: small.
-  - Removes: site `Program.cs:271-277`.
+  - Removes: site `Program.cs:278-284`.
   - Upstream: none found. Using the request's own scheme and host, as localtest does, depends on the production ingress
     passing the browser's `Host` and scheme through; I could not confirm that, so the setting is the safer proposal.
   - Detail: `UPSTREAM.md`, site 2.

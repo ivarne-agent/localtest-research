@@ -90,6 +90,11 @@ queue. That would cover the telemetry and service-discovery items below, but Azu
     `/policy-store` deviation in `Dockerfile`.
   - Upstream: related [altinn-auth#4064](https://github.com/Altinn/altinn-auth/issues/4064), which proposes Azurite
     instead; the difference needs raising there.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds only `kvSetting`, not `AccessTokenSettings`, so binding that section is the
+    prerequisite (one of five hosts, see the README's ["Across services"](README.md#across-services)).
   - Detail: [`../reviews/authorization.md`](../reviews/authorization.md), "Fakes and what they replace".
 
 - [x] **Publish the image where localtest can pull it.** [altinn-auth#4739](https://github.com/Altinn/altinn-auth/pull/4739)

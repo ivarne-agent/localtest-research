@@ -20,20 +20,6 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 
 ## Phase 1: easy fixes
 
-- [x] **Name the party by `urn:altinn:partyid:{id}` in PDP requests.** Merged upstream as
-      [altinn-correspondence#2157](https://github.com/Altinn/altinn-correspondence/pull/2157) (`d2dc912`, 2026-10-22):
-      `AltinnAuthorizationService` and `AltinnTokenXacmlMapper` pass the resolved party id with its prefix, so
-      `XacmlRequestFactory.CreateResourceCategory` takes the prefix branch whatever the id's length. Block
-      removed in task 58's follow-up (synced to `d2dc912`).
-  - Why: `IsPartyId` accepts a bare party id of 8 or 10 digits only, and the test data's 6-digit ids (Digdir 500006,
-    Sophie Salt 501337) made every PDP-checked call answer 500.
-  - Size: trivial (done).
-  - Removed: site `src/Altinn.Correspondence.Integrations/Altinn/Authorization/XacmlRequestFactory.cs:31-36`, in task
-    58's follow-up. The smoke test's app-lib and recipient checks passed without it (78 `ok`, 2026-10-27).
-  - Upstream: [altinn-correspondence#2157](https://github.com/Altinn/altinn-correspondence/pull/2157), merged.
-  - Detail: [`../../planned-components/correspondence/party-ids.md`](../../planned-components/correspondence/party-ids.md),
-    option (c).
-
 - [ ] **Export over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.** In
       `src/Altinn.Correspondence.Integrations/OpenTelemetry/DependencyInjection.cs`, `ConfigureOpenTelemetry`, call
       `UseOtlpExporter()` when the variable is set, beside the Azure Monitor block; add
@@ -121,7 +107,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 
 - [x] **Configurable Maskinporten and token-exchange endpoints in `Altinn.ApiClients.Maskinporten`.** Merged as
       [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92) (2026-10-26)
-      and released in 10.2.0: `MaskinportenSettings` has `TokenEndpoint`, `AssertionAudience` and
+      and released in 10.2.0 (2026-10-26): `MaskinportenSettings` has `TokenEndpoint`, `AssertionAudience` and
       `TokenExchangeEndpoint`, applied when tokens are requested through a client definition.
   - Why: the package hard-coded `https://*.maskinporten.no` and the exchange hosts.
   - Size: small (done).
@@ -144,7 +130,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
     includes 10.1.0 to 10.2.0. The localtest token endpoint reads the assertion's payload only, not its header or
     signature (`../localtest/Maskinporten/MaskinportenApi.cs`, `TryReadAssertion`), so a signed assertion passes.
   - Detail: [`../components/shared/README.md`](../components/shared/README.md), "`IMaskinportenService` fake"; TODO
-    task 15 in [`../../TODO.md`](../../TODO.md).
+    task 47 in [`../../TODO.md`](../../TODO.md) (#92, released in 10.2.0 on 2026-10-26; it superseded task 15).
 
 ## Phase 2: structural changes
 
@@ -188,7 +174,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
       inspection API out of process (see "Stays local"). Nothing to change upstream.
   - Why: the vendored build exists only to carry the sites and fakes.
   - Size: small for localtest; no upstream change.
-  - Removes: sites `src/Altinn.Correspondence.API/Program.cs:56-58` and `Program.cs:179-181`, `fakes/LocaltestCorrespondence.cs`
+  - Removes: sites `src/Altinn.Correspondence.API/Program.cs:56-58` and `Program.cs:186-188`, `fakes/LocaltestCorrespondence.cs`
     with `LocaltestCorrespondenceOptions.cs`, `Dockerfile`, `.dockerignore`, `localtest.build.props`,
     `localtest.build.targets` and the vendored copy itself.
   - Upstream: nothing needed; the image is published.
@@ -197,7 +183,7 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
 
 - `fakes/Inspection/`: the anonymous, read-only `correspondence/api/localtest/` (correspondences with their Hangfire jobs,
   the job list, migration status) is for tests only. To run upstream's image unchanged it moves to its own container
-  reading the `correspondence` database; until then it keeps the hook at `Program.cs:179-181`.
+  reading the `correspondence` database; until then it keeps the hook at `Program.cs:186-188`.
 - `postgres-init/70-correspondence.sh`: the role and database on the shared Postgres; production's infrastructure
   provisions them.
 - `Dockerfile`: upstream's floating `sdk:10.0` and `aspnet:10.0` pinned by digest: localtest's reproducible builds;

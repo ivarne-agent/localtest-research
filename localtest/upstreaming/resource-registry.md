@@ -101,6 +101,11 @@ Site lines are those of the site table in `UPSTREAM.md`; paths in "Removes" are 
     the forced `kvSetting:SecretUri` in the hook.
   - Upstream: [altinn-accesstoken#136](https://github.com/Altinn/altinn-accesstoken/issues/136) (open);
     altinn-auth#4052 proposes a local JWKS for platform tokens instead.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds only `kvSetting`, not `AccessTokenSettings`, so binding that section is the
+    prerequisite (one of five hosts, see the README's ["Across services"](README.md#across-services)).
   - Detail: [`../components/resource-registry/README.md`](../components/resource-registry/README.md), "Fakes".
 
 - [ ] **Service discovery without the pass-through provider.** The host already gets `AddServiceDiscovery()` from

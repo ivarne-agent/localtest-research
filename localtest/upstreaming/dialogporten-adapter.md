@@ -43,7 +43,7 @@ item below.
 
 - [x] **Configurable Maskinporten and token-exchange endpoints in `Altinn.ApiClients.Maskinporten`.** Merged as
       [altinn-apiclient-maskinporten#92](https://github.com/Altinn/altinn-apiclient-maskinporten/pull/92) (2026-10-26)
-      and released in 10.2.0: `MaskinportenSettings` has `TokenEndpoint`, `AssertionAudience` and
+      and released in 10.2.0 (2026-10-26): `MaskinportenSettings` has `TokenEndpoint`, `AssertionAudience` and
       `TokenExchangeEndpoint`, applied when tokens are requested through a client definition.
   - Why: the package hard-coded `https://*.maskinporten.no` and the exchange hosts.
   - Size: small (done).
@@ -67,7 +67,7 @@ item below.
     only, not its header or signature (`../localtest/Maskinporten/MaskinportenApi.cs`, `TryReadAssertion`), so a signed
     assertion passes.
   - Detail: [`../components/shared/README.md`](../components/shared/README.md), "`IMaskinportenService` fake"; TODO
-    task 15 in [`../../TODO.md`](../../TODO.md).
+    task 47 in [`../../TODO.md`](../../TODO.md) (#92, released in 10.2.0 on 2026-10-26; it superseded task 15).
 
 - [ ] **Allow OpenID metadata over http in Development.** In `ServiceCollectionExtensions.cs`, the `AddJwtBearer` for
       `JwtBearerDefaults.AuthenticationScheme` sets `MetadataAddress` from `Authentication:JwtBearerWellKnown`; also set

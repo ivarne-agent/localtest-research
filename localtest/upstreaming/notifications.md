@@ -31,7 +31,7 @@ Several items below can reuse that work.
       [altinn-notifications#1930](https://github.com/Altinn/altinn-notifications/pull/1930) (2026-10-22, after our pin):
       `AddAzureMonitorTelemetryExporters` calls `UseOtlpExporter()` when the variable is set and
       `OtelSettings:Endpoint` is not. #1930 is on `main` (checked 2026-10-27, task 58's follow-up), so at the next
-      sync the OTLP block (site `Program.cs:191-198`) shrinks to an addition of the environment detector, which stays
+      sync the OTLP block (site `Program.cs:191-205`) shrinks to an addition of the environment detector, which stays
       local (see "Not needed").
   - Why: at the pin, Notifications exports only traces, and only with its own `OtelSettings:Endpoint` (endpoint set in
     code, so no `/v1/traces` for `http/protobuf`), plus Azure Monitor with a connection string.
@@ -108,6 +108,11 @@ Several items below can reuse that work.
     Profile has a copy of the same fake ([`profile.md`](profile.md)). Upstream's Aspire stack sidesteps it with
     enterprise tokens from its own issuer
     ([altinn-notifications#1963](https://github.com/Altinn/altinn-notifications/pull/1963)).
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds only `kvSetting`, not `AccessTokenSettings`, so binding that section is the
+    prerequisite (one of five hosts, see the README's ["Across services"](README.md#across-services)).
   - Detail: [`../components/notifications/README.md`](../components/notifications/README.md), "What is replaced".
 
 - [ ] **A supported local transport without Service Bus.** `AddWolverineServices` throws without
@@ -125,7 +130,7 @@ Several items below can reuse that work.
       containers more, which the plan rejected for memory.
   - Why: there is no Service Bus, Email or SMS host locally, and testers need to see every message sent.
   - Size: large; a design decision for the team.
-  - Removes: site `Program.cs:242-246`, `fakes/Messaging/`, `fakes/Capture/`, `fakes/Inspection/`, `fakes/Startup/`
+  - Removes: site `Program.cs:249-253`, `fakes/Messaging/`, `fakes/Capture/`, `fakes/Inspection/`, `fakes/Startup/`
     (with `prepare.sql` and `reset-on-start.sql`), `fakes/LocaltestNotificationsOptions.cs`, the `EmbeddedResource` of
     `fakes/**/*.sql` in `localtest.build.targets`, and the instant endpoints `localhost:5090` in the configuration. The
     inbox and its `notifications/api/localtest/` API stay localtest's, but as a service of their own outside this image.
@@ -153,7 +158,7 @@ Several items below can reuse that work.
 
 ## Stays local
 
-- Site `Program.cs:191-198` once the OTLP item is synced: the environment detector after the service's own resource, so
+- Site `Program.cs:191-198` once the OTLP item is synced (the lines it would then have): the environment detector after the service's own resource, so
   the stack's `OTEL_SERVICE_NAME` wins (see "Not needed").
 
 - Site `Program.cs:51-53` and `fakes/LocaltestNotificationsExtensions.cs`: localtest's composition. The configuration

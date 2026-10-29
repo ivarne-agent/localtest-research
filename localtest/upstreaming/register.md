@@ -89,6 +89,10 @@ Register is an `AltinnServiceDefaults` host (`Altinn.Authorization.ServiceDefaul
   - Removes: `Auth/` and its registration in the hook.
   - Upstream: [altinn-accesstoken#136](https://github.com/Altinn/altinn-accesstoken/issues/136) (open: start without a
     valid Key Vault URI); altinn-auth#4052 proposes a local JWKS for platform tokens instead.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds `AccessTokenSettings`, so the setting would take effect.
   - Detail: [`../components/register/README.md`](../components/register/README.md), "Run locally without Docker".
 
 - [ ] **Service discovery without the pass-through provider.** Register already gets `AddServiceDiscovery()` from

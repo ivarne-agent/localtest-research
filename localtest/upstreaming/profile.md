@@ -37,6 +37,19 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
   - Detail: [`../reviews/otel/profile.md`](../reviews/otel/profile.md). Carry the sampler note from
     [`../reviews/otel/README.md`](../reviews/otel/README.md) into the PR.
 
+- [ ] **Apply the migrations at start-up when `PostgreSqlSettings:MigrateOnStartup` is true.** `Program.cs` runs the
+      same `Migrate()` as `--run-db-migrations`, with the admin connection string, before the application starts; the
+      setting defaults to `false`, so deployments (the pre-upgrade hook) are unchanged.
+  - Why: Profile migrates only in `--run-db-migrations` mode, so a container configured by environment variables alone
+    cannot start on an empty database without a one-shot migration step first. The stack's rule is that a service
+    migrates at start (TODO.md task 62), as Dialogporten, Correspondence, Storage, Events and Notifications do.
+  - Size: small.
+  - Removes: the `Migrate()` step in `fakes/Startup/LocaltestDatabaseStartup.cs` (the manifest sets
+    `PostgreSqlSettings__MigrateOnStartup=true` instead); the start-up seed in the same file stays (see "Stays local").
+  - Upstream: open pull request [altinn-profile#1076](https://github.com/Altinn/altinn-profile/pull/1076) (2026-10-29,
+    from the fork branch `feature/migrate-on-startup-in-development`).
+  - Detail: `/home/agent/code/.handover/altinn-profile-upstream/migrate-on-startup.md` (the PR's description).
+
 - [ ] **Bump `Altinn.ApiClients.Maskinporten` to 10.2.0.** `src/Altinn.Profile.Core/Altinn.Profile.Core.csproj`
       references 10.1.0 on upstream `main`. Version 10.2.0 adds `TokenEndpoint`, `AssertionAudience` and
       `TokenExchangeEndpoint` to `MaskinportenSettings`, applied when a token is requested through a client definition,
@@ -84,6 +97,10 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
   - Upstream: open issue [Altinn/altinn-accesstoken#136](https://github.com/Altinn/altinn-accesstoken/issues/136)
     "Improve ability to test locally, so Applications using PublicSigningKeyProvider without a valid URI can start".
     The same fake is in Notifications ([`notifications.md`](notifications.md)), from which Profile's is copied.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds `AccessTokenSettings`, so the setting would take effect.
   - Detail: [`../components/profile/README.md`](../components/profile/README.md), "What is replaced".
 
 - [ ] **Reach KRR and brreg through HTTP stand-ins instead of in-process fakes.** Upstream needs little beyond the
@@ -128,10 +145,10 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
 
 ## Stays local
 
-- Site `Program.cs:152-158` once the OTLP item is in: the environment detector after `AddService`, so the stack's
+- Site `Program.cs:152-158` once the OTLP item is in (the lines it would then have): the environment detector after `AddService`, so the stack's
   `OTEL_SERVICE_NAME` wins (see "Not needed").
 
-- Sites `Program.cs:64-66` and `Program.cs:236-238`, `fakes/LocaltestProfileExtensions.cs` and
+- Sites `Program.cs:64-66` and `Program.cs:243-245`, `fakes/LocaltestProfileExtensions.cs` and
   `fakes/LocaltestProfileOptions.cs`: localtest's composition. The configuration half sets deployment settings (the
   OpenID endpoint on the public origin, service endpoints by name, both sync jobs every minute, the 10 s Register id
   cache, `kvSetting:SecretUri` forced empty although upstream never sets it); with a published image they move to the
@@ -139,10 +156,10 @@ and adds OTLP. It mirrors the one Notifications merged; see [`notifications.md`]
   done and the seed has moved out (next line).
 - `fakes/Register/`, `fakes/Seed/`, `fakes/Startup/` and `fakes/Inspection/`: localtest's test-data seed (settings once
   per test user, the Register's localtest API), the migrations at start and `profile/api/localtest/`: test-only. To run
-  a published image they move out of the host with no upstream change: the migrations through upstream's own
-  `dotnet Altinn.Profile.dll --run-db-migrations` in a one-shot container (as its Kubernetes pre-upgrade hook and
-  [altinn-profile#1073](https://github.com/Altinn/altinn-profile/pull/1073) run them), the settings seed through
-  Profile's API, the inspection reading Postgres.
+  a published image they move out of the host: the migrations through upstream's own start-up migration once
+  [altinn-profile#1076](https://github.com/Altinn/altinn-profile/pull/1076) is in (the phase 1 item above; a service
+  migrates at start, so no one-shot `--run-db-migrations` container), the settings seed through Profile's API, the
+  inspection reading Postgres.
 - `Dockerfile`: the `/app/vendor` layout with `fakes/`, the overrides and `DirectoryBuildPropsPath` /
   `DirectoryBuildTargetsPath`, and the `COPY vendor/...` paths: the vendoring layout; gone with the vendored copy.
 - `Dockerfile`: `ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS=http://+:5030` and

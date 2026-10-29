@@ -116,6 +116,11 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
   - Upstream: related [altinn-auth#4063](https://github.com/Altinn/altinn-auth/issues/4063) (Azurite),
     [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten as the token generator); the
     Azurite choice needs raising there.
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds only `kvSetting`, not `AccessTokenSettings`, so binding that section is the
+    prerequisite (one of five hosts, see the README's ["Across services"](README.md#across-services)).
   - Detail: [`../reviews/access-management.md`](../reviews/access-management.md), "Fakes and what they replace".
 
 - [x] **Publish the image where localtest can pull it.** Already the case at the pin: `docker-bake.hcl` builds

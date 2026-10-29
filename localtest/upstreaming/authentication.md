@@ -97,6 +97,10 @@ targets `https://local.altinn.cloud` and keeps `Secure` cookies, so the http ite
     contract, platform tokens from Mockporten or a local JWKS) and
     [altinn-auth#4650](https://github.com/Altinn/altinn-auth/issues/4650) (secrets and the checked-in signing
     certificate fallback).
+  - Related: [altinn-accesstoken#280](https://github.com/Altinn/altinn-accesstoken/pull/280) (open, by another contributor,
+    2026-10-28) reads the issuers' public certificate from a file (`AccessTokenSettings:PublicSigningCertificatePath`)
+    when no Key Vault is configured; released and bumped, it replaces `LocaltestPublicSigningKeyProvider`. It removes
+    nothing yet. This host binds `AccessTokenSettings`, so the setting would take effect.
   - Detail: [`../components/authentication/README.md`](../components/authentication/README.md), "What the fakes
     replace".
 
