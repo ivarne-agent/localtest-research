@@ -32,6 +32,7 @@ public static class PlatformRoutes
         (LocaltestSettings.PdfSubdomain, "pdf3"),
         (LocaltestSettings.WorkflowEngineSubdomain, "workflow-engine"),
         (LocaltestSettings.ArbeidsflateSubdomain, "arbeidsflate"),
+        (LocaltestSettings.AccessManagementUiSubdomain, "access-management-ui"),
     ];
 
     /// <summary>
@@ -84,6 +85,8 @@ public static class PlatformRoutes
         ["correspondence"] = "correspondence",
         ["arbeidsflate"] = "arbeidsflate",
         ["arbeidsflate-bff"] = "arbeidsflate",
+        // The Access Management GUI; its API, access-management, is in the default stack.
+        ["access-management-ui"] = "access-management",
         ["grafana"] = MonitoringGroup,
         ["otel-collector"] = MonitoringGroup,
         // Minimal mode always runs its receiver (otel-files), so the only stack without one is the default stack

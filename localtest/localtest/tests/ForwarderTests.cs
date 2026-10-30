@@ -142,6 +142,23 @@ public sealed class ForwarderTests
     }
 
     [Fact]
+    public async Task TheAccessManagementGuiHostNamesItsGroup()
+    {
+        await using var frontDoor = new FrontDoor();
+        using var client = frontDoor.Client();
+
+        using var response = await client.SendAsync(Get("/accessmanagement/ui", "am.ui.local.altinn.cloud:8000"), Ct);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("access-management-ui", problem.RootElement.GetProperty("component").GetString());
+        Assert.Equal("access-management", problem.RootElement.GetProperty("group").GetString());
+        var detail = problem.RootElement.GetProperty("detail").GetString()!;
+        Assert.Contains("studioctl env up -r localtest-v2 --with access-management", detail, StringComparison.Ordinal);
+        Assert.Contains(".WithAccessManagement()", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ADefaultServiceWithoutAnAddressHasNoGroup()
     {
         await using var frontDoor = new FrontDoor();

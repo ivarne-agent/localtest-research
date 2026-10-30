@@ -12,7 +12,7 @@ public sealed class RouteTableTests
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Localtest:PlatformEndpoint"] = "http://origin.test:18000",
-            ["Localtest:PublicSubdomains"] = "pdf, workflow-engine,app-frontend,af",
+            ["Localtest:PublicSubdomains"] = "pdf, workflow-engine,app-frontend,af,am.ui",
         }).Build());
 
     [Theory]
@@ -63,6 +63,8 @@ public sealed class RouteTableTests
     [InlineData("PDF.local.altinn.cloud", "pdf3")]
     [InlineData("workflow-engine.local.altinn.cloud", "workflow-engine")]
     [InlineData("af.local.altinn.cloud", "arbeidsflate")]
+    [InlineData("am.ui.local.altinn.cloud", "access-management-ui")]
+    [InlineData("AM.UI.local.altinn.cloud", "access-management-ui")]
     public void DedicatedHostsBelongToTheirService(string host, string service)
         => Assert.Equal(service, PlatformRoutes.ResolveHost(host, Default)?.Name);
 
@@ -70,12 +72,16 @@ public sealed class RouteTableTests
     [InlineData("local.altinn.cloud")]
     [InlineData("localhost")]
     [InlineData("app-frontend.local.altinn.cloud")]
+    [InlineData("ui.local.altinn.cloud")]
+    [InlineData("am.local.altinn.cloud")]
     public void TheMainHostAndTheDevServerHostAreNotPlatformHosts(string host) => Assert.Null(PlatformRoutes.ResolveHost(host, Default));
 
     [Theory]
     [InlineData("pdf.origin.test", "pdf3")]
     [InlineData("workflow-engine.origin.test", "workflow-engine")]
     [InlineData("af.origin.test", "arbeidsflate")]
+    [InlineData("am.ui.origin.test", "access-management-ui")]
+    [InlineData("am.ui.local.altinn.cloud", null)]
     [InlineData("pdf.local.altinn.cloud", null)]
     [InlineData("origin.test", null)]
     [InlineData("app-frontend.origin.test", null)]
@@ -109,6 +115,7 @@ public sealed class RouteTableTests
         Assert.Equal(18000, Custom.PublicPort);
         Assert.Equal("origin.test:18000", Custom.PublicHost);
         Assert.Equal("http://af.origin.test:18000", Custom.OriginOf("af"));
+        Assert.Equal("http://am.ui.origin.test:18000", Custom.OriginOf("am.ui"));
         Assert.Equal("pdf.origin.test", Custom.HostOf("pdf"));
     }
 
@@ -127,7 +134,7 @@ public sealed class RouteTableTests
         => Assert.Equal(
             new[]
             {
-                "access-management", "arbeidsflate", "authentication", "authorization", "correspondence", "dialogporten-adapter",
+                "access-management", "access-management-ui", "arbeidsflate", "authentication", "authorization", "correspondence", "dialogporten-adapter",
                 "dialogporten-graphql", "dialogporten-webapi", "events", "grafana", "notifications", "otlp", "pdf3", "profile",
                 "receipt", "register", "resource-registry", "storage", "workflow-engine",
             },

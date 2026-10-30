@@ -21,12 +21,18 @@ public sealed record LocaltestSettings
     /// <summary>Arbeidsflate's (the inbox's) subdomain: its SPA and BFF use absolute paths.</summary>
     public const string ArbeidsflateSubdomain = "af";
 
+    /// <summary>
+    /// The Access Management GUI's subdomain, two labels as production's <c>am.ui.{env}</c>: it serves everything under
+    /// <c>/accessmanagement/</c>, which is the Access Management API's prefix on the main host.
+    /// </summary>
+    public const string AccessManagementUiSubdomain = "am.ui";
+
     /// <summary>The frontend dev server's subdomain, routed while one is registered.</summary>
     public const string FrontendDevServerSubdomain = "app-frontend";
 
     /// <summary>The subdomains the front door has a route for, in the manifest's order.</summary>
     public static IReadOnlyList<string> KnownSubdomains { get; } =
-        [PdfSubdomain, WorkflowEngineSubdomain, FrontendDevServerSubdomain, ArbeidsflateSubdomain];
+        [PdfSubdomain, WorkflowEngineSubdomain, FrontendDevServerSubdomain, ArbeidsflateSubdomain, AccessManagementUiSubdomain];
 
     private const string DefaultPlatformEndpoint = "http://local.altinn.cloud:8000/";
 

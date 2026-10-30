@@ -43,8 +43,13 @@ public sealed class PublicOriginTests
         await using var pdf = await Echo("pdf3");
         await using var arbeidsflate = await Echo("arbeidsflate");
         await using var workflowEngine = await Echo("workflow-engine");
+        await using var accessManagementUi = await Echo("access-management-ui");
         await using var frontDoor = new FrontDoor(
-            new Dictionary<string, string?> { ["pdf3"] = pdf.Origin, ["arbeidsflate"] = arbeidsflate.Origin, ["workflow-engine"] = workflowEngine.Origin },
+            new Dictionary<string, string?>
+            {
+                ["pdf3"] = pdf.Origin, ["arbeidsflate"] = arbeidsflate.Origin, ["workflow-engine"] = workflowEngine.Origin,
+                ["access-management-ui"] = accessManagementUi.Origin,
+            },
             settings: At());
         using var client = frontDoor.Client();
 
@@ -57,6 +62,7 @@ public sealed class PublicOriginTests
         Assert.Equal("pdf3 /x", await Body("pdf." + Public));
         Assert.Equal("arbeidsflate /x", await Body("af." + Public));
         Assert.Equal("workflow-engine /x", await Body("workflow-engine." + Public));
+        Assert.Equal("access-management-ui /x", await Body("am.ui." + Public));
         // The default origin's names are not this origin's: served like the main host.
         Assert.NotEqual("pdf3 /x", await Body("pdf.local.altinn.cloud:8000"));
         Assert.DoesNotContain(pdf.Requests, r => r.Host.StartsWith("pdf.local", StringComparison.Ordinal));
@@ -112,7 +118,7 @@ public sealed class PublicOriginTests
 
         var hosts = document.RootElement.GetProperty("platform").EnumerateArray()
             .Select(r => r.GetProperty("host").GetString()).OfType<string>().Order(StringComparer.Ordinal);
-        Assert.Equal(["af.origin.test", "pdf.origin.test", "workflow-engine.origin.test"], hosts);
+        Assert.Equal(["af.origin.test", "am.ui.origin.test", "pdf.origin.test", "workflow-engine.origin.test"], hosts);
     }
 
     [Fact]
