@@ -65,7 +65,9 @@ public static class LocaltestAccessManagementExtensions
                 ["PlatformSettings:JwtCookieName"] = "AltinnStudioRuntime",
                 ["OidcProviders:altinn:Issuer"] = platform + "authentication/api/v1/openid/",
                 ["OidcProviders:altinn:WellKnownConfigEndpoint"] = platform + "authentication/api/v1/openid/.well-known/openid-configuration",
-                ["GeneralSettings:Hostname"] = new Uri(platform).Host,
+                // Read only by the consent and request links (two directive sites), which name am.ui.<host> on the
+                // stack's port: host and port, not the host alone.
+                ["GeneralSettings:Hostname"] = new Uri(platform).Authority,
                 ["SblBridgeSettings:BaseApiUrl"] = platform + "sblbridge/",
                 // libs Integration.Platform clients append the full service path (/register/api/v2/...), so the base is the
                 // service itself. The SBL bridge does not exist locally (never called).

@@ -859,7 +859,12 @@ namespace Altinn.AccessManagement.Core.Services
         /// </summary>
         private string GetConsentViewUri(Guid requesteId)
         {
+#if !LOCALTEST
             return $"https://am.ui.{_generalSettings.Hostname}/accessmanagement/ui/consent/request?id={requesteId}";
+#else
+            // localtest: the stack's GUI is plain http on am.ui.<host>:<port> (Hostname is host and port here, fakes/).
+            return $"http://am.ui.{_generalSettings.Hostname}/accessmanagement/ui/consent/request?id={requesteId}";
+#endif
         }
 
         public static bool IsValidUrl(string url)

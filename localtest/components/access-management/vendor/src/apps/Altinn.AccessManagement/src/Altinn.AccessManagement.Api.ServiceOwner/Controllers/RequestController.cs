@@ -450,7 +450,14 @@ public class RequestController(
 
     private RequestLinks BuildLinks(Guid requestId) => new()
     {
+#if !LOCALTEST
         DetailsLink = $"https://am.ui.{_generalSettings.Hostname}/accessmanagement/ui/requests/resource?requestId={requestId}",
         StatusLink = $"https://platform.{_generalSettings.Hostname}/accessmanagement/api/v1/serviceowner/delegationrequests/{requestId}/status"
+#else
+        // localtest: plain http, the GUI on am.ui.<host>:<port> and the platform on the main host (Hostname is host and
+        // port here, fakes/).
+        DetailsLink = $"http://am.ui.{_generalSettings.Hostname}/accessmanagement/ui/requests/resource?requestId={requestId}",
+        StatusLink = $"http://{_generalSettings.Hostname}/accessmanagement/api/v1/serviceowner/delegationrequests/{requestId}/status"
+#endif
     };
 }

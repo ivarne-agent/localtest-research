@@ -79,13 +79,15 @@
 
 <!-- vendor-sync:begin sites -->
 
-| File                                                                                                         | Lines   | Kind        | First line of the `LOCALTEST` branch                                        |
-| ------------------------------------------------------------------------------------------------------------ | ------- | ----------- | --------------------------------------------------------------------------- |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                  |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs` | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`    |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                       | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....` |
-| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                    | 19-35   | replacement | `await Init();`                                                             |
+| File                                                                                                             | Lines   | Kind        | First line of the `LOCALTEST` branch                                                         |
+| ---------------------------------------------------------------------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Api.ServiceOwner/Controllers/RequestController.cs` | 453-461 | replacement | `DetailsLink = $"http://am.ui.{_generalSettings....`                                         |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Core/Services/ConsentService.cs`                   | 862-867 | replacement | `return $"http://am.ui.{_generalSettings.Hostname}/accessmanagement/ui/consent/request?i...` |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`     | 25-30   | replacement | `private readonly HttpClient _httpClient;`                                                   |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`     | 42-51   | replacement | `public ResourceRegistryClient(IOptions<PlatformSettings> settings, ...`                     |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                           | 70-73   | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/AccessManagementHost.cs`                           | 168-170 | addition    | `Altinn.AccessManagement.Localtest.LocaltestAccessManagementExtensions....`                  |
+| `src/apps/Altinn.AccessManagement/src/Altinn.AccessManagement/Program.cs`                                        | 19-35   | replacement | `await Init();`                                                                              |
 
 <!-- vendor-sync:end sites -->
 
