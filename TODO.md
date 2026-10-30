@@ -3341,3 +3341,37 @@ Decided by the owner (2026-10-30, verbatim): "GUI should be part of --everything
 we should run the production feature set by default. Try to not think too much about those featues." So the group is
 named `access-management` (the API stays in the default group; the group holds the GUI), `--with everything` includes
 it, and the feature flags are production's (`appsettings.json`, all off), taken as they are without further study.
+
+**Outcome (2026-10-30, task 68; the component README is the reference).** Research first
+([`planned-components/access-management-ui/plan.md`](planned-components/access-management-ui/plan.md)): no blocker
+(no fake, every dependency in the stack, one small .NET process). Then:
+
+- **The component** [`localtest/components/access-management-ui/`](localtest/components/access-management-ui/README.md):
+  upstream `76c599d` vendored blob for blob (tree id upstream's), `local: patches` like Arbeidsflate, since the SPA's
+  change is TypeScript: 0001 the BFF's hooks in `Program.cs` (the shared service-discovery and cookie-policy fakes,
+  `AccessTokenSettings` bound, `RequireHttpsMetadata = false`), 0002 the `amui` platform access token signed with the
+  shared certificate instead of Key Vault's (every component accepts it for any issuer), 0003 the SPA's links follow the
+  page's `am.ui.<host>`; the C# hunks are `#if LOCALTEST` blocks. The image runs `Production` (upstream's `Development`
+  loads Vite's dev server and the mocks), so `appsettings.json`'s feature set: every `MockSettings` switch and feature
+  flag off. Port 8080, health `/health`. Image 151 MB.
+- **The stack**: the optional group `access-management` (the container `access-management-ui`; the API stays in
+  `default`), in `--with everything` and `.WithAccessManagement()`; the subdomain `am.ui` (two labels: the manifest
+  checks in Go and Aspire take dotted subdomains), the front door's host route and its 503 naming the group, studioctl's
+  topology component and `env hosts add`, the Aspire package's hosts. The Resource Registry seeds Access Management's
+  five system resources from tt02, without which the PDP denies `isAdmin` and Access Management every delegation.
+- **The links**: Arbeidsflate's patch 0004 (its "Tilgangsstyring", "who has access" and party switch to `am.ui.<host>`);
+  Access Management's consent and request links on `http://am.ui.<host>:<port>` (two directive sites, `Hostname` with the
+  port in its fakes); studioctl and the Aspire package set the apps' `PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl`
+  (`…/accessmanagement/api/v1/reportee/changeandredirect?partyId={partyId}&goTo={goTo}`) and `…AccessManagementUrl`
+  while the group runs, unset otherwise.
+- **Verified**: the disk (about 2 GB free) did not allow local image builds, so the images workflow built the branch
+  (`sha-099d4e8`) and the stack ran the five changed images at that tag. `--with everything`: root 30/30, the GUI's
+  `smoke-test.sh` 40/40 (sign-in through the picker, parties, roles, `isAdmin` from the PDP, `changeandredirect`, one
+  access package delegated through the GUI's API, read back from Access Management's API, revoked), Resource Registry
+  44/44, Authorization 32/32, Arbeidsflate 59/59, front door 87 and its two known `FAIL`s; the GUI 108 MB, 2350 MB
+  available. `--with access-management` alone: root 29, GUI 40/40, 64 MB. Default: the 503 hint, root 29, front door 86
+  and the known `FAIL`. Minimal: root 26, four skips. In Chromium the GUI listed Sophie Salt's parties and DDG Fitness's
+  users with their roles; the inbox's links opened it signed in. Known gaps: the requests pages (Access Management's
+  request API is behind its own flags at the pin), the system-user pages (Authentication has no Postgres for them), no
+  telemetry. Upstreaming: [`localtest/upstreaming/access-management-ui.md`](localtest/upstreaming/access-management-ui.md)
+  (6 + 2 items), one item each added to Access Management's and Arbeidsflate's lists.
