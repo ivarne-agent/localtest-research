@@ -1,0 +1,78 @@
+localtest: the links the SPA builds follow the page's origin on the stack (plain http on am.ui.<host>): the platform
+(login, logout) and the start page on <host>, the inbox on af.<host>, its own base (changeandredirect, the start page) on
+am.ui.<host>, the port kept. Upstream maps every host it does not know (not tt02, at22, at23, yt01) to production, so
+switching party and logging out went to am.ui.altinn.no and platform.altinn.no. Deployed environments are https and keep
+upstream's code; the info portal's help and news links stay production's.
+Against Altinn/altinn-access-management-frontend 76c599d267c2bb701e75343d07dfe71018285a1a. The Dockerfile's source stage applies every patch (git apply).
+
+--- a/src/resources/utils/pathUtils.tsx
++++ b/src/resources/utils/pathUtils.tsx
+@@ -8,6 +8,13 @@ enum Environment {
+   YT01 = 'yt01',
+ }
+ 
++// localtest: on the stack (plain http on am.ui.<host>) the links follow the page's origin; upstream maps every host
++// it does not know to prod. The page's host without "am.ui." (port included), or undefined anywhere else.
++const getLocaltestHost = (): string | undefined =>
++  window.location.protocol === 'http:' && window.location.host.startsWith('am.ui.')
++    ? window.location.host.slice('am.ui.'.length)
++    : undefined;
++
+ export const getEnv = () => {
+   const host = window.location.host;
+   if (host.includes('tt02')) {
+@@ -30,6 +37,10 @@ export const getAmStartPageUrl = () => {
+ };
+ 
+ export const getAltinnStartPageUrl = (languageOverride?: string) => {
++  const localtestHost = getLocaltestHost(); // localtest: the stack's start page
++  if (localtestHost) {
++    return `http://${localtestHost}/`;
++  }
+   const env = getEnv();
+   const lang = languageOverride ?? getCookie('selectedLanguage');
+   const langKey = lang === 'en' ? 'en/' : lang === 'no_nn' ? 'nn/' : '';
+@@ -51,6 +62,10 @@ export const getAltinnStartPageUrl = (languageOverride?: string) => {
+ };
+ 
+ export const getHostUrl = () => {
++  const localtestHost = getLocaltestHost(); // localtest
++  if (localtestHost) {
++    return `http://${localtestHost}/`;
++  }
+   const env = getEnv();
+   switch (env) {
+     case Environment.TT02:
+@@ -69,6 +84,10 @@ export const getHostUrl = () => {
+ };
+ 
+ export const getAfUrl = () => {
++  const localtestHost = getLocaltestHost(); // localtest
++  if (localtestHost) {
++    return `http://af.${localtestHost}/`;
++  }
+   const env = getEnv();
+   switch (env) {
+     case Environment.TT02:
+@@ -87,6 +106,10 @@ export const getAfUrl = () => {
+ };
+ 
+ export const getPlatformUrl = () => {
++  const localtestHost = getLocaltestHost(); // localtest
++  if (localtestHost) {
++    return `http://${localtestHost}/`;
++  }
+   const env = getEnv();
+   switch (env) {
+     case Environment.TT02:
+@@ -105,6 +128,10 @@ export const getPlatformUrl = () => {
+ };
+ 
+ export const getAmBaseUrl = () => {
++  const localtestHost = getLocaltestHost(); // localtest
++  if (localtestHost) {
++    return `http://am.ui.${localtestHost}/accessmanagement/`;
++  }
+   const env = getEnv();
+   switch (env) {
+     case Environment.TT02:

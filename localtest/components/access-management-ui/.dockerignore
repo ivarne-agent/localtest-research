@@ -1,0 +1,9 @@
+# Upstream has no .dockerignore: its context is the whole checkout. Ours keeps that and leaves out only what a developer's
+# install or build inside vendor/ leaves behind, and the component's own files the image does not need.
+vendor/node_modules
+vendor/playwright/node_modules
+vendor/dist
+vendor/backend/src/*/*/bin
+vendor/backend/src/*/*/obj
+README.md
+smoke-test.sh

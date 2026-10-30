@@ -1,0 +1,20 @@
+<Project>
+  <!--
+    Localtest build overrides for the vendored Access Management GUI's BFF, selected through the DirectoryBuildPropsPath
+    environment variable (see Dockerfile). The nearest vendored props above the project (backend/src/
+    Altinn.AccessManagement.UI/Directory.Build.props, the StyleCop settings) is imported first, what MSBuild itself would
+    have found, then LOCALTEST is layered on top for the #if blocks of the patches (patches/0001, 0002).
+  -->
+  <PropertyGroup>
+    <LocaltestIsVendoredProject>$([System.String]::new('$(MSBuildProjectDirectory)').StartsWith('$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)vendor'))'))</LocaltestIsVendoredProject>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildProjectDirectory)'))" Condition="'$(LocaltestIsVendoredProject)' == 'true'" />
+
+  <PropertyGroup Condition="'$(LocaltestIsVendoredProject)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCALTEST</DefineConstants>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- The vendored ruleset raises documentation, header and ordering rules; the shared fakes compiled into the host are not written to it. -->
+    <NoWarn>$(NoWarn);SA1600;SA1601;SA1602;SA1611;SA1615;SA1201;SA1633;CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

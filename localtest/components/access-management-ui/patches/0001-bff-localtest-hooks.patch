@@ -1,0 +1,39 @@
+localtest: the BFF's two hooks in Program.cs, as #if LOCALTEST blocks (LOCALTEST is defined by localtest.build.props).
+Right after WebApplication.CreateBuilder: the shared service-discovery registration (the platform by service name), the
+shared cookie policy (no Secure on plain http: XSRF-TOKEN, selectedLanguage, the party cookies and a refreshed
+AltinnStudioRuntime are Secure outside Development, which a browser refuses over http) and AccessTokenSettings bound
+(patch 0002 reads the certificate path from it; upstream never binds the section). In the JWT cookie options:
+RequireHttpsMetadata = false, which upstream sets in Development only; the stack's Authentication is plain http and the
+image runs Production (appsettings.json's feature set). The two fakes are copies of components/shared/fakes/.
+Against Altinn/altinn-access-management-frontend 76c599d267c2bb701e75343d07dfe71018285a1a. The Dockerfile's source stage applies every patch (git apply).
+
+--- a/backend/src/Altinn.AccessManagement.UI/Altinn.AccessManagement.UI/Program.cs
++++ b/backend/src/Altinn.AccessManagement.UI/Altinn.AccessManagement.UI/Program.cs
+@@ -37,6 +37,15 @@ ILogger logger;
+ 
+ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+ 
++#if LOCALTEST
++// localtest: the platform's services by name (http://<service>/...) from services__<service>__http__0, a real host (a
++// dot, an IP, localhost) as it is (fakes/ServiceDiscovery); cookies without Secure on plain http (fakes/Cookies); and
++// AccessTokenSettings bound, for the certificate path AccessTokenProvider reads (patch 0002).
++global::Localtest.Shared.ServiceDiscovery.LocaltestServiceDiscovery.AddLocaltestServiceDiscovery(builder.Services);
++global::Localtest.Shared.Cookies.LocaltestCookiePolicy.AddLocaltestCookiePolicy(builder.Services);
++builder.Services.Configure<Altinn.Common.AccessTokenClient.Configuration.AccessTokenSettings>(builder.Configuration.GetSection("AccessTokenSettings"));
++#endif
++
+ string applicationInsightsKeySecretName = "ApplicationInsights--InstrumentationKey";
+ 
+ string applicationInsightsConnectionString = string.Empty;
+@@ -282,6 +291,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
+             {
+                 options.RequireHttpsMetadata = false;
+             }
++#if LOCALTEST
++
++            // localtest: Authentication's OpenID metadata is plain http on the stack, which runs outside Development.
++            options.RequireHttpsMetadata = false;
++#endif
+         });
+ 
+     services.AddAntiforgery(options =>

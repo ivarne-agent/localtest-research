@@ -1,0 +1,22 @@
+localtest: the BFF signs its platform access tokens (issuer amui, app access-management-ui) with the stack's shared test
+certificate, /certs/localtest-accesstoken.pfx from AccessTokenSettings:AccessTokenSigningCertificateFullPath (bound by
+patch 0001), instead of the Key Vault certificate JWTCertificate. Every component's IPublicSigningKeyProvider fake returns
+that certificate for any issuer, so Profile, the Register and Authentication accept the tokens unchanged.
+Against Altinn/altinn-access-management-frontend 76c599d267c2bb701e75343d07dfe71018285a1a. The Dockerfile's source stage applies every patch (git apply).
+
+--- a/backend/src/Altinn.AccessManagement.UI/Altinn.AccessManagement.UI.Core/Services/AccessTokenProvider.cs
++++ b/backend/src/Altinn.AccessManagement.UI/Altinn.AccessManagement.UI.Core/Services/AccessTokenProvider.cs
+@@ -55,7 +55,13 @@ namespace Altinn.AccessManagement.UI.Core.Services
+             {
+                 if (_accessToken == null || _cacheTokenUntil < DateTime.UtcNow)
+                 {
++#if !LOCALTEST
+                     string certBase64 = await _keyVaultService.GetCertificateAsync(_keyVaultSettings.SecretUri, _clientSettings.CertificateName);
++#else
++                    // localtest: the stack's shared signing certificate (AccessTokenSettings:AccessTokenSigningCertificateFullPath,
++                    // /certs/localtest-accesstoken.pfx), which every component accepts for any issuer, instead of Key Vault.
++                    string certBase64 = Convert.ToBase64String(await System.IO.File.ReadAllBytesAsync(_accessTokenSettings.AccessTokenSigningCertificateFullPath));
++#endif
+                     _accessToken = _accessTokenGenerator.GenerateAccessToken(
+                         _clientSettings.Issuer,
+                         _clientSettings.App,
