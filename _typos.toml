@@ -1,3 +1,9 @@
 [default.extend-words]
 # Azure Kubernetes Service, not a typo of "ask".
 aks = "aks"
+# The access package ffor-tilgangsstyrer-nuf (an Altinn identifier), not a typo of "for".
+ffor = "ffor"
+
+[files]
+# The Resource Registry's seed: resources and policies copied verbatim from tt02, Norwegian text included.
+extend-exclude = ["localtest/components/resource-registry/fakes/Seed/"]
