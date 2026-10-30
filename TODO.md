@@ -110,6 +110,7 @@ A path matching no route still falls through to the localtest app.
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 | 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
 | 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`); **67a done** (2026-10-30, commits `2f8a249e`..`d3bbf4a2`, pinned `sha-d3bbf4a`, see section 67; evidence `/home/agent/code/.handover/task67a/`); 67b and 67c in progress | medium | yes |
+| 68 | [The Access Management GUI (am.ui) in the stack](#68-the-access-management-gui-amui-in-the-stack) | unapproved (created at the owner's request 2026-10-30: "yes, write it up as a task"; a research step first, see section 68) | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -3281,3 +3282,60 @@ app's exchanged token `ttd` with Storage 200; minimal root 26 (4 skips), its exc
   unverified; the refusal of a foreign key under each issuer, each checked against that instance's own live keys, is in
   Authentication's log.
 
+## 68. The Access Management GUI (am.ui) in the stack
+
+The owner's question and request (2026-10-30, verbatim): "Are we running access-management gui?" (answer: no; the stack
+runs Access Management's API, the vendored altinn-auth host, and no frontend), then "yes, write it up as a task".
+
+**Today.** The manifest has no container for the GUI. In Altinn it is a separate app, `am.ui.<env>`, from
+[`Altinn/altinn-access-management-frontend`](https://github.com/Altinn/altinn-access-management-frontend) (main
+`76c599d2` on 2026-10-30). Arbeidsflate's links to it go to production `am.ui.altinn.no`
+([`planned-components/dialogporten/arbeidsflate.md`](planned-components/dialogporten/arbeidsflate.md), row 5, patch
+0002 keeps them); Access Management's consent links (`https://am.ui.{Hostname}/…`,
+[`planned-components/service-discovery.md`](planned-components/service-discovery.md)) name a host the stack does not
+serve; studioctl leaves the apps' `AccessManagementChangeAndRedirectUrl` unset (`internal/cmd/app/env.go`,
+`localtest/CONVENTIONS.md`). Delegations and roles can be shown only through the API or the seeded test users' roles.
+
+**What upstream ships** (read from the repository, not yet tried):
+
+- One image (`Dockerfile`): a Vite build of the React SPA served from `wwwroot/accessmanagement/` by a .NET 10 BFF,
+  `Altinn.AccessManagement.UI`, on port 80. The repository also has `Dockerfile.runner`, not examined.
+- The BFF's `PlatformSettings` name the platform APIs it calls: Access Management, Authentication, Authorization,
+  Profile, Register, Dialogporten and the Resource Registry, plus `OpenIdWellKnownEndpoint`; the login is the
+  `AltinnStudioRuntime` cookie (`JwtCookieName`), so the stack's Authentication cookie on `.local.altinn.cloud` should
+  carry over. `GeneralSettings` has `FrontendBaseUrl`, `Hostname` and `AllowedRedirectDomains` (`altinn.no`,
+  `altinn.cloud`, which covers `local.altinn.cloud`).
+- `ClientSettings` (issuer `amui`, app `access-management-ui`, certificate `JWTCertificate` from Key Vault): it signs
+  platform access tokens of its own, which the stack's components must accept (the shared signing certificate, or the
+  issuer added to their trusted issuers).
+- `MockSettings`: about twenty switches that replace each platform client with canned data (`AccessManagement` is on in
+  `appsettings.Development.json`); localtest wants them all off, so the GUI reads the stack's data.
+- `FeatureManagement` flags: off in `appsettings.json`, on in Development; to choose.
+- Other clients not in `PlatformSettings` (the Altinn CDN, Key Vault, the ID-porten authorisations, the system register):
+  to find.
+
+**Work.**
+
+1. **Research** (its own document under `planned-components/access-management-ui/`, the house style of the other
+   plans): build the image as is and run it against the stack (`--dev-*` is not available for a container the manifest
+   lacks, so a scratch manifest entry or a plain `podman run` on `localtest-v2_network`); list every outbound call, the
+   settings each takes, which work against the stack unchanged and which need a directive or a fake under the rules
+   above; the token issuer question; the routes it serves and whether they fit under `am.ui.<host>`; memory (the
+   heaviest containers of the full stack use about 300 MB each, and the 8 GiB machine had about 2.5 GB available with
+   `--with everything` on 2026-10-30); the build time and the image size; whether the SPA hard-codes hosts the way
+   Arbeidsflate's `url.ts` does.
+2. **The component**, after the owner approves the research: `localtest/components/access-management-ui/` with the
+   vendored source, `vendor/UPSTREAM.md`, an image in the images workflow; a manifest container in a new optional group
+   (`access-management-ui`, depending on `access-management` and what the research shows); the front door's subdomain
+   route `am.ui.<host>` (which also needs `studioctl env hosts add` and the Aspire package's hosts, like `af.<host>`);
+   a smoke test (the GUI loads for a test user, lists the user's parties and roles, one delegation round-trip shown in
+   the API afterwards).
+3. **The links**: Arbeidsflate's to Access Management go to `am.ui.<host>` when the group runs (a change to patch 0002,
+   or a directive); Access Management's consent links follow `{Hostname}`; studioctl sets the apps'
+   `AccessManagementChangeAndRedirectUrl` and the Aspire package does the same, when the group runs.
+4. Docs: the group in studioctl's `docs/localtest-v2.md`, the manifest README, `CONVENTIONS.md` (hosts and links), the
+   front door README, the Aspire README, CHANGELOG, and the upstreaming list for anything the GUI needs changed
+   upstream.
+
+Open questions for the owner: whether the GUI belongs in `--with everything`; whether the feature flags follow
+production (off) or Development (on).
