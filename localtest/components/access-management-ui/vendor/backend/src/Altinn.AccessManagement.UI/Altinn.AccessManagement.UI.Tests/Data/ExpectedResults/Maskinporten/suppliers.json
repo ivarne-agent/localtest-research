@@ -1,0 +1,50 @@
+[
+  {
+    "party": {
+      "id": "18d7bf5a-0c7c-4d7f-94e7-6ac09b8b5d01",
+      "partyId": 500101,
+      "name": "Testleverandor AS",
+      "type": "Organization",
+      "unitType": "Enterprise",
+      "organizationIdentifier": "312605031",
+      "dateOfBirth": null,
+      "isDeleted": false,
+      "children": null,
+      "parent": null
+    },
+    "roles": [
+      {
+        "id": "5f9856ac-35bb-4b7c-8db3-7cb549ec23f4",
+        "code": "supplier",
+        "urn": "altinn:role:maskinporten-supplier",
+        "legacyUrn": null,
+        "children": null
+      }
+    ],
+    "connections": []
+  },
+  {
+    "party": {
+      "id": "73deed97-7990-4c9b-86ea-7f48154683c6",
+      "partyId": 500102,
+      "name": "Eksempel Systempartner AS",
+      "type": "Organization",
+      "unitType": "Enterprise",
+      "organizationIdentifier": "910753614",
+      "dateOfBirth": null,
+      "isDeleted": false,
+      "children": null,
+      "parent": null
+    },
+    "roles": [
+      {
+        "id": "5f9856ac-35bb-4b7c-8db3-7cb549ec23f4",
+        "code": "supplier",
+        "urn": "altinn:role:maskinporten-supplier",
+        "legacyUrn": null,
+        "children": null
+      }
+    ],
+    "connections": []
+  }
+]

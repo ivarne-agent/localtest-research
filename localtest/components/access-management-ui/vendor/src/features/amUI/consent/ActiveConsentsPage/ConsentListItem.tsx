@@ -1,0 +1,114 @@
+import React, { useState } from 'react';
+import { Badge, DsSkeleton, List, ListItem } from '@altinn/altinn-components';
+import { HandshakeIcon } from '@navikt/aksel-icons';
+import { useTranslation } from 'react-i18next';
+
+import type { PartyType } from '@/dataObjects/dtos/Party';
+import { getPartyColor } from '@/resources/utils/reporteeUtils';
+
+import classes from './ActiveConsentsPage.module.css';
+
+interface ConsentListItemProps {
+  title: string;
+  subItems: {
+    id: string;
+    title: string;
+    description: string;
+    badgeText: string;
+    isNew?: boolean;
+    consentType: 'altinn' | 'idporten';
+  }[];
+  partyType?: PartyType;
+  isLoading?: boolean;
+  onClick?: (consentId: string, consentType: 'altinn' | 'idporten') => void;
+}
+export const ConsentListItem = ({
+  title,
+  subItems,
+  partyType,
+  isLoading,
+  onClick,
+}: ConsentListItemProps): React.ReactNode => {
+  const { t } = useTranslation();
+  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const partyColor = getPartyColor({ type: partyType });
+
+  return (
+    <ListItem
+      title={{ as: 'h3', children: title }}
+      icon={{
+        svgElement: HandshakeIcon,
+        theme: 'surface',
+        color: partyColor,
+      }}
+      as='button'
+      size='md'
+      loading={isLoading}
+      collapsible
+      expanded={isExpanded}
+      interactive={!!onClick}
+      badge={{ label: subItems.length, color: partyColor }}
+      onClick={() => setIsExpanded((old) => !old)}
+    >
+      <List className={classes.expandedListItem}>
+        {subItems.map((item) => (
+          <ListItem
+            key={item.id}
+            icon={{ svgElement: HandshakeIcon }}
+            title={{ as: 'div', children: item.title }}
+            description={item.description}
+            as='button'
+            ariaLabel={`${item.title} ${item.isNew ? t('active_consents.newly_consented') : ''} ${item.description} ${item.badgeText}`}
+            loading={isLoading}
+            interactive={!!onClick}
+            onClick={onClick ? () => onClick(item.id, item.consentType) : undefined}
+            badge={
+              <div
+                className={classes.consentBadge}
+                aria-hidden
+              >
+                {item.isNew && <Badge label={t('active_consents.newly_consented')} />}
+                <div className={classes.consentBadgeAction}>
+                  {isLoading ? (
+                    <DsSkeleton
+                      variant='text'
+                      width={20}
+                    />
+                  ) : (
+                    <>{item.badgeText}</>
+                  )}
+                </div>
+              </div>
+            }
+            linkIcon
+          />
+        ))}
+      </List>
+    </ListItem>
+  );
+};
+
+export const LoadingListItem = () => {
+  return (
+    <ConsentListItem
+      isLoading
+      title={'xxxxxxxxxxx'}
+      subItems={[
+        {
+          id: '1',
+          title: 'xxxxxxxxxxx',
+          badgeText: 'xxxxxxxxxxx',
+          description: 'xxxxxxxxxxxxxxxxxxxxxx',
+          consentType: 'altinn',
+        },
+        {
+          id: '2',
+          title: 'xxxxxxxxxxx',
+          badgeText: 'xxxxxxxxxxx',
+          description: 'xxxxxxxxxxxxxxxxxxxxxx',
+          consentType: 'altinn',
+        },
+      ]}
+    />
+  );
+};

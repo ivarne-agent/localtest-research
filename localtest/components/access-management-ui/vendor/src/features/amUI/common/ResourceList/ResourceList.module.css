@@ -1,0 +1,43 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.searchAndAdd {
+  display: flex;
+  align-items: center;
+  padding-bottom: var(--ds-size-2);
+  flex-wrap: wrap;
+  gap: var(--ds-size-2);
+}
+
+.expiredSwitch {
+  display: flex;
+  align-items: center;
+}
+.delegationModalButton {
+  margin-left: auto;
+}
+
+.showMoreButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.showMoreButton {
+  width: 100%;
+}
+
+.resourceListContainer {
+  padding-top: var(--ds-size-1);
+}
+
+.resourceListContainer.maxHeight {
+  min-height: 60px;
+  max-height: 282px;
+  overflow-y: auto;
+  overflow-x: visible;
+}

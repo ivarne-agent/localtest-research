@@ -1,0 +1,21 @@
+.consentRights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-size-4);
+  margin-bottom: var(--ds-size-8);
+}
+
+.consentRight {
+  display: flex;
+  flex-direction: row;
+  gap: var(--ds-size-3);
+}
+.consentRightTitle {
+  font-weight: var(--ds-font-weight-semibold);
+}
+.consentRightContent {
+  flex: 1;
+}
+.consentRightIcon {
+  font-size: var(--ds-size-7);
+}

@@ -1,0 +1,72 @@
+import { useTranslation } from 'react-i18next';
+import { DsParagraph } from '@altinn/altinn-components';
+
+import { AccessPackageList } from '@/features/amUI/common/AccessPackageList/AccessPackageList';
+import type { AreaExpandedState } from '@/features/amUI/common/AccessPackageList/useAreaExpandedState';
+import type { PartyEntity } from '@/dataObjects/dtos/Party';
+import type { AccessPackage } from '@/rtk/features/accessPackageApi';
+
+import { useDelegationModalContext } from '../DelegationModalContext';
+import { type DelegationAction } from '../EditModal';
+import { DebouncedSearchField } from '../../DebouncedSearchField/DebouncedSearchField';
+import { AccessPackageInfoPopover } from '../../AccessPackageInfoPopover/AccessPackageInfoPopover';
+
+import classes from './PackageSearch.module.css';
+
+export interface PackageSearchProps {
+  onSelection: (pack: AccessPackage) => void;
+  onActionError: (accessPackage: AccessPackage) => void;
+  toParty?: PartyEntity;
+  availableActions?: DelegationAction[];
+  expandedState?: AreaExpandedState;
+}
+
+export const PackageSearch = ({
+  toParty,
+  onSelection,
+  onActionError,
+  availableActions,
+  expandedState,
+}: PackageSearchProps) => {
+  const { t } = useTranslation();
+  const { searchString, setSearchString, setActionError } = useDelegationModalContext();
+
+  return (
+    toParty && (
+      <div className={classes.container}>
+        <div className={classes.description}>
+          <DsParagraph>{t('delegation_modal.package_delegation_description')}</DsParagraph>
+          <AccessPackageInfoPopover />
+        </div>
+        <search>
+          <div className={classes.searchInputs}>
+            <DebouncedSearchField
+              placeholder={t('access_packages.search_label')}
+              setDebouncedSearchString={setSearchString}
+              initialValue={searchString}
+            />
+          </div>
+          <div className={classes.searchResults}>
+            <AccessPackageList
+              showAllAreas={true}
+              showAllPackages={true}
+              showPackagesCount={true}
+              onSelect={onSelection}
+              searchString={searchString}
+              availableActions={availableActions}
+              expandedState={expandedState}
+              onDelegateError={(accessPackage, errorInfo) => {
+                onActionError(accessPackage);
+                setActionError(errorInfo);
+              }}
+              onRevokeError={(accessPackage, errorInfo) => {
+                onActionError(accessPackage);
+                setActionError(errorInfo);
+              }}
+            />
+          </div>
+        </search>
+      </div>
+    )
+  );
+};

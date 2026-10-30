@@ -1,0 +1,43 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ds-spacing-2);
+}
+
+.infoContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inheritedInfoIcon {
+  color: var(--ds-color-info-base-default);
+  margin-right: 0.3rem;
+  min-width: 1.5rem;
+}
+
+.infoLine {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.infoLine svg {
+  min-width: 24px;
+}
+
+.warningIcon {
+  color: var(--ds-color-warning-base-default);
+  margin-right: 0.3rem;
+}
+
+.deleteRoleButtonContainer {
+  margin-top: var(--ds-spacing-4);
+}

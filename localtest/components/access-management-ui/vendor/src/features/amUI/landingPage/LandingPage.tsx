@@ -1,0 +1,346 @@
+import React, { useEffect, useState } from 'react';
+import {
+  DsHeading,
+  List,
+  ListItem,
+  type MenuItemProps,
+  UserListItem,
+} from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
+import cn from 'classnames';
+
+import { PageWrapper } from '@/components';
+import {
+  useGetIsAdminQuery,
+  useGetIsClientAdminQuery,
+  useGetIsCompanyProfileAdminQuery,
+  useGetIsMaskinportenAdminQuery,
+  useGetReporteeQuery,
+} from '@/rtk/features/userInfoApi';
+import {
+  hasActivityLogPermission,
+  hasConsentPermission,
+  hasReporteeListAdminAccess,
+  hasSystemUserClientAdminPermission,
+  hasCreateSystemUserPermission,
+} from '@/resources/utils/permissionUtils';
+import {
+  getActivityLogMenuItem,
+  getConsentMenuItem,
+  getMaskinportenMenuItem,
+  getPoaOverviewMenuItem,
+  getReporteesMenuItem,
+  getRequestsMenuItem,
+  getClientAdministrationMenuItem,
+  getSettingsMenuItem,
+  getSystemUserMenuItem,
+  getYourClientsMenuItem,
+  getUsersMenuItem,
+  getYourRightsMenuItem,
+} from '@/resources/utils/sidebarConfig';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import { useGetPartyFromLoggedInUserQuery } from '@/rtk/features/lookupApi';
+import {
+  getFormattedDateOfBirthLabel,
+  formatOrgNr,
+  isOrganization,
+  isSubUnit,
+  formatEntityDisplayName,
+  getAvatarType,
+} from '@/resources/utils/reporteeUtils';
+import { useSidebarRequestCount } from '@/resources/hooks/useSidebarRequestCount';
+import { useGetRolePermissionsQuery } from '@/rtk/features/roleApi';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+
+import { PageLayoutWrapper } from '../common/PageLayoutWrapper';
+import { Breadcrumbs } from '../common/Breadcrumbs/Breadcrumbs';
+
+import classes from './LandingPage.module.css';
+import { LandingPageInfoCard } from './LandingPageInfoCard';
+
+export const LandingPage = () => {
+  const { t } = useTranslation();
+  useDocumentTitle(t('landing_page.page_title'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [shouldOpenAccountMenu, setShouldOpenAccountMenu] = useState<boolean>(false);
+  const { data: reportee, isLoading: isLoadingReportee } = useGetReporteeQuery();
+  const { data: isAdmin, isLoading: isLoadingIsAdmin } = useGetIsAdminQuery();
+  const { data: isClientAdmin, isLoading: isLoadingIsClientAdmin } = useGetIsClientAdminQuery();
+  const { data: canAccessSettings, isLoading: isLoadingCanAccessSettings } =
+    useGetIsCompanyProfileAdminQuery();
+  const { data: isMaskinportenAdmin } = useGetIsMaskinportenAdminQuery(undefined, {
+    skip: !isOrganization(reportee),
+  });
+  const { data: currentUser, isLoading: currentUserIsLoading } = useGetPartyFromLoggedInUserQuery();
+  const actingPartyUuid = getCookie('AltinnPartyUuid') ?? '';
+  const isCurrentUserReportee = reportee?.id === currentUser?.id;
+
+  const { requestsBadgeCount, isLoading: isLoadingRequestsBadge } = useSidebarRequestCount({
+    isAdmin,
+    reportee,
+    isCurrentUserReportee,
+    isLoadingPermissions: isLoadingReportee || isLoadingIsAdmin,
+  });
+
+  const reporteeName = formatEntityDisplayName(reportee);
+
+  const { data: roles } = useGetRolePermissionsQuery(
+    {
+      party: currentUser?.id ?? '',
+      from: actingPartyUuid,
+      to: currentUser?.id ?? '',
+    },
+    {
+      skip: !actingPartyUuid || !currentUser?.id || isCurrentUserReportee,
+    },
+  );
+
+  const isAgent = roles?.some((rolePermission) => rolePermission.role.code === 'agent');
+
+  useEffect(() => {
+    // Remove the openAccountMenu query parameter after reading it the first time
+    if (searchParams.has('openAccountMenu')) {
+      setShouldOpenAccountMenu(true);
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('openAccountMenu');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const isLoading =
+    isLoadingReportee ||
+    isLoadingIsAdmin ||
+    isLoadingIsClientAdmin ||
+    isLoadingCanAccessSettings ||
+    currentUserIsLoading;
+
+  const getMenuItems = (): MenuItemProps[] => {
+    if (isLoading) {
+      const loadingMenuItem: MenuItemProps = {
+        icon: {
+          name: 'xxxxx xxxxxxxxx',
+          type: 'person',
+        },
+        title: 'xxxxxxxxxxxxxxx',
+        description: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        href: '',
+        loading: true,
+      };
+      return [loadingMenuItem, loadingMenuItem, loadingMenuItem, loadingMenuItem];
+    }
+
+    const items: MenuItemProps[] = [];
+
+    items.push({
+      ...getUsersMenuItem(),
+      description: isCurrentUserReportee
+        ? t('landing_page.users_item_description_yourself')
+        : t('landing_page.users_item_description', {
+            reportee: reporteeName,
+          }),
+    });
+
+    if (isAdmin) {
+      items.push({
+        ...getPoaOverviewMenuItem(),
+        description: isCurrentUserReportee
+          ? t('landing_page.poa_item_description_yourself')
+          : t('landing_page.poa_item_description', { reportee: reporteeName }),
+      });
+    }
+
+    if (hasReporteeListAdminAccess(reportee, isAdmin, isCurrentUserReportee)) {
+      items.push({
+        ...getReporteesMenuItem(),
+        description: isCurrentUserReportee
+          ? t('landing_page.reportees_item_description_yourself')
+          : t('landing_page.reportees_item_description_org', { reportee: reporteeName }),
+      });
+    }
+
+    if (hasConsentPermission(reportee, isAdmin, isCurrentUserReportee)) {
+      items.push({
+        ...getConsentMenuItem(),
+        description: t('landing_page.consent_item_description'),
+      });
+    }
+    if (isClientAdmin) {
+      items.push({
+        ...getClientAdministrationMenuItem(),
+        description: t('landing_page.client_admin_item_description', { reportee: reporteeName }),
+      });
+    }
+    if (
+      hasCreateSystemUserPermission(reportee, isAdmin) ||
+      hasSystemUserClientAdminPermission(reportee, isClientAdmin)
+    ) {
+      items.push({
+        ...getSystemUserMenuItem(),
+        description: t('landing_page.systemuser_item_description', { reportee: reporteeName }),
+      });
+    }
+    if (isMaskinportenAdmin) {
+      items.push({
+        ...getMaskinportenMenuItem(),
+        description: t('landing_page.maskinporten_item_description'),
+      });
+    }
+    if (hasActivityLogPermission(isAdmin, isMaskinportenAdmin)) {
+      items.push({
+        ...getActivityLogMenuItem(),
+        description: t('landing_page.activity_log_item_description', { reportee: reporteeName }),
+      });
+    }
+    return items;
+  };
+
+  const getRequestCountText = (requestCount: number): string => {
+    const textKey = isCurrentUserReportee
+      ? 'landing_page.new_requests_self'
+      : 'landing_page.new_requests';
+
+    return t(textKey, {
+      reportee: reporteeName,
+      count: requestCount,
+    });
+  };
+
+  const getOtherItems = (): MenuItemProps[] => {
+    const items: MenuItemProps[] = [];
+
+    if (isAdmin) {
+      items.push({
+        ...getRequestsMenuItem(),
+        title: getRequestCountText(isLoadingRequestsBadge ? 0 : requestsBadgeCount),
+        loading: isLoading || isLoadingRequestsBadge,
+      });
+    }
+
+    if (canAccessSettings) {
+      items.push({ ...getSettingsMenuItem(), loading: isLoading });
+    }
+
+    return items;
+  };
+
+  const getYourAccessesItems = () => {
+    const items: MenuItemProps[] = [];
+    items.push({
+      ...getYourRightsMenuItem(
+        currentUser?.id ?? '',
+        formatEntityDisplayName(currentUser),
+        '/',
+        isLoading,
+      ),
+      description: isCurrentUserReportee
+        ? t('landing_page.your_rights_description_yourself')
+        : t('landing_page.your_rights_description', { reportee: reporteeName }),
+    });
+
+    if (!isCurrentUserReportee && isAgent) {
+      items.push({
+        ...getYourClientsMenuItem('/', isLoading),
+        description: t('landing_page.your_clients_description', { reportee: reporteeName }),
+      });
+    }
+
+    return items;
+  };
+
+  const isReporteeSubUnit = isSubUnit(reportee);
+
+  const getReporteeDescription = (): string => {
+    if (isOrganization(reportee) && reportee?.organizationIdentifier) {
+      const orgNrString = `${t('common.org_nr')} ${formatOrgNr(reportee?.organizationIdentifier)}`;
+      if (isReporteeSubUnit) {
+        return `↳ ${orgNrString}, ${t('common.subunit').toLowerCase()}`;
+      }
+      return orgNrString;
+    } else if (reportee?.dateOfBirth) {
+      return getFormattedDateOfBirthLabel(reportee?.dateOfBirth);
+    }
+    return '';
+  };
+
+  return (
+    <PageWrapper>
+      <PageLayoutWrapper openAccountMenu={shouldOpenAccountMenu}>
+        <Breadcrumbs items={['root']} />
+        <div className={classes.landingPage}>
+          <div className={classes.landingPageHeading}>
+            <UserListItem
+              id={reportee?.id ?? ''}
+              type={getAvatarType(reportee)}
+              name={reporteeName}
+              description={getReporteeDescription()}
+              subUnit={isReporteeSubUnit}
+              deleted={reportee?.isDeleted}
+              size='lg'
+              titleAs='h1'
+              loading={!reportee}
+              interactive={false}
+              shadow='none'
+              containerAs='div'
+            />
+          </div>
+          <LandingPageInfoCard
+            isLoading={isLoading}
+            isOrganization={isOrganization(reportee)}
+          />
+          <ListItemContainer
+            heading={t('landing_page.your_content_heading')}
+            items={getYourAccessesItems()}
+            renderAsCards
+          />
+          <ListItemContainer
+            heading={t('landing_page.shortcut_links_heading')}
+            items={getMenuItems()}
+          />
+          {getOtherItems().length > 0 && (
+            <ListItemContainer
+              heading={t('landing_page.other_links_heading')}
+              items={getOtherItems()}
+            />
+          )}
+        </div>
+      </PageLayoutWrapper>
+    </PageWrapper>
+  );
+};
+
+interface ListItemContainerProps {
+  heading: string;
+  items: MenuItemProps[];
+  renderAsCards?: boolean;
+}
+const ListItemContainer = ({ heading, items, renderAsCards = false }: ListItemContainerProps) => {
+  return (
+    <div>
+      <DsHeading
+        level={2}
+        data-size='xs'
+      >
+        {heading}
+      </DsHeading>
+      <List className={cn(classes.listItemContainer, !renderAsCards && classes.menuList)}>
+        {items.map((item, index) => (
+          <ListItem
+            className={cn(renderAsCards && classes.cardItem)}
+            key={`${item.href}-${index}`}
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
+            badge={item.badge}
+            size={'xs'}
+            border='none'
+            shadow={'none'}
+            linkIcon
+            loading={item.loading}
+            as={item.as}
+          />
+        ))}
+      </List>
+    </div>
+  );
+};

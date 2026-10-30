@@ -1,0 +1,34 @@
+.indent {
+  margin-top: 0.3rem;
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.noResultsContent {
+  display: flex;
+  gap: 0.3rem;
+  flex-direction: column;
+  height: 100%;
+  padding-top: var(--ds-spacing-1);
+}
+
+.showMoreButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.showMoreButton {
+  width: 100%;
+}
+
+.inheritingUsers {
+  padding: 0.5rem 1rem;
+}
+
+.editPoasHint {
+  padding-inline: var(--ds-size-2);
+  white-space: nowrap;
+  color: var(--ds-color-text-subtle);
+}

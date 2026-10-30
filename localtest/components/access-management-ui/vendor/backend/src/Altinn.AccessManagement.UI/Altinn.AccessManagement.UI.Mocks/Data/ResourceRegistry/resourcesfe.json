@@ -1,0 +1,960 @@
+[
+  {
+    "title": "Automation Regression",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-136",
+    "description": null,
+    "resourceType": "MaskinportenSchema",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir anledning til a teste maskinporten som en del av automatiserte tester",
+    "resourceReferences": [
+      {
+        "reference": "911f9e93-1541-429d-a8c6-a06f9a52d827",
+        "referenceType": "DelegationSchemeId",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "altinn:test/theworld.write",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "altinn:test/theworld.admin",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "AppId:136",
+        "referenceType": "ServiceCode",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "1",
+        "referenceType": "ServiceEditionCode",
+        "referenceSource": "Altinn2"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-136"
+      }
+    ],
+    "resourceOwnerName": "Skatteetaten",
+    "resourceOwnerOrgcode": "skd",
+    "resourceOwnerOrgNumber": "974761076"
+  },
+  {
+    "title": "Tulleregisteret",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-400",
+    "description": "Tulleregisteret",
+    "resourceType": "MaskinportenSchema",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til tullete ting.",
+    "resourceReferences": [
+      {
+        "reference": "8f08210a-d792-48f5-9e27-0f029e41111e",
+        "referenceType": "DelegationSchemeId",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:paa/v1/luring",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "AppId:400",
+        "referenceType": "ServiceCode",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "1",
+        "referenceType": "ServiceEditionCode",
+        "referenceSource": "Altinn2"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-400"
+      }
+    ],
+    "resourceOwnerName": "PÅFUNNSETATEN",
+    "resourceOwnerOrgcode": "PAA",
+    "resourceOwnerOrgNumber": "985399077"
+  },
+  {
+    "title": "Blomsterhagen",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-401",
+    "description": "Blomsterhagen",
+    "resourceType": "MaskinportenSchema",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til vakre blomster.",
+    "resourceReferences": [
+      {
+        "reference": "8f08210a-d792-48f5-9e27-0f029e41111e",
+        "referenceType": "DelegationSchemeId",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:aareg/v1/arbeidsforhold/otp",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:bfinn/v1/hagen",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "AppId:401",
+        "referenceType": "ServiceCode",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "1",
+        "referenceType": "ServiceEditionCode",
+        "referenceSource": "Altinn2"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-401"
+      }
+    ],
+    "resourceOwnerName": "BLOMSTERFINN",
+    "resourceOwnerOrgcode": "finn",
+    "resourceOwnerOrgNumber": "994598759"
+  },
+  {
+    "title": "Det magiske klesskapet",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-402",
+    "description": "Det magiske klesskapet",
+    "resourceType": "MaskinportenSchema",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til Narnia.",
+    "resourceReferences": [
+      {
+        "reference": "8f08210a-d792-48f5-9e27-0f029e41111e",
+        "referenceType": "DelegationSchemeId",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:nrna/v1/kaape/otp",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:nrna/huset/dettommerommet",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "AppId:402",
+        "referenceType": "ServiceCode",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "1",
+        "referenceType": "ServiceEditionCode",
+        "referenceSource": "Altinn2"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-402"
+      }
+    ],
+    "resourceOwnerName": "NARNIA",
+    "resourceOwnerOrgNumber": "777777777",
+    "resourceOwnerOrgcode": "NRNA"
+  },
+  {
+    "title": "Snarveien",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-403",
+    "description": "Snarveien",
+    "resourceType": "MaskinportenSchema",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til snarveier.",
+    "resourceReferences": [
+      {
+        "reference": "8f08210a-d792-48f5-9e27-0f029e41111e",
+        "referenceType": "DelegationSchemeId",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "nav:paa/v1/snartenkt",
+        "referenceType": "MaskinportenScope",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "AppId:400",
+        "referenceType": "ServiceCode",
+        "referenceSource": "Altinn2"
+      },
+      {
+        "reference": "1",
+        "referenceType": "ServiceEditionCode",
+        "referenceSource": "Altinn2"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-403"
+      }
+    ],
+    "resourceOwnerName": "PÅFUNNSETATEN",
+    "resourceOwnerOrgcode": "PAA",
+    "resourceOwnerOrgNumber": "130000000"
+  },
+  {
+    "title": "Det magiske klesskapet - lenketjeneste",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": [
+      "klesskapet_kw"
+    ],
+    "identifier": "appid-502",
+    "visible": true,
+    "delegable": true,
+    "description": "Det magiske klesskapet",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til Narnia.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-502"
+      }
+    ],
+    "resourceOwnerName": "NARNIA",
+    "resourceOwnerOrgcode": "NRNA",
+    "resourceOwnerOrgNumber": "777777777"
+  },
+  {
+    "title": "Snarveien - lenketjeneste",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-503",
+    "visible": true,
+    "delegable": true,
+    "description": "Snarveien som lenketjeneste",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til snarveier.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-503"
+      }
+    ],
+    "resourceOwnerName": "PÅFUNNSETATEN",
+    "resourceOwnerOrgcode": "PAA",
+    "resourceOwnerOrgNumber": "130000000"
+  },
+  {
+    "title": "A3 app",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "app_ttd_a3-app",
+    "visible": true,
+    "delegable": true,
+    "description": "En Altinn 3 app",
+    "resourceType": "AltinnApp",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til en A3 app.",
+    "resourceReferences": [
+      {
+        "referenceSource": "Altinn3",
+        "reference": "ttd/a3-app",
+        "referenceType": "ApplicationId"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:app",
+        "value": "a3-app"
+      },
+      {
+        "id": "urn:altinn:org",
+        "value": "ttd"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceOwnerOrgNumber": "974760746"
+  },
+  {
+    "title": "A2 skjema",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "se_3225_1596",
+    "visible": true,
+    "delegable": true,
+    "description": "Et Altinn 2 skjema",
+    "resourceType": "Altinn2Service",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til et A2 skjema.",
+    "resourceReferences": [
+      {
+        "referenceSource": "Altinn2",
+        "reference": "3225",
+        "referenceType": "ServiceCode"
+      },
+      {
+        "referenceSource": "Altinn2",
+        "reference": "1596",
+        "referenceType": "ServiceEditionCode"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:servicecode",
+        "value": "3225"
+      },
+      {
+        "id": "urn:altinn:serviceeditioncode",
+        "value": "1596"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceOwnerOrgNumber": "974760746"
+  },
+  {
+    "title": "A3 app 2",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "app_ttd_a3-app2",
+    "visible": true,
+    "delegable": true,
+    "description": "En Altinn 3 app",
+    "resourceType": "AltinnApp",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til en A3 app.",
+    "resourceReferences": [
+      {
+        "referenceSource": "Altinn3",
+        "reference": "ttd/a3-app2",
+        "referenceType": "ApplicationId"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:app",
+        "value": "a3-app2"
+      },
+      {
+        "id": "urn:altinn:org",
+        "value": "ttd"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceOwnerOrgNumber": "974760746"
+  },
+  {
+    "title": "A2 skjema 2",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "se_322a_159b",
+    "visible": true,
+    "delegable": true,
+    "description": "Et Altinn 2 skjema",
+    "resourceType": "Altinn2Service",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til et A2 skjema.",
+    "resourceReferences": [
+      {
+        "referenceSource": "Altinn2",
+        "reference": "322a",
+        "referenceType": "ServiceCode"
+      },
+      {
+        "referenceSource": "Altinn2",
+        "reference": "159b",
+        "referenceType": "ServiceEditionCode"
+      }
+    ],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:servicecode",
+        "value": "322a"
+      },
+      {
+        "id": "urn:altinn:serviceeditioncode",
+        "value": "159b"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceOwnerOrgNumber": "974760746"
+  },
+  {
+    "title": "Brannbilen i Brønnøysund",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-508",
+    "visible": true,
+    "delegable": true,
+    "description": "Brannbilen - det er bare én ja",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til brannbilen.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-508"
+      }
+    ],
+    "resourceOwnerName": "Brannvesenet",
+    "resourceOwnerOrgcode": "FD",
+    "resourceOwnerOrgNumber": "110110110"
+  },
+  {
+    "title": "Kaffemaskinen i 4. etasje",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-509",
+    "visible": true,
+    "delegable": true,
+    "description": "Barista, mazagran and sit barista mazagran, trifecta roast sweet single origin froth. French press, and cinnamon, eu beans ristretto, viennese, and crema roast decaffeinated whipped. Extraction sweet as trifecta java half and half crema rich arabica. Rich, instant, to go sugar macchiato froth, mug macchiato wings iced pumpkin spice.",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til kaffemaskinen.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-509"
+      }
+    ],
+    "resourceOwnerName": "ØkernPortal",
+    "resourceOwnerOrgcode": "okp",
+    "resourceOwnerOrgNumber": "904111111"
+  },
+  {
+    "title": "DigDir WiFi",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-510",
+    "visible": true,
+    "delegable": true,
+    "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus orci turpis, vehicula a dignissim eget, condimentum at diam. Etiam iaculis, purus vel venenatis condimentum, lectus arcu tempor est, et tempor lorem elit ut nunc. Donec eu bibendum leo. Ut ac dolor erat. Vestibulum posuere fringilla iaculis",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Her er en beskrivelse.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-510"
+      }
+    ],
+    "resourceOwnerName": "Digitaliseringsdirektoratet",
+    "resourceOwnerOrgcode": "digdir",
+    "resourceOwnerOrgNumber": "991825827"
+  },
+  {
+    "title": "DigDir Sommerfest",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-511",
+    "visible": true,
+    "delegable": false,
+    "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus orci turpis, vehicula a dignissim eget, condimentum at diam. Etiam iaculis, purus vel venenatis condimentum, lectus arcu tempor est, et tempor lorem elit ut nunc. Donec eu bibendum leo. Ut ac dolor erat. Vestibulum posuere fringilla iaculis",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Her er en beskrivelse.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-511"
+      }
+    ],
+    "resourceOwnerName": "Digitaliseringsdirektoratet",
+    "resourceOwnerOrgcode": "digdir",
+    "resourceOwnerOrgNumber": "991825827"
+  },
+  {
+    "title": "Lønningsoversikt",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-512",
+    "visible": true,
+    "delegable": true,
+    "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus orci turpis, vehicula a dignissim eget, condimentum at diam. Etiam iaculis, purus vel venenatis condimentum, lectus arcu tempor est, et tempor lorem elit ut nunc. Donec eu bibendum leo. Ut ac dolor erat. Vestibulum posuere fringilla iaculis",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Her er en beskrivelse.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-512"
+      }
+    ],
+    "resourceOwnerName": "Digitaliseringsdirektoratet",
+    "resourceOwnerOrgcode": "digdir",
+    "resourceOwnerOrgNumber": "991825827"
+  },
+  {
+    "title": "Inngangsdøra på kontoret",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "appid-513",
+    "visible": true,
+    "delegable": true,
+    "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus orci turpis, vehicula a dignissim eget, condimentum at diam. Etiam iaculis, purus vel venenatis condimentum, lectus arcu tempor est, et tempor lorem elit ut nunc. Donec eu bibendum leo. Ut ac dolor erat. Vestibulum posuere fringilla iaculis",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Her er en beskrivelse.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-513"
+      }
+    ],
+    "resourceOwnerName": "Digitaliseringsdirektoratet",
+    "resourceOwnerOrgcode": "digdir",
+    "resourceOwnerOrgNumber": "991825827"
+  },
+  {
+    "identifier": "jks-test-resource",
+    "title": "JK's Test Ressurs",
+    "description": "Veldig fin test ressurs",
+    "rightDescription": "Du gir tilgang til denne fine test ressursen",
+    "homepage": null,
+    "status": "Active",
+    "spatial": null,
+    "contactPoints": [],
+    "delegable": true,
+    "visible": true,
+    "resourceOwnerName": "JK's Test departement",
+    "resourceOwnerOrgNumber": "991825827",
+    "resourceOwnerLogoUrl": "https://altinncdn.no/img/illustration-help-circle.svg",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceReferences": [],
+    "priorityCounter": null,
+    "resourceType": "GenericAccessResource",
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "jks-test-resource"
+      }
+    ],
+    "keywords": []
+  },
+  {
+    "identifier": "ske-innrapportering-boligsameie",
+    "title": "Innrapportering Boligsameie",
+    "description": "Sameier med 9 eller flere boligseksjoner skal levere opplysninger om sameiers andel av felles inntekter, utgifter, formue og gjeld. Det er vanligvis sameiets styre eller forretningsfører som leverer opplysningene.",
+    "rightDescription": "Delegering av denne tjenesten gir andre mulighet til å rapportere opplysninger om boligsameie på vegne av deg.",
+    "homepage": null,
+    "status": "Completed",
+    "spatial": null,
+    "contactPoints": [
+      {
+        "category": "Innrapportering",
+        "email": "",
+        "telephone": "",
+        "contactPage": "www.skatteetaten.no"
+      }
+    ],
+    "delegable": true,
+    "visible": true,
+    "resourceOwnerName": "Skatteetaten",
+    "resourceOwnerOrgNumber": "974761076",
+    "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/skd/skd.png",
+    "resourceOwnerOrgcode": "skd",
+    "resourceReferences": [],
+    "priorityCounter": null,
+    "resourceType": "GenericAccessResource",
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "ske-innrapportering-boligsameie"
+      }
+    ],
+    "keywords": [
+      "Boligsameie",
+      "innrapportering"
+    ]
+  },
+  {
+    "identifier": "appid-520",
+    "title": "Ressurs uten eiernavn",
+    "description": "Testressurs uten eiernavn i ressursregisteret.",
+    "rightDescription": "Delegering gir tilgang selv om eiernavn mangler.",
+    "homepage": null,
+    "status": "Active",
+    "spatial": null,
+    "contactPoints": [],
+    "delegable": true,
+    "visible": true,
+    "resourceOwnerName": null,
+    "resourceOwnerOrgNumber": "123456789",
+    "resourceOwnerLogoUrl": null,
+    "resourceOwnerOrgcode": "zzzdemo",
+    "resourceReferences": [],
+    "priorityCounter": null,
+    "resourceType": "MaskinportenSchema",
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "appid-520"
+      }
+    ],
+    "keywords": []
+  },
+  {
+    "title": "Arkivert tjeneste - MigratedApp",
+    "identifier": "migratedapp-test-resource",
+    "visible": true,
+    "delegable": true,
+    "description": "En arkivert MigratedApp-ressurs",
+    "rightDescription": "Gir tilgang til arkiverte data",
+    "resourceType": "MigratedApp",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "migratedapp-test-resource"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "TTD",
+    "resourceOwnerOrgNumber": "974760746",
+    "keywords": []
+  },
+  {
+    "title": "Arkivert tjeneste - MigratedCorrespondence",
+    "identifier": "migratedcorrespondence-test-resource",
+    "status": "Deprecated",
+    "visible": true,
+    "delegable": true,
+    "description": "En arkivert korrespondanseressurs",
+    "rightDescription": "Gir tilgang til arkiverte korrespondansedata",
+    "resourceType": "GenericAccessResource",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "migratedcorrespondence-test-resource"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "TTD",
+    "resourceOwnerOrgNumber": "974760746",
+    "keywords": []
+  },
+  {
+    "title": "Aktiv tjeneste - MigratedCorrespondence",
+    "identifier": "migratedcorrespondence-active-resource",
+    "status": "Active",
+    "visible": true,
+    "delegable": true,
+    "description": "En aktiv korrespondanseressurs",
+    "rightDescription": "Gir tilgang til korrespondansedata",
+    "resourceType": "GenericAccessResource",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "migratedcorrespondence-active-resource"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "TTD",
+    "resourceOwnerOrgNumber": "974760746",
+    "keywords": []
+  },
+  {
+    "title": "GSI - Administrasjon",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "gsi-administrasjon",
+    "visible": true,
+    "delegable": true,
+    "description": "Nasjonalt register for geografisk stedfestet informasjon.",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til GSI.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "gsi-administrasjon"
+      }
+    ],
+    "resourceOwnerName": "Digitaliseringsdirektoratet",
+    "resourceOwnerOrgcode": "digdir",
+    "resourceOwnerOrgNumber": "991825827"
+  },
+  {
+    "title": "Regnskapstjenester for kommuner",
+    "sector": null,
+    "status": null,
+    "contactPoints": [
+      {
+        "category": "Some category",
+        "email": "email@someemaildigdir.no",
+        "telephone": "12345678",
+        "contactPage": "Some page (webpage maybe?)"
+      }
+    ],
+    "homepage": null,
+    "isPartOf": null,
+    "keywords": null,
+    "identifier": "regnskap-bergsiden",
+    "visible": true,
+    "delegable": true,
+    "description": "Dekker regnskap og logistikk for Bergsiden-området i kommunen.",
+    "resourceType": "Default",
+    "thematicArea": null,
+    "isPublicService": true,
+    "rightDescription": "Gir tilgang til regnskapsdata.",
+    "resourceReferences": [],
+    "authorizationReference": [
+      {
+        "id": "urn:altinn:resource",
+        "value": "regnskap-bergsiden"
+      }
+    ],
+    "resourceOwnerName": "Testdepartementet",
+    "resourceOwnerOrgcode": "ttd",
+    "resourceOwnerOrgNumber": "974760746"
+  }
+]

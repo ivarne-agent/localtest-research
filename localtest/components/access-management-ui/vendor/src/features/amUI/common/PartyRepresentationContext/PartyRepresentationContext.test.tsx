@@ -1,0 +1,625 @@
+import React from 'react';
+import { describe, expect, test, vi, beforeEach } from 'vitest';
+import { screen, render, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import { MemoryRouter } from 'react-router';
+
+import { PartyType } from '@/dataObjects/dtos/Party';
+import * as lookupApi from '@/rtk/features/lookupApi';
+import * as userInfoApi from '@/rtk/features/userInfoApi';
+import * as accessPackageApi from '@/rtk/features/accessPackageApi';
+import * as connectionApi from '@/rtk/features/connectionApi';
+import type { PartyEntity } from '@/dataObjects/dtos/Party';
+import { useGetRightHoldersQuery, type Connection } from '@/rtk/features/connectionApi';
+
+import { useReporteeParty } from './useReporteeParty';
+import { useConnectedParty } from './useConnectedParty';
+import { PartyRepresentationProvider, usePartyRepresentation } from './PartyRepresentationContext';
+
+// Mock the API modules
+vi.mock('@/rtk/features/lookupApi', async () => {
+  const actual = await vi.importActual('@/rtk/features/lookupApi');
+  return {
+    ...actual,
+    useGetPartyFromLoggedInUserQuery: vi.fn(),
+  };
+});
+
+vi.mock('@/rtk/features/userInfoApi', async () => {
+  const actual = await vi.importActual('@/rtk/features/userInfoApi');
+  return {
+    ...actual,
+    useGetReporteeQuery: vi.fn(),
+  };
+});
+
+vi.mock('./useReporteeParty', () => {
+  const mockUseReporteeParty = vi.fn();
+  return {
+    useReporteeParty: mockUseReporteeParty,
+    default: mockUseReporteeParty,
+  };
+});
+
+vi.mock('./useConnectedParty', () => {
+  const mockUseConnectedParty = vi.fn();
+  return {
+    useConnectedParty: mockUseConnectedParty,
+    default: mockUseConnectedParty,
+  };
+});
+
+vi.mock('@/rtk/features/connectionApi', async () => {
+  const actual = await vi.importActual('@/rtk/features/connectionApi');
+  return {
+    ...actual,
+    useGetRightHoldersQuery: vi.fn(),
+  };
+});
+
+vi.mock('@/resources/Cookie/CookieMethods', () => ({
+  getCookie: vi.fn((name: string) => {
+    if (name === 'AltinnPartyUuid') return 'acting-party-uuid';
+    if (name === 'AltinnPartyId') return '12345';
+    return null;
+  }),
+}));
+
+// Test component that uses the context
+const TestConsumer = () => {
+  const context = usePartyRepresentation();
+  return (
+    <div>
+      <div data-testid='from-party'>{context.fromParty?.name || 'none'}</div>
+      <div data-testid='to-party'>{context.toParty?.name || 'none'}</div>
+      <div data-testid='acting-party'>{context.actingParty?.name || 'none'}</div>
+      <div data-testid='self-party'>{context.selfParty?.name || 'none'}</div>
+      <div data-testid='is-loading'>{context.isLoading ? 'true' : 'false'}</div>
+      <div data-testid='is-error'>{context.isError ? 'true' : 'false'}</div>
+    </div>
+  );
+};
+
+// Mock data
+const mockCurrentUser: PartyEntity = {
+  id: 'current-user-uuid',
+  partyId: 123,
+  name: 'Current User',
+  type: PartyType.Person,
+  isDeleted: false,
+};
+
+const mockReporteeParty: PartyEntity = {
+  id: 'reportee-party-uuid',
+  partyId: 456,
+  name: 'Reportee Organization',
+  type: PartyType.Organization,
+  organizationIdentifier: '987654321',
+  isDeleted: false,
+};
+
+const mockConnectedParty: PartyEntity = {
+  id: 'connected-party-uuid',
+  partyId: 789,
+  name: 'Connected Party',
+  type: PartyType.Organization,
+  organizationIdentifier: '123456789',
+  isDeleted: false,
+};
+
+const mockConnection: Connection = {
+  party: {
+    id: 'connected-party-uuid',
+    name: 'Connected Party',
+    type: PartyType.Organization,
+    isDeleted: false,
+    children: null,
+    organizationIdentifier: '123456789',
+  },
+  roles: [],
+  connections: [],
+};
+
+const createMockStore = () => {
+  return configureStore({
+    reducer: {
+      [lookupApi.lookupApi.reducerPath]: lookupApi.lookupApi.reducer,
+      [userInfoApi.userInfoApi.reducerPath]: userInfoApi.userInfoApi.reducer,
+      [accessPackageApi.accessPackageApi.reducerPath]: accessPackageApi.accessPackageApi.reducer,
+      [connectionApi.connectionApi.reducerPath]: connectionApi.connectionApi.reducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().concat(
+        lookupApi.lookupApi.middleware,
+        userInfoApi.userInfoApi.middleware,
+        accessPackageApi.accessPackageApi.middleware,
+        connectionApi.connectionApi.middleware,
+      ),
+  });
+};
+
+const renderWithProvider = (
+  ui: React.ReactElement,
+  {
+    fromPartyUuid,
+    toPartyUuid,
+    actingPartyUuid,
+    loadingComponent,
+  }: {
+    fromPartyUuid?: string;
+    toPartyUuid?: string;
+    actingPartyUuid: string;
+    loadingComponent?: React.ReactElement;
+  },
+) => {
+  const store = createMockStore();
+  return render(
+    <MemoryRouter>
+      <Provider store={store}>
+        <PartyRepresentationProvider
+          fromPartyUuid={fromPartyUuid}
+          toPartyUuid={toPartyUuid}
+          actingPartyUuid={actingPartyUuid}
+          loadingComponent={loadingComponent}
+        >
+          {ui}
+        </PartyRepresentationProvider>
+      </Provider>
+    </MemoryRouter>,
+  );
+};
+
+describe('PartyRepresentationProvider - Acting Party Logic', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Set default mocks for useReporteeParty and useConnectedParty
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    // Set default mock for useGetReporteeQuery
+    vi.mocked(userInfoApi.useGetReporteeQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+  });
+
+  test('should throw error when neither fromPartyUuid nor toPartyUuid is provided', () => {
+    const store = createMockStore();
+    expect(() =>
+      render(
+        <Provider store={store}>
+          <PartyRepresentationProvider
+            actingPartyUuid='some-uuid'
+            fromPartyUuid={undefined}
+            toPartyUuid={undefined}
+          >
+            <div>Test</div>
+          </PartyRepresentationProvider>
+        </Provider>,
+      ),
+    ).toThrow('PartyRepresentationProvider must be used with at least one party UUID');
+  });
+
+  test('should throw error when actingPartyUuid is not provided', () => {
+    const store = createMockStore();
+    expect(() =>
+      render(
+        <Provider store={store}>
+          <PartyRepresentationProvider
+            actingPartyUuid=''
+            fromPartyUuid='from-uuid'
+            toPartyUuid={undefined}
+          >
+            <div>Test</div>
+          </PartyRepresentationProvider>
+        </Provider>,
+      ),
+    ).toThrow('PartyRepresentationProvider must be used with an acting party UUID');
+  });
+
+  test('should throw error when actingPartyUuid does not match fromPartyUuid or toPartyUuid', () => {
+    const store = createMockStore();
+    expect(() =>
+      render(
+        <Provider store={store}>
+          <PartyRepresentationProvider
+            actingPartyUuid='different-uuid'
+            fromPartyUuid='from-uuid'
+            toPartyUuid='to-uuid'
+          >
+            <div>Test</div>
+          </PartyRepresentationProvider>
+        </Provider>,
+      ),
+    ).toThrow('actingPartyUuid must equal one of the provided party UUIDs');
+  });
+
+  test('Case 1: User on their own page and NOT hovedadmin - actingParty should be currentUser', async () => {
+    // Mock current user
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    // Mock useReporteeParty - not needed in this case
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+    });
+
+    // Mock connections
+    vi.mocked(useGetRightHoldersQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      toPartyUuid: mockCurrentUser.id,
+      actingPartyUuid: mockCurrentUser.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('acting-party')).toHaveTextContent('Current User');
+      expect(screen.getByTestId('self-party')).toHaveTextContent('Current User');
+      expect(screen.getByTestId('is-loading')).toHaveTextContent('false');
+    });
+  });
+
+  test('Case 2: empty connections are handled by regular error handling', async () => {
+    const mockReporteeInfo = {
+      id: mockReporteeParty.id,
+      name: mockReporteeParty.name,
+      type: PartyType.Organization,
+      organizationIdentifier: '987654321',
+      partyId: 456,
+      isDeleted: false,
+      onlyHierarchyElementWithNoAccess: false,
+      authorizedResources: [],
+      authorizedRoles: [],
+    };
+
+    // Mock current user
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    // Mock useGetReporteeQuery - returns the reportee info
+    vi.mocked(userInfoApi.useGetReporteeQuery).mockReturnValue({
+      data: mockReporteeInfo,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    // Mock useReporteeParty - acting on behalf of reportee
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: mockReporteeParty,
+      isLoading: false,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    // Return empty connections to simulate unsynced connection
+    vi.mocked(connectionApi.useGetRightHoldersQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: mockReporteeParty.id,
+      toPartyUuid: mockCurrentUser.id,
+      actingPartyUuid: mockReporteeParty.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('from-party')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('to-party')).not.toBeInTheDocument();
+      expect(screen.getByRole('link')).toHaveAttribute('href', '/');
+    });
+  });
+
+  test('Case 3: Acting party UUID matches current user - actingParty should be currentUser', async () => {
+    // Mock current user
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    // Mock useReporteeParty - not needed in this case
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+    });
+
+    // Mock useConnectedParty for the "to" party
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: mockConnectedParty,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    // Mock connections
+    vi.mocked(useGetRightHoldersQuery).mockReturnValue({
+      data: [mockConnection],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: mockCurrentUser.id,
+      toPartyUuid: 'other-party-uuid',
+      actingPartyUuid: mockCurrentUser.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('acting-party')).toHaveTextContent('Current User');
+      expect(screen.getByTestId('from-party')).toHaveTextContent('Current User');
+    });
+  });
+
+  test('Case 4: Acting on behalf of another party (reportee) - actingParty should be reportee', async () => {
+    // Mock current user (different from acting party)
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    // Mock useReporteeParty - returns the reportee party
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: mockReporteeParty,
+      isLoading: false,
+      error: undefined,
+    });
+
+    // Mock useConnectedParty for the "to" party
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: mockConnectedParty,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    // Mock connections - reportee connection
+    const reporteeConnection: Connection = {
+      party: {
+        id: mockReporteeParty.id,
+        name: mockReporteeParty.name,
+        type: PartyType.Organization,
+        isDeleted: false,
+        children: null,
+        organizationIdentifier: '987654321',
+      },
+      roles: [],
+      connections: [],
+    };
+
+    vi.mocked(useGetRightHoldersQuery).mockReturnValue({
+      data: [reporteeConnection],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: mockReporteeParty.id,
+      toPartyUuid: 'other-party-uuid',
+      actingPartyUuid: mockReporteeParty.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('acting-party')).toHaveTextContent('Reportee Organization');
+      expect(screen.getByTestId('from-party')).toHaveTextContent('Reportee Organization');
+      expect(screen.getByTestId('is-loading')).toHaveTextContent('false');
+    });
+  });
+
+  test('Case 5: fromParty equals actingParty when fromPartyUuid matches actingPartyUuid', async () => {
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: mockConnectedParty,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    vi.mocked(connectionApi.useGetRightHoldersQuery).mockReturnValue({
+      data: [mockConnection],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: mockCurrentUser.id,
+      toPartyUuid: 'other-party-uuid',
+      actingPartyUuid: mockCurrentUser.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('from-party')).toHaveTextContent('Current User');
+      expect(screen.getByTestId('acting-party')).toHaveTextContent('Current User');
+    });
+  });
+
+  test('Case 6: toParty equals actingParty when toPartyUuid matches actingPartyUuid', async () => {
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: mockConnectedParty,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    vi.mocked(connectionApi.useGetRightHoldersQuery).mockReturnValue({
+      data: [mockConnection],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: 'other-party-uuid',
+      toPartyUuid: mockCurrentUser.id,
+      actingPartyUuid: mockCurrentUser.id,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('to-party')).toHaveTextContent('Current User');
+      expect(screen.getByTestId('acting-party')).toHaveTextContent('Current User');
+    });
+  });
+
+  test('should show loading state while data is being fetched', async () => {
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isSuccess: false,
+      isError: false,
+    } as any);
+
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: undefined,
+      isLoading: true,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    vi.mocked(useGetRightHoldersQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isSuccess: false,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: 'from-uuid',
+      toPartyUuid: 'to-uuid',
+      actingPartyUuid: 'from-uuid',
+      loadingComponent: <div data-testid='loading-state'>loading</div>,
+    });
+
+    expect(screen.getByTestId('loading-state')).toBeInTheDocument();
+    expect(screen.queryByTestId('is-loading')).toBeNull();
+  });
+
+  test('usePartyRepresentation hook should throw error when used outside provider', () => {
+    // Suppress console.error for this test
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() => render(<TestConsumer />)).toThrow(
+      'usePartyRepresentation must be used within a PartyRepresentationProvider',
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  test('should handle empty connections through regular error handling', async () => {
+    vi.mocked(lookupApi.useGetPartyFromLoggedInUserQuery).mockReturnValue({
+      data: mockCurrentUser,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    vi.mocked(useReporteeParty).mockReturnValue({
+      party: mockReporteeParty,
+      isLoading: false,
+      error: undefined,
+    });
+
+    vi.mocked(useConnectedParty).mockReturnValue({
+      party: undefined,
+      isLoading: false,
+      error: undefined,
+      isError: false,
+    });
+
+    // Return empty connections to simulate invalid connection
+    vi.mocked(connectionApi.useGetRightHoldersQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+    } as any);
+
+    renderWithProvider(<TestConsumer />, {
+      fromPartyUuid: 'invalid-from-uuid',
+      toPartyUuid: 'invalid-to-uuid',
+      actingPartyUuid: 'invalid-from-uuid',
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('from-party')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('to-party')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('acting-party')).not.toBeInTheDocument();
+      expect(screen.getByRole('link')).toHaveAttribute('href', '/');
+    });
+  });
+});

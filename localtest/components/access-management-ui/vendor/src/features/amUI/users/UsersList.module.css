@@ -1,0 +1,73 @@
+.inheritingRightHoldersList {
+  margin: 0.5rem;
+  margin-right: 0;
+}
+
+.usersListItems {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.usersList {
+  padding: 1rem 0;
+}
+
+.searchBar {
+  max-width: 23rem;
+}
+
+.searchAndNewUserContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-spacing-2);
+  width: 100%;
+}
+
+.searchAndAddUser {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 15px;
+}
+
+.filtersContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.noAccessContainer {
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .searchAndAddUser {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .searchControls {
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .filtersContainer {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+}

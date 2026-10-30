@@ -1,0 +1,192 @@
+[
+  {
+    "systemId": "910493353_fiken_demo_product",
+    "systemVendorOrgNumber": "910493353",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Fiken",
+      "nb": "Fiken",
+      "nn": "Fiken"
+    },
+    "description": {
+      "en": "Fiken",
+      "nb": "Fiken",
+      "nn": "Fiken"
+    },
+    "rights": [
+      {
+        "resource": [
+          {
+            "id": "urn:altinn:resource",
+            "value": "ske-innrapportering-boligsameie"
+          }
+        ]
+      },
+      {
+        "resource": [
+          {
+            "id": "urn:altinn:resource",
+            "value": "app_ttd_a3-app"
+          }
+        ]
+      }
+    ],
+    "accessPackages": [
+      {
+        "urn": "urn:altinn:accesspackage:sjofart"
+      },
+      {
+        "urn": "urn:altinn:accesspackage:baerekraft"
+      }
+    ],
+    "isVisible": true
+  },
+  {
+    "systemId": "310144827_smartcloud",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "SmartCloud",
+      "nb": "SmartCloud",
+      "nn": "Smart SKY"
+    },
+    "description": {
+      "en": "SmartCloud Rocks",
+      "nb": "SmartCloud er verdens beste system.",
+      "nn": "SmartSky er vestlandets beste system"
+    },
+    "rights": [
+      {
+        "resource": [
+          {
+            "id": "urn:altinn:resource",
+            "value": "ske-innrapportering-boligsameie"
+          }
+        ]
+      }
+    ],
+    "isVisible": true
+  },
+  {
+    "systemId": "310144827_invalid_resource",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Invalid resource",
+      "nb": "Invalid resource",
+      "nn": "Invalid resource"
+    },
+    "description": {
+      "en": "Invalid resource",
+      "nb": "Invalid resource",
+      "nn": "Invalid resource"
+    },
+    "rights": [
+      {
+        "resource": [
+          {
+            "id": "urn:altinn:resource",
+            "value": "ske-innrapportering-boligsameie"
+          }
+        ]
+      },
+      {
+        "resource": [
+          {
+            "id": "urn:altinn:resource",
+            "value": "invalid-resource-not-returned"
+          }
+        ]
+      }
+    ],
+    "isVisible": true
+  },
+  {
+    "systemId": "310144827_bare_tilgangspakke",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Accesspackage without resource",
+      "nb": "Accesspackage without resource",
+      "nn": "Accesspackage without resource"
+    },
+    "description": {
+      "en": "Accesspackage without resource",
+      "nb": "Accesspackage without resource",
+      "nn": "Accesspackage without resource"
+    },
+    "rights": [],
+    "accessPackages": [
+      {
+        "urn": "urn:altinn:accesspackage:baerekraft"
+      }
+    ],
+    "isVisible": true
+  },
+  {
+    "systemId": "unimicro_demo_product",
+    "systemVendorOrgNumber": "925141623",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Unimicro klientdelegering REGN",
+      "nb": "Unimicro klientdelegering REGN",
+      "nn": "Unimicro klientdelegering REGN"
+    },
+    "description": {
+      "en": "Unimicro klientdelegering REGN",
+      "nb": "Unimicro klientdelegering REGN",
+      "nn": "Unimicro klientdelegering REGN"
+    },
+    "rights": [],
+    "accessPackages": [
+      {
+        "urn": "urn:altinn:accesspackage:regnskapsforer-med-signeringsrettighet"
+      }
+    ],
+    "isVisible": false
+  },
+  {
+    "systemId": "lucalabs_demo_product",
+    "systemVendorOrgNumber": "918098372",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Luca Regnskap klientdelegering REVI",
+      "nb": "Luca Regnskap klientdelegering REVI",
+      "nn": "Luca Regnskap klientdelegering REVI"
+    },
+    "description": {
+      "en": "Luca Regnskap klientdelegering REVI",
+      "nb": "Luca Regnskap klientdelegering REVI",
+      "nn": "Luca Regnskap klientdelegering REVI"
+    },
+    "rights": [],
+    "accessPackages": [
+      {
+        "urn": "urn:altinn:accesspackage:ansvarlig-revisor"
+      }
+    ],
+    "isVisible": false
+  },
+  {
+    "systemId": "ff_system",
+    "systemVendorOrgNumber": "918098372",
+    "systemVendorOrgName": "",
+    "name": {
+      "en": "Forretningsfører-system",
+      "nb": "Forretningsfører-system",
+      "nn": "Forretningsfører-system"
+    },
+    "description": {
+      "en": "Forretningsfører-system",
+      "nb": "Forretningsfører-system",
+      "nn": "Forretningsfører-system"
+    },
+    "rights": [],
+    "accessPackages": [
+      {
+        "urn": "urn:altinn:accesspackage:forretningsforer-eiendom"
+      }
+    ],
+    "isVisible": false
+  }
+]

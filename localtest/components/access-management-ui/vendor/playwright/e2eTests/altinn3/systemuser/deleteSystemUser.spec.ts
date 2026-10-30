@@ -1,0 +1,58 @@
+import { expect, test } from 'playwright/fixture/pomFixture';
+
+import { systemUserOwners } from './testdata';
+const owner = systemUserOwners.deletion;
+const vendorOrgNumber = '310736007';
+const testUserPid = owner.pid;
+const testOrgName = owner.name;
+
+test.describe('System user deletion', () => {
+  let systemId: string;
+
+  test.beforeEach(async ({ api, login, systemUserPage, accessManagementFrontPage }) => {
+    systemId = '';
+
+    await test.step('Login and navigate to application', async () => {
+      await login.LoginToAccessManagement(testUserPid);
+      await login.selectActor(testOrgName);
+    });
+
+    await test.step('Create system in system register', async () => {
+      systemId = await api.systemUsers.createSystemSystemRegister(vendorOrgNumber);
+    });
+
+    await test.step('Navigate to system user page and create system user', async () => {
+      await accessManagementFrontPage.systemUserMenuLink.click();
+      // this is assigned as a text in code base, will just add more confusion to import that than hardcoding this here
+      await systemUserPage.createSystemUserLink.click();
+      await systemUserPage.selectSystem(systemId);
+    });
+
+    await test.step('Verify system user was created successfully', async () => {
+      await expect(systemUserPage.systemUserCreatedHeading).toBeVisible();
+      await expect(systemUserPage.systemUserLink(systemId)).toBeVisible();
+    });
+  });
+
+  test('Delete created system user', async ({ systemUserPage }) => {
+    await test.step('Select system user to delete', async () => {
+      await systemUserPage.openSystemUser(systemId);
+    });
+
+    await test.step('Delete system user and verify removal from overview', async () => {
+      await systemUserPage.deleteSystemUser(systemId);
+    });
+  });
+
+  test.afterEach(async ({ api }) => {
+    if (systemId) {
+      await api.systemUsers.cleanUpSystemUsersForSystem(
+        `${vendorOrgNumber}_${systemId}`,
+        owner.pid,
+        owner.orgNo,
+      );
+      // Remove system after deleting its users
+      await api.systemUsers.deleteSystemInSystemRegister(vendorOrgNumber, systemId);
+    }
+  });
+});

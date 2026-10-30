@@ -1,0 +1,121 @@
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { createBaseQuery } from '@/rtk/app/baseQuery';
+import type {
+  ActiveConsentListItem,
+  Consent,
+  ConsentHistoryItem,
+  ConsentRequest,
+} from '@/features/amUI/consent/types';
+import { type PartyEntity } from '@/dataObjects/dtos/Party';
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+
+const baseUrl = `${import.meta.env.BASE_URL}accessmanagement/api/v1/`;
+
+const formatName = (party: PartyEntity): PartyEntity => {
+  return {
+    ...party,
+    name: formatEntityDisplayName(party, true),
+  };
+};
+
+function formatPartyNames<
+  T extends { fromParty: PartyEntity; toParty: PartyEntity; handledByParty?: PartyEntity },
+>(item: T): T {
+  return {
+    ...item,
+    fromParty: formatName(item.fromParty),
+    toParty: formatName(item.toParty),
+    ...(item.handledByParty && {
+      handledByParty: formatName(item.handledByParty),
+    }),
+  };
+}
+
+enum Tags {
+  ConsentList = 'ConsentList',
+  ConsentLog = 'ConsentLog',
+}
+
+export const consentApi = createApi({
+  reducerPath: 'consentApi',
+  baseQuery: createBaseQuery(baseUrl),
+  tagTypes: [Tags.ConsentList, Tags.ConsentLog],
+  endpoints: (builder) => ({
+    // consent request
+    getConsentRequest: builder.query<ConsentRequest, { requestId: string }>({
+      query: ({ requestId }) => `consent/request/${requestId}`,
+      transformResponse: (response: ConsentRequest): ConsentRequest => {
+        return formatPartyNames<ConsentRequest>(response);
+      },
+    }),
+    approveConsentRequest: builder.mutation<boolean, { requestId: string; language: string }>({
+      query: ({ requestId, language }) => ({
+        url: `consent/request/${requestId}/approve`,
+        method: 'POST',
+        body: { language },
+      }),
+      invalidatesTags: [Tags.ConsentList, Tags.ConsentLog],
+    }),
+    rejectConsentRequest: builder.mutation<boolean, { requestId: string }>({
+      query: ({ requestId }) => ({
+        url: `consent/request/${requestId}/reject`,
+        method: 'POST',
+      }),
+      invalidatesTags: [Tags.ConsentList, Tags.ConsentLog],
+    }),
+
+    // active consents
+    getActiveConsents: builder.query<ActiveConsentListItem[], { partyId: string }>({
+      query: ({ partyId }) => `consent/active/${partyId}`,
+      providesTags: [Tags.ConsentList],
+      transformResponse: (response: ActiveConsentListItem[]): ActiveConsentListItem[] => {
+        return response.map(formatPartyNames<ActiveConsentListItem>);
+      },
+    }),
+    getConsentLog: builder.query<ConsentHistoryItem[], { partyId: string }>({
+      query: ({ partyId }) => `consent/log/${partyId}`,
+      providesTags: [Tags.ConsentLog],
+      transformResponse: (response: ConsentHistoryItem[]): ConsentHistoryItem[] => {
+        return response.map(formatPartyNames<ConsentHistoryItem>);
+      },
+    }),
+    getConsentRequestsCount: builder.query<number, { partyId: string }>({
+      query: ({ partyId }) => `consent/count/${partyId}?status=Created`,
+      providesTags: [Tags.ConsentList],
+      transformResponse: (response: number): number => {
+        return response;
+      },
+    }),
+    getConsent: builder.query<Consent, { consentId: string }>({
+      query: ({ consentId }) => `consent/${consentId}`,
+      transformResponse: (response: Consent): Consent => {
+        return formatPartyNames<Consent>(response);
+      },
+    }),
+    revokeConsent: builder.mutation<boolean, { consentId: string }>({
+      query: ({ consentId }) => ({
+        url: `consent/${consentId}/revoke`,
+        method: 'POST',
+      }),
+      invalidatesTags: [Tags.ConsentList, Tags.ConsentLog],
+    }),
+  }),
+});
+
+const apiWithTags = consentApi.enhanceEndpoints({
+  addTagTypes: [Tags.ConsentList, Tags.ConsentLog],
+});
+
+export const {
+  useGetConsentRequestQuery,
+  useApproveConsentRequestMutation,
+  useRejectConsentRequestMutation,
+  useGetActiveConsentsQuery,
+  useGetConsentLogQuery,
+  useGetConsentQuery,
+  useRevokeConsentMutation,
+  useGetConsentRequestsCountQuery,
+} = apiWithTags;
+
+export const { endpoints, reducerPath, reducer, middleware } = apiWithTags;

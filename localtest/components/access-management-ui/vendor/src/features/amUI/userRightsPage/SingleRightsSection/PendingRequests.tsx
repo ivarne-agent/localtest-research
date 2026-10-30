@@ -1,0 +1,185 @@
+import React, { useRef, useState } from 'react';
+import { HandshakeIcon, MinusCircleIcon } from '@navikt/aksel-icons';
+import { DsButton, ListItem } from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { type ServiceResource } from '@/rtk/features/singleRights/singleRightsApi';
+import { useIsTabletOrSmaller } from '@/resources/utils/screensizeUtils';
+import { useGetEnrichedSentResourceRequestsQuery } from '@/rtk/features/requestApi';
+import { getRequestPartyQueryParams } from '@/resources/utils/singleRightRequestUtils';
+
+import { ResourceList } from '../../common/ResourceList/ResourceList';
+import { useSingleRightRequests } from '../../common/DelegationModal/SingleRights/hooks/useSingleRightRequests';
+import { ResourceInfo } from '../../common/DelegationModal/SingleRights/ResourceInfo';
+import { DelegationAction } from '../../common/DelegationModal/EditModal';
+import { usePartyRepresentation } from '../../common/PartyRepresentationContext/PartyRepresentationContext';
+import { useRestoreFocus, useRestoreFocusOnDataChange } from '../../common/RestoreFocus';
+import { TwoStepDialog } from '../../common/TwoStepDialog';
+
+export const PendingRequests = () => {
+  const modalRef = useRef<HTMLDialogElement>(null);
+
+  const { t } = useTranslation();
+  const isSmallScreen = useIsTabletOrSmaller();
+  const { actingParty, fromParty } = usePartyRepresentation();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { singleRightRequests = [] } = useSingleRightRequests({
+    canRequestRights: true,
+    actingPartyUuid: actingParty?.id,
+    fromPartyUuid: fromParty?.id,
+  });
+
+  return (
+    <>
+      <SentRequestsModal
+        isModalOpen={isModalOpen}
+        modalRef={modalRef}
+        heading={t('delegation_modal.request.sent_requests_modal_header', {
+          partyName: formatEntityDisplayName(fromParty),
+        })}
+        onClose={() => setIsModalOpen(false)}
+      />
+      {singleRightRequests.length > 0 && (
+        <ListItem
+          title={t('delegation_modal.request.sent_requests_item')}
+          description={t('delegation_modal.request.active_access_request', {
+            count: singleRightRequests.length,
+          })}
+          icon={HandshakeIcon}
+          linkIcon
+          color='neutral'
+          variant='tinted'
+          border='solid'
+          interactive
+          as='button'
+          containerAs='div'
+          badge={
+            isSmallScreen ? undefined : <div>{t('delegation_modal.request.view_requests')}</div>
+          }
+          onClick={() => {
+            setIsModalOpen(true);
+            modalRef.current?.showModal();
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+interface SentRequestsModalProps {
+  modalRef: React.RefObject<HTMLDialogElement | null>;
+  isModalOpen: boolean;
+  heading: string;
+  onClose: () => void;
+}
+export const SentRequestsModal = ({
+  modalRef,
+  isModalOpen,
+  onClose,
+  heading,
+}: SentRequestsModalProps) => {
+  const [selectedResource, setSelectedResource] = useState<ServiceResource | null>(null);
+  const restoreFocus = useRestoreFocus();
+
+  return (
+    <TwoStepDialog
+      ref={modalRef}
+      title={heading}
+      isDetailView={!!selectedResource}
+      onBack={() => {
+        if (selectedResource) {
+          restoreFocus.requestFocus(selectedResource.identifier);
+        }
+        setSelectedResource(null);
+      }}
+      onClose={() => {
+        setSelectedResource(null);
+        onClose();
+      }}
+      restoreFocus={restoreFocus}
+    >
+      {isModalOpen && (
+        <PendingRequestsList
+          selectedResource={selectedResource}
+          setSelectedResource={setSelectedResource}
+        />
+      )}
+    </TwoStepDialog>
+  );
+};
+
+interface PendingRequestsListProps {
+  selectedResource: ServiceResource | null;
+  setSelectedResource: (resource: ServiceResource | null) => void;
+}
+
+export const PendingRequestsList = ({
+  selectedResource,
+  setSelectedResource,
+}: PendingRequestsListProps) => {
+  const { t } = useTranslation();
+  const isSmallScreen = useIsTabletOrSmaller();
+  const { actingParty, fromParty } = usePartyRepresentation();
+
+  const { data: singleRightRequests = [], isLoading: isLoadingRequests } =
+    useGetEnrichedSentResourceRequestsQuery(
+      {
+        ...getRequestPartyQueryParams(actingParty?.id, fromParty?.id),
+        status: ['Pending'],
+      },
+      {
+        skip: !actingParty?.id || !fromParty?.id,
+      },
+    );
+
+  // Deleting a request drops its row once the list refetches; the id no longer exists, so the
+  // zone's RestoreFocusFallback catches the focus instead of letting it fall to <body>.
+  const requestFocusOnDataChange = useRestoreFocusOnDataChange(singleRightRequests);
+
+  const { deleteRequest, isLoadingRequest } = useSingleRightRequests({
+    canRequestRights: true,
+    actingPartyUuid: actingParty?.id,
+    fromPartyUuid: fromParty?.id,
+    onDeleteRequestSuccess: (resource) => requestFocusOnDataChange(resource.identifier),
+  });
+
+  return (
+    <div>
+      {selectedResource ? (
+        <ResourceInfo
+          resource={selectedResource}
+          availableActions={[DelegationAction.REQUEST]}
+        />
+      ) : (
+        <ResourceList
+          isLoading={isLoadingRequests}
+          size={isSmallScreen ? 'sm' : 'md'}
+          enableSearch={false}
+          resources={singleRightRequests
+            .map((x) => x.resource)
+            .filter((r): r is ServiceResource => !!r)}
+          showDetails={false}
+          onSelect={(resource) => setSelectedResource(resource)}
+          renderControls={(resource) => {
+            if (isSmallScreen) return undefined;
+            return (
+              <DsButton
+                variant='tertiary'
+                aria-label={t('common.delete_request_for', { poa_object: resource.title })}
+                onClick={() => deleteRequest(resource)}
+                disabled={isLoadingRequest(resource.identifier)}
+                loading={isLoadingRequest(resource.identifier)}
+              >
+                <MinusCircleIcon aria-hidden='true' />
+                {t('common.delete')}
+              </DsButton>
+            );
+          }}
+        />
+      )}
+    </div>
+  );
+};

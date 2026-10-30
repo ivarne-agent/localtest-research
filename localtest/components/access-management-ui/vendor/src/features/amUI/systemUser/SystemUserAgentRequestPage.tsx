@@ -1,0 +1,219 @@
+import React from 'react';
+import { useTranslation, Trans } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router';
+import { DsAlert, DsHeading, DsParagraph, DsButton } from '@altinn/altinn-components';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { hasCreateSystemUserPermission } from '@/resources/utils/permissionUtils';
+import { SystemUserPath } from '@/routes/paths';
+import { getLogoutUrl } from '@/resources/utils/pathUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import {
+  useGetAgentSystemUserRequestQuery,
+  useApproveAgentSystemUserRequestMutation,
+  useRejectAgentSystemUserRequestMutation,
+} from '@/rtk/features/systemUserApi';
+import { useGetIsAdminQuery, useGetReporteeQuery } from '@/rtk/features/userInfoApi';
+
+import { RequestPageBase } from './components/RequestPageBase/RequestPageBase';
+import type { ProblemDetail } from './types';
+import { ButtonRow } from './components/ButtonRow/ButtonRow';
+import { DelegationCheckError } from './components/DelegationCheckError/DelegationCheckError';
+import { getApiBaseUrl } from './requestUtils';
+import { EscalateRequest } from './components/EscalateRequest/EscalateRequest';
+import { RightsList } from './components/RightsList/RightsList';
+import { SystemUserRequestLoadError } from './components/SystemUserRequestLoadError/SystemUserRequestLoadError';
+
+export const SystemUserAgentRequestPage = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  useDocumentTitle(t('systemuser_agent_request.page_title'));
+  const [searchParams] = useSearchParams();
+  const skipLogout = searchParams.get('skiplogout');
+  const requestId = searchParams.get('id') ?? '';
+
+  const {
+    data: request,
+    isLoading: isLoadingRequest,
+    error: loadingRequestError,
+  } = useGetAgentSystemUserRequestQuery(
+    { requestId },
+    {
+      skip: !requestId,
+    },
+  );
+  const {
+    data: reporteeData,
+    isLoading: isLoadingReportee,
+    error: loadReporteeError,
+  } = useGetReporteeQuery();
+  const { data: isAdmin } = useGetIsAdminQuery();
+
+  const [
+    postAcceptCreationRequest,
+    { error: acceptCreationRequestError, isLoading: isAcceptingSystemUser },
+  ] = useApproveAgentSystemUserRequestMutation();
+
+  const [
+    postRejectCreationRequest,
+    { isError: isRejectCreationRequestError, isLoading: isRejectingSystemUser },
+  ] = useRejectAgentSystemUserRequestMutation();
+
+  const isEscalationPossible = request?.userMayEscalateButNotApprove && request?.status === 'New';
+
+  const isActionButtonDisabled =
+    isAcceptingSystemUser || isRejectingSystemUser || request?.status !== 'New';
+
+  const acceptSystemUser = (): void => {
+    if (!isActionButtonDisabled) {
+      const partyId = request.partyId;
+      postAcceptCreationRequest({ partyId, requestId: request.id })
+        .unwrap()
+        .then(onRejectOrApprove);
+    }
+  };
+
+  const rejectSystemUser = (): void => {
+    if (!isActionButtonDisabled) {
+      const partyId = request.partyId;
+      postRejectCreationRequest({ partyId, requestId: request.id })
+        .unwrap()
+        .then(onRejectOrApprove);
+    }
+  };
+
+  const onRejectOrApprove = (): void => {
+    if (skipLogout) {
+      navigate(`/${SystemUserPath.SystemUser}/${SystemUserPath.Overview}`, {
+        state: { createdId: request?.id },
+      });
+    } else {
+      const url = request?.redirectUrl
+        ? `${getApiBaseUrl()}/agentrequest/${request?.id}/logout`
+        : getLogoutUrl();
+      window.location.assign(url);
+    }
+  };
+
+  let error: React.ReactNode = null;
+  if (!requestId) {
+    error = (
+      <DsAlert data-color='danger'>{t('systemuser_request.load_creation_request_no_id')}</DsAlert>
+    );
+  } else if (loadReporteeError) {
+    error = <DsAlert data-color='danger'>{t('systemuser_request.load_user_info_error')}</DsAlert>;
+  } else if (loadingRequestError || (request && !request.system)) {
+    error = (
+      <SystemUserRequestLoadError error={(loadingRequestError as { data: ProblemDetail })?.data} />
+    );
+  }
+
+  return (
+    <RequestPageBase
+      system={request?.system}
+      reportee={reporteeData}
+      isLoading={isLoadingRequest || isLoadingReportee}
+      requestPartyUuid={request?.partyUuid}
+      error={error}
+      heading={t('systemuser_agent_request.banner_title')}
+    >
+      {request?.system && reporteeData && (
+        <>
+          {request.status === 'Accepted' && (
+            <DsAlert data-color='info'>{t('systemuser_request.request_accepted')}</DsAlert>
+          )}
+          {request.status === 'Rejected' && (
+            <DsAlert data-color='info'>{t('systemuser_request.request_rejected')}</DsAlert>
+          )}
+          {request.status === 'Timedout' && (
+            <DsAlert data-color='info'>{t('systemuser_request.request_expired')}</DsAlert>
+          )}
+          <DsHeading
+            level={2}
+            data-size='sm'
+          >
+            {t('systemuser_request.creation_header', {
+              vendorName: request.system.name,
+            })}
+          </DsHeading>
+          <DsParagraph>
+            <Trans
+              i18nKey={'systemuser_agent_request.system_description'}
+              values={{
+                vendorName: request.system.name,
+                companyName: formatEntityDisplayName(reporteeData),
+                addSelfInfo: request.accessPackages.every((p) => p.isAssignable)
+                  ? t('systemuser_agent_request.add_self_possible')
+                  : '',
+              }}
+            ></Trans>
+          </DsParagraph>
+          <div />
+          <div>
+            <DsHeading
+              level={3}
+              data-size='xs'
+            >
+              {request.accessPackages.length === 1
+                ? t('systemuser_request.rights_list_header_single')
+                : t('systemuser_request.rights_list_header')}
+            </DsHeading>
+            <RightsList
+              resources={[]}
+              accessPackages={request.accessPackages}
+              hideHeadings
+            />
+          </div>
+          <div>
+            {acceptCreationRequestError && (
+              <DelegationCheckError
+                accessPackages={request.accessPackages}
+                resources={request.resources}
+                defaultError='systemuser_includedrightspage.create_systemuser_error'
+                error={acceptCreationRequestError as { data: ProblemDetail }}
+              />
+            )}
+            {isEscalationPossible && (
+              <EscalateRequest
+                request={request}
+                isAgentRequest
+              />
+            )}
+            {isRejectCreationRequestError && (
+              <DsAlert
+                data-color='danger'
+                role='alert'
+              >
+                {t('systemuser_request.reject_error')}
+              </DsAlert>
+            )}
+            {!isEscalationPossible && hasCreateSystemUserPermission(reporteeData, isAdmin) && (
+              <ButtonRow>
+                <DsButton
+                  variant='primary'
+                  aria-disabled={isActionButtonDisabled}
+                  onClick={acceptSystemUser}
+                  loading={isAcceptingSystemUser}
+                >
+                  {isAcceptingSystemUser
+                    ? t('systemuser_request.accept_loading')
+                    : t('systemuser_request.accept')}
+                </DsButton>
+                <DsButton
+                  variant='tertiary'
+                  aria-disabled={isActionButtonDisabled}
+                  onClick={rejectSystemUser}
+                  loading={isRejectingSystemUser}
+                >
+                  {isRejectingSystemUser
+                    ? t('systemuser_request.reject_loading')
+                    : t('systemuser_request.reject')}
+                </DsButton>
+              </ButtonRow>
+            )}
+          </div>
+        </>
+      )}
+    </RequestPageBase>
+  );
+};

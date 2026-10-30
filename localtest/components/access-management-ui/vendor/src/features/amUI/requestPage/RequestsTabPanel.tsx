@@ -1,0 +1,148 @@
+import { DsAlert, List, UserListItem } from '@altinn/altinn-components';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
+
+import { formatDateToNorwegian } from '@/resources/utils';
+import { getConsentRequestUrl } from '@/routes/paths/consentPath';
+import {
+  getSystemUserRequestUrl,
+  getSystemUserAgentRequestUrl,
+} from '@/routes/paths/systemUserPath';
+import { amUIPath } from '@/routes/paths';
+
+import { useRestoreFocusContext } from '../common/RestoreFocus';
+
+import { RequestReviewModal } from './RequestReviewModal/RequestReviewModal';
+import { type Request } from './types';
+import classes from './RequestPage.module.css';
+import { RequestList } from './RequestList';
+import { RequestListItem } from './RequestListItem';
+
+interface RequestsTabPanelProps {
+  count: number;
+  isLoading: boolean;
+  isError: boolean;
+  emptyMessage: string;
+  children?: React.ReactNode;
+}
+
+export const RequestsTabPanel = ({
+  count,
+  isLoading,
+  isError,
+  emptyMessage,
+  children,
+}: RequestsTabPanelProps) => {
+  const { t } = useTranslation();
+  return (
+    <>
+      {isError && (
+        <div className={classes.errorWrapper}>
+          <DsAlert data-color='danger'>
+            {count > 0
+              ? t('request_page.error_partial_loading_requests')
+              : t('request_page.error_loading_requests')}
+          </DsAlert>
+        </div>
+      )}
+      {!isError && !isLoading && count === 0 && <div>{emptyMessage}</div>}
+      {isLoading ? (
+        <List>
+          <LoadingRequestListItem />
+          <LoadingRequestListItem />
+          <LoadingRequestListItem />
+          <LoadingRequestListItem />
+        </List>
+      ) : (
+        <>{children}</>
+      )}
+    </>
+  );
+};
+
+interface PendingRequestsProps {
+  pendingRequests: Request[] | undefined;
+  handledRequests: Request[] | undefined;
+}
+
+export const PendingRequests = ({ pendingRequests, handledRequests }: PendingRequestsProps) => {
+  const { t } = useTranslation();
+  const [openAccessRequest, setOpenAccessRequest] = useState<Request | null>(null);
+  const restoreFocus = useRestoreFocusContext();
+
+  const handleClose = () => {
+    if (openAccessRequest) {
+      restoreFocus?.requestFocus(openAccessRequest.id);
+    }
+    setOpenAccessRequest(null);
+  };
+
+  const getRequestUrl = (request: Request) => {
+    if (request.type === 'consent')
+      return getConsentRequestUrl(request.id, encodeURIComponent(`/${amUIPath.Requests}`));
+    if (request.type === 'systemuser')
+      return getSystemUserRequestUrl(request.id, encodeURIComponent(`/${amUIPath.Requests}`));
+    if (request.type === 'agentsystemuser')
+      return getSystemUserAgentRequestUrl(request.id, encodeURIComponent(`/${amUIPath.Requests}`));
+    return null;
+  };
+
+  return (
+    <>
+      <RequestList
+        pendingRequests={pendingRequests}
+        handledRequests={handledRequests}
+        direction='received'
+        renderItem={(request) => {
+          const toUrl = getRequestUrl(request);
+          return (
+            <RequestListItem
+              key={request.id}
+              id={request.id}
+              name={request.displayPartyName}
+              type={request.displayPartyType}
+              subUnit={request.isSubUnit}
+              titleAs='span'
+              linkIcon
+              description={`${request.description ? t(request.description) : t('request_page.asks_for_number', { count: request.numberOfRequests })} (${formatDateToNorwegian(request.createdDate)})`}
+              as={
+                toUrl
+                  ? (props) => (
+                      <Link
+                        {...props}
+                        to={toUrl}
+                      />
+                    )
+                  : 'button'
+              }
+              onClick={toUrl ? undefined : () => setOpenAccessRequest(request)}
+              controls={
+                <div className={classes.requestItemBadge}>
+                  {t('request_page.process_request', { count: request.numberOfRequests || 1 })}
+                </div>
+              }
+            />
+          );
+        }}
+      />
+      <RequestReviewModal
+        request={openAccessRequest}
+        onClose={handleClose}
+      />
+    </>
+  );
+};
+
+const LoadingRequestListItem = () => {
+  return (
+    <UserListItem
+      id={''}
+      name={'xxxxxxxxxxxx'}
+      description='xxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+      type={'person'}
+      interactive={false}
+      loading
+    />
+  );
+};

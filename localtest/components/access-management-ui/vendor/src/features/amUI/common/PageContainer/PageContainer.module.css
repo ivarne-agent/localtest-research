@@ -1,0 +1,39 @@
+.container {
+  background-color: var(--ds-color-background-default);
+  box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  border-radius: 0 0 4px 4px;
+}
+
+.topActions {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 1rem 0;
+  align-items: center;
+}
+
+.pageActions {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+}
+
+.contentActions {
+  display: flex;
+  gap: 1rem;
+}
+
+.pageContent {
+  padding: 1rem;
+}
+
+@media (max-width: 500px) {
+  .pageContent {
+    padding: 1rem 0;
+  }
+
+  .container {
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+}

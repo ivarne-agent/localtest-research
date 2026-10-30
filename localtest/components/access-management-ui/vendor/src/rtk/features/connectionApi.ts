@@ -1,0 +1,117 @@
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { createBaseQuery } from '@/rtk/app/baseQuery';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import { type PartyEntity } from '@/dataObjects/dtos/Party';
+
+export interface RoleInfo {
+  id: string;
+  code?: string;
+  viaParty?: PartyEntity | null;
+}
+
+export interface Connection {
+  party: PartyEntity;
+  roles: RoleInfo[];
+  connections: Connection[];
+}
+
+export interface SimplifiedConnection {
+  party: PartyEntity;
+  connections: SimplifiedConnection[];
+}
+
+export type PersonInput = {
+  personIdentifier: string;
+  lastName: string;
+};
+
+const baseUrl = `${import.meta.env.BASE_URL}accessmanagement/api/v1/connection`;
+
+export const connectionApi = createApi({
+  reducerPath: 'connectionApi',
+  baseQuery: createBaseQuery(baseUrl),
+  tagTypes: ['Connections'],
+  endpoints: (builder) => ({
+    addRightHolder: builder.mutation<
+      string,
+      { partyUuidToBeAdded?: string; personInput?: PersonInput }
+    >({
+      query: ({ partyUuidToBeAdded, personInput }) => ({
+        url: `reportee/${getCookie('AltinnPartyUuid')}/rightholder?rightholderPartyUuid=${partyUuidToBeAdded}`,
+        method: 'POST',
+        body: personInput ? JSON.stringify(personInput) : undefined,
+      }),
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number; data: string } => {
+        return { status: response.status, data: new Date().toISOString() };
+      },
+      invalidatesTags: ['Connections'],
+    }),
+    getRightHolders: builder.query<
+      Connection[],
+      {
+        partyUuid: string;
+        fromUuid?: string;
+        toUuid?: string;
+        includeClientDelegations?: boolean;
+        includeAgentConnections?: boolean;
+      }
+    >({
+      query: ({
+        partyUuid,
+        fromUuid,
+        toUuid,
+        includeClientDelegations = true,
+        includeAgentConnections = true,
+      }) =>
+        `rightholders?party=${partyUuid}&from=${fromUuid}&to=${toUuid}&includeClientDelegations=${includeClientDelegations}&includeAgentConnections=${includeAgentConnections}`,
+      keepUnusedDataFor: 3,
+      providesTags: ['Connections'],
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number; data: string } => {
+        return { status: response.status, data: new Date().toISOString() };
+      },
+    }),
+    removeRightHolder: builder.mutation<void, { party: string; to: string; from: string }>({
+      query: ({ party, to, from }) => ({
+        url: `reportee?party=${party}&to=${to}&from=${from}`,
+        method: 'DELETE',
+      }),
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number; data: string } => {
+        return { status: response.status, data: new Date().toISOString() };
+      },
+    }),
+    // This endpoint is not currently in use.
+    validateNewUserPerson: builder.mutation<string, { ssn: string; lastName: string }>({
+      query: ({ ssn, lastName }) => ({
+        url: `reportee/${getCookie('AltinnPartyUuid')}/rightholder/validateperson`,
+        method: 'POST',
+        body: JSON.stringify({ ssn, lastName }),
+      }),
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number } => {
+        return { status: response.status };
+      },
+    }),
+    getSimplifiedConnections: builder.query<SimplifiedConnection[], { partyUuid: string }>({
+      query: ({ partyUuid }) => `simplified?party=${partyUuid}`,
+      providesTags: ['Connections'],
+    }),
+  }),
+});
+
+export const {
+  useGetRightHoldersQuery,
+  useAddRightHolderMutation,
+  useRemoveRightHolderMutation,
+  useValidateNewUserPersonMutation,
+  useGetSimplifiedConnectionsQuery,
+} = connectionApi;
+
+export const { endpoints, reducerPath, reducer, middleware } = connectionApi;

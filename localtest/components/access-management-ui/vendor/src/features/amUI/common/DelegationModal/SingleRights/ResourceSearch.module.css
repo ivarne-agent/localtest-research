@@ -1,0 +1,34 @@
+.searchResults {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 500px;
+}
+
+.toolbarContainer {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-spacing-2);
+  margin: var(--ds-spacing-3) 0;
+}
+
+.toolbarContainer ul {
+  max-height: 30rem;
+}
+
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-spacing-1);
+  flex-shrink: 0;
+}
+
+.pagination {
+  margin-top: 16px;
+  margin: auto;
+}
+
+.spinner {
+  padding-top: 100px;
+  margin: auto;
+}

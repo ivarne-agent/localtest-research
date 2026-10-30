@@ -1,0 +1,41 @@
+.headerSection {
+  display: flex;
+  align-items: center;
+}
+
+.inputs {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 5px;
+}
+
+.searchField {
+  min-width: 0; /* allow flex child to shrink */
+}
+
+.delegateButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media only screen and (max-width: 768px) {
+  .inputs {
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 10px;
+  }
+
+  .searchField {
+    width: 100%;
+  }
+
+  .delegateButton {
+    align-self: flex-start;
+    margin-left: 0;
+  }
+}

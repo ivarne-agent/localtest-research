@@ -1,0 +1,25 @@
+import { useTranslation } from 'react-i18next';
+import { DsDialog, DsParagraph, DsButton } from '@altinn/altinn-components';
+
+import { useCookieListener } from '@/resources/Cookie/CookieMethods';
+
+import classes from './ReloadAlert.module.css';
+
+export const ReloadAlert = () => {
+  const { t } = useTranslation();
+
+  const displayAlert = useCookieListener('AltinnPartyUuid', 2000, 1000);
+
+  return (
+    displayAlert && (
+      <DsDialog
+        open
+        onClose={() => window.location.reload()}
+        closeButton={false}
+      >
+        <DsParagraph className={classes.alertText}>{t('common.refresh_cookie_alert')}</DsParagraph>
+        <DsButton onClick={() => window.location.reload()}>Ok</DsButton>
+      </DsDialog>
+    )
+  );
+};

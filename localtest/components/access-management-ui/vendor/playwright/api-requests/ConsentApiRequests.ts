@@ -1,0 +1,180 @@
+import { randomUUID } from 'crypto';
+
+import { addTimeToNowUtc } from 'playwright/util/helper';
+
+import { platformUrl, sendJson } from './apiRequest';
+import { MaskinportenToken } from './MaskinportenToken';
+import { asEnterprise } from './callAs';
+
+export class ConsentApiRequests {
+  private async sendPostRequestWithMaskinporten<TPayload, TResponse>(
+    payload: TPayload,
+    endpoint: string,
+    scopes: string,
+    maskinportenToken: MaskinportenToken,
+    consumerOrg?: string,
+  ): Promise<TResponse> {
+    const token = await maskinportenToken.getMaskinportenToken(scopes, consumerOrg);
+    return sendJson<TResponse>('POST', platformUrl(endpoint), { token, json: payload });
+  }
+
+  /**
+   * Builds the consent request payload from parameters.
+   * @param params The consent request parameters
+   * @returns The complete payload object for the consent request
+   */
+  private buildConsentRequestPayload(params: CreateConsentRequestParams) {
+    const requestId = randomUUID();
+
+    const urnPrefix: Record<FromParty['type'] | ToParty['type'], string> = {
+      person: 'urn:altinn:person:identifier-no:',
+      org: 'urn:altinn:organization:identifier-no:',
+    };
+
+    const fromUrn = `${urnPrefix[params.from.type]}${params.from.id}`;
+    const toUrn = `${urnPrefix[params.to.type]}${params.to.id}`;
+
+    const resourceValue = params.resourceValue || 'enkelt-samtykke';
+    const redirectUrl = params.redirectUrl || 'https://altinn.no';
+    const metaData = params.metaData;
+
+    return {
+      id: requestId,
+      from: fromUrn,
+      to: toUrn,
+      validTo: params.validToIsoUtc,
+      consentRights: [
+        {
+          action: ['consent'],
+          resource: [
+            {
+              type: 'urn:altinn:resource',
+              value: resourceValue,
+            },
+          ],
+          metaData,
+        },
+      ],
+      redirectUrl,
+      requestMessage: {
+        en: `Playwright end to end test request message english`,
+        nb: 'Playwright ende-til-ende test request message bokmål',
+        nn: 'Playwright ende-til-ende test request message nynorsk',
+      },
+    };
+  }
+
+  /**
+   * Generalized consent request supporting both person and org as 'from'.
+   *
+   * Sent by the receiving organisation (`params.to`) with its enterprise token, so there is
+   * no separate sender to pass.
+   */
+  public async createConsentRequest(
+    params: CreateConsentRequestParams,
+  ): Promise<{ viewUri: string }> {
+    return asEnterprise<{ viewUri: string }>(
+      params.to.id,
+      'altinn:consentrequests.write',
+      'POST',
+      platformUrl('accessmanagement/api/v1/enterprise/consentrequests'),
+      this.buildConsentRequestPayload(params),
+    );
+  }
+
+  /**
+   * Create a consent request using Maskinporten authentication
+   * @param from The party creating the consent request
+   * @param to The organization receiving the consent request
+   * @param clientIdEnv Environment variable name for the Maskinporten client ID
+   * @param jwkEnv Environment variable name for the JWK private key
+   * @param options Request options. `consentRequestScope` is required; other fields are optional overrides/"behalf of" parameters.
+   * @returns The view URI for the consent request
+   */
+  public async createConsentRequestWithMaskinporten(
+    from: FromParty,
+    to: ToParty,
+    clientIdEnv: string,
+    jwkEnv: string,
+    options: {
+      consentRequestScope: string;
+      consumerOrg?: string;
+      validToIsoUtc?: string;
+      resourceValue?: string;
+      redirectUrl?: string;
+      metaData?: Record<string, string>;
+    },
+  ): Promise<{ viewUri: string }> {
+    // Set default values for fields not needed in test
+    const validToIsoUtc = options.validToIsoUtc ?? addTimeToNowUtc({ days: 5 });
+    const resourceValue = options.resourceValue ?? 'standard-samtykke-for-dele-data';
+    const redirectUrl = options.redirectUrl ?? 'https://example.com/';
+    const metaData = options.metaData ?? { inntektsaar: '2028' };
+
+    const params: CreateConsentRequestParams = {
+      from,
+      to,
+      validToIsoUtc,
+      resourceValue,
+      redirectUrl,
+      metaData,
+    };
+
+    const payload = this.buildConsentRequestPayload(params);
+
+    const endpoint = 'accessmanagement/api/v1/enterprise/consentrequests';
+    const scopes = options.consentRequestScope;
+
+    // Create MaskinportenToken instance to fetch the access token
+    const maskinportenToken = new MaskinportenToken(clientIdEnv, jwkEnv);
+
+    const resp = await this.sendPostRequestWithMaskinporten<typeof payload, { viewUri: string }>(
+      payload,
+      endpoint,
+      scopes,
+      maskinportenToken,
+      options.consumerOrg,
+    );
+
+    return resp;
+  }
+
+  /**
+   * Get consent token using Maskinporten
+   * @param consentRequestId The ID of the approved consent request
+   * @param fromPartyUrn The consenting party URN (person or org)
+   * @param clientIdEnv Environment variable name for the Maskinporten client ID
+   * @param jwkEnv Environment variable name for the JWK private key
+   * @param consumerOrg Optional organization number for "behalf of" scenarios
+   * @param scope The Maskinporten scope for the consent token. Default: 'altinn:consentrequests.write'
+   * @returns The consent access token
+   */
+  async getConsentTokenWithMaskinporten(
+    consentRequestId: string,
+    fromPartyUrn: string,
+    clientIdEnv: string,
+    jwkEnv: string,
+    consumerOrg?: string,
+    scope?: string,
+  ): Promise<string> {
+    const maskinportenToken = new MaskinportenToken(clientIdEnv, jwkEnv);
+    return await maskinportenToken.getConsentToken(
+      consentRequestId,
+      fromPartyUrn,
+      consumerOrg,
+      scope,
+    );
+  }
+}
+
+interface CreateConsentRequestParams {
+  from: FromParty;
+  to: ToParty;
+  validToIsoUtc: string;
+  resourceValue?: string;
+  redirectUrl?: string;
+  metaData?: Record<string, string>;
+}
+
+type FromParty = { type: 'person' | 'org'; id: string };
+type ToParty = { type: 'org'; id: string };

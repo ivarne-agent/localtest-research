@@ -1,0 +1,45 @@
+.consentContent {
+  display: flex;
+  flex-direction: column;
+  max-width: 55rem;
+}
+
+.heading {
+  font-weight: var(--ds-font-weight-semibold);
+  font-size: var(--ds-body-md-font-size);
+  margin-bottom: var(--ds-size-8);
+}
+
+.consentMessage {
+  margin-bottom: var(--ds-size-13);
+}
+
+.serviceIntro {
+  font-weight: var(--ds-font-weight-medium);
+  font-size: var(--ds-body-md-font-size);
+  margin-bottom: var(--ds-size-8);
+}
+
+.handledBy {
+  margin-top: var(--ds-size-5);
+}
+
+.expiration {
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.buttonRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--ds-size-4);
+  margin-top: var(--ds-size-13);
+  margin-bottom: var(--ds-size-6);
+}
+
+.consentReceipt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-size-8);
+}

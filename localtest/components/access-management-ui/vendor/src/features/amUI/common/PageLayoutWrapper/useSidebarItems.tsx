@@ -1,0 +1,148 @@
+import { type BadgeVariant, type Color, type MenuItemProps } from '@altinn/altinn-components';
+import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
+
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import {
+  hasActivityLogPermission,
+  hasConsentPermission,
+  hasCreateSystemUserPermission,
+  hasReporteeListAdminAccess,
+  hasSystemUserClientAdminPermission,
+} from '@/resources/utils/permissionUtils';
+import {
+  getActivityLogMenuItem,
+  getConsentMenuItem,
+  getHeadingMenuItem,
+  getClientAdministrationMenuItem,
+  getMaskinportenMenuItem,
+  getPoaOverviewMenuItem,
+  getReporteesMenuItem,
+  getRequestsMenuItem,
+  getSettingsMenuItem,
+  getShortcutsMenuItem,
+  getSystemUserMenuItem,
+  getUsersMenuItem,
+  getYourClientsMenuItem,
+} from '@/resources/utils/sidebarConfig';
+import { useGetPartyFromLoggedInUserQuery } from '@/rtk/features/lookupApi';
+import { isOrganization } from '@/resources/utils/reporteeUtils';
+import {
+  useGetIsAdminQuery,
+  useGetIsClientAdminQuery,
+  useGetIsCompanyProfileAdminQuery,
+  useGetIsMaskinportenAdminQuery,
+  useGetReporteeQuery,
+} from '@/rtk/features/userInfoApi';
+import { useGetRolePermissionsQuery } from '@/rtk/features/roleApi';
+import { useSidebarRequestCount } from '@/resources/hooks/useSidebarRequestCount';
+
+export const useSidebarItems = ({ isSmall }: { isSmall?: boolean }) => {
+  const { t } = useTranslation();
+  const { data: currentUser } = useGetPartyFromLoggedInUserQuery();
+  const { data: reportee, isLoading: isLoadingReportee } = useGetReporteeQuery();
+  const isCurrentUserReportee = reportee?.id === currentUser?.id;
+
+  const { data: roles } = useGetRolePermissionsQuery(
+    {
+      party: currentUser?.id ?? '',
+      from: getCookie('AltinnPartyUuid') ?? '',
+      to: currentUser?.id ?? '',
+    },
+    {
+      skip: !currentUser?.id || isCurrentUserReportee,
+    },
+  );
+  const isAgent = roles?.some((rolePermission) => rolePermission.role.code === 'agent');
+
+  const { pathname } = useLocation();
+
+  const { data: isAdmin, isLoading: isLoadingIsAdmin } = useGetIsAdminQuery();
+  const { data: isClientAdmin, isLoading: isLoadingIsClientAdmin } = useGetIsClientAdminQuery();
+  const { data: canAccessSettings, isLoading: isLoadingCompanyProfileAdmin } =
+    useGetIsCompanyProfileAdminQuery();
+  const { data: isMaskinportenAdmin } = useGetIsMaskinportenAdminQuery(undefined, {
+    skip: !isOrganization(reportee),
+  });
+
+  const isLoading =
+    isLoadingReportee || isLoadingIsAdmin || isLoadingIsClientAdmin || isLoadingCompanyProfileAdmin;
+  const { requestsBadgeCount, isLoading: isLoadingRequestsBadge } = useSidebarRequestCount({
+    isAdmin,
+    reportee,
+    isCurrentUserReportee,
+    isLoadingPermissions: isLoadingReportee || isLoadingIsAdmin,
+  });
+
+  const items: MenuItemProps[] = [];
+
+  if (!isSmall) {
+    items.push(getHeadingMenuItem(pathname, isLoading));
+  }
+  if (isAdmin) {
+    const requestsBadge =
+      !isLoadingRequestsBadge && requestsBadgeCount > 0
+        ? {
+            label: requestsBadgeCount,
+            color: 'warning' as Color,
+            variant: 'base' as BadgeVariant,
+          }
+        : undefined;
+    const requestMenuItem = getRequestsMenuItem(pathname, isLoading, isSmall);
+    const requestCountAriaLabel =
+      requestsBadgeCount > 0 ? ` (${requestsBadgeCount} ${t('sidebar.requests_badge')})` : '';
+    items.push({
+      ...requestMenuItem,
+      'aria-label': `${requestMenuItem.title}${requestCountAriaLabel}`,
+      badge: requestsBadge,
+    });
+  }
+
+  items.push(getUsersMenuItem(pathname, isLoading, isSmall));
+  if (hasReporteeListAdminAccess(reportee, isAdmin, isCurrentUserReportee)) {
+    items.push(getReporteesMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (isAdmin) {
+    items.push(getPoaOverviewMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (hasConsentPermission(reportee, isAdmin, isCurrentUserReportee)) {
+    items.push(getConsentMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (
+    hasCreateSystemUserPermission(reportee, isAdmin) ||
+    hasSystemUserClientAdminPermission(reportee, isClientAdmin)
+  ) {
+    items.push(getSystemUserMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (isClientAdmin) {
+    items.push(getClientAdministrationMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (isAgent && !isCurrentUserReportee) {
+    items.push({
+      ...getYourClientsMenuItem(pathname, isLoading, isSmall),
+    });
+  }
+
+  if (canAccessSettings) {
+    items.push(getSettingsMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (isMaskinportenAdmin) {
+    items.push(getMaskinportenMenuItem(pathname, isLoading, isSmall));
+  }
+
+  if (hasActivityLogPermission(isAdmin, isMaskinportenAdmin)) {
+    items.push(getActivityLogMenuItem(pathname, isLoading, isSmall));
+  }
+
+  const sidebarItems = items.map((item) => {
+    return { ...item, description: '' };
+  });
+
+  return { sidebarItems, shortcutsMenuItem: getShortcutsMenuItem(pathname, isLoading) };
+};

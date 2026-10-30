@@ -1,0 +1,23 @@
+.agentTabContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-size-4);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-size-3);
+}
+
+.filters label {
+  white-space: nowrap;
+}
+
+@media only screen and (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

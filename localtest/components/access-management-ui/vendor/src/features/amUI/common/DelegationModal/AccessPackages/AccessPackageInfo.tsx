@@ -1,0 +1,228 @@
+import * as React from 'react';
+import { DsAlert, DsHeading, DsButton } from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+
+import { PartyType } from '@/dataObjects/dtos/Party';
+import { TechnicalErrorParagraphs } from '@/features/amUI/common/TechnicalErrorParagraphs';
+import { useGetUserDelegationsQuery } from '@/rtk/features/accessPackageApi';
+import { useAccessPackageActions } from '@/features/amUI/common/AccessPackageList/useAccessPackageActions';
+import type { ActionError } from '@/resources/hooks/useActionError';
+
+import { useAccessPackageDelegationCheck } from '../../DelegationCheck/AccessPackageDelegationCheckContext';
+import { useDelegationModalContext } from '../DelegationModalContext';
+import { DelegationAction } from '../EditModal';
+import { usePartyRepresentation } from '../../PartyRepresentationContext/PartyRepresentationContext';
+import { LoadingAnimation } from '../../LoadingAnimation/LoadingAnimation';
+import type { ExtendedAccessPackage } from '../../AccessPackageList/useAreaPackageList';
+import { DeletableStatus, getDeletableStatus } from '../../AccessPackageList/useAreaPackageList';
+import { ValidationErrorMessage } from '../../ValidationErrorMessage';
+import { PackageIsPartiallyDeletableAlert } from '../../AccessPackageList/PackageIsPartiallyDeletableAlert/PackageIsPartiallyDeletableAlert';
+import { StatusSection } from '../../StatusSection/StatusSection';
+import { focusFirstEnabledButton, useRestoreFocusAfterSettled } from '../../RestoreFocus';
+
+import classes from './AccessPackageInfo.module.css';
+import { PackageHeader } from './PackageHeader';
+import { PackageMeta } from './PackageMeta';
+
+export interface PackageInfoProps {
+  accessPackage: ExtendedAccessPackage;
+  availableActions?: DelegationAction[];
+}
+
+export const AccessPackageInfo = ({ accessPackage, availableActions = [] }: PackageInfoProps) => {
+  const { t } = useTranslation();
+  const { fromParty, toParty, actingParty } = usePartyRepresentation();
+  const { canDelegatePackage } = useAccessPackageDelegationCheck();
+
+  const { data: activeDelegations, isFetching } = useGetUserDelegationsQuery({
+    to: toParty?.id ?? '',
+    from: fromParty?.id ?? '',
+    party: actingParty?.id ?? '',
+  });
+
+  const { actionError, setActionError, actionSuccess, setActionSuccess } =
+    useDelegationModalContext();
+
+  const {
+    onDelegate,
+    onRevoke,
+    revokeWithoutConfirmation,
+    onRequest,
+    deleteRequest,
+    hasPendingRequest,
+    isLoadingRequest,
+    isLoading: isActionLoading,
+    packageWarningDialog,
+    revokeConfirmationDialog,
+  } = useAccessPackageActions({
+    snackbarBusy: isFetching,
+    onDelegateSuccess: () => {
+      setActionSuccess(true);
+      setTimeout(() => setActionSuccess(false), 2000);
+    },
+    onRevokeSuccess: () => {
+      setActionSuccess(true);
+      setTimeout(() => setActionSuccess(false), 2000);
+    },
+    onDelegateError: (_, error: ActionError) => setActionError(error),
+    onRevokeError: (_, error: ActionError) => setActionError(error),
+  });
+  const actionsRef = React.useRef<HTMLDivElement>(null);
+  const isRequestActionLoading = isLoadingRequest(accessPackage);
+  useRestoreFocusAfterSettled({
+    isSettled: !isActionLoading && !isFetching && !actionSuccess && !isRequestActionLoading,
+    requestWhen: isActionLoading || isRequestActionLoading,
+    onRestore: () => focusFirstEnabledButton(actionsRef.current),
+  });
+
+  const delegationAccess = React.useMemo(() => {
+    if (activeDelegations && !isFetching) {
+      return (
+        Object.values(activeDelegations)
+          .flat()
+          .find((delegation) => delegation.package.id === accessPackage.id) ?? null
+      );
+    }
+    return null;
+  }, [activeDelegations, isFetching, accessPackage.id]);
+
+  const userHasPackage = delegationAccess !== null;
+  const accessIsInherited = accessPackage.inherited;
+
+  const inheritedStatus = accessPackage.inheritedStatus;
+
+  const deletableStatus = React.useMemo(
+    () =>
+      delegationAccess ? getDeletableStatus(delegationAccess, toParty?.id, fromParty?.id) : null,
+    [delegationAccess, toParty, fromParty],
+  );
+
+  const canDelegate = canDelegatePackage(accessPackage.id);
+  const showMissingRightsMessage =
+    !userHasPackage &&
+    canDelegate?.result === false &&
+    availableActions.includes(DelegationAction.DELEGATE);
+  const isPendingRequest = hasPendingRequest(accessPackage);
+
+  return (
+    <div className={classes.container}>
+      <PackageHeader name={accessPackage.name} />
+
+      {isActionLoading || actionSuccess ? (
+        <LoadingAnimation
+          isLoading={isActionLoading}
+          displaySuccess={actionSuccess}
+        />
+      ) : (
+        <>
+          {!!actionError && (
+            <DsAlert
+              data-color='danger'
+              data-size='sm'
+            >
+              {userHasPackage ? (
+                <DsHeading
+                  level={2}
+                  data-size='2xs'
+                >
+                  {t('delegation_modal.general_error.revoke_heading')}
+                </DsHeading>
+              ) : (
+                <DsHeading
+                  level={2}
+                  data-size='2xs'
+                >
+                  {t('delegation_modal.general_error.delegate_heading')}
+                </DsHeading>
+              )}
+              {actionError.details?.detail || actionError.details?.errorCode ? (
+                <ValidationErrorMessage
+                  errorCode={actionError.details?.errorCode ?? actionError.details?.detail ?? ''}
+                  translationValues={{
+                    entity_type:
+                      toParty?.type === PartyType.Person
+                        ? t('common.persons_lowercase')
+                        : t('common.organizations_lowercase'),
+                  }}
+                />
+              ) : (
+                <TechnicalErrorParagraphs
+                  size='xs'
+                  status={actionError.httpStatus}
+                  time={actionError.timestamp}
+                />
+              )}
+            </DsAlert>
+          )}
+
+          <StatusSection
+            userHasAccess={userHasPackage}
+            showDelegationCheckWarning={showMissingRightsMessage}
+            cannotDelegateHere={accessPackage.isAssignable === false}
+            inheritedStatus={inheritedStatus ?? undefined}
+            isPendingRequest={isPendingRequest}
+          />
+
+          <PackageMeta accessPackage={accessPackage} />
+
+          <div
+            ref={actionsRef}
+            className={classes.actions}
+          >
+            {userHasPackage && availableActions.includes(DelegationAction.REVOKE) ? (
+              deletableStatus !== DeletableStatus.PartiallyDeletable ? (
+                <DsButton
+                  variant='secondary'
+                  disabled={accessIsInherited || accessPackage.isAssignable === false}
+                  onClick={() => onRevoke(accessPackage)}
+                  data-color='danger'
+                >
+                  {t('common.delete_poa')}
+                </DsButton>
+              ) : (
+                <PackageIsPartiallyDeletableAlert
+                  confirmAction={() => revokeWithoutConfirmation(accessPackage)}
+                  triggerButtonProps={{
+                    variant: 'secondary',
+                    'data-color': 'danger',
+                  }}
+                />
+              )
+            ) : null}
+            {!userHasPackage && availableActions.includes(DelegationAction.DELEGATE) && (
+              <DsButton
+                disabled={accessPackage.isAssignable === false || canDelegate?.result === false}
+                onClick={() => onDelegate(accessPackage)}
+              >
+                {t('common.give_poa')}
+              </DsButton>
+            )}
+            {!userHasPackage &&
+              availableActions.includes(DelegationAction.REQUEST) &&
+              (isPendingRequest ? (
+                <DsButton
+                  variant='secondary'
+                  data-color='danger'
+                  loading={isLoadingRequest(accessPackage)}
+                  disabled={isLoadingRequest(accessPackage)}
+                  onClick={() => deleteRequest(accessPackage)}
+                >
+                  {t('delegation_modal.request.delete_request')}
+                </DsButton>
+              ) : (
+                <DsButton
+                  loading={isLoadingRequest(accessPackage)}
+                  disabled={accessPackage.isAssignable === false || isLoadingRequest(accessPackage)}
+                  onClick={() => onRequest(accessPackage)}
+                >
+                  {t('common.request_poa')}
+                </DsButton>
+              ))}
+          </div>
+        </>
+      )}
+      {packageWarningDialog}
+      {revokeConfirmationDialog}
+    </div>
+  );
+};

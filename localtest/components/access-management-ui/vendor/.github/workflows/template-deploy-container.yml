@@ -1,0 +1,71 @@
+name: template-deploy-container.yml
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: 'Environment'
+      tag:
+        type: string
+        required: true
+        description: 'Container Tag'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: altinn/altinn-access-management-frontend
+  CONTAINER_APP_CONTAINER_NAME: altinnaccessmanagementui
+
+jobs:
+  deploy:
+    name: Deploy Container
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+    steps:
+    - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      name: GitHub CR Login
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+      name: Azure Login
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - uses: azure/CLI@9f7ce6f37c31b777ec6c6b6d1dfe7db79f497956 # v2
+      name: Update Container App
+      env:
+        # Environments with the APP_CONFIGURATION_LABEL variable set read feature flags
+        # from Azure App Configuration; environments without it use appsettings values.
+        APP_CONFIGURATION_LABEL: ${{ vars.APP_CONFIGURATION_LABEL }}
+      with:
+        inlineScript: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          appconfig_args=()
+          # Endpoint/Label control whether the BFF connects to Azure App Configuration at all.
+          # FeatureFlags__Enable additionally loads flags from Azure's dedicated "Feature manager"
+          # Variables mirrors the "tmp monorepo" feature flag setup
+          if [ -n "$APP_CONFIGURATION_LABEL" ]; then
+            appconfig_args=(--set-env-vars \
+              "Altinn__AppConfiguration__Endpoint=https://appconfaltinnauth001hub.azconfig.io" \
+              "Altinn__AppConfiguration__Label=$APP_CONFIGURATION_LABEL" \
+              "Altinn__AppConfiguration__FeatureFlags__Enable=true")
+          else
+            appconfig_args=(--remove-env-vars \
+              "Altinn__AppConfiguration__Endpoint" \
+              "Altinn__AppConfiguration__Label" \
+              "Altinn__AppConfiguration__FeatureFlags__Enable")
+          fi
+          az containerapp update \
+            --name ${{ vars.CONTAINER_APP_NAME }} \
+            --container-name ${{ env.CONTAINER_APP_CONTAINER_NAME }} \
+            --resource-group ${{ vars.CONTAINER_APP_RESOURCE_GROUP_NAME }} \
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }} \
+            "${appconfig_args[@]}"

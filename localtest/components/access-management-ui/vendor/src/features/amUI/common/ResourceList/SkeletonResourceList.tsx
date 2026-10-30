@@ -1,0 +1,34 @@
+import React from 'react';
+import { List, ResourceListItem, type ResourceListItemProps } from '@altinn/altinn-components';
+
+export const SkeletonResourceList = ({
+  count = 3,
+  size = 'sm',
+}: {
+  count?: number;
+  size?: ResourceListItemProps['size'];
+}) => {
+  const resourceSkeletons: ResourceListItemProps[] = React.useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        id: String(i + 1),
+        ownerName: 'xxxxxxxxx xxxxxxxxxxx',
+        resourceName: 'xxxxxxxxxxxxxxxxxxxx',
+      })),
+    [count],
+  );
+
+  const items = resourceSkeletons.map((item) => (
+    <ResourceListItem
+      key={item.id}
+      loading
+      as='div'
+      interactive={false}
+      shadow='none'
+      size={size}
+      {...item}
+    />
+  ));
+
+  return <List>{items}</List>;
+};

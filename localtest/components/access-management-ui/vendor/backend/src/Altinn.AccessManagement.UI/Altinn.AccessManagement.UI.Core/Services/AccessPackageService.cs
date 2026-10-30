@@ -1,0 +1,127 @@
+﻿using Altinn.AccessManagement.UI.Core.ClientInterfaces;
+using Altinn.AccessManagement.UI.Core.Helpers;
+using Altinn.AccessManagement.UI.Core.Models.AccessPackage;
+using Altinn.AccessManagement.UI.Core.Models.AccessPackage.Frontend;
+using Altinn.AccessManagement.UI.Core.Models.Common;
+using Altinn.AccessManagement.UI.Core.Services.Interfaces;
+
+namespace Altinn.AccessManagement.UI.Core.Services
+{
+    /// <inheritdoc />
+    public class AccessPackageService : IAccessPackageService
+    {
+        private readonly IAccessPackageClient _accessPackageClient;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SingleRightService"/> class.
+        /// </summary>
+        /// <param name="accessPackageClient">The access package client.</param>
+        public AccessPackageService(IAccessPackageClient accessPackageClient)
+        {
+            _accessPackageClient = accessPackageClient;
+        }
+
+        /// <inheritdoc />
+        public async Task<List<AccessAreaFE>> GetSearch(string languageCode, string searchString, string typeName)
+        {
+            IEnumerable<SearchObject<AccessPackage>> searchMatches = await _accessPackageClient.GetAccessPackageSearchMatches(languageCode, searchString, typeName);
+
+            List<AccessAreaFE> sortedAreas = new List<AccessAreaFE>();
+
+            foreach (SearchObject<AccessPackage> searchMatch in searchMatches)
+            {
+                int premadeAreaIndex = sortedAreas.FindIndex(area => area.Id == searchMatch.Object.Area.Id);
+
+                if (premadeAreaIndex < 0)
+                {
+                    sortedAreas.Add(new AccessAreaFE(searchMatch.Object.Area, new List<AccessPackage> { searchMatch.Object }));
+                }
+                else
+                {
+                    sortedAreas[premadeAreaIndex].AccessPackages.Add(searchMatch.Object);
+                }
+            }
+
+            return sortedAreas;
+        }
+
+        /// <inheritdoc/>
+        public async Task<Dictionary<Guid, List<PackagePermissionFE>>> GetDelegations(Guid party, Guid? to, Guid? from, string languageCode)
+        {
+            PaginatedResult<PackagePermission> paginatedAccesses = await _accessPackageClient.GetAccessPackageAccesses(party, to, from, languageCode);
+            IEnumerable<PackagePermissionFE> accesses = paginatedAccesses.Items.Select(PackagePermissionFE.FromPackagePermission);
+
+            var sortedAccesses = new Dictionary<Guid, List<PackagePermissionFE>>();
+            foreach (PackagePermissionFE access in accesses)
+            {
+                Guid areaId = access.Package.AreaId;
+
+                if (!sortedAccesses.ContainsKey(areaId))
+                {
+                    sortedAccesses.Add(areaId, new List<PackagePermissionFE> { access });
+                }
+                else
+                {
+                    sortedAccesses[areaId].Add(access);
+                }
+            }
+
+            return sortedAccesses;
+        }
+
+        /// <inheritdoc />
+        public async Task<AccessPackageFE> GetSinglePackagePermission(Guid party, Guid? to, Guid? from, Guid packageId, string languageCode)
+        {
+            var package = await GetAccessPackageById(languageCode, packageId);
+            if (package == null)
+            {
+                return null;
+            }
+            else
+            {
+                // The package-id filter of the GetAccessPackageAccesses method is 
+                // currently not implemented on the backend so we have to do a 
+                // manual filter until it is fixed
+                PaginatedResult<PackagePermission> paginatedAccesses = await _accessPackageClient.GetAccessPackageAccesses(party, to, from, languageCode);
+                var packagePermissions = paginatedAccesses.Items.FirstOrDefault(x => x.Package.Id == packageId);
+                {
+                    return new AccessPackageFE
+                    {
+                        Id = package.Id.ToString(),
+                        Urn = package.Urn,
+                        Name = package.Name,
+                        IsAssignable = package.IsAssignable,
+                        Description = package.Description,
+                        Resources = ResourceUtils.MapToAccessPackageResourceFE(package.Resources),
+                        Permissions = PermissionFE.FromPermissions(packagePermissions?.Permissions)
+                    };
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<AccessPackage> GetAccessPackageById(string languageCode, Guid packageId)
+        {
+            return await _accessPackageClient.GetAccessPackageById(languageCode, packageId);
+        }
+
+        /// <inheritdoc />
+        public Task<HttpResponseMessage> RevokeAccessPackage(Guid from, Guid to, Guid party, string packageId)
+        {
+            return _accessPackageClient.RevokeAccessPackage(from, to, party, packageId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<HttpResponseMessage> CreateDelegation(Guid party, Guid to, Guid from, string packageId)
+        {
+            return await _accessPackageClient.CreateAccessPackageDelegation(party, to, from, packageId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<DelegationCheck>> DelegationCheck(Guid party)
+        {
+            var checksPaginated = await _accessPackageClient.AccessPackageDelegationCheck(party);
+            return checksPaginated.Items?.ToList() ?? new List<DelegationCheck>();
+        }
+    }
+}

@@ -1,0 +1,212 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { DsAlert, DsParagraph } from '@altinn/altinn-components';
+import { useSearchParams } from 'react-router';
+
+import { formatEntityDisplayName, getPartyColor } from '@/resources/utils/reporteeUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import {
+  useConfirmRequestMutation,
+  useGetEnrichedDraftRequestQuery,
+  useWithdrawRequestMutation,
+  type EnrichedRequest,
+} from '@/rtk/features/requestApi';
+
+import { RequestPageLayout } from '../../common/RequestPageLayout/RequestPageLayout';
+import { PartyRepresentationProvider } from '../../common/PartyRepresentationContext/PartyRepresentationContext';
+
+import { useMultipleDraftRequests } from './useMultipleDraftRequests';
+import { MultipleDraftRequestsView, type BatchActionType } from './MultipleDraftRequestsView';
+import { DraftRequestHeader } from './DraftRequestHeader';
+import { RequestReceiptBody } from './RequestReceiptBody';
+import { SingleDraftRequestView } from './SingleDraftRequestView';
+
+export const DraftRequestPage = () => {
+  const { t } = useTranslation();
+
+  useDocumentTitle(t('draft_request_page.page_title'));
+  const [searchParams] = useSearchParams();
+  const partyUuid = getCookie('AltinnPartyUuid') || '';
+  const requestIds = Array.from(new Set(searchParams.getAll('requestId'))); // Duplicate IDs are ignored
+  const isMultiMode = requestIds.length > 1;
+  const [batchCompleteAction, setBatchCompleteAction] = useState<BatchActionType>(null);
+
+  const onBatchComplete: (actionType: BatchActionType) => void = useCallback((actionType) => {
+    setBatchCompleteAction(actionType);
+  }, []);
+
+  const singleRequestId = requestIds[0] ?? '';
+
+  const {
+    data: request,
+    isLoading: isLoadingRequest,
+    error: loadRequestError,
+  } = useGetEnrichedDraftRequestQuery(
+    { id: singleRequestId },
+    { skip: !singleRequestId || isMultiMode },
+  );
+
+  const stableMultiIds = useMemo(
+    () => (isMultiMode ? requestIds : []),
+    [isMultiMode, requestIds.join(',')],
+  );
+  const {
+    requests: multiRequests,
+    isLoading: isLoadingMultiRequests,
+    loadError: multiLoadError,
+  } = useMultipleDraftRequests(stableMultiIds);
+
+  const representativeRequest: EnrichedRequest | undefined = isMultiMode
+    ? multiRequests[0]
+    : request;
+
+  const fromError =
+    isMultiMode && multiRequests.some((r) => r.from.id !== representativeRequest?.from.id);
+
+  const [
+    confirmRequest,
+    { data: confirmResponse, error: confirmRequestError, isLoading: isConfirmingRequest },
+  ] = useConfirmRequestMutation();
+
+  const [
+    withdrawRequest,
+    { data: withdrawResponse, error: withdrawRequestError, isLoading: isWithdrawingRequest },
+  ] = useWithdrawRequestMutation();
+
+  const isActionButtonDisabled = isConfirmingRequest || isWithdrawingRequest;
+  const onConfirmRequest = () => {
+    if (!isActionButtonDisabled && request) {
+      confirmRequest({ party: request.from.id, id: request.id });
+    }
+  };
+
+  const onWithdrawRequest = () => {
+    if (!isActionButtonDisabled && request) {
+      withdrawRequest({ party: request.from.id, id: request.id });
+    }
+  };
+
+  // The pending reportee-switch ("changing party") state is handled centrally by
+  // RequestPageLayout via the requestPartyUuid prop, so it's intentionally not
+  // duplicated here.
+  const isInitialLoad = isMultiMode ? isLoadingMultiRequests : isLoadingRequest;
+
+  const toName = formatEntityDisplayName(representativeRequest?.to);
+  const fromName = formatEntityDisplayName(representativeRequest?.from);
+
+  // Normalise the completed action across single and multi modes
+  const receiptAction: 'confirm' | 'withdraw' | null = isMultiMode
+    ? batchCompleteAction
+    : confirmResponse
+      ? 'confirm'
+      : withdrawResponse
+        ? 'withdraw'
+        : null;
+
+  let heading: React.ReactNode = null;
+  let body: React.ReactNode = null;
+  let error: React.ReactNode = null;
+
+  if (receiptAction) {
+    const isConfirm = receiptAction === 'confirm';
+    heading = (
+      <DraftRequestHeader
+        headerTextKey={
+          isConfirm ? 'draft_request_page.request_approved' : 'draft_request_page.request_withdrawn'
+        }
+        toName={toName}
+        autoFocus
+      />
+    );
+    body = (
+      <RequestReceiptBody
+        bodyTextKey={
+          isConfirm
+            ? 'draft_request_page.request_approved_info'
+            : 'draft_request_page.request_withdrawn_info'
+        }
+        toName={toName}
+      />
+    );
+  } else if (!isInitialLoad && representativeRequest) {
+    heading = (
+      <>
+        <DraftRequestHeader
+          headerTextKey='draft_request_page.heading'
+          toName={toName}
+        />
+        <DsParagraph>
+          <Trans
+            i18nKey={
+              partyUuid === representativeRequest.from.id
+                ? 'draft_request_page.intro_person'
+                : 'draft_request_page.intro_company'
+            }
+            components={{ b: <strong /> }}
+            values={{ to_name: toName, from_name: fromName }}
+          />
+        </DsParagraph>
+      </>
+    );
+
+    if (isMultiMode && multiRequests.length > 0) {
+      body = (
+        <PartyRepresentationProvider
+          fromPartyUuid={partyUuid}
+          actingPartyUuid={partyUuid}
+          toPartyUuid={''}
+        >
+          <MultipleDraftRequestsView
+            requests={multiRequests}
+            fromName={fromName}
+            onBatchComplete={onBatchComplete}
+          />
+        </PartyRepresentationProvider>
+      );
+    } else if (request) {
+      body = (
+        <SingleDraftRequestView
+          request={request}
+          fromName={fromName}
+          partyUuid={partyUuid}
+          onConfirmRequest={onConfirmRequest}
+          onWithdrawRequest={onWithdrawRequest}
+          isConfirmingRequest={isConfirmingRequest}
+          isWithdrawingRequest={isWithdrawingRequest}
+          confirmRequestError={confirmRequestError}
+          withdrawRequestError={withdrawRequestError}
+        />
+      );
+    }
+  }
+
+  if (isMultiMode) {
+    if (multiLoadError || fromError) {
+      error = <DsAlert data-color='danger'>{t('draft_request_page.load_request_error')}</DsAlert>;
+      body = null;
+    }
+  } else {
+    if (!singleRequestId) {
+      error = <DsAlert data-color='warning'>{t('draft_request_page.missing_request_id')}</DsAlert>;
+      body = null;
+    } else if (loadRequestError) {
+      error = <DsAlert data-color='danger'>{t('draft_request_page.load_request_error')}</DsAlert>;
+      body = null;
+    }
+  }
+
+  return (
+    <RequestPageLayout
+      account={{
+        name: representativeRequest?.from.name ?? '',
+        color: getPartyColor(representativeRequest?.from),
+      }}
+      error={error}
+      isLoading={isInitialLoad}
+      requestPartyUuid={representativeRequest?.from.id}
+      heading={heading}
+      body={body}
+    />
+  );
+};

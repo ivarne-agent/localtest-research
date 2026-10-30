@@ -1,0 +1,364 @@
+{
+  "links": {
+    "next": null
+  },
+  "data": [
+    {
+      "package": {
+        "id": "1dba50d6-f604-48e9-bd41-82321b13e85c",
+        "urn": "urn:altinn:accesspackage:skatt-naering",
+        "areaId": "7d32591d-34b7-4afc-8afa-013722f8c05d"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": null,
+          "role": {
+            "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f829",
+            "code": "rettighetshaver",
+            "children": null
+          },
+          "viaRole": null
+        }
+      ]
+    },
+    {
+      "package": {
+        "id": "9a61b136-7810-4939-ab6d-84938e9a12c6",
+        "urn": "urn:altinn:accesspackage:merverdiavgift",
+        "areaId": "7d32591d-34b7-4afc-8afa-013722f8c05d"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": null,
+          "role": {
+            "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f829",
+            "code": "rettighetshaver",
+            "children": null
+          },
+          "viaRole": null
+        }
+      ]
+    },
+    {
+      "package": {
+        "id": "4f4d4567-2384-49fa-b34b-84b4b77139d8",
+        "urn": "urn:altinn:accesspackage:motorvognavgift",
+        "areaId": "7d32591d-34b7-4afc-8afa-013722f8c05d"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": null,
+          "role": {
+            "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f829",
+            "code": "rettighetshaver",
+            "children": null
+          },
+          "viaRole": null
+        }
+      ]
+    },
+    {
+      "package": {
+        "id": "a736c33b-c15a-43ac-85be-a684630e1e59",
+        "urn": "urn:altinn:accesspackage:post-og-telekommunikasjon",
+        "areaId": "e31169f6-d4c7-4e45-93c7-f90bc285b639"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": null,
+          "role": {
+            "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f829",
+            "code": "rettighetshaver",
+            "children": null
+          },
+          "viaRole": null
+        }
+      ]
+    },
+    {
+      "package": {
+        "id": "4c859601-9b2b-4662-af39-846f4117ad7a",
+        "urn": "urn:altinn:accesspackage:skattegrunnlag",
+        "areaId": "7d32591d-34b7-4afc-8afa-013722f8c05d"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": null,
+          "role": {
+            "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f829",
+            "code": "rettighetshaver",
+            "children": null
+          },
+          "viaRole": null
+        }
+      ]
+    },
+    {
+      "package": {
+        "id": "1e40697b-e178-4920-8fbd-af5164b4d147",
+        "urn": "urn:altinn:accesspackage:byggesoknad",
+        "areaId": "536b317c-ef85-45d4-9b48-6511578e1952"
+      },
+      "permissions": [
+        {
+          "from": {
+            "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+            "name": "DISKRET NÆR TIGER AS",
+            "type": "Organisasjon",
+            "variant": "AS",
+            "parent": null,
+            "children": [
+              {
+                "id": "b0a79f3d-4cef-430a-9774-301b754e0f6f",
+                "name": "DISKRET NÆR TIGER AS",
+                "type": "Organisasjon",
+                "variant": "BEDR",
+                "parent": {
+                  "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+                  "name": "DISKRET NÆR TIGER AS",
+                  "type": "Organisasjon",
+                  "variant": "AS",
+                  "parent": null,
+                  "children": null,
+                  "organizationIdentifier": "310202398",
+                  "partyId": 51329012
+                },
+                "children": null,
+                "organizationIdentifier": "311312294",
+                "partyId": 51433301
+              }
+            ],
+            "organizationIdentifier": "310202398",
+            "partyId": 51329012
+          },
+          "to": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414744",
+            "name": "DIGITALISERINGSDIREKTORATET",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          },
+          "via": {
+            "id": "3d8b34c3-df0d-4dcc-be12-e788ce414745",
+            "name": "Fake-Digitaliseringsdirektoratet",
+            "type": "Organisasjon",
+            "variant": "ORGL",
+            "parent": null,
+            "children": null,
+            "role": null,
+            "viaRole": {
+              "id": "42cae370-2dc1-4fdc-9c67-c2f4b0f0f828",
+              "code": "fake-rolle",
+              "children": null
+            },
+            "organizationIdentifier": "991825827",
+            "partyId": 50088610
+          }
+        }
+      ]
+    }
+  ]
+}

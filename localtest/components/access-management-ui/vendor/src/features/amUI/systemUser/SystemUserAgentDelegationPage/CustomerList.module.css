@@ -1,0 +1,37 @@
+.loadingSpinner {
+  padding: 2px;
+}
+
+.listHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-size-4);
+  margin-bottom: var(--ds-size-8);
+  justify-content: space-between;
+}
+.addAllCustomers {
+  margin-left: auto;
+}
+
+.searchBar {
+  max-width: 20rem;
+}
+
+.pagingContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--ds-size-4);
+}
+
+.listControls {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-size-2);
+}
+
+@media only screen and (max-width: 769px) {
+  .listControls {
+    white-space: pre-line;
+  }
+}

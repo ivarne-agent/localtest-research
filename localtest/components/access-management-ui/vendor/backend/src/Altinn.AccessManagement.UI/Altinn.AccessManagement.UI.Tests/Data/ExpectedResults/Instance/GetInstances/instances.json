@@ -1,0 +1,420 @@
+[
+  {
+    "resource": {
+      "identifier": "generic-access-resource",
+      "title": "generic-access-resource",
+      "description": "An Altinn 3 app",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:instance-id:51599233/df333e75-5896-4254-a69f-146736eaf668",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "Success",
+      "dialogId": "11111111-1111-1111-1111-111111111111",
+      "instanceRef": "urn:altinn:instance-id:51599233/df333e75-5896-4254-a69f-146736eaf668",
+      "title": [
+        {
+          "value": "Dialog for generic-access-resource",
+          "languageCode": "nb"
+        }
+      ]
+    }
+  },
+  {
+    "resource": {
+      "identifier": "abctest",
+      "title": "abctest",
+      "description": "An Altinn 3 app",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:instance-id:51599233/c1d2e3f4-1111-2222-3333-444455556666",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": {
+          "id": "d6e7f8a9-b0c1-2345-8901-456789012345",
+          "code": "daglig-leder",
+          "children": null
+        },
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "Success",
+      "dialogId": "22222222-2222-2222-2222-222222222222",
+      "instanceRef": "urn:altinn:instance-id:51599233/c1d2e3f4-1111-2222-3333-444455556666",
+      "title": [
+        {
+          "value": "Dialog for abctest",
+          "languageCode": "nb"
+        }
+      ]
+    }
+  },
+  {
+    "resource": {
+      "identifier": "generic-access-resource",
+      "title": "generic-access-resource",
+      "description": "An Altinn 3 app",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:instance-id:51599233/6f4a3c12-8fd1-4a8b-8dc6-777777777777",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "NotFound"
+    }
+  },
+  {
+    "resource": {
+      "identifier": "123123",
+      "title": "123123",
+      "description": "A generic access resource",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:instance-id:51599233/b42df1f3-56f2-436a-bad7-222222222222",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "Success",
+      "dialogId": "44444444-4444-4444-4444-444444444444",
+      "instanceRef": "urn:altinn:instance-id:51599233/b42df1f3-56f2-436a-bad7-222222222222",
+      "title": [
+        {
+          "value": "Dialog for 123123",
+          "languageCode": "nb"
+        }
+      ]
+    }
+  },
+  {
+    "resource": {
+      "identifier": "generic-access-resource",
+      "title": "generic-access-resource",
+      "description": "An Altinn 3 app",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:correspondence-id:51599233/cccccccc-corr-corr-corr-000000000000",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "NotFound"
+    }
+  },
+  {
+    "resource": {
+      "identifier": "generic-access-resource",
+      "title": "generic-access-resource",
+      "description": "An Altinn 3 app",
+      "rightDescription": null,
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": null,
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/ttd/ttd.png",
+      "resourceOwnerOrgcode": "ttd",
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": null,
+      "keywords": []
+    },
+    "instance": {
+      "refId": "urn:altinn:instance-id:51599233/ffffffff-forb-forb-forb-000000000000",
+      "type": {
+        "id": "eb7cd8eb-eee4-43cf-814b-f54e143cd954",
+        "name": "BrukerstyrtAppInstansDelegering"
+      }
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": "1981-03-20",
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null,
+        "reason": null
+      }
+    ],
+    "dialogLookup": {
+      "status": "Forbidden"
+    }
+  }
+]

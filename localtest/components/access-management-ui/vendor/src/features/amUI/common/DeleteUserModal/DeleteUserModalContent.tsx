@@ -1,0 +1,358 @@
+import {
+  Button,
+  DsAlert,
+  DsDialog,
+  DsHeading,
+  DsParagraph,
+  DsSkeleton,
+} from '@altinn/altinn-components';
+import { TrashIcon, XMarkOctagonFillIcon } from '@navikt/aksel-icons';
+import { useEffect, useMemo, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
+import { Link, useLocation, useNavigate } from 'react-router';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { amUIPath, GeneralPath } from '@/routes/paths';
+import { accessPackageApi } from '@/rtk/features/accessPackageApi';
+import { useRemoveRightHolderMutation } from '@/rtk/features/connectionApi';
+import { roleApi } from '@/rtk/features/roleApi';
+import { useGetIsAdminQuery } from '@/rtk/features/userInfoApi';
+import { getChangeReporteeAndRedirectUrl } from '@/resources/utils/changeReporteeUtils';
+
+import { LoadingAnimation } from '../LoadingAnimation/LoadingAnimation';
+import { handleSelectAccount } from '../PageLayoutWrapper/useHeader';
+import { usePartyRepresentation } from '../PartyRepresentationContext/PartyRepresentationContext';
+import {
+  createErrorDetails,
+  TechnicalErrorParagraphs,
+} from '../TechnicalErrorParagraphs/TechnicalErrorParagraphs';
+
+import classes from './DeleteUserModal.module.css';
+import {
+  AGENT_ROLE_REASON,
+  DeletionLevel,
+  type DeletionStatus,
+  DeletionTarget,
+  GUARDIANSHIP_ROLE_REASON,
+  getDeleteUserDialogModelFromStatus,
+  ER_ROLE_REASON,
+  VIA_ROLE_REASON,
+  type NonDeletableReason,
+  type ViaParty,
+} from './deletionModalUtils';
+
+export interface DeleteUserModalContentProps {
+  status: DeletionStatus;
+  nonDeletableReasons: NonDeletableReason[];
+  viaParties?: ViaParty[];
+  isRolePermissionsLoading?: boolean;
+}
+
+const srmLink =
+  'https://info.altinn.no/skjemaoversikt/bronnoysundregistrene/stiftelse-av-aksjeselskap/';
+const guardianshipInfoLink = 'https://www.vergemal.no/';
+
+const nonDeletableReasonKeys: Record<NonDeletableReason, string> = {
+  [ER_ROLE_REASON]: 'delete_user.non_deletable_reason_er_roles',
+  [AGENT_ROLE_REASON]: 'delete_user.non_deletable_reason_agent_role',
+  [GUARDIANSHIP_ROLE_REASON]: 'delete_user.non_deletable_reason_guardianship',
+  [VIA_ROLE_REASON]: 'delete_user.non_deletable_reason_via_role',
+};
+const viaRoleSwitchKey = 'delete_user.non_deletable_reason_via_role_switch';
+
+type ReasonListItem = {
+  key: string;
+  i18nKey: string;
+  values: Record<string, string>;
+  components: Record<string, React.ReactElement>;
+};
+
+const nonDeletableReasonsIntroKeys: Record<DeletionTarget, string> = {
+  [DeletionTarget.User]: 'delete_user.user_non_deletable_reasons_intro',
+  [DeletionTarget.Yourself]: 'delete_user.yourself_non_deletable_reasons_intro',
+  [DeletionTarget.Reportee]: 'delete_user.reportee_non_deletable_reasons_intro',
+};
+
+export const DeleteUserModalContent = ({
+  status,
+  nonDeletableReasons,
+  viaParties = [],
+  isRolePermissionsLoading = false,
+}: DeleteUserModalContentProps) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { pathname } = useLocation();
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [dialogVisible, setDialogVisible] = useState(false);
+
+  useEffect(() => {
+    if (dialogVisible) {
+      dispatch(roleApi.util.invalidateTags(['role-permissions', 'roles']));
+      dispatch(accessPackageApi.util.invalidateTags(['AccessPackages']));
+    }
+  }, [dialogVisible, dispatch]);
+
+  const [deleteUser, { isLoading: isDeleteLoading, isError, error }] =
+    useRemoveRightHolderMutation();
+  const { data: isAdmin, isLoading: isAdminLoading } = useGetIsAdminQuery();
+
+  const {
+    fromParty,
+    toParty,
+    actingParty,
+    selfParty,
+    isLoading: isPartyRepresentationLoading,
+  } = usePartyRepresentation();
+
+  const dialogModel = useMemo(
+    () => getDeleteUserDialogModelFromStatus({ status, nonDeletableReasons }),
+    [nonDeletableReasons, status],
+  );
+
+  const formattedToPartyName = formatEntityDisplayName(toParty);
+
+  const formattedFromPartyName = formatEntityDisplayName(fromParty);
+
+  const isDeletingYourself = dialogModel.status.target === DeletionTarget.Yourself;
+  const shouldNavigateOnDeleteComplete = dialogModel.status.level === DeletionLevel.Full;
+  const agentAccessLinkPath = isDeletingYourself
+    ? amUIPath.MyClients
+    : amUIPath.ClientAdministration;
+  const agentAccessLinkText = isDeletingYourself
+    ? t('delete_user.agent_role_my_clients_link')
+    : t('delete_user.agent_role_client_admin_link');
+
+  const onDeleteUser = async () => {
+    if (!toParty?.id || !fromParty?.id || !actingParty?.id) {
+      return;
+    }
+
+    try {
+      await deleteUser({
+        to: toParty.id,
+        from: fromParty.id,
+        party: actingParty.id,
+      }).unwrap();
+
+      setIsSuccess(true);
+      dispatch(roleApi.util.invalidateTags(['role-permissions', 'roles']));
+      dispatch(accessPackageApi.util.invalidateTags(['AccessPackages']));
+
+      if (toParty.id === selfParty?.id) {
+        handleSelectAccount(selfParty.id);
+      }
+    } catch {
+      // Error details are shown from mutation state.
+    }
+  };
+
+  const onDeleteComplete = () => {
+    if (shouldNavigateOnDeleteComplete) {
+      if (pathname?.includes(`/${amUIPath.Reportees}`)) {
+        navigate(`/${amUIPath.Reportees}`);
+      } else {
+        navigate(`/${amUIPath.Users}`);
+      }
+      return;
+    }
+
+    setIsSuccess(false);
+    setDialogVisible(false);
+  };
+
+  const isDeletionNotAllowed = dialogModel.status.level === DeletionLevel.None;
+  const shouldShowNonDeletableReasons =
+    dialogModel.status.level !== DeletionLevel.Full && dialogModel.nonDeletableReasons.length > 0;
+  const isLoading = isDeleteLoading || isRolePermissionsLoading || isAdminLoading;
+  const errorDetails = isError ? createErrorDetails(error) : null;
+  const transComponents = {
+    p: <DsParagraph data-size='sm'></DsParagraph>,
+    erLink: (
+      <Link
+        to={srmLink}
+        target='_blank'
+        rel='noopener noreferrer'
+      ></Link>
+    ),
+    guardianshipLink: (
+      <Link
+        to={guardianshipInfoLink}
+        target='_blank'
+        rel='noopener noreferrer'
+      ></Link>
+    ),
+  };
+
+  const nonDeletableReasonItems = dialogModel.nonDeletableReasons.flatMap(
+    (reason): ReasonListItem | ReasonListItem[] => {
+      if (reason !== VIA_ROLE_REASON) {
+        return {
+          key: reason,
+          i18nKey: nonDeletableReasonKeys[reason],
+          values: { linkText: agentAccessLinkText },
+          components: {
+            ...transComponents,
+            agentLink: <Link to={`/${agentAccessLinkPath}`}></Link>,
+          },
+        };
+      }
+      return viaParties.map((viaParty) => {
+        const viaName = formatEntityDisplayName(viaParty);
+        const goTo = viaParty.isMainUnit
+          ? window.location.href
+          : `${window.location.origin}${GeneralPath.BasePath}/${amUIPath.Reportees}/${fromParty?.id}`;
+        return {
+          key: `${reason}-${viaParty.id}`,
+          i18nKey: isAdmin ? nonDeletableReasonKeys[reason] : viaRoleSwitchKey,
+          values: {
+            via_name:
+              !isAdmin && viaParty.isMainUnit
+                ? `${viaName} (${t('common.mainunit_lowercase')})`
+                : viaName,
+          },
+          components: {
+            viaLink: (
+              <Link
+                to={`/${amUIPath.Users}/${viaParty.id}`}
+                onClick={() => setDialogVisible(false)}
+              ></Link>
+            ),
+            switchLink: (
+              <Link
+                to={getChangeReporteeAndRedirectUrl(viaParty.id, goTo)}
+                reloadDocument
+              ></Link>
+            ),
+          },
+        };
+      });
+    },
+  );
+
+  return (
+    <DsDialog.TriggerContext>
+      <DsDialog.Trigger
+        onClick={() => {
+          setDialogVisible(true);
+        }}
+        data-size='sm'
+        variant='tertiary'
+        disabled={!!isPartyRepresentationLoading}
+      >
+        <TrashIcon
+          style={{ fontSize: '1.4rem' }}
+          aria-hidden='true'
+        />
+        {t(dialogModel.textKeys.triggerButtonKey)}
+      </DsDialog.Trigger>
+      <DsDialog
+        open={dialogVisible}
+        onClose={() => setDialogVisible(false)}
+        closedby='any'
+        closeButton={t('common.close')}
+        className={classes.modal}
+      >
+        {isLoading || isSuccess ? (
+          <LoadingAnimation
+            isLoading={isLoading}
+            displaySuccess={isSuccess}
+            onAnimationEnd={onDeleteComplete}
+          />
+        ) : isPartyRepresentationLoading ? (
+          <DsSkeleton
+            variant='text'
+            width='180'
+          />
+        ) : (
+          <div className={classes.modalContent}>
+            <div className={classes.contentBody}>
+              <DsHeading>{t(dialogModel.textKeys.headingKey)}</DsHeading>
+              {dialogModel.textKeys.fullDeletionMessageKey && (
+                <Trans
+                  i18nKey={dialogModel.textKeys.fullDeletionMessageKey}
+                  values={{
+                    to_name: formattedToPartyName,
+                    from_name: formattedFromPartyName,
+                  }}
+                  components={transComponents}
+                />
+              )}
+              {shouldShowNonDeletableReasons && (
+                <div className={classes.reasonsSection}>
+                  <div className={classes.infoLine}>
+                    <XMarkOctagonFillIcon
+                      fontSize='1.5rem'
+                      className={classes.dangerIcon}
+                      aria-hidden='true'
+                    />
+                    <DsParagraph data-size='sm'>
+                      {t(nonDeletableReasonsIntroKeys[dialogModel.status.target], {
+                        to_name: formattedToPartyName,
+                        from_name: formattedFromPartyName,
+                      })}
+                    </DsParagraph>
+                  </div>
+                  <ul className={classes.reasonList}>
+                    {nonDeletableReasonItems.map(({ key, ...transProps }) => (
+                      <li key={key}>
+                        <DsParagraph data-size='sm'>
+                          <Trans {...transProps} />
+                        </DsParagraph>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {dialogModel.partialConfirmationMessageKey && (
+                <Trans
+                  i18nKey={dialogModel.partialConfirmationMessageKey}
+                  values={{
+                    to_name: formattedToPartyName,
+                    from_name: formattedFromPartyName,
+                  }}
+                  components={transComponents}
+                />
+              )}
+              {errorDetails && (
+                <DsAlert
+                  data-size='sm'
+                  data-color='danger'
+                >
+                  <TechnicalErrorParagraphs
+                    status={errorDetails.status}
+                    time={errorDetails.time}
+                    traceId={errorDetails.traceId}
+                    size='sm'
+                  />
+                </DsAlert>
+              )}
+            </div>
+            {!isDeletionNotAllowed && (
+              <div className={classes.buttons}>
+                <Button
+                  color='danger'
+                  onClick={onDeleteUser}
+                  disabled={isLoading || !!isPartyRepresentationLoading}
+                >
+                  {t('delete_user.yes_button')}
+                </Button>
+                <Button
+                  color='neutral'
+                  variant='tertiary'
+                  onClick={() => {
+                    setIsSuccess(false);
+                    setDialogVisible(false);
+                  }}
+                >
+                  {t('common.cancel')}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </DsDialog>
+    </DsDialog.TriggerContext>
+  );
+};

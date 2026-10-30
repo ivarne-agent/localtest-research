@@ -1,0 +1,78 @@
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { PageWrapper } from '@/components';
+import { amUIPath } from '@/routes/paths';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+
+import { UserPageHeader } from '../common/UserPageHeader/UserPageHeader';
+import { RightsTabs } from '../common/RightsTabs/RightsTabs';
+import { PageLayoutWrapper } from '../common/PageLayoutWrapper';
+import { PageContainer } from '../common/PageContainer/PageContainer';
+import { DelegationModalProvider } from '../common/DelegationModal/DelegationModalContext';
+import {
+  PartyRepresentationProvider,
+  usePartyRepresentation,
+} from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import { DeleteUserModal } from '../common/DeleteUserModal/DeleteUserModal';
+import { AccessPackageSection } from '../userRightsPage/AccessPackageSection/AccessPackageSection';
+import { Breadcrumbs } from '../common/Breadcrumbs/Breadcrumbs';
+import { SingleRightsSection } from '../userRightsPage/SingleRightsSection/SingleRightsSection';
+import { InstanceSection } from '../userRightsPage/InstanceSection/InstanceSection';
+import { GuardianshipSection } from '../common/GuardianshipSection/GuardianshipSection';
+
+import { ReporteeRoleSection } from './ReporteeRoleSection';
+
+export const ReporteeRightsPage = () => {
+  const { t } = useTranslation();
+  const { id: reporteeUuid } = useParams();
+
+  useDocumentTitle(t('reportee_rights_page.page_title'));
+
+  return (
+    <PageWrapper>
+      <PageLayoutWrapper>
+        <PartyRepresentationProvider
+          fromPartyUuid={reporteeUuid ?? ''}
+          toPartyUuid={getCookie('AltinnPartyUuid')}
+          actingPartyUuid={getCookie('AltinnPartyUuid')}
+        >
+          <BreadcrumbsWrapper />
+          <DelegationModalProvider>
+            <PageContainer
+              backUrl={`/${amUIPath.Reportees}`}
+              contentActions={<DeleteUserModal direction='from' />}
+            >
+              <UserPageHeader
+                direction='from'
+                displayDirection
+              />
+              <RightsTabs
+                packagesPanel={<AccessPackageSection isReportee />}
+                singleRightsPanel={<SingleRightsSection isReportee />}
+                roleAssignmentsPanel={<ReporteeRoleSection />}
+                guardianshipsPanel={<GuardianshipSection />}
+                instancesPanel={<InstanceSection isReportee />}
+              />
+            </PageContainer>
+          </DelegationModalProvider>
+        </PartyRepresentationProvider>
+      </PageLayoutWrapper>
+    </PageWrapper>
+  );
+};
+
+const BreadcrumbsWrapper = () => {
+  const { fromParty } = usePartyRepresentation();
+  return (
+    <Breadcrumbs
+      items={['root', 'reportees']}
+      lastBreadcrumb={{
+        label: formatEntityDisplayName(fromParty),
+      }}
+    />
+  );
+};

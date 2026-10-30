@@ -1,0 +1,111 @@
+import React, { type ComponentPropsWithoutRef } from 'react';
+import { Breadcrumbs as AcBreadcrumbs, DsSkeleton } from '@altinn/altinn-components';
+import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
+
+import { amUIPath, ConsentPath, SystemUserPath } from '@/routes/paths';
+import { getAltinnStartPageUrl } from '@/resources/utils/pathUtils';
+
+export type BreadcrumbItem = { label?: string; href?: string };
+
+const BreadcrumbConfig = {
+  root: { label: 'sidebar.access_management', href: '/' },
+  systemuser_overview: {
+    href: `/${SystemUserPath.SystemUser}/${SystemUserPath.Overview}`,
+    label: 'sidebar.systemaccess',
+  },
+  systemuser_create: {
+    href: `/${SystemUserPath.SystemUser}/${SystemUserPath.Create}`,
+    label: 'systemuser_overviewpage.new_system_user_button',
+  },
+  users: {
+    href: `/${amUIPath.Users}`,
+    label: 'sidebar.users',
+  },
+  my_clients: {
+    href: `/${amUIPath.MyClients}`,
+    label: 'sidebar.your_clients',
+  },
+  client_administration: {
+    href: `/${amUIPath.ClientAdministration}`,
+    label: 'sidebar.client_administration',
+  },
+  reportees: {
+    href: `/${amUIPath.Reportees}`,
+    label: 'sidebar.reportees',
+  },
+  poa_overview: {
+    href: `/${amUIPath.PoaOverview}`,
+    label: 'sidebar.poa_overview',
+  },
+  consent: {
+    href: `/${ConsentPath.Consent}/${ConsentPath.Active}`,
+    label: 'sidebar.consent',
+  },
+  consent_log: {
+    href: `/${ConsentPath.Consent}/${ConsentPath.Log}`,
+    label: 'consent_log.breadcrumb',
+  },
+  settings: {
+    href: `/${amUIPath.Settings}`,
+    label: 'sidebar.settings',
+  },
+  requests: {
+    href: `/${amUIPath.Requests}`,
+    label: 'sidebar.requests',
+  },
+  maskinporten: {
+    href: `/${amUIPath.Maskinporten}`,
+    label: 'sidebar.maskinporten',
+  },
+  maskinporten_suppliers: {
+    href: `/${amUIPath.Maskinporten}#suppliers`,
+    label: 'maskinporten_page.breadcrumb_suppliers',
+  },
+  maskinporten_consumers: {
+    href: `/${amUIPath.Maskinporten}#consumers`,
+    label: 'maskinporten_page.breadcrumb_consumers',
+  },
+  activity_log: {
+    href: `/${amUIPath.ActivityLog}`,
+    label: 'sidebar.activity_log',
+  },
+};
+
+interface BreadcrumbsProps {
+  items: (keyof typeof BreadcrumbConfig)[];
+  lastBreadcrumb?: { label?: string };
+}
+
+export const Breadcrumbs = ({ items, lastBreadcrumb }: BreadcrumbsProps) => {
+  const { t, i18n } = useTranslation();
+
+  const start = { label: 'common.start', href: getAltinnStartPageUrl(i18n.language) };
+  const last = lastBreadcrumb ? [lastBreadcrumb] : [];
+  const breadcrumbs: BreadcrumbItem[] = [
+    start,
+    ...items.map((item) => BreadcrumbConfig[item]),
+    ...last,
+  ];
+  const breadcrumbItems = breadcrumbs.map((item) => {
+    const isExternal = item.href?.startsWith('http');
+    return {
+      label: item.label ? t(item.label) : <DsSkeleton variant='text'>xxxxxxxxxxxxxx</DsSkeleton>,
+      as: isExternal
+        ? (props: ComponentPropsWithoutRef<'a'>) => (
+            <a
+              {...props}
+              href={item.href}
+            />
+          )
+        : (props: ComponentPropsWithoutRef<typeof Link>) => (
+            <Link
+              {...props}
+              to={item.href ?? ''}
+            />
+          ),
+    };
+  });
+
+  return items.length > 0 ? <AcBreadcrumbs items={breadcrumbItems} /> : null;
+};

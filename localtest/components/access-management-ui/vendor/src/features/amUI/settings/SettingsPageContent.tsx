@@ -1,0 +1,178 @@
+import React from 'react';
+import { useTranslation, Trans } from 'react-i18next';
+import {
+  Divider,
+  DsAlert,
+  DsHeading,
+  DsPopover,
+  List,
+  SettingsItem,
+} from '@altinn/altinn-components';
+import { ChatIcon, PaperplaneIcon, QuestionmarkCircleIcon } from '@navikt/aksel-icons';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { useGetOrgNotificationAddressesQuery } from '@/rtk/features/settingsApi';
+import { useGetIsCompanyProfileAdminQuery, useGetReporteeQuery } from '@/rtk/features/userInfoApi';
+
+import { usePartyRepresentation } from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import { ReporteePageHeading } from '../common/ReporteePageHeading/ReporteePageHeading';
+
+import classes from './SettingsPageContent.module.css';
+import { SettingsModal } from './SettingsModal';
+import { SettingsServiceAnnouncement } from './SettingsServiceAnnouncement';
+
+export const SettingsPageContent = () => {
+  const { t } = useTranslation();
+  useDocumentTitle(t('settings_page.page_title'));
+
+  const [openModal, setOpenModal] = React.useState(false);
+  const [modalMode, setModalMode] = React.useState<'email' | 'sms' | null>(null);
+
+  const { data: reportee, isLoading: isLoadingReportee } = useGetReporteeQuery();
+  const { actingParty, isLoading: actorLoading } = usePartyRepresentation();
+  const { data: notificationAddresses, isLoading: notifLoading } =
+    useGetOrgNotificationAddressesQuery(actingParty?.organizationIdentifier ?? '', {
+      skip: !actingParty?.organizationIdentifier,
+    });
+
+  const { data: isCompanyProfileAdmin, isLoading: isCompanyProfileAdminLoading } =
+    useGetIsCompanyProfileAdminQuery();
+
+  const emailAddresses =
+    notificationAddresses?.filter((addr) => addr.email).map((addr) => addr.email) ?? [];
+  const phoneNumbers =
+    notificationAddresses
+      ?.filter((addr) => addr.phone)
+      .map((addr) => `${addr.countryCode} ${addr.phone}`) ?? [];
+  const isLoading =
+    actorLoading || notifLoading || isCompanyProfileAdminLoading || isLoadingReportee;
+
+  const onSettingsClick = (mode: 'email' | 'sms') => {
+    setModalMode(mode);
+    setOpenModal(true);
+  };
+
+  const onCloseModal = () => {
+    setOpenModal(false);
+    setModalMode(null);
+  };
+
+  const formattedActingPartyName = formatEntityDisplayName(actingParty);
+
+  // Show not-admin alert when loaded and user lacks permission
+  if (!isCompanyProfileAdmin && !isCompanyProfileAdminLoading) {
+    return (
+      <div className={classes.notAdminAlert}>
+        <DsAlert
+          data-color='warning'
+          data-testid='settings-not-admin-alert'
+        >
+          {t('settings_page.not_admin_alert', {
+            name: formattedActingPartyName,
+          })}
+        </DsAlert>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <ReporteePageHeading
+        data-testid='settings-page-heading'
+        title={t('settings_page.page_heading', { name: formattedActingPartyName })}
+        reportee={reportee}
+        isLoading={isLoading}
+      />
+      <SettingsServiceAnnouncement />
+      <div className={classes.settingsHeaderAndInfo}>
+        <DsHeading
+          level={2}
+          data-size='xs'
+        >
+          {t('settings_page.alert_settings_heading')}
+        </DsHeading>
+        <DsPopover.TriggerContext>
+          <DsPopover.Trigger
+            variant='tertiary'
+            aria-label={t('settings_page.info_button')}
+            icon
+          >
+            <QuestionmarkCircleIcon aria-hidden='true' />
+          </DsPopover.Trigger>
+          <DsPopover placement='right'>
+            <Trans
+              i18nKey='settings_page.alert_settings_info'
+              components={{
+                a: (
+                  <a
+                    href='https://info.altinn.no/hjelp/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  />
+                ),
+              }}
+            />
+          </DsPopover>
+        </DsPopover.TriggerContext>
+      </div>
+      <div className={classes.settingsListContainer}>
+        <List size='sm'>
+          <SettingsItem
+            id='settings-email-alerts'
+            title={t('settings_page.alerts_on_email')}
+            value={emailAddresses.join(', ')}
+            icon={<PaperplaneIcon aria-hidden='true' />}
+            badge={
+              emailAddresses.length > 0 && {
+                children: (
+                  <span data-testid='email-address-count'>
+                    {emailAddresses.length === 1
+                      ? t('settings_page.one_address')
+                      : t('settings_page.num_of_addresses', { count: emailAddresses.length })}
+                  </span>
+                ),
+              }
+            }
+            as={'button'}
+            onClick={() => onSettingsClick('email')}
+            controls={emailAddresses.length === 0 && t('common.add')}
+            loading={isLoading}
+            linkIcon
+          />
+          <Divider as='li' />
+          <SettingsItem
+            id='settings-sms-alerts'
+            title={t('settings_page.alerts_on_sms')}
+            value={phoneNumbers.join(', ')}
+            icon={<ChatIcon aria-hidden='true' />}
+            badge={
+              phoneNumbers.length > 0 && {
+                children: (
+                  <span data-testid='sms-address-count'>
+                    {phoneNumbers.length === 1
+                      ? t('settings_page.one_address')
+                      : t('settings_page.num_of_addresses', { count: phoneNumbers.length })}
+                  </span>
+                ),
+              }
+            }
+            as={'button'}
+            onClick={() => onSettingsClick('sms')}
+            loading={isLoading}
+            controls={phoneNumbers.length === 0 && t('common.add')}
+            linkIcon
+          />
+        </List>
+        <SettingsModal
+          mode={modalMode}
+          open={openModal}
+          onClose={onCloseModal}
+          canDeleteLastAddress={
+            modalMode === 'email' ? phoneNumbers.length > 0 : emailAddresses.length > 0 // Must have at least one address of either type
+          }
+        />
+      </div>
+    </div>
+  );
+};

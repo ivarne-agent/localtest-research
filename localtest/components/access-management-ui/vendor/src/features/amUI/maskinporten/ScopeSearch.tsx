@@ -1,0 +1,98 @@
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { arraysEqual } from '@/resources/utils';
+import { useDebouncedValue } from '@/resources/hooks';
+import { ResourceType, useGetResourceOwnersQuery } from '@/rtk/features/resourceApi';
+import {
+  useGetMaskinportenSupplierResourcesQuery,
+  useSearchMaskinportenScopesQuery,
+} from '@/rtk/features/maskinportenApi';
+import type { ServiceResource } from '@/rtk/features/singleRights/singleRightsApi';
+import { ResourceFilterToolbar } from '@/features/amUI/common/ResourceFilterToolbar/ResourceFilterToolbar';
+
+import classes from '../common/DelegationModal/SingleRights/ResourceSearch.module.css';
+import { usePartyRepresentation } from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import { useDelegationModalContext } from '../common/DelegationModal/DelegationModalContext';
+
+import { ScopeSearchResults } from './ScopeSearchResults';
+
+const searchResultsPerPage = 7;
+
+export const ScopeSearch = ({
+  onSelect,
+}: {
+  onSelect: (resource: ServiceResource, error?: boolean) => void;
+}) => {
+  const { t } = useTranslation();
+  const { fromParty, toParty } = usePartyRepresentation();
+  const { searchString, setSearchString, filters, setFilters, currentPage, setCurrentPage } =
+    useDelegationModalContext();
+  const supplier = toParty?.organizationIdentifier ?? '';
+
+  const debouncedSearchString = useDebouncedValue(searchString, searchString ? 300 : 0);
+
+  const { data, error, isFetching } = useSearchMaskinportenScopesQuery({
+    searchString: debouncedSearchString,
+    ROfilters: filters,
+    page: currentPage,
+    resultsPerPage: searchResultsPerPage,
+  });
+  const { data: resourceOwners } = useGetResourceOwnersQuery([ResourceType.MaskinportenSchema]);
+  const { data: delegatedResources } = useGetMaskinportenSupplierResourcesQuery(
+    {
+      party: fromParty?.id,
+      supplier,
+    },
+    {
+      skip: !fromParty?.id || !supplier,
+      refetchOnMountOrArgChange: true,
+    },
+  );
+
+  const resources = data?.pageList;
+  const totalNumberOfResults = data?.numEntriesTotal;
+  const filterOptions =
+    resourceOwners?.map((owner) => ({
+      label: owner.organisationName ?? owner.organisationCode,
+      value: owner.organisationCode,
+    })) ?? [];
+  const setSearch = (value: string) => {
+    setSearchString(value);
+    setCurrentPage(1);
+  };
+
+  return (
+    <>
+      <div className={classes.toolbarContainer}>
+        <ResourceFilterToolbar
+          search={searchString}
+          setSearch={setSearch}
+          filterState={filters}
+          setFilterState={(filtersToApply) => {
+            if (!arraysEqual(filtersToApply, filters)) {
+              setFilters(filtersToApply ?? []);
+              setCurrentPage(1);
+            }
+          }}
+          serviceOwnerOptions={filterOptions}
+          searchPlaceholder={t('maskinporten_page.search_api_placeholder')}
+        />
+      </div>
+      <div className={classes.searchResults}>
+        <ScopeSearchResults
+          isFetching={isFetching}
+          error={error}
+          resources={resources}
+          searchString={searchString}
+          delegatedResources={delegatedResources}
+          totalNumberOfResults={totalNumberOfResults}
+          currentPage={currentPage}
+          searchResultsPerPage={searchResultsPerPage}
+          onSelect={onSelect}
+          setCurrentPage={setCurrentPage}
+        />
+      </div>
+    </>
+  );
+};

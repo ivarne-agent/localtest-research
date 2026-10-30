@@ -1,0 +1,230 @@
+import React, { useMemo, useState } from 'react';
+import { DsSearch, DsParagraph } from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { PartyType } from '@/dataObjects/dtos/Party';
+
+import { useFilteredUsers } from '../UserList/useFilteredUsers';
+import { DelegationAction } from '../DelegationModal/EditModal';
+import { UserList } from '../UserList/UserList';
+import { usePartyRepresentation } from '../PartyRepresentationContext/PartyRepresentationContext';
+
+import classes from './UserSearch.module.css';
+import { UserSearchResults } from './UserSearchResults';
+import type { UserActionTarget, UserSearchNode } from './types';
+
+export interface UserSearchProps {
+  includeSelfAsChild: boolean;
+  includeSelfAsChildOnIndirect?: boolean;
+  users?: UserSearchNode[];
+  indirectUsers?: UserSearchNode[];
+  getUserLink?: (user: UserActionTarget) => string;
+  onDelegate?: (user: UserActionTarget) => void;
+  onRevoke?: (user: UserActionTarget) => void;
+  onSelect?: (user: UserActionTarget) => void;
+  isLoading?: boolean;
+  isActionLoading?: boolean;
+  canDelegate?: boolean;
+  AddUserButton?: React.ReactNode;
+  noUsersText?: string;
+  searchPlaceholder?: string;
+  addUserButtonLabel?: string;
+  revokeLabel?: string;
+  directConnectionsHeading?: string;
+  indirectConnectionsHeading?: string;
+  additionalFilters?: React.ReactNode;
+  hasActiveAdditionalFilters?: boolean;
+  // Id the parent can use as a focus-restore fallback (the fallbackId to requestFocus): focus lands
+  // here when an acted-on row is gone. The parent owns the value so it stays unique within its
+  // RestoreFocusProvider zone; UserSearch decides which element carries it.
+  restoreFocusFallbackId?: string;
+}
+
+const filterAvailableUserTypes = (items?: UserSearchNode[]) =>
+  items?.filter((item) => item.type === PartyType.Person || item.type === PartyType.Organization) ||
+  [];
+
+export const UserSearch: React.FC<UserSearchProps> = ({
+  includeSelfAsChild,
+  includeSelfAsChildOnIndirect = true,
+  users: initialUsers,
+  indirectUsers: initialIndirectUsers,
+  getUserLink,
+  onDelegate,
+  onRevoke,
+  onSelect,
+  isLoading = false,
+  isActionLoading = false,
+  canDelegate = true,
+  AddUserButton,
+  noUsersText,
+  searchPlaceholder,
+  addUserButtonLabel,
+  revokeLabel,
+  directConnectionsHeading,
+  indirectConnectionsHeading,
+  additionalFilters,
+  hasActiveAdditionalFilters = false,
+  restoreFocusFallbackId,
+}) => {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const { fromParty } = usePartyRepresentation();
+  const directUsers = useMemo(() => filterAvailableUserTypes(initialUsers), [initialUsers]);
+
+  const indirectUsers = useMemo(
+    () => filterAvailableUserTypes(initialIndirectUsers),
+    [initialIndirectUsers],
+  );
+
+  const trimmedQuery = query.trim();
+  const isQuery = trimmedQuery !== '' || hasActiveAdditionalFilters;
+  const hasFiltersOnly = hasActiveAdditionalFilters && trimmedQuery === '';
+
+  const {
+    users: filteredDirectUsers,
+    hasNextPage,
+    goNextPage,
+    indirectUsers: filteredIndirectUsers,
+    hasNextIndirectPage,
+    goNextIndirectPage,
+  } = useFilteredUsers({
+    users: directUsers,
+    indirectUsers,
+    searchString: trimmedQuery,
+  });
+
+  const hasDirectUsers = (directUsers?.length ?? 0) > 0;
+  const directHasResults = (filteredDirectUsers?.length ?? 0) > 0;
+  const indirectHasResults = (filteredIndirectUsers?.length ?? 0) > 0;
+  const queryIsSSN = /^\d{11}$/.test(trimmedQuery);
+
+  const showDirectNoResults = isQuery && !directHasResults && indirectHasResults;
+  const showIndirectList = isQuery && indirectHasResults && canDelegate;
+  const showEmptyState = isQuery && !directHasResults && !indirectHasResults;
+
+  if (isLoading) {
+    return (
+      <UserList
+        isLoading={true}
+        searchString={query}
+      />
+    );
+  }
+  return (
+    <div className={classes.container}>
+      <div className={classes.controls}>
+        <div className={classes.searchAndFilters}>
+          <DsSearch
+            className={classes.searchBar}
+            data-size='sm'
+          >
+            <DsSearch.Input
+              id={restoreFocusFallbackId}
+              aria-label={t('common.search')}
+              placeholder={searchPlaceholder ?? t('advanced_user_search.user_search_placeholder')}
+              value={query}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                setQuery(event.target.value)
+              }
+            />
+            {query && <DsSearch.Clear onClick={() => setQuery('')} />}
+          </DsSearch>
+          {additionalFilters}
+        </div>
+        {canDelegate && AddUserButton && <div className={classes.buttonRow}>{AddUserButton}</div>}
+      </div>
+
+      <div className={classes.results}>
+        <>
+          {!hasDirectUsers && !isLoading && !isQuery && (
+            <DsParagraph
+              data-size='md'
+              className={classes.tabDescription}
+            >
+              {noUsersText ??
+                t('package_poa_details_page.users_tab.no_users', {
+                  fromparty: formatEntityDisplayName(fromParty),
+                })}
+            </DsParagraph>
+          )}
+          {isQuery && showIndirectList && (
+            <h2 className={classes.subHeader}>
+              {directConnectionsHeading ?? t('advanced_user_search.direct_connections')}
+            </h2>
+          )}
+          <UserSearchResults
+            users={filteredDirectUsers}
+            hasNextPage={hasNextPage}
+            goNextPage={goNextPage}
+            availableAction={DelegationAction.REVOKE}
+            isActionLoading={isActionLoading}
+            onRevoke={onRevoke}
+            onSelect={onSelect}
+            includeSelfAsChild={includeSelfAsChild}
+            getUserLink={getUserLink}
+            revokeLabel={revokeLabel}
+          />
+          {showDirectNoResults && (
+            <DsParagraph data-size='md'>
+              {t(
+                hasFiltersOnly
+                  ? 'advanced_user_search.user_no_filter_result'
+                  : 'advanced_user_search.user_no_search_result',
+                { searchTerm: trimmedQuery },
+              )}
+            </DsParagraph>
+          )}
+        </>
+
+        {showIndirectList && (
+          <>
+            <h2 className={classes.subHeader}>
+              {indirectConnectionsHeading ?? t('advanced_user_search.indirect_connections')}
+            </h2>
+            <UserSearchResults
+              users={filteredIndirectUsers}
+              hasNextPage={!!hasNextIndirectPage}
+              goNextPage={goNextIndirectPage}
+              availableAction={DelegationAction.DELEGATE}
+              onDelegate={canDelegate ? onDelegate : undefined}
+              onSelect={onSelect}
+              isActionLoading={isActionLoading}
+              includeSelfAsChild={includeSelfAsChildOnIndirect}
+              delegateLabel={addUserButtonLabel}
+            />
+          </>
+        )}
+
+        {showEmptyState && (
+          <div className={classes.emptyState}>
+            <DsParagraph data-size='md'>
+              {t(
+                hasFiltersOnly
+                  ? 'advanced_user_search.user_no_filter_result'
+                  : 'advanced_user_search.user_no_search_result',
+                { searchTerm: trimmedQuery || '' },
+              )}
+            </DsParagraph>
+            {queryIsSSN ? (
+              <DsParagraph data-size='md'>
+                {t('advanced_user_search.no_result_help_line_ssn')}
+              </DsParagraph>
+            ) : (
+              AddUserButton &&
+              canDelegate &&
+              !hasFiltersOnly && (
+                <DsParagraph data-size='md'>
+                  {t('advanced_user_search.no_result_help_line_add_user')}
+                </DsParagraph>
+              )
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default UserSearch;

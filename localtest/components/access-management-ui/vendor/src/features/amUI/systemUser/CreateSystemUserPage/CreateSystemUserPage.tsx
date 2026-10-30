@@ -1,0 +1,50 @@
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { PageWrapper } from '@/components';
+import { PageLayoutWrapper } from '@/features/amUI/common/PageLayoutWrapper';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+
+import type { RegisteredSystem } from '../types';
+import { Breadcrumbs } from '../../common/Breadcrumbs/Breadcrumbs';
+
+import { SelectRegisteredSystem } from './SelectRegisteredSystem';
+import { RightsIncluded } from './RightsIncluded';
+
+export const CreateSystemUserPage = (): React.ReactNode => {
+  const { t } = useTranslation();
+  useDocumentTitle(t('systemuser_creationpage.page_title'));
+  const [selectedSystem, setSelectedSystem] = useState<RegisteredSystem | undefined>(undefined);
+  const [isConfirmStep, setIsConfirmStep] = useState<boolean>(false);
+
+  const handleConfirmSystem = () => {
+    setIsConfirmStep(true);
+  };
+
+  const handleNavigateBack = () => {
+    setIsConfirmStep(false);
+  };
+
+  return (
+    <div>
+      <PageWrapper>
+        <PageLayoutWrapper>
+          <Breadcrumbs items={['root', 'systemuser_overview', 'systemuser_create']} />
+          {!isConfirmStep && (
+            <SelectRegisteredSystem
+              selectedSystem={selectedSystem}
+              setSelectedSystem={setSelectedSystem}
+              handleConfirm={handleConfirmSystem}
+            />
+          )}
+          {isConfirmStep && selectedSystem && (
+            <RightsIncluded
+              selectedSystem={selectedSystem}
+              onNavigateBack={handleNavigateBack}
+            />
+          )}
+        </PageLayoutWrapper>
+      </PageWrapper>
+    </div>
+  );
+};

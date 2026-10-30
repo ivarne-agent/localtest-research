@@ -1,0 +1,27 @@
+template: |
+  # Changelog
+  $CHANGES
+
+  See details of [all code changes](https://github.com/altinn/altinn-access-management-frontend/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION) since previous release
+
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'kind/feature-request'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'kind/bug'
+      - 'bugfix'
+  - title: '🧪 Test Coverage'
+    labels:
+      - 'Test'
+  - title: '📝 Text improvements'
+    labels:
+      - 'Text'
+  - title: '🧰 Maintenance'
+    labels:
+      - 'kind/documentation'
+      - 'dependencies'
+      - 'enhancement'
+      - 'kind/chore'
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'

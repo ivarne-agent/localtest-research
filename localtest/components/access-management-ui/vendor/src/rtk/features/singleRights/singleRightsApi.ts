@@ -1,0 +1,228 @@
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { createBaseQuery } from '@/rtk/app/baseQuery';
+import type { IdValuePair } from '@/dataObjects/dtos/IdValuePair';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import type { DelegationResult } from '@/dataObjects/dtos/resourceDelegation';
+import type { Permissions, Reason } from '@/dataObjects/dtos/accessPackage';
+
+interface PaginatedListDTO {
+  page: number;
+  numEntriesTotal: number;
+  pageList: ServiceResource[];
+}
+
+export interface ServiceResource {
+  title: string;
+  identifier: string;
+  resourceOwnerName: string;
+  resourceOwnerLogoUrl: string;
+  resourceOwnerOrgNumber: string;
+  resourceOwnerOrgcode: string;
+  rightDescription: string;
+  description?: string;
+  status?: string;
+  resourceReferences: resourceReference[];
+  authorizationReference: IdValuePair[];
+  resourceType: string;
+  delegable: boolean;
+}
+
+export interface ResourceDelegation {
+  resource: ServiceResource;
+  permissions: Permissions[];
+}
+
+export interface ResourceRight {
+  resource: ServiceResource;
+  directRights: RightAccess[];
+  indirectRights: RightAccess[];
+}
+
+export interface RightAccess {
+  right: Right;
+  reason?: Reason;
+  permissions: Permissions[];
+}
+
+interface resourceReference {
+  reference: string;
+  referenceType: string;
+  referenceSource: string;
+}
+
+interface searchParams {
+  searchString: string;
+  ROfilters: string[];
+  page: number;
+  resultsPerPage: number;
+  includeExpired?: boolean;
+}
+
+export interface DelegationCheckedRight {
+  right: Right;
+  result: boolean;
+  reasonCodes: string[];
+}
+
+export interface Right {
+  key: string;
+  name: string;
+}
+
+const buildResourceSearchUrl = ({
+  searchString,
+  ROfilters,
+  page,
+  resultsPerPage,
+  includeExpired,
+}: searchParams): string => {
+  let filterParams = '';
+  for (const filter of ROfilters) {
+    filterParams = filterParams + `&ROFilters=${filter}`;
+  }
+  if (includeExpired) {
+    // Default is to not include expired apps, so only add param if true
+    filterParams = filterParams + `&includeExpired=true`;
+  }
+  return `resources/search?Page=${page}&ResultsPerPage=${resultsPerPage}&SearchString=${encodeURIComponent(searchString)}${filterParams}`;
+};
+
+const baseUrl = import.meta.env.BASE_URL + 'accessmanagement/api/v1';
+
+export const singleRightsApi = createApi({
+  reducerPath: 'singleRightsApi',
+  baseQuery: createBaseQuery(baseUrl),
+  tagTypes: ['SingleRights', 'resources', 'delegationCheck', 'rightsMeta', 'rights'],
+  endpoints: (builder) => ({
+    // TODO: Move to resourceApi
+    getPaginatedSearch: builder.query<PaginatedListDTO, searchParams>({
+      query: buildResourceSearchUrl,
+    }),
+    /**
+     * Same search as `getPaginatedSearch`, but pages are accumulated instead of replaced.
+     * Use with a "load more" button: `data.pages` holds every page fetched so far for the
+     * current search arguments, and changing those arguments starts a fresh cache entry.
+     */
+    searchResources: builder.infiniteQuery<PaginatedListDTO, Omit<searchParams, 'page'>, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 1,
+        getNextPageParam: (lastPage, allPages, lastPageParam) => {
+          const loadedCount = allPages.reduce((count, page) => count + page.pageList.length, 0);
+          return loadedCount >= lastPage.numEntriesTotal ? undefined : lastPageParam + 1;
+        },
+      },
+      query: ({ queryArg, pageParam }) => buildResourceSearchUrl({ ...queryArg, page: pageParam }),
+    }),
+    /**
+     * Fetches the resources delegated from a party. When `to` is omitted, resources
+     * delegated to every recipient are returned (used by the power of attorney overview).
+     */
+    getSingleRightsForRightholder: builder.query<
+      ResourceDelegation[],
+      { actingParty: string; from: string; to?: string }
+    >({
+      query: ({ actingParty, from, to }) =>
+        `singleright/delegation/resources?party=${actingParty}&from=${from}` +
+        (to ? `&to=${to}` : ''),
+      providesTags: ['resources'],
+    }),
+    getResourceRights: builder.query<
+      ResourceRight,
+      { actingParty: string; from: string; to: string; resourceId: string }
+    >({
+      query: ({ actingParty, from, to, resourceId }) =>
+        `singleright/delegation/resources/rights?party=${actingParty}&to=${to}&from=${from}&resourceId=${encodeURIComponent(resourceId)}`,
+      providesTags: ['rights'],
+    }),
+    getResourceRightsMeta: builder.query<Right[], { resourceId: string }>({
+      query: ({ resourceId }) =>
+        `singleright/rightsmeta?resource=${encodeURIComponent(resourceId)}`,
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number; data: string } => {
+        return { status: response.status, data: new Date().toISOString() };
+      },
+      providesTags: ['rightsMeta'],
+    }),
+    delegationCheck: builder.query<
+      DelegationCheckedRight[],
+      {
+        resourceId: string;
+        from?: string;
+      }
+    >({
+      query: ({ resourceId, from = getCookie('AltinnPartyUuid') }) => ({
+        url: `singleright/delegationcheck?from=${from}&resource=${encodeURIComponent(resourceId)}`,
+        method: 'GET',
+      }),
+      transformErrorResponse: (response: {
+        status: string | number;
+      }): { status: string | number; data: string } => {
+        return { status: response.status, data: new Date().toISOString() };
+      },
+      providesTags: ['delegationCheck'],
+    }),
+    delegateRights: builder.mutation<
+      DelegationResult,
+      {
+        partyUuid: string;
+        fromUuid: string;
+        toUuid: string;
+        resourceId: string;
+        actionKeys: string[];
+      }
+    >({
+      query: ({ partyUuid, fromUuid, toUuid, resourceId, actionKeys }) => ({
+        url: `singleright/delegate?party=${partyUuid}&from=${fromUuid}&to=${toUuid}&resourceId=${encodeURIComponent(resourceId)}`,
+        method: 'POST',
+        body: JSON.stringify(actionKeys),
+      }),
+      transformErrorResponse: (response: { status: string | number }) => {
+        return response.status;
+      },
+      invalidatesTags: ['resources', 'delegationCheck', 'rights'],
+    }),
+    revokeResource: builder.mutation<
+      { isSuccessStatusCode: boolean },
+      { party: string; from: string; to: string; resourceId: string }
+    >({
+      query({ party, from, to, resourceId }) {
+        return {
+          url: `singleright/revoke?party=${party}&from=${from}&to=${to}&resourceId=${encodeURIComponent(resourceId)}`,
+          method: 'DELETE',
+        };
+      },
+      invalidatesTags: ['resources', 'delegationCheck', 'rights'],
+    }),
+    updateResource: builder.mutation<
+      void,
+      { party: string; from: string; to: string; resourceId: string; actionKeys: string[] }
+    >({
+      query({ party, from, to, resourceId, actionKeys }) {
+        return {
+          url: `singleright/update?party=${party}&from=${from}&to=${to}&resourceId=${encodeURIComponent(resourceId)}`,
+          method: 'PUT',
+          body: JSON.stringify(actionKeys),
+        };
+      },
+      invalidatesTags: ['resources', 'delegationCheck', 'rights'],
+    }),
+  }),
+});
+
+export const {
+  useGetPaginatedSearchQuery,
+  useSearchResourcesInfiniteQuery,
+  useGetSingleRightsForRightholderQuery,
+  useGetResourceRightsQuery,
+  useLazyGetResourceRightsQuery,
+  useGetResourceRightsMetaQuery,
+  useDelegationCheckQuery,
+  useLazyDelegationCheckQuery,
+  useDelegateRightsMutation,
+  useRevokeResourceMutation,
+  useUpdateResourceMutation,
+} = singleRightsApi;
+
+export const { endpoints, reducerPath, reducer, middleware } = singleRightsApi;

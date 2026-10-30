@@ -1,0 +1,22 @@
+[
+  {
+    "party": {
+      "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+      "partyId": 50789533,
+      "name": "SITRONGUL MEDALJONG",
+      "type": "Person",
+      "unitType": null,
+      "organizationIdentifier": null,
+      "dateOfBirth": "1981-03-20",
+      "isDeleted": false,
+      "children": null
+    },
+    "roles": [
+      {
+        "id": "9e5d3acf-cef7-4bbe-b101-8e9ab7b8b3e4",
+        "code": "styreleder"
+      }
+    ],
+    "connections": []
+  }
+]

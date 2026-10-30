@@ -1,0 +1,42 @@
+.reporteeListHeading {
+  margin-top: 15px;
+  padding-bottom: 2.05rem;
+}
+
+.reporteeList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchBar {
+  max-width: 27rem;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 15px;
+}
+
+.searchControls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .search {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .searchControls {
+    margin-left: 0;
+  }
+}

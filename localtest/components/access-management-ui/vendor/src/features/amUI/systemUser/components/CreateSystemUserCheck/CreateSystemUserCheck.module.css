@@ -1,0 +1,8 @@
+.noRightsAlert {
+  margin: 2rem 0;
+  font-style: italic;
+  max-width: 40rem;
+}
+.noRightsAlertBold {
+  font-weight: 600;
+}

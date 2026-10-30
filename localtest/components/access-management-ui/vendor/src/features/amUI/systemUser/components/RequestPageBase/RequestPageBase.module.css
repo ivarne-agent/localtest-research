@@ -1,0 +1,23 @@
+:root {
+  --vendor-container-padding: var(--ds-size-12);
+}
+
+@media only screen and (max-width: 769px) {
+  :root {
+    --vendor-container-padding: var(--ds-size-4);
+  }
+}
+
+.vendorRequestBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-size-8);
+}
+
+.vendorInfo {
+  padding-top: var(--ds-size-4);
+  padding-right: var(--vendor-container-padding);
+  padding-bottom: var(--vendor-container-padding);
+  text-align: right;
+  font-style: italic;
+}

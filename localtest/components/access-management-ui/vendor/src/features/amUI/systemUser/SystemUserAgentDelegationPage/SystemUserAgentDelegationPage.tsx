@@ -1,0 +1,154 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router';
+import { DsAlert, DsHeading, DsSkeleton } from '@altinn/altinn-components';
+
+import {
+  useGetAssignedCustomersQuery,
+  useGetAgentSystemUserQuery,
+  useGetCustomersQuery,
+  useDeleteAgentSystemuserMutation,
+} from '@/rtk/features/systemUserApi';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import { PageWrapper } from '@/components';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { PageLayoutWrapper } from '@/features/amUI/common/PageLayoutWrapper';
+import { SystemUserPath } from '@/routes/paths';
+import { hasCreateSystemUserPermission } from '@/resources/utils/permissionUtils';
+import {
+  useGetIsAdminQuery,
+  useGetIsClientAdminQuery,
+  useGetReporteeQuery,
+} from '@/rtk/features/userInfoApi';
+
+import { DeleteSystemUserPopover } from '../components/DeleteSystemUserPopover/DeleteSystemUserPopover';
+import { PageContainer } from '../../common/PageContainer/PageContainer';
+import { RightsList } from '../components/RightsList/RightsList';
+import { SystemUserHeader } from '../components/SystemUserHeader/SystemUserHeader';
+import { Breadcrumbs } from '../../common/Breadcrumbs/Breadcrumbs';
+
+import { SystemUserAgentDelegationPageContent } from './SystemUserAgentDelegationPageContent';
+import classes from './SystemUserAgentDelegationPage.module.css';
+
+export const SystemUserAgentDelegationPage = (): React.ReactNode => {
+  const { id } = useParams();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const partyId = getCookie('AltinnPartyId');
+  const partyUuid = getCookie('AltinnPartyUuid');
+  const backUrl = `/${SystemUserPath.SystemUser}/${SystemUserPath.Overview}`;
+
+  useDocumentTitle(t('systemuser_agent_delegation.page_title'));
+
+  const { data: reporteeData } = useGetReporteeQuery();
+  const { data: isAdmin } = useGetIsAdminQuery();
+  const { data: isClientAdmin } = useGetIsClientAdminQuery();
+
+  const {
+    data: systemUser,
+    isError: isLoadSystemUserError,
+    isLoading: isLoadingSystemUser,
+  } = useGetAgentSystemUserQuery({ partyId, systemUserId: id || '' });
+
+  const {
+    data: customers = [],
+    isError: isLoadCustomersError,
+    isLoading: isLoadingCustomers,
+  } = useGetCustomersQuery(
+    { partyId, systemUserId: id ?? '', partyUuid },
+    { skip: isClientAdmin !== true },
+  );
+
+  const {
+    data: agentDelegations = [],
+    isError: isLoadAssignedCustomersError,
+    isLoading: isLoadingAssignedCustomers,
+  } = useGetAssignedCustomersQuery(
+    {
+      partyId: partyId,
+      systemUserId: id || '',
+      partyUuid,
+    },
+    { skip: isClientAdmin !== true },
+  );
+
+  const [deleteAgentSystemUser, { isError: isDeleteError, isLoading: isDeletingSystemUser }] =
+    useDeleteAgentSystemuserMutation();
+
+  const handleDeleteSystemUser = (): void => {
+    deleteAgentSystemUser({ partyId, systemUserId: id || '', partyUuid })
+      .unwrap()
+      .then(() => navigate(backUrl));
+  };
+
+  const isLoading = isLoadingSystemUser || isLoadingCustomers || isLoadingAssignedCustomers;
+
+  return (
+    <PageWrapper>
+      <PageLayoutWrapper>
+        <Breadcrumbs
+          items={['root', 'systemuser_overview']}
+          lastBreadcrumb={{ label: systemUser?.integrationTitle }}
+        />
+        <PageContainer
+          backUrl={backUrl}
+          contentActions={
+            systemUser &&
+            hasCreateSystemUserPermission(reporteeData, isAdmin) && (
+              <DeleteSystemUserPopover
+                integrationTitle={systemUser.integrationTitle}
+                isDeleteError={isDeleteError}
+                isDeletingSystemUser={isDeletingSystemUser}
+                handleDeleteSystemUser={handleDeleteSystemUser}
+                hasAgentDelegation={!!agentDelegations?.length}
+              />
+            )
+          }
+        >
+          {isLoading && (
+            <div className={classes.flexContainer}>
+              <SystemUserHeader
+                isLoading
+                title=''
+              />
+              <DsHeading data-size='xs'>
+                <DsSkeleton
+                  variant='text'
+                  width={20}
+                />
+              </DsHeading>
+              <RightsList
+                isLoading
+                resources={[]}
+                accessPackages={[]}
+                hideHeadings
+              />
+            </div>
+          )}
+          {isLoadSystemUserError && (
+            <DsAlert data-color='danger'>
+              {t('systemuser_detailpage.load_systemuser_error')}
+            </DsAlert>
+          )}
+          {isLoadCustomersError && (
+            <DsAlert data-color='danger'>
+              {t('systemuser_agent_delegation.load_customers_error')}
+            </DsAlert>
+          )}
+          {isLoadAssignedCustomersError && (
+            <DsAlert data-color='danger'>
+              {t('systemuser_agent_delegation.load_assigned_customers_error')}
+            </DsAlert>
+          )}
+          {systemUser && customers && agentDelegations && !isLoading && (
+            <SystemUserAgentDelegationPageContent
+              systemUser={systemUser}
+              customers={customers}
+              existingAgentDelegations={agentDelegations}
+            />
+          )}
+        </PageContainer>
+      </PageLayoutWrapper>
+    </PageWrapper>
+  );
+};

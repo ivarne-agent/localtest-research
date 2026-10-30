@@ -1,0 +1,248 @@
+import React, { useState } from 'react';
+import {
+  DsButton,
+  DsSearch,
+  List,
+  DsValidationMessage,
+  ListItem,
+  DsCheckbox,
+  Badge,
+} from '@altinn/altinn-components';
+import { MinusCircleIcon, PlusCircleIcon } from '@navikt/aksel-icons';
+import { useTranslation } from 'react-i18next';
+
+import { AmPagination } from '@/components/Paginering';
+import { formatOrgNr, isSubUnitByType, matchesOrgNr } from '@/resources/utils/reporteeUtils';
+import { useIsMobileOrSmaller } from '@/resources/utils/screensizeUtils';
+
+import type { AgentDelegation, AgentDelegationCustomer } from '../types';
+
+import classes from './CustomerList.module.css';
+
+const filterCustomerList = (
+  list: AgentDelegationCustomer[],
+  delegations: AgentDelegation[],
+  isHideAssignedChecked: boolean,
+  searchString: string,
+): AgentDelegationCustomer[] => {
+  return list.filter((customer) => {
+    const isOrgNoMatch = matchesOrgNr(customer.orgNo, searchString);
+    const isNameMatch = customer.name.toLowerCase().indexOf(searchString.toLowerCase()) > -1;
+    const isAssigned = delegations?.find((x) => x.customerId === customer.id);
+    const isVisible = !(isHideAssignedChecked && isAssigned);
+
+    return (isOrgNoMatch || isNameMatch) && isVisible;
+  });
+};
+
+const itemsPerPage = 5;
+const showPages = 7;
+
+interface CustomerListProps {
+  list: AgentDelegationCustomer[];
+  delegations?: AgentDelegation[];
+  loadingIds?: string[];
+  errorIds?: string[];
+  onAddCustomer?: (customer: AgentDelegationCustomer) => void;
+  onRemoveCustomer?: (delegationToRemove: AgentDelegation, customerName: string) => void;
+  onAddAllCustomers?: () => void;
+  selfButton?: React.ReactNode;
+  children?: React.ReactNode;
+}
+
+export const CustomerList = ({
+  list,
+  delegations,
+  loadingIds,
+  errorIds,
+  onAddCustomer,
+  onRemoveCustomer,
+  onAddAllCustomers,
+  selfButton,
+  children,
+}: CustomerListProps) => {
+  const { t } = useTranslation();
+
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isHideAssignedChecked, setIsHideAssignedChecked] = useState<boolean>(false);
+
+  const filteredSearchList = filterCustomerList(
+    list,
+    delegations ?? [],
+    isHideAssignedChecked,
+    searchValue,
+  );
+
+  const totalPages = Math.ceil(filteredSearchList.length / itemsPerPage);
+  const safeCurrentPage = currentPage > totalPages ? 1 : currentPage;
+  if (currentPage !== safeCurrentPage) {
+    setCurrentPage(safeCurrentPage);
+  }
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const endIndex = safeCurrentPage * itemsPerPage;
+
+  const onSearch = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setSearchValue(event.target.value);
+    setCurrentPage(1);
+  };
+
+  return (
+    <div>
+      <div className={classes.listHeader}>
+        <DsSearch
+          className={classes.searchBar}
+          data-size='sm'
+        >
+          <DsSearch.Input
+            aria-label={t('systemuser_agent_delegation.customer_search')}
+            value={searchValue}
+            onChange={onSearch}
+            placeholder={t('systemuser_agent_delegation.customer_search')}
+          />
+          <DsSearch.Clear />
+        </DsSearch>
+        {onAddCustomer && (
+          <DsCheckbox
+            label={t('systemuser_agent_delegation.hide_assigned_customers')}
+            checked={isHideAssignedChecked}
+            onChange={() => setIsHideAssignedChecked((prev) => !prev)}
+          />
+        )}
+        {onAddAllCustomers && list.length > 0 && (
+          <div className={classes.addAllCustomers}>
+            <DsButton
+              variant='secondary'
+              onClick={onAddAllCustomers}
+            >
+              {t('systemuser_agent_delegation.add_all_customers')}
+            </DsButton>
+          </div>
+        )}
+        {children}
+      </div>
+      <List>
+        {filteredSearchList.slice(startIndex, endIndex)?.map((customer) => (
+          <ListItem
+            key={customer.id}
+            id={customer.id}
+            icon={{
+              type: 'company',
+              name: customer.name,
+              isParent: !isSubUnitByType(customer.unitType),
+            }}
+            title={{ children: customer.name, as: 'div' }}
+            description={`${t('common.org_nr')} ${formatOrgNr(customer.orgNo)}`}
+            interactive={false}
+            ariaLabel={customer.name}
+            size='sm'
+            controls={
+              <ListControls
+                customer={customer}
+                delegation={delegations?.find((x) => x.customerId === customer.id)}
+                isLoading={loadingIds?.some((x) => x === customer.id)}
+                isError={errorIds?.some((x) => x === customer.id)}
+                onRemoveCustomer={onRemoveCustomer}
+                onAddCustomer={onAddCustomer}
+                selfButton={selfButton}
+              />
+            }
+          />
+        ))}
+      </List>
+      {totalPages > 1 && (
+        <div className={classes.pagingContainer}>
+          <AmPagination
+            totalPages={totalPages}
+            showPages={showPages}
+            currentPage={safeCurrentPage}
+            setCurrentPage={setCurrentPage}
+            size='sm'
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+interface ListControlsProps {
+  customer: AgentDelegationCustomer;
+  delegation?: AgentDelegation;
+  isLoading?: boolean;
+  isError?: boolean;
+  onRemoveCustomer?: (delegationToRemove: AgentDelegation, customerName: string) => void;
+  onAddCustomer?: (customer: AgentDelegationCustomer) => void;
+  selfButton?: React.ReactNode;
+}
+const ListControls = ({
+  customer,
+  delegation,
+  isLoading,
+  isError,
+  onRemoveCustomer,
+  onAddCustomer,
+  selfButton,
+}: ListControlsProps): React.ReactNode => {
+  const { t } = useTranslation();
+  const isSmall = useIsMobileOrSmaller();
+
+  return (
+    <div className={classes.listControls}>
+      <div aria-live='polite'>
+        {isError && delegation && !isLoading && (
+          <DsValidationMessage data-size='sm'>
+            {t('systemuser_agent_delegation.remove_system_user_error')}
+          </DsValidationMessage>
+        )}
+        {isError && !delegation && !isLoading && (
+          <DsValidationMessage data-size='sm'>
+            {t('systemuser_agent_delegation.add_system_user_error')}
+          </DsValidationMessage>
+        )}
+      </div>
+      {(onRemoveCustomer || onAddCustomer) && (
+        <DsButton
+          variant='tertiary'
+          data-size='sm'
+          data-color={delegation ? 'danger' : 'primary'}
+          aria-label={t(
+            delegation
+              ? 'systemuser_agent_delegation.remove_from_system_user_aria'
+              : 'systemuser_agent_delegation.add_to_system_user_aria',
+            {
+              customerName: customer.name,
+            },
+          )}
+          loading={isLoading}
+          aria-disabled={isLoading}
+          onClick={() => {
+            if (isLoading) {
+              return;
+            } else if (onRemoveCustomer && delegation) {
+              onRemoveCustomer(delegation, customer.name);
+            } else if (onAddCustomer && !delegation) {
+              onAddCustomer(customer);
+            }
+          }}
+        >
+          {delegation ? (
+            <>
+              <MinusCircleIcon aria-hidden='true' />
+              {!isSmall && t('systemuser_agent_delegation.remove_from_system_user')}
+            </>
+          ) : (
+            <>
+              <PlusCircleIcon aria-hidden='true' />
+              {!isSmall && t('systemuser_agent_delegation.add_to_system_user')}
+            </>
+          )}
+        </DsButton>
+      )}
+      {customer.isSelfOrg && (
+        <>
+          <Badge>{t('systemuser_agent_delegation.own_organization')}</Badge>
+          {selfButton}
+        </>
+      )}
+    </div>
+  );
+};

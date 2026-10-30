@@ -1,0 +1,93 @@
+import { useSearchParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { DsButton } from '@altinn/altinn-components';
+import { EnvelopeClosedIcon } from '@navikt/aksel-icons';
+
+import { getAfUrl } from '@/resources/utils/pathUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import { PageWrapper } from '@/components';
+import { useGetResourceQuery } from '@/rtk/features/resourceApi';
+import { amUIPath } from '@/routes/paths/amUIPath';
+
+import { DeeplinkReporteeGuard } from '../common/DeeplinkReporteeGuard/DeeplinkReporteeGuard';
+import { PageContainer } from '../common/PageContainer/PageContainer';
+import { PageLayoutWrapper } from '../common/PageLayoutWrapper';
+import { PartyRepresentationProvider } from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import { DelegationModalProvider } from '../common/DelegationModal/DelegationModalContext';
+import { RestoreFocusProvider, useRestoreFocus } from '../common/RestoreFocus';
+import { Breadcrumbs } from '../common/Breadcrumbs/Breadcrumbs';
+
+import { InstanceDetailPageContent } from './InstanceDetailPageContent';
+import classes from './InstanceDetailPageContent.module.css';
+
+const getInboxUrl = (dialogId: string) => `${getAfUrl()}inbox/${encodeURIComponent(dialogId)}`;
+
+export const InstanceDetailPage = () => {
+  const { t } = useTranslation();
+  const partyUuid = getCookie('AltinnPartyUuid') || '';
+  const [searchParams] = useSearchParams();
+  const dialogId = searchParams.get('dialogId');
+  const isInboxDeeplink = !!dialogId;
+  const poaOverviewUrl = `/${amUIPath.PoaOverview}#instances`;
+  const restoreFocus = useRestoreFocus();
+
+  useDocumentTitle(
+    isInboxDeeplink
+      ? t('instance_detail_page.document_title_from_inbox')
+      : t('instance_detail_page.document_title'),
+  );
+
+  const inboxLink = dialogId ? (
+    <div className={classes.inboxLinkContainer}>
+      <DsButton
+        asChild
+        variant='secondary'
+        className={classes.inboxButton}
+      >
+        <a href={getInboxUrl(dialogId)}>
+          <EnvelopeClosedIcon aria-hidden='true' />
+          {t('instance_detail_page.back_to_inbox')}
+        </a>
+      </DsButton>
+    </div>
+  ) : null;
+
+  return (
+    <PageWrapper>
+      <PageLayoutWrapper hideSidebar={isInboxDeeplink}>
+        {!isInboxDeeplink && <BreadcrumbsWrapper />}
+        <PageContainer backUrl={isInboxDeeplink ? getInboxUrl(dialogId) : poaOverviewUrl}>
+          <DeeplinkReporteeGuard fallbackContent={inboxLink}>
+            <PartyRepresentationProvider
+              fromPartyUuid={partyUuid}
+              actingPartyUuid={partyUuid}
+            >
+              <DelegationModalProvider>
+                <RestoreFocusProvider restoreFocus={restoreFocus}>
+                  <InstanceDetailPageContent />
+                </RestoreFocusProvider>
+              </DelegationModalProvider>
+            </PartyRepresentationProvider>
+          </DeeplinkReporteeGuard>
+        </PageContainer>
+      </PageLayoutWrapper>
+    </PageWrapper>
+  );
+};
+
+const BreadcrumbsWrapper = () => {
+  const [searchParams] = useSearchParams();
+  const resourceId = searchParams.get('resourceId') ?? '';
+
+  const { data: resource } = useGetResourceQuery(resourceId, {
+    skip: !resourceId,
+  });
+
+  return (
+    <Breadcrumbs
+      items={['root', 'poa_overview']}
+      lastBreadcrumb={{ label: resource?.title }}
+    />
+  );
+};

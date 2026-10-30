@@ -1,0 +1,38 @@
+import { useUpdateResourceMutation } from '@/rtk/features/singleRights/singleRightsApi';
+import { usePartyRepresentation } from '@/features/amUI/common/PartyRepresentationContext/PartyRepresentationContext';
+
+export const useUpdateResource = () => {
+  const [update] = useUpdateResourceMutation();
+  const { toParty, fromParty, actingParty } = usePartyRepresentation();
+
+  const updateResource = (
+    resourceId: string,
+    actionKeys: string[],
+    onSuccess?: () => void,
+    onError?: () => void,
+  ) => {
+    if (!toParty || !fromParty || !actingParty) {
+      console.error('Missing party information for delegation.');
+      onError?.();
+      return;
+    }
+
+    update({
+      party: actingParty.id,
+      from: fromParty.id,
+      to: toParty.id,
+      resourceId,
+      actionKeys,
+    })
+      .unwrap()
+      .then(() => {
+        onSuccess?.();
+      })
+      .catch((error) => {
+        console.log(error);
+        onError?.();
+      });
+  };
+
+  return updateResource;
+};

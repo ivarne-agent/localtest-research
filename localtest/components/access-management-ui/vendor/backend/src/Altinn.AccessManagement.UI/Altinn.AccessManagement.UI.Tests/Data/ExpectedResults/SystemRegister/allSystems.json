@@ -1,0 +1,27 @@
+[
+  {
+    "systemId": "310144827_bare_tilgangspakke",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "N/A",
+    "name": "Accesspackage without resource"
+  },
+  {
+    "systemId": "910493353_fiken_demo_product",
+    "systemVendorOrgNumber": "910493353",
+    "systemVendorOrgName": "LEPSØY OG TONSTAD",
+    "name": "Fiken"
+  },
+  {
+    "systemId": "310144827_invalid_resource",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "N/A",
+    "name": "Invalid resource"
+  },
+
+  {
+    "systemId": "310144827_smartcloud",
+    "systemVendorOrgNumber": "310144827",
+    "systemVendorOrgName": "N/A",
+    "name": "SmartCloud"
+  }
+]

@@ -1,0 +1,211 @@
+import {
+  CheckmarkCircleFillIcon,
+  ExclamationmarkTriangleFillIcon,
+  HourglassIcon,
+  InformationSquareFillIcon,
+  XMarkOctagonFillIcon,
+} from '@navikt/aksel-icons';
+import { DsParagraph } from '@altinn/altinn-components';
+import { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+
+import { PartyType } from '@/dataObjects/dtos/Party';
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+
+import { PartyRepresentationContext } from '../PartyRepresentationContext/PartyRepresentationContext';
+import { InheritedStatusType, type InheritedStatusMessageType } from '../useInheritedStatus';
+
+import classes from './StatusSection.module.css';
+
+const STATUS_TRANSLATION_KEYS: Record<InheritedStatusType, string> = {
+  [InheritedStatusType.ViaRole]: 'status_section.access_status.via_role',
+  [InheritedStatusType.ViaConnection]: 'status_section.access_status.via_connection',
+  [InheritedStatusType.ViaKeyRole]: 'status_section.access_status.via_keyrole',
+  [InheritedStatusType.ViaER]: 'status_section.access_status.via_er',
+};
+
+export interface StatusSectionProps {
+  userHasAccess?: boolean;
+  inheritedStatus?: InheritedStatusMessageType[];
+  cannotDelegateHere?: boolean;
+  showDelegationCheckWarning?: boolean;
+  showUndelegatedWarning?: boolean;
+  undelegatedPackageName?: string;
+  isPendingRequest?: boolean;
+  cannotRequestRight?: boolean;
+  toPartyName?: string;
+}
+
+export const StatusSection = ({
+  userHasAccess = false,
+  inheritedStatus,
+  cannotDelegateHere = false,
+  showDelegationCheckWarning = false,
+  showUndelegatedWarning = false,
+  undelegatedPackageName,
+  isPendingRequest,
+  cannotRequestRight,
+  toPartyName,
+}: StatusSectionProps) => {
+  const { t } = useTranslation();
+
+  // Safe to use if no PartyRepresentationContext is provided
+  const partyContext = useContext(PartyRepresentationContext);
+  const fromParty = partyContext?.fromParty;
+  const toParty = partyContext?.toParty;
+
+  if (
+    !userHasAccess &&
+    (!inheritedStatus || !inheritedStatus.length) &&
+    !cannotDelegateHere &&
+    !showDelegationCheckWarning &&
+    !showUndelegatedWarning &&
+    !isPendingRequest &&
+    !cannotRequestRight
+  ) {
+    return null;
+  }
+
+  const formattedToPartyName = toPartyName ?? formatEntityDisplayName(toParty);
+
+  const formattedFromPartyName = formatEntityDisplayName(fromParty);
+
+  const formattedUserName = formattedToPartyName;
+  const shouldShowDelegationCheck = !cannotDelegateHere && showDelegationCheckWarning;
+
+  // remove duplicates from inheritedStatus. Items are duplicate if type AND via.id are the same
+  const uniqueInheritedStatus = Array.from(
+    new Map(
+      inheritedStatus?.map((item) => [
+        `${item.type}|${item.via?.id}`, // composite key
+        item,
+      ]),
+    ).values(),
+  );
+
+  return (
+    <div
+      className={classes.statusSection}
+      aria-live='polite'
+    >
+      {showUndelegatedWarning && (
+        <div className={classes.infoLine}>
+          <ExclamationmarkTriangleFillIcon
+            className={classes.warningIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            <Trans
+              i18nKey='status_section.no_permissions_fulltext'
+              values={{ packageName: undelegatedPackageName }}
+              components={{ b: <strong /> }}
+            />
+          </DsParagraph>
+        </div>
+      )}
+      {userHasAccess && (
+        <div className={classes.infoLine}>
+          <CheckmarkCircleFillIcon
+            className={classes.hasPackageInfoIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            <Trans
+              i18nKey='status_section.has_package_message'
+              values={{
+                user_name: formattedUserName,
+              }}
+            />
+          </DsParagraph>
+        </div>
+      )}
+      {uniqueInheritedStatus?.map((status) => {
+        const formattedViaName = formatEntityDisplayName(status.via);
+
+        const textKey =
+          toParty?.id === status.via?.id && toParty?.type === PartyType.Person
+            ? 'status_section.access_status.via_priv'
+            : STATUS_TRANSLATION_KEYS[status.type];
+
+        return (
+          <div
+            key={`${status.type}-${status.via?.id}`}
+            className={classes.infoLine}
+          >
+            <InformationSquareFillIcon
+              className={classes.inheritedInfoIcon}
+              aria-hidden='true'
+            />
+            <DsParagraph data-size='sm'>
+              <Trans
+                i18nKey={textKey}
+                values={{
+                  user_name: formattedUserName,
+                  via_name: formattedViaName,
+                }}
+              />
+            </DsParagraph>
+          </div>
+        );
+      })}
+      {cannotDelegateHere && (
+        <div className={classes.infoLine}>
+          <XMarkOctagonFillIcon
+            className={classes.dangerIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            <Trans
+              i18nKey='status_section.cannot_delegate_here'
+              values={{
+                user_name: formattedUserName,
+              }}
+            />
+          </DsParagraph>
+        </div>
+      )}
+      {shouldShowDelegationCheck && (
+        <div className={classes.infoLine}>
+          <ExclamationmarkTriangleFillIcon
+            className={classes.delegationCheckInfoIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            <Trans
+              i18nKey={'status_section.delegation_check_not_delegable'}
+              components={{ b: <strong /> }}
+            />
+          </DsParagraph>
+        </div>
+      )}
+      {isPendingRequest && (
+        <div className={classes.infoLine}>
+          <HourglassIcon
+            className={classes.inheritedInfoIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            <Trans
+              i18nKey={'delegation_modal.request.pending_request_info'}
+              components={{ strong: <strong /> }}
+              values={{
+                partyName: formattedFromPartyName,
+              }}
+            />
+          </DsParagraph>
+        </div>
+      )}
+      {cannotRequestRight && (
+        <div className={classes.infoLine}>
+          <XMarkOctagonFillIcon
+            className={classes.dangerIcon}
+            aria-hidden='true'
+          />
+          <DsParagraph data-size='sm'>
+            {t('delegation_modal.request.cannot_request_right')}
+          </DsParagraph>
+        </div>
+      )}
+    </div>
+  );
+};

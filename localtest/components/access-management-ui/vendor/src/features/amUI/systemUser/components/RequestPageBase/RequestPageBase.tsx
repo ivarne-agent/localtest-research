@@ -1,0 +1,70 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { DsHeading, DsParagraph } from '@altinn/altinn-components';
+
+import type { AuthorizedPartyEntity } from '@/dataObjects/dtos/Party';
+import { formatOrgNr, getPartyColor } from '@/resources/utils/reporteeUtils';
+import { RequestPageLayout } from '@/features/amUI/common/RequestPageLayout/RequestPageLayout';
+
+import type { RegisteredSystem } from '../../types';
+
+import classes from './RequestPageBase.module.css';
+
+interface RequestPageBaseProps {
+  system?: RegisteredSystem;
+  heading: string;
+  reportee?: AuthorizedPartyEntity;
+  isLoading?: boolean;
+  requestPartyUuid?: string;
+  error?: React.ReactNode;
+  children: React.ReactNode | React.ReactNode[];
+}
+
+export const RequestPageBase = ({
+  system,
+  heading,
+  reportee,
+  isLoading,
+  requestPartyUuid,
+  error,
+  children,
+}: RequestPageBaseProps): React.ReactNode => {
+  const { t } = useTranslation();
+
+  const account: { name: string; color: 'person' | 'company' } = {
+    name: reportee?.name || '',
+    color: getPartyColor(reportee),
+  };
+
+  return (
+    <RequestPageLayout
+      account={account}
+      isLoading={isLoading ?? false}
+      requestPartyUuid={requestPartyUuid}
+      error={error}
+      heading={
+        <DsHeading
+          level={1}
+          data-size='lg'
+        >
+          {heading}
+        </DsHeading>
+      }
+      body={!isLoading && !error && <div className={classes.vendorRequestBlock}>{children}</div>}
+      footer={
+        system && (
+          <DsParagraph
+            data-size='sm'
+            className={classes.vendorInfo}
+          >
+            {t('systemuser_request.org_nr', {
+              systemName: system.name,
+              vendorName: system.systemVendorOrgName,
+              vendorOrg: formatOrgNr(system.systemVendorOrgNumber),
+            })}
+          </DsParagraph>
+        )
+      }
+    />
+  );
+};

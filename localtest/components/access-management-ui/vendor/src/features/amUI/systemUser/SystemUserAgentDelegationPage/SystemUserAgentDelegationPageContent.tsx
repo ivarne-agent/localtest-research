@@ -1,0 +1,478 @@
+import React, { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
+import { MinusCircleIcon, PencilIcon, PlusCircleIcon, PlusIcon } from '@navikt/aksel-icons';
+import {
+  DsAlert,
+  DsButton,
+  DsDialog,
+  DsHeading,
+  DsParagraph,
+  useSnackbar,
+} from '@altinn/altinn-components';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import {
+  useGetIsAdminQuery,
+  useGetIsClientAdminQuery,
+  useGetReporteeQuery,
+} from '@/rtk/features/userInfoApi';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import {
+  useAssignCustomerMutation,
+  useAssignSelfCustomerMutation,
+  useIsSelfAddedQuery,
+  useRemoveCustomerMutation,
+  useRemoveSelfCustomerMutation,
+} from '@/rtk/features/systemUserApi';
+import { useIsMobileOrSmaller } from '@/resources/utils/screensizeUtils';
+
+import { SystemUserHeader } from '../components/SystemUserHeader/SystemUserHeader';
+import type { AgentDelegation, AgentDelegationCustomer, ProblemDetail, SystemUser } from '../types';
+import { RightsList } from '../components/RightsList/RightsList';
+import { DelegationCheckError } from '../components/DelegationCheckError/DelegationCheckError';
+
+import classes from './SystemUserAgentDelegationPage.module.css';
+import { CustomerList } from './CustomerList';
+import { AddAllCustomers } from './AddAllCustomers';
+
+const getAssignedCustomers = (
+  customers: AgentDelegationCustomer[],
+  existingAgentDelegations: AgentDelegation[],
+): AgentDelegationCustomer[] => {
+  const assignedCustomerIds = existingAgentDelegations.map((x) => x.customerId);
+  return customers.filter((customer) => assignedCustomerIds.includes(customer.id));
+};
+
+interface SystemUserAgentDelegationPageContentProps {
+  systemUser: SystemUser;
+  customers: AgentDelegationCustomer[];
+  existingAgentDelegations: AgentDelegation[];
+}
+export const SystemUserAgentDelegationPageContent = ({
+  systemUser,
+  customers,
+  existingAgentDelegations,
+}: SystemUserAgentDelegationPageContentProps): React.ReactNode => {
+  const { t } = useTranslation();
+  const partyId = getCookie('AltinnPartyId');
+  const partyUuid = getCookie('AltinnPartyUuid');
+
+  const { id } = useParams();
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const isSmall = useIsMobileOrSmaller();
+
+  const [delegations, setDelegations] = useState<AgentDelegation[]>(existingAgentDelegations);
+  const [loadingIds, setLoadingIds] = useState<string[]>([]);
+  const [errorIds, setErrorIds] = useState<string[]>([]);
+  const [assignedCustomers, setAssignedCustomers] = useState<AgentDelegationCustomer[]>(
+    getAssignedCustomers(customers, existingAgentDelegations),
+  );
+  const [addAllState, setAddAllState] = useState<{
+    maxCount: number;
+    progress: number;
+    errors: AgentDelegationCustomer[];
+  }>({ maxCount: -1, progress: 0, errors: [] });
+  const { openSnackbar, dismissSnackbar } = useSnackbar();
+
+  const { data: isClientAdmin } = useGetIsClientAdminQuery();
+  const { data: isAdmin } = useGetIsAdminQuery();
+  const { data: reporteeData } = useGetReporteeQuery();
+
+  const [assignCustomer] = useAssignCustomerMutation();
+  const [removeCustomer] = useRemoveCustomerMutation();
+  const [assignSelf, { isLoading: isAssigningSelf, error: assignSelfError }] =
+    useAssignSelfCustomerMutation();
+  const [removeSelf, { isLoading: isRemovingSelf, error: removeSelfError }] =
+    useRemoveSelfCustomerMutation();
+  const {
+    data: isSelfAdded,
+    isFetching: isRefetchingIsSelfAdded,
+    refetch: refetchIsSelfAdded,
+  } = useIsSelfAddedQuery(
+    {
+      partyId: partyId,
+      systemUserId: id ?? '',
+      partyUuid: partyUuid,
+    },
+    {
+      skip: !isAdmin,
+    },
+  );
+
+  const isAddingAllCustomers = addAllState.maxCount > -1;
+  const reporteeName = formatEntityDisplayName(reporteeData);
+
+  const resetLoadingId = (customerId: string): void => {
+    setLoadingIds((oldLoadingIds) => oldLoadingIds.filter((id) => id !== customerId));
+  };
+
+  const setErrorId = (customerId: string): void => {
+    setErrorIds((oldErrorIds) => [...oldErrorIds, customerId]);
+  };
+
+  const removeErrorId = (customerId: string): void => {
+    setErrorIds((oldErrorIds) => oldErrorIds.filter((errorId) => errorId !== customerId));
+  };
+
+  const showConfirmationSnackbar = (message: string, color: 'success' | 'info'): void => {
+    dismissSnackbar();
+    openSnackbar({
+      message: message,
+      color: color,
+      dismissable: false,
+    });
+  };
+
+  const onAddAllCustomers = async (): Promise<void> => {
+    const FIRST_BATCH_SIZE = 1; // first batch size must be 1 to create relationship in backend
+    const BATCH_SIZE = 5; // add customers in batches of 5 to avoid overloading the backend
+
+    const unAssignedCustomers = customers.filter((customer) => {
+      const isAssigned = delegations?.find((x) => x.customerId === customer.id);
+      return !isAssigned;
+    });
+
+    setAddAllState({
+      maxCount: unAssignedCustomers.length,
+      progress: 0,
+      errors: [],
+    });
+
+    let index = 0;
+    let isFirstBatch = true;
+
+    while (index < unAssignedCustomers.length) {
+      const size = isFirstBatch ? FIRST_BATCH_SIZE : BATCH_SIZE;
+      const batch = unAssignedCustomers.slice(index, index + size);
+      index += batch.length;
+      isFirstBatch = false;
+
+      const promises = batch.map((customer) =>
+        assignCustomer({
+          partyId,
+          systemUserId: id ?? '',
+          customer,
+          partyUuid,
+        }).unwrap(),
+      );
+
+      const results = await Promise.allSettled(promises);
+
+      const successfulDelegations: AgentDelegation[] = [];
+      const batchErrors: AgentDelegationCustomer[] = [];
+
+      results.forEach((res, idx) => {
+        const customer = batch[idx];
+        if (res.status === 'fulfilled') {
+          successfulDelegations.push(res.value);
+        } else {
+          batchErrors.push(customer);
+        }
+      });
+
+      if (successfulDelegations.length > 0) {
+        setDelegations((old) => [...old, ...successfulDelegations]);
+      }
+
+      setAddAllState((old) => ({
+        ...old,
+        progress: old.progress + batch.length,
+        errors: [...old.errors, ...batchErrors],
+      }));
+    }
+  };
+
+  const onAddCustomer = (customer: AgentDelegationCustomer): void => {
+    setLoadingIds((oldLoadingIds) => [...oldLoadingIds, customer.id]);
+    const onAddSuccess = (delegation: AgentDelegation) => {
+      setDelegations((oldDelegations) => [...oldDelegations, delegation]);
+      removeErrorId(customer.id);
+      showConfirmationSnackbar(
+        t('systemuser_agent_delegation.customer_added', {
+          customerName: customer.name,
+        }),
+        'success',
+      );
+    };
+    assignCustomer({ partyId, systemUserId: id ?? '', customer: customer, partyUuid })
+      .unwrap()
+      .then(onAddSuccess)
+      .catch(() => setErrorId(customer.id))
+      .finally(() => resetLoadingId(customer.id));
+  };
+
+  const onRemoveCustomer = (toRemove: AgentDelegation, customerName: string): void => {
+    setLoadingIds((oldLoadingIds) => [...oldLoadingIds, toRemove.customerId]);
+    const onRemoveSuccess = () => {
+      setDelegations((oldDelegations) =>
+        oldDelegations.filter((delegation) => delegation.delegationId !== toRemove.delegationId),
+      );
+      removeErrorId(toRemove.customerId);
+      showConfirmationSnackbar(
+        t('systemuser_agent_delegation.customer_removed', {
+          customerName,
+        }),
+        'info',
+      );
+    };
+    removeCustomer({
+      partyId,
+      systemUserId: id ?? '',
+      delegationId: toRemove.delegationId,
+      partyUuid,
+    })
+      .unwrap()
+      .then(onRemoveSuccess)
+      .catch(() => setErrorId(toRemove.customerId))
+      .finally(() => resetLoadingId(toRemove.customerId));
+  };
+
+  const enableAddCustomers = (): void => {
+    modalRef.current?.showModal();
+  };
+
+  // need to use useCallback to get updated assignedIds in onClose
+  const onCloseModal = useCallback(() => {
+    modalRef.current?.close();
+    setAddAllState({
+      maxCount: -1,
+      progress: 0,
+      errors: [],
+    });
+    setAssignedCustomers(getAssignedCustomers(customers, delegations));
+  }, [customers, delegations]);
+
+  const assignSelfToSystemUser = () => {
+    assignSelf({ partyId: partyId, systemUserId: id ?? '', partyUuid: partyUuid })
+      .unwrap()
+      .then(refetchIsSelfAdded);
+  };
+
+  const removeSelfFromSystemuser = () => {
+    removeSelf({ partyId: partyId, systemUserId: id ?? '', partyUuid: partyUuid })
+      .unwrap()
+      .then(refetchIsSelfAdded);
+  };
+
+  const isAllAccessPackagesAssignable = systemUser.accessPackages.every((x) => x.isAssignable);
+  const hasAddSelfPermission = isAdmin && isAllAccessPackagesAssignable;
+  const isLoadingSelf = isAssigningSelf || isRemovingSelf || isRefetchingIsSelfAdded;
+  const assignedCustomersList =
+    hasAddSelfPermission && reporteeData && (isSelfAdded || assignedCustomers.length > 0)
+      ? [
+          {
+            id: reporteeData.id,
+            name: reporteeName,
+            orgNo: reporteeData.organizationIdentifier || '',
+            unitType: reporteeData.unitType ?? undefined,
+            access: [],
+            isSelfOrg: true,
+          },
+          ...assignedCustomers,
+        ]
+      : assignedCustomers;
+
+  return (
+    <>
+      <DsDialog
+        ref={modalRef}
+        className={classes.delegationModal}
+        onClose={onCloseModal}
+        closeButton={isAddingAllCustomers ? false : undefined}
+        closedby={isAddingAllCustomers ? 'none' : 'any'}
+      >
+        <DsHeading
+          level={1}
+          data-size='sm'
+          className={classes.dialogHeader}
+        >
+          {t('systemuser_agent_delegation.assign_customers', {
+            integrationTitle: systemUser?.integrationTitle,
+          })}
+        </DsHeading>
+        <div className={classes.flexContainer}>
+          {isAddingAllCustomers ? (
+            <AddAllCustomers
+              addAllState={addAllState}
+              onCloseModal={onCloseModal}
+            />
+          ) : (
+            <>
+              <CustomerList
+                list={customers}
+                delegations={delegations}
+                loadingIds={loadingIds}
+                errorIds={errorIds}
+                onAddCustomer={onAddCustomer}
+                onRemoveCustomer={onRemoveCustomer}
+                onAddAllCustomers={onAddAllCustomers}
+              />
+              {customers.length === 0 && reporteeName && (
+                <DsAlert data-color='warning'>
+                  {t('systemuser_agent_delegation.no_customers_warning', {
+                    companyName: reporteeName,
+                  })}
+                </DsAlert>
+              )}
+              <div>
+                <div>
+                  <DsButton onClick={onCloseModal}>
+                    {t('systemuser_agent_delegation.confirm_close')}
+                  </DsButton>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </DsDialog>
+      <div className={classes.flexContainer}>
+        <SystemUserHeader
+          title={systemUser.integrationTitle}
+          subTitle={reporteeName}
+        />
+        <DsHeading
+          level={2}
+          data-size='xs'
+        >
+          {systemUser.accessPackages.length === 1
+            ? t('systemuser_agent_delegation.access_package_single')
+            : t('systemuser_agent_delegation.access_package_plural', {
+                accessPackageCount: systemUser.accessPackages.length,
+              })}
+        </DsHeading>
+        <RightsList
+          resources={[]}
+          accessPackages={systemUser.accessPackages}
+          hideHeadings
+        />
+        <DsHeading
+          level={2}
+          data-size='xs'
+          className={classes.customerHeading}
+        >
+          {t('systemuser_agent_delegation.assigned_customers_header')}
+        </DsHeading>
+        {!isClientAdmin && (
+          <DsAlert data-color='info'>
+            {t('systemuser_agent_delegation.user_is_not_client_admin')}
+          </DsAlert>
+        )}
+        {assignedCustomersList.length === 0 ? (
+          <>
+            {isClientAdmin && (
+              <DsParagraph>{t('systemuser_agent_delegation.no_assigned_customers')}</DsParagraph>
+            )}
+            <div className={classes.addButtons}>
+              {hasAddSelfPermission && !isSelfAdded && (
+                <DsButton
+                  variant='secondary'
+                  loading={isLoadingSelf}
+                  aria-disabled={isLoadingSelf}
+                  onClick={() => {
+                    if (!isLoadingSelf) {
+                      assignSelfToSystemUser();
+                    }
+                  }}
+                >
+                  <PlusIcon aria-hidden='true' />
+                  {t('systemuser_agent_delegation.add_own_organization')}
+                </DsButton>
+              )}
+              {isClientAdmin && (
+                <DsButton
+                  variant='secondary'
+                  onClick={enableAddCustomers}
+                >
+                  <PlusIcon aria-hidden='true' />
+                  {t('systemuser_agent_delegation.add_customers')}
+                </DsButton>
+              )}
+            </div>
+          </>
+        ) : (
+          <CustomerList
+            list={assignedCustomersList}
+            selfButton={
+              hasAddSelfPermission ? (
+                <DsButton
+                  variant='tertiary'
+                  data-color={isSelfAdded ? 'danger' : undefined}
+                  aria-label={t(
+                    isSelfAdded
+                      ? 'systemuser_agent_delegation.remove_own_organization'
+                      : 'systemuser_agent_delegation.add_own_organization_list_aria',
+                  )}
+                  loading={isLoadingSelf}
+                  aria-disabled={isLoadingSelf}
+                  onClick={() => {
+                    if (!isLoadingSelf) {
+                      if (isSelfAdded) {
+                        removeSelfFromSystemuser();
+                      } else {
+                        assignSelfToSystemUser();
+                      }
+                    }
+                  }}
+                >
+                  {isSelfAdded ? (
+                    <>
+                      <MinusCircleIcon aria-hidden='true' />
+                      {!isSmall && t('systemuser_agent_delegation.remove')}
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircleIcon aria-hidden='true' />
+                      {!isSmall && t('systemuser_agent_delegation.add_own_organization_list')}
+                    </>
+                  )}
+                </DsButton>
+              ) : null
+            }
+          >
+            <div className={classes.addButtons}>
+              {isClientAdmin && (
+                <DsButton
+                  variant='secondary'
+                  data-size='sm'
+                  onClick={enableAddCustomers}
+                >
+                  <PencilIcon aria-hidden='true' />
+                  {t('systemuser_agent_delegation.edit_customers')}
+                </DsButton>
+              )}
+            </div>
+          </CustomerList>
+        )}
+        {assignSelfError && (
+          <DelegationCheckError
+            accessPackages={systemUser.accessPackages}
+            resources={systemUser.resources}
+            error={assignSelfError as { data: ProblemDetail }}
+            defaultError={t('systemuser_agent_delegation.add_own_organization_error')}
+          />
+        )}
+        {removeSelfError && (
+          <DelegationCheckError
+            accessPackages={systemUser.accessPackages}
+            resources={systemUser.resources}
+            error={removeSelfError as { data: ProblemDetail }}
+            defaultError={t('systemuser_agent_delegation.remove_own_organization_error')}
+          />
+        )}
+        <DsParagraph
+          data-size='xs'
+          className={classes.createdBy}
+        >
+          {t('systemuser_detailpage.created_by', {
+            created: new Date(systemUser.created).toLocaleDateString('no-NB', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+            }),
+          })}
+        </DsParagraph>
+      </div>
+    </>
+  );
+};

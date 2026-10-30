@@ -1,0 +1,9 @@
+.rightsListWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-size-10);
+}
+
+.rightsList {
+  margin-top: var(--ds-size-2);
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "partyId": null,
+    "name": "Mock Instance User",
+    "type": "Person",
+    "unitType": null,
+    "organizationIdentifier": null,
+    "dateOfBirth": null,
+    "isDeleted": false,
+    "children": null
+  }
+]

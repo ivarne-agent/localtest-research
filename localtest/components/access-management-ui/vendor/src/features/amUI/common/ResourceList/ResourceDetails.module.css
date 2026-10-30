@@ -1,0 +1,11 @@
+.dialogContentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.resourceContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

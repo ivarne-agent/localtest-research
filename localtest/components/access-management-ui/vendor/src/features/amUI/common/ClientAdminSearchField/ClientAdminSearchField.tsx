@@ -1,0 +1,52 @@
+import React, { useCallback } from 'react';
+import { DsSearch } from '@altinn/altinn-components';
+
+import { debounce } from '@/resources/utils';
+
+import classes from './ClientAdminSearchField.module.css';
+
+interface ClientAdminSearchFieldProps {
+  searchPlaceholder: string;
+  setSearchString: (newSearch: string) => void;
+  filters?: React.ReactNode;
+  children?: React.ReactNode;
+  inputId?: string;
+}
+
+export const ClientAdminSearchField = ({
+  searchPlaceholder,
+  setSearchString,
+  filters,
+  children,
+  inputId,
+}: ClientAdminSearchFieldProps) => {
+  const onSearch = useCallback(
+    debounce((newSearchString: string) => {
+      setSearchString(newSearchString);
+    }, 300),
+    [],
+  );
+
+  return (
+    <div className={classes.search}>
+      <div className={classes.searchAndFilters}>
+        <DsSearch className={classes.searchBar}>
+          <DsSearch.Input
+            id={inputId}
+            aria-label={searchPlaceholder}
+            placeholder={searchPlaceholder}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => onSearch(event.target.value)}
+          />
+          <DsSearch.Clear
+            onClick={() => {
+              onSearch.cancel();
+              setSearchString('');
+            }}
+          />
+        </DsSearch>
+        {filters}
+      </div>
+      {children}
+    </div>
+  );
+};

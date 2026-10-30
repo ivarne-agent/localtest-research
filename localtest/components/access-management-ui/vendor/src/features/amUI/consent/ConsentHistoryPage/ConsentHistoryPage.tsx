@@ -1,0 +1,116 @@
+import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  DsAlert,
+  DsDialog,
+  Timeline,
+  TimelineActivity,
+  TimelineSegment,
+} from '@altinn/altinn-components';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { PageWrapper } from '@/components';
+import { useGetConsentLogQuery } from '@/rtk/features/consentApi';
+import { getCookie } from '@/resources/Cookie/CookieMethods';
+import { useGetIsAdminQuery, useGetReporteeQuery } from '@/rtk/features/userInfoApi';
+import { hasConsentPermission } from '@/resources/utils/permissionUtils';
+import { useGetPartyFromLoggedInUserQuery } from '@/rtk/features/lookupApi';
+
+import { ReporteePageHeading } from '../../common/ReporteePageHeading';
+import { Breadcrumbs } from '../../common/Breadcrumbs/Breadcrumbs';
+import { ConsentDetails } from '../components/ConsentDetails/ConsentDetails';
+import { PageLayoutWrapper } from '../../common/PageLayoutWrapper';
+
+import classes from './ConsentHistoryPage.module.css';
+import { ConsentTimeline } from './ConsentTimeline';
+
+export const ConsentHistoryPage = () => {
+  const { t } = useTranslation();
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const [selectedConsentId, setSelectedConsentId] = useState<string>('');
+
+  useDocumentTitle(t('consent_log.page_title'));
+  const partyUuid = getCookie('AltinnPartyUuid');
+
+  const { data: reportee, isLoading: isLoadingReportee } = useGetReporteeQuery();
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useGetPartyFromLoggedInUserQuery();
+  const { data: isAdmin, isLoading: isLoadingIsAdmin } = useGetIsAdminQuery();
+  const hasPermission = hasConsentPermission(reportee, isAdmin, currentUser?.id === reportee?.id);
+
+  const {
+    data: consentLog,
+    isLoading: isLoadingConsentLog,
+    error: loadConsentLogError,
+  } = useGetConsentLogQuery({ partyId: partyUuid }, { skip: !partyUuid || !hasPermission });
+
+  const isLoading =
+    isLoadingIsAdmin || isLoadingConsentLog || isLoadingReportee || isCurrentUserLoading;
+
+  const showConsentDetails = (consentId: string): void => {
+    setSelectedConsentId(consentId);
+    modalRef.current?.showModal();
+  };
+
+  const reporteeName = formatEntityDisplayName(reportee);
+
+  return (
+    <PageWrapper>
+      <PageLayoutWrapper>
+        <Breadcrumbs items={['root', 'consent', 'consent_log']} />
+        <ReporteePageHeading
+          title={t('consent_log.heading', { name: reporteeName })}
+          reportee={reportee}
+          isLoading={isLoadingReportee}
+        />
+        <div className={classes.consentHistoryPage}>
+          {!isLoading && !hasPermission && (
+            <div>{t('consent_log.no_consent_log_permission', { name: reporteeName })}</div>
+          )}
+          {isLoading && <LoadingTimeline />}
+          {loadConsentLogError && (
+            <DsAlert data-color='danger'>{t('consent_log.loading_consent_log_error')}</DsAlert>
+          )}
+          {consentLog && (
+            <ConsentTimeline
+              consentLog={consentLog}
+              showConsentDetails={showConsentDetails}
+            />
+          )}
+        </div>
+        <DsDialog
+          ref={modalRef}
+          className={classes.consentDialog}
+          closedby='any'
+          onClose={() => setSelectedConsentId('')}
+        >
+          {selectedConsentId && <ConsentDetails consentId={selectedConsentId} />}
+        </DsDialog>
+      </PageLayoutWrapper>
+    </PageWrapper>
+  );
+};
+
+const LoadingTimeline = () => {
+  return (
+    <Timeline>
+      <LoadingTimelineItem />
+      <LoadingTimelineItem />
+      <LoadingTimelineItem />
+    </Timeline>
+  );
+};
+
+const LoadingTimelineItem = () => {
+  return (
+    <TimelineSegment loading>
+      <TimelineActivity
+        loading
+        byline='xxxxxxxxxxxxxxxxxxxxx'
+      >
+        xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      </TimelineActivity>
+      <TimelineActivity loading>xxxxxxxxxxx</TimelineActivity>
+    </TimelineSegment>
+  );
+};

@@ -1,0 +1,86 @@
+import type { AccessPackage } from '@/rtk/features/accessPackageApi';
+import type { ServiceResource } from '@/rtk/features/singleRights/singleRightsApi';
+
+export interface RegisteredSystem {
+  systemId: string;
+  systemVendorOrgNumber: string;
+  systemVendorOrgName: string;
+  name: string;
+}
+
+export interface RegisteredSystemRights {
+  resources: ServiceResource[];
+  accessPackages: SystemUserAccessPackage[];
+}
+
+export interface ProblemDetail {
+  code: string;
+  detail: string;
+  status: number;
+  title: string;
+  type: string;
+  // Optional extension forwarded from the backend: which access package/right could not be
+  // delegated and why. Used to make delegation/approve errors self-explanatory.
+  delegationReasons?: string;
+  // Optional extension forwarded from the backend: comma-separated ids of the resources the resource
+  // registry has marked as not delegable (AMUI-00082).
+  NotDelegableResources?: string;
+}
+
+export interface SystemUser {
+  id: string;
+  integrationTitle: string;
+  created: string;
+  system: RegisteredSystem;
+  userType: string;
+  resources: ServiceResource[];
+  accessPackages: SystemUserAccessPackage[];
+}
+
+type RequestStatus = 'New' | 'Accepted' | 'Rejected' | 'Denied' | 'Timedout';
+
+interface SystemUserRequestBase {
+  id: string;
+  partyId: string;
+  partyUuid: string;
+  status: RequestStatus;
+  redirectUrl?: string;
+  system: RegisteredSystem;
+  created: string;
+  escalated: boolean;
+  userMayEscalateButNotApprove: boolean;
+}
+export interface SystemUserRequest extends SystemUserRequestBase {
+  resources: ServiceResource[];
+  accessPackages: SystemUserAccessPackage[];
+}
+
+export interface SystemUserChangeRequest extends SystemUserRequestBase {
+  requiredRights: ServiceResource[];
+  unwantedRights: ServiceResource[];
+  requiredAccessPackages: SystemUserAccessPackage[];
+  unwantedAccessPackages: SystemUserAccessPackage[];
+}
+
+// TODO: temp? type for access package with enriched resources
+export interface SystemUserAccessPackage extends Omit<AccessPackage, 'resources'> {
+  urn: string;
+  resources: ServiceResource[];
+}
+
+export interface AgentDelegationCustomer {
+  id: string;
+  name: string;
+  orgNo: string;
+  unitType?: string;
+  access: {
+    role: string;
+    packages: string[];
+  }[];
+  isSelfOrg?: boolean;
+}
+
+export interface AgentDelegation {
+  delegationId: string;
+  customerId: string;
+}

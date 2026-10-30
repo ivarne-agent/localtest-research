@@ -1,0 +1,33 @@
+{
+  "id": "61844188-3789-4b84-9314-2be1fdbc6633",
+  "integrationTitle": "Unimicro klientdelegering REGN",
+  "partyId": "51329012",
+  "created": "2023-10-10T12:00:00Z",
+  "system": {
+    "systemId": "unimicro_demo_product",
+    "systemVendorOrgNumber": "925141623",
+    "systemVendorOrgName": "N/A",
+    "name": "N/A"
+  },
+  "resources": [],
+  "userType": "agent",
+  "accesspackages": [
+    {
+      "id": "955d5779-3e2b-4098-b11d-0431dc41ddbe",
+      "urn": "urn:altinn:accesspackage:regnskapsforer-med-signeringsrettighet",
+      "name": "Regnskapsfører med signeringsrettighet",
+      "description": "Denne fullmakten gir tilgang til regnskapfører å kunne signere på vegne av kunden for alle tjenester som krever signeringsrett. Dette er tjenester som man har vurdert det som naturlig at en regnskapsfører utfører på vegne av sin kunde. Fullmakten gis kun til autoriserte regnskapsførere. Fullmakt hos regnskapfører oppstår når kunden registrerer regnskapsfører i Enhetsregisteret. Ved regelverksendringer eller innføring av nye digitale tjenester kan det bli endringer i tilganger som fullmakten gir.",
+      "resources": [
+        {
+          "identifier": "ske-innrapportering-amelding",
+          "title": "Innrapportering A-melding",
+          "description": "A-meldingen er en månedlig melding til NAV, SSB og Skatteetaten om inntekt, arbeidsforhold og forskuddstrekk, samt arbeidsgiveravgift og finansskatt for virksomheten.",
+          "resourceOwnerName": "Skatteetaten",
+          "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/skd/skd.png",
+          "resourceOwnerOrgcode": "skd",
+          "resourceType": "GenericAccessResource"
+        }
+      ]
+    }
+  ]
+}

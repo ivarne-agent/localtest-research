@@ -1,0 +1,245 @@
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { createBaseQuery } from '@/rtk/app/baseQuery';
+import type { PartyEntity } from '@/dataObjects/dtos/Party';
+
+import { type ServiceResource } from './singleRights/singleRightsApi';
+import type { AccessPackage } from './accessPackageApi';
+
+export type RequestStatus = 'None' | 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Withdrawn';
+
+export interface RequestDto {
+  id: string;
+  type: string;
+  status: RequestStatus;
+  from: PartyEntity;
+  to: PartyEntity;
+  lastUpdated: string;
+  lastUpdatedByName?: string;
+  resourceId?: string;
+  packageId?: string;
+}
+
+export interface EnrichedResourceRequest extends RequestDto {
+  resource: ServiceResource;
+}
+
+export interface EnrichedPackageRequest extends RequestDto {
+  package: AccessPackage;
+}
+
+export type EnrichedRequest = EnrichedResourceRequest | EnrichedPackageRequest;
+
+export const isEnrichedPackageRequest = (
+  request: EnrichedRequest,
+): request is EnrichedPackageRequest => request.type === 'package';
+
+const baseUrl = `${import.meta.env.BASE_URL}accessmanagement/api/v1/request`;
+
+export const requestApi = createApi({
+  reducerPath: 'requestApi',
+  baseQuery: createBaseQuery(baseUrl),
+  tagTypes: [
+    'sentRequests',
+    'receivedRequests',
+    'request',
+    'enrichedSentResourceRequests',
+    'enrichedReceivedResourceRequests',
+    'enrichedSentPackageRequests',
+    'enrichedReceivedPackageRequests',
+  ],
+  endpoints: (builder) => ({
+    // requests page queries
+    getSentRequests: builder.query<
+      RequestDto[],
+      { party: string; to?: string; status?: RequestStatus[]; type?: 'resource' | 'package' }
+    >({
+      query: ({ party, to, status = [], type }) => {
+        let params = `?party=${party}`;
+        if (to) params += `&to=${to}`;
+        for (const s of status) params += `&status=${s}`;
+        if (type) params += `&type=${type}`;
+        return `sent${params}`;
+      },
+      providesTags: ['sentRequests'],
+    }),
+    getReceivedRequests: builder.query<
+      RequestDto[],
+      { party: string; from?: string; status?: RequestStatus[]; type?: 'resource' | 'package' }
+    >({
+      query: ({ party, from, status = [], type }) => {
+        let params = `?party=${party}`;
+        if (from) params += `&from=${from}`;
+        for (const s of status) params += `&status=${s}`;
+        if (type) params += `&type=${type}`;
+        return `received${params}`;
+      },
+      providesTags: ['receivedRequests'],
+    }),
+    getRequest: builder.query<RequestDto, { party: string; id: string }>({
+      query: ({ party, id }) => `${id}?party=${party}`,
+      providesTags: ['request'],
+    }),
+
+    // delegation modal queries and mutations
+    getEnrichedSentResourceRequests: builder.query<
+      EnrichedResourceRequest[],
+      { party: string; to?: string; status?: RequestStatus[] }
+    >({
+      query: ({ party, to, status = [] }) => {
+        let params = `?party=${party}`;
+        if (to) params += `&to=${to}`;
+        for (const s of status) params += `&status=${s}`;
+        return `sent/resource${params}`;
+      },
+      providesTags: ['enrichedSentResourceRequests'],
+    }),
+    getEnrichedReceivedResourceRequests: builder.query<
+      EnrichedResourceRequest[],
+      { party: string; from?: string; status?: RequestStatus[] }
+    >({
+      query: ({ party, from, status = [] }) => {
+        let params = `?party=${party}`;
+        if (from) params += `&from=${from}`;
+        for (const s of status) params += `&status=${s}`;
+        return `received/resource${params}`;
+      },
+      providesTags: ['enrichedReceivedResourceRequests'],
+    }),
+    getEnrichedSentPackageRequests: builder.query<
+      EnrichedPackageRequest[],
+      { party: string; to?: string; status?: RequestStatus[] }
+    >({
+      query: ({ party, to, status = [] }) => {
+        let params = `?party=${party}`;
+        if (to) params += `&to=${to}`;
+        for (const s of status) params += `&status=${s}`;
+        return `sent/package${params}`;
+      },
+      providesTags: ['enrichedSentPackageRequests'],
+    }),
+    getEnrichedReceivedPackageRequests: builder.query<
+      EnrichedPackageRequest[],
+      { party: string; from?: string; status?: RequestStatus[] }
+    >({
+      query: ({ party, from, status = [] }) => {
+        let params = `?party=${party}`;
+        if (from) params += `&from=${from}`;
+        for (const s of status) params += `&status=${s}`;
+        return `received/package${params}`;
+      },
+      providesTags: ['enrichedReceivedPackageRequests'],
+    }),
+    createResourceRequest: builder.mutation<
+      RequestDto,
+      { party: string; to: string; resource: string }
+    >({
+      query: ({ party, to, resource }) => ({
+        url: `resource?party=${party}&to=${to}&resource=${encodeURIComponent(resource)}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['sentRequests', 'enrichedSentResourceRequests'],
+    }),
+    createPackageRequest: builder.mutation<
+      RequestDto,
+      { party: string; to: string; package: string }
+    >({
+      query: ({ party, to, package: packageId }) => ({
+        url: `package?party=${party}&to=${to}&package=${encodeURIComponent(packageId)}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['sentRequests', 'enrichedSentPackageRequests'],
+    }),
+    withdrawRequest: builder.mutation<RequestDto, { party: string; id: string }>({
+      query: ({ party, id }) => ({
+        url: `sent/withdraw?party=${party}&id=${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [
+        'sentRequests',
+        'enrichedSentResourceRequests',
+        'enrichedSentPackageRequests',
+      ],
+    }),
+    rejectRequest: builder.mutation<RequestDto, { party: string; id: string }>({
+      query: ({ party, id }) => ({
+        url: `received/reject?party=${party}&id=${id}`,
+        method: 'PUT',
+      }),
+      invalidatesTags: [
+        'receivedRequests',
+        'enrichedReceivedResourceRequests',
+        'enrichedReceivedPackageRequests',
+      ],
+    }),
+    approveRequest: builder.mutation<RequestDto, { party: string; id: string }>({
+      query: ({ party, id }) => ({
+        url: `received/approve?party=${party}&id=${id}`,
+        method: 'PUT',
+      }),
+      invalidatesTags: [
+        'receivedRequests',
+        'enrichedReceivedResourceRequests',
+        'enrichedReceivedPackageRequests',
+      ],
+    }),
+
+    // count queries
+    getSentRequestsCount: builder.query<number, { party: string; status?: RequestStatus[] }>({
+      query: ({ party, status = [] }) => {
+        let params = `?party=${party}`;
+        for (const s of status) params += `&status=${s}`;
+        return `sent/count${params}`;
+      },
+      providesTags: ['sentRequests'],
+    }),
+    getReceivedRequestsCount: builder.query<number, { party: string; status?: RequestStatus[] }>({
+      query: ({ party, status = [] }) => {
+        let params = `?party=${party}`;
+        for (const s of status) params += `&status=${s}`;
+        return `received/count${params}`;
+      },
+      providesTags: ['receivedRequests'],
+    }),
+
+    // draft request page query
+    getEnrichedDraftRequest: builder.query<EnrichedRequest, { id: string }>({
+      query: ({ id }) => {
+        return `draft/${id}`;
+      },
+      keepUnusedDataFor: 0,
+    }),
+    confirmRequest: builder.mutation<RequestDto, { party: string; id: string }>({
+      query: ({ party, id }) => ({
+        url: `draft/confirm?party=${party}&id=${id}`,
+        method: 'PUT',
+      }),
+      invalidatesTags: [
+        'sentRequests',
+        'enrichedSentResourceRequests',
+        'enrichedSentPackageRequests',
+      ],
+    }),
+  }),
+});
+
+export const {
+  useGetSentRequestsQuery,
+  useGetReceivedRequestsQuery,
+  useGetRequestQuery,
+  useCreateResourceRequestMutation,
+  useCreatePackageRequestMutation,
+  useWithdrawRequestMutation,
+  useConfirmRequestMutation,
+  useRejectRequestMutation,
+  useApproveRequestMutation,
+  useGetEnrichedSentResourceRequestsQuery,
+  useGetEnrichedReceivedResourceRequestsQuery,
+  useGetEnrichedSentPackageRequestsQuery,
+  useGetEnrichedReceivedPackageRequestsQuery,
+  useGetEnrichedDraftRequestQuery,
+  useGetSentRequestsCountQuery,
+  useGetReceivedRequestsCountQuery,
+} = requestApi;
+
+export const { endpoints, reducerPath, reducer, middleware } = requestApi;

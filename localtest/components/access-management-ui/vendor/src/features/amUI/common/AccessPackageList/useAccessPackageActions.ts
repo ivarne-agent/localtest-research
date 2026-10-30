@@ -1,0 +1,368 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSnackbar } from '@altinn/altinn-components';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import type { DelegationErrorDetails } from '@/resources/hooks/useDelegateAccessPackage';
+import { useDelegateAccessPackage } from '@/resources/hooks/useDelegateAccessPackage';
+import { useRevokeAccessPackage } from '@/resources/hooks/useRevokeAccessPackage';
+import type { AccessPackage } from '@/rtk/features/accessPackageApi';
+import type { PartyEntity } from '@/dataObjects/dtos/Party';
+import type { ActionError } from '@/resources/hooks/useActionError';
+import {
+  useCreatePackageRequestMutation,
+  useGetSentRequestsQuery,
+  useWithdrawRequestMutation,
+} from '@/rtk/features/requestApi';
+import { getRequestPartyQueryParams } from '@/resources/utils/singleRightRequestUtils';
+import { useSnackbarOnIdle } from '@/resources/hooks/useSnackbarOnIdle';
+
+import { usePackageWarningDialog } from '../PackageWarningDialog';
+import { usePartyRepresentation } from '../PartyRepresentationContext/PartyRepresentationContext';
+import { useCanRedelegatePackage, useRevokeConfirmation } from '../RevokeConfirmation';
+
+interface useAccessPackageActionsProps {
+  onDelegateSuccess?: (accessPackage: AccessPackage, toParty: PartyEntity) => void;
+  onDelegateError?: (
+    accessPackage: AccessPackage,
+    errorInfo: ActionError,
+    toParty?: PartyEntity,
+  ) => void;
+  onRevokeSuccess?: (accessPackage: AccessPackage, toParty: PartyEntity) => void;
+  onRevokeError?: (
+    accessPackage: AccessPackage,
+    errorInfo: ActionError,
+    toParty?: PartyEntity,
+  ) => void;
+  // Defers delegate/revoke success snackbars until this signal settles (true -> false), so the
+  // snackbar arrives together with the refreshed list. When omitted, snackbars open immediately.
+  snackbarBusy?: boolean;
+}
+
+export const useAccessPackageActions = ({
+  onDelegateSuccess,
+  onDelegateError,
+  onRevokeSuccess,
+  onRevokeError,
+  snackbarBusy,
+}: useAccessPackageActionsProps) => {
+  const { delegatePackage, isLoading: isDelegationLoading } = useDelegateAccessPackage();
+  const { revokePackage, isLoading: isRevokeLoading } = useRevokeAccessPackage();
+  const [createPackageRequest, { isLoading: isRequestLoading }] = useCreatePackageRequestMutation();
+  const [withdrawRequest] = useWithdrawRequestMutation();
+  const [loadingByPackageId, setLoadingByPackageId] = useState<Record<string, boolean>>({});
+  const [awaitingRefetch, setAwaitingRefetch] = useState<Set<string>>(new Set());
+  const { confirmPackageAction, packageWarningDialog } = usePackageWarningDialog();
+  const { canRedelegatePackage } = useCanRedelegatePackage();
+  const { confirmRevoke, revokeConfirmationDialog } = useRevokeConfirmation();
+  const isLoading = isDelegationLoading || isRevokeLoading;
+
+  const { t } = useTranslation();
+  const { toParty: toPartyFromContext, fromParty, actingParty } = usePartyRepresentation();
+  const { openSnackbar } = useSnackbar();
+  const { queueSnackbar } = useSnackbarOnIdle({
+    isBusy: snackbarBusy ?? false,
+    showPendingOnUnmount: true,
+  });
+
+  const showSuccessSnackbar = (message: string) => {
+    if (snackbarBusy === undefined) openSnackbar({ message, color: 'success' });
+    else queueSnackbar(message);
+  };
+  const requestQueryParams = getRequestPartyQueryParams(actingParty?.id, fromParty?.id);
+
+  const {
+    data: packageRequests,
+    isFetching: isFetchingPackageRequests,
+    refetch: refetchPackageRequests,
+  } = useGetSentRequestsQuery(
+    {
+      ...requestQueryParams,
+      status: ['Pending'],
+      type: 'package',
+    },
+    {
+      skip: !requestQueryParams.party || !requestQueryParams.to,
+    },
+  );
+
+  useEffect(() => {
+    if (!isFetchingPackageRequests && awaitingRefetch.size > 0) {
+      setAwaitingRefetch(new Set());
+    }
+  }, [isFetchingPackageRequests, awaitingRefetch]);
+
+  const formatToPartyName = (party: PartyEntity) => {
+    return formatEntityDisplayName(party);
+  };
+
+  const handleDelegateSuccess = (accessPackage: AccessPackage, toParty: PartyEntity) => {
+    showSuccessSnackbar(
+      t('access_packages.package_delegation_success', {
+        name: formatToPartyName(toParty),
+        accessPackage: accessPackage.name,
+      }),
+    );
+    onDelegateSuccess?.(accessPackage, toParty);
+  };
+
+  const handleDelegateError = (
+    accessPackage: AccessPackage,
+    toParty: PartyEntity,
+    httpStatus: string,
+    timestamp: string,
+    details?: DelegationErrorDetails,
+  ) => {
+    if (onDelegateError)
+      onDelegateError(accessPackage, { httpStatus, timestamp, details }, toParty);
+    else {
+      openSnackbar({
+        message: t('access_packages.package_delegation_error', {
+          name: formatToPartyName(toParty),
+          accessPackage: accessPackage.name,
+        }),
+        color: 'danger',
+      });
+    }
+  };
+
+  const handleRevokeSuccess = (accessPackage: AccessPackage, toParty: PartyEntity) => {
+    showSuccessSnackbar(
+      t('access_packages.package_deletion_success', {
+        name: formatToPartyName(toParty),
+        accessPackage: accessPackage.name,
+      }),
+    );
+    onRevokeSuccess?.(accessPackage, toParty);
+  };
+
+  const handleRevokeError = (
+    accessPackage: AccessPackage,
+    toParty: PartyEntity,
+    httpStatus: string,
+    timestamp: string,
+  ) => {
+    if (onRevokeError) onRevokeError(accessPackage, { httpStatus, timestamp }, toParty);
+    else {
+      openSnackbar({
+        message: t('access_packages.package_deletion_error', {
+          name: formatToPartyName(toParty),
+          accessPackage: accessPackage.name,
+        }),
+        color: 'danger',
+      });
+    }
+  };
+
+  const getRequestId = (accessPackage: AccessPackage): string | undefined => {
+    const packageId = accessPackage.urn;
+    return packageRequests?.find(
+      (request) =>
+        request.packageId === packageId &&
+        request.to.id === requestQueryParams.to &&
+        request.status === 'Pending',
+    )?.id;
+  };
+
+  const onDelegate = async (accessPackage: AccessPackage, toParty?: PartyEntity) => {
+    if (!fromParty || !actingParty) {
+      return;
+    }
+    const targetToParty = toParty ?? toPartyFromContext;
+    if (!targetToParty) return;
+
+    const delegate = () =>
+      delegatePackage(
+        targetToParty,
+        fromParty,
+        actingParty,
+        accessPackage,
+        () => {
+          handleDelegateSuccess(accessPackage, targetToParty);
+        },
+        (httpStatus, details) => {
+          handleDelegateError(
+            accessPackage,
+            targetToParty,
+            httpStatus.toString(),
+            new Date().toISOString(),
+            details,
+          );
+        },
+      );
+
+    confirmPackageAction(
+      { action: 'delegate', accessPackage, fromParty, toParty: targetToParty },
+      delegate,
+    );
+  };
+
+  const resolveRevoke = (accessPackage: AccessPackage, toParty?: PartyEntity) => {
+    if (!fromParty || !actingParty) return null;
+    const targetToParty = toParty ?? toPartyFromContext;
+    if (!targetToParty) return null;
+
+    return {
+      targetToParty,
+      revoke: () =>
+        revokePackage(
+          targetToParty,
+          fromParty,
+          actingParty,
+          accessPackage,
+          () => {
+            handleRevokeSuccess(accessPackage, targetToParty);
+          },
+          (httpStatus) => {
+            handleRevokeError(
+              accessPackage,
+              targetToParty,
+              httpStatus.toString(),
+              new Date().toISOString(),
+            );
+          },
+        ),
+    };
+  };
+
+  const onRevoke = (accessPackage: AccessPackage, toParty?: PartyEntity) => {
+    const resolved = resolveRevoke(accessPackage, toParty);
+    if (!resolved) return;
+    const { targetToParty, revoke } = resolved;
+    return confirmRevoke(
+      `${accessPackage.id}-${targetToParty.id}`,
+      () => canRedelegatePackage(accessPackage.id),
+      revoke,
+      { name: accessPackage.name, toName: formatToPartyName(targetToParty) },
+    );
+  };
+
+  // For callers that already confirm, e.g. PackageIsPartiallyDeletableAlert.
+  const revokeWithoutConfirmation = (accessPackage: AccessPackage, toParty?: PartyEntity) => {
+    resolveRevoke(accessPackage, toParty)?.revoke();
+  };
+
+  const onRequest = async (accessPackage: AccessPackage) => {
+    if (!fromParty || !actingParty) {
+      return;
+    }
+    const packageId = accessPackage.urn;
+    if (!packageId) return;
+    if (loadingByPackageId[packageId]) return;
+
+    const request = async () => {
+      setLoadingByPackageId((prev) => ({
+        ...prev,
+        [packageId]: true,
+      }));
+
+      try {
+        await createPackageRequest({
+          party: actingParty.id,
+          to: fromParty.id,
+          package: packageId,
+        }).unwrap();
+
+        setLoadingByPackageId((prev) => {
+          const copy = { ...prev };
+          delete copy[packageId];
+          return copy;
+        });
+        setAwaitingRefetch((prev) => new Set([...prev, packageId]));
+        openSnackbar({
+          message: t('delegation_modal.request.sent_request_success', {
+            resource: accessPackage.name,
+          }),
+          color: 'success',
+        });
+      } catch {
+        setLoadingByPackageId((prev) => ({
+          ...prev,
+          [packageId]: false,
+        }));
+        openSnackbar({
+          message: t('delegation_modal.request.sent_request_error', {
+            resource: accessPackage.name,
+          }),
+          color: 'danger',
+        });
+      }
+    };
+
+    // A request is always for the party currently being viewed (falls back to the acting party)
+    const targetToParty = toPartyFromContext ?? actingParty;
+    confirmPackageAction(
+      { action: 'request', accessPackage, fromParty, toParty: targetToParty },
+      request,
+    );
+  };
+
+  const deleteRequest = async (accessPackage: AccessPackage) => {
+    const requestId = getRequestId(accessPackage);
+    const packageId = accessPackage.urn;
+    if (!packageId) return;
+    if (loadingByPackageId[packageId]) return;
+
+    if (!requestId) {
+      refetchPackageRequests();
+      return;
+    }
+
+    setLoadingByPackageId((prev) => ({
+      ...prev,
+      [packageId]: true,
+    }));
+
+    try {
+      await withdrawRequest({
+        party: requestQueryParams.party,
+        id: requestId,
+      }).unwrap();
+
+      setLoadingByPackageId((prev) => {
+        const copy = { ...prev };
+        delete copy[packageId];
+        return copy;
+      });
+      setAwaitingRefetch((prev) => new Set([...prev, packageId]));
+      openSnackbar({
+        message: t('delegation_modal.request.withdraw_request_success', {
+          resource: accessPackage.name,
+        }),
+        color: 'success',
+      });
+    } catch {
+      setLoadingByPackageId((prev) => ({
+        ...prev,
+        [packageId]: false,
+      }));
+
+      openSnackbar({
+        message: t('delegation_modal.request.withdraw_request_error', {
+          resource: accessPackage.name,
+        }),
+        color: 'danger',
+      });
+    }
+  };
+
+  return {
+    onDelegate,
+    onRevoke,
+    revokeWithoutConfirmation,
+    onRequest,
+    deleteRequest,
+    hasPendingRequest: (accessPackage: AccessPackage) => !!getRequestId(accessPackage),
+    isLoadingRequest: (accessPackage: AccessPackage) => {
+      const packageId = accessPackage.urn;
+      if (!packageId) return false;
+      return !!loadingByPackageId[packageId] || awaitingRefetch.has(packageId);
+    },
+    isDelegationLoading,
+    isRevokeLoading,
+    isRequestLoading,
+    isLoading,
+    packageWarningDialog,
+    revokeConfirmationDialog,
+  };
+};

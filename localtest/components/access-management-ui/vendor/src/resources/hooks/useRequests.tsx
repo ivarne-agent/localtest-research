@@ -1,0 +1,233 @@
+import { useMemo } from 'react';
+
+import { useGetIsAdminQuery, useGetReporteeQuery } from '@/rtk/features/userInfoApi';
+import { useGetActiveConsentsQuery } from '@/rtk/features/consentApi';
+import { type Request } from '@/features/amUI/requestPage/types';
+import { useGetPendingSystemUserRequestsQuery } from '@/rtk/features/systemUserApi';
+import { type SystemUser } from '@/features/amUI/systemUser/types';
+import { type ActiveConsentListItem } from '@/features/amUI/consent/types';
+import {
+  type RequestDto,
+  type RequestStatus,
+  useGetReceivedRequestsQuery,
+  useGetSentRequestsQuery,
+} from '@/rtk/features/requestApi';
+import {
+  isSubUnitByType,
+  formatEntityDisplayName,
+  getAvatarType,
+} from '@/resources/utils/reporteeUtils';
+import { useGetPartyFromLoggedInUserQuery } from '@/rtk/features/lookupApi';
+
+import { hasConsentPermission, hasCreateSystemUserPermission } from '../utils/permissionUtils';
+import { getCookie } from '../Cookie/CookieMethods';
+
+interface UseRequestsOptions {
+  skipSentRequests?: boolean;
+}
+
+export const useRequests = ({ skipSentRequests = false }: UseRequestsOptions = {}) => {
+  const partyUuid = getCookie('AltinnPartyUuid');
+  const requestStatusesToLoad: RequestStatus[] = window.featureFlags.showHandledRequests
+    ? ['Pending', 'Rejected', 'Approved']
+    : ['Pending'];
+
+  const {
+    data: isAdmin,
+    isLoading: isLoadingIsAdmin,
+    isError: isAdminError,
+  } = useGetIsAdminQuery();
+  const {
+    data: reportee,
+    isLoading: isLoadingReportee,
+    isError: isReporteeError,
+  } = useGetReporteeQuery();
+  const {
+    data: currentUser,
+    isLoading: isLoadingCurrentUser,
+    isError: isCurrentUserError,
+  } = useGetPartyFromLoggedInUserQuery();
+
+  const hasApproveConsentPermission = hasConsentPermission(
+    reportee,
+    isAdmin,
+    currentUser?.id === reportee?.id,
+  );
+  const {
+    data: activeConsents,
+    isLoading: isLoadingActiveConsents,
+    isError: isLoadingConsentsError,
+  } = useGetActiveConsentsQuery(
+    { partyId: partyUuid },
+    { skip: !partyUuid || !hasApproveConsentPermission },
+  );
+
+  const hasSystemUserPermission = hasCreateSystemUserPermission(reportee, isAdmin);
+  const {
+    data: pendingSystemUsers,
+    isLoading: isLoadingPendingSystemUsers,
+    isError: isLoadingPendingSystemUsersError,
+  } = useGetPendingSystemUserRequestsQuery(partyUuid, {
+    skip: !partyUuid || !hasSystemUserPermission,
+  });
+
+  const {
+    data: pendingSentAccessRequests,
+    isLoading: isLoadingPendingSentAccessRequests,
+    isError: isSentAccessRequestsError,
+  } = useGetSentRequestsQuery(
+    { party: partyUuid || '', status: requestStatusesToLoad, to: '' },
+    { skip: !partyUuid || skipSentRequests },
+  );
+  const {
+    data: pendingReceivedAccessRequests,
+    isLoading: isLoadingPendingReceivedAccessRequests,
+    isError: isReceivedAccessRequestsError,
+  } = useGetReceivedRequestsQuery(
+    { party: partyUuid || '', status: requestStatusesToLoad, from: '' },
+    { skip: !partyUuid },
+  );
+
+  const sortRequests = (requests: Request[]): Request[] => {
+    return [...requests].sort(
+      (a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime(),
+    );
+  };
+
+  const pendingRequests: {
+    sent: Request[];
+    handledSent: Request[];
+    received: Request[];
+    handledReceived: Request[];
+  } = useMemo(() => {
+    const consents = (activeConsents || [])
+      .filter((x) => x.isPendingConsent)
+      .map(mapConsentToRequest);
+
+    const systemUserRequests = (pendingSystemUsers || []).map(mapSystemUserRequestToRequest);
+    const sentAccessRequests = groupAccessRequests(pendingSentAccessRequests || [], 'sent', [
+      'Pending',
+    ]);
+    const handledSentAccessRequests = groupAccessRequests(pendingSentAccessRequests || [], 'sent', [
+      'Rejected',
+      'Approved',
+    ]);
+    const receivedAccessRequests = groupAccessRequests(
+      pendingReceivedAccessRequests || [],
+      'received',
+      ['Pending'],
+    );
+    const handledReceivedAccessRequests = groupAccessRequests(
+      pendingReceivedAccessRequests || [],
+      'received',
+      ['Rejected', 'Approved'],
+    );
+
+    return {
+      sent: sortRequests(sentAccessRequests),
+      received: sortRequests([...consents, ...systemUserRequests, ...receivedAccessRequests]),
+      handledSent: sortRequests(handledSentAccessRequests),
+      handledReceived: sortRequests(handledReceivedAccessRequests),
+    };
+  }, [
+    activeConsents,
+    pendingSystemUsers,
+    pendingSentAccessRequests,
+    pendingReceivedAccessRequests,
+  ]);
+
+  return {
+    pendingRequests,
+    isReceivedRequestsError:
+      isAdminError ||
+      isReporteeError ||
+      isLoadingConsentsError ||
+      isCurrentUserError ||
+      isLoadingPendingSystemUsersError ||
+      isReceivedAccessRequestsError,
+    isSentRequestsError: isAdminError || isReporteeError || isSentAccessRequestsError,
+    isLoadingReceivedRequests:
+      isLoadingIsAdmin ||
+      isLoadingReportee ||
+      isLoadingCurrentUser ||
+      isLoadingActiveConsents ||
+      isLoadingPendingSystemUsers ||
+      isLoadingPendingReceivedAccessRequests,
+    isLoadingSentRequests:
+      isLoadingIsAdmin || isLoadingReportee || isLoadingPendingSentAccessRequests,
+  };
+};
+
+const mapConsentToRequest = (request: ActiveConsentListItem): Request => {
+  return {
+    id: request.id,
+    type: 'consent',
+    createdDate: request.createdDate,
+    displayPartyName: request.toParty.name,
+    displayPartyType: getAvatarType(request.toParty),
+    isSubUnit: isSubUnitByType(request.toParty.unitType),
+    description: request.isPoa ? 'request_page.request_poa' : 'request_page.request_consent',
+  };
+};
+
+const mapSystemUserRequestToRequest = (request: SystemUser): Request => {
+  return {
+    id: request.id,
+    type: request.userType === 'agent' ? 'agentsystemuser' : 'systemuser',
+    createdDate: request.created,
+    displayPartyName: request.system.systemVendorOrgName,
+    displayPartyType: 'company',
+    organizationIdentifier: request.system.systemVendorOrgNumber,
+    description: 'request_page.request_systemuser',
+  };
+};
+
+const groupAccessRequests = (
+  requests: RequestDto[],
+  direction: 'sent' | 'received',
+  status: string[],
+): Request[] => [
+  ...requests
+    .filter((request) => status.includes(request.status))
+    .reduce((map, request) => {
+      const key = direction === 'sent' ? request.to.id : request.from.id;
+      const existing = map.get(key);
+      if (existing) {
+        const newerDate =
+          new Date(request.lastUpdated) > new Date(existing.createdDate)
+            ? request.lastUpdated
+            : existing.createdDate;
+        map.set(key, {
+          ...existing,
+          createdDate: newerDate,
+          numberOfRequests: (existing.numberOfRequests ?? 1) + 1,
+        });
+      } else {
+        map.set(key, mapAccessRequestToRequest(request, direction, 1));
+      }
+      return map;
+    }, new Map<string, Request>())
+    .values(),
+];
+
+const mapAccessRequestToRequest = (
+  request: RequestDto,
+  direction: 'sent' | 'received',
+  numberOfRequests: number = 1,
+): Request => {
+  const party = direction === 'sent' ? request.to : request.from;
+  const partyType = getAvatarType(party);
+  const partyName = formatEntityDisplayName(party);
+  return {
+    id: request.id,
+    type: 'accessrequest',
+    createdDate: request.lastUpdated,
+    displayPartyName: partyName,
+    displayPartyType: partyType,
+    partyUuid: party.id,
+    organizationIdentifier: party.organizationIdentifier ?? undefined,
+    isSubUnit: isSubUnitByType(party.unitType),
+    description: undefined, // Use default description for access requests
+    numberOfRequests: numberOfRequests ?? 1,
+  };
+};

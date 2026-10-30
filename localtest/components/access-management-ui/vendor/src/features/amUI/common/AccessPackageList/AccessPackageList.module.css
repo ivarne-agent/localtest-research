@@ -1,0 +1,47 @@
+.accessAreaContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.accessAreaContentMargin {
+  margin: 0 1.5rem 1.5rem 3.2rem;
+}
+
+.accessAreaList {
+  width: 100%;
+  height: 90%;
+}
+
+.subListHeading {
+  margin-bottom: var(--ds-spacing-2);
+}
+.otherListDivider {
+  border: 0;
+  border-top: 1px solid var(--ds-color-neutral-border-subtle);
+  margin-top: var(--ds-spacing-11);
+  margin-bottom: var(--ds-spacing-8);
+}
+
+.loadingSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+}
+
+.showAvailablePackagesButton {
+  width: fit-content;
+}
+
+.packagesTitle {
+  font-size: var(--ds-font-size-minus-1);
+}
+
+.noAccessPackages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 70%;
+  margin: auto;
+}

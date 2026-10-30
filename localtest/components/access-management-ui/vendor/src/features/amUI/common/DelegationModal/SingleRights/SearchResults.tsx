@@ -1,0 +1,211 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { DsAlert, DsHeading, DsParagraph } from '@altinn/altinn-components';
+
+import { formatEntityDisplayName } from '@/resources/utils/reporteeUtils';
+import {
+  type ResourceDelegation,
+  type ServiceResource,
+} from '@/rtk/features/singleRights/singleRightsApi';
+import { AmPagination } from '@/components/Paginering/AmPaginering';
+import { ResourceList } from '@/features/amUI/common/ResourceList/ResourceList';
+import { SkeletonResourceList } from '@/features/amUI/common/ResourceList/SkeletonResourceList';
+import { getInheritedStatus } from '@/features/amUI/common/useInheritedStatus';
+
+import { DelegationAction } from '../EditModal';
+import { useDelegationModalContext } from '../DelegationModalContext';
+import { usePartyRepresentation } from '../../PartyRepresentationContext/PartyRepresentationContext';
+import { useRestoreFocusOnDataChange } from '../../RestoreFocus';
+import { useCanRedelegateResource, useRevokeConfirmation } from '../../RevokeConfirmation';
+
+import classes from './ResourceSearch.module.css';
+import { useResourceListDelegation } from './hooks/useResourceListDelegation';
+import {
+  useRenderSearchResultControl,
+  resourceActionControlId,
+} from './createSearchResultControlsRenderer';
+import { useSingleRightRequests } from './hooks/useSingleRightRequests';
+
+interface SearchResultsProps {
+  isFetching: boolean;
+  error: unknown;
+  resources?: ServiceResource[];
+  searchString?: string;
+  delegatedResources?: ResourceDelegation[];
+  totalNumberOfResults?: number;
+  currentPage: number;
+  searchResultsPerPage: number;
+  onSelect: (resource: ServiceResource, error?: boolean) => void;
+  setCurrentPage: (page: number) => void;
+  availableActions?: DelegationAction[];
+}
+
+export const SearchResults = ({
+  isFetching,
+  error,
+  resources,
+  searchString,
+  delegatedResources,
+  totalNumberOfResults,
+  currentPage,
+  searchResultsPerPage,
+  onSelect,
+  setCurrentPage,
+  availableActions,
+}: SearchResultsProps) => {
+  const { t } = useTranslation();
+  const { setActionError } = useDelegationModalContext();
+  const { actingParty, fromParty, toParty } = usePartyRepresentation();
+  const requestFocusOnDataChange = useRestoreFocusOnDataChange(delegatedResources);
+
+  const { createRequest, deleteRequest, hasPendingRequest, isLoadingRequest } =
+    useSingleRightRequests({
+      canRequestRights: availableActions?.includes(DelegationAction.REQUEST) ?? false,
+      actingPartyUuid: actingParty?.id,
+      fromPartyUuid: fromParty?.id,
+      onCreateRequestError: (resource) => {
+        onSelect(resource);
+      },
+      onDeleteRequestError: (resource) => {
+        onSelect(resource);
+      },
+    });
+
+  const { canRedelegateResource } = useCanRedelegateResource();
+  const { confirmRevoke, revokeConfirmationDialog } = useRevokeConfirmation();
+
+  const { delegateFromList, revokeFromList, isResourceLoading } = useResourceListDelegation({
+    onActionError: (resource, errorInfo) => {
+      onSelect(resource, true);
+      setActionError(errorInfo);
+    },
+    onSuccess: (resource) => {
+      setActionError(null);
+      requestFocusOnDataChange(resourceActionControlId(resource.identifier));
+    },
+    onPartialDelegation: (resource) => {
+      setActionError(null);
+      onSelect(resource);
+    },
+  });
+
+  const confirmAndRevokeFromList = (resource: ServiceResource) =>
+    confirmRevoke(
+      resource.identifier,
+      () => canRedelegateResource(resource.identifier),
+      () => revokeFromList(resource),
+      {
+        name: resource.title,
+        toName: formatEntityDisplayName(toParty),
+      },
+    );
+
+  const requestFromList = (resource: ServiceResource) => {
+    createRequest(resource);
+  };
+
+  const deleteRequestFromList = (resource: ServiceResource) => {
+    deleteRequest(resource);
+  };
+
+  const isDelegated = (resourceId: string) =>
+    delegatedResources?.some((delegation) => delegation.resource?.identifier === resourceId) ??
+    false;
+
+  const isInherited = (resourceId: string) => {
+    const delegation = delegatedResources?.find((item) => item.resource?.identifier === resourceId);
+    if (!delegation) {
+      return false;
+    }
+    return (
+      getInheritedStatus({
+        permissions: delegation.permissions,
+        toParty,
+      }).length > 0
+    );
+  };
+
+  const isLoading = (resourceId: string) => {
+    return isResourceLoading(resourceId) || isLoadingRequest(resourceId);
+  };
+
+  const renderControls = useRenderSearchResultControl({
+    isDelegated,
+    isInherited,
+    isRequested: hasPendingRequest,
+    availableActions,
+    isResourceLoading: isLoading,
+    setActionError,
+    revokeFromList: confirmAndRevokeFromList,
+    delegateFromList,
+    requestFromList,
+    deleteRequestFromList,
+  });
+
+  if (error) {
+    return (
+      <DsAlert
+        role='alert'
+        className={classes.searchError}
+        data-color='danger'
+      >
+        <DsHeading
+          level={2}
+          data-size='xs'
+        >
+          {t('common.general_error_title')}
+        </DsHeading>
+        <DsParagraph>{t('common.general_error_paragraph')}</DsParagraph>
+      </DsAlert>
+    );
+  }
+
+  return (
+    <>
+      <div className={classes.resultCount}>
+        {!isFetching && totalNumberOfResults !== undefined && (
+          <DsParagraph>
+            {`${String(totalNumberOfResults)} ${t('single_rights.search_hits')}`}
+          </DsParagraph>
+        )}
+      </div>
+      {isFetching ? (
+        <div className={classes.resourceList}>
+          <SkeletonResourceList count={searchResultsPerPage} />
+        </div>
+      ) : (
+        <>
+          {resources && resources.length > 0 && (
+            <div className={classes.resourceList}>
+              <ResourceList
+                resources={resources}
+                enableSearch={false}
+                showDetails={false}
+                onSelect={onSelect}
+                size='sm'
+                getHasAccess={(resource) => isDelegated(resource.identifier)}
+                getActionControlId={(resource) => resourceActionControlId(resource.identifier)}
+                renderControls={renderControls}
+              />
+            </div>
+          )}
+          {resources && resources.length === 0 && (
+            <DsParagraph data-size='md'>
+              {t('resource_list.no_resources_filtered', { searchTerm: searchString })}
+            </DsParagraph>
+          )}
+        </>
+      )}
+      {totalNumberOfResults !== undefined && totalNumberOfResults > searchResultsPerPage && (
+        <AmPagination
+          className={classes.pagination}
+          currentPage={currentPage}
+          totalPages={Math.ceil(totalNumberOfResults / searchResultsPerPage)}
+          setCurrentPage={setCurrentPage}
+          size='xs'
+        />
+      )}
+      {revokeConfirmationDialog}
+    </>
+  );
+};

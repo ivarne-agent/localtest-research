@@ -1,0 +1,36 @@
+.headingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-size-4);
+  margin-bottom: var(--ds-size-8);
+}
+
+.headingContainerText {
+  display: flex;
+  flex-direction: row;
+  gap: var(--ds-size-4);
+}
+
+.packageIcon {
+  height: var(--ds-size-8);
+  width: var(--ds-size-8);
+  margin: auto;
+  flex: 0 0 var(--ds-size-8);
+}
+
+.pageHeading {
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.pageDescription {
+  max-width: 100%;
+  word-break: break-word;
+}
+
+@media screen and (max-width: 768px) {
+  .packageIcon {
+    display: none;
+  }
+}

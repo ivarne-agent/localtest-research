@@ -1,0 +1,63 @@
+.searchBar {
+  max-width: 21rem;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-4);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-spacing-3);
+}
+
+.searchAndFilters {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  gap: var(--ds-spacing-3);
+}
+
+.buttonRow {
+  display: flex;
+  flex-direction: row;
+  gap: var(--ds-spacing-3);
+}
+
+.showMoreButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--ds-spacing-4);
+  width: 100%;
+}
+
+.showMoreButton {
+  width: 100%;
+}
+
+.emptyState {
+  padding-top: var(--ds-spacing-1);
+}
+
+.subHeader {
+  font-size: var(--ds-body-lg-font-size);
+}
+
+@media only screen and (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchBar {
+    max-width: 100%;
+  }
+  .searchAndFilters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

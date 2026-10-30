@@ -1,0 +1,93 @@
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
+import { DsHeading, DsSkeleton } from '@altinn/altinn-components';
+
+import type { AuthorizedPartyEntity } from '@/dataObjects/dtos/Party';
+import { formatOrgNr, isSubUnit } from '@/resources/utils/reporteeUtils';
+import { useIsTabletOrSmaller } from '@/resources/utils/screensizeUtils';
+
+import { DownloadFileButton } from '../DownloadFileButton/DownloadFileButton';
+
+import styles from './ReporteePageHeading.module.css';
+
+type Props = {
+  title: string;
+  'data-testid'?: string;
+  reportee?: AuthorizedPartyEntity;
+  className?: string;
+  level?: 1 | 2 | 3 | 4 | 5 | 6;
+  dataSize?: 'sm' | 'md' | 'lg';
+  subHeadingDataSize?: '2xs' | 'xs' | 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+  downloadable?: boolean;
+};
+
+export const ReporteePageHeading: React.FC<Props> = ({
+  title,
+  'data-testid': testId,
+  reportee,
+  className,
+  level = 1,
+  dataSize = 'sm',
+  subHeadingDataSize = '2xs',
+  isLoading = false,
+  downloadable = false,
+}) => {
+  const { t } = useTranslation();
+  const orgNumber = reportee?.organizationIdentifier ?? '';
+  const isReporteeMainUnit = (reportee?.children?.length ?? 0) > 0;
+  const isReporteeSubUnit = isSubUnit(reportee);
+  const isSmallScreen = useIsTabletOrSmaller();
+
+  if (isLoading) {
+    return (
+      <DsHeading
+        data-size={dataSize}
+        className={className || styles.pageHeading}
+      >
+        <DsSkeleton
+          height='32px'
+          width='350px'
+          className={styles.pageHeadingSkeleton}
+        />
+        <DsSkeleton
+          width='400px'
+          className={styles.pageHeadingSkeleton}
+        />
+      </DsHeading>
+    );
+  }
+  return (
+    <div className={className || styles.pageHeadingContainer}>
+      <div className={styles.pageHeading}>
+        <DsHeading
+          level={level}
+          data-size={dataSize}
+          data-testid={testId}
+        >
+          {title}
+        </DsHeading>
+        {orgNumber && (
+          <DsHeading
+            data-size={subHeadingDataSize}
+            asChild
+          >
+            <div>
+              {t('common.org_nr_lowercase', { org_number: formatOrgNr(orgNumber) })}{' '}
+              {isReporteeMainUnit ? `(${t('common.mainunit_lowercase')})` : ''}
+              {isReporteeSubUnit ? `(${t('common.subunit_lowercase')})` : ''}
+            </div>
+          </DsHeading>
+        )}
+      </div>
+      {downloadable && (
+        <DownloadFileButton
+          className={styles.downloadButton}
+          iconOnly={isSmallScreen}
+        />
+      )}
+    </div>
+  );
+};
+
+export default ReporteePageHeading;

@@ -1,0 +1,304 @@
+import React from 'react';
+import {
+  DsParagraph,
+  DsPopover,
+  DsSwitch,
+  List,
+  ResourceListItem,
+  type ResourceListItemProps,
+} from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+import cn from 'classnames';
+import { QuestionmarkCircleIcon } from '@navikt/aksel-icons';
+
+import { useRestoreFocusTarget } from '@/features/amUI/common/RestoreFocus';
+import { useProviderLogoUrl } from '@/resources/hooks/useProviderLogoUrl';
+
+import { ResourceFilterToolbar } from '../ResourceFilterToolbar/ResourceFilterToolbar';
+
+import { ResourceDetails } from './ResourceDetails';
+import classes from './ResourceList.module.css';
+import { SkeletonResourceList } from './SkeletonResourceList';
+import { useFilteredResources } from './useFilteredResources';
+import type { ResourceListItemResource } from './types';
+import {
+  extractResourceName,
+  extractOwnerName,
+  extractOrgCode,
+  extractDescription,
+  extractResourceId,
+  extractLogoUrl,
+  extractLogoAlt,
+  isExpiredResource,
+} from './utils';
+
+interface ResourceListItemRowProps extends React.ComponentProps<typeof ResourceListItem> {
+  resourceId: string;
+  actionControlId?: string;
+}
+
+const ResourceListItemRow = ({
+  resourceId,
+  actionControlId,
+  ...props
+}: ResourceListItemRowProps) => {
+  useRestoreFocusTarget(resourceId);
+  useRestoreFocusTarget(actionControlId ?? '');
+  return <ResourceListItem {...props} />;
+};
+
+export interface ResourceListProps<
+  TResource extends ResourceListItemResource = ResourceListItemResource,
+> {
+  resources: TResource[];
+  isLoading?: boolean;
+  noResourcesText?: string;
+  enableSearch?: boolean;
+  searchPlaceholder?: string;
+  onSelect?: (resource: TResource) => void;
+  /**
+   * Renders each row as a custom element, e.g. a router Link pointing at the resource's own page.
+   * A row with a custom element is always interactive and never opens the details dialog.
+   */
+  getItemAs?: (resource: TResource) => React.ElementType | undefined;
+  showDetails?: boolean;
+  size?: ResourceListItemProps['size'];
+  interactive?: boolean | ((resource: TResource) => boolean);
+  as?: ResourceListItemProps['as'];
+  showMoreButton?: boolean;
+  skeletonCount?: number;
+  resolveLogos?: boolean;
+  enableMaxHeight?: boolean;
+  renderControls?: (resource: TResource) => React.ReactNode;
+  getBadge?: (resource: TResource, index: number) => ResourceListItemProps['badge'];
+  getDescriptionText?: (resource: TResource, index: number) => string | undefined;
+  getHasAccess?: (resource: TResource) => boolean;
+  getActionControlId?: (resource: TResource) => string;
+  delegationModal?: React.ReactNode;
+  border?: ResourceListItemProps['border'];
+  ariaLabelledBy?: string;
+  className?: string;
+}
+
+export const ResourceList = <
+  TResource extends ResourceListItemResource = ResourceListItemResource,
+>({
+  resources,
+  isLoading,
+  noResourcesText,
+  enableSearch = true,
+  onSelect,
+  getItemAs,
+  showDetails,
+  size,
+  interactive,
+  as,
+  resolveLogos = true,
+  enableMaxHeight = false,
+  renderControls,
+  getBadge,
+  getDescriptionText,
+  getHasAccess,
+  getActionControlId,
+  delegationModal,
+  border = 'none',
+  ariaLabelledBy,
+  className,
+}: ResourceListProps<TResource>) => {
+  const { t } = useTranslation();
+  const [search, setSearch] = React.useState('');
+  const [filterState, setFilterState] = React.useState<string[]>([]);
+  const [includeExpired, setIncludeExpired] = React.useState<boolean>(false);
+  const [selected, setSelected] = React.useState<TResource | null>(null);
+  const { getProviderLogoUrl, isLoading: orgLoading } = useProviderLogoUrl();
+  const logoResolver = React.useMemo(
+    () => (resolveLogos ? getProviderLogoUrl : () => undefined),
+    [getProviderLogoUrl, resolveLogos],
+  );
+  const hasExpiredResources = React.useMemo(
+    () => resources && resources.some(isExpiredResource),
+    [resources],
+  );
+
+  const shouldShowDetails = showDetails ?? !onSelect;
+  const derivedInteractive = (resource: TResource) => {
+    if (typeof interactive === 'function') {
+      return interactive(resource);
+    }
+    return interactive ?? Boolean(onSelect || shouldShowDetails);
+  };
+
+  const handleSelect = React.useCallback(
+    (resource: TResource) => {
+      if (onSelect) {
+        onSelect(resource);
+        return;
+      }
+
+      if (shouldShowDetails) {
+        setSelected(resource);
+      }
+    },
+    [onSelect, shouldShowDetails],
+  );
+
+  const closeDetails = React.useCallback(() => setSelected(null), []);
+
+  const { resources: filteredResources } = useFilteredResources<TResource>({
+    resources,
+    serviceOwnerFilter: filterState,
+    searchString: enableSearch ? search : '',
+    includeExpiredResources: enableSearch ? includeExpired : true,
+    getResourceName: extractResourceName,
+    getOwnerName: extractOwnerName,
+    getOwnerOrgCode: extractOrgCode,
+    getDescription: extractDescription,
+    isExpiredResource: isExpiredResource,
+  });
+
+  const isSkeletonVisible = isLoading || (resolveLogos && orgLoading);
+
+  const serviceOwnerOptions = React.useMemo(() => {
+    const uniqueOwners = new Map<string, { value: string; label: string; count: number }>();
+    resources.forEach((res) => {
+      const code = extractOrgCode(res);
+      const name = extractOwnerName(res);
+      if (code) {
+        const existing = uniqueOwners.get(code);
+        if (existing) {
+          existing.count = (existing.count ?? 1) + 1;
+        } else {
+          uniqueOwners.set(code, { value: code, label: name, count: 1 });
+        }
+      }
+    });
+    return Array.from(uniqueOwners.values());
+  }, [resources]);
+
+  return (
+    <div className={cn(classes.container, className)}>
+      {enableSearch && (
+        <div className={classes.searchAndAdd}>
+          <ResourceFilterToolbar
+            search={search}
+            setSearch={setSearch}
+            filterState={filterState}
+            setFilterState={setFilterState}
+            serviceOwnerOptions={serviceOwnerOptions}
+          />
+          {hasExpiredResources && (
+            <div className={classes.expiredSwitch}>
+              <DsSwitch
+                data-size='sm'
+                checked={includeExpired}
+                onChange={(e) => {
+                  setIncludeExpired(e.target.checked);
+                }}
+                label={t('resource_list.show_expired_services')}
+              />
+              <DsPopover.TriggerContext>
+                <DsPopover.Trigger
+                  icon
+                  variant='tertiary'
+                  data-size='sm'
+                  aria-label={t('resource_list.show_expired_services_helptext_button')}
+                >
+                  <QuestionmarkCircleIcon aria-hidden='true' />
+                </DsPopover.Trigger>
+                <DsPopover>{t('resource_list.show_expired_services_helptext')}</DsPopover>
+              </DsPopover.TriggerContext>
+            </div>
+          )}
+          <div className={classes.delegationModalButton}>{delegationModal}</div>
+        </div>
+      )}
+      {isSkeletonVisible ? (
+        <SkeletonResourceList size={size} />
+      ) : (
+        <>
+          {resources.length === 0 && !search && (
+            <DsParagraph data-size='md'>
+              {noResourcesText ?? t('resource_list.no_resources')}
+            </DsParagraph>
+          )}
+          {enableSearch && search.length > 0 && filteredResources.length === 0 && (
+            <DsParagraph data-size='md'>
+              {t('resource_list.no_resources_filtered', { searchTerm: search })}
+            </DsParagraph>
+          )}
+          <div
+            className={cn(classes.resourceListContainer, { [classes.maxHeight]: enableMaxHeight })}
+          >
+            {filteredResources.length > 0 && (
+              <List aria-labelledby={ariaLabelledBy}>
+                {filteredResources.map((resource, index) => {
+                  const derivedId = extractResourceId(resource);
+                  const resourceId = derivedId ? String(derivedId) : `resource-${index}`;
+                  const resourceName = extractResourceName(resource);
+                  const defaultOwnerName = extractOwnerName(resource);
+                  const description = getDescriptionText?.(resource, index);
+                  const orgCode = extractOrgCode(resource);
+                  const providerLogo = resolveLogos && orgCode ? logoResolver(orgCode) : undefined;
+                  const fallbackLogoUrl = extractLogoUrl(resource);
+                  const ownerLogoUrl = providerLogo ?? fallbackLogoUrl;
+                  const ownerLogoAlt = extractLogoAlt(resource) ?? defaultOwnerName;
+                  const customAs = getItemAs?.(resource);
+                  const itemInteractive = customAs ? true : derivedInteractive(resource);
+                  const itemAs = customAs ?? as ?? (itemInteractive ? 'button' : 'div');
+                  const itemSize = size ?? 'xs';
+                  const handleClick =
+                    !customAs && itemInteractive ? () => handleSelect(resource) : undefined;
+                  const itemShadow = itemInteractive ? undefined : 'none';
+                  const titleBadge = isExpiredResource(resource)
+                    ? { label: t('resource_list.expired_badge'), color: 'neutral' as const }
+                    : undefined;
+
+                  const actionControlId = getActionControlId?.(resource);
+                  return (
+                    <ResourceListItemRow
+                      key={resourceId}
+                      resourceId={resourceId}
+                      actionControlId={actionControlId}
+                      id={resourceId}
+                      resourceName={resourceName}
+                      ownerName={defaultOwnerName}
+                      description={description}
+                      ownerLogoUrl={ownerLogoUrl}
+                      ownerLogoUrlAlt={ownerLogoAlt}
+                      as={itemAs}
+                      size={itemSize}
+                      titleAs='div'
+                      interactive={itemInteractive}
+                      onClick={handleClick}
+                      badge={getBadge?.(resource, index)}
+                      titleBadge={titleBadge}
+                      variant={getHasAccess?.(resource) ? 'tinted' : 'default'}
+                      controls={renderControls?.(resource)}
+                      loading={false}
+                      shadow={itemShadow}
+                      border={border}
+                    />
+                  );
+                })}
+              </List>
+            )}
+          </div>
+        </>
+      )}
+
+      {shouldShowDetails && (
+        <ResourceDetails
+          resource={selected}
+          onClose={closeDetails}
+          providerLogoUrl={
+            selected
+              ? resolveLogos
+                ? (logoResolver(extractOrgCode(selected) ?? '') ?? selected.resourceOwnerLogoUrl)
+                : (extractLogoUrl(selected) ?? null)
+              : undefined
+          }
+        />
+      )}
+    </div>
+  );
+};

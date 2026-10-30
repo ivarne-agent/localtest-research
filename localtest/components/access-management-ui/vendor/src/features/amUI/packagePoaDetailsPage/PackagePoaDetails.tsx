@@ -1,0 +1,137 @@
+import { DsAlert } from '@altinn/altinn-components';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { FilesIcon, PersonGroupIcon } from '@navikt/aksel-icons';
+
+import { useGetPackagePermissionDetailsQuery } from '@/rtk/features/accessPackageApi';
+import { amUIPath } from '@/routes/paths/amUIPath';
+import { useDocumentTitle } from '@/resources/hooks/useDocumentTitle';
+import { useTabState } from '@/resources/hooks';
+
+import { AmTabs } from '../common/AmTabs/AmTabs';
+import { usePartyRepresentation } from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import { ResourceList } from '../common/ResourceList/ResourceList';
+import { StatusSection } from '../common/StatusSection/StatusSection';
+import { useAccessPackageDelegationCheck } from '../common/DelegationCheck/AccessPackageDelegationCheckContext';
+import { isCriticalAndUndelegated } from '../common/AccessPackageList/UndelegatedPackageWarning';
+import { RestoreFocusProvider, useRestoreFocus } from '../common/RestoreFocus';
+
+import pageClasses from './PackagePoaDetailsPage.module.css';
+import headerClasses from './PackagePoaDetailsHeader.module.css';
+import { PackagePoaDetailsHeader } from './PackagePoaDetailsHeader';
+import { UsersTab } from './UsersTab';
+
+export const PackagePoaDetails = () => {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const { t, i18n } = useTranslation();
+  const { fromParty } = usePartyRepresentation();
+  const { canDelegatePackage } = useAccessPackageDelegationCheck();
+  // One zone for the whole page so the users tab can restore focus to the page heading (rendered in
+  // the header, outside the tabs) after a revoke. The services tab only registers passive targets.
+  const restoreFocus = useRestoreFocus();
+
+  const {
+    data: accessPackage,
+    isLoading,
+    isFetching,
+    error,
+  } = useGetPackagePermissionDetailsQuery(
+    {
+      from: fromParty?.id ?? '',
+      packageId: id || '',
+      language: i18n.language,
+    },
+    { skip: !id || !fromParty?.id },
+  );
+
+  useDocumentTitle(
+    t('package_poa_details_page.page_title_access_package', {
+      accessPackage: accessPackage?.name,
+    }),
+  );
+
+  const [chosenTab, setChosenTab] = useTabState({
+    tabs: ['users', 'services'],
+    defaultTab: 'users',
+  });
+  const parentTab = searchParams.get('parentTab') ?? 'packages';
+  const poaOverviewUrl = `/${amUIPath.PoaOverview}#${parentTab}`;
+
+  const cannotDelegateHere = !!(accessPackage && accessPackage.isAssignable === false);
+  const showUndelegatedWarning = !!(accessPackage && isCriticalAndUndelegated(accessPackage));
+  const showDelegationCheckWarning =
+    !!accessPackage && canDelegatePackage(accessPackage.id)?.result === false;
+
+  // Show error alert with link back to overview if error fetching the Package
+  if (error) {
+    return (
+      <DsAlert data-color='danger'>
+        {t('package_poa_details_page.load_error')}{' '}
+        <Link to={poaOverviewUrl}>{t('package_poa_details_page.back_to_overview_link')}</Link>
+      </DsAlert>
+    );
+  }
+
+  return (
+    <RestoreFocusProvider restoreFocus={restoreFocus}>
+      <div className={headerClasses.headingContainer}>
+        <PackagePoaDetailsHeader
+          isLoading={isLoading}
+          packageName={accessPackage?.name}
+          packageDescription={accessPackage?.description}
+          statusSection={
+            <StatusSection
+              cannotDelegateHere={cannotDelegateHere}
+              showDelegationCheckWarning={showDelegationCheckWarning}
+              showUndelegatedWarning={showUndelegatedWarning}
+              undelegatedPackageName={accessPackage?.name}
+            />
+          }
+        />
+      </div>
+      <AmTabs
+        defaultValue='users'
+        value={chosenTab}
+        onChange={setChosenTab}
+      >
+        <AmTabs.List>
+          <AmTabs.Tab
+            value='users'
+            label={t('package_poa_details_page.users_tab_title')}
+            icon={<PersonGroupIcon aria-hidden='true' />}
+          />
+          <AmTabs.Tab
+            value='services'
+            label={t('package_poa_details_page.services_tab_title')}
+            icon={<FilesIcon aria-hidden='true' />}
+          />
+        </AmTabs.List>
+        <AmTabs.Panel
+          className={pageClasses.tabContent}
+          value='users'
+        >
+          <div className={pageClasses.innerTabContent}>
+            <UsersTab
+              accessPackage={accessPackage}
+              isLoading={isLoading}
+              isFetching={isFetching}
+            />
+          </div>
+        </AmTabs.Panel>
+        <AmTabs.Panel
+          className={pageClasses.tabContent}
+          value='services'
+        >
+          <div className={pageClasses.innerTabContent}>
+            <ResourceList
+              isLoading={isLoading}
+              resources={accessPackage?.resources ?? []}
+              noResourcesText={t('package_poa_details_page.services_tab.no_resources')}
+            />
+          </div>
+        </AmTabs.Panel>
+      </AmTabs>
+    </RestoreFocusProvider>
+  );
+};

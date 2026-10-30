@@ -1,0 +1,29 @@
+{
+  "name": "playwright",
+  "version": "1.0.0",
+  "description": "",
+  "packageManager": "yarn@4.18.1",
+  "main": "index.js",
+  "scripts": {
+    "env:AT22": "cross-env environment=at22 npx playwright test",
+    "env:AT23": "cross-env environment=at23 npx playwright test",
+    "env:TT02": "cross-env environment=tt02 npx playwright test",
+    "tenor": "npx tsx tenor/cli.ts",
+    "lint": "eslint ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@azure/microsoft-playwright-testing": "^1.0.0-beta.7",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.18.0",
+    "dotenv": "^16.6.1"
+  },
+  "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "cross-env": "^7.0.3",
+    "csv-parse": "^7.0.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

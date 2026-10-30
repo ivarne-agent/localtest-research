@@ -1,0 +1,288 @@
+[
+  {
+    "resource": {
+      "identifier": "appid-502",
+      "title": "Det magiske klesskapet - lenketjeneste",
+      "description": "Det magiske klesskapet",
+      "rightDescription": "Gir tilgang til Narnia.",
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": [
+        {
+          "category": "Some category",
+          "email": "email@someemaildigdir.no",
+          "telephone": "12345678",
+          "contactPage": "Some page (webpage maybe?)"
+        }
+      ],
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "NARNIA",
+      "resourceOwnerOrgNumber": "777777777",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/nbib/nasjonalbiblioteket.png",
+      "resourceOwnerOrgcode": null,
+      "resourceReferences": [],
+      "priorityCounter": null,
+      "resourceType": "Default",
+      "authorizationReference": [
+        {
+          "id": "urn:altinn:resource",
+          "value": "appid-502"
+        }
+      ],
+      "keywords": []
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null
+      }
+    ]
+  },
+  {
+    "resource": {
+      "identifier": "app_ttd_a3-app2",
+      "title": "A3 app 2",
+      "description": "En Altinn 3 app",
+      "rightDescription": "Gir tilgang til en A3 app.",
+      "homepage": null,
+      "status": null,
+      "spatial": null,
+      "contactPoints": [
+        {
+          "category": "Some category",
+          "email": "email@someemaildigdir.no",
+          "telephone": "12345678",
+          "contactPage": "Some page (webpage maybe?)"
+        }
+      ],
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Testdepartementet",
+      "resourceOwnerOrgNumber": "974760746",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/img/illustration-help-circle.svg",
+      "resourceOwnerOrgcode": null,
+      "resourceReferences": [
+        {
+          "referenceSource": "Altinn3",
+          "reference": "ttd/a3-app2",
+          "referenceType": "ApplicationId"
+        }
+      ],
+      "priorityCounter": null,
+      "resourceType": "AltinnApp",
+      "authorizationReference": [
+        {
+          "id": "urn:altinn:app",
+          "value": "a3-app2"
+        },
+        {
+          "id": "urn:altinn:org",
+          "value": "ttd"
+        }
+      ],
+      "keywords": []
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": {
+          "id": "d6e7f8a9-b0c1-2345-8901-456789012345",
+          "code": "daglig-leder",
+          "children": null
+        },
+        "viaRole": null
+      }
+    ]
+  },
+  {
+    "resource": {
+      "identifier": "jks-test-resource",
+      "title": "JK's Test Ressurs",
+      "description": "Veldig fin test ressurs",
+      "rightDescription": "Du gir tilgang til denne fine test ressursen",
+      "homepage": null,
+      "status": "Active",
+      "spatial": null,
+      "contactPoints": [],
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "JK's Test departement",
+      "resourceOwnerOrgNumber": "991825827",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/img/illustration-help-circle.svg",
+      "resourceOwnerOrgcode": null,
+      "resourceReferences": [],
+      "priorityCounter": null,
+      "resourceType": "GenericAccessResource",
+      "authorizationReference": [
+        {
+          "id": "urn:altinn:resource",
+          "value": "jks-test-resource"
+        }
+      ],
+      "keywords": []
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": null,
+        "role": null,
+        "viaRole": null
+      }
+    ]
+  },
+  {
+    "resource": {
+      "identifier": "ske-innrapportering-boligsameie",
+      "title": "Innrapportering Boligsameie",
+      "description": "Sameier med 9 eller flere boligseksjoner skal levere opplysninger om sameiers andel av felles inntekter, utgifter, formue og gjeld. Det er vanligvis sameiets styre eller forretningsfører som leverer opplysningene.",
+      "rightDescription": "Delegering av denne tjenesten gir andre mulighet til å rapportere opplysninger om boligsameie på vegne av deg.",
+      "homepage": null,
+      "status": "Completed",
+      "spatial": null,
+      "contactPoints": [
+        {
+          "category": "Innrapportering",
+          "email": "",
+          "telephone": "",
+          "contactPage": "www.skatteetaten.no"
+        }
+      ],
+      "delegable": true,
+      "visible": true,
+      "resourceOwnerName": "Skatteetaten",
+      "resourceOwnerOrgNumber": "974761076",
+      "resourceOwnerLogoUrl": "https://altinncdn.no/orgs/skd/skd.png",
+      "resourceOwnerOrgcode": null,
+      "resourceReferences": null,
+      "priorityCounter": null,
+      "resourceType": "GenericAccessResource",
+      "authorizationReference": [
+        {
+          "id": "urn:altinn:resource",
+          "value": "ske-innrapportering-boligsameie"
+        }
+      ],
+      "keywords": []
+    },
+    "permissions": [
+      {
+        "from": {
+          "id": "cd35779b-b174-4ecc-bbef-ece13611be7f",
+          "partyId": 51329012,
+          "name": "DISKRET NÆR TIGER AS",
+          "type": "Organization",
+          "unitType": "AS",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "to": {
+          "id": "167536b5-f8ed-4c5a-8f48-0279507e53ae",
+          "partyId": 50789533,
+          "name": "SITRONGUL MEDALJONG",
+          "type": "Person",
+          "unitType": null,
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "via": {
+          "id": "6b0574ae-f569-4c0d-a8d4-8ad56f427890",
+          "partyId": 50067799,
+          "name": "Digitaliseringsdirektoratet",
+          "type": "Organization",
+          "unitType": "ORGL",
+          "organizationIdentifier": null,
+          "dateOfBirth": null,
+          "isDeleted": false,
+          "children": null,
+          "parent": null
+        },
+        "role": null,
+        "viaRole": {
+          "id": "d6e7f8a9-b0c1-2345-8901-456789012345",
+          "code": "daglig-leder",
+          "children": null
+        }
+      }
+    ]
+  }
+]

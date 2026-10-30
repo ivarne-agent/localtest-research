@@ -1,0 +1,55 @@
+import { Layout, RootProvider, useConsent } from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
+
+import { useFooter } from '@/features/amUI/common/PageLayoutWrapper/useFooter';
+import { useHeader } from '@/features/amUI/common/PageLayoutWrapper/useHeader';
+import { GeneralPath } from '@/routes/paths';
+
+export const ErrorLayoutWrapper = ({
+  hideAccountSelector = true,
+  children,
+}: {
+  hideAccountSelector?: boolean;
+  children: React.ReactNode;
+}) => {
+  const { t } = useTranslation();
+  const { pathname, search } = useLocation();
+
+  const { header, languageCode } = useHeader({
+    openAccountMenu: false,
+    hideAccountSelector,
+    hideSidebarItems: true,
+  });
+  const footer = useFooter();
+  const { isAnswered, acceptAll, rejectAll } = useConsent();
+
+  return (
+    <RootProvider languageCode={languageCode}>
+      <Layout
+        color={'neutral'}
+        theme='default'
+        header={header}
+        skipLink={{
+          href:
+            pathname === '/'
+              ? `${GeneralPath.BasePath}${search}#main-content`
+              : `${GeneralPath.BasePath}${pathname}${search}#main-content`,
+          color: 'inherit',
+          size: 'xs',
+          children: t('common.skiplink'),
+        }}
+        content={{ color: 'neutral' }}
+        footer={footer}
+        sidebar={{ hidden: true }}
+        cookieBanner={
+          window.featureFlags?.enableSkyra !== true || isAnswered
+            ? undefined
+            : { onAccept: acceptAll, onReject: rejectAll }
+        }
+      >
+        {children}
+      </Layout>
+    </RootProvider>
+  );
+};

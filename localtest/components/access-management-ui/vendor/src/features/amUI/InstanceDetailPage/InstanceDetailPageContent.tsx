@@ -1,0 +1,289 @@
+import { useEffect, useRef, useState } from 'react';
+import { DsAlert, DsButton, DsParagraph } from '@altinn/altinn-components';
+import { Navigate, useSearchParams } from 'react-router';
+import { Trans, useTranslation } from 'react-i18next';
+import { EnvelopeClosedIcon } from '@navikt/aksel-icons';
+
+import { PartyType } from '@/dataObjects/dtos/Party';
+import type { ActionError } from '@/resources/hooks/useActionError';
+import { useGetIsAdminQuery, useGetIsInstanceAdminQuery } from '@/rtk/features/userInfoApi';
+import { useGetResourceQuery } from '@/rtk/features/resourceApi';
+import { useGetInstancesQuery, useRemoveInstanceMutation } from '@/rtk/features/instanceApi';
+import { useIsMobileOrSmaller } from '@/resources/utils/screensizeUtils';
+
+import { ResourceInfoSkeleton } from '../common/DelegationModal/SingleRights/ResourceInfoSkeleton';
+import { PageDivider } from '../common/PageDivider/PageDivider';
+import { usePartyRepresentation } from '../common/PartyRepresentationContext/PartyRepresentationContext';
+import {
+  createErrorDetails,
+  TechnicalErrorParagraphs,
+} from '../common/TechnicalErrorParagraphs/TechnicalErrorParagraphs';
+import { DelegationAction, EditModal } from '../common/DelegationModal/EditModal';
+import type { UserActionTarget } from '../common/UserSearch/types';
+import {
+  getInboxLinkData,
+  toInstancePresentationData,
+} from '../common/InstanceList/instanceListUtils';
+import { InstanceDescription } from '../common/InstanceDescription/InstanceDescription';
+import {
+  RestoreFocusFallback,
+  useRestoreFocusContext,
+  useRestoreFocusOnDataChange,
+} from '../common/RestoreFocus';
+
+import { InstanceUsersAsInstanceAdmin } from './InstanceUsersAsInstanceAdmin';
+import { InstanceUsersAsAdmin } from './InstanceUsersAsAdmin';
+import classes from './InstanceDetailPageContent.module.css';
+import { RequestInstanceAdminPackage } from './RequestInstanceAdminPackage';
+
+// Focus-restore fallback for this zone: when a revoked row is gone, focus lands on the search field
+// above the list instead of the page heading. Unique within this provider zone.
+const USER_SEARCH_FALLBACK_ID = 'instance_detail_user_search';
+
+export const InstanceDetailPageContent = () => {
+  const { t, i18n } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const { actingParty, fromParty } = usePartyRepresentation();
+  const isSmall = useIsMobileOrSmaller();
+
+  const actingPartyIsOrg = actingParty?.type === PartyType.Organization;
+
+  const restoreFocus = useRestoreFocusContext();
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const [selectedUser, setSelectedUser] = useState<UserActionTarget | null>(null);
+  const [selectedUserMode, setSelectedUserMode] = useState<'edit' | 'delegate'>('edit');
+  const [actionError, setActionError] = useState<ActionError | null>(null);
+  const [removeInstance, { isLoading: isRevoking }] = useRemoveInstanceMutation();
+
+  useEffect(() => {
+    if (selectedUser && modalRef.current) {
+      modalRef.current.showModal();
+    }
+  }, [selectedUser]);
+
+  const handleUserSelect = (user: UserActionTarget) => {
+    setActionError(null);
+    setSelectedUserMode('edit');
+    setSelectedUser(user);
+  };
+
+  const handleIndirectUserDelegate = (user: UserActionTarget) => {
+    setActionError(null);
+    setSelectedUserMode('delegate');
+    setSelectedUser(user);
+  };
+
+  const handleRevoke = (user: UserActionTarget) => {
+    if (!actingParty?.id || !fromParty?.id) return;
+    removeInstance({
+      party: actingParty.id,
+      from: fromParty.id,
+      to: user.id,
+      resource: resourceId,
+      instance: instanceUrn,
+    })
+      .unwrap()
+      .then(() => {
+        // Revoking from the list removes the row once the instances query refetches; defer focus
+        // restoration until then. (Modal revoke keeps focus in the dialog and restores on close.)
+        requestFocusOnRevoke(user.id, USER_SEARCH_FALLBACK_ID);
+        setSelectedUser(null);
+        setActionError(null);
+      })
+      .catch(() => {
+        setActionError({
+          httpStatus: 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        setSelectedUserMode('edit');
+        setSelectedUser(user);
+      });
+  };
+
+  const instanceUrn = searchParams.get('instanceUrn') ?? '';
+  const resourceId = searchParams.get('resourceId') ?? '';
+  const dialogId = searchParams.get('dialogId');
+
+  const {
+    data: isAdmin,
+    isLoading: isAdminLoading,
+    isError: isAdminError,
+    error: isAdminErrorObj,
+  } = useGetIsAdminQuery();
+  const {
+    data: isInstanceAdmin,
+    isLoading: isInstanceAdminLoading,
+    isError: isInstanceAdminError,
+    error: isInstanceAdminErrorObj,
+  } = useGetIsInstanceAdminQuery();
+
+  const {
+    data: resource,
+    isLoading: isResourceLoading,
+    error: resourceError,
+  } = useGetResourceQuery(resourceId, {
+    skip: !resourceId,
+  });
+  const { data: instanceDelegations = [] } = useGetInstancesQuery(
+    {
+      party: actingParty?.id || '',
+      from: fromParty?.id,
+      resource: resourceId,
+      instance: instanceUrn,
+      language: i18n.language,
+    },
+    {
+      skip: !actingParty?.id || !fromParty?.id || !resourceId || !instanceUrn,
+    },
+  );
+  const requestFocusOnRevoke = useRestoreFocusOnDataChange(instanceDelegations);
+
+  if (!resourceId || !instanceUrn) {
+    return (
+      <Navigate
+        to='/not-found'
+        replace
+      />
+    );
+  }
+  const instanceDelegation = instanceDelegations[0];
+  const { href: inboxUrl, showInboxLink } = getInboxLinkData({
+    instanceUrn,
+    dialogLookup: instanceDelegation?.dialogLookup,
+    isDialogDeepLink: Boolean(dialogId),
+  });
+
+  const inboxLink = showInboxLink ? (
+    <div className={classes.inboxLinkContainer}>
+      <DsButton
+        asChild
+        variant='secondary'
+        className={classes.inboxButton}
+      >
+        <a href={inboxUrl}>
+          {<EnvelopeClosedIcon aria-hidden='true' />}
+          {t('instance_detail_page.see_in_inbox')}
+        </a>
+      </DsButton>
+    </div>
+  ) : null;
+
+  if (isResourceLoading || isAdminLoading || isInstanceAdminLoading) {
+    return <ResourceInfoSkeleton />;
+  }
+
+  const contentTechnicalError =
+    isAdminError || isInstanceAdminError || resourceError
+      ? createErrorDetails(isAdminErrorObj || isInstanceAdminErrorObj || resourceError)
+      : null;
+
+  const instanceData = instanceDelegation
+    ? toInstancePresentationData(instanceDelegation)
+    : {
+        instance: {
+          refId: instanceUrn,
+          type: null,
+        },
+      };
+  const selectedUserAvailableActions =
+    selectedUserMode === 'delegate' || isAdmin === false
+      ? [DelegationAction.DELEGATE]
+      : [DelegationAction.REVOKE, DelegationAction.DELEGATE];
+
+  return (
+    <>
+      {resource && (
+        <InstanceDescription
+          resource={resource}
+          instanceData={instanceData}
+          fromParty={fromParty}
+          titleLevel={1}
+        />
+      )}
+      {inboxLink}
+      <PageDivider />
+      {contentTechnicalError ? (
+        <DsAlert
+          role='alert'
+          data-color='danger'
+        >
+          <DsParagraph>{t('common.general_error_paragraph')}</DsParagraph>
+          <TechnicalErrorParagraphs
+            size='sm'
+            status={contentTechnicalError.status}
+            time={contentTechnicalError.time}
+            traceId={contentTechnicalError.traceId}
+          />
+        </DsAlert>
+      ) : (
+        <div className={classes.contentSection}>
+          <DsParagraph data-size={isSmall ? 'xs' : 'sm'}>
+            {isInstanceAdmin ? (
+              t('instance_detail_page.description')
+            ) : (
+              <>
+                <Trans
+                  i18nKey='instance_detail_page.no_access_description'
+                  components={{ b: <strong /> }}
+                />
+                <Trans
+                  i18nKey={
+                    actingPartyIsOrg
+                      ? 'instance_detail_page.instance_admin_package_name_org'
+                      : 'instance_detail_page.instance_admin_package_name_person'
+                  }
+                />
+              </>
+            )}
+          </DsParagraph>
+          {!isInstanceAdmin && actingPartyIsOrg && <RequestInstanceAdminPackage />}
+          {isInstanceAdmin && isAdmin === false && (
+            <DsParagraph data-size='sm'>
+              {t('instance_detail_page.instance_admin_edit_disclaimer')}
+            </DsParagraph>
+          )}
+          <RestoreFocusFallback>
+            {isAdmin ? (
+              <InstanceUsersAsAdmin
+                resourceId={resourceId}
+                instanceUrn={instanceUrn}
+                onSelect={handleUserSelect}
+                onDelegate={handleIndirectUserDelegate}
+                onRevoke={handleRevoke}
+                isRevoking={isRevoking}
+                restoreFocusFallbackId={USER_SEARCH_FALLBACK_ID}
+              />
+            ) : isInstanceAdmin ? (
+              <InstanceUsersAsInstanceAdmin
+                resourceId={resourceId}
+                instanceUrn={instanceUrn}
+                onDelegate={handleIndirectUserDelegate}
+                restoreFocusFallbackId={USER_SEARCH_FALLBACK_ID}
+              />
+            ) : null}
+          </RestoreFocusFallback>
+        </div>
+      )}
+      {resource && selectedUser && (
+        <EditModal
+          ref={modalRef}
+          resource={resource}
+          instance={{ instanceUrn }}
+          toParty={selectedUser}
+          openWithError={actionError}
+          onSuccess={selectedUserMode === 'delegate' ? () => modalRef.current?.close() : undefined}
+          onClose={() => {
+            // Restore focus synchronously to the row that opened the modal before clearing state.
+            // If the user was revoked inside the modal their row is gone, so the fallback catches it.
+            if (selectedUser) {
+              restoreFocus?.requestFocus(selectedUser.id, USER_SEARCH_FALLBACK_ID);
+            }
+            setSelectedUser(null);
+            setActionError(null);
+          }}
+          availableActions={selectedUserAvailableActions}
+        />
+      )}
+    </>
+  );
+};

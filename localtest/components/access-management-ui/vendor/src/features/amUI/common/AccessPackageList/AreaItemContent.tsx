@@ -1,0 +1,260 @@
+import { List, DsHeading, DsButton, DsSpinner } from '@altinn/altinn-components';
+import { useTranslation } from 'react-i18next';
+import React, { useState } from 'react';
+import cn from 'classnames';
+import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
+
+import { type PartyType } from '@/dataObjects/dtos/Party';
+import { useIsMobileOrSmaller } from '@/resources/utils/screensizeUtils';
+import type { AccessPackage } from '@/rtk/features/accessPackageApi';
+import { usePermissionOverview } from '@/resources/hooks';
+
+import { type DelegationAction } from '../DelegationModal/EditModal';
+import { useAccessPackageDelegationCheck } from '../DelegationCheck/AccessPackageDelegationCheckContext';
+import { PermissionsBadge } from '../PermissionsBadge/PermissionsBadge';
+
+import classes from './AccessPackageList.module.css';
+import {
+  DeletableStatus,
+  type ExtendedAccessArea,
+  type ExtendedAccessPackage,
+} from './useAreaPackageList';
+import { PackageItem } from './PackageItem';
+import { RevokeAccessPackageActionControl } from './RevokeAccessPackageActionControl';
+import { DelegateAccessPackageActionControl } from './DelegateAccessPackageActionControl';
+import { isCriticalAndUndelegated, UndelegatedPackageWarning } from './UndelegatedPackageWarning';
+
+// DOM id for the area's content wrapper, usable as a RestoreFocus fallback target.
+export const areaContentId = (areaId: string) => `area-content-${areaId}`;
+
+interface AreaItemContentProps {
+  area: ExtendedAccessArea;
+  availableActions?: DelegationAction[];
+  onSelect?: (accessPackage: AccessPackage) => void;
+  onDelegate?: (accessPackage: AccessPackage) => void;
+  onRevoke?: (accessPackage: AccessPackage) => void;
+  onRevokeWithoutConfirmation?: (accessPackage: AccessPackage) => void;
+  onRequest?: (accessPackage: AccessPackage) => void;
+  onDeleteRequest?: (accessPackage: AccessPackage) => void;
+  hasPendingRequest?: (accessPackage: AccessPackage) => boolean;
+  isLoadingRequest?: (accessPackage: AccessPackage) => boolean;
+  isActionLoading?: boolean;
+  showAvailablePackages?: boolean;
+  showAvailableToggle?: boolean;
+  showPermissions?: boolean;
+  packageAs?: React.ElementType;
+  partyType: PartyType;
+  headingLevel: 3 | 4 | 5;
+}
+
+export const AreaItemContent = ({
+  area,
+  availableActions,
+  onSelect,
+  onDelegate,
+  onRevoke,
+  onRevokeWithoutConfirmation,
+  onRequest,
+  onDeleteRequest,
+  hasPendingRequest,
+  isLoadingRequest,
+  isActionLoading = false,
+  showAvailablePackages: showAvailablePackagesExternal = false,
+  showAvailableToggle = true,
+  showPermissions = false,
+  packageAs,
+  partyType,
+  headingLevel,
+}: AreaItemContentProps) => {
+  const { packages } = area;
+  const { t } = useTranslation();
+  const [showAvailablePackages, setShowAvailablePackages] = useState(
+    showAvailablePackagesExternal ?? false,
+  );
+
+  const isSm = useIsMobileOrSmaller();
+  const { canDelegatePackage } = useAccessPackageDelegationCheck();
+
+  const revokeActionControl = (pkg: ExtendedAccessPackage) => {
+    if (isActionLoading) {
+      return (
+        <DsSpinner
+          aria-label={t('common.loading')}
+          data-size='xs'
+        />
+      );
+    }
+    const isPartiallyDeletable = pkg.deletableStatus === DeletableStatus.PartiallyDeletable;
+    const revoke = isPartiallyDeletable ? (onRevokeWithoutConfirmation ?? onRevoke) : onRevoke;
+    return (
+      <RevokeAccessPackageActionControl
+        availableActions={availableActions}
+        onRevoke={() => revoke?.(pkg)}
+        pkg={pkg}
+        isLoading={isActionLoading}
+      />
+    );
+  };
+
+  return (
+    <div
+      id={areaContentId(area.id)}
+      className={cn(classes.accessAreaContent, !isSm && classes.accessAreaContentMargin)}
+    >
+      <DsHeading
+        className={classes.packagesTitle}
+        level={headingLevel}
+      >
+        {t('access_packages.access_packages_in_area_title')}
+      </DsHeading>
+      {packages.assigned.length > 0 && (
+        <List aria-label={t('access_packages.given_packages_title')}>
+          {packages.assigned.map((pkg) => {
+            return (
+              <AssignedPackageItem
+                key={pkg.id}
+                pkg={pkg}
+                showPermissions={showPermissions}
+                partyType={partyType}
+                revokeActionControl={revokeActionControl}
+                packageAs={packageAs}
+                isSm={isSm}
+                onSelect={onSelect}
+              />
+            );
+          })}
+        </List>
+      )}
+
+      {showAvailableToggle && !showAvailablePackagesExternal && (
+        <DsButton
+          variant='tertiary'
+          onClick={() => setShowAvailablePackages((prev) => !prev)}
+          className={classes.showAvailablePackagesButton}
+          data-size='sm'
+        >
+          {t('access_packages.other_available')} {`(${packages.available.length})`}{' '}
+          {showAvailablePackages ? (
+            <ChevronUpIcon aria-hidden='true' />
+          ) : (
+            <ChevronDownIcon aria-hidden='true' />
+          )}
+          {/* TODO: add aria-expanded to available packages button */}
+        </DsButton>
+      )}
+
+      {packages.available.length > 0 && showAvailablePackages && (
+        <List aria-label={t('access_packages.available_packages_title')}>
+          {packages.available.map((pkg) => {
+            const canDelegate = canDelegatePackage(pkg.id);
+            return (
+              <PackageItem
+                as={
+                  packageAs
+                    ? (props) => {
+                        const Component = packageAs;
+                        return (
+                          <Component
+                            packageId={pkg.id}
+                            {...props}
+                          />
+                        );
+                      }
+                    : 'button'
+                }
+                key={pkg.id}
+                pkg={pkg}
+                onSelect={onSelect}
+                partyType={partyType}
+                badge={
+                  <>
+                    {showPermissions && isCriticalAndUndelegated(pkg) && (
+                      <UndelegatedPackageWarning />
+                    )}
+                  </>
+                }
+                controls={
+                  !isSm && (
+                    <DelegateAccessPackageActionControl
+                      packageId={pkg.id}
+                      isLoading={isActionLoading}
+                      isPackageLoading={isLoadingRequest?.(pkg)}
+                      availableActions={availableActions}
+                      isPendingRequest={hasPendingRequest?.(pkg) ?? false}
+                      disabled={pkg.isAssignable === false}
+                      accessPackageName={pkg.name}
+                      canDelegate={canDelegate?.result ?? true /* allow attempt if unknown */}
+                      onDelegate={() => onDelegate?.(pkg)}
+                      onRequest={() => onRequest?.(pkg)}
+                      onDeleteRequest={() => onDeleteRequest?.(pkg)}
+                    />
+                  )
+                }
+              />
+            );
+          })}
+        </List>
+      )}
+    </div>
+  );
+};
+
+interface AssignedPackageItemProps {
+  pkg: ExtendedAccessPackage;
+  onSelect?: (accessPackage: AccessPackage) => void;
+  showPermissions: boolean;
+  packageAs?: React.ElementType;
+  partyType: PartyType;
+  isSm?: boolean;
+  revokeActionControl: (pkg: AccessPackage) => React.ReactNode;
+}
+
+const AssignedPackageItem = ({
+  pkg,
+  onSelect,
+  showPermissions,
+  packageAs,
+  partyType,
+  isSm,
+  revokeActionControl,
+}: AssignedPackageItemProps) => {
+  const { permissionsOverview } = usePermissionOverview({
+    permissions: pkg.permissions ?? [],
+  });
+
+  return (
+    <PackageItem
+      as={
+        packageAs
+          ? (props) => {
+              const Component = packageAs;
+              return (
+                <Component
+                  packageId={pkg.id}
+                  {...props}
+                />
+              );
+            }
+          : 'button'
+      }
+      titleAs='span'
+      pkg={pkg}
+      onSelect={onSelect}
+      partyType={partyType}
+      hasAccess
+      controls={
+        !isSm &&
+        pkg.deletableStatus !== DeletableStatus.NotDeletable &&
+        !pkg.inherited &&
+        revokeActionControl(pkg)
+      }
+      badge={
+        <>
+          {showPermissions && pkg.permissions && (
+            <PermissionsBadge permissions={permissionsOverview} />
+          )}
+        </>
+      }
+    />
+  );
+};

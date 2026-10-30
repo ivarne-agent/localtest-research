@@ -1,0 +1,38 @@
+name: 'Build GitHub Runner Image'
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 0 * * 0' # Every Sunday
+
+jobs:
+  build:
+    name: build and push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+
+      - name: Generate Date Version
+        run: echo "VERSION=$(date +'%Y.%m.%d')-${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: .
+          file: Dockerfile.runner
+          push: true
+          tags: | 
+            ghcr.io/altinn/altinn-access-management-frontend/gh-runner:${{ env.VERSION }}
+            ghcr.io/altinn/altinn-access-management-frontend/gh-runner:latest

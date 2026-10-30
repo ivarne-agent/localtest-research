@@ -1,0 +1,11 @@
+.systemUserDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-size-18);
+}
+
+.createdBy {
+  color: var(--ds-color-text-subtle);
+  font-style: italic;
+  align-self: flex-end;
+}
