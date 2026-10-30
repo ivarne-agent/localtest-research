@@ -110,7 +110,7 @@ A path matching no route still falls through to the localtest app.
 | 65 | [Docs audit fixes and Correspondence's Service host](#65-docs-audit-fixes-and-correspondences-service-host) | done (2026-10-29; main `23dc68e3` (Correspondence depends on the Service host) and the docs commits after it; no image change, no pin; brief `/home/agent/code/.briefs/task65-audit-fixes.md`; evidence `/home/agent/code/.handover/task65-audit-fixes/`): `--with correspondence` starts Dialogporten's WebApi, Service host and Redis (17 containers), Correspondence 79 (the new event check) and root 26 on the pinned images; the audit's 79 findings: 17 wrong and 52 stale fixed (dated plans and reviews kept as history with a superseded note), 9 of 10 unclear settled, one open (whether the rules every brief inherits carry task 62's database principles) | medium | yes |
 | 66 | [A test-tool token generator mock in the front door](#66-a-test-tool-token-generator-mock-in-the-front-door) | done (2026-10-29; main `db670995`..`8023057f`, pinned `sha-8023057`; brief `/home/agent/code/.briefs/task66-testtool-mock.md`; evidence `/home/agent/code/.handover/task66-testtool-mock/`): `GET /mockporten/api/GetPlatformAccessToken` on the front door (for now also at the root `/api/…`), Access Management on production's `TestTool` against it from the manifest's variables (the two `TokenGenerator.cs` directives removed); the upstream full-URL setting pushed to `ivarne-agent/altinn-auth` for the owner to open; follow-up in section 66 | small | yes |
 | 67 | [File-based Maskinporten token source for apps on localtest](#67-file-based-maskinporten-token-source-for-apps-on-localtest) | in progress (2026-10-29; approved by the owner: "Add the file based token source to the TODO and dispatch agents to fix all 4"; briefs `/home/agent/code/.briefs/task67a-runners-and-exchange.md`, `task67b-monorepo-resolver.md`, `task67c-applib8-resolver.md`); **67a done** (2026-10-30, commits `2f8a249e`..`d3bbf4a2`, pinned `sha-d3bbf4a`, see section 67; evidence `/home/agent/code/.handover/task67a/`); 67b and 67c in progress | medium | yes |
-| 68 | [The Access Management GUI (am.ui) in the stack](#68-the-access-management-gui-amui-in-the-stack) | unapproved (created at the owner's request 2026-10-30: "yes, write it up as a task"; a research step first, see section 68) | medium | yes |
+| 68 | [The Access Management GUI (am.ui) in the stack](#68-the-access-management-gui-amui-in-the-stack) | in progress (approved by the owner 2026-10-30, see section 68; brief `/home/agent/code/.briefs/task68-access-management-ui.md`; worktree `/home/agent/code/.worktrees/task68-access-management-ui`) | medium | yes |
 
 ## 1. Vendor sync check
 
@@ -3326,7 +3326,7 @@ serve; studioctl leaves the apps' `AccessManagementChangeAndRedirectUrl` unset (
    Arbeidsflate's `url.ts` does.
 2. **The component**, after the owner approves the research: `localtest/components/access-management-ui/` with the
    vendored source, `vendor/UPSTREAM.md`, an image in the images workflow; a manifest container in a new optional group
-   (`access-management-ui`, depending on `access-management` and what the research shows); the front door's subdomain
+   (`access-management`, depending on `access-management` and what the research shows); the front door's subdomain
    route `am.ui.<host>` (which also needs `studioctl env hosts add` and the Aspire package's hosts, like `af.<host>`);
    a smoke test (the GUI loads for a test user, lists the user's parties and roles, one delegation round-trip shown in
    the API afterwards).
@@ -3337,5 +3337,7 @@ serve; studioctl leaves the apps' `AccessManagementChangeAndRedirectUrl` unset (
    front door README, the Aspire README, CHANGELOG, and the upstreaming list for anything the GUI needs changed
    upstream.
 
-Open questions for the owner: whether the GUI belongs in `--with everything`; whether the feature flags follow
-production (off) or Development (on).
+Decided by the owner (2026-10-30, verbatim): "GUI should be part of --everything and a --with access-management. I think
+we should run the production feature set by default. Try to not think too much about those featues." So the group is
+named `access-management` (the API stays in the default group; the group holds the GUI), `--with everything` includes
+it, and the feature flags are production's (`appsettings.json`, all off), taken as they are without further study.
