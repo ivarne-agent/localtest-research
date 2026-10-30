@@ -1,0 +1,49 @@
+localtest: the inbox's links to the Access Management GUI (the menu's access management link, a dialog's "who has
+access", the profile's settings and Altinn 2 links, and the party switch through reportee/changeandredirect) go to
+am.ui.<public host> on the page's port when the inbox runs on af.<public host> over http, the stack's
+access-management group (task 68). Upstream maps every host it does not know to prod (am.ui.altinn.no). With the group
+off, the front door answers that host with its 503 naming the group. The stack is plain http, which keeps the rule off
+any deployed inbox.
+Against Altinn/dialogporten-frontend bb74dff2c425f2aff48759ed9c6370e73436545d. Both Dockerfiles apply every patch in their source stage (git apply).
+
+--- a/packages/frontend/src/auth/url.ts
++++ b/packages/frontend/src/auth/url.ts
+@@ -68,6 +68,13 @@ export const getEnvByHost = (): hostEnv => {
+   return 'prod';
+ };
+ 
++// localtest: on af.<public host> over http the Access Management GUI is am.ui.<public host> on the same port (the stack's
++// access-management group); upstream maps unknown hosts to prod (am.ui.altinn.no)
++const getLocaltestAccessManagementOrigin = () =>
++  location.protocol === 'http:' && location.host.startsWith('af.')
++    ? `http://am.ui.${location.host.slice('af.'.length)}`
++    : undefined;
++
+ export const createChangePartyAndRedirect = (partyUuid?: string, goTo?: string) => {
+   const hostMap: Record<hostEnv, string> = {
+     local: 'https://am.ui.at23.altinn.cloud/accessmanagement/api/v1/reportee/changeandredirect/',
+@@ -76,7 +83,12 @@ export const createChangePartyAndRedirect = (partyUuid?: string, goTo?: string)
+     yt: 'https://am.ui.at23.altinn.cloud/accessmanagement/api/v1/reportee/changeandredirect/',
+     prod: 'https://am.ui.altinn.no/accessmanagement/api/v1/reportee/changeandredirect/',
+   };
+-  const url = new URL(hostMap[getEnvByHost()]);
++  const localtestOrigin = getLocaltestAccessManagementOrigin(); // localtest
++  const url = new URL(
++    localtestOrigin
++      ? `${localtestOrigin}/accessmanagement/api/v1/reportee/changeandredirect/`
++      : hostMap[getEnvByHost()],
++  );
+   if (partyUuid) {
+     url.searchParams.set('partyUuid', partyUuid);
+   }
+@@ -95,6 +107,10 @@ export const getAccessAMUILink = () => {
+     prod: 'https://am.ui.altinn.no/accessmanagement/ui',
+   };
+ 
++  const localtestOrigin = getLocaltestAccessManagementOrigin(); // localtest
++  if (localtestOrigin) {
++    return `${localtestOrigin}/accessmanagement/ui`;
++  }
+   return hostMap[getEnvByHost()];
+ };
+ 
