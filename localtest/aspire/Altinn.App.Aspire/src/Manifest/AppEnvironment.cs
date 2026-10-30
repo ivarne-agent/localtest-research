@@ -60,7 +60,8 @@ internal static class AppEnvironment
     /// The environment, sorted: <paramref name="current" /> (the first value of a key wins, a malformed entry is
     /// skipped), the run's own variables (always set), and the platform's defaults at <paramref name="origin" /> (set
     /// unless <paramref name="current" /> has them). A value derived from an origin whose port Aspire allocates has a
-    /// hole for the port. <paramref name="arbeidsflate" /> is set while the stack runs the <c>arbeidsflate</c> group.
+    /// hole for the port. <paramref name="arbeidsflate" /> is set while the stack runs the <c>arbeidsflate</c> group,
+    /// <paramref name="accessManagement" /> while it runs the <c>access-management</c> group (the Access Management GUI).
     /// </summary>
     public static SortedDictionary<string, OriginValue> Build(
         IEnumerable<string> current,
@@ -70,7 +71,8 @@ internal static class AppEnvironment
         string secretsDirectory,
         string keysDirectory,
         AppCertificate? signing,
-        bool arbeidsflate
+        bool arbeidsflate,
+        bool accessManagement
     )
     {
         var values = new SortedDictionary<string, OriginValue>(StringComparer.Ordinal);
@@ -139,7 +141,7 @@ internal static class AppEnvironment
             // arbeidsflate group the inbox, dialog, profile and parties links go into the local Arbeidsflate; without
             // it (minimal mode included) only the inbox link is set, to the front door's Home, so "back to inbox" keeps
             // a target. The certificate is set exactly when the app runs against the stack, as in studioctl. The
-            // change-and-redirect link stays unset: the stack's Access Management does not serve it.
+            // change-and-redirect link comes with the access-management group, below.
             // The app frontend's "Logg ut", shown only when configured: the platform's own logout, which signs the user
             // out and lands on the front door's Home (production Authentication, or minimal mode's emulation of it).
             Default("PlatformFrontendSettings__LogoutUrl", platform.Then("/authentication/api/v1/logout"));
@@ -154,6 +156,20 @@ internal static class AppEnvironment
                 Default("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflateUrl.Then("/inbox/{dialogId}"));
                 Default("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflateUrl.Then("/profile"));
                 Default("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflateUrl.Then("/profile/parties"));
+            }
+            // With the access-management group the party switch on the way to the inbox (the GUI's
+            // reportee/changeandredirect) and the link to the GUI; without it both stay unset, so the inbox links go
+            // without a party switch and the access management link shows as not configured.
+            if (accessManagement)
+            {
+                var accessManagementUrl = origin
+                    .SubdomainUrl(Topology.AccessManagementUiSubdomain)
+                    .Then("/accessmanagement");
+                Default(
+                    "PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl",
+                    accessManagementUrl.Then("/api/v1/reportee/changeandredirect?partyId={partyId}&goTo={goTo}")
+                );
+                Default("PlatformFrontendSettings__AccessManagementUrl", accessManagementUrl.Then("/ui"));
             }
         }
         // studioctl's defaults for whatever the above left unset (altinn-studio#21481): the inbox and logout links go

@@ -67,7 +67,10 @@ public sealed class ModelTests
             LocaltestManifest.Default.Names.Except(monitoring).Order(StringComparer.Ordinal),
             model.Containers.Select(c => c.Name).Order(StringComparer.Ordinal)
         );
-        Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], model.Localtest.Resource.Groups);
+        Assert.Equal(
+            ["access-management", "arbeidsflate", "correspondence", "dialogporten", "receipt"],
+            model.Localtest.Resource.Groups
+        );
     }
 
     [Fact]
@@ -195,6 +198,7 @@ public sealed class ModelTests
             "workflow-engine.local.altinn.cloud",
             "app-frontend.local.altinn.cloud",
             "af.local.altinn.cloud",
+            "am.ui.local.altinn.cloud",
             "host.docker.internal",
         ];
         foreach (var container in _model.Containers)

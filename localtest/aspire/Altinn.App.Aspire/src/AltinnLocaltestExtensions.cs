@@ -169,6 +169,17 @@ public static class AltinnLocaltestExtensions
         this IResourceBuilder<AltinnLocaltestResource> builder
     ) => builder.WithGroup(AltinnAppExtensions.ArbeidsflateGroup);
 
+    /// <summary>
+    /// Enables the <c>access-management</c> group: the Access Management GUI (the SPA and its BFF) on
+    /// <c>am.ui.local.altinn.cloud</c>, over the stack's Access Management, Authentication and PDP. Access Management
+    /// itself is in the default stack.
+    /// </summary>
+    /// <param name="builder">The localtest resource.</param>
+    /// <returns>The same builder.</returns>
+    public static IResourceBuilder<AltinnLocaltestResource> WithAccessManagement(
+        this IResourceBuilder<AltinnLocaltestResource> builder
+    ) => builder.WithGroup(AltinnAppExtensions.AccessManagementGroup);
+
     /// <summary>Enables every optional group.</summary>
     /// <param name="builder">The localtest resource.</param>
     /// <returns>The same builder.</returns>

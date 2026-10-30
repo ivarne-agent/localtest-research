@@ -212,6 +212,12 @@ public static class AltinnAppExtensions
     /// <summary>The optional group that runs Arbeidsflate, which the app frontend's inbox links go into.</summary>
     internal const string ArbeidsflateGroup = "arbeidsflate";
 
+    /// <summary>
+    /// The optional group that runs the Access Management GUI, which the app frontend's party switch and access
+    /// management link go to.
+    /// </summary>
+    internal const string AccessManagementGroup = "access-management";
+
     /// <summary>The app's environment: studioctl run's, less the variables Aspire or the endpoint set.</summary>
     internal static IEnumerable<KeyValuePair<string, OriginValue>> EnvironmentOf(
         LocaltestStack stack,
@@ -229,7 +235,8 @@ public static class AltinnAppExtensions
                 secretsDirectory,
                 "",
                 certificate,
-                stack.EnabledGroups.Contains(ArbeidsflateGroup)
+                stack.EnabledGroups.Contains(ArbeidsflateGroup),
+                stack.EnabledGroups.Contains(AccessManagementGroup)
             )
             .Where(kv => kv.Key is not AppEnvironment.KestrelUrl and not AppEnvironment.OtlpEndpoint);
 

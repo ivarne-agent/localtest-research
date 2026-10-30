@@ -58,8 +58,12 @@ public sealed class GroupMethodsTests
         Assert.DoesNotContain("receipt", names);
         Assert.Same(localtest, localtest.WithReceipt());
         Assert.Contains("receipt", builder.Resources.Select(r => r.Name));
-        localtest.WithDialogporten().WithArbeidsflate();
-        Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], localtest.Resource.Groups);
+        localtest.WithDialogporten().WithArbeidsflate().WithAccessManagement();
+        Assert.Equal(
+            ["access-management", "arbeidsflate", "correspondence", "dialogporten", "receipt"],
+            localtest.Resource.Groups
+        );
+        Assert.Contains("access-management-ui", builder.Resources.Select(r => r.Name));
         var count = builder.Resources.Count;
         localtest.WithEverything();
         Assert.Equal(count, builder.Resources.Count);

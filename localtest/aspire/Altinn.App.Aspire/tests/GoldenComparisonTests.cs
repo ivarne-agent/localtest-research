@@ -189,7 +189,7 @@ public sealed class GoldenComparisonTests
             selection switch
             {
                 "default" => 13,
-                "everything" => 22,
+                "everything" => 23,
                 "minimal" => 4,
                 _ => 13,
             },
@@ -446,7 +446,8 @@ public sealed class GoldenComparisonTests
                     signing.GetProperty("FileName").GetString()!
                 )
                 : null,
-            golden.TryGetProperty("arbeidsflate", out var arbeidsflate) && arbeidsflate.GetBoolean()
+            golden.TryGetProperty("arbeidsflate", out var arbeidsflate) && arbeidsflate.GetBoolean(),
+            golden.TryGetProperty("accessManagement", out var accessManagement) && accessManagement.GetBoolean()
         );
 
         Assert.Equal(

@@ -52,13 +52,16 @@ public sealed class MonitoringGroupTests
         Assert.Contains(LocaltestManifest.MonitoringGroup, localtest.Resource.Stack.Manifest.GroupNames);
         Assert.DoesNotContain(LocaltestManifest.MonitoringGroup, localtest.Resource.Stack.OptionalGroups);
         Assert.Equal(
-            ["dialogporten", "receipt", "correspondence", "arbeidsflate"],
+            ["dialogporten", "receipt", "correspondence", "arbeidsflate", "access-management"],
             localtest.Resource.Stack.OptionalGroups
         );
 
         localtest.WithEverything();
 
-        Assert.Equal(["arbeidsflate", "correspondence", "dialogporten", "receipt"], localtest.Resource.Groups);
+        Assert.Equal(
+            ["access-management", "arbeidsflate", "correspondence", "dialogporten", "receipt"],
+            localtest.Resource.Groups
+        );
         Assert.Empty(builder.Resources.Select(r => r.Name).Intersect(_containers));
         Assert.Equal(_containers, LocaltestManifest.Default.Select([LocaltestManifest.MonitoringGroup]));
     }
@@ -86,7 +89,7 @@ public sealed class MonitoringGroupTests
         var required = GroupMethodsTests.RequiredGroups(LocaltestManifest.Default);
 
         Assert.DoesNotContain(LocaltestManifest.MonitoringGroup, required);
-        Assert.Equal(["dialogporten", "receipt", "correspondence", "arbeidsflate"], required);
+        Assert.Equal(["dialogporten", "receipt", "correspondence", "arbeidsflate", "access-management"], required);
     }
 
     [Fact]

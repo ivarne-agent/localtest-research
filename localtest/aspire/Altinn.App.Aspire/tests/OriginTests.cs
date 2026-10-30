@@ -91,6 +91,7 @@ public sealed class OriginTests
             { "a name, not an IP address", "\"host\": \"local.altinn.cloud\"", "\"host\": \"127.0.0.1\"" },
             { "public: port 70000", "\"port\": 8000,", "\"port\": 70000," },
             { "duplicate subdomain pdf", "\"subdomains\": [\"pdf\",", "\"subdomains\": [\"pdf\", \"pdf\"," },
+            { "public: subdomain \"am..ui\"", "\"subdomains\": [\"pdf\",", "\"subdomains\": [\"am..ui\", \"pdf\"," },
             { "\"grafana\" is not a listed subdomain", "{{origin:af}}", "{{origin:grafana}}" },
         };
 
@@ -124,6 +125,7 @@ public sealed class OriginTests
                 "workflow-engine.local.altinn.cloud",
                 "app-frontend.local.altinn.cloud",
                 "af.local.altinn.cloud",
+                "am.ui.local.altinn.cloud",
             ],
             origin.Hosts
         );
@@ -202,6 +204,22 @@ public sealed class OriginTests
                 .Select(kv => (kv.Key, kv.Value))
                 .OrderBy(kv => kv.Key, StringComparer.Ordinal)
         );
+
+        model.Localtest.WithAccessManagement();
+        var withAccessManagement = await model.Environment(model.App.Resource);
+        Assert.Equal(
+            [
+                (
+                    "PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl",
+                    "http://am.ui.origin.test:18000/accessmanagement/api/v1/reportee/changeandredirect?partyId={partyId}&goTo={goTo}"
+                ),
+                ("PlatformFrontendSettings__AccessManagementUrl", "http://am.ui.origin.test:18000/accessmanagement/ui"),
+            ],
+            withAccessManagement
+                .Where(kv => kv.Key.StartsWith("PlatformFrontendSettings__AccessManagement", StringComparison.Ordinal))
+                .Select(kv => (kv.Key, kv.Value))
+                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+        );
     }
 
     [Fact]
@@ -231,7 +249,7 @@ public sealed class OriginTests
         );
         // Literal values stay strings; the host names need no port.
         Assert.Equal(
-            "pdf,workflow-engine,app-frontend,af",
+            "pdf,workflow-engine,app-frontend,af,am.ui",
             (await model.Environment(frontDoor))[Topology.PublicSubdomainsVariable]
         );
         Assert.Contains("pdf.local.altinn.cloud:host-gateway", await SampleModel.RuntimeArgs(frontDoor));

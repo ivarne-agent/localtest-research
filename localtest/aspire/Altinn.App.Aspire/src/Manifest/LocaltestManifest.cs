@@ -416,7 +416,8 @@ internal sealed partial class LocaltestManifest
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var sub in Public.Subdomains)
         {
-            if (!PublicOrigin.HostLabel().IsMatch(sub))
+            // One or more dot-separated labels: am.ui, as production's am.ui.<env>.
+            if (sub.Split('.').Any(label => !PublicOrigin.HostLabel().IsMatch(label)))
             {
                 throw Invalid($"public: subdomain \"{sub}\"");
             }

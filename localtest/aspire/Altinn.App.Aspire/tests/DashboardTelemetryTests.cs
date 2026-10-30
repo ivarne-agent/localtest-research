@@ -26,7 +26,7 @@ public sealed class DashboardTelemetryTests
     {
         var model = Model(mode);
 
-        Assert.Equal(mode == "minimal" ? 4 : 22, model.Containers.Count);
+        Assert.Equal(mode == "minimal" ? 4 : 23, model.Containers.Count);
         foreach (var container in model.Containers)
         {
             var environment = await model.RawEnvironment(container);

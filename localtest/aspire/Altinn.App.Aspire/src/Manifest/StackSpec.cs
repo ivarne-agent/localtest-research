@@ -33,6 +33,11 @@ internal static class Topology
     /// <summary>Arbeidsflate's (the inbox's) subdomain of the public host.</summary>
     public const string ArbeidsflateSubdomain = "af";
 
+    /// <summary>
+    /// The Access Management GUI's subdomain of the public host, two labels as production's <c>am.ui.{env}</c>.
+    /// </summary>
+    public const string AccessManagementUiSubdomain = "am.ui";
+
     /// <summary>The frontend dev server's subdomain of the public host.</summary>
     public const string FrontendDevServerSubdomain = "app-frontend";
 
