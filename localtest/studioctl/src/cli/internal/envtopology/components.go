@@ -18,6 +18,9 @@ const (
 	// ComponentArbeidsflate is the Altinn inbox (Arbeidsflate), which needs a host of its own: its SPA and BFF use
 	// absolute paths (/, /api/...).
 	ComponentArbeidsflate ComponentID = "arbeidsflate"
+	// ComponentAccessManagementUI is the Access Management GUI (am.ui), which needs a host of its own: it serves
+	// everything under /accessmanagement/, the Access Management API's prefix on the main host.
+	ComponentAccessManagementUI ComponentID = "accessManagementUi"
 )
 
 // Component describes one topology component within a local environment.
@@ -49,6 +52,8 @@ func (l Local) Component(id ComponentID) (Component, bool) {
 		def = l.def.Components.FrontendDevServer
 	case ComponentArbeidsflate:
 		def = l.def.Components.Arbeidsflate
+	case ComponentAccessManagementUI:
+		def = l.def.Components.AccessManagementUI
 	default:
 		var zero Component
 		return zero, false

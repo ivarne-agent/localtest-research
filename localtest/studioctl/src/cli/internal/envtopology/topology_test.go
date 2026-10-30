@@ -73,6 +73,7 @@ func TestHostFileHostnames(t *testing.T) {
 		"pgadmin.local.altinn.cloud",
 		"app-frontend.local.altinn.cloud",
 		"af.local.altinn.cloud",
+		"am.ui.local.altinn.cloud",
 		"otel.local.altinn.cloud",
 	}
 	if !slices.Equal(got, want) {
@@ -120,10 +121,11 @@ func TestNewLocalAtMovesThePublicHostAndItsSubdomains(t *testing.T) {
 		t.Errorf("AppBaseURL() = %q", got)
 	}
 	for got, want := range map[string]string{
-		l.PDFHostName():               "pdf.origin.test",
-		l.WorkflowEngineHostName():    "workflow-engine.origin.test",
-		l.FrontendDevServerHostName(): "app-frontend.origin.test",
-		l.ArbeidsflateHostName():      "af.origin.test",
+		l.PDFHostName():                "pdf.origin.test",
+		l.WorkflowEngineHostName():     "workflow-engine.origin.test",
+		l.FrontendDevServerHostName():  "app-frontend.origin.test",
+		l.ArbeidsflateHostName():       "af.origin.test",
+		l.AccessManagementUIHostName(): "am.ui.origin.test",
 	} {
 		if got != want {
 			t.Errorf("host %q, want %q", got, want)

@@ -1,5 +1,21 @@
 {
   "groups": {
+    "access-management": [
+      "postgres",
+      "register",
+      "profile",
+      "authentication",
+      "authorization",
+      "storage",
+      "events",
+      "resource-registry",
+      "notifications",
+      "localtest",
+      "pdf3",
+      "workflow-engine",
+      "access-management",
+      "access-management-ui"
+    ],
     "arbeidsflate": [
       "postgres",
       "register",
@@ -230,6 +246,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -288,6 +305,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -353,6 +371,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -417,6 +436,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -485,6 +505,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -556,6 +577,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -622,6 +644,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -694,6 +717,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -762,6 +786,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -815,7 +840,7 @@
         "env": [
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
-          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af",
+          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af,am.ui",
           "services__access-management__http__0=http://access-management:5080",
           "services__authentication__http__0=http://authentication:5101",
           "services__authorization__http__0=http://authorization:5070",
@@ -835,6 +860,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -894,6 +920,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -956,6 +983,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1034,6 +1062,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1124,6 +1153,7 @@
           "POSTGRES_PASSWORD=Password",
           "POSTGRES_USER=postgres",
           "TZ=UTC",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1156,6 +1186,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1202,6 +1233,7 @@
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=register",
           "PlatformSettings__ApiAuthorizationEndpoint=http://authorization/authorization/api/v1/",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1234,6 +1266,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1285,6 +1318,7 @@
           "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_profile;Password={0};Database=profiledb;Include Error Detail=True",
           "PostgreSqlSettings__ProfileDbAdminPwd=golden-platform_profile_admin",
           "PostgreSqlSettings__ProfileDbPwd=golden-platform_profile",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1317,6 +1351,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1367,6 +1402,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=authentication",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1399,6 +1435,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1453,6 +1490,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=authorization",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1485,6 +1523,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1547,6 +1586,7 @@
           "PostgreSqlSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_storage;Password={0};Database=storagedb;Include Error Detail=True",
           "PostgreSqlSettings__StorageDbAdminPwd=golden-platform_storage_admin",
           "PostgreSqlSettings__StorageDbPwd=golden-platform_storage",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1579,6 +1619,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1631,6 +1672,7 @@
           "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_events;Password={0};Database=eventsdb;Include Error Detail=True",
           "PostgreSQLSettings__EventsDbAdminPwd=golden-platform_events_admin",
           "PostgreSQLSettings__EventsDbPwd=golden-platform_events",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1663,6 +1705,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1721,6 +1764,7 @@
           "PostgreSQLSettings__AuthorizationDbAdminPwd=golden-platform_authorization_admin",
           "PostgreSQLSettings__AuthorizationDbPwd=golden-platform_authorization",
           "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_authorization;Password={0};Database=resourceregistrydb;Include Error Detail=True",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1753,6 +1797,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1807,6 +1852,7 @@
           "PostgreSQLSettings__ConnectionString=Host=postgres;Port=5432;Username=platform_notifications;Password={0};Database=notificationsdb;Include Error Detail=True",
           "PostgreSQLSettings__NotificationsDbAdminPwd=golden-platform_notifications_admin",
           "PostgreSQLSettings__NotificationsDbPwd=golden-platform_notifications",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1839,6 +1885,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1895,11 +1942,12 @@
         "env": [
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
-          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af",
+          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af,am.ui",
           "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317",
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=localtest",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -1932,6 +1980,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -1987,6 +2036,7 @@
           "PDF3_QUEUE_SIZE=3",
           "STUDIO_CA_BUNDLE=/tmp/studio-ca-bundle.pem",
           "TZ=Europe/Oslo",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2019,6 +2069,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2069,6 +2120,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=workflow-engine",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2101,6 +2153,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2144,6 +2197,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=redis",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2176,6 +2230,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2230,6 +2285,7 @@
           "PlatformSettings__ApiProfileEndpoint=http://profile/profile/api/v1/",
           "PlatformSettings__ApiRegisterEndpoint=http://register/register/api/v1/",
           "PlatformSettings__ApiStorageEndpoint=http://storage/storage/api/v1/",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2262,6 +2318,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2298,6 +2355,7 @@
           }
         ],
         "env": [
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2330,6 +2388,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2366,6 +2425,7 @@
           }
         ],
         "env": [
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2398,6 +2458,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2434,6 +2495,7 @@
           }
         ],
         "env": [
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2466,6 +2528,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2521,6 +2584,7 @@
           }
         ],
         "env": [
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2553,6 +2617,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2623,6 +2688,7 @@
           "GF_PLUGINS_PREINSTALL_SYNC=victoriametrics-logs-datasource@0.32.0",
           "GF_SERVER_ROOT_URL=http://local.altinn.cloud:8000/grafana/",
           "GF_SERVER_SERVE_FROM_SUB_PATH=true",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2655,6 +2721,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2719,6 +2786,7 @@
           "Platform__Token__TestTool__Username=localtest",
           "PostgreSQLSettings__AuthorizationDbAdminPwd=golden-platform_authorization_admin",
           "PostgreSQLSettings__AuthorizationDbPwd=golden-platform_authorization",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2751,6 +2819,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2809,6 +2878,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=dialogporten-webapi",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2841,6 +2911,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2887,6 +2958,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=dialogporten-graphql",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2919,6 +2991,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -2965,6 +3038,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=dialogporten-service",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -2997,6 +3071,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3045,6 +3120,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=dialogporten-adapter",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -3077,6 +3153,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3140,6 +3217,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=correspondence",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -3172,6 +3250,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3237,6 +3316,7 @@
           "PLATFORM_BASEURL=http://localtest:8080",
           "REDIS_CONNECTION_STRING=redis://redis:6379/2",
           "SESSION_SECRET=localtest-arbeidsflate-session-secret-not-a-secret",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -3269,6 +3349,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3314,6 +3395,7 @@
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
           "OTEL_SERVICE_NAME=arbeidsflate",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
           "services__access-management__http__0=http://access-management:5080",
           "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
           "services__arbeidsflate__http__0=http://arbeidsflate:80",
@@ -3346,10 +3428,102 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
           "arbeidsflate"
+        ],
+        "waitForReady": true,
+        "readinessProbe": true
+      },
+      {
+        "id": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management-ui:latest",
+        "ref": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management-ui:latest",
+        "pullPolicy": "alwaysAllowStale"
+      },
+      {
+        "id": "container:localtest-v2-access-management-ui",
+        "image": "image:pulled:ghcr.io/ivarne-agent/localtest-research/localtest-access-management-ui:latest",
+        "networks": [
+          "network:localtest-v2_network"
+        ],
+        "dependsOn": [
+          "container:localtest-v2-access-management",
+          "container:localtest-v2-authentication",
+          "container:localtest-v2-authorization",
+          "container:localtest-v2-otel-collector"
+        ],
+        "volumes": [
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs",
+            "ContainerPath": "/certs",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          },
+          {
+            "HostPath": "/home/dev/.altinn-studio/certs/localtest-accesstoken.pfx",
+            "ContainerPath": "/accesstoken/accesstokencredentials.pfx",
+            "Type": "bind",
+            "SELinuxRelabel": "z",
+            "ReadOnly": true
+          }
+        ],
+        "env": [
+          "AccessTokenSettings__AccessTokenSigningCertificateFullPath=/certs/localtest-accesstoken.pfx",
+          "GeneralSettings__AllowedRedirectDomains__2=local.altinn.cloud",
+          "GeneralSettings__FrontendBaseUrl=http://am.ui.local.altinn.cloud:8000",
+          "GeneralSettings__Hostname=local.altinn.cloud",
+          "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317",
+          "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
+          "OTEL_METRIC_EXPORT_INTERVAL=5000",
+          "OTEL_SERVICE_NAME=access-management-ui",
+          "PlatformSettings__ApiAccessManagementEndpoint=http://access-management/accessmanagement/api/",
+          "PlatformSettings__ApiAuthenticationEndpoint=http://local.altinn.cloud:8000/authentication/api/v1/",
+          "PlatformSettings__ApiAuthorizationEndpoint=http://authorization/authorization/api/v1/",
+          "PlatformSettings__ApiProfileEndpoint=http://profile/profile/api/v1/",
+          "PlatformSettings__ApiRegisterEndpoint=http://register/register/api/v1/",
+          "PlatformSettings__ApiResourceRegistryEndpoint=http://resource-registry/resourceregistry/api/",
+          "PlatformSettings__OpenIdWellKnownEndpoint=http://local.altinn.cloud:8000/authentication/api/v1/openid/",
+          "services__access-management-ui__http__0=http://access-management-ui:8080",
+          "services__access-management__http__0=http://access-management:5080",
+          "services__arbeidsflate-bff__http__0=http://arbeidsflate-bff:80",
+          "services__arbeidsflate__http__0=http://arbeidsflate:80",
+          "services__authentication__http__0=http://authentication:5101",
+          "services__authorization__http__0=http://authorization:5070",
+          "services__correspondence__http__0=http://correspondence:2525",
+          "services__dialogporten-adapter__http__0=http://dialogporten-adapter:5011",
+          "services__dialogporten-graphql__http__0=http://dialogporten-graphql:8080",
+          "services__dialogporten-service__http__0=http://dialogporten-service:8080",
+          "services__dialogporten-webapi__http__0=http://dialogporten-webapi:8080",
+          "services__events__http__0=http://events:5080",
+          "services__grafana__http__0=http://grafana:3000",
+          "services__localtest__http__0=http://localtest:8080",
+          "services__notifications__http__0=http://notifications:5090",
+          "services__otlp__http__0=http://otel-collector:4318",
+          "services__pdf3__http__0=http://pdf3:5031",
+          "services__profile__http__0=http://profile:5030",
+          "services__receipt__http__0=http://receipt:5060",
+          "services__register__http__0=http://register:5020",
+          "services__resource-registry__http__0=http://resource-registry:5100",
+          "services__storage__http__0=http://storage:5010",
+          "services__victoria-logs__http__0=http://victoria-logs:9428",
+          "services__victoria-metrics__http__0=http://victoria-metrics:8428",
+          "services__victoria-traces__http__0=http://victoria-traces:10428",
+          "services__workflow-engine__http__0=http://workflow-engine:9090"
+        ],
+        "extraHosts": [
+          "local.altinn.cloud:host-gateway",
+          "pdf.local.altinn.cloud:host-gateway",
+          "workflow-engine.local.altinn.cloud:host-gateway",
+          "app-frontend.local.altinn.cloud:host-gateway",
+          "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
+          "host.docker.internal:host-gateway"
+        ],
+        "networkAliases": [
+          "access-management-ui"
         ],
         "waitForReady": true,
         "readinessProbe": true
@@ -3382,7 +3556,8 @@
       "dialogporten-adapter http://dialogporten-adapter:5011/health",
       "correspondence http://correspondence:2525/health",
       "arbeidsflate-bff http://arbeidsflate-bff:80/api/readiness",
-      "arbeidsflate http://arbeidsflate:80/"
+      "arbeidsflate http://arbeidsflate:80/",
+      "access-management-ui http://access-management-ui:8080/health"
     ]
   },
   "minimal": {
@@ -3471,6 +3646,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3549,6 +3725,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3606,7 +3783,7 @@
         "env": [
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://local.altinn.cloud:8000/",
-          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af",
+          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af,am.ui",
           "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-files:4317",
           "OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
           "OTEL_METRIC_EXPORT_INTERVAL=5000",
@@ -3632,6 +3809,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3700,6 +3878,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3779,6 +3958,7 @@
           "workflow-engine.local.altinn.cloud:host-gateway",
           "app-frontend.local.altinn.cloud:host-gateway",
           "af.local.altinn.cloud:host-gateway",
+          "am.ui.local.altinn.cloud:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3873,6 +4053,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3931,6 +4112,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -3996,6 +4178,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4060,6 +4243,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4128,6 +4312,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4199,6 +4384,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4265,6 +4451,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4337,6 +4524,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4405,6 +4593,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4458,7 +4647,7 @@
         "env": [
           "Localtest__AccessTokenCertificatePath=/certs/localtest-accesstoken.pfx",
           "Localtest__PlatformEndpoint=http://origin.test:18000/",
-          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af",
+          "Localtest__PublicSubdomains=pdf,workflow-engine,app-frontend,af,am.ui",
           "services__access-management__http__0=http://access-management:5080",
           "services__authentication__http__0=http://authentication:5101",
           "services__authorization__http__0=http://authorization:5070",
@@ -4478,6 +4667,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4537,6 +4727,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4599,6 +4790,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [
@@ -4677,6 +4869,7 @@
           "workflow-engine.origin.test:host-gateway",
           "app-frontend.origin.test:host-gateway",
           "af.origin.test:host-gateway",
+          "am.ui.origin.test:host-gateway",
           "host.docker.internal:host-gateway"
         ],
         "networkAliases": [

@@ -29,6 +29,9 @@ type accessTokenSigning struct {
 	FileName   string
 	// arbeidsflate is set while localtest-v2 runs the arbeidsflate group, the local Arbeidsflate the inbox links go to.
 	arbeidsflate bool
+	// accessManagement is set while localtest-v2 runs the access-management group, the Access Management GUI (am.ui)
+	// the party switch and the access management link go to.
+	accessManagement bool
 }
 
 // newAppRunEnv builds the environment an app is started with. secretsDir is required - every run is given a
@@ -120,6 +123,7 @@ func (e appEnv) addRunDefaults(
 		e.setDefault("AccessTokenSettings__AccessTokenSigningKeysFolder", signing.KeysFolder)
 		e.setDefault("AccessTokenSettings__AccessTokenSigningCertificateFileName", signing.FileName)
 		e.addArbeidsflateLinks(topology, signing.arbeidsflate)
+		e.addAccessManagementLinks(topology, signing.accessManagement)
 		// The app frontend's "Logg ut" goes to the platform's own logout, which signs the user out and lands on the
 		// front door's Home (production Authentication, or minimal mode's emulation of it).
 		e.setDefault("PlatformFrontendSettings__LogoutUrl", endpoints.platform+"/authentication/api/v1/logout")
@@ -139,8 +143,7 @@ func (e appEnv) addRunDefaults(
 // the inbox, dialog, profile and parties links go to the local Arbeidsflate. Without it, minimal mode included, only
 // the inbox link is set, to the front door's Home, so "back to inbox" keeps a target. The frontend then falls back to
 // the inbox link for the dialog link, and shows the profile and parties links as not configured.
-// AccessManagementChangeAndRedirectUrl stays unset, because the stack's Access Management does not serve
-// reportee/changeandredirect (the UI backend does), so the links go to the inbox without a party switch.
+// The party switch on the way to the inbox is addAccessManagementLinks'.
 func (e appEnv) addArbeidsflateLinks(topology envtopology.Local, arbeidsflateUp bool) {
 	if !arbeidsflateUp {
 		e.setDefault(
@@ -154,6 +157,22 @@ func (e appEnv) addArbeidsflateLinks(topology envtopology.Local, arbeidsflateUp 
 	e.setDefault("PlatformFrontendSettings__ArbeidsflateDialogUrl", arbeidsflate+"/inbox/{dialogId}")
 	e.setDefault("PlatformFrontendSettings__ArbeidsflateProfileUrl", arbeidsflate+"/profile")
 	e.setDefault("PlatformFrontendSettings__ArbeidsflatePartiesUrl", arbeidsflate+"/profile/parties")
+}
+
+// addAccessManagementLinks sets the app frontend's Access Management links for localtest-v2 while the access-management
+// group runs: the party switch on the way to the inbox (the GUI's reportee/changeandredirect, which writes the party
+// cookies and redirects to goTo) and the link to the GUI itself. Without the group both stay unset, as on a stack
+// without the GUI: the inbox links go without a party switch and the access management link shows as not configured.
+func (e appEnv) addAccessManagementLinks(topology envtopology.Local, accessManagementUp bool) {
+	if !accessManagementUp {
+		return
+	}
+	accessManagement := topology.PublicBaseURL(envtopology.ComponentAccessManagementUI) + "/accessmanagement"
+	e.setDefault(
+		"PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl",
+		accessManagement+"/api/v1/reportee/changeandredirect?partyId={partyId}&goTo={goTo}",
+	)
+	e.setDefault("PlatformFrontendSettings__AccessManagementUrl", accessManagement+"/ui")
 }
 
 func (e appEnv) setDefault(key, value string) {

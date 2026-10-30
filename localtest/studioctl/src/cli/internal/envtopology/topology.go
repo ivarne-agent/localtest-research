@@ -44,6 +44,7 @@ func NewLocalAt(host, ingressPort string) Local {
 		&l.def.Components.WorkflowEngine,
 		&l.def.Components.FrontendDevServer,
 		&l.def.Components.Arbeidsflate,
+		&l.def.Components.AccessManagementUI,
 	} {
 		if c.Host == base {
 			c.Host = host
@@ -147,6 +148,11 @@ func (l Local) ArbeidsflateHostName() string {
 	return l.MustComponent(ComponentArbeidsflate).Host()
 }
 
+// AccessManagementUIHostName returns the local Access Management GUI (am.ui) host name.
+func (l Local) AccessManagementUIHostName() string {
+	return l.MustComponent(ComponentAccessManagementUI).Host()
+}
+
 // LocaltestIngressHosts returns the hostnames routed through localtest.
 func (l Local) LocaltestIngressHosts() []string {
 	return slicesClone([]string{
@@ -167,6 +173,7 @@ func (l Local) HostFileHostnames() []string {
 		ComponentPgAdmin,
 		ComponentFrontendDevServer,
 		ComponentArbeidsflate,
+		ComponentAccessManagementUI,
 		ComponentOTel,
 	)
 }

@@ -16,11 +16,12 @@ func TestTheEmbeddedManifestParses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(m.Names()) != 28 {
-		t.Fatalf("%d containers, want 28", len(m.Names()))
+	if len(m.Names()) != 29 {
+		t.Fatalf("%d containers, want 29", len(m.Names()))
 	}
 	want := []string{
-		DefaultGroup, MinimalGroup, "dialogporten", "receipt", "correspondence", "arbeidsflate", "monitoring",
+		DefaultGroup, MinimalGroup, "dialogporten", "receipt", "correspondence", "arbeidsflate", "access-management",
+		"monitoring",
 	}
 	if got := m.GroupNames(); !slices.Equal(got, want) {
 		t.Fatalf("groups %v, want %v", got, want)

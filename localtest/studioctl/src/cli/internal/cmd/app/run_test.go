@@ -909,6 +909,7 @@ func TestBuildDockerRunSpec_JoinsTheLocaltestV2Network(t *testing.T) {
 		"workflow-engine.local.altinn.cloud:host-gateway",
 		"app-frontend.local.altinn.cloud:host-gateway",
 		"af.local.altinn.cloud:host-gateway",
+		"am.ui.local.altinn.cloud:host-gateway",
 	})
 	if got := cfg.Labels[appcontainers.LabelFrontDoorURL]; got != "http://ttd-test-app:5005" {
 		t.Fatalf("front door label = %q, want http://ttd-test-app:5005", got)

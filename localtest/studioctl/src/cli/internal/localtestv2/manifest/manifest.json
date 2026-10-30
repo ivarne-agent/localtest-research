@@ -6,9 +6,10 @@
     { "name": "receipt", "containers": ["receipt"] },
     { "name": "correspondence", "containers": ["correspondence"] },
     { "name": "arbeidsflate", "containers": ["arbeidsflate"] },
+    { "name": "access-management", "containers": ["access-management-ui"] },
     { "name": "monitoring", "containers": ["grafana", "otel-collector"] }
   ],
-  "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
+  "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af", "am.ui"] },
   "containers": {
     "postgres": {
       "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-postgres",
@@ -314,6 +315,24 @@
         "DIALOGPORTEN_STREAM_URL": "{{origin}}/dialogporten/graphql/stream"
       },
       "dependsOn": ["arbeidsflate-bff"]
+    },
+    "access-management-ui": {
+      "registry": "ghcr.io/ivarne-agent/localtest-research/localtest-access-management-ui",
+      "tag": "sha-d3bbf4a",
+      "envs": {
+        "AccessTokenSettings__AccessTokenSigningCertificateFullPath": "/certs/localtest-accesstoken.pfx",
+        "GeneralSettings__AllowedRedirectDomains__2": "{{host}}",
+        "GeneralSettings__FrontendBaseUrl": "{{origin:am.ui}}",
+        "GeneralSettings__Hostname": "{{host}}",
+        "PlatformSettings__ApiAccessManagementEndpoint": "http://access-management/accessmanagement/api/",
+        "PlatformSettings__ApiAuthenticationEndpoint": "{{origin}}/authentication/api/v1/",
+        "PlatformSettings__ApiAuthorizationEndpoint": "http://authorization/authorization/api/v1/",
+        "PlatformSettings__ApiProfileEndpoint": "http://profile/profile/api/v1/",
+        "PlatformSettings__ApiRegisterEndpoint": "http://register/register/api/v1/",
+        "PlatformSettings__ApiResourceRegistryEndpoint": "http://resource-registry/resourceregistry/api/",
+        "PlatformSettings__OpenIdWellKnownEndpoint": "{{origin}}/authentication/api/v1/openid/"
+      },
+      "dependsOn": ["access-management", "authentication", "authorization"]
     },
     "victoria-metrics": {
       "registry": "docker.io/victoriametrics/victoria-metrics",

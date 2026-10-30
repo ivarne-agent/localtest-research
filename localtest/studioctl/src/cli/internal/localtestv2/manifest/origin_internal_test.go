@@ -16,7 +16,7 @@ func TestThePublicSectionIsTheDefaultOrigin(t *testing.T) {
 	}
 	want := []string{
 		"local.altinn.cloud", "pdf.local.altinn.cloud", "workflow-engine.local.altinn.cloud",
-		"app-frontend.local.altinn.cloud", "af.local.altinn.cloud",
+		"app-frontend.local.altinn.cloud", "af.local.altinn.cloud", "am.ui.local.altinn.cloud",
 	}
 	if got := o.Hosts(); !slices.Equal(got, want) {
 		t.Fatalf("hosts %v, want %v", got, want)
@@ -98,7 +98,8 @@ func TestParseRefusesABadPublicSection(t *testing.T) {
 		"IP address":         {func(p map[string]any) { p["host"] = "127.0.0.1" }, errHost},
 		"no port":            {func(p map[string]any) { delete(p, "port") }, errValue},
 		"port out of range":  {func(p map[string]any) { p["port"] = 70000 }, errValue},
-		"bad subdomain":      {func(p map[string]any) { p["subdomains"] = []any{"pdf.x"} }, errValue},
+		"bad subdomain":      {func(p map[string]any) { p["subdomains"] = []any{"PDF"} }, errValue},
+		"empty label":        {func(p map[string]any) { p["subdomains"] = []any{"am..ui"} }, errValue},
 		"duplicate sub":      {func(p map[string]any) { p["subdomains"] = []any{"pdf", "pdf"} }, errDuplicate},
 		"unknown key":        {func(p map[string]any) { p["scheme"] = "https" }, errUnknownKey},
 		"unlisted subdomain": {func(p map[string]any) { p["subdomains"] = []any{"pdf"} }, errPlaceholder},

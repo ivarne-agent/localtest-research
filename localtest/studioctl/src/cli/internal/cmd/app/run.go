@@ -197,10 +197,11 @@ func (s *Service) nativeAccessTokenSigning(ctx context.Context, appPath string) 
 		return nil, fmt.Errorf("relate certificate directory to app: %w", err)
 	}
 	return &accessTokenSigning{
-		FullPath:     state.CertificatePath(),
-		KeysFolder:   "/" + filepath.ToSlash(rel) + "/",
-		FileName:     localtestv2.CertificateFileName,
-		arbeidsflate: arbeidsflateUp(state),
+		FullPath:         state.CertificatePath(),
+		KeysFolder:       "/" + filepath.ToSlash(rel) + "/",
+		FileName:         localtestv2.CertificateFileName,
+		arbeidsflate:     arbeidsflateUp(state),
+		accessManagement: accessManagementUp(state),
 	}, nil
 }
 
@@ -229,6 +230,14 @@ func provisionLocalMaskinporten(appPath, secretsDir string, topology envtopology
 // manifest's arbeidsflate group runs the arbeidsflate container.
 func arbeidsflateUp(state localtestv2.State) bool {
 	return slices.Contains(state.Groups, string(envtopology.ComponentArbeidsflate))
+}
+
+// accessManagementGroup is the manifest's group of the Access Management GUI (its API is in the default group).
+const accessManagementGroup = "access-management"
+
+// accessManagementUp reports whether the environment runs the access-management group, the Access Management GUI.
+func accessManagementUp(state localtestv2.State) bool {
+	return slices.Contains(state.Groups, accessManagementGroup)
 }
 
 // ReadAppID returns the app id declared in an app directory's application metadata. Exported because
@@ -449,10 +458,11 @@ func onStackNetwork(cfg *types.ContainerConfig, state localtestv2.State, appID s
 		ReadOnly:       true,
 	})
 	return &accessTokenSigning{
-		FullPath:     containerCertificateDir + "/" + localtestv2.CertificateFileName,
-		KeysFolder:   containerCertificateDir + "/",
-		FileName:     localtestv2.CertificateFileName,
-		arbeidsflate: arbeidsflateUp(state),
+		FullPath:         containerCertificateDir + "/" + localtestv2.CertificateFileName,
+		KeysFolder:       containerCertificateDir + "/",
+		FileName:         localtestv2.CertificateFileName,
+		arbeidsflate:     arbeidsflateUp(state),
+		accessManagement: accessManagementUp(state),
 	}
 }
 

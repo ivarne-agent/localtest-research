@@ -187,6 +187,16 @@ func CheckHost(host string) error {
 	return nil
 }
 
+// subdomainLabels reports whether sub is one or more dot-separated host labels (am.ui, as production's am.ui.<env>).
+func subdomainLabels(sub string) bool {
+	for label := range strings.SplitSeq(sub, ".") {
+		if !hostLabel.MatchString(label) {
+			return false
+		}
+	}
+	return true
+}
+
 // CheckPort refuses a port that cannot be published: 1 to 65535.
 func CheckPort(port int) error {
 	if port < 1 || port > maxPort {
@@ -205,7 +215,7 @@ func (m *Manifest) checkPublic() error {
 	}
 	seen := map[string]bool{}
 	for _, sub := range p.Subdomains {
-		if !hostLabel.MatchString(sub) {
+		if !subdomainLabels(sub) {
 			return fmt.Errorf("public: %w: subdomain %q", errValue, sub)
 		}
 		if seen[sub] {

@@ -32,5 +32,8 @@ components:
   arbeidsflate:
     kind: platform
     host: af.local.altinn.cloud
+  accessManagementUi:
+    kind: platform
+    host: am.ui.local.altinn.cloud
 appRouteTemplate:
   pathPrefixTemplate: /{org}/{app}

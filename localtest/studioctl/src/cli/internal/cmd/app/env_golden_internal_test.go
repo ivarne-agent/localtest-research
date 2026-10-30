@@ -38,6 +38,8 @@ type goldenAppEnvCase struct {
 	Current                 []string          `json:"current"`
 	// Arbeidsflate is set when localtest-v2 runs the arbeidsflate group.
 	Arbeidsflate bool `json:"arbeidsflate,omitempty"`
+	// AccessManagement is set when localtest-v2 runs the access-management group (the Access Management GUI).
+	AccessManagement bool `json:"accessManagement,omitempty"`
 }
 
 // goldenSigning is a case's certificate, as the runner finds it. Empty for a run without localtest-v2.
@@ -49,12 +51,13 @@ type goldenSigning struct {
 	FileName   string `json:"FileName"`
 }
 
-func (g goldenSigning) certificate(arbeidsflate bool) *accessTokenSigning {
+func (g goldenSigning) certificate(arbeidsflate, accessManagement bool) *accessTokenSigning {
 	if g.FullPath == "" {
 		return nil
 	}
 	return &accessTokenSigning{
 		FullPath: g.FullPath, KeysFolder: g.KeysFolder, FileName: g.FileName, arbeidsflate: arbeidsflate,
+		accessManagement: accessManagement,
 	}
 }
 
@@ -123,6 +126,15 @@ func goldenAppEnvCases() []goldenAppEnvCase {
 			Arbeidsflate: true,
 		},
 		{
+			Name: "native-localtest-v2-access-management", KestrelURL: "http://127.0.0.1:5005", IngressPort: "8000",
+			SecretsDir: goldenSecretsDir, Signing: native, Arbeidsflate: true, AccessManagement: true,
+		},
+		{
+			Name: "native-localtest-v2-custom-origin-access-management", KestrelURL: "http://127.0.0.1:5005",
+			IngressPort: "18000", PublicHost: "origin.test", SecretsDir: goldenSecretsDir, Signing: native,
+			AccessManagement: true,
+		},
+		{
 			Name: "container", KestrelURL: "http://0.0.0.0:5005", IngressPort: "8000", SecretsDir: "/mnt/app-secrets",
 			KeysDir: ContainerKeysDir, Signing: container,
 		},
@@ -155,7 +167,7 @@ func TestTheAppEnvironmentMatchesTheGoldenFile(t *testing.T) {
 			c.AppFrontendAssetBaseURL,
 			c.SecretsDir,
 			c.KeysDir,
-			c.Signing.certificate(c.Arbeidsflate),
+			c.Signing.certificate(c.Arbeidsflate, c.AccessManagement),
 		)
 		if c.Signing.FullPath != "" && c.Signing.FileName != localtestv2.CertificateFileName {
 			t.Fatalf("%s: the certificate file name is not the runtime's", c.Name)

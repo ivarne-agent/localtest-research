@@ -13,15 +13,16 @@ type ingressDefinition struct {
 }
 
 type componentsDefinition struct {
-	App               componentDefinition `yaml:"app"`
-	Platform          componentDefinition `yaml:"platform"`
-	OTel              componentDefinition `yaml:"otel"`
-	PDF               componentDefinition `yaml:"pdf"`
-	Grafana           componentDefinition `yaml:"grafana"`
-	PgAdmin           componentDefinition `yaml:"pgadmin"`
-	WorkflowEngine    componentDefinition `yaml:"workflowEngine"`
-	FrontendDevServer componentDefinition `yaml:"frontendDevServer"`
-	Arbeidsflate      componentDefinition `yaml:"arbeidsflate"`
+	App                componentDefinition `yaml:"app"`
+	Platform           componentDefinition `yaml:"platform"`
+	OTel               componentDefinition `yaml:"otel"`
+	PDF                componentDefinition `yaml:"pdf"`
+	Grafana            componentDefinition `yaml:"grafana"`
+	PgAdmin            componentDefinition `yaml:"pgadmin"`
+	WorkflowEngine     componentDefinition `yaml:"workflowEngine"`
+	FrontendDevServer  componentDefinition `yaml:"frontendDevServer"`
+	Arbeidsflate       componentDefinition `yaml:"arbeidsflate"`
+	AccessManagementUI componentDefinition `yaml:"accessManagementUi"`
 }
 
 type componentDefinition struct {

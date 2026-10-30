@@ -147,11 +147,11 @@ func TestACustomHostMustResolveToThisMachine(t *testing.T) {
 	if !errors.Is(err, errUnresolved) {
 		t.Fatalf("%v, want an unresolved error", err)
 	}
-	const line = "\n127.0.0.1 workflow-engine.origin.test app-frontend.origin.test af.origin.test"
+	const line = "\n127.0.0.1 workflow-engine.origin.test app-frontend.origin.test af.origin.test am.ui.origin.test"
 	if !strings.HasSuffix(err.Error(), line) {
 		t.Errorf("%q does not end with the hosts-file line %q", err, line)
 	}
-	for _, host := range []string{"workflow-engine.origin.test", "app-frontend.origin.test", "af.origin.test"} {
+	for _, host := range []string{"workflow-engine.origin.test", "app-frontend.origin.test", "af.origin.test", "am.ui.origin.test"} {
 		resolved[host] = []string{"127.0.0.1"}
 	}
 	if err := checkResolution(t.Context(), lookup, stack().Origin("origin.test", 18000)); err != nil {

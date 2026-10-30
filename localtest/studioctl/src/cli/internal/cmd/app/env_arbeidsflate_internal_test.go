@@ -69,17 +69,20 @@ func TestTheArbeidsflateLinksFollowTheArbeidsflateGroup(t *testing.T) {
 	}
 }
 
+// The signing carries the arbeidsflate and the access-management groups from the state: the links each one sets.
 func TestTheSigningCarriesTheArbeidsflateGroupFromTheState(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		groups  []string
-		minimal bool
-		want    bool
+		groups               []string
+		minimal              bool
+		want                 bool
+		wantAccessManagement bool
 	}{
-		{groups: nil, minimal: false, want: false},
-		{groups: nil, minimal: true, want: false},
-		{groups: []string{"dialogporten", "receipt"}, minimal: false, want: false},
-		{groups: []string{"arbeidsflate", "dialogporten"}, minimal: false, want: true},
+		{groups: nil, minimal: false, want: false, wantAccessManagement: false},
+		{groups: nil, minimal: true, want: false, wantAccessManagement: false},
+		{groups: []string{"dialogporten", "receipt"}, minimal: false, want: false, wantAccessManagement: false},
+		{groups: []string{"arbeidsflate", "dialogporten"}, minimal: false, want: true, wantAccessManagement: false},
+		{groups: []string{"access-management"}, minimal: false, want: false, wantAccessManagement: true},
 	} {
 		cfg := &config.Config{Home: t.TempDir(), DataDir: t.TempDir()}
 		if err := localtestv2.WriteState(cfg, localtestv2.State{
@@ -96,13 +99,14 @@ func TestTheSigningCarriesTheArbeidsflateGroupFromTheState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if signing == nil || signing.arbeidsflate != tc.want {
+		if signing == nil || signing.arbeidsflate != tc.want || signing.accessManagement != tc.wantAccessManagement {
 			t.Fatalf(
-				"groups %v, minimal %v: signing %+v, want arbeidsflate %v",
+				"groups %v, minimal %v: signing %+v, want arbeidsflate %v, accessManagement %v",
 				tc.groups,
 				tc.minimal,
 				signing,
 				tc.want,
+				tc.wantAccessManagement,
 			)
 		}
 	}

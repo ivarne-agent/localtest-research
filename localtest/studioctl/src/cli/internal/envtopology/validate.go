@@ -39,15 +39,16 @@ func validateDefinition(def definition) error {
 	}
 
 	components := map[string]componentDefinition{
-		"components.app":               def.Components.App,
-		"components.platform":          def.Components.Platform,
-		"components.otel":              def.Components.OTel,
-		"components.pdf":               def.Components.PDF,
-		"components.grafana":           def.Components.Grafana,
-		"components.pgadmin":           def.Components.PgAdmin,
-		"components.workflowEngine":    def.Components.WorkflowEngine,
-		"components.frontendDevServer": def.Components.FrontendDevServer,
-		"components.arbeidsflate":      def.Components.Arbeidsflate,
+		"components.app":                def.Components.App,
+		"components.platform":           def.Components.Platform,
+		"components.otel":               def.Components.OTel,
+		"components.pdf":                def.Components.PDF,
+		"components.grafana":            def.Components.Grafana,
+		"components.pgadmin":            def.Components.PgAdmin,
+		"components.workflowEngine":     def.Components.WorkflowEngine,
+		"components.frontendDevServer":  def.Components.FrontendDevServer,
+		"components.arbeidsflate":       def.Components.Arbeidsflate,
+		"components.accessManagementUi": def.Components.AccessManagementUI,
 	}
 	for field, component := range components {
 		if err := validateComponent(field, component); err != nil {

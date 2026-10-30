@@ -68,7 +68,7 @@ func TestEveryContainerGetsItsNameTheHostsAndTheCertificate(t *testing.T) {
 		}
 		for _, host := range []string{
 			"local.altinn.cloud", "pdf.local.altinn.cloud", "workflow-engine.local.altinn.cloud",
-			"app-frontend.local.altinn.cloud", "af.local.altinn.cloud", "host.docker.internal",
+			"app-frontend.local.altinn.cloud", "af.local.altinn.cloud", "am.ui.local.altinn.cloud", "host.docker.internal",
 		} {
 			if !slices.Contains(c.ExtraHosts, host+":host-gateway") {
 				t.Errorf("%s: %s does not resolve to the host gateway: %v", name, host, c.ExtraHosts)
@@ -167,7 +167,8 @@ func TestACustomOriginMovesThePublishedPortTheHostsAndTheValues(t *testing.T) {
 	}
 	wantHosts := []string{
 		"origin.test:host-gateway", "pdf.origin.test:host-gateway", "workflow-engine.origin.test:host-gateway",
-		"app-frontend.origin.test:host-gateway", "af.origin.test:host-gateway", "host.docker.internal:host-gateway",
+		"app-frontend.origin.test:host-gateway", "af.origin.test:host-gateway", "am.ui.origin.test:host-gateway",
+		"host.docker.internal:host-gateway",
 	}
 	if got := containers["storage"].ExtraHosts; !slices.Equal(got, wantHosts) {
 		t.Errorf("extra hosts %v, want %v", got, wantHosts)
@@ -176,7 +177,7 @@ func TestACustomOriginMovesThePublishedPortTheHostsAndTheValues(t *testing.T) {
 	if front["Localtest__PlatformEndpoint"] != "http://origin.test:18000/" {
 		t.Errorf("front door origin %q", front["Localtest__PlatformEndpoint"])
 	}
-	if front[publicSubdomainsVariable] != "pdf,workflow-engine,app-frontend,af" {
+	if front[publicSubdomainsVariable] != "pdf,workflow-engine,app-frontend,af,am.ui" {
 		t.Errorf("front door subdomains %q", front[publicSubdomainsVariable])
 	}
 	if got := frontDoorHealthURL(opts); got != "http://origin.test:18000/health" {
@@ -223,13 +224,13 @@ func TestResolveGroups(t *testing.T) {
 		"everything": gc(
 			[]string{"everything"},
 			nil,
-			[]string{"arbeidsflate", "correspondence", "dialogporten", "monitoring", "receipt"},
+			[]string{"access-management", "arbeidsflate", "correspondence", "dialogporten", "monitoring", "receipt"},
 			nil,
 		),
 		"everything but one": gc(
 			[]string{"everything"},
 			[]string{"dialogporten"},
-			[]string{"arbeidsflate", "correspondence", "monitoring", "receipt"},
+			[]string{"access-management", "arbeidsflate", "correspondence", "monitoring", "receipt"},
 			nil,
 		),
 		"without what is off": gc(nil, []string{"receipt"}, nil, nil),
@@ -247,7 +248,9 @@ func TestResolveGroups(t *testing.T) {
 // The --with values are what the Aspire package's typed methods name too.
 func TestTheGroupNames(t *testing.T) {
 	t.Parallel()
-	want := []string{"dialogporten", "receipt", "correspondence", "arbeidsflate", "monitoring", GroupEverything}
+	want := []string{
+		"dialogporten", "receipt", "correspondence", "arbeidsflate", "access-management", "monitoring", GroupEverything,
+	}
 	if got := GroupNames(); !slices.Equal(got, want) {
 		t.Fatalf("GroupNames() = %v, want %v", got, want)
 	}
