@@ -1,0 +1,52 @@
+{
+  "identifier": "altinn_client_administration",
+  "version": "v1",
+  "title": {
+    "en": "Client administration",
+    "nb": "Klientadministrering",
+    "nn": "Klientadministrering"
+  },
+  "description": {
+    "en": "System resource for authorization of users which should have access to client administration user interfaces and access information in Altinn.",
+    "nb": "System ressurs for autorisasjon av brukere som skal ha tilgang til brukergrensesnitt og informasjon knytt til klientadministrering i Altinn.",
+    "nn": "System ressurs for autorisasjon av brukarar som skal ha tilgong til brukargrensesnitt og informasjon knytta til klientadministrering i Altinn."
+  },
+  "rightDescription": {
+    "en": "User with who receives this resource will be able to access all client administration user interfaces and access information on behalf of the delegating party. The user will also be able to perform delegation, of roles or rights the delegating party possess on behalf of its clients.",
+    "nb": "Bruker som mottar denne ressursen vil få tilgang til alle brukergrensesnitt for klientadministrering og behandle klienter av delegerende part. Brukeren vil også kunne utføre delegering av roller og rettigheter, som delegerende part har mottatt fra sine klienter.",
+    "nn": "Brukar som mottek ressursen vil få tilgong til alle brukargrensesnitt for klientadministrering og behandle klienter på vegne av delegerande part. Brukaren vil også kunne utføre delegering av roller og rettigheiter, som delegerande part har motteke frå sine klientar."
+  },
+  "homepage": "https://altinn.no",
+  "status": "Completed",
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "isPartOf": "",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Norwegian Digitalisation Agency",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    },
+    "organization": "991825827",
+    "orgcode": "digdir"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": true,
+  "resourceType": "Systemresource",
+  "availableForType": [
+    "LegalEntityEnterprise",
+    "Company"
+  ],
+  "isOneTimeConsent": false
+}

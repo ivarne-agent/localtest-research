@@ -1,0 +1,53 @@
+{
+  "identifier": "altinn_maskinporten_scope_delegation",
+  "version": "v1",
+  "title": {
+    "en": "Maskinporten Scope Delegation",
+    "nb": "Maskinporten Scope Delegation",
+    "nn": "Maskinporten Scope Delegation"
+  },
+  "description": {
+    "en": "Maskinporten Scope Delegation",
+    "nb": "Maskinporten Scope Delegation",
+    "nn": "Maskinporten Scope Delegation"
+  },
+  "rightDescription": {
+    "en": "Access to Maskinporten Scope Delegation",
+    "nb": "Access to Maskinporten Scope Delegation",
+    "nn": "Access to Maskinporten Scope Delegation"
+  },
+  "homepage": "https://altinn.no",
+  "status": "Completed",
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "isPartOf": "",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Norwegian Digitalisation Agency",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    },
+    "organization": "991825827",
+    "orgcode": "digdir"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": true,
+  "resourceType": "Systemresource",
+  "availableForType": [
+    "LegalEntityEnterprise",
+    "Company",
+    "BankruptcyEstate"
+  ],
+  "isOneTimeConsent": false
+}

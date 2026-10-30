@@ -1,0 +1,53 @@
+{
+  "identifier": "altinn_access_management_hovedadmin",
+  "version": "1",
+  "title": {
+    "en": "Main administrator",
+    "nb": "Hovedadministrator",
+    "nn": "Hovudadministrator"
+  },
+  "description": {
+    "en": "System resource for extended access to access control for the enterprise.",
+    "nb": "Systemressurs for utvidet tilgang til tilgangsstyring for virksomheten.",
+    "nn": "Systemressurs for utvida tilgang til tilgangsstyring for verksemda."
+  },
+  "rightDescription": {
+    "en": "User will receive extended access to access control for the enterprise.",
+    "nb": "Bruker vil motta utvidet tilgang til tilgangsstyring for virksomheten.",
+    "nn": "Brukar vil få utvida tilgang til tilgangsstyring for verksemda."
+  },
+  "homepage": "https://altinn.no",
+  "status": "Completed",
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "servicedesk@altinn.no",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "isPartOf": "",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Norwegian Digitalisation Agency",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    },
+    "organization": "991825827",
+    "orgcode": "digdir"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": true,
+  "resourceType": "Systemresource",
+  "availableForType": [
+    "LegalEntityEnterprise",
+    "Company",
+    "BankruptcyEstate"
+  ],
+  "isOneTimeConsent": false
+}

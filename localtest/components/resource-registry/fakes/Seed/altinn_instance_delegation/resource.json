@@ -1,0 +1,54 @@
+{
+  "identifier": "altinn_instance_delegation",
+  "version": "2",
+  "title": {
+    "en": "Access management of individual messages, forms and dialogs",
+    "nb": "Tilgangsstyring av enkeltmeldinger, -skjema og -dialoger",
+    "nn": "Tilgangsstyring av enkeltmeldingar, -skjema og -dialogar"
+  },
+  "description": {
+    "en": "System resource for authorizing users who should have access to perform delegation of access for individual messages, forms and dialogs to which they themselves have access.",
+    "nb": "System ressurs for autorisasjon av brukere som skal ha tilgang til å kunne utføre delegering av tilgang for enkeltmeldinger, -skjema og -dialoger som de selv har tilgang til.",
+    "nn": "System ressurs for autorisasjon av brukarar som skal ha tilgang til å kunna utføra delegering av tilgang for enkeltmeldingar, -skjema og -dialogar som dei sjølv har tilgang til."
+  },
+  "rightDescription": {
+    "en": "Users with access to this resource will be able to grant other users access to individual messages, forms and dialogs, to which they themselves have access, via the user interface in the message box.",
+    "nb": "Bruker med tilgang til denne ressursen vil via brukergrensesnitt i meldingsboksen kunne gi andre brukere tilganger til enkeltmeldinger, -skjema og -dialoger, som de selv har tilgang til.",
+    "nn": "Brukar med tilgang til denne ressursen vil via brukargrensesnitt i meldingsboksen kunna gi andre brukarar tilgangar til enkeltmeldingar, -skjema og -dialogar, som dei sjølv har tilgang til."
+  },
+  "homepage": "https://altinn.no",
+  "status": "Completed",
+  "contactPoints": [
+    {
+      "category": "Support",
+      "email": "servicedesk@altinn.no",
+      "telephone": "",
+      "contactPage": ""
+    }
+  ],
+  "isPartOf": "",
+  "resourceReferences": [],
+  "delegable": false,
+  "visible": false,
+  "hasCompetentAuthority": {
+    "name": {
+      "en": "Norwegian Digitalisation Agency",
+      "nb": "Digitaliseringsdirektoratet",
+      "nn": "Digitaliseringsdirektoratet"
+    },
+    "organization": "991825827",
+    "orgcode": "digdir"
+  },
+  "keywords": [],
+  "accessListMode": "Disabled",
+  "selfIdentifiedUserEnabled": false,
+  "enterpriseUserEnabled": false,
+  "resourceType": "Systemresource",
+  "availableForType": [
+    "PrivatePerson",
+    "LegalEntityEnterprise",
+    "Company",
+    "BankruptcyEstate"
+  ],
+  "isOneTimeConsent": false
+}
