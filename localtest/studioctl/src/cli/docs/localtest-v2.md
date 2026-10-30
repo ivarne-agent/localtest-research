@@ -43,8 +43,11 @@ names `env up -r localtest-v2` and `env down -r localtest-v2`.
 
 Optional groups of services are off by default. `--with <group>` starts a group with what it depends on, and
 `--without <group>` leaves out a group's own containers. `env up --help` lists the groups. `--with arbeidsflate` serves
-the Altinn inbox on `http://af.local.altinn.cloud:8000`, which needs `studioctl env hosts add`. A request to a service
-whose group is off answers `503` with the `env up` command that starts it.
+the Altinn inbox on `http://af.local.altinn.cloud:8000`, and `--with access-management` the Access Management GUI, where
+a test user sees their parties, roles and access packages and delegates them, on
+`http://am.ui.local.altinn.cloud:8000/accessmanagement/ui`. Both need `studioctl env hosts add`. While the
+access-management group runs, an app's party switch on the way to the inbox and its access management link go to the
+GUI. A request to a service whose group is off answers `503` with the `env up` command that starts it.
 
 ## Minimal mode
 

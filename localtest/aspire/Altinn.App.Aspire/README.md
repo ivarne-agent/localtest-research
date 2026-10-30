@@ -87,7 +87,7 @@ workflow run's artifact into a local folder source.
 | --- | --- |
 | `AddAltinnLocaltest(name = "altinn-localtest", configure = null)` | Adds the `default` group's containers and returns the parent resource, which is `Running` once every container is healthy, so an app can `WaitFor` it |
 | `.WithGroup(group)` | Adds a group's root containers and what they depend on; `everything` adds every group. An unknown group, `default` (always on) or `monitoring` ([ignored](#the-ignored-monitoring-group)) throws |
-| `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups (all but `default`, `minimal` and the ignored `monitoring`) differ |
+| `.WithDialogporten()`, `.WithReceipt()`, `.WithCorrespondence()`, `.WithArbeidsflate()`, `.WithAccessManagement()`, `.WithEverything()` | Typed aliases of `WithGroup`; `GroupMethodsTests` fails when they and the manifest's optional groups (all but `default`, `minimal` and the ignored `monitoring`) differ |
 | `.WithFrontendDevServer(port = 8080)` | `studioctl run --dev-frontend`: once the front door is healthy, `PUT localtest/api/routes/frontend-dev-server` with `http://host.docker.internal:<port>`, and every app loads app-frontend from `http://app-frontend.local.altinn.cloud:8000` |
 | `AltinnLocaltestOptions.Tag` | Replaces every `sha-` pin (`latest` is studioctl's `--latest`). Any tag that does not start with `sha-` floats and is pulled on every start (`StackSpec.ImageOf`), so a locally built image needs a `sha-…` tag (for example `sha-mylocal`): under another tag the pull fails and the container never starts. Default: the manifest's pins |
 | `AltinnLocaltestOptions.DataDirectory` | Default `~/.altinn-app-aspire`: the shared test certificate in `certs/` and the files that ship with the manifest in `files/` (world-readable, as studioctl writes them), the apps' secrets in `apps/<org>/<app>/secrets`, the installation's database passwords in `secrets/postgres-passwords.json` (owner-only; a random password per role, generated when the AppHost first starts and set in Postgres before its dependants start, see the [manifest README](../../studioctl/src/cli/internal/localtestv2/manifest/README.md#database-users-and-passwords); known gap, left as is: DCP passes the containers' environment, passwords included, on its `podman create … -e KEY=VALUE` command line while it runs, TODO.md task 62). The platform's data (Postgres, blobs, policies, the localtest app's routes) is not here but in the package's named volumes, `altinn-localtest-<id>`; studioctl's are its own |
@@ -113,7 +113,7 @@ var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.
 
 - Every value derived from the origin follows: the manifest's `{{origin}}`-style values in each container, the front
   door's `Localtest__PlatformEndpoint` and `Localtest__PublicSubdomains`, the `--add-host` names (the host and its
-  `pdf.`, `workflow-engine.`, `app-frontend.`, `af.` subdomains), the app's environment, its dashboard link and its
+  `pdf.`, `workflow-engine.`, `app-frontend.`, `af.`, `am.ui.` subdomains), the app's environment, its dashboard link and its
   registration, the dev-server route, `PlatformUri`.
 - `PublicPort = 0`: the front door's `http` endpoint is declared unproxied without a port
   (`WithHttpEndpoint(port: null, targetPort: 8080, isProxied: false)`), and Aspire 13 allocates a free host port for it
@@ -125,7 +125,7 @@ var other = builder.AddAltinnLocaltest(configure: o => { o.PublicHost = "altinn.
   it throws. The port guard is skipped (the port is free by construction).
 - **The hosts file**: the browser and the AppHost (it registers the apps through the front door) need the names to
   resolve to this machine. `studioctl env hosts add` writes the default names only; for a custom host add
-  `127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test` to
+  `127.0.0.1 altinn.test pdf.altinn.test workflow-engine.altinn.test app-frontend.altinn.test af.altinn.test am.ui.altinn.test` to
   `/etc/hosts` yourself. The package does not check it.
 - For v4 apps (app-lib 8, the released app frontend), until the app-frontend-react fix, prefer a host that starts
   with `local.` (`local.altinn.test`): the released app frontend throws "Unknown domain" on party selection for other
@@ -338,7 +338,7 @@ it was replaced. The full stack's `altinn-localtest-*` volumes are never mounted
 **The API.** `AddAltinnLocaltestMinimal()` returns `IResourceBuilder<AltinnLocaltestMinimalResource>`. It and
 `AltinnLocaltestResource` are sealed leaves of `AltinnLocaltestResourceBase`; neither derives from the other, so
 `IResourceBuilder<out T>`'s covariance does not carry the group methods (`WithGroup`, `WithDialogporten`,
-`WithReceipt`, `WithCorrespondence`, `WithArbeidsflate`, `WithEverything`, all on
+`WithReceipt`, `WithCorrespondence`, `WithArbeidsflate`, `WithAccessManagement`, `WithEverything`, all on
 `IResourceBuilder<AltinnLocaltestResource>`) to the minimal builder: a call does not compile. What both forms support
 takes the base: `AddAltinnApp` (the registration, provisioning and the `provision`/`deprovision` commands, as in the full
 stack) and `WithFrontendDevServer<T>` (which returns the builder's own type). `GroupMethodsTests` asserts through
@@ -418,7 +418,9 @@ dashboard's variables where the development certificate is not trusted.
   dialog, profile and parties links into the local Arbeidsflate
   (`PlatformFrontendSettings__Arbeidsflate{Inbox,Dialog,Profile,Parties}Url` on `http://af.local.altinn.cloud:8000`),
   without it only the inbox link, to the front door's Home (`http://local.altinn.cloud:8000/`), so "back to inbox" keeps
-  a target, and the logout link on the platform's logout (`…/authentication/api/v1/logout`) (the monorepo frontend shows
+  a target; with `WithAccessManagement()` (task 68) the party switch on the way to the inbox
+  (`PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl`, the GUI's `reportee/changeandredirect` on
+  `http://am.ui.local.altinn.cloud:8000`) and `…AccessManagementUrl` (the GUI), unset without it; and the logout link on the platform's logout (`…/authentication/api/v1/logout`) (the monorepo frontend shows
   a platform link only when it is configured; read only by the monorepo backend and frontend, see "What the app runner
   pushes" in `localtest/README.md`), and `AppSettings__AppFrontendAssetBaseUrl` with `WithFrontendDevServer`. Aspire
   sets `OTEL_EXPORTER_OTLP_ENDPOINT` to its dashboard; `AppSettings__UseOpenTelemetry=true` unless turned off.

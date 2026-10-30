@@ -34,7 +34,7 @@ organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisio
 | Path | What |
 | --- | --- |
 | `vendor/` | Upstream's whole repository at the pin, byte for byte (its tree id is upstream's), plus `UPSTREAM.md` |
-| `patches/0001-bff-oidc-discovery-scheme.patch`, `patches/0002-frontend-cookie-domain-localtest.patch`, `patches/0003-bff-cookies-secure-auto.patch` | The three `localtest:` changes to upstream's code, applied at image build (below) |
+| `patches/0001-bff-oidc-discovery-scheme.patch`, `patches/0002-frontend-cookie-domain-localtest.patch`, `patches/0003-bff-cookies-secure-auto.patch`, `patches/0004-frontend-access-management-links.patch` | The four `localtest:` changes to upstream's code, applied at image build (below) |
 | `Dockerfile.bff`, `Dockerfile.frontend` | Mirror `vendor/packages/bff/Dockerfile` and `vendor/packages/frontend/Dockerfile`; every difference is marked `localtest:` |
 | `bff-start.sh` | The BFF image's command: a throwaway Maskinporten client key when none is set, the TypeORM migrations, then upstream's `pnpm --filter bff run start` |
 | `nginx/nginx.conf` | Upstream's `packages/frontend/nginx.conf` plus the `/api/` proxy and the http CSP; every change commented |
@@ -49,7 +49,7 @@ organisation caches; Dialogporten uses 0, Correspondence 1). Nothing is provisio
 **The patches, applied at build, not committed onto `vendor/`.** Both Dockerfiles start with the same `source` stage: the
 pinned Node image with `git`, `COPY vendor/`, `COPY patches/`, `git apply --check` and `git apply` of every patch. The
 build stage then copies the patched tree where upstream has `COPY . .`. This keeps `vendor/` reviewable as upstream's
-tree (checkable by tree id, see `vendor/UPSTREAM.md`), puts the whole localtest change in three small files, and makes a
+tree (checkable by tree id, see `vendor/UPSTREAM.md`), puts the whole localtest change in four small files, and makes a
 patch that no longer applies after a re-pin fail the image build at once. TypeScript has no `#if`, so this is the
 component's form of a directive site.
 
@@ -58,6 +58,7 @@ component's form of a directive site.
 | 0001: `OIDC_PLATFORM_URL` may carry a scheme (`config.oidcDiscoveryUrl`, read by the OIDC plugin, the token verifier and `/api/health`) | Upstream writes `https://${OIDC_PLATFORM_URL}/.well-known/openid-configuration` in three places; Authentication is plain http here, so the BFF would not start. A value without a scheme behaves as upstream |
 | 0002: `getCookieDomain()` is `local.altinn.cloud` on `*.local.altinn.cloud` | The SPA writes `AltinnPartyId` and `AltinnPartyUuid` when the user changes party; upstream maps unknown hosts to prod and the browser rejects `Domain=.altinn.no`. With the patch the inbox and the apps share the party cookies Authentication sets for `local.altinn.cloud` |
 | 0003: the BFF's session cookie (`server.ts`) and `altinnPersistentContext` (`graphql/profile/queries.ts`, `mutations.ts`) are `secure: 'auto'` instead of `true` (task 21b) | Upstream hard-codes `Secure`; a browser refuses it over http, and `@fastify/session` refuses to save a `secure: true` session on an http request. `'auto'` (both `@fastify/session` and `@fastify/cookie`) sets `Secure` exactly when `request.protocol` is https, as behind production's TLS ingress; on http the session cookie gets `SameSite=Lax` (unset upstream, which browsers read as Lax). The front door no longer removes `Secure`, so this replaces that, and nginx no longer claims https. Reported first in `../../reviews/cookies.md` (A1), the task 21b inventory |
+| 0004: `getAccessAMUILink()` and `createChangePartyAndRedirect()` go to `am.ui.<host>` on the page's port on `af.<host>` over http (task 68) | The inbox's links to Access Management (the menu's "Tilgangsstyring", a dialog's "who has access", the profile's settings and Altinn 2 links, the party switch through `reportee/changeandredirect`) went to production `am.ui.altinn.no`; now to the stack's GUI (the `access-management` group; with it off the front door answers the host with its 503 naming the group). Upstream's code on any https host |
 
 **The Dockerfiles** (each `localtest:` line explains itself):
 
@@ -180,9 +181,11 @@ httpOnly: true }])`, then `page.goto('http://af.local.altinn.cloud:8000/')`.
 
 1. Plain http on `af.local.altinn.cloud:8000`; the BFF knows it (no forged `X-Forwarded-Proto`) and sets its cookies
    without `Secure` (patch 0003).
-2. The three patches: discovery over http, the party cookies' domain, the BFF's cookies `secure: 'auto'`.
+2. The four patches: discovery over http, the party cookies' domain, the BFF's cookies `secure: 'auto'`, the links to
+   the Access Management GUI.
 3. The SPA's environment detection maps `af.local.altinn.cloud` to `prod` (upstream's default): links out of the inbox
-   (help, Altinn's information pages, access management) go to production sites. Dialogs' own links (go-to, attachments,
+   (help, Altinn's information pages) go to production sites; access management goes to the stack's GUI (patch 0004).
+   Dialogs' own links (go-to, attachments,
    receipts) are what the adapter and Correspondence write, on the stack's origin.
 4. The CSP allows the stack's http origin; no HSTS.
 5. Migrations at every start of the BFF container instead of a separate job.

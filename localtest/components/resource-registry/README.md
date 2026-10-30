@@ -78,6 +78,7 @@ has none, so a restart changes nothing. The provisioner does not push platform s
 | `apps-correspondence-integrasjon2` | `GenericAccessResource` | as above | tt02, with the same `ttd` deviation. Kept a `GenericAccessResource` as tt02 has it: Correspondence refuses it for a new correspondence, in production as well, so `signering-brukerstyrt`'s second task gets the production error rather than a 404 |
 | `ttd-localtest-correspondence` | `CorrespondenceService` | `ttd`, 991825827 | written for `../correspondence/smoke-test.sh`, modelled on the tt02 policy: `ttd` reads, writes, subscribes and publishes; `dagl` and `priv` read and write (a recipient's read and confirm, also through a dialog token), each rule's actions as alternatives in one `AnyOf` (unlike the tt02 copies) |
 | `altinn-profil-api-varslingsdaresser-for-virksomheter` | `Systemresource` | `digdir`, 991825827 | tt02, fetched 2026-10-21 (`createdAt`, `updatedAt`, `versionId` dropped, the policy's byte order mark removed), unchanged otherwise: production Profile's `organizations/{orgNumber}/notificationaddresses/mandatory` endpoints ask the PDP for `read` or `write` on it. One rule: the CCR role codes (`dagl`, `lede`, `innh`, `best`, `hadm`, ...), the role `hovedadministrator` and the access packages `hovedadministrator` and `starte-drive-endre-avvikle-virksomhet` read, write and delete, with authentication level 3 as an obligation |
+| `altinn_access_management`, `altinn_access_management_hovedadmin`, `altinn_client_administration`, `altinn_instance_delegation`, `altinn_maskinporten_scope_delegation` | `Systemresource` | `digdir`, 991825827, not delegable | tt02, fetched 2026-10-30 (`createdAt`, `updatedAt`, `versionId` dropped, the policies' byte order marks removed), unchanged otherwise (task 68): the PDP's decisions behind the Access Management GUI's `isAdmin`, `isHovedadmin`, `isClientAdmin`, `isInstanceAdmin`, `isMaskinportenAdmin` and Access Management's own end-user API (`write` on `altinn_access_management` for every delegation). `altinn_access_management` grants read and write to the Altinn 2 roles `ADMAI`, `HADM`, `BOBEL` and the access packages `hovedadministrator` (which DAGL gives), `tilgangsstyrer`, `innbygger-tilgangsstyring-privatperson` (a person's own party), `konkursbo-lesetilgang`, `ffor-tilgangsstyrer-nuf`, at authentication level 3 |
 
 ## Used by
 
@@ -113,7 +114,7 @@ brings the developer exception page and Swagger (`/swagger`).
 - Policies are files on the shared volume, not blobs: no real leases, versions are timestamps, not Azure version ids.
 - The signing keys are the shared test certificate for every issuer, not the Key Vault keys per issuer.
 - Application Insights and Key Vault are off, as without their settings in production.
-- The seed is five resources; production's registry holds thousands.
+- The seed is ten resources; production's registry holds thousands.
 
 ## Telemetry (task 53)
 

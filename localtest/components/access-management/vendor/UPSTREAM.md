@@ -92,7 +92,8 @@
 <!-- vendor-sync:end sites -->
 
 What each site does and why it is there: [`../README.md`](../README.md#directive-sites-in-vendor) (the host's
-`Program.cs` and `AccessManagementHost.cs`, and the Resource Registry client's base address and constructor). The
+`Program.cs` and `AccessManagementHost.cs`, the Resource Registry client's base address and constructor, and since task
+68 the consent and request links' scheme and host). The
 integration library's `TokenGenerator.cs` has no site since task 66: its production test-tool source calls the front
 door's mock.
 

@@ -5,8 +5,8 @@
 - Group: none
 - Reminders: a new `secure: true` or `setCookie` in `packages/bff/src` needs patch 0003's treatment; new BFF settings go
   into studioctl's `arbeidsflateBFFComponent` and the README; move the base image digests when upstream's tags move.
-- Localtest modifications: no directive sites. Three build-time patches in `patches/` (0001 BFF OIDC discovery scheme,
-  0002 SPA cookie domain, 0003 BFF cookies `secure: 'auto'`) on a pristine `vendor/`, the `localtest:` deviations in
+- Localtest modifications: no directive sites. Four build-time patches in `patches/` (0001 BFF OIDC discovery scheme,
+  0002 SPA cookie domain, 0003 BFF cookies `secure: 'auto'`, 0004 SPA links to the Access Management GUI) on a pristine `vendor/`, the `localtest:` deviations in
   `Dockerfile.bff`, `Dockerfile.frontend` and `.dockerignore`, the image commands `bff-start.sh` and
   `nginx/nginx-start.sh`, our `nginx/nginx.conf`, and `postgres-init/90-arbeidsflate.sh`. No fakes, no build overrides.
 - Not applicable: the cross-cutting service discovery and ServiceDefaults items (README,
@@ -66,6 +66,16 @@ repository root.
     smaller change is enough (planning note: "five hunks for no test value").
   - Detail: [`../../planned-components/dialogporten/arbeidsflate.md`](../../planned-components/dialogporten/arbeidsflate.md),
     site 5 and section 2.2; [`../reviews/cookies.md`](../reviews/cookies.md), row 15.
+
+- [ ] **The links to the Access Management GUI from configuration or the page's origin.** `packages/frontend/src/auth/url.ts`:
+      `getAccessAMUILink()` and `createChangePartyAndRedirect()` map every host `getEnvByHost()` does not know to
+      `am.ui.altinn.no`. A runtime value (as the cookie domain item above) or, for an unknown host, `am.ui.` plus the
+      page's host without `af.` keeps production as it is.
+  - Why: on the stack the menu's access management link, a dialog's "who has access" and the party switch through
+    `changeandredirect` went to production (TODO.md task 68).
+  - Size: small.
+  - Removes: patch `0004-frontend-access-management-links.patch`.
+  - Upstream: none found.
 
 - [ ] **Pick the OTLP exporter by `OTEL_EXPORTER_OTLP_PROTOCOL`.** `packages/bff/src/instrumentation.ts` uses the gRPC
       trace and metric exporters whatever the protocol says (it reads and logs `OTEL_EXPORTER_OTLP_PROTOCOL` only). Add
@@ -133,5 +143,5 @@ repository root.
   infrastructure provisions.
 - `docs/` (screenshots) and `smoke-test.sh`: localtest's verification.
 
-Coverage: 0 sites, 3 patches, 0 fakes, 0 build overrides, 15 Dockerfile and 3 `.dockerignore` deviations, 2 image
+Coverage: 0 sites, 4 patches, 0 fakes, 0 build overrides, 15 Dockerfile and 3 `.dockerignore` deviations, 2 image
 commands, 3 `nginx.conf` deviations, the Postgres init script: all accounted for.

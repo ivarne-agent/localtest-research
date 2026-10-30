@@ -92,7 +92,10 @@ Dialogporten 4/1/1, Resource Registry 10, Storage 4, the rest 0). Each build too
   `-c Debug`. The image (5.1) builds it in Release. The three builds also rewrite each host's `packages.lock.json`
   (the service-discovery package changes the dependencies); restore them afterwards:
   `git -C "$WT" checkout -- localtest/components/dialogporten/vendor`.
-- **Arbeidsflate** (Node, pnpm) has no host build here; its check is the image build (5.1).
+- **Arbeidsflate** (Node, pnpm) has no host build here; its check is the image build (5.1). Neither has the **Access
+  Management GUI** (`access-management-ui`): its `vendor/` is pristine and its changes are patches applied in the image's
+  `source` stage, so the image build is the check (or a scratch copy with the patches applied, built with the overrides,
+  as its README records).
 - **Fidelity to upstream:** `python3 tools/vendor-sync.py check --all` (from `$L`; `VENDOR_SYNC_CLONES` names the
   blobless clones, created when missing): every `vendor/` is upstream at its pin plus well-formed `LOCALTEST` blocks,
   the groups share one commit, Arbeidsflate's patches apply, and the copies of `components/shared/fakes/` are
@@ -148,7 +151,7 @@ as in [`studioctl/UPSTREAM.md`](../studioctl/UPSTREAM.md#syncing-to-a-newer-upst
 
 ```sh
 cd "$L/localtest"
-dotnet test tests            # Passed: 179 (2026-10-27)
+dotnet test tests            # Passed: 213 (2026-10-30)
 dotnet build -c Release      # 0 Warning(s), 0 Error(s): the AOT and trim analysers run on every build
 ```
 
@@ -157,7 +160,7 @@ dotnet build -c Release      # 0 Warning(s), 0 Error(s): the AOT and trim analys
 ```sh
 cd "$L/aspire/Altinn.App.Aspire"
 dotnet build src -c Release
-dotnet test tests -c Release     # Passed: 198 (2026-10-29); the parity with studioctl's golden files is part of it
+dotnet test tests -c Release     # Passed: 209 (2026-10-30); the parity with studioctl's golden files is part of it
 dotnet csharpier check .         # "Checked 46 files", exit 0
 cd ../samples/app/AppHost && dotnet build apphost.cs && dotnet build apphost-minimal.cs   # 0 Error(s); ASPIRE010 is a warning
 ```
@@ -230,7 +233,8 @@ on `PATH`. For a studioctl re-base the install itself is a check: the bundled ap
 sudo "$S" env hosts add -r localtest-v2    # only when a name is missing
 ```
 
-The names: `local.altinn.cloud` and its `pdf.`, `workflow-engine.`, `app-frontend.` and `af.` subdomains. A custom
+The names: `local.altinn.cloud` and its `pdf.`, `workflow-engine.`, `app-frontend.`, `af.` and `am.ui.` subdomains
+(`am.ui.` since task 68: a hosts file from before needs `env hosts add` once more, or `env up` refuses). A custom
 origin (`--host`) needs a line of your own in `/etc/hosts` ([README](../README.md#run-it), "Another origin").
 
 ### 3.4 Behind a TLS-intercepting proxy
@@ -342,6 +346,7 @@ if memory is short. `--with everything --with monitoring` was 27 containers with
 | `--with correspondence`            | `components/correspondence/smoke-test.sh` (`CORRESPONDENCE_RESTART=1` adds the restart)                                                                                                                                                                                | 79 (task 65, 2026-10-29: `--with correspondence` alone, 17 containers)                                                                                                                                 |
 | `--with receipt`                   | `components/receipt/smoke-test.sh`                                                                                                                                                                                                                                     | 27                                                                                                                                                                                                     |
 | `--with arbeidsflate`              | `components/arbeidsflate/smoke-test.sh`                                                                                                                                                                                                                                | 59 (task 21b)                                                                                                                                                                                          |
+| `--with access-management`         | `components/access-management-ui/smoke-test.sh`                                                                                                                                                                                                                        | 40 (task 68, 2026-10-30: `--with access-management` alone and `--with everything`)                                                                                                                     |
 | `--with monitoring`                | every suite above adds one OTLP span check; root 27                                                                                                                                                                                                                    | task 53, 2026-10-26 (counts in TODO.md section 53)                                                                                                                                                     |
 
 Counts are from 2026-10-21 to 2026-10-29 (README "Tests" and TODO.md tasks 21, 27, 53 and 65); they grow when a suite

@@ -39,6 +39,15 @@ Paths relative to `vendor/src/apps/Altinn.AccessManagement/` (line numbers check
    and the constructor are each `#if !LOCALTEST` / `#else`; the localtest constructor takes `IHttpClientFactory` and
    creates the client from it, so its calls (`v1/resource/…`, `search`, `resourcelist`, `bysubjects`) go through the
    service-discovery handler to `http://resource-registry/`. Production's `new HttpClient()` never sees the resolver.
+5. `src/Altinn.AccessManagement.Core/Services/ConsentService.cs`, `GetConsentViewUri` (task 68): `#if !LOCALTEST`
+   production's `https://am.ui.{Hostname}/accessmanagement/ui/consent/request?id=…` `#else` the same on `http://`: the
+   consent link a service owner hands the user goes to the stack's Access Management GUI (`am.ui.<host>:<port>`, the
+   `access-management` group).
+6. `src/Altinn.AccessManagement.Api.ServiceOwner/Controllers/RequestController.cs`, `BuildLinks` (task 68): the same
+   for a service owner's delegation request, and its status link on the main host (`http://{Hostname}/accessmanagement/…`)
+   instead of `https://platform.{Hostname}/…`. For both, the fakes set `GeneralSettings:Hostname` to the public host
+   **and port** (`local.altinn.cloud:8000`), from `Localtest:AccessManagement:PlatformEndpoint`; nothing else in the host
+   reads it.
 The token generator in `../../libs/Altinn.Authorization.Integration/src/Altinn.Authorization.Integration.Platform/TokenGenerator.cs`
 has no site since task 66 (task 63's two blocks, which signed locally, are gone): the host has no Key Vault, so the lib
 picks its production `TestTool` generator, which fetches every platform access token for the Register, the Resource

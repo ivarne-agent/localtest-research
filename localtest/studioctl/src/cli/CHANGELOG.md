@@ -12,7 +12,7 @@ Section ordering: Added, Changed, Fixed, Removed, Security, Deprecated.
 ### Added
 
 - `studioctl env up -r localtest-v2` runs the platform's own services, such as Storage and Register, instead of localtest's emulation. Apps run against it unchanged. ([#21394](https://github.com/Altinn/altinn-studio/pull/21394))
-    - `--with` adds optional services, such as `arbeidsflate`
+    - `--with` adds optional services, such as `arbeidsflate`, the Altinn inbox, and `access-management`, the Access Management GUI on `http://am.ui.local.altinn.cloud:8000`, where you can see and delegate a test user's access. Run `sudo studioctl env hosts add` once for its host name
     - `--minimal` starts a small stack with its telemetry in JSON Lines files
     - `--host` and `--port` serve it on another address
     - `--dev-<container>` builds a container from a Dockerfile

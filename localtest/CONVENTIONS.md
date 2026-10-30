@@ -5,7 +5,7 @@ package), the localtest app as the front door and the component images. Each sec
 where the code is. Other documents link here instead of restating them. The rules the studioctl code depends on are
 stated with that code, in the [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md), which travels with it into the monorepo; the sections
 below name the matching section there and add what only this repository needs (the Aspire package, the images'
-sources, the history). Where the two disagree, the manifest README is right. State as of 2026-10-29 (through task 65 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
+sources, the history). Where the two disagree, the manifest README is right. State as of 2026-10-30 (through task 68 of [`../TODO.md`](../TODO.md)); where this page and the code disagree, the code is right.
 
 ## The manifest
 
@@ -18,7 +18,7 @@ lists the stack in three sections:
 ```json
 {
   "groups": [{ "name": "default", "containers": ["postgres", "register", "…"] }, …],
-  "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"] },
+  "public": { "host": "local.altinn.cloud", "port": 8000, "subdomains": ["pdf", "workflow-engine", "app-frontend", "af", "am.ui"] },
   "containers": {
     "<name>": { "registry", "tag", "envs", "dependsOn", "volumes", "files"?, "port"?, "health"? }
   }
@@ -26,7 +26,7 @@ lists the stack in three sections:
 ```
 
 - `groups` names each group's **root** containers. `default` is always on; `dialogporten`, `receipt`, `correspondence`,
-  `arbeidsflate` and `monitoring` are optional (`monitoring` in studioctl only: the Aspire package ignores it). A group starts its roots and everything they depend on (`dependsOn`, transitively),
+  `arbeidsflate`, `access-management` (the GUI; the API is in `default`) and `monitoring` are optional (`monitoring` in studioctl only: the Aspire package ignores it). A group starts its roots and everything they depend on (`dependsOn`, transitively),
   so one group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi,
   Service host and Redis because Correspondence depends on them (its dialogs, and their events, which the Service host
   publishes), but not the Dialogporten GraphQL host or adapter.
@@ -65,7 +65,7 @@ runner and held to one golden snapshot, rather than a vocabulary in a file that 
 **Code.** The format: [manifest README](studioctl/src/cli/internal/localtestv2/manifest/README.md); the Go reader
 `manifest.go` beside it; the selection on the command line `internal/cmd/env/localtestv2/groups.go`
 (`--with`/`--without`), in Aspire `WithGroup` and the typed `WithDialogporten()`, `WithReceipt()`,
-`WithCorrespondence()`, `WithArbeidsflate()`, `WithEverything()`
+`WithCorrespondence()`, `WithArbeidsflate()`, `WithAccessManagement()`, `WithEverything()`
 ([`aspire/Altinn.App.Aspire/src/AltinnLocaltestExtensions.cs`](aspire/Altinn.App.Aspire/src/AltinnLocaltestExtensions.cs)).
 
 ## Tags
@@ -162,7 +162,7 @@ snapshot has a `minimal` case, which both runtimes' tests compare with.
 ## The public origin and host names
 
 **Rule.** Everything a browser, an app or a test reaches goes through one origin per environment, by default
-`http://local.altinn.cloud:8000`, and four host names on the same port, the dedicated subdomains of the public host:
+`http://local.altinn.cloud:8000`, and five host names on the same port, the dedicated subdomains of the public host:
 
 | Host | Goes to |
 | --- | --- |
@@ -170,6 +170,7 @@ snapshot has a `minimal` case, which both runtimes' tests compare with.
 | `pdf.<host>` | pdf3 |
 | `workflow-engine.<host>` | the workflow engine |
 | `af.<host>` | Arbeidsflate (its SPA, which proxies `/api/` to the BFF) |
+| `am.ui.<host>` | the Access Management GUI (its BFF serves the SPA and its API under `/accessmanagement/`, the Access Management API's prefix on the main host); two labels, as production's `am.ui.<env>` |
 | `app-frontend.<host>` | the frontend dev server while one is registered; otherwise served like the main host |
 
 The scheme is `http` (HTTPS is tasks 23/24). The host, the port and the list of subdomains have their defaults in the
@@ -192,7 +193,7 @@ port and before any container or app starts.
 
 **The hosts file.** The browser needs the names in the hosts file. `studioctl env hosts add` writes the default names
 only; for a custom host the user adds the line (`127.0.0.1 <host> pdf.<host> workflow-engine.<host> app-frontend.<host>
-af.<host>`), and `env up` refuses with exactly that line while a name does not resolve to a loopback address. Inside the
+af.<host> am.ui.<host>`), and `env up` refuses with exactly that line while a name does not resolve to a loopback address. Inside the
 stack every container resolves the configured names and `host.docker.internal` to the container runtime's host gateway
 (`--add-host <host>:host-gateway`), so a container reaches the public origin the way a browser does. The apps' registration address (`host.docker.internal:<app port>`, or `<org>-<app>:5005` for a container-mode app on the stack's network) does not depend on the origin.
 
@@ -210,7 +211,12 @@ These are values a browser or a token sees, so they must be the address a browse
 theirs from their own platform-endpoint setting, which the manifest sets from `{{origin}}`: Authentication's seeded
 `arbeidsflate-localtest` client, Correspondence's Arbeidsflate origin and Dialogporten GraphQL's CORS origin put `af.`
 in front of that host; the Arbeidsflate SPA image takes its CSP origin from `DIALOGPORTEN_STREAM_URL` and its party
-cookies' domain from the page's `af.<host>`. These reach a stack only with a new pin or a `--dev-<container>` build.
+cookies' domain from the page's `af.<host>`. The Access Management GUI (task 68) gets its own origin from the manifest
+(`GeneralSettings__FrontendBaseUrl` `{{origin:am.ui}}`, the sign-in's `goto`) and its SPA builds its links from the
+page's `am.ui.<host>` (patch 0003: the platform and Home on `<host>`, the inbox on `af.<host>`); the Arbeidsflate SPA's
+links to the GUI follow the page's `af.<host>` (its patch 0004); Access Management's consent and request links name
+`am.ui.` plus `GeneralSettings:Hostname`, which its fake sets to the public host and port (two directive sites). These
+reach a stack only with a new pin or a `--dev-<container>` build.
 
 **Code.** The placeholders: `manifest/origin.go` (Go) and `Manifest/PublicOrigin.cs` (Aspire); host routes:
 [`localtest/Proxy/PlatformRoutes.cs`](localtest/Proxy/PlatformRoutes.cs) with `LocaltestSettings`; extra hosts:
@@ -418,15 +424,20 @@ environment ([`internal/cmd/app/env.go`](studioctl/src/cli/internal/cmd/app/env.
   included): `PlatformFrontendSettings__ArbeidsflateInboxUrl` only, on the front door's Home
   (`http://local.altinn.cloud:8000/`). With or without it: `PlatformFrontendSettings__LogoutUrl` on the platform's
   logout (`http://local.altinn.cloud:8000/authentication/api/v1/logout`, production Authentication or minimal mode's
-  emulation), which signs the user out and lands on Home.
+  emulation), which signs the user out and lands on Home. With the `access-management` group up (task 68):
+  `PlatformFrontendSettings__AccessManagementChangeAndRedirectUrl`
+  (`http://am.ui.local.altinn.cloud:8000/accessmanagement/api/v1/reportee/changeandredirect?partyId={partyId}&goTo={goTo}`,
+  the GUI's party switch, which the frontend puts in front of the inbox link when it has a party) and
+  `…AccessManagementUrl` (`…/accessmanagement/ui`); without it both stay unset.
 
 The Arbeidsflate links are read only by the monorepo backend (`src/App/backend`, app-lib's `PlatformFrontendSettings`)
 and the monorepo frontend, which shows a platform link only when its URL is configured and never derives one from the
 page's host; the Home default keeps "back to inbox" with a target without Arbeidsflate (the frontend's dialog link falls
 back to the inbox URL), and the profile and parties links stay hidden. The released app-frontend v4 bundle hard-codes
 the start page for a local host, and changing that needs an upstream PR (task 28 in [`../TODO.md`](../TODO.md)).
-`AccessManagementChangeAndRedirectUrl` stays unset (the stack's Access Management does not serve
-`reportee/changeandredirect`), and so do the all-forms, access-management and help links.
+Without the `access-management` group `AccessManagementChangeAndRedirectUrl` and `AccessManagementUrl` stay unset
+(the stack's Access Management API does not serve `reportee/changeandredirect`; the GUI's BFF does), and the all-forms
+and help links are always unset.
 
 **The local Maskinporten client** (TODO.md task 67). Against localtest-v2 both runners write into the secrets directory,
 before the app starts, the file a developer's client goes in (`maskinporten-settings.json`, the operator's format: the

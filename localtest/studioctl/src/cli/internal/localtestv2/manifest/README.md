@@ -17,7 +17,7 @@ it hold the files its containers mount ([Files](#files)), which ship with it.
     "public": {
         "host": "local.altinn.cloud",
         "port": 8000,
-        "subdomains": ["pdf", "workflow-engine", "app-frontend", "af"]
+        "subdomains": ["pdf", "workflow-engine", "app-frontend", "af", "am.ui"]
     },
     "containers": {
         "storage": {
@@ -56,6 +56,10 @@ receiver instead (`otel-files`). The workflow engine
 exports exactly when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
 ([altinn-studio#21515](https://github.com/Altinn/altinn-studio/pull/21515)), so it needs no setting of its own.
 
+`access-management` is the Access Management GUI (`access-management-ui`, on its own host `am.ui.<host>`); Access
+Management's API, `access-management`, is in `default`, so the group's name is the API's container name too. A group
+and a container may share a name.
+
 One group implying another is a dependency, not a group rule: `--with correspondence` starts Dialogporten's WebApi,
 Service host and Redis because Correspondence depends on them (it creates its dialogs through the WebApi, and the
 Service host publishes their events), not the GraphQL host or the adapter.
@@ -64,11 +68,11 @@ Service host publishes their events), not the GraphQL host or the adapter.
 
 The public origin's defaults and the dedicated subdomains of its host, which live here and nowhere else:
 
-| Key          | Meaning                                                                                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `host`       | The default public host (`local.altinn.cloud`): lower-case letters, digits and hyphens in dot-separated labels, no IP   |
-| `port`       | The default public port (8000), the front door's published port                                                         |
-| `subdomains` | The dedicated subdomains, in order (`pdf`, `workflow-engine`, `app-frontend`, `af`): each is `<sub>.<host>` on the port |
+| Key          | Meaning                                                                                                                                                                          |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host`       | The default public host (`local.altinn.cloud`): lower-case letters, digits and hyphens in dot-separated labels, no IP                                                            |
+| `port`       | The default public port (8000), the front door's published port                                                                                                                  |
+| `subdomains` | The dedicated subdomains, in order (`pdf`, `workflow-engine`, `app-frontend`, `af`, `am.ui`): each is `<sub>.<host>` on the port; one or more labels (`am.ui`, production's two) |
 
 `env up --host <name> --port <n>` (studioctl) and `PublicHost`/`PublicPort` (Aspire) replace the host and port. The
 runtimes map the host and every listed subdomain to the host gateway inside the containers and check that a custom host's
@@ -269,7 +273,7 @@ Every container gets, besides its `envs`:
   `monitoring/grafana-datasources.yaml`). They are not in the engine's `envs`, so the Aspire host, which ignores the
   group, does not get them and links its own dashboard instead. Without the group nothing is added.
 - its name as network alias, the public host and its listed subdomains (`local.altinn.cloud`, `pdf.`,
-  `workflow-engine.`, `app-frontend.`, `af.` by default) and `host.docker.internal` pointed at the host gateway;
+  `workflow-engine.`, `app-frontend.`, `af.`, `am.ui.` by default) and `host.docker.internal` pointed at the host gateway;
 - for the front door, `Localtest__PublicSubdomains`: the listed subdomains, comma-separated;
 - the shared certificate directory read-only at `/certs`, and (until the Events, Notifications and Receipt images link
   it) the certificate file at `/accesstoken/accesstokencredentials.pfx`.

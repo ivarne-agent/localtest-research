@@ -11,9 +11,11 @@
 - Host: an `AltinnServiceDefaults` host (`AltinnHost.CreateWebApplicationBuilder("access-management", ...)`,
   `Altinn.Authorization.ServiceDefaults` 5.5.0), so service discovery and OTLP export come from the shared library; its
   changes are in [`authorization-utils.md`](authorization-utils.md).
-- Localtest modifications: 5 directive sites under `src/apps/Altinn.AccessManagement/src/` (`Program.cs`, two in
-  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`; task 63's two
-  in the lib's `TokenGenerator.cs` went in task 66), the
+- Localtest modifications: 7 directive sites under `src/apps/Altinn.AccessManagement/src/` (`Program.cs`, two in
+  `AccessManagementHost.cs`, two in `Altinn.AccessManagement.Integration/Clients/ResourceRegistryClient.cs`, and task
+  68's `Altinn.AccessManagement.Core/Services/ConsentService.cs` and
+  `Altinn.AccessManagement.Api.ServiceOwner/Controllers/RequestController.cs`; task 63's two in the lib's
+  `TokenGenerator.cs` went in task 66), the
   composition `fakes/LocaltestAccessManagementExtensions.cs` with `fakes/LocaltestAccessManagementOptions.cs`, the
   policy store `fakes/Policies/`, the token, key and metadata stand-ins
   `fakes/Infrastructure/`, the seed refresh `fakes/Sync/` and `fakes/Controllers/`, the shared copy
@@ -56,6 +58,20 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
     [altinn-auth#4052](https://github.com/Altinn/altinn-auth/issues/4052) (Mockporten serves the same API). The lib is
     compiled into Access Management only in this repository (`Altinn.AccessManagement` and `Altinn.AccessMgmt.Core`
     reference it). Authorization's `TokenGeneratorSettings:Url` is already a full URL.
+
+- [ ] **The Access Management GUI's and the platform's base URLs as settings.** `ConsentService.GetConsentViewUri`
+      writes `https://am.ui.{GeneralSettings:Hostname}/accessmanagement/ui/consent/request?id=…` and
+      `RequestController.BuildLinks` (the service-owner delegation requests) `https://am.ui.{Hostname}/…/requests/resource`
+      and `https://platform.{Hostname}/accessmanagement/api/v1/…/status`. Two settings with the whole base URL
+      (`GeneralSettings:AccessManagementUiBaseUrl`, `GeneralSettings:PlatformBaseUrl`, defaulting to today's values)
+      keep production as it is.
+  - Why: the stack serves the GUI on `http://am.ui.local.altinn.cloud:8000` and the platform on the main host, plain http
+    with a port (TODO.md task 68).
+  - Size: small.
+  - Removes: the two sites (`Altinn.AccessManagement.Core/Services/ConsentService.cs`,
+    `Altinn.AccessManagement.Api.ServiceOwner/Controllers/RequestController.cs`), and the fakes'
+    `GeneralSettings:Hostname` with the port goes back to the host (`fakes/LocaltestAccessManagementExtensions.cs`).
+  - Upstream: none found.
 
 - [ ] **A factory client for the Resource Registry.** `ResourceRegistryClient` creates its own `new HttpClient()` in a
       field initializer, so it bypasses `IHttpClientFactory` and everything ServiceDefaults adds to factory clients
@@ -170,7 +186,7 @@ Management in an Aspire app host: init and sync, Valkey, Azurite) under the epic
   from the manifest: users and databases are set up by localtest (TODO.md task 60), as production's infrastructure does
   for its own.
 
-Coverage: 5 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
+Coverage: 7 sites, 7 fakes (`LocaltestAccessManagementExtensions.cs`, `LocaltestAccessManagementOptions.cs`,
 `Policies/`, `Infrastructure/`, `Sync/`, `Controllers/`, `ServiceDiscovery/`), 2 build overrides,
 4 Dockerfile and 1 `.dockerignore` deviations, 1 Postgres init script: all accounted for. `Otlp/` and its
 `OTEL_SERVICE_NAME` item went in task 61 ([`../../TODO.md`](../../TODO.md)): the host's own name is the manifest name,

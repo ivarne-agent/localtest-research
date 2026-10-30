@@ -71,10 +71,12 @@ In order:
 
 1. **Dedicated hosts** own every path, the localtest app's own endpoints included. They are subdomains of the public
    host, the host of `Localtest:PlatformEndpoint` (default `local.altinn.cloud`): `pdf.<host>` → `pdf3`,
-   `workflow-engine.<host>` → `workflow-engine`, `af.<host>` → `arbeidsflate`, and `app-frontend.<host>` → the frontend
-   dev server while one is registered (below; without one that host is served like the main host). The runner lists
-   the subdomains that are on in `Localtest:PublicSubdomains` (comma-separated, from the manifest's `public` section;
-   unset is all four): one the app does not know stops its start, a known one left out is served like the main host.
+   `workflow-engine.<host>` → `workflow-engine`, `af.<host>` → `arbeidsflate`, `am.ui.<host>` → `access-management-ui`
+   (the Access Management GUI, task 68: everything it serves is under `/accessmanagement/`, the API's prefix on the main
+   host, so it needs a host of its own; two labels, as production's `am.ui.<env>`), and `app-frontend.<host>` → the
+   frontend dev server while one is registered (below; without one that host is served like the main host). The runner
+   lists the subdomains that are on in `Localtest:PublicSubdomains` (comma-separated, from the manifest's `public`
+   section; unset is all five): one the app does not know stops its start, a known one left out is served like the main host.
    The issuers, redirect URIs and links below follow the same origin, including the seeded `arbeidsflate-localtest`
    client's `http://af.<host>:<port>/api/cb`.
 2. **`/app-frontend/`**: the built app-frontend (`FRONTEND_DIST`, mounted at `/frontend`) as static files, with
@@ -113,7 +115,7 @@ page when the request ranks `text/html` above JSON (a browser). Ported from stud
 
 | Case | Title | Detail |
 | --- | --- | --- |
-| The service has no address (`services__<name>__http__0` is not set) | `Component not running` | Names the service and, for an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`), the group with both runtimes' hints: `studioctl env up -r localtest-v2 --with <group>`, and `.With<Group>()` or `.WithGroup("<group>")` on `AddAltinnLocaltest()` in an Aspire AppHost. For `monitoring` (Grafana, the collector) only the studioctl command, and that an Aspire AppHost does not run the group: its dashboard shows the telemetry |
+| The service has no address (`services__<name>__http__0` is not set) | `Component not running` | Names the service and, for an optional group (`dialogporten`, `receipt`, `correspondence`, `arbeidsflate`, `access-management` for `access-management-ui`), the group with both runtimes' hints: `studioctl env up -r localtest-v2 --with <group>`, and `.With<Group>()` or `.WithGroup("<group>")` on `AddAltinnLocaltest()` in an Aspire AppHost. For `monitoring` (Grafana, the collector) only the studioctl command, and that an Aspire AppHost does not run the group: its dashboard shows the telemetry |
 | The address does not answer (refused, timed out, unknown host) | `Component not answering` | The forwarder's error and its message (the old `502` text), and `studioctl env logs -r localtest-v2 -c <name>` and `env status`; for an app, whether it still runs; for the dev server, how to remove its route |
 
 A request the client cancelled answers nothing. An app path without a registered app keeps its `404` hint.
